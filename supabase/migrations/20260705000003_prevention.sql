@@ -9,8 +9,8 @@
 -- platform (CLAUDE.md, ARCHITECTURE.md §7). Sprint 2 adds the Edge Function
 -- (AbnormalResultHandler) that drafts care plans and sends WhatsApp alerts;
 -- this migration installs the DB-level safety net so the event is recorded
--- and a Priority-1 nurse alert is raised the instant the row lands — it can
--- never be silently dropped even before the Edge Function exists.
+-- and a Priority-1 clinician alert is raised the instant the row lands — it
+-- can never be silently dropped even before the Edge Function exists.
 
 -- ---------------------------------------------------------------------------
 -- Enums
@@ -122,14 +122,14 @@ create table public.screening_upgrades (
   screening_result_id uuid not null references public.screening_results (id) on delete cascade,
   condition_triggered public.upgrade_condition not null default 'other',
   action_taken        text,
-  handled_by_nurse_id uuid references public.profiles (id) on delete set null,
+  handled_by_clinician_id uuid references public.profiles (id) on delete set null,
   upgrade_at          timestamptz not null default now()
 );
 
 create index screening_upgrades_patient_idx on public.screening_upgrades (patient_id);
 create index screening_upgrades_org_idx on public.screening_upgrades (organisation_id);
 create index screening_upgrades_result_idx on public.screening_upgrades (screening_result_id);
-create index screening_upgrades_nurse_idx on public.screening_upgrades (handled_by_nurse_id);
+create index screening_upgrades_clinician_idx on public.screening_upgrades (handled_by_clinician_id);
 
 -- ---------------------------------------------------------------------------
 -- annual_health_checks (highest-LTV Category 2 product; cost in kobo)
@@ -207,7 +207,7 @@ create index family_plan_members_org_idx on public.family_plan_members (organisa
 -- Abnormal-result safety net
 -- On INSERT of an abnormal|critical screening_results row, immediately and
 -- atomically: (1) record the screening_upgrades audit row, and (2) raise a
--- Priority-1 nurse alert with a 4-hour contact SLA. Runs in the same
+-- Priority-1 clinician alert with a 4-hour contact SLA. Runs in the same
 -- transaction as the insert, so the event can never be lost.
 -- ---------------------------------------------------------------------------
 
@@ -241,12 +241,12 @@ begin
     (new.organisation_id, new.patient_id, new.id, v_condition)
   returning id into v_upgrade_id;
 
-  insert into public.nurse_alerts
+  insert into public.clinician_alerts
     (organisation_id, patient_id, level, status, title, detail, sla_due_at)
   values (
     new.organisation_id,
     new.patient_id,
-    'doctor_escalation',
+    'urgent_escalation',
     'open',
     'Priority 1: abnormal screening result',
     format('Screening result %s flagged %s; condition inferred: %s.',

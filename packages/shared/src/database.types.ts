@@ -182,7 +182,7 @@ export type Database = {
       }
       care_plans: {
         Row: {
-          assigned_nurse_id: string | null
+          assigned_clinician_id: string | null
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at: string
           id: string
@@ -194,7 +194,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          assigned_nurse_id?: string | null
+          assigned_clinician_id?: string | null
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
           id?: string
@@ -206,7 +206,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          assigned_nurse_id?: string | null
+          assigned_clinician_id?: string | null
           condition?: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
           id?: string
@@ -219,8 +219,8 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "care_plans_assigned_nurse_id_fkey"
-            columns: ["assigned_nurse_id"]
+            foreignKeyName: "care_plans_assigned_clinician_id_fkey"
+            columns: ["assigned_clinician_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -343,10 +343,10 @@ export type Database = {
       }
       escalations: {
         Row: {
-          assigned_doctor_id: string | null
+          assigned_clinician_id: string | null
           created_at: string
           id: string
-          nurse_alert_id: string | null
+          clinician_alert_id: string | null
           organisation_id: string
           patient_id: string
           raised_by: string | null
@@ -356,10 +356,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          assigned_doctor_id?: string | null
+          assigned_clinician_id?: string | null
           created_at?: string
           id?: string
-          nurse_alert_id?: string | null
+          clinician_alert_id?: string | null
           organisation_id: string
           patient_id: string
           raised_by?: string | null
@@ -369,10 +369,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          assigned_doctor_id?: string | null
+          assigned_clinician_id?: string | null
           created_at?: string
           id?: string
-          nurse_alert_id?: string | null
+          clinician_alert_id?: string | null
           organisation_id?: string
           patient_id?: string
           raised_by?: string | null
@@ -383,17 +383,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "escalations_assigned_doctor_id_fkey"
-            columns: ["assigned_doctor_id"]
+            foreignKeyName: "escalations_assigned_clinician_id_fkey"
+            columns: ["assigned_clinician_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "escalations_nurse_alert_id_fkey"
-            columns: ["nurse_alert_id"]
+            foreignKeyName: "escalations_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
             isOneToOne: false
-            referencedRelation: "nurse_alerts"
+            referencedRelation: "clinician_alerts"
             referencedColumns: ["id"]
           },
           {
@@ -914,7 +914,7 @@ export type Database = {
           },
         ]
       }
-      nurse_alerts: {
+      clinician_alerts: {
         Row: {
           acknowledged_at: string | null
           acknowledged_by: string | null
@@ -959,21 +959,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "nurse_alerts_acknowledged_by_fkey"
+            foreignKeyName: "clinician_alerts_acknowledged_by_fkey"
             columns: ["acknowledged_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "nurse_alerts_organisation_id_fkey"
+            foreignKeyName: "clinician_alerts_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "nurse_alerts_patient_id_fkey"
+            foreignKeyName: "clinician_alerts_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1519,7 +1519,7 @@ export type Database = {
         Row: {
           action_taken: string | null
           condition_triggered: Database["public"]["Enums"]["upgrade_condition"]
-          handled_by_nurse_id: string | null
+          handled_by_clinician_id: string | null
           id: string
           organisation_id: string
           patient_id: string
@@ -1529,7 +1529,7 @@ export type Database = {
         Insert: {
           action_taken?: string | null
           condition_triggered?: Database["public"]["Enums"]["upgrade_condition"]
-          handled_by_nurse_id?: string | null
+          handled_by_clinician_id?: string | null
           id?: string
           organisation_id: string
           patient_id: string
@@ -1539,7 +1539,7 @@ export type Database = {
         Update: {
           action_taken?: string | null
           condition_triggered?: Database["public"]["Enums"]["upgrade_condition"]
-          handled_by_nurse_id?: string | null
+          handled_by_clinician_id?: string | null
           id?: string
           organisation_id?: string
           patient_id?: string
@@ -1548,8 +1548,8 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "screening_upgrades_handled_by_nurse_id_fkey"
-            columns: ["handled_by_nurse_id"]
+            foreignKeyName: "screening_upgrades_handled_by_clinician_id_fkey"
+            columns: ["handled_by_clinician_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1890,8 +1890,8 @@ export type Database = {
     Enums: {
       alert_level:
         | "routine"
-        | "nurse_review"
-        | "doctor_escalation"
+        | "clinician_review"
+        | "urgent_escalation"
         | "emergency"
       alert_status: "open" | "acknowledged" | "resolved"
       annual_check_status: "pending" | "in_progress" | "completed"
@@ -2116,8 +2116,8 @@ export const Constants = {
     Enums: {
       alert_level: [
         "routine",
-        "nurse_review",
-        "doctor_escalation",
+        "clinician_review",
+        "urgent_escalation",
         "emergency",
       ],
       alert_status: ["open", "acknowledged", "resolved"],

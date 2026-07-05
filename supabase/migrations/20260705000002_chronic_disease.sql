@@ -2,7 +2,7 @@
 -- 02 · Chronic Disease Management (Category 1)
 --
 -- vitals, care plans, medications + adherence, risk scores, appointments,
--- symptoms, nurse alerts, and the four-level clinical escalation chain.
+-- symptoms, clinician alerts, and the four-level clinical escalation chain.
 --
 -- RLS pattern for patient-scoped tables:
 --   * patient sees/manages their own rows (patient_id = auth.uid())
@@ -38,7 +38,7 @@ create type public.appointment_status as enum (
 
 -- Four-level clinical escalation (FEATURE_SPEC §5.2).
 create type public.alert_level as enum (
-  'routine', 'nurse_review', 'doctor_escalation', 'emergency'
+  'routine', 'clinician_review', 'urgent_escalation', 'emergency'
 );
 
 create type public.alert_status as enum ('open', 'acknowledged', 'resolved');
@@ -84,14 +84,14 @@ create table public.care_plans (
   status            public.care_plan_status not null default 'draft',
   target_ranges     jsonb not null default '{}'::jsonb,
   notes             text,
-  assigned_nurse_id uuid references public.profiles (id) on delete set null,
+  assigned_clinician_id uuid references public.profiles (id) on delete set null,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
 
 create index care_plans_patient_idx on public.care_plans (patient_id);
 create index care_plans_org_idx on public.care_plans (organisation_id);
-create index care_plans_assigned_nurse_idx on public.care_plans (assigned_nurse_id);
+create index care_plans_assigned_clinician_idx on public.care_plans (assigned_clinician_id);
 
 create trigger care_plans_set_updated_at
   before update on public.care_plans
@@ -205,14 +205,14 @@ create index symptoms_patient_idx on public.symptoms (patient_id, reported_at de
 create index symptoms_org_idx on public.symptoms (organisation_id);
 
 -- ---------------------------------------------------------------------------
--- nurse_alerts (worklist items surfaced to clinical staff)
+-- clinician_alerts (worklist items surfaced to clinical staff)
 -- ---------------------------------------------------------------------------
 
-create table public.nurse_alerts (
+create table public.clinician_alerts (
   id                uuid primary key default gen_random_uuid(),
   organisation_id   uuid not null references public.organisations (id) on delete restrict,
   patient_id        uuid not null references public.profiles (id) on delete cascade,
-  level             public.alert_level not null default 'nurse_review',
+  level             public.alert_level not null default 'clinician_review',
   status            public.alert_status not null default 'open',
   title             text not null,
   detail            text,
@@ -224,26 +224,26 @@ create table public.nurse_alerts (
   updated_at        timestamptz not null default now()
 );
 
-create index nurse_alerts_org_status_idx on public.nurse_alerts (organisation_id, status, level);
-create index nurse_alerts_patient_idx on public.nurse_alerts (patient_id);
-create index nurse_alerts_acknowledged_by_idx on public.nurse_alerts (acknowledged_by);
+create index clinician_alerts_org_status_idx on public.clinician_alerts (organisation_id, status, level);
+create index clinician_alerts_patient_idx on public.clinician_alerts (patient_id);
+create index clinician_alerts_acknowledged_by_idx on public.clinician_alerts (acknowledged_by);
 
-create trigger nurse_alerts_set_updated_at
-  before update on public.nurse_alerts
+create trigger clinician_alerts_set_updated_at
+  before update on public.clinician_alerts
   for each row execute function private.set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- escalations (nurse -> doctor -> referral chain)
+-- escalations (review -> escalation -> referral chain)
 -- ---------------------------------------------------------------------------
 
 create table public.escalations (
   id                uuid primary key default gen_random_uuid(),
   organisation_id   uuid not null references public.organisations (id) on delete restrict,
   patient_id        uuid not null references public.profiles (id) on delete cascade,
-  nurse_alert_id    uuid references public.nurse_alerts (id) on delete set null,
+  clinician_alert_id uuid references public.clinician_alerts (id) on delete set null,
   status            public.escalation_status not null default 'open',
   raised_by         uuid references public.profiles (id) on delete set null,
-  assigned_doctor_id uuid references public.profiles (id) on delete set null,
+  assigned_clinician_id uuid references public.profiles (id) on delete set null,
   reason            text not null,
   resolution_note   text,
   created_at        timestamptz not null default now(),
@@ -252,9 +252,9 @@ create table public.escalations (
 
 create index escalations_org_status_idx on public.escalations (organisation_id, status);
 create index escalations_patient_idx on public.escalations (patient_id);
-create index escalations_nurse_alert_idx on public.escalations (nurse_alert_id);
+create index escalations_clinician_alert_idx on public.escalations (clinician_alert_id);
 create index escalations_raised_by_idx on public.escalations (raised_by);
-create index escalations_assigned_doctor_idx on public.escalations (assigned_doctor_id);
+create index escalations_assigned_clinician_idx on public.escalations (assigned_clinician_id);
 
 create trigger escalations_set_updated_at
   before update on public.escalations
@@ -271,7 +271,7 @@ alter table public.medication_logs   enable row level security;
 alter table public.patient_risk_scores enable row level security;
 alter table public.appointments      enable row level security;
 alter table public.symptoms          enable row level security;
-alter table public.nurse_alerts      enable row level security;
+alter table public.clinician_alerts  enable row level security;
 alter table public.escalations       enable row level security;
 
 -- Patient-authored tables: patient may read + write own rows; staff full access.
@@ -305,7 +305,7 @@ declare t text;
 begin
   foreach t in array array[
     'care_plans', 'medications', 'patient_risk_scores', 'appointments',
-    'nurse_alerts', 'escalations'
+    'clinician_alerts', 'escalations'
   ]
   loop
     execute format($f$
@@ -334,5 +334,5 @@ grant select, insert, update, delete on public.medication_logs to authenticated;
 grant select, insert, update, delete on public.patient_risk_scores to authenticated;
 grant select, insert, update, delete on public.appointments to authenticated;
 grant select, insert, update, delete on public.symptoms to authenticated;
-grant select, insert, update, delete on public.nurse_alerts to authenticated;
+grant select, insert, update, delete on public.clinician_alerts to authenticated;
 grant select, insert, update, delete on public.escalations to authenticated;

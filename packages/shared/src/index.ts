@@ -58,5 +58,5 @@ export type BusinessCategory = (typeof BUSINESS_CATEGORIES)[number];
 /** Screening result status — abnormal|critical drives the Cat 1 upgrade flow. */
 export type ScreeningResultStatus = Enums<"result_status">;
 
-/** Four-level clinical escalation ladder (nurse_alerts.level). */
+/** Four-level clinical escalation ladder (clinician_alerts.level). */
 export type EscalationLevel = Enums<"alert_level">;
