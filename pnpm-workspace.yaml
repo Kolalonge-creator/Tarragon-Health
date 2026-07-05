@@ -2,6 +2,9 @@ packages:
   - "apps/*"
   - "packages/*"
 
-onlyBuiltDependencies:
-  - sharp
-  - unrs-resolver
+# pnpm 11 removed `onlyBuiltDependencies`; approved build scripts now live in the
+# `allowBuilds` map (name -> boolean). sharp powers Next.js image optimisation and
+# unrs-resolver is a native resolver used by the ESLint/oxc toolchain.
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
