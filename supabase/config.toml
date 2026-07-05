@@ -1,0 +1,47 @@
+# Tarragon Health — Supabase project configuration.
+#
+# NOTE: The production project must be created in the af-south-1 (Cape Town)
+# region for NDPR data residency (CLAUDE.md / ARCHITECTURE.md). Region is a
+# cloud/dashboard setting, not expressed here. This file configures local
+# development (`supabase start`) and is the source of truth for auth settings.
+project_id = "tarragon-health"
+
+[api]
+enabled = true
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed/seed.sql"]
+
+[studio]
+enabled = true
+
+[auth]
+enabled = true
+# Every patient must be reachable via WhatsApp/SMS; phone is a first-class
+# identity alongside email.
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+# Phone OTP (Termii/WhatsApp in production; see ARCHITECTURE.md §8). Numbers
+# are always stored E.164 (+234XXXXXXXXXX).
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
+template = "Your Tarragon Health code is {{ .Code }}"
+
+[edge_runtime]
+enabled = true
