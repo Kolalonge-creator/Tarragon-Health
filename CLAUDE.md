@@ -18,7 +18,7 @@ Prevention and chronic management **share the same patient record** — design e
 ### Primary Platform — TypeScript
 - Web: Next.js 16, TypeScript, Tailwind, shadcn/ui (`apps/web`) — this Next.js has breaking changes vs. training data; read `node_modules/next/dist/docs/` before writing framework code
 - Mobile: React Native Expo (`apps/mobile`)
-- DB/Auth/Storage/Realtime: Supabase Postgres, **af-south-1** region (NDPR data residency), pgvector
+- DB/Auth/Storage/Realtime: Supabase Postgres, **`eu-west-1`** region for now (`af-south-1` for NDPR data residency was not selectable at creation — revisit/migrate when available), pgvector
 - Cache/queues: Upstash Redis
 - AI workflows: LangGraph.js + Claude API
 - Comms: WhatsApp Cloud API (**primary patient channel**), Termii SMS (fallback)

@@ -1,9 +1,11 @@
 # Tarragon Health — Supabase project configuration.
 #
-# NOTE: The production project must be created in the af-south-1 (Cape Town)
-# region for NDPR data residency (CLAUDE.md / ARCHITECTURE.md). Region is a
-# cloud/dashboard setting, not expressed here. This file configures local
-# development (`supabase start`) and is the source of truth for auth settings.
+# NOTE: The production project currently runs in eu-west-1 (Ireland) because
+# af-south-1 (Cape Town) was not selectable at creation. af-south-1 remains the
+# NDPR data-residency target — revisit and migrate when it becomes available
+# (CLAUDE.md / ARCHITECTURE.md). Region is a cloud/dashboard setting, not
+# expressed here. This file configures local development (`supabase start`) and
+# is the source of truth for auth settings.
 project_id = "tarragon-health"
 
 [api]
@@ -31,6 +33,11 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000"]
 jwt_expiry = 3600
 enable_signup = true
+# Password hardening available on the free plan. Leaked-password protection
+# (HaveIBeenPwned) is a Pro-plan feature — enable it in the dashboard once we
+# upgrade. Until then, enforce a minimum length and a character mix.
+minimum_password_length = 10
+password_requirements = "lower_upper_letters_digits"
 
 [auth.email]
 enable_signup = true
