@@ -63,10 +63,10 @@ Prevention and chronic management **share the same patient record** — design e
 - Voice: a nurse who knows your name, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
 
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
-Current Sprint: Sprint 1 — Auth, Multi-Tenancy & Full Business Foundation
-Sprint Goal: Full DB schema (all 5 categories) live, Supabase Auth working, FastAPI scaffold running
-Current Task: [what you asked Claude Code to build right now]
-Active Service: TypeScript │ Python │ Both
+Current Sprint: Sprint 2 — Core Patient OS
+Sprint Goal: Real data wired into the patient and clinician dashboards, starting with vitals logging and the clinician worklist
+Current Task: Vitals logging (patient) + clinician worklist reading from `clinician_alerts` (org-wide, no per-clinician assignment yet)
+Active Service: TypeScript
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

@@ -4,10 +4,12 @@ export function DashboardPlaceholder({
   greeting,
   roleLabel,
   comingUp,
+  children,
 }: {
   greeting: string;
   roleLabel: string;
   comingUp: string[];
+  children?: React.ReactNode;
 }) {
   return (
     <div className="space-y-6">
@@ -17,6 +19,7 @@ export function DashboardPlaceholder({
         </h1>
         <p className="text-charcoal-ink/60">{roleLabel} dashboard</p>
       </div>
+      {children}
       <Card>
         <CardHeader>
           <CardTitle>Coming in Sprint 2</CardTitle>
