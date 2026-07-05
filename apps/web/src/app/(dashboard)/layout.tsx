@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 
 const ROLE_LABEL: Record<string, string> = {
   patient: "Patient",
-  nurse: "Nurse",
   clinician: "Clinician",
   admin: "Admin",
   hmo_admin: "HMO admin",

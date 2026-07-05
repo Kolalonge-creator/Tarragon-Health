@@ -6,7 +6,7 @@
 -- that provisions a profile for every new auth.users row.
 --
 -- Multi-tenancy invariant (ARCHITECTURE.md §6.1): every domain table carries
--- organisation_id and is isolated by Row-Level Security. A nurse in Org A
+-- organisation_id and is isolated by Row-Level Security. A clinician in Org A
 -- querying Org B rows must return zero rows. RLS is the ONLY isolation
 -- mechanism — never filter in application code, never bypass it.
 
@@ -22,8 +22,10 @@ create schema if not exists private;
 -- Shared enums
 -- ---------------------------------------------------------------------------
 
+-- One frontline clinical role ('clinician') covers both routine monitoring
+-- and escalation review — there is no separate 'nurse' role.
 create type public.user_role as enum (
-  'patient', 'nurse', 'clinician', 'admin', 'hmo_admin', 'corporate_admin'
+  'patient', 'clinician', 'admin', 'hmo_admin', 'corporate_admin'
 );
 
 create type public.organisation_type as enum (

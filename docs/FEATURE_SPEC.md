@@ -52,7 +52,7 @@ WhatsApp/SMS engine · Nurse-led delivery (home visits, sample collection, couns
 | Prevention add-on | ₦25,000/year | Screening reminders, result tracking, referral coordination (upsell from Basic) |
 | Annual Health Check | ₦60,000/year | Full metabolic panel + gender-specific cancer screens + year-round monitoring |
 | Family plan | ₦150,000/year | 4–6 members; antenatal, elder care, adult screening combined — highest LTV |
-| Premium ParentCare | Premium tier | Dedicated nurse/doctor coordinator, scheduled review, quarterly report, priority escalation |
+| Premium ParentCare | Premium tier | Dedicated clinician coordinator, scheduled review, quarterly report, priority escalation |
 | Diaspora — Essential | £15/month (Stripe) | 1 condition monitored remotely, WhatsApp updates, monthly doctor call |
 | Diaspora — Premium | £45/month (Stripe) | Full monitoring + family portal access |
 
@@ -80,9 +80,9 @@ Essential Monitoring · Hypertension Care · Diabetes Care · ParentCare · Chro
 ### 2.5 Free Tier — What's In / What's Never Free
 **Free, no clinician required:** health profile setup, BP/glucose/weight logging, medication + refill + appointment reminders, lab reminder calendar, preventive screening calendar, education library (incl. Nigerian food guidance), weekly non-diagnostic health score, family health vault (unreviewed), downloadable Health Passport PDF, emergency warning education, device setup guides, automated nudges.
 
-**Never free:** doctor review of readings, doctor monitoring, medication changes, interpretation of lab results, personalised diagnosis, any "we are monitoring you" wording, emergency triage promises, lab booking, pharmacy fulfilment, family clinical update from nurse/doctor, "your BP is controlled/uncontrolled" as a clinical judgement (phrase as general threshold education + advice to seek medical review instead).
+**Never free:** clinician review of readings, clinician monitoring, medication changes, interpretation of lab results, personalised diagnosis, any "we are monitoring you" wording, emergency triage promises, lab booking, pharmacy fulfilment, family clinical update from a clinician, "your BP is controlled/uncontrolled" as a clinical judgement (phrase as general threshold education + advice to seek medical review instead).
 
-**90-Day Health Reset structure:** Month 1 (Awareness/Setup) → Month 2 (Habit/Risk Visibility) → Month 3 (Conversion to Paid Care, nurse onboarding call *after* payment only).
+**90-Day Health Reset structure:** Month 1 (Awareness/Setup) → Month 2 (Habit/Risk Visibility) → Month 3 (Conversion to Paid Care, clinician onboarding call *after* payment only).
 
 ### 2.6 Preventive Screening Frequency (product logic input)
 | Group | Frequency | Core checks |
@@ -102,13 +102,13 @@ Simple rule: **hypertensive → yearly; diabetic → yearly + HbA1c 2–4×/yr; 
 ## 3. Full Database Schema
 
 ### 3.1 Core / Auth / Multi-Tenancy
-- `profiles` — role enum: `patient │ nurse │ clinician │ admin │ hmo_admin │ corporate_admin`; linked to `auth.users`
+- `profiles` — role enum: `patient │ clinician │ admin │ hmo_admin │ corporate_admin`; linked to `auth.users`
 - `organisations` — type enum: `clinic │ hmo │ corporate │ lab │ pharmacy`; `profiles.organisation_id` FK
-- All tables carry `organisation_id`; RLS policies: patient sees own rows only, nurse sees org patients, HMO admin sees their member patients, corporate admin sees their enrolled employees, super-admin sees all
+- All tables carry `organisation_id`; RLS policies: patient sees own rows only, clinician sees org patients, HMO admin sees their member patients, corporate admin sees their enrolled employees, super-admin sees all
 
 ### 3.2 Chronic Disease Core (Category 1)
 - `vitals_readings` — BP (systolic/diastolic), glucose (fasting/random/post-meal), weight, pulse, timestamp
-- `care_plans` — condition, target ranges, nurse-assigned, patient read-only view
+- `care_plans` — condition, target ranges, clinician-assigned, patient read-only view
 - `medications` — drug, dose, frequency, refill_date, linked to care_plans
 - `medication_logs` — taken/missed/skipped + reason, adherence % rollup, alert if <70% for 3 days
 - `risk_scores` / `patient_risk_scores` — rule-based + later ML-based (model_version tracked)
@@ -156,13 +156,13 @@ This is the highest-priority business event in the platform:
 2. Edge Function `AbnormalResultHandler` runs:
    - Reads `abnormal_flags` to determine triggered condition
    - Creates a `screening_upgrades` record
-   - BP-related → drafts a hypertension `care_plan` for nurse review
-   - Glucose-related → drafts a diabetes `care_plan` for nurse review
+   - BP-related → drafts a hypertension `care_plan` for clinician review
+   - Glucose-related → drafts a diabetes `care_plan` for clinician review
    - Cancer-related → creates a `specialist_referrals` record
-   - Sends nurse WhatsApp alert **immediately** (not scheduled)
-   - Sends patient WhatsApp: "Your result needs a follow-up. Your nurse will call you today."
-3. Nurse dashboard surfaces as **Priority 1 alert** (red, above all else)
-4. Nurse has a **4-hour SLA** to make contact, built into the alert system
+   - Sends clinician WhatsApp alert **immediately** (not scheduled)
+   - Sends patient WhatsApp: "Your result needs a follow-up. Your care team will call you today."
+3. Clinician dashboard surfaces as **Priority 1 alert** (red, above all else)
+4. Clinician has a **4-hour SLA** to make contact, built into the alert system
 
 ---
 
@@ -173,7 +173,7 @@ All five categories are architecturally represented from Sprint 1. Changing the 
 | Sprint | Weeks | Focus | Stack |
 |---|---|---|---|
 | 1 | 1–2 | Auth, multi-tenancy, full DB schema (all 5 categories), FastAPI scaffold | TS + Python (parallel) |
-| 2 | 3–4 | Core Patient OS — vitals, care plans, prevention scheduler, abnormal result handler, patient + nurse dashboards | TypeScript |
+| 2 | 3–4 | Core Patient OS — vitals, care plans, prevention scheduler, abnormal result handler, patient + clinician dashboards | TypeScript |
 | 3 | 5–6 | AI engine + WhatsApp integration — webhook, vitals/medication/screening bots, lab booking, result delivery, LangGraph.js clinical workflow, family portal, SMS fallback | Python/FastAPI + TS |
 | 4 | 7–9 | Python ML microservice — SCORE2 CVD model, HbA1c trajectory, BP control assessment, lab/screening interpretation, population cohort analytics, batch prediction, deploy to Railway/Render, integrate with TS via ml-client | Python |
 | 5 | 10–11 | Lab & pharmacy network — partner catalogue, bundle pricing, screening-specific booking, commission tracking | TypeScript |
@@ -206,11 +206,11 @@ Supabase Auth (phone OTP + email) → `profiles` with full role enum → `organi
 ## 5. Clinical Operating Model & Protocols
 
 ### 5.1 Roles
-Patient · Family member · Nurse/Clinician (reviews readings, calls patients, checks adherence, flags concerns) · Doctor (reviews escalated cases, advises clinical action) · Lab partner · Pharmacy partner · Admin · Employer · HMO · AI assistant (summaries, education, triage support, nurse prioritisation).
+Patient · Family member · Clinician (reviews readings, calls patients, checks adherence, flags concerns, reviews escalated cases, advises clinical action) · Lab partner · Pharmacy partner · Admin · Employer · HMO · AI assistant (summaries, education, triage support, clinician prioritisation).
 
-### 5.2 Nurse-to-Patient Ratio & Escalation
-- **Ratio target: 1 nurse : 120 patients.**
-- **Four-level escalation:** (1) Routine — within normal range, no action · (2) Nurse review — flagged reading or care-gap, nurse follows up · (3) Doctor escalation — nurse cannot resolve, escalates per protocol · (4) Emergency/urgent care advice — red-flag symptom, immediate safety instruction + urgent care direction.
+### 5.2 Clinician-to-Patient Ratio & Escalation
+- **Ratio target: 1 clinician : 120 patients.**
+- **Four-level escalation:** (1) Routine — within normal range, no action · (2) Clinician review — flagged reading or care-gap, clinician follows up · (3) Urgent escalation — clinician cannot resolve routinely, escalates per protocol · (4) Emergency/urgent care advice — red-flag symptom, immediate safety instruction + urgent care direction.
 
 ### 5.3 Protocols to Build
 | Protocol | Purpose |
@@ -221,12 +221,12 @@ Patient · Family member · Nurse/Clinician (reviews readings, calls patients, c
 | Lab monitoring | When HbA1c, U&E, creatinine, lipids, urine ACR, LFTs, FBC, etc. are due |
 | Red flag escalation | Chest pain, stroke symptoms, severe headache, confusion, severe breathlessness, collapse, hypoglycaemia |
 | Family update | What can be shared, when, with whom, under what consent |
-| Nurse call script | Standardises check-ins |
-| Doctor escalation | When a nurse must escalate to a doctor |
+| Clinician call script | Standardises check-ins |
+| Escalation protocol | When a routine case must be escalated for urgent review |
 | Hospital referral | When a patient must attend urgent/emergency care |
 | Documentation | Clinical notes, actions, escalations, advice recorded |
 | Clinical safety review | How red flags, incidents, near misses, complaints are reviewed |
-| Quality assurance | Audits nurse notes, doctor reviews, response times, outcome measures |
+| Quality assurance | Audits clinician notes, review response times, outcome measures |
 
 ---
 
@@ -242,8 +242,7 @@ Use this as a build tracker — check off per sprint. (Originally scoped against
 - [ ] **Labs** — partner model, test catalogue, booking, result upload (PDF + structured), abnormal flag, plain-English explanation, follow-up action, commission tracking
 - [ ] **Preventive screening** — screening rules engine (age/sex/diagnosis/risk-based), annual health check workflow, care gap dashboard, preventive reminders, preventive report, upgrade logic
 - [ ] **Pharmacy** — refill requests, fulfilment, delivery status, family medication alert (if consented)
-- [ ] **Nurse/clinician dashboard** — daily worklist, abnormal readings list, missed medication list, lab-due list, call note form, next follow-up date, family update trigger, escalation button, workload metrics
-- [ ] **Doctor dashboard** — escalation homepage, escalated patient summary, recent vitals/meds/labs, review note, action plan, close-escalation function, doctor-to-nurse handover
+- [ ] **Clinician dashboard** — daily worklist, abnormal readings list, missed medication list, lab-due list, call note form, next follow-up date, family update trigger, escalation homepage, escalated patient summary, recent vitals/meds/labs, review note, action plan, close-escalation function, workload metrics
 - [ ] **Escalation engine** — risk flags, urgent review queue, emergency advice pathway, escalation status (open/under review/resolved/referred)
 - [ ] **Family dashboard** — parent status page (green/amber/red), latest readings, adherence, upcoming actions, alerts, monthly report, payment management
 - [ ] **Payments** — Paystack (NGN, recurring, webhooks: charge.success/charge.failure/subscription.disable, 7-day grace + dunning), Stripe (GBP diaspora, Customer Portal), invoice history, failed-payment handling, plan upgrade/downgrade, corporate billing
@@ -252,8 +251,8 @@ Use this as a build tracker — check off per sprint. (Originally scoped against
 - [ ] **Corporate dashboard** — staff enrolment, workforce health (ML cohort risk distribution), screening compliance %, abnormal findings (anonymised), overdue-screen actions list
 - [ ] **HMO dashboard** — member population risk, care gap tracking, outcome/claims-prevented reporting
 - [ ] **Analytics** — outcomes, retention, adherence, escalation speed, revenue
-- [ ] **Content** — health education library, FAQs, protocols, nurse call scripts
-- [ ] **AI assistant** — summaries, education, triage support, nurse prioritisation, admin automation (LangGraph.js + Claude API)
+- [ ] **Content** — health education library, FAQs, protocols, clinician call scripts
+- [ ] **AI assistant** — summaries, education, triage support, clinician prioritisation, admin automation (LangGraph.js + Claude API)
 - [ ] **Referral programme** — patient-refers-patient, doctor-refers-patient, corporate champion; referrer dashboard (code, link, earnings, payouts)
 - [ ] **Audit trail + NDPR tools** — immutable event log, patient data export (JSON + PDF, 72hrs), right-to-erasure (anonymise personal fields, retain clinical minimum for regulatory period)
 
@@ -268,9 +267,9 @@ Use this as a build tracker — check off per sprint. (Originally scoped against
 | Consent | Captured for monitoring + family access |
 | Monitoring | BP/glucose/medication tracking working |
 | Preventive reminders | Basic screening + care gap reminders working |
-| Risk flagging | Abnormal readings generate nurse tasks |
-| Escalation | Doctor review workflow exists |
-| Documentation | Nurse and doctor notes can be saved |
+| Risk flagging | Abnormal readings generate clinician tasks |
+| Escalation | Clinician review workflow exists |
+| Documentation | Clinician notes can be saved |
 | Family dashboard | Family can view consented summary |
 | Payments | At least one payment provider working end-to-end |
 | Notifications | Email or SMS reminders working |
@@ -281,11 +280,11 @@ Use this as a build tracker — check off per sprint. (Originally scoped against
 
 ### Pre-Launch Security Checklist
 - [ ] All Supabase RLS policies reviewed by a **fresh** Claude Code session (reviewer pattern)
-- [ ] Nurse from Org A cannot see patients from Org B (must return 0 rows)
+- [ ] Clinician from Org A cannot see patients from Org B (must return 0 rows)
 - [ ] ML service returns valid JSON for edge cases (age 18, age 80, missing fields)
 - [ ] Platform continues functioning when ML service returns 500 (graceful fallback)
 - [ ] AbnormalResultHandler fires correctly for all screen types
-- [ ] Abnormal result → nurse WhatsApp alert arrives within 60 seconds
+- [ ] Abnormal result → clinician WhatsApp alert arrives within 60 seconds
 - [ ] `X-Service-Key` not present in any git commit history
 - [ ] WhatsApp message templates approved by Meta (submit ~2 weeks before launch)
 - [ ] Paystack webhook signature validation tested against replayed requests

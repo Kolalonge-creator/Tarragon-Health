@@ -3,7 +3,7 @@
 > Read every session. Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. This file is the operating contract — keep it under 200 lines, update "Current Sprint" every sprint.
 
 ## The Business
-Nigeria's digital-first chronic disease, preventive health, and family care coordination OS — the trusted coordination layer between patients, families, nurses, clinicians, labs, pharmacies, HMOs, and employers. Digital-first, WhatsApp/SMS-enabled, nurse-led, doctor-escalated, AI-automated, partner-network based. **No owned clinics.** Five categories, all architecturally represented from Sprint 1 — they are commercially linked, each feeds the others:
+Nigeria's digital-first chronic disease, preventive health, and family care coordination OS — the trusted coordination layer between patients, families, clinicians, labs, pharmacies, HMOs, and employers. Digital-first, WhatsApp/SMS-enabled, clinician-led, escalation-driven, AI-automated, partner-network based. **No owned clinics.** Five categories, all architecturally represented from Sprint 1 — they are commercially linked, each feeds the others:
 
 1. **Chronic Disease Management** *(core wedge)* — hypertension, diabetes; expansion: asthma, CKD, heart failure
 2. **Preventative Medicine** — cancer/metabolic/infectious/reproductive screening. **Abnormal result → Category 1 upgrade is the highest-priority business event in the platform — never lose it, never let it fail silently.**
@@ -40,8 +40,8 @@ Prevention and chronic management **share the same patient record** — design e
 - **Every patient action must work via WhatsApp AND via app/web** — no feature ships app-only.
 - Phone numbers always E.164 (`+234XXXXXXXXX`). Timezone always `Africa/Lagos`.
 - Every table has `organisation_id` — always filter by it. **RLS enforced at the Postgres level for every multi-tenant table — never bypass, never filter in application code instead.**
-- Nurse:patient ratio target — **1:120**. Four-level clinical escalation: routine → nurse review → doctor escalation → emergency/urgent care advice.
-- Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → nurse WhatsApp alert **immediate, not scheduled** → nurse has a 4-hour contact SLA → surfaces as Priority 1 (red) on nurse dashboard.
+- Clinician:patient ratio target — **1:120**. Four-level clinical escalation: routine → clinician review → urgent escalation → emergency/urgent care advice.
+- Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → clinician WhatsApp alert **immediate, not scheduled** → clinician has a 4-hour contact SLA → surfaces as Priority 1 (red) on clinician dashboard.
 
 ## TypeScript Code Rules
 - Strict mode always. No `any`. Ever. pnpm only.

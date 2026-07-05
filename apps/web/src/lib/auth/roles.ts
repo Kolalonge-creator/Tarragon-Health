@@ -3,7 +3,6 @@ import type { UserRole } from "@tarragon/shared";
 /** Where each profiles.role lands after login (FEATURE_SPEC.md §6 dashboards). */
 export const ROLE_HOME_PATH: Record<UserRole, string> = {
   patient: "/patient",
-  nurse: "/nurse",
   clinician: "/clinician",
   admin: "/admin",
   hmo_admin: "/hmo",

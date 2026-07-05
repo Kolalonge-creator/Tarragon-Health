@@ -9,7 +9,6 @@ import {
 describe("getRoleHomePath", () => {
   it("maps every role to its dashboard home", () => {
     expect(getRoleHomePath("patient")).toBe("/patient");
-    expect(getRoleHomePath("nurse")).toBe("/nurse");
     expect(getRoleHomePath("clinician")).toBe("/clinician");
     expect(getRoleHomePath("admin")).toBe("/admin");
     expect(getRoleHomePath("hmo_admin")).toBe("/hmo");
@@ -23,7 +22,7 @@ describe("pathMatchesRole", () => {
   });
 
   it("matches nested paths under the home", () => {
-    expect(pathMatchesRole("/nurse/worklist", "nurse")).toBe(true);
+    expect(pathMatchesRole("/clinician/worklist", "clinician")).toBe(true);
   });
 
   it("rejects another role's path", () => {

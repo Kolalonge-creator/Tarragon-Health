@@ -12,7 +12,7 @@ export default async function PatientPage() {
         "Log BP, glucose, weight, pulse readings",
         "Medication schedule + refill reminders",
         "Preventive screening calendar",
-        "Care plan (once a nurse assigns one)",
+        "Care plan (once a clinician assigns one)",
         "Health Passport download",
       ]}
     />

@@ -1976,7 +1976,6 @@ export type Database = {
         | "other"
       user_role:
         | "patient"
-        | "nurse"
         | "clinician"
         | "admin"
         | "hmo_admin"
@@ -2211,14 +2210,7 @@ export const Constants = {
         "cancer_referral",
         "other",
       ],
-      user_role: [
-        "patient",
-        "nurse",
-        "clinician",
-        "admin",
-        "hmo_admin",
-        "corporate_admin",
-      ],
+      user_role: ["patient", "clinician", "admin", "hmo_admin", "corporate_admin"],
       vital_type: [
         "blood_pressure",
         "glucose",

@@ -6,7 +6,7 @@
 --
 -- RLS pattern for patient-scoped tables:
 --   * patient sees/manages their own rows (patient_id = auth.uid())
---   * org staff (nurse/clinician/admin) see/manage rows in their org
+--   * org staff (clinician/admin) see/manage rows in their org
 -- organisation_id is denormalised onto every clinical table so RLS can be
 -- evaluated with a single indexed predicate (no cross-table joins in policies).
 

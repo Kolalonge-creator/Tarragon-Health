@@ -9,11 +9,12 @@ export default async function ClinicianPage() {
       greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
       roleLabel="Clinician"
       comingUp={[
-        "Escalation homepage — patients awaiting doctor review",
-        "Escalated patient summary: recent vitals, meds, labs",
-        "Review note + action plan",
+        "Daily worklist: abnormal readings, missed meds, labs due",
+        "Priority 1 alerts — abnormal screening result upgrades (4-hour SLA)",
+        "Call note form + next follow-up date",
+        "Escalation homepage — patients awaiting review, escalated summary, action plan",
         "Close-escalation function",
-        "Doctor-to-nurse handover",
+        "Workload metrics (1:120 ratio target)",
       ]}
     />
   );
