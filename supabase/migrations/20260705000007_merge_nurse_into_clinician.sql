@@ -155,8 +155,12 @@ alter table public.profiles alter column role set default 'patient'::public.user
 
 -- Functions that reference public.user_role by name must be redefined so
 -- they rebind to the new type (their old definitions still point at the
--- renamed user_role_old).
-create or replace function private.current_role()
+-- renamed user_role_old). current_role()'s return type is changing identity
+-- (new type, same name), which CREATE OR REPLACE cannot do — it must be
+-- dropped first.
+drop function private.current_role();
+
+create function private.current_role()
 returns public.user_role
 language sql
 stable
