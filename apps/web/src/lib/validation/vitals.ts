@@ -26,12 +26,19 @@ export const bloodPressureSchema = z.object({
   taken_at: takenAtField,
 });
 
+/** Clinically sane range per unit, since a patient may enter either. */
+export const GLUCOSE_RANGE = {
+  mmol_l: { min: 2, max: 33, label: "mmol/L" },
+  mg_dl: { min: 36, max: 594, label: "mg/dL" },
+} as const;
+
+export const GLUCOSE_UNITS = ["mmol_l", "mg_dl"] as const;
+export type GlucoseUnit = (typeof GLUCOSE_UNITS)[number];
+
 export const glucoseSchema = z.object({
   vital_type: z.literal("glucose"),
-  glucose_mmol_l: z.coerce
-    .number()
-    .min(2, "Glucose must be at least 2 mmol/L")
-    .max(33, "Glucose must be at most 33 mmol/L"),
+  glucose_value: z.coerce.number(),
+  glucose_unit: z.enum(GLUCOSE_UNITS),
   glucose_context: z.enum(["fasting", "random", "post_meal"]),
   note: noteField,
   taken_at: takenAtField,
@@ -79,12 +86,24 @@ export const spo2Schema = z.object({
   taken_at: takenAtField,
 });
 
-export const vitalsReadingSchema = z.discriminatedUnion("vital_type", [
-  bloodPressureSchema,
-  glucoseSchema,
-  weightSchema,
-  pulseSchema,
-  temperatureSchema,
-  spo2Schema,
-]);
+export const vitalsReadingSchema = z
+  .discriminatedUnion("vital_type", [
+    bloodPressureSchema,
+    glucoseSchema,
+    weightSchema,
+    pulseSchema,
+    temperatureSchema,
+    spo2Schema,
+  ])
+  .superRefine((data, ctx) => {
+    if (data.vital_type !== "glucose") return;
+    const range = GLUCOSE_RANGE[data.glucose_unit];
+    if (data.glucose_value < range.min || data.glucose_value > range.max) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["glucose_value"],
+        message: `Glucose must be between ${range.min} and ${range.max} ${range.label}`,
+      });
+    }
+  });
 export type VitalsReadingInput = z.infer<typeof vitalsReadingSchema>;

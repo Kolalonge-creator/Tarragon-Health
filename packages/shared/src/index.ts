@@ -32,6 +32,19 @@ export function koboToNaira(kobo: number): number {
   return kobo / 100;
 }
 
+/** Molar mass of glucose (g/mol) — the standard mmol/L <-> mg/dL conversion factor. */
+export const GLUCOSE_MMOL_TO_MGDL = 18.0182;
+
+/** Convert blood glucose from mg/dL to mmol/L (the unit vitals_readings stores). */
+export function mgDlToMmolL(mgDl: number): number {
+  return Math.round((mgDl / GLUCOSE_MMOL_TO_MGDL) * 100) / 100;
+}
+
+/** Convert blood glucose from mmol/L to mg/dL, for display in the patient's preferred unit. */
+export function mmolLToMgDl(mmolL: number): number {
+  return Math.round(mmolL * GLUCOSE_MMOL_TO_MGDL);
+}
+
 /** Nigerian E.164 phone number, e.g. +234XXXXXXXXXX. */
 export const E164_NG = /^\+234\d{10}$/;
 

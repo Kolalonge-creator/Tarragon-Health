@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
+import { mgDlToMmolL } from "@tarragon/shared";
 
 export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
 
@@ -34,8 +35,23 @@ export async function logVital(
 
   const { taken_at, ...reading } = parsed.data;
 
+  // vitals_readings only has a glucose_mmol_l column — convert here if the
+  // patient entered mg/dL, so the DB always stores the canonical unit.
+  const row =
+    reading.vital_type === "glucose"
+      ? {
+          ...reading,
+          glucose_value: undefined,
+          glucose_unit: undefined,
+          glucose_mmol_l:
+            reading.glucose_unit === "mg_dl"
+              ? mgDlToMmolL(reading.glucose_value)
+              : reading.glucose_value,
+        }
+      : reading;
+
   const { error } = await supabase.from("vitals_readings").insert({
-    ...reading,
+    ...row,
     taken_at: taken_at ? new Date(taken_at).toISOString() : undefined,
     patient_id: user.id,
     organisation_id: profile.organisation_id,

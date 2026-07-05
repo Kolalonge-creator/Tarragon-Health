@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { logVital } from "./actions";
+import type { GlucoseUnit } from "@/lib/validation/vitals";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,7 @@ type VitalType = (typeof VITAL_TYPES)[number]["value"];
 
 export function VitalsForm({ patientId }: { patientId: string }) {
   const [vitalType, setVitalType] = useState<VitalType>("blood_pressure");
+  const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>("mmol_l");
   const [state, formAction, pending] = useActionState(logVital, undefined);
   const queryClient = useQueryClient();
 
@@ -70,14 +72,31 @@ export function VitalsForm({ patientId }: { patientId: string }) {
           {vitalType === "glucose" && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="glucose_mmol_l">Glucose (mmol/L)</Label>
-                <Input
-                  id="glucose_mmol_l"
-                  name="glucose_mmol_l"
-                  type="number"
-                  step="0.1"
-                  required
-                />
+                <Label htmlFor="glucose_value">Glucose</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="glucose_value"
+                    name="glucose_value"
+                    type="number"
+                    step={glucoseUnit === "mmol_l" ? "0.1" : "1"}
+                    required
+                    className="flex-1"
+                  />
+                  <input type="hidden" name="glucose_unit" value={glucoseUnit} />
+                  <Select
+                    aria-label="Glucose unit"
+                    value={glucoseUnit}
+                    onChange={(event) => setGlucoseUnit(event.target.value as GlucoseUnit)}
+                    className="w-28"
+                  >
+                    <option value="mmol_l">mmol/L</option>
+                    <option value="mg_dl">mg/dL</option>
+                  </Select>
+                </div>
+                <p className="text-xs text-charcoal-ink/60">
+                  {glucoseUnit === "mmol_l" ? "e.g. 5.6 mmol/L" : "e.g. 100 mg/dL"} — check
+                  your glucometer&apos;s display unit before entering.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="glucose_context">Context</Label>

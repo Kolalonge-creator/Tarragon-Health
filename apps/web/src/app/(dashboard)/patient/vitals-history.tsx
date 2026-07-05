@@ -2,14 +2,17 @@
 
 import { useVitalsReadings } from "@/lib/queries/vitals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Tables } from "@tarragon/shared";
+import { mmolLToMgDl, type Tables } from "@tarragon/shared";
 
 function formatReading(reading: Tables<"vitals_readings">): string {
   switch (reading.vital_type) {
     case "blood_pressure":
       return `${reading.systolic}/${reading.diastolic} mmHg`;
-    case "glucose":
-      return `${reading.glucose_mmol_l} mmol/L (${reading.glucose_context ?? "—"})`;
+    case "glucose": {
+      const mmolL = reading.glucose_mmol_l;
+      const mgDl = mmolL === null ? null : mmolLToMgDl(mmolL);
+      return `${mmolL} mmol/L (${mgDl} mg/dL) — ${reading.glucose_context ?? "—"}`;
+    }
     case "weight":
       return `${reading.weight_kg} kg`;
     case "pulse":

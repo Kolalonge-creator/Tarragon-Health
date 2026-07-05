@@ -33,10 +33,11 @@ describe("vitalsReadingSchema — blood_pressure", () => {
   });
 });
 
-describe("vitalsReadingSchema — glucose", () => {
+describe("vitalsReadingSchema — glucose (mmol/L)", () => {
   const valid = {
     vital_type: "glucose",
-    glucose_mmol_l: "5.6",
+    glucose_value: "5.6",
+    glucose_unit: "mmol_l",
     glucose_context: "fasting",
   };
 
@@ -44,15 +45,15 @@ describe("vitalsReadingSchema — glucose", () => {
     expect(vitalsReadingSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("rejects glucose below 2", () => {
+  it("rejects glucose below 2 mmol/L", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, glucose_mmol_l: "1" }).success
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "1" }).success
     ).toBe(false);
   });
 
-  it("rejects glucose above 33", () => {
+  it("rejects glucose above 33 mmol/L", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, glucose_mmol_l: "34" }).success
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "34" }).success
     ).toBe(false);
   });
 
@@ -60,7 +61,8 @@ describe("vitalsReadingSchema — glucose", () => {
     expect(
       vitalsReadingSchema.safeParse({
         vital_type: "glucose",
-        glucose_mmol_l: "5.6",
+        glucose_value: "5.6",
+        glucose_unit: "mmol_l",
       }).success
     ).toBe(false);
   });
@@ -69,6 +71,44 @@ describe("vitalsReadingSchema — glucose", () => {
     expect(
       vitalsReadingSchema.safeParse({ ...valid, glucose_context: "before_bed" })
         .success
+    ).toBe(false);
+  });
+
+  it("rejects an invalid glucose_unit", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, glucose_unit: "percent" }).success
+    ).toBe(false);
+  });
+});
+
+describe("vitalsReadingSchema — glucose (mg/dL)", () => {
+  const valid = {
+    vital_type: "glucose",
+    glucose_value: "100",
+    glucose_unit: "mg_dl",
+    glucose_context: "fasting",
+  };
+
+  it("accepts a valid reading", () => {
+    expect(vitalsReadingSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects glucose below 36 mg/dL", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "35" }).success
+    ).toBe(false);
+  });
+
+  it("rejects glucose above 594 mg/dL", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "595" }).success
+    ).toBe(false);
+  });
+
+  it("rejects a value that's valid in mmol/L but out of range for mg/dL", () => {
+    // 5.6 would be a valid mmol/L reading, but as mg/dL it's far too low.
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "5.6" }).success
     ).toBe(false);
   });
 });
