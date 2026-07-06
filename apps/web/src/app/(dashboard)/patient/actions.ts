@@ -9,6 +9,7 @@ import {
   type RiskAssessmentInput,
 } from "@/lib/validation/risk-assessment";
 import { computeRiskTiers } from "@/lib/rules/risk-scoring";
+import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
 import { mgDlToMmolL, type Json } from "@tarragon/shared";
 
 export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
@@ -77,6 +78,11 @@ export type SubmitRiskAssessmentState = { error?: string; success?: boolean } | 
  * rule-based tiers server-side (never trusting a client-supplied tier
  * value). Full response history is kept — retaking the assessment inserts
  * new rows rather than upserting (docs/FEATURE_SPEC.md §10).
+ *
+ * Also (re)generates screening_schedules from the freshly computed tiers,
+ * per V1 spec §3.3 ("recommendations regenerate ... when risk tier
+ * changes"). The engine only ever tightens an existing due date, never
+ * loosens one, so a tier drop can't silently cancel a screening already due.
  */
 export async function submitRiskAssessment(
   _prevState: SubmitRiskAssessmentState,
@@ -125,13 +131,17 @@ export async function submitRiskAssessment(
   }
   const organisationId = profile.organisation_id;
 
-  const responseRows = (Object.keys(responses) as Array<keyof RiskAssessmentInput>).map((key) => ({
-    organisation_id: organisationId,
-    profile_id: user.id,
-    category: QUESTION_CATEGORY[key],
-    question_key: key,
-    response: (responses[key] ?? null) as Json,
-  }));
+  // response is jsonb not null — skip unanswered optional fields (e.g.
+  // current_medications left blank) rather than writing a null row.
+  const responseRows = (Object.keys(responses) as Array<keyof RiskAssessmentInput>)
+    .filter((key) => responses[key] !== undefined)
+    .map((key) => ({
+      organisation_id: organisationId,
+      profile_id: user.id,
+      category: QUESTION_CATEGORY[key],
+      question_key: key,
+      response: responses[key] as Json,
+    }));
 
   const { error: responsesError } = await supabase
     .from("risk_assessment_responses")
@@ -180,6 +190,76 @@ export async function submitRiskAssessment(
     );
   if (scoresError) {
     return { error: scoresError.message };
+  }
+
+  const { data: screenTypes } = await supabase
+    .from("screen_types")
+    .select("id, code, sex_applicability, age_from, age_to, frequency_months")
+    .eq("is_active", true);
+
+  const { data: existingSchedules } = await supabase
+    .from("screening_schedules")
+    .select("id, screen_type_id, status, due_date")
+    .eq("patient_id", user.id);
+
+  const lastCompletedByScreenTypeId = new Map<string, string>();
+  const activeByScreenTypeId = new Map<string, { id: string; due_date: string }>();
+  for (const row of existingSchedules ?? []) {
+    if (row.status === "completed") {
+      const latest = lastCompletedByScreenTypeId.get(row.screen_type_id);
+      if (!latest || row.due_date > latest) {
+        lastCompletedByScreenTypeId.set(row.screen_type_id, row.due_date);
+      }
+    } else if (row.status === "pending" || row.status === "booked") {
+      activeByScreenTypeId.set(row.screen_type_id, { id: row.id, due_date: row.due_date });
+    }
+  }
+
+  const tiersByCondition = new Map(scores.map((score) => [score.condition, score.tier]));
+
+  const recommendations = computeScreeningRecommendations(
+    screenTypes ?? [],
+    tiersByCondition,
+    { sex: profile.sex, ageYears },
+    lastCompletedByScreenTypeId
+  );
+
+  // screening_schedules is written through the service-role client, same
+  // reasoning as prevention_risk_scores above: due_date/status here are the
+  // engine's own tighten-only computation, not values a patient's own RLS-
+  // scoped session should be able to set directly (an arbitrary due_date or
+  // a self-marked 'completed' status would defeat the recommendation engine
+  // entirely). Identity/org are already verified above via the patient's
+  // own session.
+  const serviceRoleClient = createServiceRoleClient();
+
+  const newSchedules = recommendations.filter((rec) => !activeByScreenTypeId.has(rec.screenTypeId));
+  if (newSchedules.length > 0) {
+    const { error: scheduleInsertError } = await serviceRoleClient.from("screening_schedules").insert(
+      newSchedules.map((rec) => ({
+        organisation_id: organisationId,
+        patient_id: user.id,
+        screen_type_id: rec.screenTypeId,
+        due_date: rec.dueDate,
+        status: "pending" as const,
+      }))
+    );
+    if (scheduleInsertError) {
+      return { error: scheduleInsertError.message };
+    }
+  }
+
+  for (const rec of recommendations) {
+    const existing = activeByScreenTypeId.get(rec.screenTypeId);
+    if (existing && rec.dueDate < existing.due_date) {
+      const { error: scheduleUpdateError } = await serviceRoleClient
+        .from("screening_schedules")
+        .update({ due_date: rec.dueDate })
+        .eq("id", existing.id);
+      if (scheduleUpdateError) {
+        return { error: scheduleUpdateError.message };
+      }
+    }
   }
 
   return { success: true };
