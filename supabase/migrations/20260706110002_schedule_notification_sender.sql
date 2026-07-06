@@ -7,22 +7,18 @@
 -- for schedulers generally, but is unprovisioned (§13/§17 item 1); this is
 -- a deliberate interim choice, not a silent deviation.
 --
--- The publishable key stored below is not a secret in the security sense
--- (it's RLS-scoped and safe to expose to a browser) — Vault is still the
--- documented mechanism for keeping it out of migration literals doing
--- double duty as both schema and config.
+-- This migration replays in every environment (local, per-PR preview
+-- branch, production — docs/ARCHITECTURE.md §16), so it must never embed
+-- an environment-specific project URL or key as a literal. The 'project_url'
+-- and 'edge_function_publishable_key' Vault secrets this cron job reads are
+-- environment-specific config, not schema — they must be created once per
+-- environment out-of-band (dashboard or `supabase secrets`/SQL editor),
+-- exactly like WHATSAPP_TOKEN/TERMII_API_KEY are set as Edge Function
+-- secrets per environment rather than baked into a migration. Until those
+-- two Vault secrets exist, this cron job's net.http_post calls fail closed
+-- (null URL/header) rather than misfiring against another environment.
 
 create extension if not exists pg_net with schema extensions;
-
-select vault.create_secret(
-  'https://koiplnmbgnqnbywhpjlf.supabase.co',
-  'project_url'
-);
-
-select vault.create_secret(
-  'sb_publishable_b59zf3vYYD7AKHUlTyzbAQ_yRq7vhE2',
-  'edge_function_publishable_key'
-);
 
 select cron.schedule(
   'send-pending-notifications',
