@@ -1181,9 +1181,11 @@ export type Database = {
       }
       notifications: {
         Row: {
+          attempts: number
           channel: Database["public"]["Enums"]["notification_channel"]
           created_at: string
           id: string
+          last_error: string | null
           organisation_id: string | null
           payload: Json
           recipient_id: string
@@ -1193,9 +1195,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attempts?: number
           channel?: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
           id?: string
+          last_error?: string | null
           organisation_id?: string | null
           payload?: Json
           recipient_id: string
@@ -1205,9 +1209,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attempts?: number
           channel?: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
           id?: string
+          last_error?: string | null
           organisation_id?: string | null
           payload?: Json
           recipient_id?: string
