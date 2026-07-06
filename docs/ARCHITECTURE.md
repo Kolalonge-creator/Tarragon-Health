@@ -15,7 +15,7 @@ These derive directly from `CLAUDE.md` and shape every decision below.
 3. **WhatsApp is a first-class channel, not an add-on.** Every patient-facing capability must work via WhatsApp/SMS **and** app/web. No feature ships app-only.
 4. **The abnormal-result event is sacred.** A screening result of `abnormal|critical` triggering a Category 1 upgrade is the highest-priority event in the system. It must be immediate, reliable, and auditable — never lost, never silently swallowed.
 5. **Money is exact.** All NGN stored in **kobo** (integer). Diaspora billing in GBP (primary) / USD (secondary) via Stripe.
-6. **Data residency + compliance first.** Supabase Postgres in **`af-south-1`** for NDPR. Immutable audit log for every clinical, billing, and ML event.
+6. **Data residency + compliance first.** Supabase Postgres in **`eu-west-1`** (Supabase has no Africa region; closest available to Nigeria, NDPR residency gap accepted for now). Immutable audit log for every clinical, billing, and ML event.
 7. **Everything typed.** TypeScript strict, no `any`, Zod at every API boundary. Python 3.12, Pydantic v2 at every ML endpoint.
 
 ---
@@ -27,7 +27,7 @@ These derive directly from `CLAUDE.md` and shape every decision below.
 | Monorepo | **pnpm workspaces + Turborepo** | pnpm only — never npm/yarn |
 | Web | **Next.js 16**, TypeScript, Tailwind v4, shadcn/ui | `apps/web`. (Note: repo is on Next.js **16**, not 15 as older docs said — 16 is the decision of record. This Next.js has breaking changes vs. training data — read `node_modules/next/dist/docs/` before writing framework code, per `AGENTS.md`.) |
 | Mobile | React Native **Expo** | `apps/mobile` |
-| DB / Auth / Storage / Realtime | **Supabase Postgres**, `af-south-1`, pgvector | RLS enforced platform-wide |
+| DB / Auth / Storage / Realtime | **Supabase Postgres**, `eu-west-1`, pgvector | RLS enforced platform-wide; NDPR residency gap accepted (no Supabase Africa region) |
 | Edge compute | Supabase **Edge Functions** (Deno) | Triggers, webhooks, the abnormal-result handler |
 | Cache / queues / conversation state | **Upstash Redis** | WhatsApp conversation state lives here, not Postgres |
 | AI orchestration | **LangGraph.js + Claude API** | Clinical workflows, summaries, triage support |
@@ -66,7 +66,7 @@ graph TB
     AI[LangGraph.js + Claude]
   end
 
-  subgraph Data["Supabase (af-south-1)"]
+  subgraph Data["Supabase (eu-west-1)"]
     DB[(Postgres + RLS + pgvector)]
     STORE[(Storage)]
     AUTH[Supabase Auth]
@@ -324,7 +324,7 @@ graph LR
 
 - **RLS** on every multi-tenant table; reviewed by a *fresh* review pass before launch (reviewer pattern).
 - **`audit_log`** immutable at the Postgres level (no UPDATE/DELETE); logs clinical, billing, and ML-prediction events.
-- **NDPR:** data residency in `af-south-1`; patient data export (JSON + PDF within 72h); right-to-erasure (anonymise personal fields, retain clinical minimum for the regulatory period).
+- **NDPR:** data residency in `eu-west-1` (Supabase has no Africa region; gap accepted for now — revisit if Supabase adds one or a residency requirement forces a different provider); patient data export (JSON + PDF within 72h); right-to-erasure (anonymise personal fields, retain clinical minimum for the regulatory period).
 - **Secrets:** never committed. `X-Service-Key` must never appear in git history. `.env.example` updated for every new var.
 - **Transport:** platform ↔ ML over HTTPS with `X-Service-Key`; webhook signature validation for Paystack/Stripe/WhatsApp.
 
@@ -335,7 +335,7 @@ graph LR
 | Component | Host | Region/Notes |
 |---|---|---|
 | Web + Edge Functions | Vercel | Edge near users; functions invoke Supabase |
-| Postgres/Auth/Storage/Realtime | Supabase | **af-south-1** (NDPR) |
+| Postgres/Auth/Storage/Realtime | Supabase | **eu-west-1** (NDPR residency gap accepted — no Supabase Africa region) |
 | Redis | Upstash | Low-latency to platform |
 | ML service | **Railway/Render — TBD (not yet provisioned)** | Persistent compute; deploy target for Sprint 4 |
 | DNS/edge | Cloudflare | |
