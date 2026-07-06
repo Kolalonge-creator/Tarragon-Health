@@ -131,13 +131,17 @@ export async function submitRiskAssessment(
   }
   const organisationId = profile.organisation_id;
 
-  const responseRows = (Object.keys(responses) as Array<keyof RiskAssessmentInput>).map((key) => ({
-    organisation_id: organisationId,
-    profile_id: user.id,
-    category: QUESTION_CATEGORY[key],
-    question_key: key,
-    response: (responses[key] ?? null) as Json,
-  }));
+  // response is jsonb not null — skip unanswered optional fields (e.g.
+  // current_medications left blank) rather than writing a null row.
+  const responseRows = (Object.keys(responses) as Array<keyof RiskAssessmentInput>)
+    .filter((key) => responses[key] !== undefined)
+    .map((key) => ({
+      organisation_id: organisationId,
+      profile_id: user.id,
+      category: QUESTION_CATEGORY[key],
+      question_key: key,
+      response: responses[key] as Json,
+    }));
 
   const { error: responsesError } = await supabase
     .from("risk_assessment_responses")
