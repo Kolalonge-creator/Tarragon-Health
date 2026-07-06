@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import {
   riskAssessmentSchema,
@@ -160,15 +161,23 @@ export async function submitRiskAssessment(
     weightKg: latestWeight?.weight_kg ?? null,
   });
 
-  const { error: scoresError } = await supabase.from("prevention_risk_scores").insert(
-    scores.map((score) => ({
-      organisation_id: organisationId,
-      profile_id: user.id,
-      condition: score.condition,
-      tier: score.tier,
-      inputs_snapshot: score.inputsSnapshot as Json,
-    }))
-  );
+  // prevention_risk_scores is written through the service-role client, not
+  // the patient's own RLS-scoped session: the tier is meant to always be
+  // the server's own computation, and a table-level RLS check can only ever
+  // verify row ownership, not that a given tier value actually came from
+  // computeRiskTiers. Identity/org are already verified above via the
+  // patient's own session before we reach this point.
+  const { error: scoresError } = await createServiceRoleClient()
+    .from("prevention_risk_scores")
+    .insert(
+      scores.map((score) => ({
+        organisation_id: organisationId,
+        profile_id: user.id,
+        condition: score.condition,
+        tier: score.tier,
+        inputs_snapshot: score.inputsSnapshot as Json,
+      }))
+    );
   if (scoresError) {
     return { error: scoresError.message };
   }
