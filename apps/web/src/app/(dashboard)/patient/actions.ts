@@ -94,16 +94,22 @@ export async function submitRiskAssessment(
     family_heart_disease: formData.get("family_heart_disease"),
     family_sickle_cell: formData.get("family_sickle_cell"),
     family_cancer_types: formData.getAll("family_cancer_types"),
+    family_cancer_other_detail: formData.get("family_cancer_other_detail") || undefined,
     smoking_status: formData.get("smoking_status"),
+    cigarettes_per_day: formData.get("cigarettes_per_day") || undefined,
     alcohol_use: formData.get("alcohol_use"),
-    exercise_frequency: formData.get("exercise_frequency"),
+    exercise_days_per_week: formData.get("exercise_days_per_week"),
+    exercise_minutes_per_session: formData.get("exercise_minutes_per_session"),
     diet_pattern: formData.getAll("diet_pattern"),
-    sleep_quality: formData.get("sleep_quality"),
+    sleep_hours: formData.get("sleep_hours"),
     stress_level: formData.get("stress_level"),
     height_cm: formData.get("height_cm"),
+    weight_kg: formData.get("weight_kg") || undefined,
     existing_diagnoses: formData.getAll("existing_diagnoses"),
+    existing_diagnoses_other_detail: formData.get("existing_diagnoses_other_detail") || undefined,
     current_medications: formData.get("current_medications") || undefined,
     hpv_vaccinated: formData.get("hpv_vaccinated"),
+    other_vaccines_detail: formData.get("other_vaccines_detail") || undefined,
     prior_abnormal_result: formData.get("prior_abnormal_result"),
   };
 
@@ -150,6 +156,20 @@ export async function submitRiskAssessment(
     return { error: responsesError.message };
   }
 
+  // Keep the assessment's weight part of the same longitudinal vitals
+  // record the "Log a reading" widget writes to, not a form-only value.
+  if (responses.weight_kg !== undefined) {
+    const { error: weightInsertError } = await supabase.from("vitals_readings").insert({
+      patient_id: user.id,
+      organisation_id: organisationId,
+      vital_type: "weight",
+      weight_kg: responses.weight_kg,
+    });
+    if (weightInsertError) {
+      return { error: weightInsertError.message };
+    }
+  }
+
   const { data: latestWeight } = await supabase
     .from("vitals_readings")
     .select("weight_kg")
@@ -168,7 +188,9 @@ export async function submitRiskAssessment(
   const scores = computeRiskTiers(responses, {
     sex: profile.sex,
     ageYears,
-    weightKg: latestWeight?.weight_kg ?? null,
+    // Prefer what the patient just entered; fall back to their last logged
+    // vitals weight if they left it blank this time.
+    weightKg: responses.weight_kg ?? latestWeight?.weight_kg ?? null,
   });
 
   // prevention_risk_scores is written through the service-role client, not

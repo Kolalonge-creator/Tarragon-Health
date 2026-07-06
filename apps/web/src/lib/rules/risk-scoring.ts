@@ -57,6 +57,23 @@ function bmiOf(profile: RiskScoringProfile, responses: RiskAssessmentInput): num
   return profile.weightKg / (heightM * heightM);
 }
 
+/** WHO guideline: under 150 minutes/week of activity is insufficient. */
+function weeklyExerciseMinutes(r: RiskAssessmentInput): number {
+  return r.exercise_days_per_week * r.exercise_minutes_per_session;
+}
+
+function smokesHeavily(r: RiskAssessmentInput): boolean {
+  return (
+    r.smoking_status === "current" &&
+    (r.cigarettes_per_day === "11_20" || r.cigarettes_per_day === "20_plus")
+  );
+}
+
+/** Both short and long sleep duration associate with cardiometabolic risk. */
+function hasPoorSleepDuration(r: RiskAssessmentInput): boolean {
+  return r.sleep_hours === "less_than_5" || r.sleep_hours === "more_than_8";
+}
+
 const hasFamilyCancer =
   (type: RiskAssessmentInput["family_cancer_types"][number]) =>
   (responses: RiskAssessmentInput) =>
@@ -72,13 +89,15 @@ const CONDITION_RULES: ConditionRules[] = [
     factors: [
       { key: "family_history", points: 2, applies: (r) => r.family_hypertension },
       { key: "smoking_current", points: 2, applies: (r) => r.smoking_status === "current" },
+      { key: "smoking_heavy", points: 1, applies: (r) => smokesHeavily(r) },
       { key: "smoking_former", points: 1, applies: (r) => r.smoking_status === "former" },
       { key: "bmi_obese", points: 2, applies: (_r, _p, bmi) => bmi !== null && bmi >= 30 },
       { key: "bmi_overweight", points: 1, applies: (_r, _p, bmi) => bmi !== null && bmi >= 25 && bmi < 30 },
       { key: "age_45_plus", points: 1, applies: (_r, p) => p.ageYears !== null && p.ageYears >= 45 },
       { key: "alcohol_heavy", points: 1, applies: (r) => r.alcohol_use === "heavy" },
       { key: "stress_high", points: 1, applies: (r) => r.stress_level === "high" },
-      { key: "exercise_none", points: 1, applies: (r) => r.exercise_frequency === "none" },
+      { key: "insufficient_exercise", points: 1, applies: (r) => weeklyExerciseMinutes(r) < 150 },
+      { key: "poor_sleep", points: 1, applies: (r) => hasPoorSleepDuration(r) },
     ],
   },
   {
@@ -92,8 +111,9 @@ const CONDITION_RULES: ConditionRules[] = [
       { key: "bmi_obese", points: 2, applies: (_r, _p, bmi) => bmi !== null && bmi >= 30 },
       { key: "bmi_overweight", points: 1, applies: (_r, _p, bmi) => bmi !== null && bmi >= 25 && bmi < 30 },
       { key: "age_35_plus", points: 1, applies: (_r, p) => p.ageYears !== null && p.ageYears >= 35 },
-      { key: "exercise_none", points: 1, applies: (r) => r.exercise_frequency === "none" },
+      { key: "insufficient_exercise", points: 1, applies: (r) => weeklyExerciseMinutes(r) < 150 },
       { key: "diet_high_sugar", points: 1, applies: (r) => r.diet_pattern.includes("high_sugar") },
+      { key: "poor_sleep", points: 1, applies: (r) => hasPoorSleepDuration(r) },
     ],
   },
   {
@@ -105,6 +125,7 @@ const CONDITION_RULES: ConditionRules[] = [
     factors: [
       { key: "family_history", points: 2, applies: (r) => r.family_heart_disease },
       { key: "smoking_current", points: 2, applies: (r) => r.smoking_status === "current" },
+      { key: "smoking_heavy", points: 1, applies: (r) => smokesHeavily(r) },
       { key: "smoking_former", points: 1, applies: (r) => r.smoking_status === "former" },
       { key: "existing_hypertension", points: 2, applies: (r) => r.existing_diagnoses.includes("hypertension") },
       { key: "existing_diabetes", points: 2, applies: (r) => r.existing_diagnoses.includes("diabetes") },
@@ -139,6 +160,7 @@ const CONDITION_RULES: ConditionRules[] = [
       { key: "family_history", points: 3, applies: hasFamilyCancer("cervical") },
       { key: "not_hpv_vaccinated", points: 1, applies: (r) => !r.hpv_vaccinated },
       { key: "smoking_current", points: 1, applies: (r) => r.smoking_status === "current" },
+      { key: "smoking_heavy", points: 1, applies: (r) => smokesHeavily(r) },
     ],
   },
   {
@@ -150,6 +172,7 @@ const CONDITION_RULES: ConditionRules[] = [
       { key: "family_history", points: 3, applies: hasFamilyCancer("colorectal") },
       { key: "age_45_plus", points: 1, applies: (_r, p) => p.ageYears !== null && p.ageYears >= 45 },
       { key: "smoking_current", points: 1, applies: (r) => r.smoking_status === "current" },
+      { key: "smoking_heavy", points: 1, applies: (r) => smokesHeavily(r) },
       { key: "diet_low_fibre", points: 1, applies: (r) => r.diet_pattern.includes("low_fibre") },
       { key: "alcohol_heavy", points: 1, applies: (r) => r.alcohol_use === "heavy" },
     ],
