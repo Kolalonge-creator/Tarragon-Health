@@ -8,16 +8,22 @@ const baseResponses: RiskAssessmentInput = {
   family_heart_disease: false,
   family_sickle_cell: false,
   family_cancer_types: [],
+  family_cancer_other_detail: undefined,
   smoking_status: "never",
+  cigarettes_per_day: undefined,
   alcohol_use: "none",
-  exercise_frequency: "3_plus_per_week",
+  exercise_days_per_week: 5,
+  exercise_minutes_per_session: 45,
   diet_pattern: ["balanced"],
-  sleep_quality: "good",
+  sleep_hours: "7_to_8",
   stress_level: "low",
   height_cm: 170,
+  weight_kg: undefined,
   existing_diagnoses: [],
+  existing_diagnoses_other_detail: undefined,
   current_medications: undefined,
   hpv_vaccinated: true,
+  other_vaccines_detail: undefined,
   prior_abnormal_result: false,
 };
 
@@ -65,12 +71,13 @@ describe("computeRiskTiers", () => {
     const responses: RiskAssessmentInput = {
       ...baseResponses,
       family_diabetes: true,
-      exercise_frequency: "none",
+      exercise_days_per_week: 0,
+      exercise_minutes_per_session: 0,
       diet_pattern: ["high_sugar"],
     };
     const results = computeRiskTiers(responses, { ...baseProfile, weightKg: 95, ageYears: 40 });
     const diabetes = results.find((r) => r.condition === "diabetes");
-    // family_history(2) + bmi_obese(2) + age_35_plus(1) + exercise_none(1) + diet_high_sugar(1) = 7 -> high
+    // family_history(2) + bmi_obese(2) + age_35_plus(1) + insufficient_exercise(1) + diet_high_sugar(1) = 7 -> high
     expect(diabetes?.tier).toBe("high");
   });
 
@@ -89,5 +96,73 @@ describe("computeRiskTiers", () => {
     const results = computeRiskTiers(baseResponses, { ...baseProfile, weightKg: null });
     const hypertension = results.find((r) => r.condition === "hypertension");
     expect((hypertension?.inputsSnapshot as { bmi: number | null }).bmi).toBeNull();
+  });
+
+  it("adds a smoking_heavy bump on top of smoking_current for >10 cigarettes/day", () => {
+    const responses: RiskAssessmentInput = {
+      ...baseResponses,
+      smoking_status: "current",
+      cigarettes_per_day: "11_20",
+    };
+    const results = computeRiskTiers(responses, baseProfile);
+    const hypertension = results.find((r) => r.condition === "hypertension");
+    const factors = (hypertension?.inputsSnapshot as { factors: string[] }).factors;
+    expect(factors).toContain("smoking_current");
+    expect(factors).toContain("smoking_heavy");
+  });
+
+  it("does not add the smoking_heavy bump for a light current smoker", () => {
+    const responses: RiskAssessmentInput = {
+      ...baseResponses,
+      smoking_status: "current",
+      cigarettes_per_day: "1_5",
+    };
+    const results = computeRiskTiers(responses, baseProfile);
+    const hypertension = results.find((r) => r.condition === "hypertension");
+    const factors = (hypertension?.inputsSnapshot as { factors: string[] }).factors;
+    expect(factors).toContain("smoking_current");
+    expect(factors).not.toContain("smoking_heavy");
+  });
+
+  it("flags poor_sleep for short sleep duration", () => {
+    const responses: RiskAssessmentInput = { ...baseResponses, sleep_hours: "less_than_5" };
+    const results = computeRiskTiers(responses, baseProfile);
+    const hypertension = results.find((r) => r.condition === "hypertension");
+    const diabetes = results.find((r) => r.condition === "diabetes");
+    expect((hypertension?.inputsSnapshot as { factors: string[] }).factors).toContain("poor_sleep");
+    expect((diabetes?.inputsSnapshot as { factors: string[] }).factors).toContain("poor_sleep");
+  });
+
+  it("flags poor_sleep for long sleep duration", () => {
+    const responses: RiskAssessmentInput = { ...baseResponses, sleep_hours: "more_than_8" };
+    const results = computeRiskTiers(responses, baseProfile);
+    const hypertension = results.find((r) => r.condition === "hypertension");
+    expect((hypertension?.inputsSnapshot as { factors: string[] }).factors).toContain("poor_sleep");
+  });
+
+  it("flags insufficient_exercise under 150 minutes/week", () => {
+    const responses: RiskAssessmentInput = {
+      ...baseResponses,
+      exercise_days_per_week: 2,
+      exercise_minutes_per_session: 20, // 40 min/week
+    };
+    const results = computeRiskTiers(responses, baseProfile);
+    const hypertension = results.find((r) => r.condition === "hypertension");
+    expect((hypertension?.inputsSnapshot as { factors: string[] }).factors).toContain(
+      "insufficient_exercise"
+    );
+  });
+
+  it("does not flag insufficient_exercise at or above 150 minutes/week", () => {
+    const responses: RiskAssessmentInput = {
+      ...baseResponses,
+      exercise_days_per_week: 3,
+      exercise_minutes_per_session: 60, // 180 min/week
+    };
+    const results = computeRiskTiers(responses, baseProfile);
+    const hypertension = results.find((r) => r.condition === "hypertension");
+    expect((hypertension?.inputsSnapshot as { factors: string[] }).factors).not.toContain(
+      "insufficient_exercise"
+    );
   });
 });
