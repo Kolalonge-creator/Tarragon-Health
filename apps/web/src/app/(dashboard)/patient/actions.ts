@@ -9,6 +9,7 @@ import {
   type RiskAssessmentInput,
 } from "@/lib/validation/risk-assessment";
 import { computeRiskTiers } from "@/lib/rules/risk-scoring";
+import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
 import { mgDlToMmolL, type Json } from "@tarragon/shared";
 
 export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
@@ -77,6 +78,11 @@ export type SubmitRiskAssessmentState = { error?: string; success?: boolean } | 
  * rule-based tiers server-side (never trusting a client-supplied tier
  * value). Full response history is kept — retaking the assessment inserts
  * new rows rather than upserting (docs/FEATURE_SPEC.md §10).
+ *
+ * Also (re)generates screening_schedules from the freshly computed tiers,
+ * per V1 spec §3.3 ("recommendations regenerate ... when risk tier
+ * changes"). The engine only ever tightens an existing due date, never
+ * loosens one, so a tier drop can't silently cancel a screening already due.
  */
 export async function submitRiskAssessment(
   _prevState: SubmitRiskAssessmentState,
@@ -180,6 +186,67 @@ export async function submitRiskAssessment(
     );
   if (scoresError) {
     return { error: scoresError.message };
+  }
+
+  const { data: screenTypes } = await supabase
+    .from("screen_types")
+    .select("id, code, sex_applicability, age_from, age_to, frequency_months")
+    .eq("is_active", true);
+
+  const { data: existingSchedules } = await supabase
+    .from("screening_schedules")
+    .select("id, screen_type_id, status, due_date")
+    .eq("patient_id", user.id);
+
+  const lastCompletedByScreenTypeId = new Map<string, string>();
+  const activeByScreenTypeId = new Map<string, { id: string; due_date: string }>();
+  for (const row of existingSchedules ?? []) {
+    if (row.status === "completed") {
+      const latest = lastCompletedByScreenTypeId.get(row.screen_type_id);
+      if (!latest || row.due_date > latest) {
+        lastCompletedByScreenTypeId.set(row.screen_type_id, row.due_date);
+      }
+    } else if (row.status === "pending" || row.status === "booked") {
+      activeByScreenTypeId.set(row.screen_type_id, { id: row.id, due_date: row.due_date });
+    }
+  }
+
+  const tiersByCondition = new Map(scores.map((score) => [score.condition, score.tier]));
+
+  const recommendations = computeScreeningRecommendations(
+    screenTypes ?? [],
+    tiersByCondition,
+    { sex: profile.sex, ageYears },
+    lastCompletedByScreenTypeId
+  );
+
+  const newSchedules = recommendations.filter((rec) => !activeByScreenTypeId.has(rec.screenTypeId));
+  if (newSchedules.length > 0) {
+    const { error: scheduleInsertError } = await supabase.from("screening_schedules").insert(
+      newSchedules.map((rec) => ({
+        organisation_id: organisationId,
+        patient_id: user.id,
+        screen_type_id: rec.screenTypeId,
+        due_date: rec.dueDate,
+        status: "pending" as const,
+      }))
+    );
+    if (scheduleInsertError) {
+      return { error: scheduleInsertError.message };
+    }
+  }
+
+  for (const rec of recommendations) {
+    const existing = activeByScreenTypeId.get(rec.screenTypeId);
+    if (existing && rec.dueDate < existing.due_date) {
+      const { error: scheduleUpdateError } = await supabase
+        .from("screening_schedules")
+        .update({ due_date: rec.dueDate })
+        .eq("id", existing.id);
+      if (scheduleUpdateError) {
+        return { error: scheduleUpdateError.message };
+      }
+    }
   }
 
   return { success: true };

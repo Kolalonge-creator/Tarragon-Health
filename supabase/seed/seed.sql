@@ -37,7 +37,11 @@ values
   ('vision_check',         'Vision Check',           'all',    40, null, 24,   0.1500, 'clinic'),
   ('clinical_breast_exam', 'Clinical Breast Exam',   'female', 25, null, 12,   0.1500, 'clinic'),
   ('bone_density',         'Bone Density Scan',      'female', 65, null, null, 0.1800, 'clinic'),
-  ('colonoscopy',          'Colonoscopy',            'all',    45, null, 120,  0.2000, 'clinic')
+  ('colonoscopy',          'Colonoscopy',            'all',    45, null, 120,  0.2000, 'clinic'),
+  -- base cadence per spec §6.1; the screening recommendation engine
+  -- (apps/web/src/lib/rules/screening-recommendations.ts) tightens this to
+  -- 12 months once the patient's hypertension risk tier is moderate/high
+  ('blood_pressure',       'Blood Pressure Check',   'all',    18, null, 24,   0.1500, 'clinic')
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
