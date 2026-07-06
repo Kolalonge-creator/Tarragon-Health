@@ -63,9 +63,9 @@ Prevention and chronic management **share the same patient record** — design e
 - Voice: a nurse who knows your name, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
 
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
-Current Sprint: Sprint 2 — Core Patient OS
-Sprint Goal: Real data wired into the patient and clinician dashboards, starting with vitals logging and the clinician worklist
-Current Task: Preventive screening calendar + care plan display — read-only patient dashboard views of `screening_schedules`/`screen_types` and active `care_plans`, backed by the existing schema (no new tables); a narrow RLS addition lets a patient resolve their assigned clinician's name
+Current Sprint: Sprint 3 — V1 Consumer Prevention Foundation
+Sprint Goal: Reconcile `TARRAGON_HEALTH_V1_SPEC.md` (standalone consumer build brief) with the existing schema and ship the DB foundation for risk assessment, vaccination registry, family profile-access, facility directory, and an AI coach scaffold — see `docs/FEATURE_SPEC.md` §10 for the reconciliation decisions. No new B2B/HMO/corporate feature work until this track ships.
+Current Task: Phase 0 complete — schema migrations (`profile_access`, `risk_assessment_responses`/`prevention_risk_scores`, `vaccination_catalog`/`vaccination_records`, `facilities`/`booking_requests`, `ai_conversations`, default `direct_consumer` organisation) + seed data + doc reconciliation. Next: notification send layer (WhatsApp/Termii), then the risk-tier rules engine.
 Active Service: TypeScript
 
 ## Definition of Done
