@@ -103,15 +103,17 @@ Simple rule: **hypertensive → yearly; diabetic → yearly + HbA1c 2–4×/yr; 
 
 ### 3.1 Core / Auth / Multi-Tenancy
 - `profiles` — role enum: `patient │ clinician │ admin │ hmo_admin │ corporate_admin`; linked to `auth.users`
-- `organisations` — type enum: `clinic │ hmo │ corporate │ lab │ pharmacy`; `profiles.organisation_id` FK
+- `organisations` — type enum: `clinic │ hmo │ corporate │ lab │ pharmacy │ direct_consumer`; `profiles.organisation_id` FK
+- A seeded `direct_consumer` organisation ("Tarragon Health Direct") is the default for self-serve signups with no `organisation_id` in signup metadata, so every domain table's `organisation_id NOT NULL` invariant holds even for an org-less consumer (see §10)
 - All tables carry `organisation_id`; RLS policies: patient sees own rows only, clinician sees org patients, HMO admin sees their member patients, corporate admin sees their enrolled employees, super-admin sees all
+- `profile_access` — login-level delegation (profile_id, grantee_user_id, permission_level: view/manage) so an adult dependent can log in independently while an owner/parent retains access, additive to `family_plan_members` (org/subscription bundling, unchanged)
 
 ### 3.2 Chronic Disease Core (Category 1)
 - `vitals_readings` — BP (systolic/diastolic), glucose (fasting/random/post-meal), weight, pulse, timestamp
 - `care_plans` — condition, target ranges, clinician-assigned, patient read-only view
 - `medications` — drug, dose, frequency, refill_date, linked to care_plans
 - `medication_logs` — taken/missed/skipped + reason, adherence % rollup, alert if <70% for 3 days
-- `risk_scores` / `patient_risk_scores` — rule-based + later ML-based (model_version tracked)
+- `patient_risk_scores` — rule-based + later ML-based (model_version tracked). Distinct from `prevention_risk_scores` (§3.3), which is condition tiering for the screening recommendation engine, not chronic-disease scoring.
 - `appointments`
 - `symptoms` — patient-reported; red-flag rules (chest pain, weakness, breathlessness, confusion, visual symptoms)
 - `nurse_alerts`, `escalations` (status: open/under review/resolved/referred)
@@ -127,7 +129,12 @@ Simple rule: **hypertensive → yearly; diabetic → yearly + HbA1c 2–4×/yr; 
 | `specialist_referrals` | Referrals from abnormal screens to specialists | patient_id, specialist_type, referral_reason, status, referral_fee_ngn, booking_confirmed_at, appointment_date |
 | `family_plan_members` | Members under a family plan | plan_id, member_id, relationship, plan_owner_id, conditions (text[]), onboarded_at |
 
-Seed `screen_types` with 12 types at minimum: PSA (male, 40+, 1yr), cervical smear (female, 25–64, 3yr), mammography, FIT, HbA1c, lipid panel, hepatitis B, HIV, TB, malaria RDT, PCOS panel, antenatal booking.
+Seed `screen_types` with 12 types at minimum: PSA (male, 40+, 1yr), cervical smear (female, 25–64, 3yr), mammography, FIT, HbA1c, lipid panel, hepatitis B, HIV, TB, malaria RDT, PCOS panel, antenatal booking. Plus 6 more from the V1 consumer-spec catalog: hepatitis C, sickle cell genotype, vision check, clinical breast exam, bone density, colonoscopy (see §10).
+
+- `risk_assessment_responses` — structured questionnaire per profile: category (lifestyle/family_history/pmh/meds/vaccination/screening_history), question_key, response (jsonb); full retake history kept, not upsert-only
+- `prevention_risk_scores` — rule-based tier (low/moderate/high, reusing the `risk_level` enum) per condition, computed from the responses above; feeds the screening recommendation engine (distinct from `patient_risk_scores` in §3.2)
+- `vaccination_catalog` — reference table (code, name, description, recommended_age jsonb); seed: tetanus/Td booster, hepatitis B, yellow fever, HPV, influenza, shingles
+- `vaccination_records` — per-profile doses given (vaccination_catalog_id, dose_number, date_administered, provider, certificate_url), self-reported entries in scope
 
 ### 3.4 Care Coordination (Category 3)
 - `lab_providers`, `lab_tests` — seed Synlab, Cerba Lancet, Healthtracka, Afriglobal Medicare with real test/price/commission_rate/home_collection data
@@ -136,6 +143,7 @@ Seed `screen_types` with 12 types at minimum: PSA (male, 40+, 1yr), cervical sme
 - `lab_result_interpretations` — output of ML `/interpret/labs`
 - `pharmacy_partners`, `pharmacy_medications`, `pharmacy_orders` — seed Medplus, HealthPlus, Alpha Pharmacy, MedsPal
 - `commissions` — one unified table for lab + pharmacy + referral commission events; dashboard slices by partner/test type/month
+- `facilities` — curated directory (hospital/lab/pharmacy/radiology/optician/vaccination_centre), global like `lab_providers`; `booking_requests` — request-based (not real-time confirmed) booking per profile, facility contact confirms manually
 
 ### 3.5 B2B & Billing (Category 4)
 - `subscription_plans` — feature array determines active categories per plan
@@ -149,6 +157,7 @@ Seed `screen_types` with 12 types at minimum: PSA (male, 40+, 1yr), cervical sme
 - `notifications` — channel: email/SMS/in-app/WhatsApp
 - `conversation_state` (Upstash Redis, not Postgres) — per phone number, drives WhatsApp routing
 - `referrals` — patient_refers_patient (₦2,000 airtime), doctor_refers_patient (₦3,500/enrolled, max 20/mo), corporate_champion
+- `ai_conversations` — AI Health Coach scaffold (profile_id, messages jsonb[]); LangGraph.js + Claude API wiring, disclaimer/guardrail logic, and chat UI are a separate future phase (see §10)
 
 ### 3.7 Critical Business Logic — Abnormal Result → Upgrade Flow
 This is the highest-priority business event in the platform:
@@ -323,6 +332,26 @@ Each partner needs: onboarding criteria, SLAs, pricing, quality standards, repor
 | 2 | Expand corporate/HMO contracts; use enrolled cohorts to negotiate better lab/pharmacy rates; expand to selected additional cities |
 | 3 | 100,000+ patient records + outcome evidence → approach NHIA, state governments, large employers |
 | 4–5 | Scale nationally, deepen AI/analytics, expand chronic disease categories, defensible population health infrastructure |
+
+---
+
+## 10. V1 Consumer Spec Reconciliation (Sprint 3)
+
+`TARRAGON_HEALTH_V1_SPEC.md` (repo root) was written as a standalone consumer-app build brief, as if greenfield. It wasn't — this schema already covered most of it under different names, with multi-tenant RLS the standalone spec didn't have. Four decisions govern how it was folded in, and this section is the map from its terms to what's actually built.
+
+**Resolved decisions:**
+1. **Reminders** build for WhatsApp+SMS first, keeping CLAUDE.md's non-negotiable "every patient action works via WhatsApp" rule intact — push/email are additive, not the primary path. (Send integration itself is not yet built — `notifications` is still write-only.)
+2. **Family/multi-profile model**: `profile_access` (§3.1) delivers the "adult dependent can log in independently, owner retains access" model, additive to `family_plan_members`. Open item: `profiles` is still strictly 1:1 with `auth.users`, so a dependent still needs an auth account provisioned before they can be granted/hold access — the "add a family member before they sign up" onboarding flow is not yet resolved.
+3. **B2B/institutional work is paused** — no new HMO/corporate features until this consumer track ships. The existing `hmo_contracts`/`corporate_contracts`/`subscription_plans` schema already satisfies "architecturally represented from Sprint 1."
+4. **AI Health Coach** will be LangGraph.js + Claude API (matches §5 above), not a bare standalone Claude chat — `ai_conversations` is schema-only for now.
+
+**Term mapping** (V1 spec name → actual table):
+- `screening_catalog` / `screening_recommendations` → `screen_types` / `screening_schedules` (already existed, no new tables)
+- `risk_scores` → `prevention_risk_scores` (renamed to avoid colliding with the existing chronic-disease `patient_risk_scores`)
+- `health_records` (polymorphic) → **not built**; the existing typed tables (`vitals_readings`, `screening_results`, lab results) cover it, and a unified "Health Passport" view should be a read-side query, not a new write table — flagged for explicit sign-off before building
+- `reminders` → `notifications` (channel/status/template/payload already covers it; `push` added to the channel enum)
+- `profiles` (V1 spec's account-owner-plus-dependents shape) → the existing `profiles` (1:1 with `auth.users`) plus `profile_access` plus `family_plan_members` — there is no second `profiles`-like table
+- `facilities` / `booking_requests` → new tables, global directory + org-scoped request, same trust model as `lab_providers`/`lab_orders`
 
 ---
 

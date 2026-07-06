@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          messages: Json
+          organisation_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          organisation_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          organisation_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversations_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       annual_health_checks: {
         Row: {
           completion_pct: number
@@ -173,6 +215,67 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_requests: {
+        Row: {
+          created_at: string
+          facility_id: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          profile_id: string
+          requested_date: string
+          service_type: string
+          status: Database["public"]["Enums"]["booking_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          facility_id: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          profile_id: string
+          requested_date: string
+          service_type: string
+          status?: Database["public"]["Enums"]["booking_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          facility_id?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          profile_id?: string
+          requested_date?: string
+          service_type?: string
+          status?: Database["public"]["Enums"]["booking_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_requests_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -482,6 +585,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      facilities: {
+        Row: {
+          address: string | null
+          city: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          state: string
+          type: Database["public"]["Enums"]["facility_type"]
+        }
+        Insert: {
+          address?: string | null
+          city: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          state: string
+          type: Database["public"]["Enums"]["facility_type"]
+        }
+        Update: {
+          address?: string | null
+          city?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          state?: string
+          type?: Database["public"]["Enums"]["facility_type"]
+        }
+        Relationships: []
       }
       family_plan_members: {
         Row: {
@@ -1337,6 +1479,106 @@ export type Database = {
         }
         Relationships: []
       }
+      prevention_risk_scores: {
+        Row: {
+          computed_at: string
+          condition: Database["public"]["Enums"]["prevention_condition"]
+          created_at: string
+          id: string
+          inputs_snapshot: Json
+          organisation_id: string
+          profile_id: string
+          tier: Database["public"]["Enums"]["risk_level"]
+        }
+        Insert: {
+          computed_at?: string
+          condition: Database["public"]["Enums"]["prevention_condition"]
+          created_at?: string
+          id?: string
+          inputs_snapshot?: Json
+          organisation_id: string
+          profile_id: string
+          tier?: Database["public"]["Enums"]["risk_level"]
+        }
+        Update: {
+          computed_at?: string
+          condition?: Database["public"]["Enums"]["prevention_condition"]
+          created_at?: string
+          id?: string
+          inputs_snapshot?: Json
+          organisation_id?: string
+          profile_id?: string
+          tier?: Database["public"]["Enums"]["risk_level"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_risk_scores_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_risk_scores_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_access: {
+        Row: {
+          created_at: string
+          granted_by: string
+          grantee_user_id: string
+          id: string
+          permission_level: Database["public"]["Enums"]["profile_access_level"]
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by: string
+          grantee_user_id: string
+          id?: string
+          permission_level?: Database["public"]["Enums"]["profile_access_level"]
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string
+          grantee_user_id?: string
+          id?: string
+          permission_level?: Database["public"]["Enums"]["profile_access_level"]
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_access_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_access_grantee_user_id_fkey"
+            columns: ["grantee_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_access_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1445,6 +1687,51 @@ export type Database = {
           {
             foreignKeyName: "referrals_referrer_id_fkey"
             columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_assessment_responses: {
+        Row: {
+          category: Database["public"]["Enums"]["risk_assessment_category"]
+          created_at: string
+          id: string
+          organisation_id: string
+          profile_id: string
+          question_key: string
+          response: Json
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["risk_assessment_category"]
+          created_at?: string
+          id?: string
+          organisation_id: string
+          profile_id: string
+          question_key: string
+          response?: Json
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["risk_assessment_category"]
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          profile_id?: string
+          question_key?: string
+          response?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_assessment_responses_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_assessment_responses_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1917,6 +2204,97 @@ export type Database = {
           },
         ]
       }
+      vaccination_catalog: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          recommended_age: Json
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          recommended_age?: Json
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          recommended_age?: Json
+        }
+        Relationships: []
+      }
+      vaccination_records: {
+        Row: {
+          certificate_url: string | null
+          created_at: string
+          date_administered: string
+          dose_number: number
+          id: string
+          organisation_id: string
+          profile_id: string
+          provider: string | null
+          updated_at: string
+          vaccination_catalog_id: string
+        }
+        Insert: {
+          certificate_url?: string | null
+          created_at?: string
+          date_administered: string
+          dose_number?: number
+          id?: string
+          organisation_id: string
+          profile_id: string
+          provider?: string | null
+          updated_at?: string
+          vaccination_catalog_id: string
+        }
+        Update: {
+          certificate_url?: string | null
+          created_at?: string
+          date_administered?: string
+          dose_number?: number
+          id?: string
+          organisation_id?: string
+          profile_id?: string
+          provider?: string | null
+          updated_at?: string
+          vaccination_catalog_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vaccination_records_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_records_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_records_vaccination_catalog_id_fkey"
+            columns: ["vaccination_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "vaccination_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vitals_readings: {
         Row: {
           created_at: string
@@ -2091,6 +2469,11 @@ export type Database = {
       annual_check_status: "pending" | "in_progress" | "completed"
       appointment_status: "scheduled" | "completed" | "cancelled" | "no_show"
       billing_interval: "monthly" | "yearly"
+      booking_request_status:
+        | "requested"
+        | "confirmed"
+        | "completed"
+        | "cancelled"
       care_plan_condition:
         | "hypertension"
         | "diabetes"
@@ -2110,6 +2493,13 @@ export type Database = {
         | "active"
       currency: "NGN" | "GBP" | "USD"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
+      facility_type:
+        | "hospital"
+        | "lab"
+        | "pharmacy"
+        | "radiology"
+        | "optician"
+        | "vaccination_centre"
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
       glucose_context: "fasting" | "random" | "post_meal"
       lab_order_status:
@@ -2120,9 +2510,15 @@ export type Database = {
         | "cancelled"
       medication_log_status: "taken" | "missed" | "skipped"
       medication_source: "clinician" | "patient"
-      notification_channel: "email" | "sms" | "in_app" | "whatsapp"
+      notification_channel: "email" | "sms" | "in_app" | "whatsapp" | "push"
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
-      organisation_type: "clinic" | "hmo" | "corporate" | "lab" | "pharmacy"
+      organisation_type:
+        | "clinic"
+        | "hmo"
+        | "corporate"
+        | "lab"
+        | "pharmacy"
+        | "direct_consumer"
       payment_provider: "paystack" | "stripe"
       pharmacy_order_status:
         | "requested"
@@ -2131,6 +2527,16 @@ export type Database = {
         | "out_for_delivery"
         | "delivered"
         | "cancelled"
+      prevention_condition:
+        | "hypertension"
+        | "diabetes"
+        | "cvd"
+        | "breast_ca"
+        | "cervical_ca"
+        | "colorectal_ca"
+        | "prostate_ca"
+        | "other"
+      profile_access_level: "view" | "manage"
       referral_reward_status: "pending" | "earned" | "paid"
       referral_status:
         | "pending"
@@ -2143,6 +2549,13 @@ export type Database = {
         | "doctor_refers_patient"
         | "corporate_champion"
       result_status: "normal" | "borderline" | "abnormal" | "critical"
+      risk_assessment_category:
+        | "lifestyle"
+        | "family_history"
+        | "pmh"
+        | "meds"
+        | "vaccination"
+        | "screening_history"
       risk_level: "low" | "moderate" | "high" | "very_high"
       screen_applicability: "all" | "male" | "female"
       screening_status:
@@ -2319,6 +2732,12 @@ export const Constants = {
       annual_check_status: ["pending", "in_progress", "completed"],
       appointment_status: ["scheduled", "completed", "cancelled", "no_show"],
       billing_interval: ["monthly", "yearly"],
+      booking_request_status: [
+        "requested",
+        "confirmed",
+        "completed",
+        "cancelled",
+      ],
       care_plan_condition: [
         "hypertension",
         "diabetes",
@@ -2340,6 +2759,14 @@ export const Constants = {
       ],
       currency: ["NGN", "GBP", "USD"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
+      facility_type: [
+        "hospital",
+        "lab",
+        "pharmacy",
+        "radiology",
+        "optician",
+        "vaccination_centre",
+      ],
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       glucose_context: ["fasting", "random", "post_meal"],
       lab_order_status: [
@@ -2351,9 +2778,16 @@ export const Constants = {
       ],
       medication_log_status: ["taken", "missed", "skipped"],
       medication_source: ["clinician", "patient"],
-      notification_channel: ["email", "sms", "in_app", "whatsapp"],
+      notification_channel: ["email", "sms", "in_app", "whatsapp", "push"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],
-      organisation_type: ["clinic", "hmo", "corporate", "lab", "pharmacy"],
+      organisation_type: [
+        "clinic",
+        "hmo",
+        "corporate",
+        "lab",
+        "pharmacy",
+        "direct_consumer",
+      ],
       payment_provider: ["paystack", "stripe"],
       pharmacy_order_status: [
         "requested",
@@ -2363,6 +2797,17 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
+      prevention_condition: [
+        "hypertension",
+        "diabetes",
+        "cvd",
+        "breast_ca",
+        "cervical_ca",
+        "colorectal_ca",
+        "prostate_ca",
+        "other",
+      ],
+      profile_access_level: ["view", "manage"],
       referral_reward_status: ["pending", "earned", "paid"],
       referral_status: [
         "pending",
@@ -2377,6 +2822,14 @@ export const Constants = {
         "corporate_champion",
       ],
       result_status: ["normal", "borderline", "abnormal", "critical"],
+      risk_assessment_category: [
+        "lifestyle",
+        "family_history",
+        "pmh",
+        "meds",
+        "vaccination",
+        "screening_history",
+      ],
       risk_level: ["low", "moderate", "high", "very_high"],
       screen_applicability: ["all", "male", "female"],
       screening_status: [

@@ -189,12 +189,12 @@ erDiagram
   subscription_plans ||--o{ subscriptions : instantiated_by
 ```
 
-- **Core/Auth (§3.1):** `profiles`, `organisations`.
-- **Chronic (§3.2):** `vitals_readings`, `care_plans`, `medications`, `medication_logs`, `risk_scores`/`patient_risk_scores`, `appointments`, `symptoms`, `nurse_alerts`, `escalations`.
-- **Prevention (§3.3):** `screening_schedules`, `screen_types` (seed ≥12), `screening_results`, `screening_upgrades`, `annual_health_checks`, `specialist_referrals`, `family_plan_members`.
-- **Care coordination (§3.4):** `lab_providers`, `lab_tests`, `lab_orders`, `panel_bundles`, `lab_result_interpretations`, `pharmacy_partners`, `pharmacy_medications`, `pharmacy_orders`, `commissions`.
+- **Core/Auth (§3.1):** `profiles`, `organisations`, `profile_access` (family/multi-profile login delegation — additive to `family_plan_members`, see V1 consumer-spec reconciliation in `docs/FEATURE_SPEC.md`).
+- **Chronic (§3.2):** `vitals_readings`, `care_plans`, `medications`, `medication_logs`, `patient_risk_scores` (chronic-disease ML/rule scoring), `appointments`, `symptoms`, `nurse_alerts`, `escalations`.
+- **Prevention (§3.3):** `screening_schedules`, `screen_types` (seed ≥12), `screening_results`, `screening_upgrades`, `annual_health_checks`, `specialist_referrals`, `family_plan_members`, `risk_assessment_responses`, `prevention_risk_scores` (rule-based condition tiering, distinct from `patient_risk_scores` above), `vaccination_catalog`, `vaccination_records`.
+- **Care coordination (§3.4):** `lab_providers`, `lab_tests`, `lab_orders`, `panel_bundles`, `lab_result_interpretations`, `pharmacy_partners`, `pharmacy_medications`, `pharmacy_orders`, `commissions`, `facilities`, `booking_requests` (curated directory + request-based booking, not real-time scheduling).
 - **B2B/Billing (§3.5):** `subscription_plans`, `subscriptions`, `hmo_contracts`, `corporate_contracts`, `commissions` (shared).
-- **Platform (§3.6):** `audit_log` (immutable — no UPDATE/DELETE at the Postgres constraint level), `notifications`, `referrals`. `conversation_state` lives in **Upstash Redis**, not Postgres.
+- **Platform (§3.6):** `audit_log` (immutable — no UPDATE/DELETE at the Postgres constraint level), `notifications`, `referrals`, `ai_conversations` (AI Health Coach scaffold — LangGraph.js/Claude API wiring is a separate future phase). `conversation_state` lives in **Upstash Redis**, not Postgres.
 
 ### 6.3 Money & Units
 

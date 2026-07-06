@@ -1,8 +1,9 @@
 -- Tarragon Health — Sprint 1 seed data
 --
 -- Populates the global reference catalogues only (no tenant/patient data):
--- screen_types (12), lab partners + a starter test menu, panel bundles,
--- pharmacy partners + a starter formulary, and subscription plans.
+-- screen_types, vaccination_catalog, lab partners + a starter test menu,
+-- panel bundles, pharmacy partners + a starter formulary, and subscription
+-- plans.
 -- Idempotent: safe to run repeatedly. Money is in minor units (kobo for NGN,
 -- pence for GBP). Real partner names per CLAUDE.md / FEATURE_SPEC §8.
 
@@ -24,6 +25,38 @@ values
   ('malaria_rdt',      'Malaria Rapid Diagnostic Test',   'all',    null, null, null, 0.1500, 'lab'),
   ('pcos_panel',       'PCOS Panel',                      'female', 18, 45,   null, 0.2200, 'lab'),
   ('antenatal_booking','Antenatal Booking',               'female', 15, 49,   null, null,   'clinic')
+on conflict (code) do nothing;
+
+-- screen_types — additions from TARRAGON_HEALTH_V1_SPEC.md §6 not already
+-- covered by the rows above (see docs/FEATURE_SPEC.md reconciliation note)
+insert into public.screen_types
+  (code, name, sex_applicability, age_from, age_to, frequency_months, commission_rate, recommended_provider_type)
+values
+  ('hep_c',                'Hepatitis C Test',       'all',    18, null, null, 0.2000, 'lab'),
+  ('sickle_cell_genotype', 'Sickle Cell Genotype',   'all',    18, null, null, 0.2000, 'lab'),
+  ('vision_check',         'Vision Check',           'all',    40, null, 24,   0.1500, 'clinic'),
+  ('clinical_breast_exam', 'Clinical Breast Exam',   'female', 25, null, 12,   0.1500, 'clinic'),
+  ('bone_density',         'Bone Density Scan',      'female', 65, null, null, 0.1800, 'clinic'),
+  ('colonoscopy',          'Colonoscopy',            'all',    45, null, 120,  0.2000, 'clinic')
+on conflict (code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- vaccination_catalog (V1 spec §6.5 — adult core set)
+-- ---------------------------------------------------------------------------
+insert into public.vaccination_catalog (code, name, description, recommended_age)
+values
+  ('tetanus_td_booster', 'Tetanus/Td Booster', 'Booster dose every 10 years.',
+     '{"interval_years": 10}'::jsonb),
+  ('hepatitis_b',        'Hepatitis B',        '3-dose series if non-immune.',
+     '{"dose_schedule_months": [0, 1, 6]}'::jsonb),
+  ('yellow_fever',       'Yellow Fever',       'Once, per Nigeria requirements.',
+     '{"doses": 1}'::jsonb),
+  ('hpv',                'HPV',                'Catch-up through age 26.',
+     '{"max_catch_up_age": 26}'::jsonb),
+  ('influenza',          'Influenza',          'Annual, optional.',
+     '{"interval_years": 1}'::jsonb),
+  ('shingles',           'Shingles',           'From age 50.',
+     '{"min_age": 50}'::jsonb)
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
