@@ -224,9 +224,18 @@ export async function submitRiskAssessment(
     lastCompletedByScreenTypeId
   );
 
+  // screening_schedules is written through the service-role client, same
+  // reasoning as prevention_risk_scores above: due_date/status here are the
+  // engine's own tighten-only computation, not values a patient's own RLS-
+  // scoped session should be able to set directly (an arbitrary due_date or
+  // a self-marked 'completed' status would defeat the recommendation engine
+  // entirely). Identity/org are already verified above via the patient's
+  // own session.
+  const serviceRoleClient = createServiceRoleClient();
+
   const newSchedules = recommendations.filter((rec) => !activeByScreenTypeId.has(rec.screenTypeId));
   if (newSchedules.length > 0) {
-    const { error: scheduleInsertError } = await supabase.from("screening_schedules").insert(
+    const { error: scheduleInsertError } = await serviceRoleClient.from("screening_schedules").insert(
       newSchedules.map((rec) => ({
         organisation_id: organisationId,
         patient_id: user.id,
@@ -243,7 +252,7 @@ export async function submitRiskAssessment(
   for (const rec of recommendations) {
     const existing = activeByScreenTypeId.get(rec.screenTypeId);
     if (existing && rec.dueDate < existing.due_date) {
-      const { error: scheduleUpdateError } = await supabase
+      const { error: scheduleUpdateError } = await serviceRoleClient
         .from("screening_schedules")
         .update({ due_date: rec.dueDate })
         .eq("id", existing.id);
