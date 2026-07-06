@@ -8,6 +8,8 @@ import { TodaysDoses } from "./todays-doses";
 import { AddMedicationForm } from "./add-medication-form";
 import { CarePlanDisplay } from "./care-plan-display";
 import { PreventiveScreeningCalendar } from "./preventive-screening-calendar";
+import { RiskAssessmentForm } from "./risk-assessment-form";
+import { RiskAssessmentDisplay } from "./risk-assessment-display";
 
 export default async function PatientPage() {
   const profile = await getCurrentProfile();
@@ -28,6 +30,8 @@ export default async function PatientPage() {
       <AddMedicationForm patientId={profile.id} source="patient" />
       <CarePlanDisplay patientId={profile.id} />
       <PreventiveScreeningCalendar patientId={profile.id} />
+      <RiskAssessmentForm patientId={profile.id} />
+      <RiskAssessmentDisplay patientId={profile.id} />
     </DashboardPlaceholder>
   );
 }
