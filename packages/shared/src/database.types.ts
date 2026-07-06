@@ -814,6 +814,8 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reason: string | null
+          scheduled_for_date: string | null
+          scheduled_time: string | null
           status: Database["public"]["Enums"]["medication_log_status"]
         }
         Insert: {
@@ -824,6 +826,8 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reason?: string | null
+          scheduled_for_date?: string | null
+          scheduled_time?: string | null
           status: Database["public"]["Enums"]["medication_log_status"]
         }
         Update: {
@@ -834,6 +838,8 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reason?: string | null
+          scheduled_for_date?: string | null
+          scheduled_time?: string | null
           status?: Database["public"]["Enums"]["medication_log_status"]
         }
         Relationships: [
@@ -860,8 +866,100 @@ export type Database = {
           },
         ]
       }
+      medication_refill_reminder_rules: {
+        Row: {
+          created_at: string
+          id: string
+          lead_days: number
+          organisation_id: string
+          patient_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_days: number
+          organisation_id: string
+          patient_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_days?: number
+          organisation_id?: string
+          patient_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_refill_reminder_rules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_refill_reminder_rules_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_refill_state: {
+        Row: {
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          reminded_for_refill_date: string
+          reminder_sent_at: string
+          updated_at: string
+        }
+        Insert: {
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          reminded_for_refill_date: string
+          reminder_sent_at?: string
+          updated_at?: string
+        }
+        Update: {
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          reminded_for_refill_date?: string
+          reminder_sent_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_refill_state_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: true
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_refill_state_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_refill_state_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medications: {
         Row: {
+          added_by: string | null
           care_plan_id: string | null
           created_at: string
           dose: string | null
@@ -872,9 +970,12 @@ export type Database = {
           organisation_id: string
           patient_id: string
           refill_date: string | null
+          schedule_times: Json
+          source: Database["public"]["Enums"]["medication_source"]
           updated_at: string
         }
         Insert: {
+          added_by?: string | null
           care_plan_id?: string | null
           created_at?: string
           dose?: string | null
@@ -885,9 +986,12 @@ export type Database = {
           organisation_id: string
           patient_id: string
           refill_date?: string | null
+          schedule_times?: Json
+          source?: Database["public"]["Enums"]["medication_source"]
           updated_at?: string
         }
         Update: {
+          added_by?: string | null
           care_plan_id?: string | null
           created_at?: string
           dose?: string | null
@@ -898,9 +1002,18 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           refill_date?: string | null
+          schedule_times?: Json
+          source?: Database["public"]["Enums"]["medication_source"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "medications_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "medications_care_plan_id_fkey"
             columns: ["care_plan_id"]
@@ -1877,6 +1990,90 @@ export type Database = {
           },
         ]
       }
+      vitals_reminder_rules: {
+        Row: {
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at: string
+          frequency_days: number
+          id: string
+          organisation_id: string
+          patient_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at?: string
+          frequency_days: number
+          id?: string
+          organisation_id: string
+          patient_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at?: string
+          frequency_days?: number
+          id?: string
+          organisation_id?: string
+          patient_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vitals_reminder_rules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vitals_reminder_rules_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vitals_reminder_state: {
+        Row: {
+          next_due_at: string
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          next_due_at: string
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          next_due_at?: string
+          organisation_id?: string
+          patient_id?: string
+          reminder_sent_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vitals_reminder_state_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vitals_reminder_state_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1922,6 +2119,7 @@ export type Database = {
         | "resulted"
         | "cancelled"
       medication_log_status: "taken" | "missed" | "skipped"
+      medication_source: "clinician" | "patient"
       notification_channel: "email" | "sms" | "in_app" | "whatsapp"
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
       organisation_type: "clinic" | "hmo" | "corporate" | "lab" | "pharmacy"
@@ -2152,6 +2350,7 @@ export const Constants = {
         "cancelled",
       ],
       medication_log_status: ["taken", "missed", "skipped"],
+      medication_source: ["clinician", "patient"],
       notification_channel: ["email", "sms", "in_app", "whatsapp"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],
       organisation_type: ["clinic", "hmo", "corporate", "lab", "pharmacy"],

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useClinicianAlerts, useAcknowledgeAlert } from "@/lib/queries/clinician-alerts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -45,7 +46,13 @@ export function Worklist() {
                       {isOverdue && <Badge variant="red">Overdue</Badge>}
                     </div>
                     <p className="text-sm font-medium text-charcoal-ink">
-                      {alert.patient?.full_name ?? "Unknown patient"} — {alert.title}
+                      <Link
+                        href={`/clinician/patients/${alert.patient_id}`}
+                        className="hover:underline"
+                      >
+                        {alert.patient?.full_name ?? "Unknown patient"}
+                      </Link>{" "}
+                      — {alert.title}
                     </p>
                     {alert.sla_due_at && (
                       <p className="text-xs text-charcoal-ink/60">

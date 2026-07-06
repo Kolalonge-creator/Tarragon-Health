@@ -65,7 +65,7 @@ Prevention and chronic management **share the same patient record** — design e
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
 Current Sprint: Sprint 2 — Core Patient OS
 Sprint Goal: Real data wired into the patient and clinician dashboards, starting with vitals logging and the clinician worklist
-Current Task: Vitals logging (patient) + clinician worklist reading from `clinician_alerts` (org-wide, no per-clinician assignment yet)
+Current Task: Medication schedule + refill reminders — patients and clinicians can both add medications with structured dose times, patients log adherence per dose, admin-configurable refill lead-time queues `notifications` rows daily via `pg_cron` (send is deferred to a later session)
 Active Service: TypeScript
 
 ## Definition of Done
