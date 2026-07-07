@@ -65,7 +65,7 @@ Prevention and chronic management **share the same patient record** — design e
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
 Current Sprint: Sprint 3 — V1 Consumer Prevention Foundation
 Sprint Goal: Reconcile `TARRAGON_HEALTH_V1_SPEC.md` (standalone consumer build brief) with the existing schema and ship the DB foundation for risk assessment, vaccination registry, family profile-access, facility directory, and an AI coach scaffold — see `docs/FEATURE_SPEC.md` §10 for the reconciliation decisions. No new B2B/HMO/corporate feature work until this track ships.
-Current Task: Phases 0–6 merged (schema foundation, WhatsApp/Termii notification send layer, risk assessment questionnaire + rule-based tiering, screening recommendation engine, 4-step wizard UX, vaccination registry UI, facility directory — patient search/booking-request flow, admin facility+services management, admin booking-status view, 30/7/3/1-day booking reminder cron). Next: the AI Health Coach.
+Current Task: Phases 0–7 merged (schema foundation, WhatsApp/Termii notification send layer, risk assessment questionnaire + rule-based tiering, screening recommendation engine, 4-step wizard UX, vaccination registry UI, facility directory — patient search/booking-request flow, admin facility+services management, admin booking-status view, 30/7/3/1-day booking reminder cron, AI Health Coach — LangGraph.js/Claude chat gated by admin-testing + plan entitlement, rate limiting, escalation guardrails). Sprint 3 complete. Next: Sprint 4 (Python ML microservice — SCORE2 CVD risk, HbA1c trajectory, BP control assessment, lab/screening interpretation) per the 7-sprint plan.
 Active Service: TypeScript
 
 ## Definition of Done
