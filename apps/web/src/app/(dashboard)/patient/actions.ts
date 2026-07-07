@@ -10,7 +10,7 @@ import {
 } from "@/lib/validation/risk-assessment";
 import { computeRiskTiers } from "@/lib/rules/risk-scoring";
 import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
-import { mgDlToMmolL, type Json } from "@tarragon/shared";
+import { ageFromDateOfBirth, mgDlToMmolL, type Json } from "@tarragon/shared";
 
 export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
 
@@ -179,11 +179,7 @@ export async function submitRiskAssessment(
     .limit(1)
     .maybeSingle();
 
-  const ageYears = profile.date_of_birth
-    ? Math.floor(
-        (Date.now() - new Date(profile.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-      )
-    : null;
+  const ageYears = ageFromDateOfBirth(profile.date_of_birth);
 
   const scores = computeRiskTiers(responses, {
     sex: profile.sex,

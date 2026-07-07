@@ -45,6 +45,17 @@ export function mmolLToMgDl(mmolL: number): number {
   return Math.round(mmolL * GLUCOSE_MMOL_TO_MGDL);
 }
 
+/** Whole-year age from a date_of_birth, or null if unknown. Used wherever a
+ * rules engine needs age thresholds (risk tiers, screening/vaccination due
+ * dates) — a single definition so they all agree on the same rough-but-
+ * consistent calendar math. */
+export function ageFromDateOfBirth(dateOfBirth: string | null): number | null {
+  if (!dateOfBirth) return null;
+  return Math.floor(
+    (Date.now() - new Date(dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+  );
+}
+
 /** Nigerian E.164 phone number, e.g. +234XXXXXXXXXX. */
 export const E164_NG = /^\+234\d{10}$/;
 

@@ -65,7 +65,7 @@ Prevention and chronic management **share the same patient record** — design e
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
 Current Sprint: Sprint 3 — V1 Consumer Prevention Foundation
 Sprint Goal: Reconcile `TARRAGON_HEALTH_V1_SPEC.md` (standalone consumer build brief) with the existing schema and ship the DB foundation for risk assessment, vaccination registry, family profile-access, facility directory, and an AI coach scaffold — see `docs/FEATURE_SPEC.md` §10 for the reconciliation decisions. No new B2B/HMO/corporate feature work until this track ships.
-Current Task: Phase 0 complete — schema migrations (`profile_access`, `risk_assessment_responses`/`prevention_risk_scores`, `vaccination_catalog`/`vaccination_records`, `facilities`/`booking_requests`, `ai_conversations`, default `direct_consumer` organisation) + seed data + doc reconciliation. Next: notification send layer (WhatsApp/Termii), then the risk-tier rules engine.
+Current Task: Phases 0–4 merged (schema foundation, WhatsApp/Termii notification send layer, risk assessment questionnaire + rule-based tiering, screening recommendation engine, 4-step wizard UX). Phase 5 (vaccination registry UI — due/overdue status engine, patient-facing registry + log-a-dose form) in progress. Next: facility directory, then the AI Health Coach.
 Active Service: TypeScript
 
 ## Definition of Done
