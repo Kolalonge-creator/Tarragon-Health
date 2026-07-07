@@ -7,6 +7,7 @@
  */
 
 export * from "./ml-client";
+export * from "./ai-coach-types";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -62,6 +63,31 @@ export const E164_NG = /^\+234\d{10}$/;
 export function isValidNgPhone(value: string): boolean {
   return E164_NG.test(value);
 }
+
+/** Any E.164 phone number (country code + subscriber number, 8-15 digits total). */
+export const E164_GENERIC = /^\+[1-9]\d{7,14}$/;
+
+export function isValidE164Phone(value: string): boolean {
+  return E164_GENERIC.test(value);
+}
+
+/**
+ * Country dial codes offered on signup. Nigeria is the primary market and
+ * listed first/default; the rest cover where Nigerian diaspora family
+ * members registering for a family package are most likely to be based.
+ */
+export const COUNTRY_CALLING_CODES = [
+  { iso: "NG", label: "Nigeria", dialCode: "+234" },
+  { iso: "GB", label: "United Kingdom", dialCode: "+44" },
+  { iso: "US", label: "United States / Canada", dialCode: "+1" },
+  { iso: "GH", label: "Ghana", dialCode: "+233" },
+  { iso: "ZA", label: "South Africa", dialCode: "+27" },
+  { iso: "KE", label: "Kenya", dialCode: "+254" },
+  { iso: "AE", label: "United Arab Emirates", dialCode: "+971" },
+  { iso: "IE", label: "Ireland", dialCode: "+353" },
+  { iso: "DE", label: "Germany", dialCode: "+49" },
+] as const;
+export type CountryCallingCode = (typeof COUNTRY_CALLING_CODES)[number];
 
 /** profiles.role enum — derived from the generated DB types (FEATURE_SPEC §3.1). */
 export type UserRole = Enums<"user_role">;

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { createClient } from "@/lib/supabase/server";
+import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
@@ -15,12 +17,16 @@ import { VaccinationRegistry } from "./vaccination-registry";
 import { LogVaccinationForm } from "./log-vaccination-form";
 import { FacilityDirectory } from "./facility-directory";
 import { BookingRequestsList } from "./booking-requests-list";
+import { AiCoachChat } from "./ai-coach-chat";
 
 export default async function PatientPage() {
   const profile = await getCurrentProfile();
   if (!profile) {
     redirect("/login");
   }
+
+  const supabase = await createClient();
+  const coachAccess = await hasCoachAccess(supabase);
 
   return (
     <DashboardPlaceholder
@@ -44,6 +50,7 @@ export default async function PatientPage() {
       <LogVaccinationForm patientId={profile.id} />
       <FacilityDirectory patientId={profile.id} />
       <BookingRequestsList patientId={profile.id} />
+      {coachAccess && <AiCoachChat patientId={profile.id} />}
     </DashboardPlaceholder>
   );
 }

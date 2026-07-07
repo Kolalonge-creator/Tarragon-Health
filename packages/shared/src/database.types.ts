@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_coach_access_rules: {
+        Row: {
+          created_at: string
+          daily_limit: number | null
+          enabled: boolean
+          id: string
+          organisation_id: string
+          patient_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_limit?: number | null
+          enabled?: boolean
+          id?: string
+          organisation_id: string
+          patient_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_limit?: number | null
+          enabled?: boolean
+          id?: string
+          organisation_id?: string
+          patient_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_coach_access_rules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_coach_access_rules_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_conversations: {
         Row: {
           created_at: string
@@ -2113,6 +2158,7 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          ai_coach_daily_limit: number | null
           code: string
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
@@ -2125,6 +2171,7 @@ export type Database = {
           price_minor: number
         }
         Insert: {
+          ai_coach_daily_limit?: number | null
           code: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -2137,6 +2184,7 @@ export type Database = {
           price_minor?: number
         }
         Update: {
+          ai_coach_daily_limit?: number | null
           code?: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -2527,7 +2575,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_ai_coach_daily_limit: { Args: never; Returns: number }
+      has_ai_coach_access: { Args: never; Returns: boolean }
     }
     Enums: {
       alert_level:
@@ -2947,3 +2996,4 @@ export const Constants = {
     },
   },
 } as const
+
