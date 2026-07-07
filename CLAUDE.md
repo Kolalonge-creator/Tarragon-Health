@@ -63,10 +63,10 @@ Prevention and chronic management **share the same patient record** — design e
 - Voice: a nurse who knows your name, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
 
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
-Current Sprint: Sprint 3 — V1 Consumer Prevention Foundation
-Sprint Goal: Reconcile `TARRAGON_HEALTH_V1_SPEC.md` (standalone consumer build brief) with the existing schema and ship the DB foundation for risk assessment, vaccination registry, family profile-access, facility directory, and an AI coach scaffold — see `docs/FEATURE_SPEC.md` §10 for the reconciliation decisions. No new B2B/HMO/corporate feature work until this track ships.
-Current Task: Phases 0–7 merged (schema foundation, WhatsApp/Termii notification send layer, risk assessment questionnaire + rule-based tiering, screening recommendation engine, 4-step wizard UX, vaccination registry UI, facility directory — patient search/booking-request flow, admin facility+services management, admin booking-status view, 30/7/3/1-day booking reminder cron, AI Health Coach — LangGraph.js/Claude chat gated by admin-testing + plan entitlement, rate limiting, escalation guardrails). Sprint 3 complete. Next: Sprint 4 (Python ML microservice — SCORE2 CVD risk, HbA1c trajectory, BP control assessment, lab/screening interpretation) per the 7-sprint plan.
-Active Service: TypeScript
+Current Sprint: Sprint 4 — Python ML Microservice
+Sprint Goal: Build out `services/ml` (Sprint 1 gave it a bare FastAPI scaffold) into the SCORE2 CVD/HbA1c-trajectory/BP-control/lab-interpretation/cohort-analytics service, wire it into the TypeScript platform via `packages/shared/ml-client.ts`, and deploy it — per `docs/FEATURE_SPEC.md` §4 Sprint 4 detail (weeks 7–9).
+Current Task: Week 7 done — SCORE2 + SCORE2-OP 10-year CVD risk (published coefficients, region-calibrated), HbA1c trajectory (scipy linregress + Nathan/ADAG eAG formula + 90% CI), 30-day BP control assessment (control rate, systolic variability, morning-BP-elevation flag), all under `X-Service-Key` auth with full unit + integration test coverage. Next: Week 8 (Nigerian/WHO lab reference ranges, screening result interpretation feeding AbnormalResultHandler, `/analytics/cohort` population analytics, batch prediction).
+Active Service: Python
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

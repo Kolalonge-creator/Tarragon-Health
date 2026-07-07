@@ -12,13 +12,14 @@ from typing import Any
 from fastapi import FastAPI
 
 from . import __version__
-from .routers import health
+from .routers import diabetes, health, hypertension, risk
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Sprint 4 will load SCORE2 coefficients and any fitted models here,
-    # once, into app.state so requests never pay load cost.
+    # SCORE2/HbA1c/BP-control are pure functions with no fitted artifacts to
+    # load. Later models (population cohort analytics, batch prediction) that
+    # do need warm state will populate this dict once, here, at startup.
     models: dict[str, Any] = {}
     app.state.models = models
     yield
@@ -33,6 +34,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(health.router)
+    app.include_router(risk.router)
+    app.include_router(diabetes.router)
+    app.include_router(hypertension.router)
     return app
 
 
