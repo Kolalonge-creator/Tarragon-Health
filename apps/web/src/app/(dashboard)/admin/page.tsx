@@ -60,6 +60,49 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <Link href="/admin/facilities" className="hover:underline">
+              Facility directory
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Add facilities patients can browse and request bookings from, and manage what each
+            one offers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/facilities"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage facilities →
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <Link href="/admin/bookings" className="hover:underline">
+              Booking requests
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            See every facility booking request patients have submitted and update its status.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/bookings"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            View booking requests →
+          </Link>
+        </CardContent>
+      </Card>
     </DashboardPlaceholder>
   );
 }

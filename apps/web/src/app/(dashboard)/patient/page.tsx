@@ -13,6 +13,8 @@ import { RiskAssessmentForm } from "./risk-assessment-form";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationRegistry } from "./vaccination-registry";
 import { LogVaccinationForm } from "./log-vaccination-form";
+import { FacilityDirectory } from "./facility-directory";
+import { BookingRequestsList } from "./booking-requests-list";
 
 export default async function PatientPage() {
   const profile = await getCurrentProfile();
@@ -40,6 +42,8 @@ export default async function PatientPage() {
         ageYears={ageFromDateOfBirth(profile.date_of_birth)}
       />
       <LogVaccinationForm patientId={profile.id} />
+      <FacilityDirectory patientId={profile.id} />
+      <BookingRequestsList patientId={profile.id} />
     </DashboardPlaceholder>
   );
 }

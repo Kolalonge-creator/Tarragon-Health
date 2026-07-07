@@ -219,6 +219,32 @@ export type Database = {
           },
         ]
       }
+      booking_reminder_sends: {
+        Row: {
+          booking_request_id: string
+          milestone_days: number
+          sent_at: string
+        }
+        Insert: {
+          booking_request_id: string
+          milestone_days: number
+          sent_at?: string
+        }
+        Update: {
+          booking_request_id?: string
+          milestone_days?: number
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_reminder_sends_booking_request_id_fkey"
+            columns: ["booking_request_id"]
+            isOneToOne: false
+            referencedRelation: "booking_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_requests: {
         Row: {
           created_at: string
@@ -624,6 +650,44 @@ export type Database = {
           type?: Database["public"]["Enums"]["facility_type"]
         }
         Relationships: []
+      }
+      facility_services: {
+        Row: {
+          created_at: string
+          description: string | null
+          facility_id: string
+          id: string
+          is_active: boolean
+          name: string
+          price_kobo: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          facility_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          price_kobo?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          facility_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_kobo?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_services_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       family_plan_members: {
         Row: {
