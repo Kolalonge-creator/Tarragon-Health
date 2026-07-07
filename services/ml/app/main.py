@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import FastAPI
 
 from . import __version__
-from .routers import diabetes, health, hypertension, risk
+from .routers import analytics, batch, diabetes, health, hypertension, labs, risk
 
 
 @asynccontextmanager
@@ -29,7 +29,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Tarragon Health ML Service",
-        description="Stateless ML microservice — SCORE2, HbA1c trajectory, BP control.",
+        description="Stateless ML microservice — SCORE2, HbA1c trajectory, BP control, lab "
+        "interpretation, cohort analytics, batch prediction.",
         version=__version__,
         lifespan=lifespan,
     )
@@ -37,6 +38,9 @@ def create_app() -> FastAPI:
     app.include_router(risk.router)
     app.include_router(diabetes.router)
     app.include_router(hypertension.router)
+    app.include_router(labs.router)
+    app.include_router(analytics.router)
+    app.include_router(batch.router)
     return app
 
 
