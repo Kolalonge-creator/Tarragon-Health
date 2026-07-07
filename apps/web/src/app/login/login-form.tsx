@@ -1,10 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { signInWithEmail, requestPhoneOtp, verifyPhoneOtp } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
@@ -109,7 +111,31 @@ function PhoneLoginForm({ redirectTo }: { redirectTo?: string }) {
     <form action={requestAction} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="phone">Phone number</Label>
-        <Input id="phone" name="phone" type="tel" placeholder="+234XXXXXXXXXX" required />
+        <div className="flex gap-2">
+          <Select
+            id="countryCode"
+            name="countryCode"
+            autoComplete="tel-country-code"
+            defaultValue={COUNTRY_CALLING_CODES[0].dialCode}
+            className="w-auto shrink-0"
+            aria-label="Country code"
+            required
+          >
+            {COUNTRY_CALLING_CODES.map((country) => (
+              <option key={country.iso} value={country.dialCode}>
+                {country.label} ({country.dialCode})
+              </option>
+            ))}
+          </Select>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel-national"
+            placeholder="XXXXXXXXXX"
+            required
+          />
+        </div>
       </div>
       {requestState?.error && <p className="text-sm text-red-600">{requestState.error}</p>}
       <Button type="submit" className="w-full" disabled={requestPending}>

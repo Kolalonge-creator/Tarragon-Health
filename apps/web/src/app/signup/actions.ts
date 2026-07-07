@@ -18,8 +18,10 @@ export async function signUp(
   formData: FormData
 ): Promise<SignupActionState> {
   const parsed = signupSchema.safeParse({
-    fullName: formData.get("fullName"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
     email: formData.get("email"),
+    countryCode: formData.get("countryCode"),
     phone: formData.get("phone"),
     password: formData.get("password"),
   });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { E164_NG } from "@tarragon/shared";
+import { E164_GENERIC } from "@tarragon/shared";
 
 export const emailLoginSchema = z.object({
   email: z.email(),
@@ -7,21 +7,50 @@ export const emailLoginSchema = z.object({
 });
 export type EmailLoginInput = z.infer<typeof emailLoginSchema>;
 
-export const phoneOtpRequestSchema = z.object({
-  phone: z.string().regex(E164_NG, "Enter a Nigerian number, e.g. +234XXXXXXXXXX"),
+const phoneCombineSchema = z.object({
+  countryCode: z.string().regex(/^\+\d{1,4}$/, "Select a country code"),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\d{6,14}$/, "Enter a valid phone number"),
 });
+
+export const phoneOtpRequestSchema = phoneCombineSchema
+  .transform((data) => ({ phone: `${data.countryCode}${data.phone}` }))
+  .refine((data) => E164_GENERIC.test(data.phone), {
+    message: "Enter a valid phone number for the selected country",
+    path: ["phone"],
+  });
 export type PhoneOtpRequestInput = z.infer<typeof phoneOtpRequestSchema>;
 
 export const phoneOtpVerifySchema = z.object({
-  phone: z.string().regex(E164_NG, "Enter a Nigerian number, e.g. +234XXXXXXXXXX"),
+  phone: z.string().regex(E164_GENERIC, "Enter a valid phone number"),
   token: z.string().length(6, "Enter the 6-digit code"),
 });
 export type PhoneOtpVerifyInput = z.infer<typeof phoneOtpVerifySchema>;
 
-export const signupSchema = z.object({
-  fullName: z.string().trim().min(2, "Enter your full name"),
-  email: z.email(),
-  phone: z.string().regex(E164_NG, "Enter a Nigerian number, e.g. +234XXXXXXXXXX"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+export const signupSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "Enter your first name"),
+    lastName: z.string().trim().min(1, "Enter your last name"),
+    email: z.email(),
+    // Country code (e.g. "+234") and local subscriber number are collected
+    // as separate fields so diaspora family members without a Nigerian
+    // number can still register for a family package; combined below.
+    countryCode: z.string().regex(/^\+\d{1,4}$/, "Select a country code"),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^\d{6,14}$/, "Enter a valid phone number"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+  })
+  .transform((data) => ({
+    ...data,
+    fullName: `${data.firstName} ${data.lastName}`.trim(),
+    phone: `${data.countryCode}${data.phone}`,
+  }))
+  .refine((data) => E164_GENERIC.test(data.phone), {
+    message: "Enter a valid phone number for the selected country",
+    path: ["phone"],
+  });
 export type SignupInput = z.infer<typeof signupSchema>;
