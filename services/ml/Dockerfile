@@ -9,17 +9,15 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 # Install dependencies first (cached unless the lock/manifest changes).
-# id= is required by some BuildKit-based builders (e.g. Railway's), which
-# reject an unnamed cache mount even though it's optional per the Dockerfile
-# spec proper.
+# No --mount=type=cache: some builders (e.g. Railway's) enforce
+# builder-specific requirements on cache mount ids beyond the Dockerfile
+# spec proper, so plain (uncached) installs are the portable choice here.
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
-    uv sync --frozen --no-install-project --no-dev
+RUN uv sync --frozen --no-install-project --no-dev
 
 # Then the application itself.
 COPY app ./app
-RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
-    uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev
 
 
 FROM python:3.12-slim-bookworm AS runtime
