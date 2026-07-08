@@ -12,6 +12,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.config import get_settings
 from app.main import create_app
+from app.rate_limit import reset_rate_limit_state
 
 TEST_SERVICE_KEY = "test-service-key"
 
@@ -23,6 +24,13 @@ def _configured_service_key(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _clean_rate_limit_state() -> Iterator[None]:
+    reset_rate_limit_state()
+    yield
+    reset_rate_limit_state()
 
 
 @pytest_asyncio.fixture

@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_coach_access_rules: {
+        Row: {
+          created_at: string
+          daily_limit: number | null
+          enabled: boolean
+          id: string
+          organisation_id: string
+          patient_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_limit?: number | null
+          enabled?: boolean
+          id?: string
+          organisation_id: string
+          patient_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_limit?: number | null
+          enabled?: boolean
+          id?: string
+          organisation_id?: string
+          patient_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_coach_access_rules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_coach_access_rules_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_conversations: {
         Row: {
           created_at: string
@@ -215,6 +260,32 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_reminder_sends: {
+        Row: {
+          booking_request_id: string
+          milestone_days: number
+          sent_at: string
+        }
+        Insert: {
+          booking_request_id: string
+          milestone_days: number
+          sent_at?: string
+        }
+        Update: {
+          booking_request_id?: string
+          milestone_days?: number
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_reminder_sends_booking_request_id_fkey"
+            columns: ["booking_request_id"]
+            isOneToOne: false
+            referencedRelation: "booking_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -625,6 +696,44 @@ export type Database = {
         }
         Relationships: []
       }
+      facility_services: {
+        Row: {
+          created_at: string
+          description: string | null
+          facility_id: string
+          id: string
+          is_active: boolean
+          name: string
+          price_kobo: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          facility_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          price_kobo?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          facility_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_kobo?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_services_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_plan_members: {
         Row: {
           conditions: string[]
@@ -736,6 +845,54 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_analyte_readings: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          taken_at: string
+          unit: string
+          value: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          taken_at?: string
+          unit: string
+          value: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          taken_at?: string
+          unit?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_analyte_readings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_analyte_readings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2049,6 +2206,7 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          ai_coach_daily_limit: number | null
           code: string
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
@@ -2061,6 +2219,7 @@ export type Database = {
           price_minor: number
         }
         Insert: {
+          ai_coach_daily_limit?: number | null
           code: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -2073,6 +2232,7 @@ export type Database = {
           price_minor?: number
         }
         Update: {
+          ai_coach_daily_limit?: number | null
           code?: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -2463,7 +2623,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_ai_coach_daily_limit: { Args: never; Returns: number }
+      has_ai_coach_access: { Args: never; Returns: boolean }
     }
     Enums: {
       alert_level:

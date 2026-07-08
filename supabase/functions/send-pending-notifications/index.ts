@@ -1,7 +1,8 @@
 // Tarragon Health — notification send layer (Phase 1)
 //
-// Consumes `notifications` rows queued by the Sprint 2 reminder cron jobs
-// (queue_vitals_reminders, queue_medication_refill_reminders). Invoked every
+// Consumes `notifications` rows queued by the Sprint 2/3 reminder cron jobs
+// (queue_vitals_reminders, queue_medication_refill_reminders,
+// queue_booking_reminders). Invoked every
 // 5 minutes by pg_cron + pg_net (see the schedule_notification_sender
 // migration) — not the abnormal-result path, which needs its own
 // trigger-invoked, 60-second-SLA handler (docs/ARCHITECTURE.md §7).
@@ -73,6 +74,30 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, your ${drugName} refill is due ${refillDate}. ` +
+        `Reply on WhatsApp or open the app. — Tarragon Health`,
+    };
+  },
+  booking_reminder: (payload) => {
+    const facilityName = String(payload.facility_name ?? "your facility");
+    const serviceType = String(payload.service_type ?? "your appointment");
+    const requestedDate = String(payload.requested_date ?? "soon");
+    const daysBefore = String(payload.days_before ?? "");
+    return {
+      metaTemplateName: "booking_reminder",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: serviceType },
+            { type: "text", text: facilityName },
+            { type: "text", text: requestedDate },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, reminder: your ${serviceType} request at ${facilityName} is for ${requestedDate} ` +
+        `(${daysBefore} day${daysBefore === "1" ? "" : "s"} from now). ` +
         `Reply on WhatsApp or open the app. — Tarragon Health`,
     };
   },

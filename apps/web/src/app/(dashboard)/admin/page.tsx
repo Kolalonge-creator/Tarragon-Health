@@ -60,6 +60,71 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <Link href="/admin/facilities" className="hover:underline">
+              Facility directory
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Add facilities patients can browse and request bookings from, and manage what each
+            one offers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/facilities"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage facilities →
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <Link href="/admin/bookings" className="hover:underline">
+              Booking requests
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            See every facility booking request patients have submitted and update its status.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/bookings"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            View booking requests →
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <Link href="/admin/settings/ai-coach" className="hover:underline">
+              AI Health Coach (internal testing)
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Try the AI Coach yourself before it&apos;s released to patients — it&apos;s gated to
+            admins only until a subscription plan lists the ai_coach feature.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/ai-coach"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Try the coach →
+          </Link>
+        </CardContent>
+      </Card>
     </DashboardPlaceholder>
   );
 }

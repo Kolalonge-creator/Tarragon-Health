@@ -10,7 +10,62 @@ import {
 } from "@/lib/validation/risk-assessment";
 import { computeRiskTiers } from "@/lib/rules/risk-scoring";
 import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
-import { mgDlToMmolL, type Json } from "@tarragon/shared";
+import { ageFromDateOfBirth, createMlClientFromEnv, mgDlToMmolL, type Json } from "@tarragon/shared";
+
+/** Trailing window for BP-control assessment, matching services/ml's CONTROL_WINDOW_DAYS. */
+const BP_CONTROL_WINDOW_DAYS = 30;
+
+/**
+ * Best-effort BP-control assessment after a blood_pressure vitals insert.
+ * Never throws and never blocks `logVital`'s own success response — the ML
+ * service is stateless/optional per CLAUDE.md ("platform must keep working
+ * if ML is down"), so any failure here (client unconfigured, ML down,
+ * insufficient history) is a silent no-op, not a user-facing error.
+ */
+async function assessBpControlBestEffort(
+  patientId: string,
+  organisationId: string
+): Promise<void> {
+  const mlClient = createMlClientFromEnv();
+  if (!mlClient) return;
+
+  const supabase = await createClient();
+  const since = new Date(Date.now() - BP_CONTROL_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data: readings } = await supabase
+    .from("vitals_readings")
+    .select("taken_at, systolic, diastolic")
+    .eq("patient_id", patientId)
+    .eq("vital_type", "blood_pressure")
+    .gte("taken_at", since)
+    .order("taken_at", { ascending: true });
+
+  if (!readings || readings.length === 0) return;
+
+  const assessment = await mlClient.bpControl({
+    readings: readings
+      .filter((r) => r.systolic !== null && r.diastolic !== null)
+      .map((r) => ({
+        taken_at: r.taken_at,
+        systolic: r.systolic as number,
+        diastolic: r.diastolic as number,
+      })),
+  });
+  if (!assessment) return;
+
+  // patient_risk_scores is staff-only-write by RLS (is_org_staff) — this is
+  // a system computation, not the patient's own raw input, same reasoning
+  // as prevention_risk_scores/screening_schedules below.
+  await createServiceRoleClient()
+    .from("patient_risk_scores")
+    .insert({
+      organisation_id: organisationId,
+      patient_id: patientId,
+      score_type: "bp_control",
+      score: assessment.control_rate_percent,
+      model_version: "bp_control_v1",
+      inputs: assessment as unknown as Json,
+    });
+}
 
 export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
 
@@ -66,6 +121,10 @@ export async function logVital(
   });
   if (error) {
     return { error: error.message };
+  }
+
+  if (row.vital_type === "blood_pressure") {
+    await assessBpControlBestEffort(user.id, profile.organisation_id);
   }
 
   return { success: true };
@@ -179,11 +238,7 @@ export async function submitRiskAssessment(
     .limit(1)
     .maybeSingle();
 
-  const ageYears = profile.date_of_birth
-    ? Math.floor(
-        (Date.now() - new Date(profile.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-      )
-    : null;
+  const ageYears = ageFromDateOfBirth(profile.date_of_birth);
 
   const scores = computeRiskTiers(responses, {
     sex: profile.sex,
