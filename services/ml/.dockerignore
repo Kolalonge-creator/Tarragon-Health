@@ -11,4 +11,3 @@ tests/
 !.env.example
 .git/
 .gitignore
-README.md
