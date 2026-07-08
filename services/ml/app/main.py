@@ -9,9 +9,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
+import sentry_sdk
 from fastapi import FastAPI
 
 from . import __version__
+from .config import get_settings
 from .routers import analytics, batch, diabetes, health, hypertension, labs, risk
 
 
@@ -27,6 +29,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
+    if settings.sentry_dsn:
+        sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment)
+
     app = FastAPI(
         title="Tarragon Health ML Service",
         description="Stateless ML microservice — SCORE2, HbA1c trajectory, BP control, lab "

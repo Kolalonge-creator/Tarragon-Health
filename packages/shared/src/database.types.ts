@@ -849,6 +849,54 @@ export type Database = {
           },
         ]
       }
+      lab_analyte_readings: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          taken_at: string
+          unit: string
+          value: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          taken_at?: string
+          unit: string
+          value: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          taken_at?: string
+          unit?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_analyte_readings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_analyte_readings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_orders: {
         Row: {
           created_at: string
@@ -2996,4 +3044,3 @@ export const Constants = {
     },
   },
 } as const
-

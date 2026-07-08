@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # header. Empty in local dev unless set; required in production.
     ml_service_key: str = Field(default="", alias="ML_SERVICE_KEY")
 
+    # Optional. Sentry error tracking — unset (the default) means
+    # sentry_sdk.init() is never called, so local dev has zero Sentry
+    # dependency at runtime.
+    sentry_dsn: str | None = Field(default=None, alias="SENTRY_DSN")
+
 
 @lru_cache
 def get_settings() -> Settings:

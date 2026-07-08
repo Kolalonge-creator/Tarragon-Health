@@ -7,6 +7,12 @@
       "runtimeArgs": ["--filter", "@tarragon/web", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "ml",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--directory", "services/ml", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"],
+      "port": 8000
     }
   ]
 }

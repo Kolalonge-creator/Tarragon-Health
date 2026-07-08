@@ -1,3 +1,5 @@
+import type { Enums } from "./database.types";
+
 /**
  * Typed client for the stateless Python ML microservice (`services/ml`).
  *
@@ -8,9 +10,211 @@
  *   returns `null` on any error, non-2xx, timeout, or malformed JSON. Every
  *   caller must have a non-ML fallback path (e.g. a rule-based score).
  * - The ML service is stateless; nothing here persists patient data.
+ *
+ * Request/response shapes below mirror `services/ml/app/schemas/*.py`
+ * (Pydantic) field-for-field. Where a DB enum is an exact 1:1 match with the
+ * Python `Literal` (sex, result_status) it's reused from `database.types.ts`
+ * rather than redeclared; where it isn't (e.g. the DB's `risk_level` enum
+ * also carries `very_high`, which SCORE2's own `RiskLevel` never emits) a
+ * narrower type is declared here to match the Python schema exactly.
  */
 
 export const ML_DEFAULT_TIMEOUT_MS = 5_000;
+
+type Sex = Enums<"sex">;
+type ResultStatus = Enums<"result_status">;
+
+// --- /risk/cvd (services/ml/app/schemas/risk.py) ---------------------------
+
+export type Score2RiskLevel = "low" | "moderate" | "high";
+export type Score2RiskRegion = "low" | "moderate" | "high" | "very_high";
+export type Score2ModelName = "SCORE2" | "SCORE2-OP";
+
+export interface Score2Request {
+  age: number;
+  sex: Sex;
+  is_smoker: boolean;
+  systolic_bp: number;
+  total_cholesterol_mg_dl: number;
+  hdl_cholesterol_mg_dl: number;
+  risk_region?: Score2RiskRegion;
+}
+
+export interface Score2Response {
+  cvd_risk_10yr_percent: number;
+  risk_level: Score2RiskLevel;
+  model: Score2ModelName;
+  risk_region: Score2RiskRegion;
+}
+
+// --- /trajectory/hba1c (services/ml/app/schemas/diabetes.py) ---------------
+
+export type HbA1cTrend = "improving" | "stable" | "worsening" | "insufficient_data";
+
+export interface HbA1cReadingIn {
+  /** ISO date, e.g. "2026-01-15". */
+  on: string;
+  value_percent: number;
+}
+
+export interface HbA1cTrajectoryRequest {
+  readings: HbA1cReadingIn[];
+}
+
+export interface HbA1cTrajectoryResponse {
+  latest_value_percent: number;
+  estimated_average_glucose_mg_dl: number;
+  estimated_average_glucose_mmol_l: number;
+  trend: HbA1cTrend;
+  slope_percent_per_90_days: number | null;
+  r_squared: number | null;
+  projected_value_percent: number | null;
+  projected_value_ci90_low: number | null;
+  projected_value_ci90_high: number | null;
+}
+
+// --- /assess/bp-control (services/ml/app/schemas/hypertension.py) ----------
+
+export interface BpReadingIn {
+  /** ISO datetime, timezone-aware. */
+  taken_at: string;
+  systolic: number;
+  diastolic: number;
+}
+
+export interface BpControlRequest {
+  readings: BpReadingIn[];
+  control_systolic?: number;
+  control_diastolic?: number;
+  /** ISO datetime; defaults server-side to the latest reading's timestamp. */
+  as_of?: string;
+}
+
+export interface BpControlResponse {
+  window_start: string;
+  window_end: string;
+  readings_in_window: number;
+  control_rate_percent: number | null;
+  systolic_mean: number | null;
+  systolic_sd: number | null;
+  systolic_cv_percent: number | null;
+  morning_readings: number;
+  morning_systolic_mean: number | null;
+  morning_diastolic_mean: number | null;
+  morning_surge_flag: boolean | null;
+}
+
+// --- /interpret/labs (services/ml/app/schemas/labs.py) ---------------------
+
+export type AnalyteCode =
+  | "fasting_glucose"
+  | "hba1c"
+  | "total_cholesterol"
+  | "hdl_cholesterol"
+  | "ldl_cholesterol"
+  | "triglycerides"
+  | "psa";
+export type HbA1cUnit = "percent" | "mmol_mol";
+export type QualitativeResult = "positive" | "negative";
+
+export interface AnalyteReadingIn {
+  code: AnalyteCode;
+  /** Canonical unit: mg/dL for glucose/lipids, ng/mL for PSA, or whichever
+   * unit `hba1c_unit` selects for HbA1c. Ignored for every analyte but
+   * hba1c — the ML service rejects a non-default override with a 422. */
+  value: number;
+  hba1c_unit?: HbA1cUnit;
+}
+
+export interface LabInterpretationRequest {
+  /** screen_types.code, e.g. 'hba1c', 'psa', 'lipid_panel'. */
+  screen_type_code: string;
+  sex: Sex;
+  age: number;
+  analytes?: AnalyteReadingIn[];
+  qualitative_result?: QualitativeResult;
+  genotype?: string;
+  procedural_status?: ResultStatus;
+}
+
+export interface AnalyteResultOut {
+  code: AnalyteCode;
+  value: number;
+  status: ResultStatus;
+  reference_range: string;
+  flag: string | null;
+  value_percent: number | null;
+  value_mmol_mol: number | null;
+}
+
+export interface LabInterpretationResponse {
+  result_status: ResultStatus;
+  abnormal_flags: string[];
+  analyte_results: AnalyteResultOut[];
+  summary: string;
+}
+
+// --- /analytics/cohort (services/ml/app/schemas/analytics.py) --------------
+
+export type CohortChronicCondition = "hypertension" | "diabetes";
+
+export interface CohortMemberIn {
+  age: number;
+  sex: Sex;
+  chronic_conditions?: CohortChronicCondition[];
+  cvd_risk_10yr_percent?: number | null;
+  cvd_risk_level?: Score2RiskLevel | null;
+  hba1c_trend?: HbA1cTrend | null;
+  bp_control_rate_percent?: number | null;
+  screening_overdue_count?: number;
+  abnormal_flags?: string[];
+}
+
+export interface CohortAnalyticsRequest {
+  members: CohortMemberIn[];
+}
+
+export interface AbnormalFlagCount {
+  flag: string;
+  count: number;
+}
+
+export interface CohortAnalyticsResponse {
+  cohort_size: number;
+  age_mean: number;
+  sex_distribution: Record<string, number>;
+  chronic_condition_prevalence_percent: Record<string, number>;
+  cvd_risk_level_distribution: Record<string, number>;
+  cvd_risk_mean_percent: number | null;
+  hba1c_trend_distribution: Record<string, number>;
+  bp_control_rate_mean_percent: number | null;
+  screening_overdue_rate_percent: number;
+  abnormal_findings_count: number;
+  top_abnormal_flags: AbnormalFlagCount[];
+}
+
+// --- /batch/predict (services/ml/app/schemas/batch.py) ---------------------
+
+export type BatchItem =
+  | { type: "cvd"; request_id: string; payload: Score2Request }
+  | { type: "hba1c"; request_id: string; payload: HbA1cTrajectoryRequest }
+  | { type: "bp_control"; request_id: string; payload: BpControlRequest };
+
+export interface BatchPredictionRequest {
+  items: BatchItem[];
+}
+
+export interface BatchItemResult {
+  request_id: string;
+  type: "cvd" | "hba1c" | "bp_control";
+  ok: boolean;
+  result: Score2Response | HbA1cTrajectoryResponse | BpControlResponse | null;
+  error: string | null;
+}
+
+export interface BatchPredictionResponse {
+  results: BatchItemResult[];
+}
 
 export interface MlClientConfig {
   /** Base URL of the ML service, e.g. https://ml.tarragon.internal */
@@ -42,6 +246,19 @@ export interface MlClient {
     path: string,
     body: TRequest,
   ): Promise<TResponse | null>;
+
+  /** `POST /risk/cvd` — SCORE2/SCORE2-OP 10-year CVD risk. */
+  cvdRisk(body: Score2Request): Promise<Score2Response | null>;
+  /** `POST /trajectory/hba1c` — HbA1c trend/trajectory + estimated average glucose. */
+  hba1cTrajectory(body: HbA1cTrajectoryRequest): Promise<HbA1cTrajectoryResponse | null>;
+  /** `POST /assess/bp-control` — blood-pressure control rate over a trailing window. */
+  bpControl(body: BpControlRequest): Promise<BpControlResponse | null>;
+  /** `POST /interpret/labs` — lab/screening result interpretation feeding `AbnormalResultHandler`. */
+  interpretLabs(body: LabInterpretationRequest): Promise<LabInterpretationResponse | null>;
+  /** `POST /analytics/cohort` — anonymised aggregate population analytics. */
+  analyseCohort(body: CohortAnalyticsRequest): Promise<CohortAnalyticsResponse | null>;
+  /** `POST /batch/predict` — heterogeneous batch of cvd/hba1c/bp_control items. */
+  batchPredict(body: BatchPredictionRequest): Promise<BatchPredictionResponse | null>;
 }
 
 function joinUrl(baseUrl: string, path: string): string {
@@ -103,6 +320,24 @@ export function createMlClient(config: MlClientConfig): MlClient {
     },
     post<TResponse, TRequest = unknown>(path: string, body: TRequest) {
       return safeRequest<TResponse>(config, "POST", path, body);
+    },
+    cvdRisk(body) {
+      return safeRequest<Score2Response>(config, "POST", "/risk/cvd", body);
+    },
+    hba1cTrajectory(body) {
+      return safeRequest<HbA1cTrajectoryResponse>(config, "POST", "/trajectory/hba1c", body);
+    },
+    bpControl(body) {
+      return safeRequest<BpControlResponse>(config, "POST", "/assess/bp-control", body);
+    },
+    interpretLabs(body) {
+      return safeRequest<LabInterpretationResponse>(config, "POST", "/interpret/labs", body);
+    },
+    analyseCohort(body) {
+      return safeRequest<CohortAnalyticsResponse>(config, "POST", "/analytics/cohort", body);
+    },
+    batchPredict(body) {
+      return safeRequest<BatchPredictionResponse>(config, "POST", "/batch/predict", body);
     },
   };
 }
