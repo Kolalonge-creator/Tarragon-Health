@@ -12,7 +12,7 @@ WORKDIR /app
 # No --mount=type=cache: some builders (e.g. Railway's) enforce
 # builder-specific requirements on cache mount ids beyond the Dockerfile
 # spec proper, so plain (uncached) installs are the portable choice here.
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-install-project --no-dev
 
 # Then the application itself.
