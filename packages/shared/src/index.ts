@@ -85,3 +85,6 @@ export type ScreeningResultStatus = Enums<"result_status">;
 
 /** Four-level clinical escalation ladder (clinician_alerts.level). */
 export type EscalationLevel = Enums<"alert_level">;
+
+/** escalations.status — clinician-raised, doctor-owned case lifecycle. */
+export type EscalationStatus = Enums<"escalation_status">;

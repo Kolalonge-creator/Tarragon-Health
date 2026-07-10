@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 export default async function AdminPage() {
   const profile = await getCurrentProfile();
@@ -19,7 +20,8 @@ export default async function AdminPage() {
     >
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             <Link href="/admin/settings/vitals-reminders" className="hover:underline">
               Vitals reminder cadence
             </Link>
@@ -41,7 +43,8 @@ export default async function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             <Link href="/admin/settings/medication-refills" className="hover:underline">
               Medication refill reminders
             </Link>
@@ -63,7 +66,8 @@ export default async function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             <Link href="/admin/facilities" className="hover:underline">
               Facility directory
             </Link>
@@ -85,7 +89,8 @@ export default async function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.booking className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             <Link href="/admin/bookings" className="hover:underline">
               Booking requests
             </Link>
@@ -106,7 +111,8 @@ export default async function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.aiCoach className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             <Link href="/admin/settings/ai-coach" className="hover:underline">
               AI Health Coach (internal testing)
             </Link>

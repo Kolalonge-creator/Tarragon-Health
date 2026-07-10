@@ -6,6 +6,7 @@ import { Providers } from "./providers";
 const ROLE_LABEL: Record<string, string> = {
   patient: "Patient",
   clinician: "Clinician",
+  doctor: "Doctor",
   admin: "Admin",
   hmo_admin: "HMO admin",
   corporate_admin: "Corporate admin",
@@ -33,8 +34,8 @@ export default async function DashboardLayout({
 
   return (
     <Providers>
-      <div className="flex min-h-screen flex-col">
-        <header className="flex items-center justify-between border-b border-charcoal-ink/10 px-6 py-4">
+      <div className="flex min-h-screen flex-col bg-warm-ivory">
+        <header className="flex items-center justify-between border-b border-charcoal-ink/10 bg-white px-6 py-4">
           <span className="font-heading text-lg font-semibold text-brand-green">
             TarragonHealth
           </span>

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 const FACILITY_TYPE_LABEL: Record<Facility["type"], string> = {
   hospital: "Hospital",
@@ -31,7 +32,10 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Facility directory</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Facility directory
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

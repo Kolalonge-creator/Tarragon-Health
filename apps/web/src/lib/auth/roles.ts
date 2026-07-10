@@ -4,6 +4,7 @@ import type { UserRole } from "@tarragon/shared";
 export const ROLE_HOME_PATH: Record<UserRole, string> = {
   patient: "/patient",
   clinician: "/clinician",
+  doctor: "/doctor",
   admin: "/admin",
   hmo_admin: "/hmo",
   corporate_admin: "/corporate",

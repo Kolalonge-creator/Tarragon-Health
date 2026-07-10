@@ -5,6 +5,7 @@ import { useVaccinationCatalog, useVaccinationRecords } from "@/lib/queries/vacc
 import { computeVaccinationStatuses, type VaccinationStatus } from "@/lib/rules/vaccination-status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<VaccinationStatus, { variant: BadgeProps["variant"]; label: string }> = {
   overdue: { variant: "red", label: "Overdue" },
@@ -35,7 +36,10 @@ export function VaccinationRegistry({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Vaccination registry</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Vaccination registry
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

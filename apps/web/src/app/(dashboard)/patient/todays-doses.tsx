@@ -5,6 +5,7 @@ import { buildTodaysDoseChecklist, type DoseStatus } from "@/lib/medication-sche
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<DoseStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending: { variant: "grey", label: "Pending" },
@@ -41,7 +42,10 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Today&apos;s doses</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Today&apos;s doses
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

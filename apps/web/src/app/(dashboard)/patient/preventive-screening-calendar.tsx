@@ -4,6 +4,7 @@ import { useScreeningSchedules } from "@/lib/queries/screening";
 import { todayIsoDate } from "@/lib/queries/medications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<string, { variant: BadgeProps["variant"]; label: string }> = {
   pending: { variant: "amber", label: "Pending" },
@@ -19,7 +20,10 @@ export function PreventiveScreeningCalendar({ patientId }: { patientId: string }
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Preventive screening calendar</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Preventive screening calendar
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

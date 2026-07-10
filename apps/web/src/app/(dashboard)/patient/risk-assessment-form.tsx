@@ -11,7 +11,6 @@ import {
   SLEEP_HOURS,
 } from "@/lib/validation/risk-assessment";
 import { useVitalsReadings } from "@/lib/queries/vitals";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,9 +55,7 @@ function Checkbox({ name, label }: { name: string; label: string }) {
   );
 }
 
-function stepClass(step: number, current: number) {
-  return cn("space-y-3", step !== current && "hidden");
-}
+const stepClass = "space-y-3";
 
 export function RiskAssessmentForm({ patientId }: { patientId: string }) {
   const [state, formAction, pending] = useActionState(submitRiskAssessment, undefined);
@@ -121,7 +118,8 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             </div>
           </div>
 
-          <div className={stepClass(1, step)}>
+          {step === 1 && (
+          <div className={stepClass}>
             <h3 className="text-sm font-semibold text-charcoal-ink">Family history</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <Checkbox name="family_diabetes" label="Diabetes" />
@@ -152,8 +150,10 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               </div>
             )}
           </div>
+          )}
 
-          <div className={stepClass(2, step)}>
+          {step === 2 && (
+          <div className={stepClass}>
             <h3 className="text-sm font-semibold text-charcoal-ink">Lifestyle</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -277,8 +277,10 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               }))}
             />
           </div>
+          )}
 
-          <div className={stepClass(3, step)}>
+          {step === 3 && (
+          <div className={stepClass}>
             <h3 className="text-sm font-semibold text-charcoal-ink">
               Past medical history &amp; medications
             </h3>
@@ -309,8 +311,10 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               <Input id="current_medications" name="current_medications" type="text" maxLength={500} />
             </div>
           </div>
+          )}
 
-          <div className={stepClass(4, step)}>
+          {step === 4 && (
+          <div className={stepClass}>
             <h3 className="text-sm font-semibold text-charcoal-ink">
               Vaccination &amp; screening history
             </h3>
@@ -321,6 +325,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             </div>
             <Checkbox name="prior_abnormal_result" label="I've had an abnormal screening result before" />
           </div>
+          )}
 
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (

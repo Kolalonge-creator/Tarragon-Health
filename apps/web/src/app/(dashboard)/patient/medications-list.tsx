@@ -3,6 +3,7 @@
 import { useMedications } from "@/lib/queries/medications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 export function MedicationsList({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useMedications(patientId);
@@ -10,7 +11,10 @@ export function MedicationsList({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Medications</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Medications
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
