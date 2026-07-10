@@ -1,6 +1,6 @@
 # Tarragon Health — Claude Code Master Instructions (v3)
 
-> Read every session. Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. This file is the operating contract — keep it under 200 lines, update "Current Sprint" every sprint.
+> Read every session. Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. This file is the operating contract — keep it under 200 lines, update "Current Sprint" every sprint.
 
 ## The Business
 Nigeria's digital-first chronic disease, preventive health, and family care coordination OS — the trusted coordination layer between patients, families, clinicians, labs, pharmacies, HMOs, and employers. Digital-first, WhatsApp/SMS-enabled, clinician-led, escalation-driven, AI-automated, partner-network based. **No owned clinics.** Five categories, all architecturally represented from Sprint 1 — they are commercially linked, each feeds the others:
@@ -17,6 +17,7 @@ Prevention and chronic management **share the same patient record** — design e
 
 ### Primary Platform — TypeScript
 - Web: Next.js 16, TypeScript, Tailwind, shadcn/ui (`apps/web`) — this Next.js has breaking changes vs. training data; read `node_modules/next/dist/docs/` before writing framework code
+- **Marketing site:** public pages live in `apps/web/src/app/(marketing)/` as a route group inside the same Next.js app — not a separate package yet. `middleware.ts` routes by hostname: root domain → marketing, `app.` subdomain → platform. Full spec, page copy, and design direction in `docs/MARKETING_SITE_SPEC.md` — read it before building any marketing page. Split into `apps/marketing` only when marketing needs its own CMS/team/deploy velocity — not yet. Marketing pages must not import platform/auth modules; Contact/Join is the only page that writes to Supabase (`leads` table).
 - Mobile: React Native Expo (`apps/mobile`)
 - DB/Auth/Storage/Realtime: Supabase Postgres, **eu-west-1** region (Supabase has no Africa region; closest available to Nigeria — NDPR residency gap accepted for now), pgvector
 - Cache/queues: Upstash Redis
@@ -66,7 +67,7 @@ Prevention and chronic management **share the same patient record** — design e
 Current Sprint: Sprint 4 — Python ML Microservice — **ON HOLD (2026-07-09)** per user decision to prioritize other platform work; do not resume ML work unless explicitly asked.
 Sprint Goal (paused): Build out `services/ml` (Sprint 1 gave it a bare FastAPI scaffold) into the SCORE2 CVD/HbA1c-trajectory/BP-control/lab-interpretation/cohort-analytics service, wire it into the TypeScript platform via `packages/shared/ml-client.ts`, and deploy it — per `docs/FEATURE_SPEC.md` §4 Sprint 4 detail (weeks 7–9).
 State at pause: Week 9 done — `packages/shared/ml-client.ts` has typed helpers for all 6 endpoints (`cvdRisk`, `hba1cTrajectory`, `bpControl`, `interpretLabs`, `analyseCohort`, `batchPredict`), each never-throws/null-on-failure per the existing contract. Wired into real call sites: BP-control assessment after every blood-pressure vitals log (`apps/web/.../patient/actions.ts`); a new clinician lab/screening-result form (`.../clinician/patients/[patientId]/screening-result-form.tsx`) that calls `/interpret/labs`, opportunistically computes CVD risk (when a lipid panel + existing BP/smoking data are available) and HbA1c trajectory (via the new `lab_analyte_readings` history table), and writes `patient_risk_scores`; the corporate dashboard now renders real `/analytics/cohort` output scoped to the admin's own `organisation_id` (no PII sent). Sentry wired behind an optional `SENTRY_DSN` env var (no-op if unset); Dockerfile/health check confirmed deploy-ready as-is. Remaining when resumed: the user runs the actual Railway/Render deploy and creates a Sentry project (needs their cloud credentials/DSN, not available in this environment) — see session notes for exact steps.
-Active Service: TypeScript — active initiative (2026-07-09): chronic disease escalation UI. Added a new `doctor` role (distinct from `clinician`; `clinician` = frontline monitoring/initial review, `doctor` = escalation review only). `escalations.assigned_doctor_id` (renamed back from `assigned_clinician_id`) + new `escalation_notes` table for repeatable call-note logging. Built: clinician "Escalate to doctor" action + `/clinician/escalations` tracking homepage; doctor `/doctor` worklist (claim) + `/doctor/escalations/[id]` detail page (call notes, resolve/refer); Recharts-based BP/glucose trend charts on patient, clinician, and doctor patient views. Workload metrics (1:120 ratio) intentionally out of scope for this pass.
+Active Service: TypeScript — **active initiative (2026-07-10): marketing site scaffold.** Public site in `apps/web/src/app/(marketing)/` per `docs/MARKETING_SITE_SPEC.md`. **Done this pass:** route group + layout/nav/footer, homepage (all §3.1 sections), product pages `/hypertension`, `/diabetes`, `/parentcare`, Guard Leaf assets, hostname stub in `proxy.ts` (`app.localhost` / `app.*`). **Next marketing pass:** `/prevention`, `/medication`, `/labs`, Pricing (four-label), Contact + `leads` migration, resolve `/corporate`/`/hmo` path collision. **Platform work (escalation UI) is paused on branch `fix/risk-assessment-hidden-required-fields` — resume independently; no conflict with marketing route group.** See `docs/MARKETING_SITE_SPEC.md` §7 Build Progress for handoff checklist.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
@@ -87,4 +88,5 @@ Active Service: TypeScript — active initiative (2026-07-09): chronic disease e
 - System architecture, topology, RLS model, event pipelines, infra → `docs/ARCHITECTURE.md`
 - Business model, pricing, full DB schema, 7-sprint plan, clinical protocols, launch gates → `docs/FEATURE_SPEC.md`
 - Brand voice, tagline system, colour/type tokens, dashboard copy patterns → `docs/BRAND_GUIDE.md`
-- Logo assets → `/brand/Tarragon_Health_Logo_Mark.png`, `/brand/Tarragon_Health_Logo_Lockup.png`
+- Public marketing site — sitemap, page copy, design tokens, hostname routing, DoD → `docs/MARKETING_SITE_SPEC.md`
+- Logo assets → `/brand/Tarragon_Health_Logo_Mark.png`, `/brand/Tarragon_Health_Logo_Lockup.png` (marketing deploy copies → `apps/web/public/brand/`)

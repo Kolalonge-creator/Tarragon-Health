@@ -1,4 +1,5 @@
 import type { UserRole } from "@tarragon/shared";
+import { isMarketingPath } from "@/lib/marketing/routes";
 
 /** Where each profiles.role lands after login (FEATURE_SPEC.md §6 dashboards). */
 export const ROLE_HOME_PATH: Record<UserRole, string> = {
@@ -25,7 +26,9 @@ export const PUBLIC_PATHS = ["/", "/login", "/signup"];
 
 export function isPublicPath(pathname: string): boolean {
   return (
-    PUBLIC_PATHS.includes(pathname) || pathname.startsWith("/auth/")
+    PUBLIC_PATHS.includes(pathname) ||
+    pathname.startsWith("/auth/") ||
+    isMarketingPath(pathname)
   );
 }
 

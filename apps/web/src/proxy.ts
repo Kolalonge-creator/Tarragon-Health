@@ -6,12 +6,32 @@ import {
   isRoleHomePrefixed,
   pathMatchesRole,
 } from "@/lib/auth/roles";
+import { isAppHost } from "@/lib/marketing/host";
+import { isMarketingPath } from "@/lib/marketing/routes";
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
 export async function proxy(request: NextRequest) {
   const { response, supabase, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") ?? "";
+  const isApp = isAppHost(host);
+
+  // app.tarragonhealth.com (or app.localhost): "/" is platform entry, not marketing homepage
+  if (isApp && pathname === "/") {
+    if (!user) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    if (profile) {
+      return NextResponse.redirect(new URL(getRoleHomePath(profile.role), request.url));
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
 
   if (!user) {
     if (isRoleHomePrefixed(pathname)) {
@@ -37,7 +57,8 @@ export async function proxy(request: NextRequest) {
 
   const home = getRoleHomePath(profile.role);
 
-  if (isPublicPath(pathname) && pathname !== "/") {
+  // Auth-only public paths (login/signup) — not marketing pages
+  if (isPublicPath(pathname) && pathname !== "/" && !isMarketingPath(pathname)) {
     return NextResponse.redirect(new URL(home, request.url));
   }
 
