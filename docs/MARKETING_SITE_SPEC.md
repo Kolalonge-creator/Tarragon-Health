@@ -238,8 +238,8 @@ This is the **only** marketing page that talks to Supabase — everything else i
 
 - [ ] All 12 pages built and linked from nav/footer
 - [x] Hostname routing stub separates root domain from `app.*` subdomain (`proxy.ts`)
-- [ ] Pricing page uses all four labels correctly; no ambiguous line items
-- [ ] Contact/Join form writes to `leads` table with correct `source` tag per page
+- [x] Pricing page uses all four labels correctly; no ambiguous line items
+- [x] Contact/Join form writes to `leads` table with correct `source` tag per page
 - [ ] Lighthouse: 90+ performance, 100 accessibility, on the homepage
 - [x] No platform/auth imports anywhere under `app/(marketing)/`
 - [x] Guard Leaf assets in place; colours match hex values above; no clinical red/amber used decoratively
@@ -289,20 +289,20 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 | Prevention | `/prevention` | **Done** | Priority programme — care gaps, screening, Cat 2→1 upgrade path |
 | Medication | `/medication` | Not started | |
 | Labs | `/labs` | Not started | |
-| Pricing | `/pricing` | Not started | Four-label system (§3.3); ISR `revalidate = 3600` |
+| Pricing | `/pricing` | **Done** | Four-label tiers, ₦/£ toggle, ISR |
 | About | `/about` | Not started | MDX or CMS-ready plain content |
 | Corporate | `/corporate` | **Blocked** | Path collision with platform `(dashboard)/corporate` — needs hostname rewrite first |
 | HMO | `/hmo` | **Blocked** | Path collision with platform `(dashboard)/hmo` — needs hostname rewrite first |
-| Contact | `/contact` | Not started | Requires `leads` migration + server action |
+| Contact | `/contact` | **Done** | Leads form + `20260711000000_leads.sql` migration |
 
 ### Next session — recommended order
 
-1. **Product pages** — `/medication`, `/labs` (copy pattern from existing four priority programmes)
-2. **Pricing page** — four-label tier table, ₦/£ toggle, "no hidden costs" statement
-3. **Contact + leads migration** — `supabase/migrations/…_leads.sql`, Zod-validated server action
-4. **Corporate / HMO** — add proxy rewrites on marketing host *or* move platform dashboards to prefixed paths
-5. **About founder** — static/MDX content page
-6. **Lighthouse pass** — homepage 90+ perf, 100 a11y
+1. **Product pages** — `/medication`, `/labs` (copy pattern from existing priority programmes)
+2. **Abnormal screening E2E test** — verify Cat 2→1 upgrade flow end-to-end (highest-priority business event)
+3. **Corporate / HMO** — add proxy rewrites on marketing host *or* move platform dashboards to prefixed paths
+4. **About founder** — static/MDX content page
+5. **Lighthouse pass** — homepage 90+ perf, 100 a11y
+6. **Merge marketing branch** → `main-dev`, then staging deploy
 
 ### Local dev
 

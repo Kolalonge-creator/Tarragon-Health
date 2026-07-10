@@ -1156,6 +1156,36 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          contact: string
+          created_at: string
+          id: string
+          message: string | null
+          name: string
+          role: Database["public"]["Enums"]["lead_role"]
+          source: string
+        }
+        Insert: {
+          contact: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          name: string
+          role: Database["public"]["Enums"]["lead_role"]
+          source?: string
+        }
+        Update: {
+          contact?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          name?: string
+          role?: Database["public"]["Enums"]["lead_role"]
+          source?: string
+        }
+        Relationships: []
+      }
       medication_logs: {
         Row: {
           created_at: string
@@ -2721,6 +2751,7 @@ export type Database = {
         | "vaccination_centre"
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
       glucose_context: "fasting" | "random" | "post_meal"
+      lead_role: "patient" | "family" | "employer" | "hmo" | "other"
       lab_order_status:
         | "ordered"
         | "sample_collected"
@@ -2989,6 +3020,7 @@ export const Constants = {
       ],
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       glucose_context: ["fasting", "random", "post_meal"],
+      lead_role: ["patient", "family", "employer", "hmo", "other"],
       lab_order_status: [
         "ordered",
         "sample_collected",

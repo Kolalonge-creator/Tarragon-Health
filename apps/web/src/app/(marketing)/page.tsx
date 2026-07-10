@@ -176,9 +176,12 @@ export default function MarketingHomePage() {
               </h3>
               <p className="mt-3 text-sm text-charcoal-ink/70">{block.body}</p>
               {block.cta ? (
-                <p className="mt-4 text-sm text-charcoal-ink/50">
-                  {block.cta.label} — contact page coming soon
-                </p>
+                <Link
+                  href={`${block.cta.href}?source=${block.cta.source}`}
+                  className="mt-4 inline-flex text-sm font-medium text-brand-green hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm"
+                >
+                  {block.cta.label} →
+                </Link>
               ) : null}
             </div>
           ))}
