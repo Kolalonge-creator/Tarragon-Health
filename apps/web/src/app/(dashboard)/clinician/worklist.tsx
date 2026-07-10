@@ -1,29 +1,61 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useClinicianAlerts, useAcknowledgeAlert } from "@/lib/queries/clinician-alerts";
+import { useEscalateAlert } from "@/lib/queries/escalations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { StatTile } from "@/components/ui/stat-tile";
+import { LEVEL_BADGE } from "@/lib/worklist/level-badge";
+import { SEVERITY_TILE_TINT } from "@/lib/worklist/severity-tile-tint";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationLevel } from "@tarragon/shared";
 
-const LEVEL_BADGE: Record<EscalationLevel, { variant: BadgeProps["variant"]; label: string }> = {
-  emergency: { variant: "red", label: "Emergency" },
-  urgent_escalation: { variant: "amber", label: "Urgent escalation" },
-  clinician_review: { variant: "blue", label: "Clinician review" },
-  routine: { variant: "grey", label: "Routine" },
-};
+const ESCALATABLE_LEVELS = new Set(["urgent_escalation", "emergency"]);
 
 export function Worklist() {
   const { data, isLoading, isError } = useClinicianAlerts();
   const acknowledge = useAcknowledgeAlert();
+  const escalate = useEscalateAlert();
+  const [escalatingId, setEscalatingId] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+
+  const countsByLevel = (data ?? []).reduce(
+    (acc, alert) => {
+      acc[alert.level] = (acc[alert.level] ?? 0) + 1;
+      return acc;
+    },
+    {} as Partial<Record<EscalationLevel, number>>
+  );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Worklist</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-4">
+      {data && data.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {(Object.keys(LEVEL_BADGE) as EscalationLevel[]).map((level) => {
+            const badge = LEVEL_BADGE[level];
+            const tint = SEVERITY_TILE_TINT[badge.variant ?? "grey"];
+            return (
+              <StatTile
+                key={level}
+                icon={SEMANTIC_ICON.escalation}
+                tintClassName={tint.tintClassName}
+                iconClassName={tint.iconClassName}
+                label={badge.label}
+                value={String(countsByLevel[level] ?? 0)}
+              />
+            );
+          })}
+        </div>
+      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Worklist</CardTitle>
+        </CardHeader>
+        <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && (
           <p className="text-sm text-red-600">Could not load the worklist.</p>
@@ -60,20 +92,67 @@ export function Worklist() {
                       </p>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={acknowledge.isPending}
-                    onClick={() => acknowledge.mutate(alert.id)}
-                  >
-                    Acknowledge
-                  </Button>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={acknowledge.isPending}
+                        onClick={() => acknowledge.mutate(alert.id)}
+                      >
+                        Acknowledge
+                      </Button>
+                      {ESCALATABLE_LEVELS.has(alert.level) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setEscalatingId(escalatingId === alert.id ? null : alert.id)
+                          }
+                        >
+                          Escalate to doctor
+                        </Button>
+                      )}
+                    </div>
+                    {escalatingId === alert.id && (
+                      <div className="flex w-64 flex-col items-end gap-2">
+                        <Input
+                          placeholder="Reason for escalating"
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                        />
+                        <Button
+                          size="sm"
+                          disabled={escalate.isPending || reason.trim().length === 0}
+                          onClick={() => {
+                            escalate.mutate(
+                              {
+                                clinicianAlertId: alert.id,
+                                patientId: alert.patient_id,
+                                organisationId: alert.organisation_id,
+                                reason: reason.trim(),
+                              },
+                              {
+                                onSuccess: () => {
+                                  setEscalatingId(null);
+                                  setReason("");
+                                },
+                              }
+                            );
+                          }}
+                        >
+                          Confirm escalation
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </li>
               );
             })}
           </ul>
         )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

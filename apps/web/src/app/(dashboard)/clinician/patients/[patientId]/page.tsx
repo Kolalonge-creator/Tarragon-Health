@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
+import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { ScreeningResultForm } from "./screening-result-form";
 
 export default async function ClinicianPatientPage({
@@ -47,6 +48,7 @@ export default async function ClinicianPatientPage({
       </div>
       <MedicationsList patientId={patient.id} />
       <AddMedicationForm patientId={patient.id} source="clinician" />
+      <VitalsTrendChart patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />
     </div>
   );

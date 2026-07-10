@@ -3,6 +3,7 @@
 import { useVitalsReadings } from "@/lib/queries/vitals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { mmolLToMgDl, type Tables } from "@tarragon/shared";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 function formatReading(reading: Tables<"vitals_readings">): string {
   switch (reading.vital_type) {
@@ -32,7 +33,10 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent readings</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Recent readings
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

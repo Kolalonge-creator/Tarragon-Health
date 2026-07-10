@@ -1,26 +1,33 @@
+import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 export function DashboardPlaceholder({
   greeting,
   roleLabel,
   comingUp,
+  icon: Icon = SEMANTIC_ICON.preventive,
   children,
 }: {
   greeting: string;
   roleLabel: string;
   comingUp: string[];
+  icon?: LucideIcon;
   children?: React.ReactNode;
 }) {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          {greeting}
-        </h1>
-        <p className="text-charcoal-ink/60">{roleLabel} dashboard</p>
+      <div className="flex items-center gap-3">
+        <Icon className="h-6 w-6 text-deep-forest" strokeWidth={2} />
+        <div>
+          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
+            {greeting}
+          </h1>
+          <p className="text-charcoal-ink/60">{roleLabel} dashboard</p>
+        </div>
       </div>
       {children}
-      <Card>
+      <Card variant="soft">
         <CardHeader>
           <CardTitle>Coming in Sprint 2</CardTitle>
           <CardDescription>

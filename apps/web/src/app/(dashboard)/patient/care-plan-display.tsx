@@ -3,6 +3,7 @@
 import { useCarePlans } from "@/lib/queries/care-plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 function humanize(value: string) {
   return value
@@ -17,7 +18,10 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Care plan</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Care plan
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

@@ -4,6 +4,7 @@ import { useRiskScores } from "@/lib/queries/risk-assessment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 const CONDITION_LABELS: Record<PreventionCondition, string> = {
   hypertension: "Hypertension",
@@ -34,7 +35,10 @@ export function RiskAssessmentDisplay({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your risk tiers</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Your risk tiers
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

@@ -1,11 +1,22 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: React.ComponentProps<"div">) {
+const CARD_VARIANT = {
+  default: "bg-white",
+  soft: "bg-warm-ivory",
+  sage: "bg-soft-sage",
+} as const;
+
+export function Card({
+  className,
+  variant = "default",
+  ...props
+}: React.ComponentProps<"div"> & { variant?: keyof typeof CARD_VARIANT }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-charcoal-ink/10 bg-white shadow-sm",
+        "rounded-xl border border-charcoal-ink/10 shadow-sm",
+        CARD_VARIANT[variant],
         className
       )}
       {...props}

@@ -3,6 +3,7 @@
 import { useBookingRequests, type BookingRequestWithFacility } from "@/lib/queries/facilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<
   BookingRequestWithFacility["status"],
@@ -20,7 +21,10 @@ export function BookingRequestsList({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your booking requests</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.booking className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Your booking requests
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {bookingRequests.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

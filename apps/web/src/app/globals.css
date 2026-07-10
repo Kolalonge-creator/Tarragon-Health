@@ -4,12 +4,21 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* Brand palette — docs/BRAND_GUIDE.md §5. Only the two documented hex
-     values are defined here; Sprout Gold/Soft Sage/Warm Ivory/Deep Forest
-     are deferred until the project's design-token file exists. */
+  /* Brand palette — docs/BRAND_GUIDE.md §5. This is the project's design-
+     token file the brand guide refers to. */
   --brand-green: #0e7c52;
   --clinical-navy: #12324b;
   --charcoal-ink: #171717;
+  --sprout-gold: #c9962b;
+  --soft-sage: #e7eee7;
+  --warm-ivory: #faf7f0;
+  --deep-forest: #0b5c3e;
+
+  /* Vitals trend chart series — distinct from the brand/dashboard-status
+     colour systems (docs/BRAND_GUIDE.md §5), used only inside chart.tsx. */
+  --chart-systolic: #b91c1c;
+  --chart-diastolic: #1d4ed8;
+  --chart-glucose: #0e7c52;
 }
 
 @theme inline {
@@ -18,6 +27,13 @@
   --color-brand-green: var(--brand-green);
   --color-clinical-navy: var(--clinical-navy);
   --color-charcoal-ink: var(--charcoal-ink);
+  --color-sprout-gold: var(--sprout-gold);
+  --color-soft-sage: var(--soft-sage);
+  --color-warm-ivory: var(--warm-ivory);
+  --color-deep-forest: var(--deep-forest);
+  --color-chart-systolic: var(--chart-systolic);
+  --color-chart-diastolic: var(--chart-diastolic);
+  --color-chart-glucose: var(--chart-glucose);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-sora);
 }

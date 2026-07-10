@@ -579,9 +579,61 @@ export type Database = {
           },
         ]
       }
+      escalation_notes: {
+        Row: {
+          author_id: string | null
+          created_at: string
+          escalation_id: string
+          id: string
+          next_follow_up_at: string | null
+          note: string
+          organisation_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          created_at?: string
+          escalation_id: string
+          id?: string
+          next_follow_up_at?: string | null
+          note: string
+          organisation_id: string
+        }
+        Update: {
+          author_id?: string | null
+          created_at?: string
+          escalation_id?: string
+          id?: string
+          next_follow_up_at?: string | null
+          note?: string
+          organisation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_notes_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_notes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       escalations: {
         Row: {
-          assigned_clinician_id: string | null
+          assigned_doctor_id: string | null
           clinician_alert_id: string | null
           created_at: string
           id: string
@@ -594,7 +646,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          assigned_clinician_id?: string | null
+          assigned_doctor_id?: string | null
           clinician_alert_id?: string | null
           created_at?: string
           id?: string
@@ -607,7 +659,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          assigned_clinician_id?: string | null
+          assigned_doctor_id?: string | null
           clinician_alert_id?: string | null
           created_at?: string
           id?: string
@@ -621,8 +673,8 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "escalations_assigned_clinician_id_fkey"
-            columns: ["assigned_clinician_id"]
+            foreignKeyName: "escalations_assigned_doctor_id_fkey"
+            columns: ["assigned_doctor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2755,6 +2807,7 @@ export type Database = {
         | "admin"
         | "hmo_admin"
         | "corporate_admin"
+        | "doctor"
       vital_type:
         | "blood_pressure"
         | "glucose"
@@ -3032,6 +3085,7 @@ export const Constants = {
         "admin",
         "hmo_admin",
         "corporate_admin",
+        "doctor",
       ],
       vital_type: [
         "blood_pressure",

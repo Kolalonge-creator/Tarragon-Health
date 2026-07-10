@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 export function AiCoachChat({ patientId }: { patientId: string }) {
   const { data: conversation } = useAiConversation(patientId);
@@ -34,7 +35,10 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Health Coach</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.aiCoach className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          AI Health Coach
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="max-h-80 space-y-2 overflow-y-auto rounded-md bg-charcoal-ink/5 p-3">
