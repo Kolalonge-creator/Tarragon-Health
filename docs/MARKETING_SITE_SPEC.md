@@ -274,16 +274,19 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 - [x] Marketing paths public via `isMarketingPath()` in `apps/web/src/lib/marketing/routes.ts`
 - [x] Shared content in `(marketing)/_content/` and components in `(marketing)/_components/`
 - [x] Old platform landing `app/page.tsx` removed — marketing homepage owns `/` on root domain
+- [x] Omada-inspired trust additions adapted to Tarragon voice: proof stats strip, Monitor/Review/Coordinate pillars, homepage FAQ, and product-page included lists
+- [x] Homepage dashboard preview added — shows readings, reminders, preventive check, nurse review, and family update flow
+- [x] Footer redesigned into clear groups: Priority programmes, Coordination, Company, Platform; unfinished pages marked `soon`
 
 ### Pages
 
 | Page | Route | Status | Notes |
 |---|---|---|---|
-| Homepage | `/` | **Done** | All 9 sections from §3.1 |
-| Hypertension | `/hypertension` | **Done** | |
-| Diabetes | `/diabetes` | **Done** | |
-| ParentCare | `/parentcare` | **Done** | |
-| Prevention | `/prevention` | Not started | Reuse `ProductPageTemplate` + add to `_content/products.ts` |
+| Homepage | `/` | **Done** | All 9 sections from §3.1 plus proof stats, 3 pillars, dashboard preview, FAQ |
+| Hypertension | `/hypertension` | **Done** | Includes condition-specific "what's included" list |
+| Diabetes | `/diabetes` | **Done** | Includes condition-specific "what's included" list |
+| ParentCare | `/parentcare` | **Done** | Includes condition-specific "what's included" list |
+| Prevention | `/prevention` | **Done** | Priority programme — care gaps, screening, Cat 2→1 upgrade path |
 | Medication | `/medication` | Not started | |
 | Labs | `/labs` | Not started | |
 | Pricing | `/pricing` | Not started | Four-label system (§3.3); ISR `revalidate = 3600` |
@@ -294,7 +297,7 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 
 ### Next session — recommended order
 
-1. **Product pages** — `/prevention`, `/medication`, `/labs` (copy pattern from existing three)
+1. **Product pages** — `/medication`, `/labs` (copy pattern from existing four priority programmes)
 2. **Pricing page** — four-label tier table, ₦/£ toggle, "no hidden costs" statement
 3. **Contact + leads migration** — `supabase/migrations/…_leads.sql`, Zod-validated server action
 4. **Corporate / HMO** — add proxy rewrites on marketing host *or* move platform dashboards to prefixed paths

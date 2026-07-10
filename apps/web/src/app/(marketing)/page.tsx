@@ -3,9 +3,18 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
+import { DashboardPreview } from "./_components/dashboard-preview";
 import { Section, SectionHeading } from "./_components/section";
 import { ServiceCardLink } from "./_components/service-card";
-import { AUDIENCE_BLOCKS, HOW_IT_WORKS_STEPS, SERVICE_CARDS } from "./_content/services";
+import {
+  AUDIENCE_BLOCKS,
+  HOMEPAGE_FAQS,
+  HOW_IT_WORKS_STEPS,
+  PREVENTION_CALLOUT,
+  PROOF_STATS,
+  SERVICE_CARDS,
+  WHAT_YOU_GET,
+} from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
@@ -45,6 +54,20 @@ export default function MarketingHomePage() {
         <ContinuityPath />
       </Section>
 
+      <Section className="py-8 sm:py-10">
+        <div className="grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
+          {PROOF_STATS.map((stat) => (
+            <div key={stat.label} className="rounded-xl bg-warm-ivory p-5">
+              <p className="font-heading text-3xl font-bold text-brand-green">{stat.value}</p>
+              <h2 className="mt-1 font-heading text-sm font-semibold uppercase tracking-wide text-charcoal-ink">
+                {stat.label}
+              </h2>
+              <p className="mt-2 text-sm text-charcoal-ink/65">{stat.detail}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       <Section variant="sage">
         <SectionHeading
           eyebrow="The problem"
@@ -59,6 +82,43 @@ export default function MarketingHomePage() {
           title="Tarragon monitors, reminds, reviews, coordinates, and escalates"
           description="A clinician-led team keeps watch over your health record — calm follow-up when things are steady, escalation when they are not."
         />
+      </Section>
+
+      <Section>
+        <div className="mx-auto max-w-4xl rounded-2xl border border-brand-green/20 bg-white p-8 shadow-sm sm:p-10">
+          <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+            Priority programme
+          </p>
+          <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
+            {PREVENTION_CALLOUT.title}
+          </h2>
+          <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+            {PREVENTION_CALLOUT.body}
+          </p>
+          <div className="mt-6">
+            <Button asChild variant="outline">
+              <Link href={MARKETING_ROUTES.prevention}>Learn about preventive health</Link>
+            </Button>
+          </div>
+        </div>
+      </Section>
+
+      <Section variant="sage">
+        <SectionHeading eyebrow="What you get" title="Monitoring that stays connected" />
+        <div className="grid gap-6 md:grid-cols-3">
+          {WHAT_YOU_GET.map((pillar) => (
+            <div key={pillar.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
+              <h3 className="font-heading text-xl font-semibold text-charcoal-ink">
+                {pillar.title}
+              </h3>
+              <p className="mt-3 text-charcoal-ink/70">{pillar.body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section>
+        <DashboardPreview />
       </Section>
 
       <Section variant="sage">
@@ -134,6 +194,30 @@ export default function MarketingHomePage() {
           secondaryHref="/signup"
           secondaryLabel="Start monitoring"
         />
+      </Section>
+
+      <Section variant="sage">
+        <SectionHeading
+          eyebrow="Questions"
+          title="What families usually ask first"
+          description="Clear answers before anyone signs up — because trust starts with knowing what is included."
+        />
+        <div className="mx-auto grid max-w-4xl gap-4">
+          {HOMEPAGE_FAQS.map((faq) => (
+            <details
+              key={faq.question}
+              className="group rounded-xl border border-charcoal-ink/10 bg-white p-5"
+            >
+              <summary className="cursor-pointer list-none font-heading text-lg font-semibold text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2">
+                {faq.question}
+                <span className="float-right ml-4 text-brand-green transition-transform group-open:rotate-45">
+                  +
+                </span>
+              </summary>
+              <p className="mt-3 text-charcoal-ink/70">{faq.answer}</p>
+            </details>
+          ))}
+        </div>
       </Section>
 
       <Section variant="sage" className="pb-24">

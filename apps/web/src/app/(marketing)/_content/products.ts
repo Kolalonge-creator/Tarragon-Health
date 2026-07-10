@@ -6,6 +6,7 @@ export type ProductPageContent = {
   headline: string;
   campaignLine?: string;
   intro: string;
+  included: string[];
   howItWorks: { title: string; body: string }[];
   metadata: Metadata;
 };
@@ -17,6 +18,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     campaignLine: "High blood pressure needs follow-up, not guesswork.",
     intro:
       "Tarragon helps you log blood pressure readings, spot trends early, and get clinician review when numbers drift. Reminders keep follow-up consistent — between doctor visits, not just at them.",
+    included: [
+      "BP logging via WhatsApp or app",
+      "Trend view for you and your care team",
+      "Medication and follow-up reminders",
+      "Nurse review when readings drift",
+      "Doctor escalation when closer care is needed",
+    ],
     howItWorks: [
       {
         title: "Log readings easily",
@@ -43,6 +51,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     campaignLine: "Diabetes care is more than sugar checks.",
     intro:
       "Tarragon brings glucose logs, HbA1c tracking, medication adherence, and lab coordination into one platform — with nurse review when your numbers need a closer look.",
+    included: [
+      "Glucose and HbA1c tracking",
+      "Medication reminders and adherence support",
+      "Lab result follow-up in the same record",
+      "Complication screening prompts",
+      "Clinician review when trends need attention",
+    ],
     howItWorks: [
       {
         title: "Monitor what matters",
@@ -69,6 +84,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     campaignLine: "Your parents looked after you. Now help look after them.",
     intro:
       "ParentCare keeps you connected to Mum or Dad's health — vitals, medication, preventive checks, and calm updates — whether you live in Lagos or London.",
+    included: [
+      "Parent health profile and monitoring goals",
+      "Vitals, medication, and preventive check tracking",
+      "Calm family updates for loved ones near or abroad",
+      "Nurse follow-up when readings or care gaps need attention",
+      "Escalation support when closer care is needed",
+    ],
     howItWorks: [
       {
         title: "Set up their care profile",
@@ -87,6 +109,39 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       title: "ParentCare — TarragonHealth",
       description:
         "Dedicated care coordination for your loved ones — vitals, medication, and calm family updates, near or far.",
+    },
+  },
+  prevention: {
+    slug: "prevention",
+    headline: "Find care gaps early and know what checks may be due.",
+    campaignLine: "The best emergency is the one you prevent.",
+    intro:
+      "Preventive health is one of Tarragon's four priority programmes — not an optional extra. We track overdue screenings, remind you what checks are due, review results when they return, and connect abnormal findings into chronic care follow-up on the same health record.",
+    included: [
+      "Preventive screening calendar and care-gap tracking",
+      "Reminders for cancer, metabolic, infectious, and reproductive checks",
+      "Lab coordination when tests are due",
+      "Clinician review when results need attention",
+      "Upgrade path into chronic disease monitoring when follow-up is needed",
+    ],
+    howItWorks: [
+      {
+        title: "Know what's due",
+        body: "See which preventive checks are overdue or coming up — based on your age, history, and risk profile.",
+      },
+      {
+        title: "Complete and track",
+        body: "Book labs through Tarragon's partner network and log results in one record — no more lost reports.",
+      },
+      {
+        title: "Close the loop",
+        body: "When a result needs attention, a clinician-led team follows up immediately and connects you to chronic care if needed.",
+      },
+    ],
+    metadata: {
+      title: "Preventive Health — TarragonHealth",
+      description:
+        "Find care gaps early, complete overdue screenings, and get clinician follow-up when results need attention — on the same record as chronic care.",
     },
   },
 };

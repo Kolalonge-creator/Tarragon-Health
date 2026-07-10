@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { key: "hypertension" as const, label: "Hypertension" },
   { key: "diabetes" as const, label: "Diabetes" },
   { key: "parentcare" as const, label: "ParentCare" },
+  { key: "prevention" as const, label: "Prevention" },
 ];
 
 export function MarketingNav() {

@@ -28,6 +28,21 @@ export function ProductPageTemplate({ content }: { content: ProductPageContent }
         </div>
       </Section>
 
+      <Section>
+        <SectionHeading title="What's included" />
+        <ul className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-2">
+          {content.included.map((item) => (
+            <li
+              key={item}
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-4 text-charcoal-ink/75"
+            >
+              <span className="mr-2 font-semibold text-brand-green">Included:</span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </Section>
+
       <Section variant="sage">
         <SectionHeading title="How it works for you" />
         <ol className="mx-auto grid max-w-3xl gap-6">

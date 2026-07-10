@@ -23,6 +23,7 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "hypertension",
   "diabetes",
   "parentcare",
+  "prevention",
 ];
 
 export const MARKETING_PATH_PREFIXES = Object.values(MARKETING_ROUTES).filter(
