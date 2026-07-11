@@ -72,8 +72,69 @@ body {
   }
 }
 
+/*
+ * Combines the fade-in (from MarketingMediaFrame's own utility class) with the
+ * float loop in a single declaration — two separate `animation` shorthand
+ * declarations on the same element don't merge, the later/unlayered one wins
+ * outright, which silently dropped the fade-in and left the hero at opacity:0.
+ */
 .marketing-hero-float {
-  animation: marketing-hero-float 5s ease-in-out infinite;
+  animation:
+    marketing-fade-in 0.9s ease-out forwards,
+    marketing-hero-float 5s ease-in-out 0.9s infinite;
+}
+
+@keyframes marketing-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marketing-typing-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes marketing-typing-show {
+  0%,
+  16% {
+    opacity: 0;
+  }
+  18%,
+  26% {
+    opacity: 1;
+  }
+  28%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.marketing-bubble {
+  opacity: 0;
+  animation: marketing-bubble-in 0.5s cubic-bezier(0.22, 0.9, 0.32, 1) forwards;
+}
+
+.marketing-typing {
+  opacity: 0;
+  animation: marketing-typing-show 6s ease-in-out infinite;
+}
+
+.marketing-typing-dot {
+  animation: marketing-typing-dot 1s infinite ease-in-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -83,6 +144,20 @@ body {
   }
 
   .marketing-hero-float {
+    animation: none !important;
+  }
+
+  .marketing-bubble,
+  .marketing-typing {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .marketing-typing {
+    display: none !important;
+  }
+
+  .marketing-typing-dot {
     animation: none !important;
   }
 }

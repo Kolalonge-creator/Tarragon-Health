@@ -56,6 +56,8 @@ export const MARKETING_MEDIA = {
     diabetes: { illustration: "diabetes" } satisfies MarketingMediaSlot,
     parentcare: { illustration: "parentcare" } satisfies MarketingMediaSlot,
     prevention: { illustration: "prevention" } satisfies MarketingMediaSlot,
+    medication: { illustration: "connected-care" } satisfies MarketingMediaSlot,
+    labs: { illustration: "prevention" } satisfies MarketingMediaSlot,
   },
   serviceCard: {
     hypertension: { illustration: "hypertension" } satisfies MarketingMediaSlot,

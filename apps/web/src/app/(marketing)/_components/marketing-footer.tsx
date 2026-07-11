@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLockup } from "./brand-logo";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 const FOOTER_LINKS = {
@@ -10,8 +10,8 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
   ],
   coordination: [
-    { href: MARKETING_ROUTES.medication, label: "Medication", soon: true },
-    { href: MARKETING_ROUTES.labs, label: "Labs", soon: true },
+    { href: MARKETING_ROUTES.medication, label: "Medication" },
+    { href: MARKETING_ROUTES.labs, label: "Labs" },
   ],
   company: [
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
@@ -82,13 +82,7 @@ export function MarketingFooter() {
     <footer className="border-t border-charcoal-ink/10 bg-clinical-navy text-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1fr]">
         <div className="space-y-5">
-          <Image
-            src="/brand/guard-leaf-lockup.png"
-            alt="TarragonHealth"
-            width={160}
-            height={48}
-            className="h-10 w-auto brightness-0 invert"
-          />
+          <BrandLockup tone="on-navy" markClassName="h-10 w-10" wordmarkClassName="text-xl" />
           <div className="space-y-2">
             <p className="font-heading text-lg font-semibold text-white">
               Care that stays with you.

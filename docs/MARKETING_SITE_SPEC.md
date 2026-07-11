@@ -277,18 +277,19 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 - [x] Omada-inspired trust additions adapted to Tarragon voice: proof stats strip, Monitor/Review/Coordinate pillars, homepage FAQ, and product-page included lists
 - [x] Homepage dashboard preview added — shows readings, reminders, preventive check, nurse review, and family update flow
 - [x] Footer redesigned into clear groups: Priority programmes, Coordination, Company, Platform; unfinished pages marked `soon`
+- [x] Homepage visual pass (2026-07-11): animated WhatsApp hero mockup (`_components/whatsapp-hero-mockup.tsx`, pure CSS, `prefers-reduced-motion` respected) replaces the illustration hero visual; brand-guide voice pillars + "never do" chips (`_components/trust-pillars.tsx`); interactive four-way audience tabs — For you / families / employers / HMOs — with mini stat-card visuals (`_components/audience-tabs.tsx`, content in `AUDIENCE_TABS`); mobile nav hamburger menu added to `marketing-nav.tsx` (previously no way to reach nav links below `md`)
 
 ### Pages
 
 | Page | Route | Status | Notes |
 |---|---|---|---|
-| Homepage | `/` | **Done** | All 9 sections from §3.1 plus proof stats, 3 pillars, dashboard preview, FAQ |
+| Homepage | `/` | **Done** | All 9 sections from §3.1 plus proof stats, 3 pillars, dashboard preview, FAQ, WhatsApp hero mockup, voice trust-pillar grid, audience tabs |
 | Hypertension | `/hypertension` | **Done** | Includes condition-specific "what's included" list |
 | Diabetes | `/diabetes` | **Done** | Includes condition-specific "what's included" list |
 | ParentCare | `/parentcare` | **Done** | Includes condition-specific "what's included" list |
 | Prevention | `/prevention` | **Done** | Priority programme — care gaps, screening, Cat 2→1 upgrade path |
-| Medication | `/medication` | Not started | |
-| Labs | `/labs` | Not started | |
+| Medication | `/medication` | **Done** | Uses shared `ProductPageTemplate`; no campaign line per §3.2 table |
+| Labs | `/labs` | **Done** | Uses shared `ProductPageTemplate`; no campaign line per §3.2 table |
 | Pricing | `/pricing` | **Done** | Four-label tiers, ₦/£ toggle, ISR |
 | About | `/about` | Not started | MDX or CMS-ready plain content |
 | Corporate | `/corporate` | **Blocked** | Path collision with platform `(dashboard)/corporate` — needs hostname rewrite first |
@@ -297,12 +298,11 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 
 ### Next session — recommended order
 
-1. **Product pages** — `/medication`, `/labs` (copy pattern from existing priority programmes)
-2. **Abnormal screening E2E test** — verify Cat 2→1 upgrade flow end-to-end (highest-priority business event)
-3. **Corporate / HMO** — add proxy rewrites on marketing host *or* move platform dashboards to prefixed paths
-4. **About founder** — static/MDX content page
-5. **Lighthouse pass** — homepage 90+ perf, 100 a11y
-6. **Merge marketing branch** → `main-dev`, then staging deploy
+1. **Abnormal screening E2E test** — the underlying AbnormalResultHandler Edge Function (2026-07-11, see `docs/ARCHITECTURE.md` §17 item 5) now exists to test against; verify Cat 2→1 upgrade flow end-to-end (highest-priority business event), including a real/local Supabase run of the new migration + function
+2. **Corporate / HMO** — add proxy rewrites on marketing host *or* move platform dashboards to prefixed paths
+3. **About founder** — static/MDX content page
+4. **Lighthouse pass** — homepage 90+ perf, 100 a11y
+5. **Merge marketing branch** → `main-dev`, then staging deploy
 
 ### Local dev
 

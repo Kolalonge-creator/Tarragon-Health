@@ -10,6 +10,7 @@ export function CtaBand({
   secondaryHref,
   secondaryLabel,
   className,
+  variant = "default",
 }: {
   title: string;
   description?: string;
@@ -18,24 +19,54 @@ export function CtaBand({
   secondaryHref?: string;
   secondaryLabel?: string;
   className?: string;
+  variant?: "default" | "gradient";
 }) {
+  const isGradient = variant === "gradient";
+
   return (
     <div
       className={cn(
-        "rounded-2xl border border-charcoal-ink/10 bg-white px-6 py-10 text-center shadow-sm sm:px-10",
+        "relative overflow-hidden rounded-2xl px-6 py-12 text-center sm:px-10",
+        isGradient
+          ? "bg-linear-to-br from-deep-forest to-brand-green text-white shadow-xl shadow-brand-green/20"
+          : "border border-charcoal-ink/10 bg-white shadow-sm",
         className
       )}
     >
-      <h2 className="font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">{title}</h2>
-      {description ? (
-        <p className="mx-auto mt-3 max-w-xl text-charcoal-ink/70">{description}</p>
+      {isGradient ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white/10"
+        />
       ) : null}
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <Button asChild size="lg">
+      <h2
+        className={cn(
+          "relative font-heading text-2xl font-semibold sm:text-3xl",
+          isGradient ? "text-white" : "text-charcoal-ink"
+        )}
+      >
+        {title}
+      </h2>
+      {description ? (
+        <p className={cn("relative mx-auto mt-3 max-w-xl", isGradient ? "text-white/80" : "text-charcoal-ink/70")}>
+          {description}
+        </p>
+      ) : null}
+      <div className="relative mt-6 flex flex-wrap items-center justify-center gap-3">
+        <Button
+          asChild
+          size="lg"
+          className={isGradient ? "bg-sprout-gold text-clinical-navy hover:bg-sprout-gold/90" : undefined}
+        >
           <Link href={primaryHref}>{primaryLabel}</Link>
         </Button>
         {secondaryHref && secondaryLabel ? (
-          <Button asChild variant="outline" size="lg">
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className={isGradient ? "border-white/40 text-white hover:bg-white/10" : undefined}
+          >
             <Link href={secondaryHref}>{secondaryLabel}</Link>
           </Button>
         ) : null}

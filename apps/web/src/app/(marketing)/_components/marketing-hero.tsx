@@ -5,10 +5,13 @@ import { cn } from "@/lib/utils";
 
 export function MarketingHero({
   media,
+  visual,
   children,
   className,
 }: {
   media: MarketingMediaSlot;
+  /** Overrides the default illustration frame with a custom hero visual (e.g. WhatsappHeroMockup). */
+  visual?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
@@ -16,7 +19,7 @@ export function MarketingHero({
     <div className={cn("grid items-center gap-12 lg:grid-cols-2 lg:gap-16", className)}>
       <div className="text-center lg:text-left">{children}</div>
       <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
-        <MarketingMediaFrame media={media} priority className="marketing-hero-float" />
+        {visual ?? <MarketingMediaFrame media={media} priority className="marketing-hero-float" />}
         <div
           className="pointer-events-none absolute -bottom-6 -left-6 hidden h-24 w-24 rounded-full bg-brand-green/10 blur-2xl lg:block"
           aria-hidden

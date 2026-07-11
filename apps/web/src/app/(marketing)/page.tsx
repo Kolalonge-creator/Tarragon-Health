@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { AudienceTabs } from "./_components/audience-tabs";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
 import { DashboardPreview } from "./_components/dashboard-preview";
@@ -10,9 +11,11 @@ import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
 import { ServiceCardLink } from "./_components/service-card";
 import { StoryPanel } from "./_components/story-panel";
+import { TrustPillars } from "./_components/trust-pillars";
+import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
 import { MARKETING_MEDIA } from "./_content/media";
 import {
-  AUDIENCE_BLOCKS,
+  AUDIENCE_TABS,
   HOMEPAGE_FAQS,
   HOW_IT_WORKS_STEPS,
   PREVENTION_CALLOUT,
@@ -34,8 +37,16 @@ export default function MarketingHomePage() {
 
   return (
     <>
-      <Section className="overflow-hidden pt-16 sm:pt-24">
-        <MarketingHero media={homepage.hero}>
+      <Section className="relative overflow-hidden pt-16 sm:pt-24">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 top-10 -z-10 h-[320px] w-[320px] rounded-full bg-sprout-gold/15 blur-3xl"
+        />
+        <MarketingHero media={homepage.hero} visual={<WhatsappHeroMockup />}>
           <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
             Clinician-led health monitoring
           </p>
@@ -190,29 +201,16 @@ export default function MarketingHomePage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="Who it's for" title="Built for families, employers, and HMOs" />
-        <div className="grid gap-6 md:grid-cols-3">
-          {AUDIENCE_BLOCKS.map((block) => (
-            <div
-              key={block.title}
-              className="rounded-xl border border-charcoal-ink/10 bg-white p-6"
-            >
-              <p className="text-sm font-medium text-brand-green">{block.title}</p>
-              <h3 className="mt-2 font-heading text-lg font-semibold text-charcoal-ink">
-                {block.message}
-              </h3>
-              <p className="mt-3 text-sm text-charcoal-ink/70">{block.body}</p>
-              {block.cta ? (
-                <Link
-                  href={`${block.cta.href}?source=${block.cta.source}`}
-                  className="mt-4 inline-flex text-sm font-medium text-brand-green hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm"
-                >
-                  {block.cta.label} →
-                </Link>
-              ) : null}
-            </div>
-          ))}
-        </div>
+        <SectionHeading
+          eyebrow="Why families trust Tarragon"
+          title="A nurse who knows your name. Not a hospital PA system."
+        />
+        <TrustPillars />
+      </Section>
+
+      <Section>
+        <SectionHeading eyebrow="Who it's for" title="Whoever you're looking after, Tarragon speaks your language." />
+        <AudienceTabs tabs={AUDIENCE_TABS} />
       </Section>
 
       <Section>
@@ -252,6 +250,7 @@ export default function MarketingHomePage() {
 
       <Section variant="sage" className="pb-24">
         <CtaBand
+          variant="gradient"
           title="Care that stays with you."
           description="Start monitoring today — for yourself or someone you love."
           primaryHref="/signup"

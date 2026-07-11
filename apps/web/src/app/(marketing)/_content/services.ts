@@ -43,14 +43,14 @@ export const SERVICE_CARDS: ServiceCard[] = [
     href: MARKETING_ROUTES.medication,
     title: "Medication",
     description: "Reduce missed doses and avoid running out of medication.",
-    built: false,
+    built: true,
   },
   {
     key: "labs",
     href: MARKETING_ROUTES.labs,
     title: "Labs",
     description: "Know what tests are due, book them, and track follow-up.",
-    built: false,
+    built: true,
   },
 ];
 
@@ -108,26 +108,96 @@ export const HOW_IT_WORKS_STEPS = [
   { step: 6, title: "Family updates", body: "Keep family informed with calm, clear updates — near or far." },
 ] as const;
 
-export const AUDIENCE_BLOCKS = [
+export type AudienceStat = {
+  label: string;
+  value: string;
+  pill?: { text: string; tone: "green" | "amber" | "red" };
+};
+
+export type AudienceTab = {
+  key: "patient" | "family" | "corporate" | "hmo";
+  tabLabel: string;
+  title: string;
+  body: string;
+  points: string[];
+  stats: AudienceStat[];
+  cta: { label: string; href: string; source?: string } | null;
+};
+
+export const AUDIENCE_TABS: AudienceTab[] = [
   {
-    title: "For families",
-    message: "Peace of mind for the people you love.",
-    body: "Track Mum's blood pressure, Dad's medication, and preventive checks — with updates that feel human, not clinical.",
+    key: "patient",
+    tabLabel: "For you",
+    title: "Track your health without carrying it alone.",
+    body: "Blood pressure, blood sugar, medication, lab checks, and preventive reminders — in one secure place, with a nurse behind it when you need one.",
+    points: [
+      "BP and glucose logging with trend review",
+      "Medication reminders and refill alerts",
+      "Monthly nurse check-in, doctor escalation when needed",
+    ],
+    stats: [
+      { label: "Blood pressure", value: "124 / 79", pill: { text: "In range", tone: "green" } },
+      { label: "Medication adherence", value: "92%" },
+      { label: "Next lab due", value: "HbA1c · 3 wks" },
+      { label: "Care gap", value: "", pill: { text: "1 overdue", tone: "amber" } },
+    ],
     cta: null,
   },
   {
-    title: "For employers",
-    message: "Know your workforce health risks before they become costs.",
+    key: "family",
+    tabLabel: "For families",
+    title: "Know how your parent is doing, even from far away.",
+    body: "Track Mum's blood pressure, Dad's medication, and preventive checks — with updates that feel human, not clinical.",
+    points: [
+      "Is my parent okay today? Green, amber, or red.",
+      "Are they taking their medication?",
+      "Is anything overdue — labs, refills, review?",
+    ],
+    stats: [
+      { label: "Dad — today's status", value: "", pill: { text: "Stable", tone: "green" } },
+      { label: "Medication", value: "Taken, 8:02am" },
+      { label: "This week's readings", value: "Stable trend" },
+      { label: "Overdue", value: "", pill: { text: "Nothing", tone: "green" } },
+    ],
+    cta: null,
+  },
+  {
+    key: "corporate",
+    tabLabel: "For employers",
+    title: "Know your workforce health risks before they become costs.",
     body: "Corporate wellness reports that surface chronic disease risk and care gaps — described clearly, acted on early.",
+    points: [
+      "Staff enrolment and annual health checks",
+      "Anonymised risk dashboard by cohort",
+      "Screening compliance reporting for HR",
+    ],
+    stats: [
+      { label: "Pre-diabetic (workforce)", value: "", pill: { text: "12%", tone: "amber" } },
+      { label: "Uncontrolled BP", value: "", pill: { text: "8%", tone: "red" } },
+      { label: "Cervical screening overdue", value: "60 employees" },
+      { label: "Urgent follow-up needed", value: "25 employees" },
+    ],
     cta: { label: "Request employer health plan", href: MARKETING_ROUTES.contact, source: "corporate" },
   },
   {
-    title: "For HMOs",
-    message: "Close care gaps. Monitor risk. Prove outcomes.",
+    key: "hmo",
+    tabLabel: "For HMOs",
+    title: "We don't just manage chronic disease. We catch it earlier — and prove it.",
     body: "Member monitoring, care-gap closure, and outcome evidence — so you can show what proactive care delivers.",
+    points: [
+      "Population risk stratification, live",
+      "Care gap closure tracked to completion",
+      "Outcome reporting built for renewal conversations",
+    ],
+    stats: [
+      { label: "Members monitored", value: "4,820" },
+      { label: "Care gaps closed (90d)", value: "", pill: { text: "+31%", tone: "green" } },
+      { label: "Abnormal results caught early", value: "146" },
+      { label: "Claims impact", value: "Reporting live" },
+    ],
     cta: { label: "Talk to Tarragon Health", href: MARKETING_ROUTES.contact, source: "hmo" },
   },
-] as const;
+];
 
 export const HOMEPAGE_FAQS = [
   {

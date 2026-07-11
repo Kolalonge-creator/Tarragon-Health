@@ -16,7 +16,11 @@ export function ProductPageTemplate({ content }: { content: ProductPageContent }
 
   return (
     <>
-      <Section className="pt-20">
+      <Section className="relative overflow-hidden pt-20">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
+        />
         <MarketingHero media={heroMedia}>
           <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">
             {content.headline}

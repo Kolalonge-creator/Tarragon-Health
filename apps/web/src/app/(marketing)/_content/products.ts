@@ -144,6 +144,70 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         "Find care gaps early, complete overdue screenings, and get clinician follow-up when results need attention — on the same record as chronic care.",
     },
   },
+  medication: {
+    slug: "medication",
+    headline: "Reduce missed doses and avoid running out of medication.",
+    intro:
+      "Tarragon keeps your medication schedule in the same record as your vitals and labs — reminders on WhatsApp or app, refill alerts before you run out, and a nurse-led team that follows up when doses are missed.",
+    included: [
+      "Medication schedule built into your health record",
+      "WhatsApp and app reminders for every dose",
+      "Refill alerts before you run out",
+      "Pharmacy partner network for booking a refill",
+      "Nurse follow-up when doses are missed",
+    ],
+    howItWorks: [
+      {
+        title: "Set up your medication list",
+        body: "Add what you take and when — as part of onboarding or any time your prescription changes.",
+      },
+      {
+        title: "Get reminded, log it in seconds",
+        body: "A WhatsApp or app reminder lands at the right time; replying takes seconds and updates your record.",
+      },
+      {
+        title: "Never run out, never go quiet",
+        body: "Refill alerts arrive before you're out, and a nurse checks in if doses are consistently missed.",
+      },
+    ],
+    metadata: {
+      title: "Medication Support — TarragonHealth",
+      description:
+        "Medication reminders, refill alerts, and adherence follow-up — on WhatsApp or app, in the same record as the rest of your care.",
+    },
+  },
+  labs: {
+    slug: "labs",
+    headline: "Know what tests are due, book them, and track follow-up.",
+    intro:
+      "Lab work is where care between visits most often goes quiet. Tarragon keeps a running calendar of what's due, books it through a trusted partner network, and makes sure every result is reviewed — not just filed away.",
+    included: [
+      "Lab calendar synced to your chronic and preventive record",
+      "Booking through Tarragon's trusted lab partner network",
+      "Results explained in plain language, not jargon",
+      "Immediate clinician alert for abnormal results",
+      "Follow-up tracked until the loop is closed",
+    ],
+    howItWorks: [
+      {
+        title: "Know what's due",
+        body: "Your lab calendar reflects your conditions and screening timeline — no guessing what's overdue.",
+      },
+      {
+        title: "Book with a trusted lab",
+        body: "Book through Tarragon's partner network and keep every result in one record instead of scattered reports.",
+      },
+      {
+        title: "Never lose a result",
+        body: "A clinician reviews every result. Abnormal findings trigger immediate follow-up — never a forgotten report.",
+      },
+    ],
+    metadata: {
+      title: "Lab Coordination — TarragonHealth",
+      description:
+        "Know what lab tests are due, book them through a trusted partner network, and get clinician follow-up on every result.",
+    },
+  },
 };
 
 export function getProductPage(slug: string): ProductPageContent | undefined {
