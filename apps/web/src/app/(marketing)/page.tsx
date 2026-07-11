@@ -4,8 +4,13 @@ import { Button } from "@/components/ui/button";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
 import { DashboardPreview } from "./_components/dashboard-preview";
+import { MarketingHero } from "./_components/marketing-hero";
+import { MarketingMediaFrame } from "./_components/marketing-media-frame";
+import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
 import { ServiceCardLink } from "./_components/service-card";
+import { StoryPanel } from "./_components/story-panel";
+import { MARKETING_MEDIA } from "./_content/media";
 import {
   AUDIENCE_BLOCKS,
   HOMEPAGE_FAQS,
@@ -24,10 +29,13 @@ export const metadata: Metadata = {
 };
 
 export default function MarketingHomePage() {
+  const { homepage } = MARKETING_MEDIA;
+  const { walkthroughVideo } = homepage;
+
   return (
     <>
       <Section className="overflow-hidden pt-16 sm:pt-24">
-        <div className="mx-auto max-w-3xl text-center">
+        <MarketingHero media={homepage.hero}>
           <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
             Clinician-led health monitoring
           </p>
@@ -42,7 +50,7 @@ export default function MarketingHomePage() {
             in one secure platform. Tarragon helps families stay informed and supports escalation
             when closer care is needed.
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
               <Link href="/signup">Start monitoring</Link>
             </Button>
@@ -50,7 +58,7 @@ export default function MarketingHomePage() {
               <Link href={MARKETING_ROUTES.contact}>Join the 90-Day Health Reset</Link>
             </Button>
           </div>
-        </div>
+        </MarketingHero>
         <ContinuityPath />
       </Section>
 
@@ -69,36 +77,54 @@ export default function MarketingHomePage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading
+        <StoryPanel
           eyebrow="The problem"
           title="Chronic disease is poorly followed up between doctor visits"
           description="Families worry because readings drift, medication gets missed, and preventive checks slip — with no one watching consistently in between."
+          media={homepage.problem}
         />
       </Section>
 
       <Section>
-        <SectionHeading
+        <StoryPanel
           eyebrow="The solution"
           title="Tarragon monitors, reminds, reviews, coordinates, and escalates"
           description="A clinician-led team keeps watch over your health record — calm follow-up when things are steady, escalation when they are not."
+          media={homepage.solution}
+          reverse
+        />
+      </Section>
+
+      <Section variant="sage">
+        <MarketingVideo
+          youtubeId={walkthroughVideo.youtubeId}
+          title={walkthroughVideo.title}
+          caption={walkthroughVideo.caption}
+          poster={walkthroughVideo.poster}
         />
       </Section>
 
       <Section>
-        <div className="mx-auto max-w-4xl rounded-2xl border border-brand-green/20 bg-white p-8 shadow-sm sm:p-10">
-          <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
-            Priority programme
-          </p>
-          <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
-            {PREVENTION_CALLOUT.title}
-          </h2>
-          <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-            {PREVENTION_CALLOUT.body}
-          </p>
-          <div className="mt-6">
-            <Button asChild variant="outline">
-              <Link href={MARKETING_ROUTES.prevention}>Learn about preventive health</Link>
-            </Button>
+        <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-brand-green/20 bg-white shadow-sm lg:grid-cols-[0.9fr_1.1fr]">
+          <MarketingMediaFrame
+            media={{ illustration: "prevention", imageAlt: "Preventive health and screening follow-up" }}
+            className="rounded-none border-0 shadow-none lg:min-h-full"
+          />
+          <div className="p-8 sm:p-10">
+            <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+              Priority programme
+            </p>
+            <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
+              {PREVENTION_CALLOUT.title}
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              {PREVENTION_CALLOUT.body}
+            </p>
+            <div className="mt-6">
+              <Button asChild variant="outline">
+                <Link href={MARKETING_ROUTES.prevention}>Learn about preventive health</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </Section>
@@ -132,11 +158,11 @@ export default function MarketingHomePage() {
 
       <Section>
         <SectionHeading eyebrow="How it works" title="From sign-up to family updates" />
-        <ol className="mx-auto grid max-w-3xl gap-4">
+        <ol className="mx-auto grid max-w-4xl gap-4 lg:grid-cols-2">
           {HOW_IT_WORKS_STEPS.map(({ step, title, body }) => (
             <li
               key={step}
-              className="flex gap-4 rounded-xl border border-charcoal-ink/10 bg-white p-5"
+              className="flex gap-4 rounded-xl border border-charcoal-ink/10 bg-white p-5 shadow-sm"
             >
               <span
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-clinical-navy text-sm font-semibold text-white"
@@ -154,11 +180,12 @@ export default function MarketingHomePage() {
       </Section>
 
       <Section variant="navy">
-        <SectionHeading
-          invert
+        <StoryPanel
+          invertText
           eyebrow="Why trust us"
           title="Clinician-led, protocol-driven, evidence-focused"
-          description="We are not a wellness app. Tarragon is built for the care between doctor visits — with nurses who know your name and protocols that keep follow-up consistent."
+          description="We are not a wellness app. Tarragon is built for the care between doctor visits — with clinicians who know your name and protocols that keep follow-up consistent."
+          media={homepage.solution}
         />
       </Section>
 

@@ -62,9 +62,27 @@ body {
   }
 }
 
+@keyframes marketing-hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.marketing-hero-float {
+  animation: marketing-hero-float 5s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .motion-safe\:opacity-0 {
     opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .marketing-hero-float {
     animation: none !important;
   }
 }
