@@ -35,7 +35,7 @@ Lab network (booking, result delivery, abnormal flagging) · Pharmacy network (f
 Corporate wellness (annual checks, risk reports, workforce health) · HMO partnerships (capitation, prevention compliance, claims reduction) · NHIA/government (population screening, public health contracts) · Hospital discharge contracts · Diaspora groups (ParentCare distribution).
 
 ### Category 5 — Platform Infrastructure (backbone, not a product line)
-WhatsApp/SMS notification engine (follow-up/reminders/alerts only — app/web is the interface, see CLAUDE.md) · Nurse-led delivery (home visits, sample collection, counselling) · AI clinical decisioning (flag abnormals, automate escalation, care plans) · Longitudinal patient health record · Partner API layer (labs, pharmacies, hospitals) · Data & analytics (population dashboards for HMOs/corporates) · Audit log (immutable, medico-legal protection).
+WhatsApp/SMS notification engine + human doctor↔patient support chat (app/web is the interface for signup and every core action, see CLAUDE.md) · Nurse-led delivery (home visits, sample collection, counselling) · AI clinical decisioning (flag abnormals, automate escalation, care plans) · Longitudinal patient health record · Partner API layer (labs, pharmacies, hospitals) · Data & analytics (population dashboards for HMOs/corporates) · Audit log (immutable, medico-legal protection).
 
 **The chain:** Prevention identifies risk → Chronic management manages disease → Care coordination routes services → B2B funds scale → Platform infrastructure makes the system work.
 
@@ -155,7 +155,7 @@ Seed `screen_types` with 12 types at minimum: PSA (male, 40+, 1yr), cervical sme
 ### 3.6 Platform Infrastructure (Category 5)
 - `audit_log` — immutable (no UPDATE/DELETE at the Postgres constraint level); every clinical, billing, and ML-prediction event logged
 - `notifications` — channel: email/SMS/in-app/WhatsApp
-- `conversation_state` (Upstash Redis, not Postgres) — per phone number; tracks outbound WhatsApp/SMS notification/delivery state (dedup, retries) — not an inbound conversation router; there is no WhatsApp-driven bot interface (see §10 note 1 and CLAUDE.md's 2026-07-11 WhatsApp policy)
+- `conversation_state` (Upstash Redis, not Postgres) — per phone number; tracks outbound WhatsApp/SMS notification/delivery state (dedup, retries); there is no bot/intent-routing automation — inbound WhatsApp is human doctor↔patient support chat only, routed to a clinician inbox (see §10 note 1 and CLAUDE.md's 2026-07-11 WhatsApp policy)
 - `referrals` — patient_refers_patient (₦2,000 airtime), doctor_refers_patient (₦3,500/enrolled, max 20/mo), corporate_champion
 - `ai_conversations` — AI Health Coach scaffold (profile_id, messages jsonb[]); LangGraph.js + Claude API wiring, disclaimer/guardrail logic, and chat UI are a separate future phase (see §10)
 
@@ -183,7 +183,7 @@ All five categories are architecturally represented from Sprint 1. Changing the 
 |---|---|---|---|
 | 1 | 1–2 | Auth, multi-tenancy, full DB schema (all 5 categories), FastAPI scaffold | TS + Python (parallel) |
 | 2 | 3–4 | Core Patient OS — vitals, care plans, prevention scheduler, abnormal result handler, patient + clinician dashboards | TypeScript |
-| 3 | 5–6 | AI engine + WhatsApp/SMS notification integration — outbound reminders/alerts/confirmations for vitals, medication, screening, lab booking, and results (app/web remains the interface for all of these), LangGraph.js clinical workflow, family portal, SMS fallback | Python/FastAPI + TS |
+| 3 | 5–6 | AI engine + WhatsApp/SMS notification integration — outbound reminders/alerts/confirmations for vitals, medication, screening, lab booking, and results (app/web remains the interface for all of these) — plus inbound human doctor↔patient support chat (webhook → clinician inbox, no automation), LangGraph.js clinical workflow, family portal, SMS fallback | Python/FastAPI + TS |
 | 4 | 7–9 | Python ML microservice — SCORE2 CVD model, HbA1c trajectory, BP control assessment, lab/screening interpretation, population cohort analytics, batch prediction, deploy to Railway/Render, integrate with TS via ml-client | Python |
 | 5 | 10–11 | Lab & pharmacy network — partner catalogue, bundle pricing, screening-specific booking, commission tracking | TypeScript |
 | 6 | 12–13 | HMO billing, subscriptions, revenue engine — all plans, Paystack subscriptions, Stripe diaspora, HMO capitation + outcomes report, corporate billing, financial dashboard | TypeScript |

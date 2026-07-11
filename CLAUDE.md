@@ -38,7 +38,7 @@ Prevention and chronic management **share the same patient record** — design e
 
 ## Non-Negotiable Business Rules
 - All NGN amounts stored in **kobo** (smallest unit). Diaspora billing: GBP primary, USD secondary, via Stripe.
-- **Superseded 2026-07-11 — WhatsApp is follow-up/notification-only, never a required interface.** Signup, onboarding, and every core patient/clinician action happen via app or web. WhatsApp/SMS (Termii fallback) may send reminders, alerts, and confirmations, but no feature may be built to depend on a WhatsApp send succeeding, and there is no WhatsApp-initiated signup or account creation, ever.
+- **Superseded 2026-07-11 — WhatsApp is not a required interface for signup or core platform actions.** Signup, onboarding, and every core patient/clinician transaction (vitals/meds/screening/booking logging, dose tracking, etc.) happen via app or web only — no bot-driven data entry over WhatsApp, ever, and no feature may be built to depend on a WhatsApp send succeeding. WhatsApp/SMS (Termii fallback) still carries reminders/alerts/confirmations, **and patients may message their doctor on WhatsApp for support, with the doctor replying on WhatsApp too** — that two-way channel is human-routed (a clinician inbox), never parsed by automation into a platform action.
 - Phone numbers always E.164 (`+234XXXXXXXXX`). Timezone always `Africa/Lagos`.
 - Every table has `organisation_id` — always filter by it. **RLS enforced at the Postgres level for every multi-tenant table — never bypass, never filter in application code instead.**
 - Clinician:patient ratio target — **1:120**. Four-level clinical escalation: routine → clinician review → urgent escalation → emergency/urgent care advice.
@@ -88,8 +88,8 @@ Active Service: TypeScript — **active initiative (2026-07-11): marketing site 
 - Never bypass Supabase RLS, "just for this query"
 - Never give the ML service direct database access
 - Never skip Zod validation (TS) or Pydantic schemas (Python)
-- Never design a patient-facing feature that requires a WhatsApp send to succeed, or that only works via WhatsApp — app/web is the interface; WhatsApp/SMS is notification-only
-- Never build a WhatsApp-initiated signup, onboarding, or account-creation flow — signup is app/web only
+- Never design a patient-facing feature that requires a WhatsApp send to succeed, or that only works via WhatsApp — app/web is the interface for every core action; WhatsApp/SMS is notifications plus human doctor↔patient support chat, not a transactional interface
+- Never build a WhatsApp-initiated signup, onboarding, or account-creation flow, and never build automation (bots/intent parsing) that turns an inbound WhatsApp message into a platform action — signup and core actions are app/web only; inbound WhatsApp only ever routes to a human clinician inbox
 - Never deprioritise or silently swallow an abnormal screening result event
 - Never invent a standalone sub-brand name for an internal product (see `docs/BRAND_GUIDE.md` §7)
 
