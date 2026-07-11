@@ -399,7 +399,7 @@ Only `NEXT_PUBLIC_`-prefixed vars are client-exposed.
 | 2 | Next.js version | **Next.js 16** is the decision of record (repo already on 16); older docs said 15 |
 | 3 | Package manager | **pnpm** — repo currently has an npm lockfile; convert during Sprint 1 scaffold |
 | 4 | Repo shape | Migrate current single-app root into `apps/web` under the monorepo during Sprint 1 |
-| 5 | Durable trigger delivery | Confirm retry/dead-letter mechanism for AbnormalResultHandler (Postgres → Edge) |
+| 5 | Durable trigger delivery | **Partially resolved (2026-07-11):** AbnormalResultHandler Edge Function now exists and the trigger invokes it via `net.http_post` immediately on insert. The DB-side audit trail (`screening_upgrades` + `clinician_alerts` + 4h SLA) is unconditional and was already durable. Still open: no retry/dead-letter queue if `net.http_post` itself fails or the function 5xxs after receiving the request — a failed WhatsApp send is only visible via the `audit_log` row, not retried |
 | 6 | Pricing reconciliation | Two pricing bands exist in the spec; lock final numbers before Sprint 6 |
 | 7 | Meta template approval | Submit WhatsApp templates ~2 weeks before launch |
 
