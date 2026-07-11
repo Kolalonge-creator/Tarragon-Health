@@ -35,7 +35,7 @@ Lab network (booking, result delivery, abnormal flagging) · Pharmacy network (f
 Corporate wellness (annual checks, risk reports, workforce health) · HMO partnerships (capitation, prevention compliance, claims reduction) · NHIA/government (population screening, public health contracts) · Hospital discharge contracts · Diaspora groups (ParentCare distribution).
 
 ### Category 5 — Platform Infrastructure (backbone, not a product line)
-WhatsApp/SMS engine · Nurse-led delivery (home visits, sample collection, counselling) · AI clinical decisioning (flag abnormals, automate escalation, care plans) · Longitudinal patient health record · Partner API layer (labs, pharmacies, hospitals) · Data & analytics (population dashboards for HMOs/corporates) · Audit log (immutable, medico-legal protection).
+WhatsApp/SMS notification engine (follow-up/reminders/alerts only — app/web is the interface, see CLAUDE.md) · Nurse-led delivery (home visits, sample collection, counselling) · AI clinical decisioning (flag abnormals, automate escalation, care plans) · Longitudinal patient health record · Partner API layer (labs, pharmacies, hospitals) · Data & analytics (population dashboards for HMOs/corporates) · Audit log (immutable, medico-legal protection).
 
 **The chain:** Prevention identifies risk → Chronic management manages disease → Care coordination routes services → B2B funds scale → Platform infrastructure makes the system work.
 
@@ -155,7 +155,7 @@ Seed `screen_types` with 12 types at minimum: PSA (male, 40+, 1yr), cervical sme
 ### 3.6 Platform Infrastructure (Category 5)
 - `audit_log` — immutable (no UPDATE/DELETE at the Postgres constraint level); every clinical, billing, and ML-prediction event logged
 - `notifications` — channel: email/SMS/in-app/WhatsApp
-- `conversation_state` (Upstash Redis, not Postgres) — per phone number, drives WhatsApp routing
+- `conversation_state` (Upstash Redis, not Postgres) — per phone number; tracks outbound WhatsApp/SMS notification/delivery state (dedup, retries) — not an inbound conversation router; there is no WhatsApp-driven bot interface (see §10 note 1 and CLAUDE.md's 2026-07-11 WhatsApp policy)
 - `referrals` — patient_refers_patient (₦2,000 airtime), doctor_refers_patient (₦3,500/enrolled, max 20/mo), corporate_champion
 - `ai_conversations` — AI Health Coach scaffold (profile_id, messages jsonb[]); LangGraph.js + Claude API wiring, disclaimer/guardrail logic, and chat UI are a separate future phase (see §10)
 
@@ -183,7 +183,7 @@ All five categories are architecturally represented from Sprint 1. Changing the 
 |---|---|---|---|
 | 1 | 1–2 | Auth, multi-tenancy, full DB schema (all 5 categories), FastAPI scaffold | TS + Python (parallel) |
 | 2 | 3–4 | Core Patient OS — vitals, care plans, prevention scheduler, abnormal result handler, patient + clinician dashboards | TypeScript |
-| 3 | 5–6 | AI engine + WhatsApp integration — webhook, vitals/medication/screening bots, lab booking, result delivery, LangGraph.js clinical workflow, family portal, SMS fallback | Python/FastAPI + TS |
+| 3 | 5–6 | AI engine + WhatsApp/SMS notification integration — outbound reminders/alerts/confirmations for vitals, medication, screening, lab booking, and results (app/web remains the interface for all of these), LangGraph.js clinical workflow, family portal, SMS fallback | Python/FastAPI + TS |
 | 4 | 7–9 | Python ML microservice — SCORE2 CVD model, HbA1c trajectory, BP control assessment, lab/screening interpretation, population cohort analytics, batch prediction, deploy to Railway/Render, integrate with TS via ml-client | Python |
 | 5 | 10–11 | Lab & pharmacy network — partner catalogue, bundle pricing, screening-specific booking, commission tracking | TypeScript |
 | 6 | 12–13 | HMO billing, subscriptions, revenue engine — all plans, Paystack subscriptions, Stripe diaspora, HMO capitation + outcomes report, corporate billing, financial dashboard | TypeScript |
@@ -203,7 +203,7 @@ Supabase Auth (phone OTP + email) → `profiles` with full role enum → `organi
 |---|---|---|
 | 1–2 | Auth, multi-tenancy, full schema seeded, FastAPI `/health`, CI passing | Foundation only |
 | 3–4 | Vitals + care plans + screening scheduler + dashboards + abnormal handler | Cat 1 unlocked; Cat 2 structure ready |
-| 5–6 | WhatsApp vitals/meds/screening/lab-booking/AI messages live | Cat 1 fully WhatsApp-operational; Cat 2+3 WhatsApp flows live |
+| 5–6 | WhatsApp/SMS reminders & alerts live for vitals/meds/screening/lab-booking (app/web is the interface), AI messages live | Cat 1 fully app/web-operational with notification layer; Cat 2+3 same |
 | 7–9 | ML models built, tested, deployed, integrated | Cat 4 B2B preview data available |
 | 10–11 | Lab + pharmacy network live, commission tracking | Cat 3 fully operational |
 | 12–13 | All subscriptions + Paystack + Stripe + HMO capitation + corporate billing live | Cat 1+2 subscription revenue + Cat 4 HMO/corporate revenue collecting |
@@ -255,7 +255,7 @@ Use this as a build tracker — check off per sprint. (Originally scoped against
 - [ ] **Escalation engine** — risk flags, urgent review queue, emergency advice pathway, escalation status (open/under review/resolved/referred)
 - [ ] **Family dashboard** — parent status page (green/amber/red), latest readings, adherence, upcoming actions, alerts, monthly report, payment management
 - [ ] **Payments** — Paystack (NGN, recurring, webhooks: charge.success/charge.failure/subscription.disable, 7-day grace + dunning), Stripe (GBP diaspora, Customer Portal), invoice history, failed-payment handling, plan upgrade/downgrade, corporate billing
-- [ ] **Notifications** — email, SMS (Termii), in-app, WhatsApp (primary), scheduled reminders (Upstash), missed-reading alerts, family update notifications
+- [ ] **Notifications** — email, SMS (Termii), in-app, WhatsApp (follow-up/notification channel, not primary — see CLAUDE.md), scheduled reminders (Upstash), missed-reading alerts, family update notifications
 - [ ] **Admin dashboard** — users, orgs, system health (API latency, WhatsApp delivery rate, ML service status, alert queue depth), finance (MRR/ARR/churn/commission/receivables), ML model versioning + batch re-scoring trigger
 - [ ] **Corporate dashboard** — staff enrolment, workforce health (ML cohort risk distribution), screening compliance %, abnormal findings (anonymised), overdue-screen actions list
 - [ ] **HMO dashboard** — member population risk, care gap tracking, outcome/claims-prevented reporting
@@ -340,7 +340,7 @@ Each partner needs: onboarding criteria, SLAs, pricing, quality standards, repor
 `TARRAGON_HEALTH_V1_SPEC.md` (repo root) was written as a standalone consumer-app build brief, as if greenfield. It wasn't — this schema already covered most of it under different names, with multi-tenant RLS the standalone spec didn't have. Four decisions govern how it was folded in, and this section is the map from its terms to what's actually built.
 
 **Resolved decisions:**
-1. **Reminders** build for WhatsApp+SMS first, keeping CLAUDE.md's non-negotiable "every patient action works via WhatsApp" rule intact — push/email are additive, not the primary path. (Send integration itself is not yet built — `notifications` is still write-only.)
+1. **Reminders** build for WhatsApp+SMS first as the notification channel, per CLAUDE.md's non-negotiable rule (updated 2026-07-11) that app/web is the required interface for every feature and WhatsApp/SMS is follow-up-only, never the primary interaction path — push/email are additive alongside WhatsApp/SMS. (Send integration itself is not yet built — `notifications` is still write-only.)
 2. **Family/multi-profile model**: `profile_access` (§3.1) delivers the "adult dependent can log in independently, owner retains access" model, additive to `family_plan_members`. Open item: `profiles` is still strictly 1:1 with `auth.users`, so a dependent still needs an auth account provisioned before they can be granted/hold access — the "add a family member before they sign up" onboarding flow is not yet resolved.
 3. **B2B/institutional work is paused** — no new HMO/corporate features until this consumer track ships. The existing `hmo_contracts`/`corporate_contracts`/`subscription_plans` schema already satisfies "architecturally represented from Sprint 1."
 4. **AI Health Coach** will be LangGraph.js + Claude API (matches §5 above), not a bare standalone Claude chat — `ai_conversations` is schema-only for now.
