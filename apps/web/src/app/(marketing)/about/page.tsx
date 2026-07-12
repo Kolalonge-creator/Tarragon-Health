@@ -23,11 +23,6 @@ export default function AboutPage() {
       </Section>
 
       <Section variant="sage">
-        {/*
-          Bio paragraphs are still placeholder text — replace with Dr Kola
-          Longe's real story before this page ships publicly. See
-          docs/MARKETING_SITE_SPEC.md §3.4.
-        */}
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
             <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
@@ -48,14 +43,26 @@ export default function AboutPage() {
               </a>
             </p>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              [One or two sentences on Dr Longe&rsquo;s clinical or
-              health-system background — replace with the real bio.]
+              Kola is an Emergency Medicine physician (FRCEM, FEBEM) and health
+              systems leader who trained in Nigeria before practising in the
+              UK, where he now works as a Specialty Doctor in Emergency
+              Medicine, sits on the Regional Board of the Royal College of
+              Emergency Medicine, and is completing postgraduate study in
+              clinical medicine and healthcare leadership at the University of
+              Cambridge and Alliance Manchester Business School.
             </p>
             <p className="mt-4 leading-relaxed text-charcoal-ink/70">
-              [Add Dr Longe&rsquo;s story here — what he saw in practice, in his
-              own family, or in the Nigerian health system that led to building
-              TarragonHealth, and why continuity between visits became the
-              founding thesis.]
+              Working across both systems, he kept seeing the same pattern:
+              the difference between a good outcome and a bad one was rarely
+              the diagnosis — it was whether the system around the patient
+              responded in time. A condition caught and followed up within
+              days looks nothing like the same condition missed for months.
+              TarragonHealth grew out of that observation, applied to chronic
+              disease and preventive care in Nigeria: most complications
+              aren&rsquo;t a failure of medicine, they&rsquo;re a failure of
+              follow-up. Kola founded TarragonHealth to build the system that
+              closes that gap — clinician-led, protocol-driven, and never
+              losing track of a patient between visits.
             </p>
           </div>
           <MarketingMediaFrame
