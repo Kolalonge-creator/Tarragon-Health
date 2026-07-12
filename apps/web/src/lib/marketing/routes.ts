@@ -40,10 +40,3 @@ export function isMarketingPath(pathname: string): boolean {
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 }
-
-/**
- * `/corporate` and `/hmo` collide with platform dashboard routes.
- * Marketing pages for those URLs require hostname rewrites — not built yet.
- * See docs/MARKETING_SITE_SPEC.md § Build Progress.
- */
-export const MARKETING_PATH_COLLISIONS = ["/corporate", "/hmo"] as const;

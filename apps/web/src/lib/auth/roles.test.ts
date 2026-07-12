@@ -12,8 +12,8 @@ describe("getRoleHomePath", () => {
     expect(getRoleHomePath("clinician")).toBe("/clinician");
     expect(getRoleHomePath("doctor")).toBe("/doctor");
     expect(getRoleHomePath("admin")).toBe("/admin");
-    expect(getRoleHomePath("hmo_admin")).toBe("/hmo");
-    expect(getRoleHomePath("corporate_admin")).toBe("/corporate");
+    expect(getRoleHomePath("hmo_admin")).toBe("/dashboard/hmo");
+    expect(getRoleHomePath("corporate_admin")).toBe("/dashboard/corporate");
   });
 });
 
@@ -60,7 +60,7 @@ describe("isPublicPath", () => {
 describe("isRoleHomePrefixed", () => {
   it("recognises every role home and its sub-paths", () => {
     expect(isRoleHomePrefixed("/patient")).toBe(true);
-    expect(isRoleHomePrefixed("/hmo/reports")).toBe(true);
+    expect(isRoleHomePrefixed("/dashboard/hmo/reports")).toBe(true);
     expect(isRoleHomePrefixed("/doctor")).toBe(true);
   });
 
