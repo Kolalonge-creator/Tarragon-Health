@@ -45,49 +45,74 @@ def test_score2_op_matches_hand_calculation() -> None:
 
 
 def test_smoking_increases_risk() -> None:
-    kwargs = dict(
+    non_smoker, _, _ = score2_risk(
         age=55,
         sex="male",
+        is_smoker=False,
         systolic_bp=130,
         total_cholesterol_mg_dl=190,
         hdl_cholesterol_mg_dl=50,
         risk_region="moderate",
     )
-    non_smoker, _, _ = score2_risk(is_smoker=False, **kwargs)
-    smoker, _, _ = score2_risk(is_smoker=True, **kwargs)
+    smoker, _, _ = score2_risk(
+        age=55,
+        sex="male",
+        is_smoker=True,
+        systolic_bp=130,
+        total_cholesterol_mg_dl=190,
+        hdl_cholesterol_mg_dl=50,
+        risk_region="moderate",
+    )
     assert smoker > non_smoker
 
 
 def test_higher_systolic_bp_increases_risk() -> None:
-    kwargs = dict(
+    lower, _, _ = score2_risk(
         age=60,
         sex="female",
         is_smoker=False,
+        systolic_bp=110,
         total_cholesterol_mg_dl=200,
         hdl_cholesterol_mg_dl=55,
         risk_region="low",
     )
-    lower, _, _ = score2_risk(systolic_bp=110, **kwargs)
-    higher, _, _ = score2_risk(systolic_bp=170, **kwargs)
+    higher, _, _ = score2_risk(
+        age=60,
+        sex="female",
+        is_smoker=False,
+        systolic_bp=170,
+        total_cholesterol_mg_dl=200,
+        hdl_cholesterol_mg_dl=55,
+        risk_region="low",
+    )
     assert higher > lower
 
 
 def test_higher_risk_region_increases_risk_for_same_patient() -> None:
-    kwargs = dict(
+    low, _, _ = score2_risk(
         age=58,
         sex="male",
         is_smoker=True,
         systolic_bp=145,
         total_cholesterol_mg_dl=210,
         hdl_cholesterol_mg_dl=45,
+        risk_region="low",
     )
-    low, _, _ = score2_risk(risk_region="low", **kwargs)
-    very_high, _, _ = score2_risk(risk_region="very_high", **kwargs)
+    very_high, _, _ = score2_risk(
+        age=58,
+        sex="male",
+        is_smoker=True,
+        systolic_bp=145,
+        total_cholesterol_mg_dl=210,
+        hdl_cholesterol_mg_dl=45,
+        risk_region="very_high",
+    )
     assert very_high > low
 
 
 def test_age_70_boundary_switches_to_score2_op() -> None:
-    kwargs = dict(
+    _, _, model_under = score2_risk(
+        age=69,
         sex="male",
         is_smoker=False,
         systolic_bp=130,
@@ -95,8 +120,15 @@ def test_age_70_boundary_switches_to_score2_op() -> None:
         hdl_cholesterol_mg_dl=50,
         risk_region="moderate",
     )
-    _, _, model_under = score2_risk(age=69, **kwargs)
-    _, _, model_over = score2_risk(age=70, **kwargs)
+    _, _, model_over = score2_risk(
+        age=70,
+        sex="male",
+        is_smoker=False,
+        systolic_bp=130,
+        total_cholesterol_mg_dl=200,
+        hdl_cholesterol_mg_dl=50,
+        risk_region="moderate",
+    )
     assert model_under == "SCORE2"
     assert model_over == "SCORE2-OP"
 
