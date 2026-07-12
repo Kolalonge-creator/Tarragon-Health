@@ -45,3 +45,9 @@ template = "Your Tarragon Health code is {{ .Code }}"
 
 [edge_runtime]
 enabled = true
+
+# Meta calls this unauthenticated (no Supabase JWT) — GET handshake uses
+# hub.verify_token, POST is validated via X-Hub-Signature-256 when
+# WHATSAPP_APP_SECRET is set (docs/ARCHITECTURE.md §8).
+[functions.whatsapp-webhook]
+verify_jwt = false

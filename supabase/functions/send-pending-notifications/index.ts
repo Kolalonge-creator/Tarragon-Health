@@ -177,7 +177,7 @@ async function sendTermiiSms(
       body: JSON.stringify({
         api_key: apiKey,
         to: toPhone,
-        from: "TarragonHlth",
+        from: "Tarragon",
         sms: text,
         type: "plain",
         channel: "generic",
