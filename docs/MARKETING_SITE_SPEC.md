@@ -290,7 +290,7 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 | Prevention | `/prevention` | **Done** | Priority programme — care gaps, screening, Cat 2→1 upgrade path |
 | Medication | `/medication` | **Done** | Uses shared `ProductPageTemplate`; no campaign line per §3.2 table |
 | Labs | `/labs` | **Done** | Uses shared `ProductPageTemplate`; no campaign line per §3.2 table |
-| Pricing | `/pricing` | **Done** | Four-label tiers, ₦/£ toggle, ISR |
+| Pricing | `/pricing` | **Done** | Four-label tiers, ₦/£ toggle, ISR. Rebuilt 2026-07-12 against `docs/Tarragon_Health_Pricing_Guide.docx` (the authoritative source) — `_content/pricing.ts` should be kept in sync with that doc if prices change |
 | About | `/about` | **Done (2026-07-12)** | Page shell + design done; founder name/photo/bio are bracketed placeholders — needs real content before this page is announced publicly |
 | Corporate | `/corporate` | Unblocked, not started | Platform dashboard moved to `/dashboard/corporate` (2026-07-12) — bare path is free for marketing to build |
 | HMO | `/hmo` | Unblocked, not started | Platform dashboard moved to `/dashboard/hmo` (2026-07-12) — bare path is free for marketing to build |

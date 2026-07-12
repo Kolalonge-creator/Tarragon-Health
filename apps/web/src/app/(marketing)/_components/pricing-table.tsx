@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
+  DIASPORA_FAMILY_NOTE,
   GBP_TIERS,
   NGN_TIERS,
   PRICING_LABELS,
@@ -12,9 +13,7 @@ import {
 } from "../_content/pricing";
 import { PricingLabelBadge } from "./pricing-label";
 
-function TierCard({ tier, currency }: { tier: PricingTier; currency: "NGN" | "GBP" }) {
-  const price = currency === "NGN" ? tier.priceNgn : tier.priceGbp;
-
+function TierCard({ tier }: { tier: PricingTier }) {
   return (
     <div
       className={cn(
@@ -28,10 +27,16 @@ function TierCard({ tier, currency }: { tier: PricingTier; currency: "NGN" | "GB
         </p>
       ) : null}
       <h3 className="font-heading text-2xl font-semibold text-charcoal-ink">{tier.name}</h3>
+      <p className="mt-1 text-sm text-charcoal-ink/60">{tier.whoFor}</p>
       <div className="mt-3 flex items-end gap-2">
-        <p className="font-heading text-4xl font-bold text-clinical-navy">{price}</p>
-        {tier.period ? <p className="pb-1 text-sm text-charcoal-ink/60">{tier.period}</p> : null}
+        <p className="font-heading text-4xl font-bold text-clinical-navy">{tier.priceMain}</p>
+        {tier.pricePeriod ? (
+          <p className="pb-1 text-sm text-charcoal-ink/60">{tier.pricePeriod}</p>
+        ) : null}
       </div>
+      {tier.priceSecondary ? (
+        <p className="mt-1 text-sm text-charcoal-ink/60">{tier.priceSecondary}</p>
+      ) : null}
       <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">{tier.description}</p>
       <ul className="mt-6 space-y-3 border-t border-charcoal-ink/10 pt-6">
         {tier.items.map((item) => (
@@ -41,6 +46,9 @@ function TierCard({ tier, currency }: { tier: PricingTier; currency: "NGN" | "GB
           </li>
         ))}
       </ul>
+      {tier.footnote ? (
+        <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/55">{tier.footnote}</p>
+      ) : null}
       <div className="mt-6 pt-2">
         <Button asChild className="w-full">
           <Link href="/signup">Start monitoring</Link>
@@ -90,9 +98,19 @@ export function PricingTable() {
         )}
       >
         {tiers.map((tier) => (
-          <TierCard key={tier.id} tier={tier} currency={currency} />
+          <TierCard key={tier.id} tier={tier} />
         ))}
       </div>
+
+      {currency === "GBP" ? (
+        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/60">
+          {DIASPORA_FAMILY_NOTE}
+        </p>
+      ) : (
+        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/60">
+          No plan has a set-up fee. No plan has a cancellation fee.
+        </p>
+      )}
 
       <div className="mt-10 rounded-2xl border border-charcoal-ink/10 bg-white p-6">
         <h3 className="font-heading text-lg font-semibold text-charcoal-ink">
