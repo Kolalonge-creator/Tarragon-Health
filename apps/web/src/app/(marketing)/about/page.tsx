@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { User } from "lucide-react";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
@@ -24,8 +24,9 @@ export default function AboutPage() {
 
       <Section variant="sage">
         {/*
-          Placeholder — replace with the real founder name, photo, and bio
-          before this page ships publicly. See docs/MARKETING_SITE_SPEC.md §3.4.
+          Bio paragraphs are still placeholder text — replace with Dr Kola
+          Longe's real story before this page ships publicly. See
+          docs/MARKETING_SITE_SPEC.md §3.4.
         */}
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
@@ -33,29 +34,36 @@ export default function AboutPage() {
               Founder
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              [Founder Name]
+              Dr Kola Longe
             </h2>
+            <p className="mt-1 text-sm text-charcoal-ink/60">
+              Founder &amp; CEO ·{" "}
+              <a
+                href="https://www.linkedin.com/in/dr-kola-longe-408b15121/"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-brand-green hover:underline"
+              >
+                LinkedIn
+              </a>
+            </p>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              [One or two sentences on the founder&rsquo;s clinical or
+              [One or two sentences on Dr Longe&rsquo;s clinical or
               health-system background — replace with the real bio.]
             </p>
             <p className="mt-4 leading-relaxed text-charcoal-ink/70">
-              [Add the founder&rsquo;s story here — what they saw in practice, in
-              their own family, or in the Nigerian health system that led to
-              building TarragonHealth, and why continuity between visits became
-              the founding thesis.]
+              [Add Dr Longe&rsquo;s story here — what he saw in practice, in his
+              own family, or in the Nigerian health system that led to building
+              TarragonHealth, and why continuity between visits became the
+              founding thesis.]
             </p>
           </div>
-          <div
-            className="flex aspect-4/3 flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-charcoal-ink/20 bg-white text-charcoal-ink/40"
-            role="img"
-            aria-label="Placeholder for founder photo"
-          >
-            <User className="h-16 w-16" strokeWidth={1.25} />
-            <span className="text-sm font-medium uppercase tracking-wide">
-              Founder photo goes here
-            </span>
-          </div>
+          <MarketingMediaFrame
+            media={{
+              imageSrc: "/marketing/founder-kola-longe.jpg",
+              imageAlt: "Dr Kola Longe, Founder & CEO of TarragonHealth",
+            }}
+          />
         </div>
       </Section>
 
