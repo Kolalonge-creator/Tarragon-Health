@@ -1,6 +1,6 @@
 # Tarragon Health — Claude Code Master Instructions (v3)
 
-> Read every session. Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. Competitive-intelligence feature roadmap: `docs/FULL_SPECIFICATION_V4.md`. This file is the operating contract — keep it under 200 lines, update "Current Sprint" every sprint.
+> Read every session. Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. Competitive-intelligence feature roadmap: `docs/FULL_SPECIFICATION_V4.md`. Clinician attribution & trust model: `docs/CLINICAL_TRUST_MODEL_SPEC.md` — authoritative for anything touching clinician/doctor attribution or escalation branding. This file is the operating contract — keep it under 200 lines, update "Current Sprint" every sprint.
 
 ## The Business
 Nigeria's digital-first chronic disease, preventive health, and family care coordination OS — the trusted coordination layer between patients, families, clinicians, labs, pharmacies, HMOs, and employers. App/web-first, clinician-led, escalation-driven, AI-automated, partner-network based, with WhatsApp/SMS as a follow-up and notification layer only (see Non-Negotiable Business Rules). **No owned clinics.** Five categories, all architecturally represented from Sprint 1 — they are commercially linked, each feeds the others:
@@ -92,6 +92,8 @@ Active Service: TypeScript — **marketing site + platform convergence, merged t
 - Never build a WhatsApp-initiated signup, onboarding, or account-creation flow, and never build automation (bots/intent parsing) that turns an inbound WhatsApp message into a platform action — signup and core actions are app/web only; inbound WhatsApp only ever routes to a human clinician inbox
 - Never deprioritise or silently swallow an abnormal screening result event
 - Never invent a standalone sub-brand name for an internal product (see `docs/BRAND_GUIDE.md` §7)
+- Never render a UI element claiming a doctor reviewed a specific case without a corresponding `reviewed_by`/`reviewed_at` record — the "Reviewed by Dr. X" pattern must be a single shared component that is null-gated, never a hardcoded string (see `docs/CLINICAL_TRUST_MODEL_SPEC.md` §2, §9)
+- Never make a doctor the default face of the day-to-day patient relationship — that's the clinician's role; doctor attribution is earned per-case through real escalation review, never applied as a uniform branding layer (`docs/CLINICAL_TRUST_MODEL_SPEC.md` §1, §9)
 
 ## Where to Look
 - System architecture, topology, RLS model, event pipelines, infra → `docs/ARCHITECTURE.md`
@@ -100,3 +102,4 @@ Active Service: TypeScript — **marketing site + platform convergence, merged t
 - Public marketing site — sitemap, page copy, design tokens, hostname routing, DoD → `docs/MARKETING_SITE_SPEC.md`
 - Logo assets → `/brand/Tarragon_Health_Logo_Mark.png`, `/brand/Tarragon_Health_Logo_Lockup.png` (marketing deploy copies → `apps/web/public/brand/`)
 - Competitive-intelligence feature roadmap (Health Score, wearables, symptom tracking, fee-at-risk contracts, phased Now/Phase 2/Phase 3) → `docs/FULL_SPECIFICATION_V4.md` — additive feature layer only; per its own §11 guardrail it informs the roadmap and never overrides "Current Sprint" above
+- Clinician/doctor role architecture, per-touchpoint attribution rules, escalation→doctor review flow, `clinical_staff`/`care_team_assignment`/`protocol_versions` schema, MDCN/NMCN compliance → `docs/CLINICAL_TRUST_MODEL_SPEC.md` — authoritative on conflicts touching clinician attribution or escalation branding; its Stage/§ cross-references map to the original `docs/source/` planning docs, not `FEATURE_SPEC.md`'s Sprint numbers — see the reconciliation note at the top of the file
