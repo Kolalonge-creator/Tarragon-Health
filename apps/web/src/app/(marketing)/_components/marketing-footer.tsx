@@ -15,7 +15,7 @@ const FOOTER_LINKS = {
   ],
   company: [
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
-    { href: MARKETING_ROUTES.about, label: "About", soon: true },
+    { href: MARKETING_ROUTES.about, label: "About" },
     { href: MARKETING_ROUTES.contact, label: "Contact" },
   ],
   platform: [

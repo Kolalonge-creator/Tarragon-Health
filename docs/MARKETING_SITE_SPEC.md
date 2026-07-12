@@ -291,18 +291,17 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 | Medication | `/medication` | **Done** | Uses shared `ProductPageTemplate`; no campaign line per §3.2 table |
 | Labs | `/labs` | **Done** | Uses shared `ProductPageTemplate`; no campaign line per §3.2 table |
 | Pricing | `/pricing` | **Done** | Four-label tiers, ₦/£ toggle, ISR |
-| About | `/about` | Not started | MDX or CMS-ready plain content |
-| Corporate | `/corporate` | **Blocked** | Path collision with platform `(dashboard)/corporate` — needs hostname rewrite first |
-| HMO | `/hmo` | **Blocked** | Path collision with platform `(dashboard)/hmo` — needs hostname rewrite first |
+| About | `/about` | **Done (2026-07-12)** | Page shell + design done; founder name/photo/bio are bracketed placeholders — needs real content before this page is announced publicly |
+| Corporate | `/corporate` | Unblocked, not started | Platform dashboard moved to `/dashboard/corporate` (2026-07-12) — bare path is free for marketing to build |
+| HMO | `/hmo` | Unblocked, not started | Platform dashboard moved to `/dashboard/hmo` (2026-07-12) — bare path is free for marketing to build |
 | Contact | `/contact` | **Done** | Leads form + `20260711000000_leads.sql` migration |
 
 ### Next session — recommended order
 
-1. **Abnormal screening E2E test** — the underlying AbnormalResultHandler Edge Function (2026-07-11, see `docs/ARCHITECTURE.md` §17 item 5) now exists to test against; verify Cat 2→1 upgrade flow end-to-end (highest-priority business event), including a real/local Supabase run of the new migration + function
-2. **Corporate / HMO** — add proxy rewrites on marketing host *or* move platform dashboards to prefixed paths
-3. **About founder** — static/MDX content page
-4. **Lighthouse pass** — homepage 90+ perf, 100 a11y
-5. **Merge marketing branch** → `main-dev`, then staging deploy
+1. **Corporate / HMO** — now unblocked (route collision resolved), build the two remaining pages
+2. **About founder — real content** — replace bracketed founder name/photo/bio placeholders with the real bio
+3. **Lighthouse pass** — homepage 90+ perf, 100 a11y
+4. **Merge marketing branch** → `main-dev`, then staging deploy
 
 ### Local dev
 

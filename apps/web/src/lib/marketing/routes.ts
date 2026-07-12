@@ -27,6 +27,7 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "medication",
   "labs",
   "pricing",
+  "about",
   "contact",
 ];
 
