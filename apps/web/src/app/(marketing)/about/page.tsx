@@ -1,9 +1,39 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { User } from "lucide-react";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+
+/**
+ * Key seats TarragonHealth needs beyond the founder as it scales past one
+ * clinician — mapped to the five business categories in CLAUDE.md (chronic
+ * disease + prevention, care coordination, B2B & institutional, platform
+ * infrastructure, nurse-led delivery). All open — no names yet.
+ */
+const OPEN_ROLES: { title: string; scope: string }[] = [
+  {
+    title: "Chief Medical Officer",
+    scope: "Owns clinical protocols and the four-level escalation pathway, and leads the doctor network as chronic disease and preventive screening scale together.",
+  },
+  {
+    title: "Head of Nursing",
+    scope: "Builds and leads the nurse-led review model — recruiting, training, and scheduling the nurses who keep the clinician:patient ratio at 1:120.",
+  },
+  {
+    title: "Head of Engineering",
+    scope: "Owns the TypeScript platform and ML microservice — the system of record behind every reading, reminder, and escalation.",
+  },
+  {
+    title: "Head of Partnerships",
+    scope: "Grows and manages the lab, pharmacy, and specialist network that Care Coordination runs on.",
+  },
+  {
+    title: "Head of Growth & Commercial",
+    scope: "Leads corporate wellness and HMO capitation partnerships, turning the B2B & Institutional pipeline into revenue.",
+  },
+];
 
 export const metadata: Metadata = {
   title: "About — TarragonHealth",
@@ -109,6 +139,47 @@ export default function AboutPage() {
       </Section>
 
       <Section variant="sage">
+        <SectionHeading
+          eyebrow="Team"
+          title="Roles we're building out next"
+          description="TarragonHealth is growing beyond one founder. These seats are open — no names yet — say hello if one of them is you."
+        />
+        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {OPEN_ROLES.map((role) => (
+            <div
+              key={role.title}
+              className="flex flex-col items-center rounded-2xl border border-charcoal-ink/10 bg-white p-6 text-center"
+            >
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-charcoal-ink/20 text-charcoal-ink/40"
+                role="img"
+                aria-label={`Placeholder for ${role.title}`}
+              >
+                <User className="h-7 w-7" strokeWidth={1.25} />
+              </div>
+              <span className="mt-3 inline-flex rounded-full bg-brand-green/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deep-forest">
+                Open role
+              </span>
+              <h3 className="mt-3 font-heading text-lg font-semibold text-charcoal-ink">
+                {role.title}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{role.scope}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/60">
+          Think you&rsquo;re a fit for one of these?{" "}
+          <Link
+            href={`${MARKETING_ROUTES.contact}?source=careers`}
+            className="font-medium text-brand-green hover:underline"
+          >
+            Get in touch
+          </Link>
+          .
+        </p>
+      </Section>
+
+      <Section>
         <CtaBand
           variant="gradient"
           title="Come build continuity of care with us"
