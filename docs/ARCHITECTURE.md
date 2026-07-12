@@ -46,8 +46,7 @@ graph TB
   subgraph Actors
     P[Patient]
     F[Family member]
-    N[Nurse / Clinician]
-    D[Doctor]
+    N[Clinician]
     A[Admin]
     HMO[HMO admin]
     CORP[Corporate admin]
@@ -83,7 +82,7 @@ graph TB
   end
 
   P & F --> WA & WEB & MOB
-  N & D & A & HMO & CORP --> WEB
+  N & A & HMO & CORP --> WEB
   WA <--> EDGE
   SMS <--> EDGE
   WEB & MOB --> API
@@ -128,7 +127,7 @@ graph LR
 ```
 tarragonhealth/
 ├─ apps/
-│  ├─ web/                 # Next.js 16 (App Router) — patient/nurse/doctor/admin/HMO/corporate UIs
+│  ├─ web/                 # Next.js 16 (App Router) — patient/clinician/doctor/admin/HMO/corporate UIs
 │  └─ mobile/              # React Native Expo
 ├─ services/
 │  └─ ml/                  # FastAPI 0.115+, Python 3.12, uv — stateless ML microservice
@@ -158,12 +157,12 @@ Every domain table has `organisation_id uuid not null`. `profiles` links to `aut
 | Role | Can see |
 |---|---|
 | `patient` | Own rows only |
-| `nurse` / `clinician` | Patients within their `organisation_id` |
+| `clinician` | Patients within their `organisation_id` |
 | `hmo_admin` | Their HMO's member patients |
 | `corporate_admin` | Their enrolled employees |
 | `admin` (super) | All rows |
 
-Isolation invariant (tested at launch gate): **a nurse in Org A querying Org B patients returns 0 rows.** No service-role key in client contexts; the anon/authenticated key + RLS is the default path. Service-role usage is confined to trusted server/Edge contexts and audited.
+Isolation invariant (tested at launch gate): **a clinician in Org A querying Org B patients returns 0 rows.** No service-role key in client contexts; the anon/authenticated key + RLS is the default path. Service-role usage is confined to trusted server/Edge contexts and audited.
 
 ### 6.2 Schema Domains
 
@@ -184,13 +183,13 @@ erDiagram
   profiles ||--o{ lab_orders : places
   lab_providers ||--o{ lab_orders : fulfils
   lab_orders ||--o{ commissions : earns
-  profiles ||--o{ nurse_alerts : raises
-  nurse_alerts ||--o{ escalations : escalates
+  profiles ||--o{ clinician_alerts : raises
+  clinician_alerts ||--o{ escalations : escalates
   subscription_plans ||--o{ subscriptions : instantiated_by
 ```
 
 - **Core/Auth (§3.1):** `profiles`, `organisations`, `profile_access` (family/multi-profile login delegation — additive to `family_plan_members`, see V1 consumer-spec reconciliation in `docs/FEATURE_SPEC.md`).
-- **Chronic (§3.2):** `vitals_readings`, `care_plans`, `medications`, `medication_logs`, `patient_risk_scores` (chronic-disease ML/rule scoring), `appointments`, `symptoms`, `nurse_alerts`, `escalations`.
+- **Chronic (§3.2):** `vitals_readings`, `care_plans`, `medications`, `medication_logs`, `patient_risk_scores` (chronic-disease ML/rule scoring), `appointments`, `symptoms`, `clinician_alerts`, `escalations`.
 - **Prevention (§3.3):** `screening_schedules`, `screen_types` (seed ≥12), `screening_results`, `screening_upgrades`, `annual_health_checks`, `specialist_referrals`, `family_plan_members`, `risk_assessment_responses`, `prevention_risk_scores` (rule-based condition tiering, distinct from `patient_risk_scores` above), `vaccination_catalog`, `vaccination_records`.
 - **Care coordination (§3.4):** `lab_providers`, `lab_tests`, `lab_orders`, `panel_bundles`, `lab_result_interpretations`, `pharmacy_partners`, `pharmacy_medications`, `pharmacy_orders`, `commissions`, `facilities`, `booking_requests` (curated directory + request-based booking, not real-time scheduling).
 - **B2B/Billing (§3.5):** `subscription_plans`, `subscriptions`, `hmo_contracts`, `corporate_contracts`, `commissions` (shared).
@@ -218,7 +217,7 @@ sequenceDiagram
   participant ML as ML /interpret (optional)
   participant CP as care_plans / specialist_referrals
   participant WA as WhatsApp
-  participant NUR as Nurse dashboard
+  participant CLIN as Clinician dashboard
 
   LAB->>DB: INSERT screening_results (result_status = abnormal|critical)
   DB->>TRG: row insert fires trigger
@@ -227,20 +226,20 @@ sequenceDiagram
   EF->>ML: (optional) interpret result [5s timeout, fallback to rules]
   EF->>DB: INSERT screening_upgrades (audit)
   alt BP-related
-    EF->>CP: draft hypertension care_plan (nurse review)
+    EF->>CP: draft hypertension care_plan (clinician review)
   else Glucose-related
-    EF->>CP: draft diabetes care_plan (nurse review)
+    EF->>CP: draft diabetes care_plan (clinician review)
   else Cancer-related
     EF->>CP: create specialist_referral
   end
-  EF->>WA: nurse alert IMMEDIATELY (not scheduled)
-  EF->>WA: patient msg: "Your result needs a follow-up. Your nurse will call you today."
-  EF->>NUR: surface as Priority 1 (red), 4-hour contact SLA
+  EF->>WA: clinician alert IMMEDIATELY (not scheduled)
+  EF->>WA: patient msg: "Your result needs a follow-up. Your clinician will call you today."
+  EF->>CLIN: surface as Priority 1 (red), 4-hour contact SLA
 ```
 
 **Reliability requirements:**
 - Trigger→handler path must be **durable** (retry on failure; dead-letter + alert if the handler fails — never a silent drop).
-- Nurse WhatsApp alert must arrive **within 60 seconds** (launch gate).
+- Clinician WhatsApp alert must arrive **within 60 seconds** (launch gate).
 - Every step writes to `audit_log`. The `screening_upgrades` row is the permanent record of the event.
 - ML interpretation is **optional/advisory** — if ML is down, the rule-based path still fires the upgrade.
 
@@ -277,7 +276,7 @@ graph TB
 
 ## 9. AI & ML Layers (two distinct things)
 
-**AI orchestration (TypeScript, LangGraph.js + Claude):** conversational clinical workflows, patient education, summaries, nurse prioritisation, triage support, admin automation. Runs inside the platform; can call the ML service for numbers.
+**AI orchestration (TypeScript, LangGraph.js + Claude):** conversational clinical workflows, patient education, summaries, clinician prioritisation, triage support, admin automation. Runs inside the platform; can call the ML service for numbers.
 
 **ML microservice (Python, deterministic models):** `services/ml`, stateless, `X-Service-Key`-authed endpoints:
 
@@ -386,7 +385,7 @@ Only `NEXT_PUBLIC_`-prefixed vars are client-exposed.
 | Sprint | Architectural deliverable |
 |---|---|
 | **1** | Monorepo (pnpm+Turbo) scaffold · Supabase Auth (phone OTP + email) · full 5-category schema + RLS policies · seed data · FastAPI `/health` scaffold + Docker + CI |
-| **2** | Core Patient OS — vitals, care plans, prevention scheduler, **AbnormalResultHandler**, patient + nurse dashboards |
+| **2** | Core Patient OS — vitals, care plans, prevention scheduler, **AbnormalResultHandler**, patient + clinician dashboards |
 | **3** | WhatsApp/SMS outbound notification engine (reminders/alerts/confirmations for vitals/meds/screening/lab-booking — app/web remains the interface) + inbound human support chat (webhook → clinician inbox, no automation), LangGraph clinical flow, family portal, SMS fallback |
 | **4** | ML service — SCORE2, HbA1c trajectory, BP control, lab/screening interpretation, cohort analytics, batch; deploy to Railway/Render; wire `ml-client` with 5s timeout + fallback |
 | **5** | Lab & pharmacy network — catalogues, bundle pricing, screening-specific booking, commission tracking |

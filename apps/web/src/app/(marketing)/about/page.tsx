@@ -10,7 +10,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
  * Key seats TarragonHealth needs beyond the founder as it scales past one
  * clinician — mapped to the five business categories in CLAUDE.md (chronic
  * disease + prevention, care coordination, B2B & institutional, platform
- * infrastructure, nurse-led delivery). All open — no names yet.
+ * infrastructure, clinician-led delivery). All open — no names yet.
  */
 const OPEN_ROLES: { title: string; scope: string }[] = [
   {
@@ -18,8 +18,8 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
     scope: "Owns clinical protocols and the four-level escalation pathway, and leads the doctor network as chronic disease and preventive screening scale together.",
   },
   {
-    title: "Head of Nursing",
-    scope: "Builds and leads the nurse-led review model — recruiting, training, and scheduling the nurses who keep the clinician:patient ratio at 1:120.",
+    title: "Head of Clinical Operations",
+    scope: "Builds and leads the clinician-led review model — recruiting, training, and scheduling the clinicians who keep the clinician:patient ratio at 1:120.",
   },
   {
     title: "Head of Engineering",
@@ -108,7 +108,7 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="The thesis"
           title="Continuity, not just monitoring"
-          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same nurse follow a person from a routine screening through an ongoing condition — the story never resets."
+          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same clinician follow a person from a routine screening through an ongoing condition — the story never resets."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {[

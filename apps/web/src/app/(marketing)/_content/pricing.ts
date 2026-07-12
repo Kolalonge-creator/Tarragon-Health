@@ -2,6 +2,12 @@
  * Pricing content — sourced from Tarragon_Health_Pricing_Guide.docx (the
  * authoritative plans & pricing doc). Keep this in sync with that guide;
  * every price and label here should be traceable back to it.
+ *
+ * Deliberate exception (2026-07-12): the docx repeatedly says "nurse"
+ * (nurse review, named nurse coordinator, etc.) — this file uses
+ * "clinician" instead, per an explicit platform-wide nurse->clinician
+ * terminology decision. If the docx is revised, keep re-deriving prices
+ * from it but keep the role word as "clinician".
  */
 
 export type PricingLabel = "INCLUDED" | "BOOK & PAY" | "FREE ELSEWHERE" | "ADD-ON";
@@ -67,7 +73,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. No nurse or doctor reviews your readings on this plan — if something looks concerning, we'll encourage you to see a doctor and show you how to upgrade.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. No clinician reviews your readings on this plan — if something looks concerning, we'll encourage you to see a doctor and show you how to upgrade.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -77,7 +83,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Device setup guides", label: "INCLUDED" },
     ],
     footnote:
-      "Not included on this plan, and available only if you upgrade: nurse review, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
+      "Not included on this plan, and available only if you upgrade: clinician review, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
   },
   {
     id: "essential",
@@ -90,9 +96,9 @@ export const NGN_TIERS: PricingTier[] = [
     highlight: true,
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
-      { feature: "Monthly nurse review of your BP or glucose readings", label: "INCLUDED" },
+      { feature: "Monthly clinician review of your BP or glucose readings", label: "INCLUDED" },
       { feature: "Monthly doctor check-in over WhatsApp", label: "INCLUDED" },
-      { feature: "Medication adherence follow-up from your nurse", label: "INCLUDED" },
+      { feature: "Medication adherence follow-up from your clinician", label: "INCLUDED" },
       { feature: "Direct WhatsApp access to your care team", label: "INCLUDED" },
       { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "BOOK & PAY" },
       { feature: "Medication refills through partner pharmacies", label: "BOOK & PAY" },
@@ -111,7 +117,7 @@ export const NGN_TIERS: PricingTier[] = [
       "For patients managing more than one condition together, or anyone whose doctor recommends closer monitoring.",
     items: [
       { feature: "Everything in Essential Care", label: "INCLUDED" },
-      { feature: "Weekly nurse review (instead of monthly)", label: "INCLUDED" },
+      { feature: "Weekly clinician review (instead of monthly)", label: "INCLUDED" },
       { feature: "Support for multiple conditions on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
       { feature: "Lab tests", label: "BOOK & PAY" },
@@ -190,7 +196,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦60,000/year",
     label: "ADD-ON",
     description:
-      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a nurse consultation to walk you through your results. If anything comes back abnormal, your nurse follows up directly — no automatic extra charge.",
+      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a clinician consultation to walk you through your results. If anything comes back abnormal, your clinician follows up directly — no automatic extra charge.",
     availability: "Available to anyone, on any plan, including Tarragon Free.",
   },
   {
@@ -217,7 +223,7 @@ export const ADD_ONS: PricingAddOn[] = [
     description:
       "Turns Complete Care (₦15,000/month) into a fully dedicated service at ₦45,000/month total. Built for a parent or relative who needs closer, more personal attention — especially popular with diaspora families.",
     items: [
-      { feature: "One named nurse coordinator (not a rotating team)", label: "INCLUDED" },
+      { feature: "One named clinician coordinator (not a rotating team)", label: "INCLUDED" },
       { feature: "A scheduled, booked monthly doctor appointment", label: "INCLUDED" },
       { feature: "Quarterly PDF health report sent to the family", label: "INCLUDED" },
       { feature: "Priority escalation", label: "INCLUDED" },
@@ -237,15 +243,15 @@ export const ADD_ONS: PricingAddOn[] = [
     name: "BP Monitor & Glucometer Starter Kit",
     price: "₦25,000–₦45,000",
     label: "ADD-ON",
-    description: "A home blood pressure monitor, a glucometer with starter test strips, and a short nurse call to walk you through using both correctly.",
+    description: "A home blood pressure monitor, a glucometer with starter test strips, and a short clinician call to walk you through using both correctly.",
     availability: "One-time purchase — can be paid in 3 monthly instalments if you prefer.",
   },
   {
     id: "expedited-response",
-    name: "Expedited Nurse Response",
+    name: "Expedited Clinician Response",
     price: "+₦5,000/month",
     label: "ADD-ON",
-    description: "Moves your nurse response time for non-emergency questions to under 2 hours, instead of the standard same-day/next-day response.",
+    description: "Moves your clinician response time for non-emergency questions to under 2 hours, instead of the standard same-day/next-day response.",
     availability: "Available on any paid plan.",
   },
   {
@@ -270,7 +276,7 @@ export const ALWAYS_FREE_NOTE =
 
 export const BOOKING_STEPS: { title: string; body: string }[] = [
   {
-    title: "Your nurse tells you (or you ask)",
+    title: "Your clinician tells you (or you ask)",
     body: "A test, refill, or vaccine is due.",
   },
   {
@@ -287,7 +293,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "Your result or delivery comes back on WhatsApp",
-    body: "Explained in plain language. If anything needs attention, your nurse calls you — this does not create any new charge.",
+    body: "Explained in plain language. If anything needs attention, your clinician calls you — this does not create any new charge.",
   },
 ];
 
@@ -308,7 +314,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "My test came back abnormal. Will I be billed extra automatically?",
     answer:
-      "No. Your nurse will call you. If your doctor recommends moving to a higher level of care, that is entirely your choice, and you'll see the price clearly before you decide anything.",
+      "No. Your clinician will call you. If your doctor recommends moving to a higher level of care, that is entirely your choice, and you'll see the price clearly before you decide anything.",
   },
   {
     question: "Can I cancel anytime?",
@@ -317,7 +323,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "What if I need a test that isn't listed here?",
-    answer: "Ask your nurse on WhatsApp. We'll tell you if it's available, and you'll see the price before booking, exactly like every other test.",
+    answer: "Ask your clinician on WhatsApp. We'll tell you if it's available, and you'll see the price before booking, exactly like every other test.",
   },
   {
     question: "Is my payment information safe?",

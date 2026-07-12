@@ -203,7 +203,7 @@ export default function MarketingHomePage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="Why families trust Tarragon"
-          title="A nurse who knows your name. Not a hospital PA system."
+          title="A clinician who knows your name. Not a hospital PA system."
         />
         <TrustPillars />
       </Section>

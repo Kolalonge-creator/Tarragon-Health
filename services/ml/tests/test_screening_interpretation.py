@@ -8,7 +8,7 @@ from app.scoring.screening_interpretation import (
 )
 
 # Mirrors the exact token arrays `handle_abnormal_screening_result` matches
-# against (supabase/migrations/20260705000007_merge_nurse_into_clinician.sql:
+# against (supabase/migrations/20260705211611_merge_nurse_into_clinician.sql:
 # 102-107). Every token either flag map can emit must appear in at least one
 # of these arrays, or an abnormal result silently stops mapping to a
 # `condition_triggered` category the trigger recognises (CLAUDE.md: never

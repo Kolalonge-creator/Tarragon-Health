@@ -457,21 +457,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "nurse_alerts_acknowledged_by_fkey"
+            foreignKeyName: "clinician_alerts_acknowledged_by_fkey"
             columns: ["acknowledged_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "nurse_alerts_organisation_id_fkey"
+            foreignKeyName: "clinician_alerts_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "nurse_alerts_patient_id_fkey"
+            foreignKeyName: "clinician_alerts_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -2404,6 +2404,69 @@ export type Database = {
           },
         ]
       }
+      support_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          direction: string
+          from_phone: string
+          id: string
+          message_type: string
+          organisation_id: string
+          patient_id: string | null
+          raw_payload: Json
+          status: string
+          to_phone: string | null
+          updated_at: string
+          wa_message_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          direction: string
+          from_phone: string
+          id?: string
+          message_type?: string
+          organisation_id: string
+          patient_id?: string | null
+          raw_payload?: Json
+          status?: string
+          to_phone?: string | null
+          updated_at?: string
+          wa_message_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          direction?: string
+          from_phone?: string
+          id?: string
+          message_type?: string
+          organisation_id?: string
+          patient_id?: string | null
+          raw_payload?: Json
+          status?: string
+          to_phone?: string | null
+          updated_at?: string
+          wa_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_messages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       symptoms: {
         Row: {
           created_at: string
@@ -2751,13 +2814,13 @@ export type Database = {
         | "vaccination_centre"
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
       glucose_context: "fasting" | "random" | "post_meal"
-      lead_role: "patient" | "family" | "employer" | "hmo" | "other"
       lab_order_status:
         | "ordered"
         | "sample_collected"
         | "processing"
         | "resulted"
         | "cancelled"
+      lead_role: "patient" | "family" | "employer" | "hmo" | "other"
       medication_log_status: "taken" | "missed" | "skipped"
       medication_source: "clinician" | "patient"
       notification_channel: "email" | "sms" | "in_app" | "whatsapp" | "push"
@@ -3020,7 +3083,6 @@ export const Constants = {
       ],
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       glucose_context: ["fasting", "random", "post_meal"],
-      lead_role: ["patient", "family", "employer", "hmo", "other"],
       lab_order_status: [
         "ordered",
         "sample_collected",
@@ -3028,6 +3090,7 @@ export const Constants = {
         "resulted",
         "cancelled",
       ],
+      lead_role: ["patient", "family", "employer", "hmo", "other"],
       medication_log_status: ["taken", "missed", "skipped"],
       medication_source: ["clinician", "patient"],
       notification_channel: ["email", "sms", "in_app", "whatsapp", "push"],

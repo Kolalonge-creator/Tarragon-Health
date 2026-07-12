@@ -28,7 +28,7 @@ export const SEMANTIC_ICON = {
   medication: Pill,
   labs: TestTube,
   parentCare: Users,
-  nurseFollowUp: Headphones,
+  clinicianFollowUp: Headphones,
   preventive: ShieldCheck,
   family: Link2,
   escalation: FileText,

@@ -3,7 +3,7 @@
 const MOMENTS = [
   { label: "Reading", cx: 32, cy: 50 },
   { label: "Reminder", cx: 112, cy: 32 },
-  { label: "Nurse call", cx: 208, cy: 38 },
+  { label: "Clinician call", cx: 208, cy: 38 },
   { label: "Family update", cx: 312, cy: 40 },
 ] as const;
 

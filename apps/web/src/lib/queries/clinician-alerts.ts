@@ -12,11 +12,9 @@ export function useClinicianAlerts() {
     queryKey: ["clinician-alerts", "open"],
     queryFn: async () => {
       const supabase = createClient();
-      // FK constraint is still named nurse_alerts_patient_id_fkey — migration
-      // 07 renamed the table/columns/enum values but not this constraint.
       const { data, error } = await supabase
         .from("clinician_alerts")
-        .select("*, patient:profiles!nurse_alerts_patient_id_fkey(full_name)")
+        .select("*, patient:profiles!clinician_alerts_patient_id_fkey(full_name)")
         .eq("status", "open")
         .order("sla_due_at", { ascending: true, nullsFirst: false });
       if (error) throw error;

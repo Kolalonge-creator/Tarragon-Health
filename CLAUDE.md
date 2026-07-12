@@ -9,7 +9,7 @@ Nigeria's digital-first chronic disease, preventive health, and family care coor
 2. **Preventative Medicine** — cancer/metabolic/infectious/reproductive screening. **Abnormal result → Category 1 upgrade is the highest-priority business event in the platform — never lose it, never let it fail silently.**
 3. **Care Coordination** — lab network, pharmacy network, specialist referrals, hospital handoffs
 4. **B2B & Institutional** — corporate wellness, HMO capitation, NHIA/government programmes
-5. **Platform Infrastructure** *(backbone, not a product line)* — WhatsApp/SMS notification engine (reminders, alerts, confirmations — never signup or a feature's only interface), nurse-led delivery, AI clinical decisioning, longitudinal patient record, partner API layer, analytics
+5. **Platform Infrastructure** *(backbone, not a product line)* — WhatsApp/SMS notification engine (reminders, alerts, confirmations — never signup or a feature's only interface), clinician-led delivery, AI clinical decisioning, longitudinal patient record, partner API layer, analytics
 
 Prevention and chronic management **share the same patient record** — design every table and dashboard for dual-state.
 
@@ -69,7 +69,7 @@ Full spec: `docs/FULL_SPECIFICATION_V4.md` §5/§9 (`wearable_connections`, `wea
 ## Brand (see `docs/BRAND_GUIDE.md` for full system)
 - Master tagline: **"Care that stays with you."** Wordmark: **TarragonHealth** (camel-case). Mark: **Guard Leaf** (shield + sprout crown + checkmark vein).
 - Tarragon Green `#0E7C52` (brand/primary actions), Clinical Navy `#12324B` (B2B/clinical documents). Clinical dashboard status colours (green/amber/red/blue/grey) are a **separate system** from brand colour — never confuse the two.
-- Voice: a nurse who knows your name, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
+- Voice: a clinician who knows your name, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
 
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
 Current Sprint: Sprint 4 — Python ML Microservice — **ON HOLD (2026-07-09)** per user decision to prioritize other platform work; do not resume ML work unless explicitly asked.

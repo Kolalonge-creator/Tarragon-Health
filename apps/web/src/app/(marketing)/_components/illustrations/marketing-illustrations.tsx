@@ -22,8 +22,8 @@ export function MarketingIllustration({
       return <FragmentedCareIllustration className={shared} />;
     case "connected-care":
       return <ConnectedCareIllustration className={shared} />;
-    case "nurse-follow-up":
-      return <NurseFollowUpIllustration className={shared} />;
+    case "clinician-follow-up":
+      return <ClinicianFollowUpIllustration className={shared} />;
     case "hypertension":
       return <HypertensionIllustration className={shared} />;
     case "diabetes":
@@ -156,7 +156,7 @@ function ConnectedCareIllustration({ className }: IllustrationProps) {
   );
 }
 
-function NurseFollowUpIllustration({ className }: IllustrationProps) {
+function ClinicianFollowUpIllustration({ className }: IllustrationProps) {
   return (
     <svg viewBox="0 0 480 360" className={className} fill="none" aria-hidden>
       <rect width="480" height="360" rx="24" className="fill-clinical-navy/8" />

@@ -103,7 +103,7 @@ export const HOW_IT_WORKS_STEPS = [
   { step: 1, title: "Sign up", body: "Create your account in minutes — for yourself or a loved one." },
   { step: 2, title: "Onboard", body: "Share your health history and what you want Tarragon to watch." },
   { step: 3, title: "Monitor", body: "Log vitals, take medication, and complete preventive checks." },
-  { step: 4, title: "Nurse review", body: "A clinician-led team reviews your readings and follows up." },
+  { step: 4, title: "Clinician review", body: "A clinician-led team reviews your readings and follows up." },
   { step: 5, title: "Doctor escalation", body: "When closer care is needed, we escalate — you are never alone." },
   { step: 6, title: "Family updates", body: "Keep family informed with calm, clear updates — near or far." },
 ] as const;
@@ -129,11 +129,11 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "patient",
     tabLabel: "For you",
     title: "Track your health without carrying it alone.",
-    body: "Blood pressure, blood sugar, medication, lab checks, and preventive reminders — in one secure place, with a nurse behind it when you need one.",
+    body: "Blood pressure, blood sugar, medication, lab checks, and preventive reminders — in one secure place, with a clinician behind it when you need one.",
     points: [
       "BP and glucose logging with trend review",
       "Medication reminders and refill alerts",
-      "Monthly nurse check-in, doctor escalation when needed",
+      "Monthly clinician check-in, doctor escalation when needed",
     ],
     stats: [
       { label: "Blood pressure", value: "124 / 79", pill: { text: "In range", tone: "green" } },
@@ -213,7 +213,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "What happens when readings are high?",
     answer:
-      "Your readings are reviewed against care protocols. If they need attention, the nurse-led team follows up and escalates to a doctor when closer care is needed.",
+      "Your readings are reviewed against care protocols. If they need attention, the clinician-led team follows up and escalates to a doctor when closer care is needed.",
   },
   {
     question: "What about preventive checks and screening results?",

@@ -81,13 +81,13 @@ The brand system already exists in `docs/BRAND_GUIDE.md` (Guard Leaf) — this s
 
 **Type:** Sora (SemiBold/Bold) for headlines, Inter for body and UI chrome. Set a real type scale — don't let every heading be the same weight at different sizes.
 
-**Signature element:** the Guard Leaf checkmark-vein motif is the one bold move. The brand truth is continuity — *"the care between doctor visits"* — so the hero should visually imply an unbroken thread (a reading → a reminder → a nurse call → a family update) rather than a static stock photo or a generic dashboard mockup. A subtle continuous line/path motif connecting these moments, echoing the leaf's checkmark vein, is a good candidate for the one thing this page is remembered by. Keep everything else quiet around it.
+**Signature element:** the Guard Leaf checkmark-vein motif is the one bold move. The brand truth is continuity — *"the care between doctor visits"* — so the hero should visually imply an unbroken thread (a reading → a reminder → a clinician call → a family update) rather than a static stock photo or a generic dashboard mockup. A subtle continuous line/path motif connecting these moments, echoing the leaf's checkmark vein, is a good candidate for the one thing this page is remembered by. Keep everything else quiet around it.
 
 **Motion:** restrained. A single orchestrated hero reveal or scroll-triggered moment beats scattered hover effects everywhere. Respect `prefers-reduced-motion`.
 
-**Photography/illustration:** per the brand guide — Nigerian families in natural settings, adult children with parents, calm nurse follow-up calls. Avoid emergency imagery, Western stock, doctors pointing at charts, or generic wellness/yoga photography. Simple line illustration in green/navy is the fallback where photography isn't available yet.
+**Photography/illustration:** per the brand guide — Nigerian families in natural settings, adult children with parents, calm clinician follow-up calls. Avoid emergency imagery, Western stock, doctors pointing at charts, or generic wellness/yoga photography. Simple line illustration in green/navy is the fallback where photography isn't available yet.
 
-**Voice:** warm, calm, credible — *"a nurse who knows your name, not a hospital PA system."* No fear-based urgency, no red medical crosses, no "revolutionary AI-powered platform" language. Copy for each page is given below — use it as the source of truth, don't rewrite the strategy.
+**Voice:** warm, calm, credible — *"a clinician who knows your name, not a hospital PA system."* No fear-based urgency, no red medical crosses, no "revolutionary AI-powered platform" language. Copy for each page is given below — use it as the source of truth, don't rewrite the strategy.
 
 ---
 
@@ -132,7 +132,7 @@ Homepage · Hypertension Monitoring · Diabetes Monitoring · ParentCare · Prev
 2. **Problem** — one short paragraph: families worry because chronic disease is poorly followed up between doctor visits.
 3. **Solution** — Tarragon monitors, reminds, reviews, coordinates, and escalates.
 4. **Services** — six cards: Hypertension, Diabetes, ParentCare, Medication, Labs, Prevention — each links to its own page.
-5. **How it works** — sign up → onboard → monitor → nurse review → doctor escalation → family updates. *(Only use numbered steps here — this is a real sequence, unlike elsewhere.)*
+5. **How it works** — sign up → onboard → monitor → clinician review → doctor escalation → family updates. *(Only use numbered steps here — this is a real sequence, unlike elsewhere.)*
 6. **Why trust us** — clinician-led, protocol-driven, evidence-focused.
 7. **For families / For employers / For HMOs** — three short audience-specific blocks, each with its own line (see Product Messages below) and a link to Corporate/HMO pages.
 8. **Pricing teaser** — link through to the full Pricing page, don't duplicate the tier table here.

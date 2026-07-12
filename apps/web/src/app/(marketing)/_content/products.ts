@@ -22,7 +22,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       "BP logging via WhatsApp or app",
       "Trend view for you and your care team",
       "Medication and follow-up reminders",
-      "Nurse review when readings drift",
+      "Clinician review when readings drift",
       "Doctor escalation when closer care is needed",
     ],
     howItWorks: [
@@ -36,7 +36,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Clinician review & escalation",
-        body: "When readings need attention, a nurse-led team follows up and escalates to a doctor if needed.",
+        body: "When readings need attention, a clinician-led team follows up and escalates to a doctor if needed.",
       },
     ],
     metadata: {
@@ -50,7 +50,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Track glucose, HbA1c, medication, labs, and complications in one place.",
     campaignLine: "Diabetes care is more than sugar checks.",
     intro:
-      "Tarragon brings glucose logs, HbA1c tracking, medication adherence, and lab coordination into one platform — with nurse review when your numbers need a closer look.",
+      "Tarragon brings glucose logs, HbA1c tracking, medication adherence, and lab coordination into one platform — with clinician review when your numbers need a closer look.",
     included: [
       "Glucose and HbA1c tracking",
       "Medication reminders and adherence support",
@@ -88,7 +88,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       "Parent health profile and monitoring goals",
       "Vitals, medication, and preventive check tracking",
       "Calm family updates for loved ones near or abroad",
-      "Nurse follow-up when readings or care gaps need attention",
+      "Clinician follow-up when readings or care gaps need attention",
       "Escalation support when closer care is needed",
     ],
     howItWorks: [
@@ -148,13 +148,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     slug: "medication",
     headline: "Reduce missed doses and avoid running out of medication.",
     intro:
-      "Tarragon keeps your medication schedule in the same record as your vitals and labs — reminders on WhatsApp or app, refill alerts before you run out, and a nurse-led team that follows up when doses are missed.",
+      "Tarragon keeps your medication schedule in the same record as your vitals and labs — reminders on WhatsApp or app, refill alerts before you run out, and a clinician-led team that follows up when doses are missed.",
     included: [
       "Medication schedule built into your health record",
       "WhatsApp and app reminders for every dose",
       "Refill alerts before you run out",
       "Pharmacy partner network for booking a refill",
-      "Nurse follow-up when doses are missed",
+      "Clinician follow-up when doses are missed",
     ],
     howItWorks: [
       {
@@ -167,7 +167,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Never run out, never go quiet",
-        body: "Refill alerts arrive before you're out, and a nurse checks in if doses are consistently missed.",
+        body: "Refill alerts arrive before you're out, and a clinician checks in if doses are consistently missed.",
       },
     ],
     metadata: {

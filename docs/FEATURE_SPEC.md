@@ -35,7 +35,7 @@ Lab network (booking, result delivery, abnormal flagging) · Pharmacy network (f
 Corporate wellness (annual checks, risk reports, workforce health) · HMO partnerships (capitation, prevention compliance, claims reduction) · NHIA/government (population screening, public health contracts) · Hospital discharge contracts · Diaspora groups (ParentCare distribution).
 
 ### Category 5 — Platform Infrastructure (backbone, not a product line)
-WhatsApp/SMS notification engine + human doctor↔patient support chat (app/web is the interface for signup and every core action, see CLAUDE.md) · Nurse-led delivery (home visits, sample collection, counselling) · AI clinical decisioning (flag abnormals, automate escalation, care plans) · Longitudinal patient health record · Partner API layer (labs, pharmacies, hospitals) · Data & analytics (population dashboards for HMOs/corporates) · Audit log (immutable, medico-legal protection).
+WhatsApp/SMS notification engine + human doctor↔patient support chat (app/web is the interface for signup and every core action, see CLAUDE.md) · Clinician-led delivery (home visits, sample collection, counselling) · AI clinical decisioning (flag abnormals, automate escalation, care plans) · Longitudinal patient health record · Partner API layer (labs, pharmacies, hospitals) · Data & analytics (population dashboards for HMOs/corporates) · Audit log (immutable, medico-legal protection).
 
 **The chain:** Prevention identifies risk → Chronic management manages disease → Care coordination routes services → B2B funds scale → Platform infrastructure makes the system work.
 
@@ -116,7 +116,7 @@ Simple rule: **hypertensive → yearly; diabetic → yearly + HbA1c 2–4×/yr; 
 - `patient_risk_scores` — rule-based + later ML-based (model_version tracked). Distinct from `prevention_risk_scores` (§3.3), which is condition tiering for the screening recommendation engine, not chronic-disease scoring.
 - `appointments`
 - `symptoms` — patient-reported; red-flag rules (chest pain, weakness, breathlessness, confusion, visual symptoms)
-- `nurse_alerts`, `escalations` (status: open/under review/resolved/referred)
+- `clinician_alerts`, `escalations` (status: open/under review/resolved/referred)
 
 ### 3.3 Preventative Medicine (Category 2 — new in v3)
 | Table | Purpose | Key fields |
@@ -124,7 +124,7 @@ Simple rule: **hypertensive → yearly; diabetic → yearly + HbA1c 2–4×/yr; 
 | `screening_schedules` | Patient's personalised AI-generated screening calendar | patient_id, screen_type (enum), due_date, status (pending/booked/completed/overdue), reminder_sent_at, next_due_date |
 | `screen_types` | Reference table of all screening types coordinated | code, name, sex_applicability (M/F/All), age_from, age_to, frequency_months, commission_rate, recommended_provider_type |
 | `screening_results` | Result per completed screening event | patient_id, schedule_id, lab_order_id, result_status (normal/borderline/abnormal/critical), result_summary, abnormal_flags (text[]), created_at |
-| `screening_upgrades` | Audit log of every abnormal result → Cat 1 upgrade event | patient_id, screening_result_id, condition_triggered (hypertension/diabetes/cancer_referral/other), upgrade_at, handled_by_nurse_id, action_taken |
+| `screening_upgrades` | Audit log of every abnormal result → Cat 1 upgrade event | patient_id, screening_result_id, condition_triggered (hypertension/diabetes/cancer_referral/other), upgrade_at, handled_by_clinician_id, action_taken |
 | `annual_health_checks` | Full AHC record — highest-LTV Cat 2 product | patient_id, year, status, completion_pct, total_cost_ngn, tests_completed (JSON), gender_screens_completed (JSON) |
 | `specialist_referrals` | Referrals from abnormal screens to specialists | patient_id, specialist_type, referral_reason, status, referral_fee_ngn, booking_confirmed_at, appointment_date |
 | `family_plan_members` | Members under a family plan | plan_id, member_id, relationship, plan_owner_id, conditions (text[]), onboarded_at |
@@ -311,7 +311,7 @@ Use this as a build tracker — check off per sprint. (Originally scoped against
 | Pharmacies (Medplus, HealthPlus, Alpha Pharmacy, MedsPal) | Refills, delivery, adherence support |
 | Doctors | Escalation review, medication review, clinical safety |
 | Hospitals | Urgent referral, specialist care, post-discharge monitoring |
-| Home visit nurses | BP/glucose checks, sample collection, frail patient support |
+| Home visit clinicians | BP/glucose checks, sample collection, frail patient support |
 | Device suppliers | BP monitors, glucometers, scales, pulse oximeters |
 | Employers | Staff enrolment, corporate chronic disease care |
 | HMOs (Reliance, Avon, Ronsberger, Wellahealth) | Member monitoring, chronic risk control |

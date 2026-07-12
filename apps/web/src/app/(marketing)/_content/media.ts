@@ -11,7 +11,7 @@ export type MarketingIllustrationId =
   | "family-care"
   | "fragmented-care"
   | "connected-care"
-  | "nurse-follow-up"
+  | "clinician-follow-up"
   | "hypertension"
   | "diabetes"
   | "parentcare"
@@ -46,7 +46,7 @@ export const MARKETING_MEDIA = {
       caption:
         "A two-minute look at logging vitals, clinician review, and family updates — calm follow-up between doctor visits.",
       poster: {
-        illustration: "nurse-follow-up",
+        illustration: "clinician-follow-up",
         imageAlt: "Clinician on a calm follow-up call with a patient",
       } satisfies MarketingMediaSlot,
     },

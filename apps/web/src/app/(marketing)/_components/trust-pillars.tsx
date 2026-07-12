@@ -2,7 +2,7 @@
 
 const PILLARS = [
   { title: "Trustworthy", body: "Clinically credible, protocol-driven. We earn trust — we don't claim it." },
-  { title: "Warm", body: "A nurse who knows your name, not a hospital PA system." },
+  { title: "Warm", body: "A clinician who knows your name, not a hospital PA system." },
   { title: "Calm", body: "We notice things early and say so calmly — never alarmist." },
   { title: "Intelligent", body: "We explain an HbA1c result in one clear sentence, never patronise." },
   { title: "Premium but accessible", body: "High quality without feeling elitist. Well within reach." },

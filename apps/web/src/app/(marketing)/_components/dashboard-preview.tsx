@@ -18,7 +18,7 @@ const CARE_ITEMS = [
 
 const CARE_PATH = [
   "Reading logged",
-  "Nurse review",
+  "Clinician review",
   "Follow-up note",
   "Family update",
 ] as const;
@@ -52,7 +52,7 @@ export function DashboardPreview() {
               </p>
             </div>
             <span className="rounded-full bg-soft-sage px-3 py-1 text-xs font-medium text-deep-forest">
-              Nurse reviewed
+              Clinician reviewed
             </span>
           </div>
 

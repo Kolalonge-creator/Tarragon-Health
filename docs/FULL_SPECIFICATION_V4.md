@@ -6,7 +6,7 @@
 
 ## 0. Purpose
 
-Every category Tarragon competes in already has a well-funded, proven winner: Function Health and Omada in the US, Livongo (sold to Teladoc for $18.5B), Virta, Simple in emerging markets. None of them are built for Nigeria. This document takes the best mechanic from each — the thing that made them win — and maps it into Tarragon's existing five-category architecture, WhatsApp-first and nurse-led, without breaking the 16-week build or the capital-efficiency posture.
+Every category Tarragon competes in already has a well-funded, proven winner: Function Health and Omada in the US, Livongo (sold to Teladoc for $18.5B), Virta, Simple in emerging markets. None of them are built for Nigeria. This document takes the best mechanic from each — the thing that made them win — and maps it into Tarragon's existing five-category architecture, WhatsApp-first and clinician-led, without breaking the 16-week build or the capital-efficiency posture.
 
 The goal isn't to copy features. It's to take the *pattern that drove retention, trust, or ACV* in each company and localize it.
 
@@ -46,7 +46,7 @@ Nigeria's digital-first chronic disease, preventive health, and family care coor
 | Existing | New | Inspired by |
 |---|---|---|
 | Lab booking, pharmacy fulfilment, specialist referral, hospital handoff | **Care Navigation directory** — a patient-facing "find near me" view (labs, pharmacies, vaccination centres, specialists) with maps, distinct from the transactional booking flow that already exists | Common capability list — most winning platforms separate *discovery* from *booking* |
-| Booking driven by nurse/AI schedule only | **Location-triggered nurse outreach** for diaspora premium patients when a connected wearable shows an anomalous recovery/strain pattern (Phase 3, premium tier only) | Oura, WHOOP |
+| Booking driven by clinician/AI schedule only | **Location-triggered clinician outreach** for diaspora premium patients when a connected wearable shows an anomalous recovery/strain pattern (Phase 3, premium tier only) | Oura, WHOOP |
 
 ### 2.4 Category 4 — B2B & Institutional
 
@@ -60,7 +60,7 @@ Nigeria's digital-first chronic disease, preventive health, and family care coor
 
 | Existing | New | Inspired by |
 |---|---|---|
-| WhatsApp/SMS engine, nurse workflow, AI clinical decision, patient record, partner API, analytics | **Device/wearable integration layer** — Apple Health, Oura, WHOOP, Garmin, Fitbit, plus Bluetooth BP cuffs, glucometers, smart scales | Oura, WHOOP, Apple Health, Livongo |
+| WhatsApp/SMS engine, clinician workflow, AI clinical decision, patient record, partner API, analytics | **Device/wearable integration layer** — Apple Health, Oura, WHOOP, Garmin, Fitbit, plus Bluetooth BP cuffs, glucometers, smart scales | Oura, WHOOP, Apple Health, Livongo |
 | Weekly AI care messages | **Daily AI Health Coach** — WhatsApp-delivered nutrition, exercise, sleep, stress, and smoking-cessation coaching, Nigerian-food-aware | Lark Health, Superpower's 24/7 concierge, Omada's behaviour-change engine |
 | — | **Health Score engine** — new Python ML model, detailed below | Function Health, Superpower |
 
@@ -78,14 +78,14 @@ Nigeria's digital-first chronic disease, preventive health, and family care coor
 | Hello Heart | Cardiovascular focus, "Heart Age" | Heart Age as a Health Score component |
 | Oura / WHOOP | Passive monitoring, high engagement | Wearable integration layer (diaspora/premium tier) |
 | NHS App | Population preventive care, plain-language reminders | Personalized Health Timeline, broadened screen types |
-| Simple / NiaHealth | Radical simplicity and reach in LMIC / outside major cities | Validates Tarragon's existing WhatsApp-first, nurse-led model — no change needed, but confirms the thesis |
+| Simple / NiaHealth | Radical simplicity and reach in LMIC / outside major cities | Validates Tarragon's existing WhatsApp-first, clinician-led model — no change needed, but confirms the thesis |
 | Propeller Health | Smart-inhaler exacerbation prediction | Respiratory module (Phase 3, matches existing asthma roadmap item) |
 | Included Health / One Medical | Distribution through employer/payer channels | Full-population corporate enrolment model |
 | Hinge Health | Disease-specific digital care done excellently | Candidate future category: MSK (Phase 3, not committed) |
 | Prenuvo | Early detection via whole-body imaging | Premium MRI referral add-on |
 | Viome | AI-personalised nutrition from microbiome | Long-term roadmap flag only |
 
-**Tarragon's structural edge over all of the above:** none of them are nurse-led, WhatsApp-native, or priced for the Nigerian market. That combination — not any single feature — is the moat. Every addition below has to survive contact with that constraint or it doesn't ship.
+**Tarragon's structural edge over all of the above:** none of them are clinician-led, WhatsApp-native, or priced for the Nigerian market. That combination — not any single feature — is the moat. Every addition below has to survive contact with that constraint or it doesn't ship.
 
 ---
 
@@ -201,7 +201,7 @@ All new features route through the existing 4-label transparency system (INCLUDE
 | Competitor type | Their edge | Tarragon's counter |
 |---|---|---|
 | Function Health / Superpower | Comprehensive testing, biological age, slick UX | Same score concept, Nigerian pricing, WhatsApp delivery — not app-only |
-| Omada / Livongo | Payer trust via clinical evidence, hardware data | Nurse-led + published local outcome data, device sync without requiring app literacy |
+| Omada / Livongo | Payer trust via clinical evidence, hardware data | Clinician-led + published local outcome data, device sync without requiring app literacy |
 | Virta | Outcomes-based pricing | Same contract structure, offered to Nigerian HMOs first — no one else there does this |
 | Simple / NiaHealth | LMIC simplicity and reach | Tarragon already is this, plus a wider category footprint (prevention + chronic + B2B in one platform) |
 | Oura / WHOOP / Apple | Passive wearable engagement | Positioned as diaspora/premium add-on, not the core product — avoids the device-cost barrier that makes wearables inaccessible to most Nigerian patients |
