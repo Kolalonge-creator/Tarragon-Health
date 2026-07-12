@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { NotesPanel } from "./notes-panel";
 import { ResolveForm } from "./resolve-form";
 
@@ -72,13 +73,10 @@ export default async function DoctorEscalationPage({
             </p>
           )}
           <p className="text-sm text-charcoal-ink">Reason: {escalation.reason}</p>
-          {escalation.resolution_note && (
-            <p className="text-sm text-charcoal-ink/60">
-              Resolution: {escalation.resolution_note}
-            </p>
-          )}
         </CardContent>
       </Card>
+
+      <ReviewedByDoctor escalationId={escalation.id} />
 
       {escalation.patient?.id && <VitalsTrendChart patientId={escalation.patient.id} />}
 

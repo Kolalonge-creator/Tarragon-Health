@@ -131,6 +131,29 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/protocols" className="hover:underline">
+              Clinical protocols
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            The version-signed record behind every &quot;protocols supervised by Dr. X&quot;
+            claim shown to patients. Only the org&apos;s active Clinical Director can sign.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/protocols"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage protocols →
+          </Link>
+        </CardContent>
+      </Card>
     </DashboardPlaceholder>
   );
 }

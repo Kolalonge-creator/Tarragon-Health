@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { YourCareTeam } from "@/components/your-care-team";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { getPatientSummaryStats } from "./summary";
@@ -39,6 +40,7 @@ export default async function PatientPage() {
       roleLabel="Patient"
       comingUp={["Health Passport download"]}
     >
+      <YourCareTeam patientId={profile.id} />
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatTile
           icon={SEMANTIC_ICON.bp}

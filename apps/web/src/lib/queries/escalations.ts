@@ -162,7 +162,13 @@ export function useAddEscalationNote() {
   });
 }
 
-/** Resolves or refers an escalation, closing out the doctor's review. */
+/**
+ * Resolves or refers an escalation, closing out the doctor's review.
+ * Sets reviewed_by/reviewed_at here, once, to the reviewing doctor and now
+ * — the only place these fields are ever written (CLINICAL_TRUST_MODEL_SPEC
+ * §5: no retroactive attribution) — which is what lets ReviewedByDoctor
+ * null-gate on them safely.
+ */
 export function useResolveEscalation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -176,9 +182,19 @@ export function useResolveEscalation() {
       resolutionNote: string;
     }) => {
       const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
       const { error } = await supabase
         .from("escalations")
-        .update({ status, resolution_note: resolutionNote })
+        .update({
+          status,
+          resolution_note: resolutionNote,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+        })
         .eq("id", escalationId);
       if (error) throw error;
     },

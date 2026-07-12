@@ -4,6 +4,7 @@ import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { ScreeningResultForm } from "./screening-result-form";
+import { CareTeamForm } from "./care-team-form";
 
 export default async function ClinicianPatientPage({
   params,
@@ -18,7 +19,7 @@ export default async function ClinicianPatientPage({
   // lookup in this app.
   const { data: patient } = await supabase
     .from("profiles")
-    .select("id, full_name, phone")
+    .select("id, full_name, phone, organisation_id")
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
@@ -50,6 +51,9 @@ export default async function ClinicianPatientPage({
       <AddMedicationForm patientId={patient.id} source="clinician" />
       <VitalsTrendChart patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />
+      {patient.organisation_id && (
+        <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
+      )}
     </div>
   );
 }

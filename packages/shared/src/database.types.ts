@@ -412,6 +412,128 @@ export type Database = {
           },
         ]
       }
+      care_team_assignment: {
+        Row: {
+          assigned_at: string
+          clinical_director_id: string | null
+          clinician_id: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          clinical_director_id?: string | null
+          clinician_id?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          assigned_at?: string
+          clinical_director_id?: string | null
+          clinician_id?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_team_assignment_clinical_director_id_fkey"
+            columns: ["clinical_director_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_assignment_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_assignment_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_assignment_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_staff: {
+        Row: {
+          active: boolean
+          bio: string | null
+          created_at: string
+          credential_number: string | null
+          credential_type: string | null
+          full_name: string
+          id: string
+          license_verified_at: string | null
+          organisation_id: string
+          photo_url: string | null
+          profile_id: string | null
+          role: Database["public"]["Enums"]["clinical_staff_role"]
+          specialty: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          bio?: string | null
+          created_at?: string
+          credential_number?: string | null
+          credential_type?: string | null
+          full_name: string
+          id?: string
+          license_verified_at?: string | null
+          organisation_id: string
+          photo_url?: string | null
+          profile_id?: string | null
+          role: Database["public"]["Enums"]["clinical_staff_role"]
+          specialty?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          bio?: string | null
+          created_at?: string
+          credential_number?: string | null
+          credential_type?: string | null
+          full_name?: string
+          id?: string
+          license_verified_at?: string | null
+          organisation_id?: string
+          photo_url?: string | null
+          profile_id?: string | null
+          role?: Database["public"]["Enums"]["clinical_staff_role"]
+          specialty?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_staff_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_staff_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinician_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -642,6 +764,8 @@ export type Database = {
           raised_by: string | null
           reason: string
           resolution_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: Database["public"]["Enums"]["escalation_status"]
           updated_at: string
         }
@@ -655,6 +779,8 @@ export type Database = {
           raised_by?: string | null
           reason: string
           resolution_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: Database["public"]["Enums"]["escalation_status"]
           updated_at?: string
         }
@@ -668,6 +794,8 @@ export type Database = {
           raised_by?: string | null
           reason?: string
           resolution_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: Database["public"]["Enums"]["escalation_status"]
           updated_at?: string
         }
@@ -703,6 +831,13 @@ export type Database = {
           {
             foreignKeyName: "escalations_raised_by_fkey"
             columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalations_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1874,6 +2009,60 @@ export type Database = {
           },
         ]
       }
+      protocol_versions: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          change_summary: string
+          content: Json
+          created_at: string
+          id: string
+          organisation_id: string
+          protocol_id: string
+          title: string
+          version_number: number
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          change_summary: string
+          content?: Json
+          created_at?: string
+          id?: string
+          organisation_id: string
+          protocol_id: string
+          title: string
+          version_number: number
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          change_summary?: string
+          content?: Json
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          protocol_id?: string
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_versions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_versions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referrals: {
         Row: {
           code: string
@@ -2794,6 +2983,10 @@ export type Database = {
         | "cardiovascular"
         | "other"
       care_plan_status: "draft" | "active" | "completed" | "cancelled"
+      clinical_staff_role:
+        | "clinical_director"
+        | "clinician"
+        | "escalation_doctor"
       commission_status: "pending" | "confirmed" | "paid"
       commission_type: "lab" | "pharmacy" | "referral"
       contract_status:
@@ -3061,6 +3254,11 @@ export const Constants = {
         "other",
       ],
       care_plan_status: ["draft", "active", "completed", "cancelled"],
+      clinical_staff_role: [
+        "clinical_director",
+        "clinician",
+        "escalation_doctor",
+      ],
       commission_status: ["pending", "confirmed", "paid"],
       commission_type: ["lab", "pharmacy", "referral"],
       contract_status: [
