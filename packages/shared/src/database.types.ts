@@ -484,6 +484,7 @@ export type Database = {
           role: Database["public"]["Enums"]["clinical_staff_role"]
           specialty: string | null
           updated_at: string
+          verified_by: string | null
         }
         Insert: {
           active?: boolean
@@ -500,6 +501,7 @@ export type Database = {
           role: Database["public"]["Enums"]["clinical_staff_role"]
           specialty?: string | null
           updated_at?: string
+          verified_by?: string | null
         }
         Update: {
           active?: boolean
@@ -516,6 +518,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["clinical_staff_role"]
           specialty?: string | null
           updated_at?: string
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -529,6 +532,13 @@ export type Database = {
             foreignKeyName: "clinical_staff_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_staff_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },

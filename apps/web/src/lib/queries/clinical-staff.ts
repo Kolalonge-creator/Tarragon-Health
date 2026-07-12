@@ -4,6 +4,143 @@ import type { Tables } from "@tarragon/shared";
 
 export type ClinicalStaff = Tables<"clinical_staff">;
 
+const ALL_STAFF_QUERY_KEY = ["clinical-staff", "all"];
+
+async function getCallerOrganisationId(): Promise<string> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) {
+    throw new Error("This account has no organisation on file");
+  }
+  return profile.organisation_id;
+}
+
+/** Every clinical_staff record in the caller's org, any role/active state — admin management view. */
+export function useAllClinicalStaff() {
+  return useQuery({
+    queryKey: ALL_STAFF_QUERY_KEY,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinical_staff")
+        .select("*")
+        .order("role", { ascending: true })
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return data as ClinicalStaff[];
+    },
+  });
+}
+
+/**
+ * Adds a new clinical_staff record — starts inactive and unverified by
+ * design (CLINICAL_TRUST_MODEL_SPEC.md §5: license verification, not
+ * self-attestation). profilePhone is optional: links the record to an
+ * existing login (needed for anyone who'll act in the system — sign
+ * escalations, sign protocols); a Clinical Director can also exist as a
+ * bio-only marketing record with no login.
+ */
+export function useCreateClinicalStaff() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      role: ClinicalStaff["role"];
+      fullName: string;
+      credentialType?: string;
+      credentialNumber?: string;
+      specialty?: string;
+      bio?: string;
+      profilePhone?: string;
+    }) => {
+      const supabase = createClient();
+      const organisationId = await getCallerOrganisationId();
+
+      let profileId: string | null = null;
+      if (input.profilePhone) {
+        const { data: linkedProfile, error: profileError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("phone", input.profilePhone)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        if (!linkedProfile) throw new Error("No account found with that phone number");
+        profileId = linkedProfile.id;
+      }
+
+      const { error } = await supabase.from("clinical_staff").insert({
+        organisation_id: organisationId,
+        profile_id: profileId,
+        role: input.role,
+        full_name: input.fullName,
+        credential_type: input.credentialType || null,
+        credential_number: input.credentialNumber || null,
+        specialty: input.specialty || null,
+        bio: input.bio || null,
+        active: false,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Records license verification — sets license_verified_at + verified_by to
+ * the admin performing the check, now. A DB constraint (not just this app
+ * code) blocks verified_by from ever equaling the record's own profile_id,
+ * so a clinician/doctor structurally cannot verify themselves.
+ */
+export function useVerifyClinicalStaff() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clinicalStaffId: string) => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ license_verified_at: new Date().toISOString(), verified_by: user.id })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/** Toggles active — the DB rejects activation of an unverified record (clinical_staff_active_requires_verification). */
+export function useSetClinicalStaffActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clinicalStaffId, active }: { clinicalStaffId: string; active: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ active })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
 /** Active clinicians in the caller's org (RLS-scoped) — populates the care-team assignment select. */
 export function useOrgClinicians() {
   return useQuery({
