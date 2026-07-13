@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "TarragonHealth",
+    "slug": "tarragon-health",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [],
+          "bluetoothAlwaysPermission": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale."
+        }
+      ]
+    ],
+    "ios": {
+      "bundleIdentifier": "com.tarragonhealth.mobile",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale."
+      }
+    },
+    "android": {
+      "package": "com.tarragonhealth.mobile",
+      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "ACCESS_FINE_LOCATION"]
+    }
+  }
+}

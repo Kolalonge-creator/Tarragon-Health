@@ -1801,6 +1801,66 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_devices: {
+        Row: {
+          ble_device_id: string
+          created_at: string
+          device_type: Database["public"]["Enums"]["patient_device_type"]
+          id: string
+          last_synced_at: string | null
+          manufacturer: string | null
+          model: string | null
+          nickname: string | null
+          organisation_id: string
+          paired_at: string
+          patient_id: string
+          status: Database["public"]["Enums"]["patient_device_status"]
+        }
+        Insert: {
+          ble_device_id: string
+          created_at?: string
+          device_type: Database["public"]["Enums"]["patient_device_type"]
+          id?: string
+          last_synced_at?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          nickname?: string | null
+          organisation_id: string
+          paired_at?: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["patient_device_status"]
+        }
+        Update: {
+          ble_device_id?: string
+          created_at?: string
+          device_type?: Database["public"]["Enums"]["patient_device_type"]
+          id?: string
+          last_synced_at?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          nickname?: string | null
+          organisation_id?: string
+          paired_at?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["patient_device_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_devices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_devices_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_risk_scores: {
         Row: {
           computed_at: string
@@ -3100,7 +3160,9 @@ export type Database = {
       vitals_readings: {
         Row: {
           created_at: string
+          device_id: string | null
           diastolic: number | null
+          external_reading_id: string | null
           glucose_context: Database["public"]["Enums"]["glucose_context"] | null
           glucose_mmol_l: number | null
           id: string
@@ -3108,6 +3170,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           pulse_bpm: number | null
+          source: Database["public"]["Enums"]["vital_source"]
           spo2_pct: number | null
           systolic: number | null
           taken_at: string
@@ -3117,7 +3180,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          device_id?: string | null
           diastolic?: number | null
+          external_reading_id?: string | null
           glucose_context?:
             | Database["public"]["Enums"]["glucose_context"]
             | null
@@ -3127,6 +3192,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           pulse_bpm?: number | null
+          source?: Database["public"]["Enums"]["vital_source"]
           spo2_pct?: number | null
           systolic?: number | null
           taken_at?: string
@@ -3136,7 +3202,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          device_id?: string | null
           diastolic?: number | null
+          external_reading_id?: string | null
           glucose_context?:
             | Database["public"]["Enums"]["glucose_context"]
             | null
@@ -3146,6 +3214,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           pulse_bpm?: number | null
+          source?: Database["public"]["Enums"]["vital_source"]
           spo2_pct?: number | null
           systolic?: number | null
           taken_at?: string
@@ -3154,6 +3223,13 @@ export type Database = {
           weight_kg?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "vitals_readings_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "patient_devices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vitals_readings_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -3335,6 +3411,8 @@ export type Database = {
         | "lab"
         | "pharmacy"
         | "direct_consumer"
+      patient_device_status: "active" | "unpaired"
+      patient_device_type: "bp_cuff" | "glucometer" | "scale"
       payment_provider: "paystack" | "stripe"
       payment_transaction_type:
         | "charge.success"
@@ -3415,6 +3493,7 @@ export type Database = {
         | "hmo_admin"
         | "corporate_admin"
         | "doctor"
+      vital_source: "manual" | "device"
       vital_type:
         | "blood_pressure"
         | "glucose"
@@ -3621,6 +3700,8 @@ export const Constants = {
         "pharmacy",
         "direct_consumer",
       ],
+      patient_device_status: ["active", "unpaired"],
+      patient_device_type: ["bp_cuff", "glucometer", "scale"],
       payment_provider: ["paystack", "stripe"],
       payment_transaction_type: [
         "charge.success",
@@ -3711,6 +3792,7 @@ export const Constants = {
         "corporate_admin",
         "doctor",
       ],
+      vital_source: ["manual", "device"],
       vital_type: [
         "blood_pressure",
         "glucose",
