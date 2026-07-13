@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Providers } from "./providers";
+import { signOut } from "../auth/actions";
 
 const ROLE_LABEL: Record<string, string> = {
   patient: "Patient",
@@ -18,9 +19,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
@@ -46,7 +45,7 @@ export default async function DashboardLayout({
             <span className="rounded-full bg-brand-green/10 px-2.5 py-1 font-medium text-brand-green">
               {profile ? ROLE_LABEL[profile.role] : "—"}
             </span>
-            <form action="/auth/signout" method="post">
+            <form action={signOut}>
               <Button type="submit" variant="ghost" size="sm">
                 Sign out
               </Button>

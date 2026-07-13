@@ -71,6 +71,18 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    {
+      // `missing` skips proxy entirely for Next's own Link-hover/viewport
+      // prefetch requests — every prefetched dashboard link independently
+      // ran this function's getUser() Supabase call, and a page with N
+      // links produced N concurrent Auth API calls per render. Real
+      // navigations never carry these headers, so page-level auth checks
+      // (layout.tsx, RLS) remain the enforcement boundary either way.
+      source: "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
   ],
 };

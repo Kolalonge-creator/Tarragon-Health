@@ -60,7 +60,13 @@ interface PaystackEvent {
 
 async function verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
   const secret = Deno.env.get("PAYSTACK_WEBHOOK_SECRET");
-  if (!secret) return true; // degrade gracefully, same as whatsapp-webhook, logged below
+  // Fail closed, unlike whatsapp-webhook's degrade-open: a forged event here
+  // activates a real subscription/add-on for free, not just a fake chat
+  // message, so an unconfigured secret must reject every request.
+  if (!secret) {
+    console.error("paystack-webhook: PAYSTACK_WEBHOOK_SECRET is not set — rejecting all events");
+    return false;
+  }
   if (!signatureHeader) return false;
 
   const key = await crypto.subtle.importKey(

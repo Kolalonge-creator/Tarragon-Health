@@ -52,10 +52,15 @@ export async function changePlan(
   const { supabase, user, subscription } = await requireOwnedSubscription(currentSubscriptionId);
 
   if (subscription.provider_ref && subscription.provider_email_token) {
-    await disableSubscription({
+    const disableResult = await disableSubscription({
       subscriptionCode: subscription.provider_ref,
       emailToken: subscription.provider_email_token,
     });
+    if (!disableResult.ok) {
+      return {
+        error: `Couldn't cancel your current plan with Paystack (${disableResult.error}) — try again before switching.`,
+      };
+    }
   }
   await supabase
     .from("subscriptions")
@@ -211,7 +216,13 @@ export async function detachAddOn(subscriptionAddOnId: string): Promise<Subscrip
   }
 
   if (row.provider_ref && row.provider_email_token) {
-    await disableSubscription({ subscriptionCode: row.provider_ref, emailToken: row.provider_email_token });
+    const disableResult = await disableSubscription({
+      subscriptionCode: row.provider_ref,
+      emailToken: row.provider_email_token,
+    });
+    if (!disableResult.ok) {
+      return { error: `Couldn't cancel this add-on with Paystack (${disableResult.error}) — try again.` };
+    }
     return { message: "Cancelling — this stays active until the end of the current period." };
   }
 
@@ -226,10 +237,13 @@ export async function cancelSubscription(subscriptionId: string): Promise<Subscr
   const { supabase, subscription } = await requireOwnedSubscription(subscriptionId);
 
   if (subscription.provider_ref && subscription.provider_email_token) {
-    await disableSubscription({
+    const disableResult = await disableSubscription({
       subscriptionCode: subscription.provider_ref,
       emailToken: subscription.provider_email_token,
     });
+    if (!disableResult.ok) {
+      return { error: `Couldn't cancel with Paystack (${disableResult.error}) — try again.` };
+    }
     return { message: "Cancelling — you'll keep access until the end of your current billing period." };
   }
 
