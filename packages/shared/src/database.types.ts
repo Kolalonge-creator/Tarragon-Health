@@ -528,6 +528,9 @@ export type Database = {
           credential_type: string | null
           full_name: string
           id: string
+          indemnity_expires_at: string | null
+          indemnity_insurer: string | null
+          indemnity_policy_number: string | null
           license_verified_at: string | null
           organisation_id: string
           photo_url: string | null
@@ -545,6 +548,9 @@ export type Database = {
           credential_type?: string | null
           full_name: string
           id?: string
+          indemnity_expires_at?: string | null
+          indemnity_insurer?: string | null
+          indemnity_policy_number?: string | null
           license_verified_at?: string | null
           organisation_id: string
           photo_url?: string | null
@@ -562,6 +568,9 @@ export type Database = {
           credential_type?: string | null
           full_name?: string
           id?: string
+          indemnity_expires_at?: string | null
+          indemnity_insurer?: string | null
+          indemnity_policy_number?: string | null
           license_verified_at?: string | null
           organisation_id?: string
           photo_url?: string | null
