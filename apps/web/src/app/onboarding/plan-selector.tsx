@@ -3,12 +3,14 @@
 import { useActionState, useState } from "react";
 import { useActivePatientPlans, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
 import { startCheckout } from "./actions";
-import { koboToNaira } from "@tarragon/shared";
+import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
+import { CurrencyTabs } from "@/components/currency-tabs";
 import { Button } from "@/components/ui/button";
 
 function formatPrice(plan: SubscriptionPlan): string {
   if (plan.price_minor === 0) return "Free";
-  return `₦${koboToNaira(plan.price_minor).toLocaleString()}/${plan.interval === "yearly" ? "year" : "month"}`;
+  const currency = plan.currency as Currency;
+  return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(plan.price_minor, currency).toLocaleString()}/${plan.interval === "yearly" ? "year" : "month"}`;
 }
 
 /** Groups the flat subscription_plans rows into one card per tier, with a
@@ -33,16 +35,20 @@ export function PlanSelector() {
   const [state, formAction, pending] = useActionState(startCheckout, undefined);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [intervalByTier, setIntervalByTier] = useState<Record<string, "monthly" | "yearly">>({});
+  // No prior plan to infer from at this point in the flow — always start on NGN.
+  const [currency, setCurrency] = useState<Currency>("NGN");
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading plans…</p>;
   if (isError || !plans) {
     return <p className="text-sm text-red-600">Could not load plans. Refresh and try again.</p>;
   }
 
-  const groups = groupByTier(plans);
+  const visiblePlans = plans.filter((p) => p.code === "free" || p.currency === currency);
+  const groups = groupByTier(visiblePlans);
 
   return (
     <form action={formAction} className="space-y-4">
+      <CurrencyTabs value={currency} onChange={setCurrency} />
       <div className="space-y-3">
         {Array.from(groups.entries()).map(([tierKey, { monthly, yearly }]) => {
           const interval = intervalByTier[tierKey] ?? (monthly ? "monthly" : "yearly");

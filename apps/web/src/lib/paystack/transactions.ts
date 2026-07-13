@@ -1,21 +1,6 @@
 import { paystackFetch, type PaystackResult } from "./client";
-
-/**
- * Distinguishes what a checkout transaction activates once it succeeds —
- * read back out of `event.data.metadata` by the paystack-webhook Edge
- * Function, which otherwise has no way to know whether a given
- * `charge.success` event is for a base-plan subscription or an add-on.
- */
-export type CheckoutKind = "subscription" | "add_on";
-
-export interface CheckoutMetadata {
-  kind: CheckoutKind;
-  profile_id: string;
-  /** subscription_plans.code (kind='subscription') or add_ons.code (kind='add_on'). */
-  item_code: string;
-  /** Only set for kind='add_on' — the base subscriptions.id it attaches to. */
-  subscription_id?: string;
-}
+import type { CheckoutMetadata } from "@/lib/billing/checkout-metadata";
+export type { CheckoutKind, CheckoutMetadata } from "@/lib/billing/checkout-metadata";
 
 interface InitializeTransactionData {
   authorization_url: string;

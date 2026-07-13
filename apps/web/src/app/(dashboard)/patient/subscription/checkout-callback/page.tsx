@@ -2,18 +2,20 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { verifyTransaction } from "@/lib/paystack/transactions";
+import { verifyCheckoutSession } from "@/lib/stripe/checkout";
 import { Button } from "@/components/ui/button";
 
 /**
- * Paystack's `callback_url` for plan-change / add-on-attach checkouts
- * initiated from /patient/subscription (see actions.ts). Same non-
- * authoritative UX-only role as onboarding/checkout-callback — the
- * paystack-webhook Edge Function is what actually activates the row.
+ * `callback_url`/`success_url` for plan-change / add-on-attach checkouts
+ * initiated from /patient/subscription (see actions.ts) — for either
+ * provider. Same non-authoritative UX-only role as onboarding/checkout-
+ * callback — paystack-webhook/stripe-webhook are what actually activate the
+ * row; this page only does a same-request confirmation check.
  */
 export default async function SubscriptionCheckoutCallbackPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reference?: string; trxref?: string }>;
+  searchParams: Promise<{ reference?: string; trxref?: string; session_id?: string }>;
 }) {
   const profile = await getCurrentProfile();
   if (!profile) {
@@ -24,7 +26,10 @@ export default async function SubscriptionCheckoutCallbackPage({
   const reference = params.reference ?? params.trxref;
 
   let succeeded = false;
-  if (reference) {
+  if (params.session_id) {
+    const result = await verifyCheckoutSession(params.session_id);
+    succeeded = result.ok && result.data.paymentStatus === "paid";
+  } else if (reference) {
     const result = await verifyTransaction(reference);
     succeeded = result.ok && result.data.status === "success";
   }

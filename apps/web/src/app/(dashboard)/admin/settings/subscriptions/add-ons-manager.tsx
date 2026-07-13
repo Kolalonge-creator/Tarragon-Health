@@ -4,7 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { useAllAddOnsAdmin, useSetAddOnActive, type AddOn } from "@/lib/queries/add-ons";
 import { useAllSubscriptionPlansAdmin } from "@/lib/queries/subscription-plans";
 import { createAddOn, syncAddOnNow } from "./actions";
-import { koboToNaira } from "@tarragon/shared";
+import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,8 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
 function formatPrice(addOn: AddOn): string {
-  return `₦${koboToNaira(addOn.price_minor).toLocaleString()}/${addOn.interval === "yearly" ? "year" : "month"}`;
+  const currency = addOn.currency as Currency;
+  return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(addOn.price_minor, currency).toLocaleString()}/${addOn.interval === "yearly" ? "year" : "month"}`;
 }
 
 export function AddOnsManager() {
@@ -27,18 +28,21 @@ export function AddOnsManager() {
     code: string;
     name: string;
     description: string;
-    price_naira: number;
+    price_amount: number;
+    currency: Currency;
     interval: string;
     restricted_to_plan_code: string;
     features: string;
   } | null>(null);
 
   function cloneFrom(addOn: AddOn) {
+    const currency = addOn.currency as Currency;
     setPrefill({
       code: "",
       name: `${addOn.name} (copy)`,
       description: addOn.description ?? "",
-      price_naira: koboToNaira(addOn.price_minor),
+      price_amount: fromMinorUnits(addOn.price_minor, currency),
+      currency,
       interval: addOn.interval,
       restricted_to_plan_code: addOn.restricted_to_plan_code ?? "",
       features: addOn.features.join(", "),
@@ -81,14 +85,14 @@ export function AddOnsManager() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {!addOn.paystack_plan_code && (
+                    {!addOn.paystack_plan_code && !addOn.stripe_price_id && (
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={syncPending}
                         onClick={() => handleSync(addOn.id)}
                       >
-                        Sync to Paystack
+                        Sync to {addOn.currency === "NGN" ? "Paystack" : "Stripe"}
                       </Button>
                     )}
                     <Badge variant={addOn.is_active ? "green" : "grey"}>
@@ -133,15 +137,23 @@ export function AddOnsManager() {
                 <Input id="ao_description" name="description" defaultValue={prefill?.description} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ao_price_naira">Price (₦)</Label>
+                <Label htmlFor="ao_price_amount">Price</Label>
                 <Input
-                  id="ao_price_naira"
-                  name="price_naira"
+                  id="ao_price_amount"
+                  name="price_amount"
                   type="number"
                   min={0}
-                  defaultValue={prefill?.price_naira}
+                  defaultValue={prefill?.price_amount}
                   required
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ao_currency">Currency</Label>
+                <Select id="ao_currency" name="currency" defaultValue={prefill?.currency ?? "NGN"}>
+                  <option value="NGN">NGN (Paystack)</option>
+                  <option value="USD">USD (Stripe)</option>
+                  <option value="GBP">GBP (Stripe)</option>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ao_interval">Interval</Label>
@@ -160,7 +172,7 @@ export function AddOnsManager() {
                   <option value="">Any paid plan</option>
                   {(plans ?? []).map((plan) => (
                     <option key={plan.code} value={plan.code}>
-                      {plan.name}
+                      {plan.name} ({plan.currency})
                     </option>
                   ))}
                 </Select>

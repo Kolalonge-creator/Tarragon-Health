@@ -4,13 +4,14 @@ import type { Tables } from "@tarragon/shared";
 
 export type SubscriptionPlan = Tables<"subscription_plans">;
 
-const ACTIVE_PLANS_QUERY_KEY = ["subscription-plans", "active", "ngn"];
+const ACTIVE_PLANS_QUERY_KEY = ["subscription-plans", "active"];
 const ALL_PLANS_QUERY_KEY = ["subscription-plans", "all"];
 
-/** Every active NGN plan, for patient-facing plan selection (onboarding,
- * /patient/subscription). subscription_plans is authenticated-readable per
- * its RLS (see 20260705211343_b2b_billing.sql), so this can be called from
- * onboarding before a subscriptions row exists yet. */
+/** Every active plan across all currencies, for patient-facing plan
+ * selection (onboarding, /patient/subscription) — callers filter by the
+ * selected currency tab client-side. subscription_plans is authenticated-
+ * readable per its RLS (see 20260705211343_b2b_billing.sql), so this can be
+ * called from onboarding before a subscriptions row exists yet. */
 export function useActivePatientPlans() {
   return useQuery({
     queryKey: ACTIVE_PLANS_QUERY_KEY,
@@ -20,7 +21,6 @@ export function useActivePatientPlans() {
         .from("subscription_plans")
         .select("*")
         .eq("is_active", true)
-        .eq("currency", "NGN")
         .order("price_minor", { ascending: true });
       if (error) throw error;
       return data;

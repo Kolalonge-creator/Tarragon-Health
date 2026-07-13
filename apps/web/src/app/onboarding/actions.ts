@@ -5,6 +5,9 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeTransaction } from "@/lib/paystack/transactions";
+import { isStripeConfigured } from "@/lib/stripe/client";
+import { createCheckoutSession } from "@/lib/stripe/checkout";
+import { resolveProvider } from "@/lib/billing/provider";
 
 /**
  * Marks onboarding complete for the signed-in caller only — there is no
@@ -71,7 +74,7 @@ export async function startCheckout(
 
   const { data: plan } = await supabase
     .from("subscription_plans")
-    .select("id, code, price_minor, currency, interval, paystack_plan_code")
+    .select("id, code, price_minor, currency, interval, paystack_plan_code, stripe_price_id")
     .eq("code", planCode)
     .eq("is_active", true)
     .maybeSingle();
@@ -96,25 +99,66 @@ export async function startCheckout(
     return;
   }
 
-  if (!isPaystackConfigured()) {
+  if (!user.email) {
+    return { error: "Your account needs an email on file to check out." };
+  }
+  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const callbackUrl = `${origin}/onboarding/checkout-callback`;
+
+  if (resolveProvider(plan.currency) === "paystack") {
+    if (!isPaystackConfigured()) {
+      return {
+        error: "Card payments aren't set up yet — try again shortly, or start on Tarragon Free for now.",
+      };
+    }
+    if (!plan.paystack_plan_code) {
+      return { error: "This plan isn't ready for checkout yet — contact support." };
+    }
+
+    const result = await initializeTransaction({
+      email: user.email,
+      amountMinor: plan.price_minor,
+      currency: plan.currency,
+      paystackPlanCode: plan.paystack_plan_code,
+      callbackUrl,
+      metadata: { kind: "subscription", profile_id: user.id, item_code: plan.code },
+    });
+    if (!result.ok) {
+      return { error: result.error };
+    }
+
+    const { error: insertError } = await supabase.from("subscriptions").insert({
+      organisation_id: profile.organisation_id,
+      subscriber_id: user.id,
+      plan_id: plan.id,
+      status: "trialing",
+      currency: plan.currency,
+      amount_minor: plan.price_minor,
+      interval: plan.interval,
+      provider: "paystack",
+      pending_provider_ref: result.data.reference,
+    });
+    if (insertError) {
+      return { error: insertError.message };
+    }
+
+    redirect(result.data.authorizationUrl);
+  }
+
+  if (!isStripeConfigured()) {
     return {
       error: "Card payments aren't set up yet — try again shortly, or start on Tarragon Free for now.",
     };
   }
-  if (!plan.paystack_plan_code) {
+  if (!plan.stripe_price_id) {
     return { error: "This plan isn't ready for checkout yet — contact support." };
   }
-  if (!user.email) {
-    return { error: "Your account needs an email on file to check out." };
-  }
 
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const result = await initializeTransaction({
+  const result = await createCheckoutSession({
     email: user.email,
-    amountMinor: plan.price_minor,
-    currency: plan.currency,
-    paystackPlanCode: plan.paystack_plan_code,
-    callbackUrl: `${origin}/onboarding/checkout-callback`,
+    stripePriceId: plan.stripe_price_id,
+    successUrl: callbackUrl,
+    cancelUrl: `${origin}/onboarding`,
     metadata: { kind: "subscription", profile_id: user.id, item_code: plan.code },
   });
   if (!result.ok) {
@@ -129,12 +173,12 @@ export async function startCheckout(
     currency: plan.currency,
     amount_minor: plan.price_minor,
     interval: plan.interval,
-    provider: "paystack",
-    pending_provider_ref: result.data.reference,
+    provider: "stripe",
+    pending_provider_ref: result.data.sessionId,
   });
   if (insertError) {
     return { error: insertError.message };
   }
 
-  redirect(result.data.authorizationUrl);
+  redirect(result.data.checkoutUrl);
 }

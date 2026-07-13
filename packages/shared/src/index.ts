@@ -23,15 +23,35 @@ export const CURRENCY = {
 } as const;
 export type Currency = (typeof CURRENCY)[keyof typeof CURRENCY];
 
-/** Convert whole Naira to kobo (the unit everything is stored in). */
-export function nairaToKobo(naira: number): number {
-  return Math.round(naira * 100);
+/** Convert a whole-unit amount to minor units (kobo/pence/cents) — all three
+ * currencies this project bills in use the same 100x convention, so there's
+ * no per-currency branching needed. */
+export function toMinorUnits(amount: number, _currency: Currency): number {
+  return Math.round(amount * 100);
 }
 
-/** Convert kobo back to Naira for presentation only. */
-export function koboToNaira(kobo: number): number {
-  return kobo / 100;
+/** Convert minor units back to whole units for presentation only. */
+export function fromMinorUnits(minor: number, _currency: Currency): number {
+  return minor / 100;
 }
+
+/** Convert whole Naira to kobo (the unit everything is stored in). Thin NGN-
+ * specific alias over toMinorUnits() kept for existing call sites. */
+export function nairaToKobo(naira: number): number {
+  return toMinorUnits(naira, CURRENCY.NGN);
+}
+
+/** Convert kobo back to Naira for presentation only. Thin NGN-specific alias
+ * over fromMinorUnits() kept for existing call sites. */
+export function koboToNaira(kobo: number): number {
+  return fromMinorUnits(kobo, CURRENCY.NGN);
+}
+
+export const CURRENCY_SYMBOL: Record<Currency, string> = {
+  NGN: "₦",
+  GBP: "£",
+  USD: "$",
+};
 
 /** Molar mass of glucose (g/mol) — the standard mmol/L <-> mg/dL conversion factor. */
 export const GLUCOSE_MMOL_TO_MGDL = 18.0182;

@@ -8,14 +8,15 @@ import {
 } from "@/lib/queries/subscriptions";
 import { useActivePatientPlans, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
 import { changePlan, attachAddOn, detachAddOn, cancelSubscription } from "./actions";
-import { koboToNaira } from "@tarragon/shared";
+import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
+import { CurrencyTabs } from "@/components/currency-tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-function formatPrice(priceMinor: number, interval: string): string {
+function formatPrice(priceMinor: number, currency: Currency, interval: string): string {
   if (priceMinor === 0) return "Free";
-  return `₦${koboToNaira(priceMinor).toLocaleString()}/${interval === "yearly" ? "year" : "month"}`;
+  return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(priceMinor, currency).toLocaleString()}/${interval === "yearly" ? "year" : "month"}`;
 }
 
 const STATUS_BADGE: Record<string, { label: string; variant: "green" | "amber" | "red" | "grey" }> = {
@@ -36,6 +37,10 @@ export function SubscriptionManager() {
   const [attachState, attachAction, attachPending] = useActionState(attachAddOn, undefined);
   const [pendingId, startTransition] = useTransition();
   const [rowMessage, setRowMessage] = useState<string | null>(null);
+  // Undefined until the patient manually switches tabs — until then, the
+  // tab tracks their current plan's currency (falls back to NGN once
+  // `subscription` has loaded and has no plan/is on the currency-less free plan).
+  const [currencyOverride, setCurrencyOverride] = useState<Currency | null>(null);
 
   // changePlan's free-plan branch resolves in place (paid plans redirect to
   // Paystack instead, which navigates away and re-fetches naturally) — a
@@ -62,11 +67,15 @@ export function SubscriptionManager() {
 
   const status = STATUS_BADGE[subscription.status] ?? { label: subscription.status, variant: "grey" as const };
   const currentPlanCode = subscription.plan?.code ?? null;
-  const otherPlans = (plans ?? []).filter((p) => p.code !== currentPlanCode);
+  const currency = currencyOverride ?? ((subscription.plan?.currency as Currency | undefined) ?? "NGN");
+  const otherPlans = (plans ?? []).filter(
+    (p) => p.code !== currentPlanCode && (p.code === "free" || p.currency === currency),
+  );
   const attachedCodes = new Set((addOns ?? []).map((a) => a.add_on?.code).filter(Boolean));
   const attachableAddOns = (catalogue ?? []).filter(
     (a) =>
       !attachedCodes.has(a.code) &&
+      a.currency === currency &&
       (a.restricted_to_plan_code === null || a.restricted_to_plan_code === currentPlanCode),
   );
 
@@ -99,7 +108,11 @@ export function SubscriptionManager() {
           </div>
           <CardDescription>
             {subscription.plan
-              ? formatPrice(subscription.plan.price_minor, subscription.plan.interval)
+              ? formatPrice(
+                  subscription.plan.price_minor,
+                  subscription.plan.currency as Currency,
+                  subscription.plan.interval,
+                )
               : null}
             {subscription.current_period_end &&
               ` · renews ${new Date(subscription.current_period_end).toLocaleDateString()}`}
@@ -114,31 +127,34 @@ export function SubscriptionManager() {
         </CardContent>
       </Card>
 
-      {otherPlans.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Change plan</CardTitle>
-            <CardDescription>
-              Switching starts a fresh billing cycle on the new plan — no partial-month credit.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {changeState?.error && <p className="text-sm text-red-600">{changeState.error}</p>}
-            {changeState?.message && <p className="text-sm text-charcoal-ink/70">{changeState.message}</p>}
+      <Card>
+        <CardHeader>
+          <CardTitle>Change plan</CardTitle>
+          <CardDescription>
+            Switching starts a fresh billing cycle on the new plan — no partial-month credit.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <CurrencyTabs value={currency} onChange={setCurrencyOverride} />
+          {changeState?.error && <p className="text-sm text-red-600">{changeState.error}</p>}
+          {changeState?.message && <p className="text-sm text-charcoal-ink/70">{changeState.message}</p>}
+          {otherPlans.length === 0 ? (
+            <p className="text-sm text-charcoal-ink/60">No other {currency} plans available.</p>
+          ) : (
             <div className="flex flex-wrap gap-2">
               {otherPlans.map((plan: SubscriptionPlan) => (
                 <form key={plan.id} action={changeAction}>
                   <input type="hidden" name="subscriptionId" value={subscription.id} />
                   <input type="hidden" name="planCode" value={plan.code} />
                   <Button type="submit" size="sm" variant="outline" disabled={changePending}>
-                    Switch to {plan.name} ({formatPrice(plan.price_minor, plan.interval)})
+                    Switch to {plan.name} ({formatPrice(plan.price_minor, plan.currency as Currency, plan.interval)})
                   </Button>
                 </form>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -155,8 +171,9 @@ export function SubscriptionManager() {
                       {row.add_on?.name ?? "Unknown add-on"}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
-                      {row.add_on && formatPrice(row.add_on.price_minor, row.add_on.interval)} ·{" "}
-                      {STATUS_BADGE[row.status]?.label ?? row.status}
+                      {row.add_on &&
+                        formatPrice(row.add_on.price_minor, row.add_on.currency as Currency, row.add_on.interval)}{" "}
+                      · {STATUS_BADGE[row.status]?.label ?? row.status}
                     </p>
                   </div>
                   {row.status !== "cancelled" && (
@@ -186,7 +203,7 @@ export function SubscriptionManager() {
                   <input type="hidden" name="subscriptionId" value={subscription.id} />
                   <input type="hidden" name="addOnCode" value={addOn.code} />
                   <Button type="submit" size="sm" disabled={attachPending}>
-                    Add {addOn.name} ({formatPrice(addOn.price_minor, addOn.interval)})
+                    Add {addOn.name} ({formatPrice(addOn.price_minor, addOn.currency as Currency, addOn.interval)})
                   </Button>
                 </form>
               ))}

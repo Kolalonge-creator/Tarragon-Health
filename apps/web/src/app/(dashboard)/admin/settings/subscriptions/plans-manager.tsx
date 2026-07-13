@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { useAllSubscriptionPlansAdmin, useSetPlanActive, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
 import { createPlan, syncPlanNow } from "./actions";
-import { koboToNaira } from "@tarragon/shared";
+import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 
 function formatPrice(plan: SubscriptionPlan): string {
   if (plan.price_minor === 0) return "Free";
-  return `₦${koboToNaira(plan.price_minor).toLocaleString()}/${plan.interval === "yearly" ? "year" : "month"}`;
+  const currency = plan.currency as Currency;
+  return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(plan.price_minor, currency).toLocaleString()}/${plan.interval === "yearly" ? "year" : "month"}`;
 }
 
 export function PlansManager() {
@@ -26,17 +27,20 @@ export function PlansManager() {
     code: string;
     name: string;
     description: string;
-    price_naira: number;
+    price_amount: number;
+    currency: Currency;
     interval: string;
     features: string;
   } | null>(null);
 
   function cloneFrom(plan: SubscriptionPlan) {
+    const currency = plan.currency as Currency;
     setPrefill({
       code: "",
       name: `${plan.name} (copy)`,
       description: plan.description ?? "",
-      price_naira: koboToNaira(plan.price_minor),
+      price_amount: fromMinorUnits(plan.price_minor, currency),
+      currency,
       interval: plan.interval,
       features: plan.features.join(", "),
     });
@@ -78,14 +82,14 @@ export function PlansManager() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {plan.price_minor > 0 && !plan.paystack_plan_code && (
+                    {plan.price_minor > 0 && !plan.paystack_plan_code && !plan.stripe_price_id && (
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={syncPending}
                         onClick={() => handleSync(plan.id)}
                       >
-                        Sync to Paystack
+                        Sync to {plan.currency === "NGN" ? "Paystack" : "Stripe"}
                       </Button>
                     )}
                     <Badge variant={plan.is_active ? "green" : "grey"}>
@@ -130,15 +134,23 @@ export function PlansManager() {
                 <Input id="description" name="description" defaultValue={prefill?.description} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="price_naira">Price (₦)</Label>
+                <Label htmlFor="price_amount">Price</Label>
                 <Input
-                  id="price_naira"
-                  name="price_naira"
+                  id="price_amount"
+                  name="price_amount"
                   type="number"
                   min={0}
-                  defaultValue={prefill?.price_naira}
+                  defaultValue={prefill?.price_amount}
                   required
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="currency">Currency</Label>
+                <Select id="currency" name="currency" defaultValue={prefill?.currency ?? "NGN"}>
+                  <option value="NGN">NGN (Paystack)</option>
+                  <option value="USD">USD (Stripe)</option>
+                  <option value="GBP">GBP (Stripe)</option>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="interval">Interval</Label>

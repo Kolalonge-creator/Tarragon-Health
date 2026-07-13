@@ -1,11 +1,38 @@
 "use server";
 
-import { nairaToKobo } from "@tarragon/shared";
+import { toMinorUnits, type Currency } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { syncPlanToPaystack } from "@/lib/paystack/plans";
+import { syncPlanToStripe } from "@/lib/stripe/plans";
 import { createPlanSchema } from "@/lib/validation/subscription-plans";
 import { createAddOnSchema } from "@/lib/validation/add-ons";
+
+type SyncResult =
+  | { ok: true; data: { paystack_plan_code?: string; stripe_price_id?: string; stripe_product_id?: string } }
+  | { ok: false; error: string };
+
+/** NGN rows sync to Paystack; GBP/USD rows sync to Stripe — same branch used
+ * at create-time and by the "Sync now" retry hooks. Normalizes both
+ * providers' differently-shaped results into one write-back patch. */
+async function syncPlanRow(row: {
+  currency: Currency;
+  paystack_plan_code: string | null;
+  stripe_price_id: string | null;
+  stripe_product_id?: string | null;
+  name: string;
+  price_minor: number;
+  interval: "monthly" | "yearly";
+}): Promise<SyncResult> {
+  if (row.currency === "NGN") {
+    const result = await syncPlanToPaystack(row);
+    if (!result.ok) return result;
+    return { ok: true, data: { paystack_plan_code: result.data.planCode } };
+  }
+  const result = await syncPlanToStripe(row);
+  if (!result.ok) return result;
+  return { ok: true, data: { stripe_price_id: result.data.priceId, stripe_product_id: result.data.productId } };
+}
 
 export type AdminActionState = { error?: string; message?: string } | undefined;
 
@@ -41,7 +68,8 @@ export async function createPlan(
     code: formData.get("code"),
     name: formData.get("name"),
     description: formData.get("description") || undefined,
-    price_naira: formData.get("price_naira"),
+    price_amount: formData.get("price_amount"),
+    currency: formData.get("currency") || undefined,
     interval: formData.get("interval"),
     features: formData.get("features") || undefined,
   });
@@ -50,7 +78,7 @@ export async function createPlan(
   }
 
   const supabase = await createClient();
-  const priceMinor = nairaToKobo(parsed.data.price_naira);
+  const priceMinor = toMinorUnits(parsed.data.price_amount, parsed.data.currency);
 
   const { data: inserted, error: insertError } = await supabase
     .from("subscription_plans")
@@ -59,12 +87,12 @@ export async function createPlan(
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       price_minor: priceMinor,
-      currency: "NGN",
+      currency: parsed.data.currency,
       interval: parsed.data.interval,
       features: parseFeatures(parsed.data.features),
       is_active: priceMinor === 0,
     })
-    .select("id, name, price_minor, currency, interval, paystack_plan_code")
+    .select("id, name, price_minor, currency, interval, paystack_plan_code, stripe_price_id, stripe_product_id")
     .single();
   if (insertError) {
     return { error: insertError.message };
@@ -73,17 +101,15 @@ export async function createPlan(
     return { message: `${inserted.name} created and active.` };
   }
 
-  const sync = await syncPlanToPaystack(inserted);
+  const sync = await syncPlanRow(inserted);
   if (!sync.ok) {
+    const providerLabel = parsed.data.currency === "NGN" ? "Paystack" : "Stripe";
     return {
-      error: `Plan saved but Paystack sync failed (${sync.error}) — it stays inactive until synced. Try "Sync to Paystack" below.`,
+      error: `Plan saved but ${providerLabel} sync failed (${sync.error}) — it stays inactive until synced. Try "Sync to ${providerLabel}" below.`,
     };
   }
 
-  await supabase
-    .from("subscription_plans")
-    .update({ paystack_plan_code: sync.data.planCode, is_active: true })
-    .eq("id", inserted.id);
+  await supabase.from("subscription_plans").update({ ...sync.data, is_active: true }).eq("id", inserted.id);
 
   return { message: `${inserted.name} created and active.` };
 }
@@ -95,18 +121,15 @@ export async function syncPlanNow(planId: string): Promise<AdminActionState> {
 
   const { data: plan } = await supabase
     .from("subscription_plans")
-    .select("id, name, paystack_plan_code, price_minor, currency, interval")
+    .select("id, name, paystack_plan_code, stripe_price_id, stripe_product_id, price_minor, currency, interval")
     .eq("id", planId)
     .maybeSingle();
   if (!plan) return { error: "Plan not found" };
 
-  const sync = await syncPlanToPaystack(plan);
+  const sync = await syncPlanRow(plan);
   if (!sync.ok) return { error: sync.error };
 
-  await supabase
-    .from("subscription_plans")
-    .update({ paystack_plan_code: sync.data.planCode, is_active: true })
-    .eq("id", plan.id);
+  await supabase.from("subscription_plans").update({ ...sync.data, is_active: true }).eq("id", plan.id);
   return { message: `${plan.name} synced and active.` };
 }
 
@@ -120,7 +143,8 @@ export async function createAddOn(
     code: formData.get("code"),
     name: formData.get("name"),
     description: formData.get("description") || undefined,
-    price_naira: formData.get("price_naira"),
+    price_amount: formData.get("price_amount"),
+    currency: formData.get("currency") || undefined,
     interval: formData.get("interval"),
     restricted_to_plan_code: formData.get("restricted_to_plan_code") || undefined,
     features: formData.get("features") || undefined,
@@ -130,7 +154,7 @@ export async function createAddOn(
   }
 
   const supabase = await createClient();
-  const priceMinor = nairaToKobo(parsed.data.price_naira);
+  const priceMinor = toMinorUnits(parsed.data.price_amount, parsed.data.currency);
 
   const { data: inserted, error: insertError } = await supabase
     .from("add_ons")
@@ -139,29 +163,27 @@ export async function createAddOn(
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       price_minor: priceMinor,
-      currency: "NGN",
+      currency: parsed.data.currency,
       interval: parsed.data.interval,
       restricted_to_plan_code: parsed.data.restricted_to_plan_code || null,
       features: parseFeatures(parsed.data.features),
       is_active: false,
     })
-    .select("id, name, price_minor, currency, interval, paystack_plan_code")
+    .select("id, name, price_minor, currency, interval, paystack_plan_code, stripe_price_id, stripe_product_id")
     .single();
   if (insertError) {
     return { error: insertError.message };
   }
 
-  const sync = await syncPlanToPaystack(inserted);
+  const sync = await syncPlanRow(inserted);
   if (!sync.ok) {
+    const providerLabel = parsed.data.currency === "NGN" ? "Paystack" : "Stripe";
     return {
-      error: `Add-on saved but Paystack sync failed (${sync.error}) — it stays inactive until synced. Try "Sync to Paystack" below.`,
+      error: `Add-on saved but ${providerLabel} sync failed (${sync.error}) — it stays inactive until synced. Try "Sync to ${providerLabel}" below.`,
     };
   }
 
-  await supabase
-    .from("add_ons")
-    .update({ paystack_plan_code: sync.data.planCode, is_active: true })
-    .eq("id", inserted.id);
+  await supabase.from("add_ons").update({ ...sync.data, is_active: true }).eq("id", inserted.id);
 
   return { message: `${inserted.name} created and active.` };
 }
@@ -172,17 +194,14 @@ export async function syncAddOnNow(addOnId: string): Promise<AdminActionState> {
 
   const { data: addOn } = await supabase
     .from("add_ons")
-    .select("id, name, paystack_plan_code, price_minor, currency, interval")
+    .select("id, name, paystack_plan_code, stripe_price_id, stripe_product_id, price_minor, currency, interval")
     .eq("id", addOnId)
     .maybeSingle();
   if (!addOn) return { error: "Add-on not found" };
 
-  const sync = await syncPlanToPaystack(addOn);
+  const sync = await syncPlanRow(addOn);
   if (!sync.ok) return { error: sync.error };
 
-  await supabase
-    .from("add_ons")
-    .update({ paystack_plan_code: sync.data.planCode, is_active: true })
-    .eq("id", addOn.id);
+  await supabase.from("add_ons").update({ ...sync.data, is_active: true }).eq("id", addOn.id);
   return { message: `${addOn.name} synced and active.` };
 }

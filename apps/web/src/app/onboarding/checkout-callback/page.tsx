@@ -3,20 +3,22 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { verifyTransaction } from "@/lib/paystack/transactions";
+import { verifyCheckoutSession } from "@/lib/stripe/checkout";
 import { Button } from "@/components/ui/button";
 
 /**
- * Paystack's `callback_url` after hosted checkout. This page NEVER
- * activates a subscription itself — verifyTransaction() here is a
- * same-request UX check only ("looks like it went through"), so a patient
- * can't spoof activation by hitting this URL with a fabricated reference.
- * The paystack-webhook Edge Function's charge.success handler is the sole
+ * `callback_url`/`success_url` after hosted checkout, for either provider.
+ * This page NEVER activates a subscription itself — verifyTransaction()/
+ * verifyCheckoutSession() here are same-request UX checks only ("looks like
+ * it went through"), so a patient can't spoof activation by hitting this URL
+ * with a fabricated reference/session_id. paystack-webhook's charge.success
+ * / stripe-webhook's checkout.session.completed handlers are the sole
  * source of truth and may land a few seconds after this page renders.
  */
 export default async function CheckoutCallbackPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reference?: string; trxref?: string }>;
+  searchParams: Promise<{ reference?: string; trxref?: string; session_id?: string }>;
 }) {
   const profile = await getCurrentProfile();
   if (!profile) {
@@ -26,12 +28,16 @@ export default async function CheckoutCallbackPage({
   const params = await searchParams;
   const reference = params.reference ?? params.trxref;
 
-  let paystackStatus: string | null = null;
-  if (reference) {
+  let succeeded = false;
+  let attempted = false;
+  if (params.session_id) {
+    attempted = true;
+    const result = await verifyCheckoutSession(params.session_id);
+    succeeded = result.ok && result.data.paymentStatus === "paid";
+  } else if (reference) {
+    attempted = true;
     const result = await verifyTransaction(reference);
-    if (result.ok) {
-      paystackStatus = result.data.status;
-    }
+    succeeded = result.ok && result.data.status === "success";
   }
 
   // The patient made a plan choice and went through checkout — onboarding
@@ -46,13 +52,11 @@ export default async function CheckoutCallbackPage({
       .eq("id", profile.id);
   }
 
-  const succeeded = paystackStatus === "success";
-
   return (
     <div className="flex flex-1 items-center justify-center bg-charcoal-ink/[0.02] px-4 py-16">
       <div className="w-full max-w-md space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 text-center shadow-sm">
         <h1 className="font-heading text-xl font-semibold text-charcoal-ink">
-          {succeeded ? "Payment received" : reference ? "Payment pending" : "Checkout finished"}
+          {succeeded ? "Payment received" : attempted ? "Payment pending" : "Checkout finished"}
         </h1>
         <p className="text-sm text-charcoal-ink/70">
           {succeeded

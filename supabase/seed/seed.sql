@@ -139,10 +139,9 @@ on conflict (pharmacy_partner_id, drug_name, pack_size) do nothing;
 -- subscription_plans (NGN in kobo) — kept in sync with the marketing
 -- pricing page (apps/web/src/app/(marketing)/_content/pricing.ts NGN_TIERS)
 -- which is the copy/price source of truth; this table must match it, not
--- the other way around. GBP diaspora tiers are deliberately not seeded yet —
--- Stripe/GBP checkout is an explicit follow-up (Sprint 6 NGN/Paystack pass
--- only), re-add correctly-matched rows when that lands. Feature codes here
--- are what public.has_feature_access()/RequiresEntitlement gate on.
+-- the other way around. Feature codes here are what public.has_feature_access()/
+-- RequiresEntitlement gate on. Diaspora (USD/GBP, Stripe) rows are seeded
+-- separately below, in the same tiers/features, once this NGN block lands.
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features)
 values
@@ -190,4 +189,65 @@ values
   ('expedited-response', 'Expedited Clinician Response',
      'Clinician response time for non-emergency questions moves to under 2 hours.',
      500000, 'NGN', 'monthly', array['expedited_response'], null)
+on conflict (code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Diaspora (USD/GBP, Stripe) plans — same tiers/features as the NGN rows
+-- above, `_usd`/`_gbp`-suffixed codes, round-number pricing (not a currency
+-- conversion of the NGN price). `is_active=false` until an admin syncs each
+-- row to a real Stripe Price via /admin/settings/subscriptions's
+-- "Sync to Stripe" retry button — mirrors how NGN rows only activate once
+-- their Paystack Plan sync succeeds, so a Stripe outage never leaves a plan
+-- patients can select but can't check out with.
+-- ---------------------------------------------------------------------------
+insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features, is_active)
+values
+  ('essential_usd', 'Essential Care', 'One condition: monthly clinician review, monthly doctor check-in, WhatsApp care team access.',
+     500, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+  ('essential_gbp', 'Essential Care', 'One condition: monthly clinician review, monthly doctor check-in, WhatsApp care team access.',
+     400, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+  ('essential_yearly_usd', 'Essential Care (yearly)', 'Essential Care billed annually — 2 months free.',
+     5000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+  ('essential_yearly_gbp', 'Essential Care (yearly)', 'Essential Care billed annually — 2 months free.',
+     4000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+  ('complete_usd', 'Complete Care', 'Multiple conditions or higher risk: weekly clinician review, priority doctor escalation.',
+     1000, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+  ('complete_gbp', 'Complete Care', 'Multiple conditions or higher risk: weekly clinician review, priority doctor escalation.',
+     800, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+  ('complete_yearly_usd', 'Complete Care (yearly)', 'Complete Care billed annually — 2 months free.',
+     10000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+  ('complete_yearly_gbp', 'Complete Care (yearly)', 'Complete Care billed annually — 2 months free.',
+     8000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+  ('family_usd', 'Family Plan', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
+     10000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'], false),
+  ('family_gbp', 'Family Plan', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
+     8000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'], false)
+on conflict (code) do nothing;
+
+insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code, is_active)
+values
+  ('prevention-screening_usd', 'Prevention Screening Add-on',
+     'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
+     1500, 'USD', 'yearly', array['prevention_coordination'], null, false),
+  ('prevention-screening_gbp', 'Prevention Screening Add-on',
+     'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
+     1200, 'GBP', 'yearly', array['prevention_coordination'], null, false),
+  ('care-coordinator_usd', 'Dedicated Care Coordinator',
+     'One named clinician coordinator, a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
+     2000, 'USD', 'monthly', array['dedicated_coordinator'], 'complete_usd', false),
+  ('care-coordinator_gbp', 'Dedicated Care Coordinator',
+     'One named clinician coordinator, a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
+     1600, 'GBP', 'monthly', array['dedicated_coordinator'], 'complete_gbp', false),
+  ('extra-family-member_usd', 'Extra Family Member',
+     'Adds one more person to the Family Plan (up to 6 total) at Complete Care–level monitoring.',
+     2000, 'USD', 'yearly', array['extra_family_slot'], 'family_usd', false),
+  ('extra-family-member_gbp', 'Extra Family Member',
+     'Adds one more person to the Family Plan (up to 6 total) at Complete Care–level monitoring.',
+     1600, 'GBP', 'yearly', array['extra_family_slot'], 'family_gbp', false),
+  ('expedited-response_usd', 'Expedited Clinician Response',
+     'Clinician response time for non-emergency questions moves to under 2 hours.',
+     300, 'USD', 'monthly', array['expedited_response'], null, false),
+  ('expedited-response_gbp', 'Expedited Clinician Response',
+     'Clinician response time for non-emergency questions moves to under 2 hours.',
+     250, 'GBP', 'monthly', array['expedited_response'], null, false)
 on conflict (code) do nothing;
