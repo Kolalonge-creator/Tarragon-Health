@@ -43,13 +43,13 @@ export function MarketingVideo({
   return (
     <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.1fr]">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-brand-green">Watch</p>
+        <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Watch</p>
         <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
           {title}
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">{caption}</p>
         {!hasYoutube && active ? (
-          <p className="mt-4 text-sm text-charcoal-ink/55">
+          <p className="mt-4 text-sm text-charcoal-ink/70">
             Full video walkthrough coming soon — tap the preview to step through how care stays
             connected.
           </p>
@@ -62,7 +62,13 @@ export function MarketingVideo({
             type="button"
             onClick={handlePlay}
             className="group relative block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-3xl"
-            aria-label={hasYoutube ? `Play video: ${title}` : `Preview how Tarragon works: ${title}`}
+            // The poster illustration bakes in a visible "Calm follow-up call" caption,
+            // so the accessible name must include it too (WCAG 2.5.3 Label in Name).
+            aria-label={
+              hasYoutube
+                ? `Play video: ${title}`
+                : `Preview how Tarragon works: ${title} — Calm follow-up call`
+            }
           >
             <MarketingMediaFrame media={poster} />
             <span className="absolute inset-0 flex items-center justify-center rounded-3xl bg-clinical-navy/25 transition-colors group-hover:bg-clinical-navy/35">

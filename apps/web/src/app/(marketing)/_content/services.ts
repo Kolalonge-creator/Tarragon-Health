@@ -177,7 +177,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Cervical screening overdue", value: "60 employees" },
       { label: "Urgent follow-up needed", value: "25 employees" },
     ],
-    cta: { label: "Request employer health plan", href: MARKETING_ROUTES.contact, source: "corporate" },
+    cta: { label: "See corporate health plans", href: MARKETING_ROUTES.corporate },
   },
   {
     key: "hmo",
@@ -195,7 +195,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Abnormal results caught early", value: "146" },
       { label: "Claims impact", value: "Reporting live" },
     ],
-    cta: { label: "Talk to Tarragon Health", href: MARKETING_ROUTES.contact, source: "hmo" },
+    cta: { label: "See HMO support", href: MARKETING_ROUTES.hmo },
   },
 ];
 
@@ -208,7 +208,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "How do I log my blood pressure or glucose?",
     answer:
-      "You can log readings through WhatsApp or the app/web dashboard. Tarragon is designed so patient actions are not app-only.",
+      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team on WhatsApp for support — but logging itself happens on app or web.",
   },
   {
     question: "What happens when readings are high?",
@@ -228,7 +228,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "Do I need a smartphone?",
     answer:
-      "No. WhatsApp-first workflows are part of the platform, and SMS fallback is part of Tarragon's wider delivery model.",
+      "You need a smartphone or computer to use the app or web dashboard, where your health record and care actions live. WhatsApp and SMS still bring you reminders, alerts, and a way to message your care team for support.",
   },
   {
     question: "How much does it cost?",

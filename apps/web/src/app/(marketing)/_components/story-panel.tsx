@@ -32,7 +32,7 @@ export function StoryPanel({
           <p
             className={cn(
               "text-sm font-medium uppercase tracking-wide",
-              invertText ? "text-white/60" : "text-brand-green"
+              invertText ? "text-white/60" : "text-deep-forest"
             )}
           >
             {eyebrow}
