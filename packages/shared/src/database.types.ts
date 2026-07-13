@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      add_ons: {
+        Row: {
+          code: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          description: string | null
+          features: string[]
+          id: string
+          interval: Database["public"]["Enums"]["billing_interval"]
+          is_active: boolean
+          name: string
+          paystack_plan_code: string | null
+          price_locked: boolean
+          price_minor: number
+          restricted_to_plan_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          description?: string | null
+          features?: string[]
+          id?: string
+          interval?: Database["public"]["Enums"]["billing_interval"]
+          is_active?: boolean
+          name: string
+          paystack_plan_code?: string | null
+          price_locked?: boolean
+          price_minor?: number
+          restricted_to_plan_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          description?: string | null
+          features?: string[]
+          id?: string
+          interval?: Database["public"]["Enums"]["billing_interval"]
+          is_active?: boolean
+          name?: string
+          paystack_plan_code?: string | null
+          price_locked?: boolean
+          price_minor?: number
+          restricted_to_plan_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_coach_access_rules: {
         Row: {
           created_at: string
@@ -1740,6 +1791,76 @@ export type Database = {
           },
         ]
       }
+      payment_transactions: {
+        Row: {
+          amount_minor: number | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"] | null
+          error: string | null
+          event_type: Database["public"]["Enums"]["payment_transaction_type"]
+          id: string
+          organisation_id: string | null
+          processed_at: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          provider_event_id: string
+          raw_payload: Json
+          subscription_add_on_id: string | null
+          subscription_id: string | null
+        }
+        Insert: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          error?: string | null
+          event_type?: Database["public"]["Enums"]["payment_transaction_type"]
+          id?: string
+          organisation_id?: string | null
+          processed_at?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
+          provider_event_id: string
+          raw_payload?: Json
+          subscription_add_on_id?: string | null
+          subscription_id?: string | null
+        }
+        Update: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          error?: string | null
+          event_type?: Database["public"]["Enums"]["payment_transaction_type"]
+          id?: string
+          organisation_id?: string | null
+          processed_at?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
+          provider_event_id?: string
+          raw_payload?: Json
+          subscription_add_on_id?: string | null
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_subscription_add_on_id_fkey"
+            columns: ["subscription_add_on_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_add_ons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pharmacy_medications: {
         Row: {
           created_at: string
@@ -1977,6 +2098,7 @@ export type Database = {
           id: string
           is_active: boolean
           metadata: Json
+          onboarding_completed_at: string | null
           organisation_id: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -1990,6 +2112,7 @@ export type Database = {
           id: string
           is_active?: boolean
           metadata?: Json
+          onboarding_completed_at?: string | null
           organisation_id?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -2003,6 +2126,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           metadata?: Json
+          onboarding_completed_at?: string | null
           organisation_id?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -2485,6 +2609,88 @@ export type Database = {
           },
         ]
       }
+      subscription_add_ons: {
+        Row: {
+          add_on_id: string
+          amount_minor: number
+          cancelled_at: string | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          current_period_end: string | null
+          id: string
+          interval: Database["public"]["Enums"]["billing_interval"]
+          organisation_id: string
+          pending_provider_ref: string | null
+          provider: Database["public"]["Enums"]["payment_provider"] | null
+          provider_email_token: string | null
+          provider_ref: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          subscription_id: string
+          updated_at: string
+        }
+        Insert: {
+          add_on_id: string
+          amount_minor?: number
+          cancelled_at?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          current_period_end?: string | null
+          id?: string
+          interval?: Database["public"]["Enums"]["billing_interval"]
+          organisation_id: string
+          pending_provider_ref?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"] | null
+          provider_email_token?: string | null
+          provider_ref?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          subscription_id: string
+          updated_at?: string
+        }
+        Update: {
+          add_on_id?: string
+          amount_minor?: number
+          cancelled_at?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          current_period_end?: string | null
+          id?: string
+          interval?: Database["public"]["Enums"]["billing_interval"]
+          organisation_id?: string
+          pending_provider_ref?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"] | null
+          provider_email_token?: string | null
+          provider_ref?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          subscription_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_add_ons_add_on_id_fkey"
+            columns: ["add_on_id"]
+            isOneToOne: false
+            referencedRelation: "add_ons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_add_ons_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_add_ons_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           ai_coach_daily_limit: number | null
@@ -2497,6 +2703,8 @@ export type Database = {
           interval: Database["public"]["Enums"]["billing_interval"]
           is_active: boolean
           name: string
+          paystack_plan_code: string | null
+          price_locked: boolean
           price_minor: number
         }
         Insert: {
@@ -2510,6 +2718,8 @@ export type Database = {
           interval?: Database["public"]["Enums"]["billing_interval"]
           is_active?: boolean
           name: string
+          paystack_plan_code?: string | null
+          price_locked?: boolean
           price_minor?: number
         }
         Update: {
@@ -2523,6 +2733,8 @@ export type Database = {
           interval?: Database["public"]["Enums"]["billing_interval"]
           is_active?: boolean
           name?: string
+          paystack_plan_code?: string | null
+          price_locked?: boolean
           price_minor?: number
         }
         Relationships: []
@@ -2537,8 +2749,10 @@ export type Database = {
           id: string
           interval: Database["public"]["Enums"]["billing_interval"]
           organisation_id: string
+          pending_provider_ref: string | null
           plan_id: string | null
           provider: Database["public"]["Enums"]["payment_provider"] | null
+          provider_email_token: string | null
           provider_ref: string | null
           started_at: string
           status: Database["public"]["Enums"]["subscription_status"]
@@ -2554,8 +2768,10 @@ export type Database = {
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
           organisation_id: string
+          pending_provider_ref?: string | null
           plan_id?: string | null
           provider?: Database["public"]["Enums"]["payment_provider"] | null
+          provider_email_token?: string | null
           provider_ref?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["subscription_status"]
@@ -2571,8 +2787,10 @@ export type Database = {
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
           organisation_id?: string
+          pending_provider_ref?: string | null
           plan_id?: string | null
           provider?: Database["public"]["Enums"]["payment_provider"] | null
+          provider_email_token?: string | null
           provider_ref?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["subscription_status"]
@@ -2614,6 +2832,7 @@ export type Database = {
           organisation_id: string
           patient_id: string | null
           raw_payload: Json
+          sender_id: string | null
           status: string
           to_phone: string | null
           updated_at: string
@@ -2629,6 +2848,7 @@ export type Database = {
           organisation_id: string
           patient_id?: string | null
           raw_payload?: Json
+          sender_id?: string | null
           status?: string
           to_phone?: string | null
           updated_at?: string
@@ -2644,6 +2864,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string | null
           raw_payload?: Json
+          sender_id?: string | null
           status?: string
           to_phone?: string | null
           updated_at?: string
@@ -2660,6 +2881,13 @@ export type Database = {
           {
             foreignKeyName: "support_messages_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_messages_sender_id_fkey"
+            columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2967,8 +3195,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      find_profile_by_phone: {
+        Args: { lookup_phone: string }
+        Returns: {
+          full_name: string
+          id: string
+        }[]
+      }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       has_ai_coach_access: { Args: never; Returns: boolean }
+      has_feature_access: { Args: { feature: string }; Returns: boolean }
     }
     Enums: {
       alert_level:
@@ -3036,6 +3272,16 @@ export type Database = {
         | "pharmacy"
         | "direct_consumer"
       payment_provider: "paystack" | "stripe"
+      payment_transaction_type:
+        | "charge.success"
+        | "charge.failed"
+        | "subscription.create"
+        | "subscription.disable"
+        | "subscription.not_renew"
+        | "invoice.create"
+        | "invoice.update"
+        | "invoice.payment_failed"
+        | "other"
       pharmacy_order_status:
         | "requested"
         | "confirmed"
@@ -3312,6 +3558,17 @@ export const Constants = {
         "direct_consumer",
       ],
       payment_provider: ["paystack", "stripe"],
+      payment_transaction_type: [
+        "charge.success",
+        "charge.failed",
+        "subscription.create",
+        "subscription.disable",
+        "subscription.not_renew",
+        "invoice.create",
+        "invoice.update",
+        "invoice.payment_failed",
+        "other",
+      ],
       pharmacy_order_status: [
         "requested",
         "confirmed",

@@ -18,6 +18,11 @@ export default async function ClinicianPage() {
           View all escalations →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href="/clinician/support-inbox" className="text-brand-green hover:underline">
+          Support inbox →
+        </Link>
+      </p>
     </DashboardPlaceholder>
   );
 }

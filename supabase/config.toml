@@ -51,3 +51,8 @@ enabled = true
 # WHATSAPP_APP_SECRET is set (docs/ARCHITECTURE.md §8).
 [functions.whatsapp-webhook]
 verify_jwt = false
+
+# Paystack calls this unauthenticated (no Supabase JWT) — validated instead
+# via HMAC-SHA512 x-paystack-signature when PAYSTACK_WEBHOOK_SECRET is set.
+[functions.paystack-webhook]
+verify_jwt = false

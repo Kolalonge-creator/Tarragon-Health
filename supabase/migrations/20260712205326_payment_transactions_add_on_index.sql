@@ -1,0 +1,1 @@
+create index payment_transactions_subscription_add_on_idx on public.payment_transactions (subscription_add_on_id);

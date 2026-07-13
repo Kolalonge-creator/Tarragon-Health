@@ -47,7 +47,11 @@ export default async function ClinicianPatientPage({
         </h1>
         {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
       </div>
-      <MedicationsList patientId={patient.id} />
+      {/* Clinician view is never gated by the patient's own subscription
+          tier — refill coordination is a staff-visible clinical detail
+          regardless of what the patient's plan does or doesn't unlock for
+          them on their own dashboard. */}
+      <MedicationsList patientId={patient.id} refillCoordinationEnabled />
       <AddMedicationForm patientId={patient.id} source="clinician" />
       <VitalsTrendChart patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />

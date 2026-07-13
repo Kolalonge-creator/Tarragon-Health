@@ -14,6 +14,8 @@ import {
   Calendar,
   ClipboardList,
   Sparkles,
+  Lock,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,4 +40,6 @@ export const SEMANTIC_ICON = {
   booking: Calendar,
   carePlan: ClipboardList,
   aiCoach: Sparkles,
+  upgrade: Lock,
+  billing: CreditCard,
 } as const satisfies Record<string, LucideIcon>;

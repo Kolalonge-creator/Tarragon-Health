@@ -136,29 +136,58 @@ join (values
 on conflict (pharmacy_partner_id, drug_name, pack_size) do nothing;
 
 -- ---------------------------------------------------------------------------
--- subscription_plans (NGN in kobo, GBP in pence)
+-- subscription_plans (NGN in kobo) — kept in sync with the marketing
+-- pricing page (apps/web/src/app/(marketing)/_content/pricing.ts NGN_TIERS)
+-- which is the copy/price source of truth; this table must match it, not
+-- the other way around. GBP diaspora tiers are deliberately not seeded yet —
+-- Stripe/GBP checkout is an explicit follow-up (Sprint 6 NGN/Paystack pass
+-- only), re-add correctly-matched rows when that lands. Feature codes here
+-- are what public.has_feature_access()/RequiresEntitlement gate on.
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features)
 values
-  ('free_tracker', 'Free Health Tracker',
-     'Self-monitoring, logging, reminders, education, Health Passport.',
+  ('free', 'Tarragon Free',
+     'Self-tracking, reminders, education, Health Passport. No clinician review on this plan.',
      0, 'NGN', 'monthly', array['tracking', 'reminders', 'education']),
-  ('basic_monitoring', 'Basic Monitoring',
-     'BP + glucose tracking, medication reminders, doctor WhatsApp support.',
-     800000, 'NGN', 'monthly', array['chronic', 'reminders', 'whatsapp_support']),
-  ('prevention_addon', 'Prevention Add-on',
-     'Screening reminders, result tracking, referral coordination.',
-     2500000, 'NGN', 'yearly', array['prevention', 'coordination']),
-  ('annual_health_check', 'Annual Health Check',
-     'Full metabolic panel + gender-specific cancer screens + monitoring.',
-     6000000, 'NGN', 'yearly', array['prevention', 'chronic', 'labs']),
-  ('family_plan', 'Family Plan',
-     '4-6 members; antenatal, elder care, adult screening combined.',
-     15000000, 'NGN', 'yearly', array['family', 'chronic', 'prevention']),
-  ('diaspora_essential', 'Diaspora — Essential',
-     '1 condition monitored remotely, WhatsApp updates, monthly doctor call.',
-     1500, 'GBP', 'monthly', array['chronic', 'whatsapp_support', 'diaspora']),
-  ('diaspora_premium', 'Diaspora — Premium',
-     'Full monitoring + family portal access.',
-     4500, 'GBP', 'monthly', array['chronic', 'prevention', 'family', 'diaspora'])
+  ('essential', 'Essential Care',
+     'One condition: monthly clinician review, monthly doctor check-in, WhatsApp care team access.',
+     800000, 'NGN', 'monthly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills']),
+  ('essential_yearly', 'Essential Care (yearly)',
+     'Essential Care billed annually — 2 months free.',
+     8000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills']),
+  ('complete', 'Complete Care',
+     'Multiple conditions or higher risk: weekly clinician review, priority doctor escalation.',
+     1500000, 'NGN', 'monthly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation']),
+  ('complete_yearly', 'Complete Care (yearly)',
+     'Complete Care billed annually — 2 months free.',
+     15000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation']),
+  ('family', 'Family Plan',
+     'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
+     15000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'])
+on conflict (code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- add_ons — the 4 recurring, attach-to-subscription add-ons only (see
+-- pricing.ts ADD_ONS). The pay-per-use "BOOK & PAY" items (HPV vaccine,
+-- starter kit, Annual Health Check) are intentionally not modeled here.
+-- ---------------------------------------------------------------------------
+insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code)
+values
+  ('prevention-screening', 'Prevention Screening Add-on',
+     'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
+     2500000, 'NGN', 'yearly', array['prevention_coordination'], null),
+  ('care-coordinator', 'Dedicated Care Coordinator',
+     'One named clinician coordinator, a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
+     3000000, 'NGN', 'monthly', array['dedicated_coordinator'], 'complete'),
+  ('extra-family-member', 'Extra Family Member',
+     'Adds one more person to the Family Plan (up to 6 total) at Complete Care–level monitoring.',
+     3000000, 'NGN', 'yearly', array['extra_family_slot'], 'family'),
+  ('expedited-response', 'Expedited Clinician Response',
+     'Clinician response time for non-emergency questions moves to under 2 hours.',
+     500000, 'NGN', 'monthly', array['expedited_response'], null)
 on conflict (code) do nothing;

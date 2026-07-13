@@ -5,7 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
-export function MedicationsList({ patientId }: { patientId: string }) {
+export function MedicationsList({
+  patientId,
+  refillCoordinationEnabled,
+}: {
+  patientId: string;
+  /** 'medication_refills' feature — Free tier tracks medications but gets
+   * no refill-date coordination (pricing.ts's Free-tier footnote). */
+  refillCoordinationEnabled: boolean;
+}) {
   const { data, isLoading, isError } = useMedications(patientId);
 
   return (
@@ -40,9 +48,18 @@ export function MedicationsList({ patientId }: { patientId: string }) {
                   {[medication.dose, medication.frequency].filter(Boolean).join(" — ") ||
                     "No dose/frequency set"}
                 </p>
-                {medication.refill_date && (
+                {medication.refill_date && refillCoordinationEnabled && (
                   <p className="text-xs text-charcoal-ink/60">
                     Refill by {new Date(medication.refill_date).toLocaleDateString()}
+                  </p>
+                )}
+                {medication.refill_date && !refillCoordinationEnabled && (
+                  <p className="text-xs text-charcoal-ink/60">
+                    Refill coordination is part of a paid plan —{" "}
+                    <a href="/patient/subscription" className="underline">
+                      see plans
+                    </a>
+                    .
                   </p>
                 )}
               </li>
