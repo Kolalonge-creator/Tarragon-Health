@@ -8,6 +8,7 @@
 
 export * from "./ml-client";
 export * from "./ai-coach-types";
+export * from "./device-readings";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
