@@ -123,6 +123,44 @@ export function useVerifyClinicalStaff() {
   });
 }
 
+/**
+ * Records indemnity/malpractice insurance details — required before a
+ * Clinical Director or Escalation Doctor can be activated
+ * (docs/CLINICAL_TRUST_MODEL_SPEC.md §5). A DB constraint
+ * (clinical_staff_active_requires_indemnity), not just this app code, blocks
+ * activation of those two roles without current, non-expired cover on file.
+ */
+export function useSetClinicalStaffIndemnity() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clinicalStaffId,
+      insurer,
+      policyNumber,
+      expiresAt,
+    }: {
+      clinicalStaffId: string;
+      insurer: string;
+      policyNumber: string;
+      expiresAt: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({
+          indemnity_insurer: insurer,
+          indemnity_policy_number: policyNumber,
+          indemnity_expires_at: new Date(expiresAt).toISOString(),
+        })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
 /** Toggles active — the DB rejects activation of an unverified record (clinical_staff_active_requires_verification). */
 export function useSetClinicalStaffActive() {
   const queryClient = useQueryClient();
