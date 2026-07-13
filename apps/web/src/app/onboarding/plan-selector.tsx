@@ -74,8 +74,10 @@ export function PlanSelector() {
                 <div className="mt-2 flex gap-2 text-xs">
                   <button
                     type="button"
-                    className={`rounded-full px-2 py-1 ${
-                      interval === "monthly" ? "bg-brand-green/10 text-brand-green" : "text-charcoal-ink/50"
+                    className={`rounded-full border px-2.5 py-1 font-medium ${
+                      interval === "monthly"
+                        ? "border-brand-green bg-brand-green/10 text-brand-green"
+                        : "border-charcoal-ink/20 bg-white text-charcoal-ink/70"
                     }`}
                     onClick={() => {
                       setIntervalByTier((prev) => ({ ...prev, [tierKey]: "monthly" }));
@@ -86,8 +88,10 @@ export function PlanSelector() {
                   </button>
                   <button
                     type="button"
-                    className={`rounded-full px-2 py-1 ${
-                      interval === "yearly" ? "bg-brand-green/10 text-brand-green" : "text-charcoal-ink/50"
+                    className={`rounded-full border px-2.5 py-1 font-medium ${
+                      interval === "yearly"
+                        ? "border-brand-green bg-brand-green/10 text-brand-green"
+                        : "border-charcoal-ink/20 bg-white text-charcoal-ink/70"
                     }`}
                     onClick={() => {
                       setIntervalByTier((prev) => ({ ...prev, [tierKey]: "yearly" }));

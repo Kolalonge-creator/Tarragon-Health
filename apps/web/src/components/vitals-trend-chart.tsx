@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { useVitalsTrend } from "@/lib/queries/vitals";
+import { useVitalsTrend, useHba1cTrend } from "@/lib/queries/vitals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -16,13 +16,19 @@ const GLUCOSE_CONFIG: ChartConfig = {
   glucose_mmol_l: { label: "Glucose (mmol/L)", color: "var(--color-chart-glucose)" },
 };
 
+const HBA1C_CONFIG: ChartConfig = {
+  value: { label: "HbA1c (%)", color: "var(--color-chart-glucose)" },
+};
+
 function formatDate(taken_at: string): string {
   return new Date(taken_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export function VitalsTrendChart({ patientId }: { patientId: string }) {
-  const [mode, setMode] = useState<"blood_pressure" | "glucose">("blood_pressure");
-  const { data, isLoading, isError } = useVitalsTrend(patientId, mode);
+  const [mode, setMode] = useState<"blood_pressure" | "glucose" | "hba1c">("blood_pressure");
+  const vitalsTrend = useVitalsTrend(patientId, mode === "hba1c" ? "blood_pressure" : mode);
+  const hba1cTrend = useHba1cTrend(patientId);
+  const { data, isLoading, isError } = mode === "hba1c" ? hba1cTrend : vitalsTrend;
   const points = (data ?? []).map((reading) => ({ ...reading, date: formatDate(reading.taken_at) }));
 
   return (
@@ -45,6 +51,13 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
             onClick={() => setMode("glucose")}
           >
             Glucose
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "hba1c" ? "default" : "outline"}
+            onClick={() => setMode("hba1c")}
+          >
+            HbA1c
           </Button>
         </div>
 
@@ -80,6 +93,17 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
                 stroke="var(--color-glucose_mmol_l)"
                 dot={false}
               />
+            </LineChart>
+          </ChartContainer>
+        )}
+        {points.length >= 2 && mode === "hba1c" && (
+          <ChartContainer config={HBA1C_CONFIG}>
+            <LineChart data={points}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" fontSize={12} />
+              <YAxis fontSize={12} domain={["dataMin - 0.5", "dataMax + 0.5"]} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Line type="monotone" dataKey="value" stroke="var(--color-value)" dot={false} />
             </LineChart>
           </ChartContainer>
         )}

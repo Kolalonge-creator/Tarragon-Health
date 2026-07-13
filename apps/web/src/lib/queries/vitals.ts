@@ -42,3 +42,26 @@ export function useVitalsTrend(patientId: string, vitalType: "blood_pressure" | 
     enabled: !!patientId,
   });
 }
+
+/** HbA1c is a lab-drawn value, not a self-logged vital (see
+ * lab_analyte_readings' migration note) — checked every few months rather
+ * than daily, so unlike BP/glucose this pulls full history with no
+ * trailing-window cutoff, matching maybeComputeHba1cTrajectory's query in
+ * screening-result-actions.ts. */
+export function useHba1cTrend(patientId: string) {
+  return useQuery({
+    queryKey: ["hba1c-trend", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_analyte_readings")
+        .select("taken_at, value")
+        .eq("patient_id", patientId)
+        .eq("code", "hba1c")
+        .order("taken_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
+}
