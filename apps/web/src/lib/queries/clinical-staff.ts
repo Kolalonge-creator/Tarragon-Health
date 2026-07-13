@@ -179,6 +179,123 @@ export function useSetClinicalStaffActive() {
   });
 }
 
+export type ClinicalStaffIndemnityExemption = Tables<"clinical_staff_indemnity_exemptions">;
+
+const INDEMNITY_EXEMPTIONS_QUERY_KEY = ["clinical-staff", "indemnity-exemptions"];
+
+/**
+ * Grants or revokes an individual indemnity exemption for one clinical_staff
+ * record — the narrowest of the three exemption scopes (see
+ * useAddIndemnityExemption for org-wide/role-wide). Revoking clears
+ * indemnity_exempt_by too, since a false exemption shouldn't carry a stale
+ * grantor. The DB rejects setting indemnity_exempt_by to the record's own
+ * profile_id (clinical_staff_no_self_indemnity_exemption) — no one can
+ * exempt themselves.
+ */
+export function useSetClinicalStaffIndemnityExempt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clinicalStaffId, exempt }: { clinicalStaffId: string; exempt: boolean }) => {
+      const supabase = createClient();
+      if (!exempt) {
+        const { error } = await supabase
+          .from("clinical_staff")
+          .update({ indemnity_exempt: false, indemnity_exempt_by: null })
+          .eq("id", clinicalStaffId);
+        if (error) throw error;
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ indemnity_exempt: true, indemnity_exempt_by: user.id })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/** The caller's org's current org-wide (role = null) and per-role indemnity exemptions. */
+export function useOrgIndemnityExemptions() {
+  return useQuery({
+    queryKey: INDEMNITY_EXEMPTIONS_QUERY_KEY,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinical_staff_indemnity_exemptions")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as ClinicalStaffIndemnityExemption[];
+    },
+  });
+}
+
+/**
+ * Grants an org-wide (role omitted) or whole-role indemnity exemption —
+ * covers every current and future Clinical Director/Escalation Doctor in
+ * that scope, not just one named record (contrast
+ * useSetClinicalStaffIndemnityExempt). RLS restricts inserts here to admins
+ * only, since this waives a compliance gate at organisation/role scope
+ * rather than for one named individual.
+ */
+export function useAddIndemnityExemption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      role,
+      reason,
+    }: {
+      role: ClinicalStaff["role"] | null;
+      reason?: string;
+    }) => {
+      const supabase = createClient();
+      const organisationId = await getCallerOrganisationId();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { error } = await supabase.from("clinical_staff_indemnity_exemptions").insert({
+        organisation_id: organisationId,
+        role,
+        reason: reason || null,
+        exempted_by: user.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INDEMNITY_EXEMPTIONS_QUERY_KEY });
+    },
+  });
+}
+
+/** Revokes an org-wide or per-role indemnity exemption. */
+export function useRemoveIndemnityExemption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (exemptionId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff_indemnity_exemptions")
+        .delete()
+        .eq("id", exemptionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INDEMNITY_EXEMPTIONS_QUERY_KEY });
+    },
+  });
+}
+
 /** Active clinicians in the caller's org (RLS-scoped) — populates the care-team assignment select. */
 export function useOrgClinicians() {
   return useQuery({

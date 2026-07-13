@@ -26,7 +26,8 @@ export default async function ClinicalStaffSettingsPage() {
           activating it, since an unverified record can never be marked active. License
           verification is annual — re-verify before the due date shown on each record. Clinical
           Directors and Escalation Doctors also need current indemnity/malpractice cover on file
-          before they can be activated.
+          before they can be activated, unless an admin has explicitly exempted that person, their
+          role, or the whole organisation from the requirement.
         </p>
       </div>
       <ClinicalStaffManager />
