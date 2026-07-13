@@ -18,6 +18,10 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.about, label: "About" },
     { href: MARKETING_ROUTES.contact, label: "Contact" },
   ],
+  business: [
+    { href: MARKETING_ROUTES.corporate, label: "Corporate Health" },
+    { href: MARKETING_ROUTES.hmo, label: "HMO Support" },
+  ],
   platform: [
     { href: "/login", label: "Sign in" },
     { href: "/signup", label: "Start monitoring" },
@@ -80,7 +84,7 @@ function FooterGroup({
 export function MarketingFooter() {
   return (
     <footer className="border-t border-charcoal-ink/10 bg-clinical-navy text-white">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1fr_1fr]">
         <div className="space-y-5">
           <BrandLockup tone="on-navy" markClassName="h-10 w-10" wordmarkClassName="text-xl" />
           <div className="space-y-2">
@@ -97,10 +101,11 @@ export function MarketingFooter() {
         <FooterGroup title="Priority programmes" links={FOOTER_LINKS.priorityProgrammes} />
         <FooterGroup title="Coordination" links={FOOTER_LINKS.coordination} />
         <FooterGroup title="Company" links={FOOTER_LINKS.company} />
+        <FooterGroup title="Business" links={FOOTER_LINKS.business} />
         <FooterGroup title="Platform" links={FOOTER_LINKS.platform} />
       </div>
 
-      <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/50 sm:px-6">
+      <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
         © {new Date().getFullYear()} TarragonHealth. Clinician-led health monitoring for Nigerian families.
       </div>
     </footer>

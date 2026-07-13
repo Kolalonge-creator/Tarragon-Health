@@ -58,7 +58,7 @@ export function ProductPageTemplate({ content }: { content: ProductPageContent }
       <Section variant="sage">
         <div className="grid items-start gap-10 lg:grid-cols-[1fr_1fr]">
           <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
               Your path
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">

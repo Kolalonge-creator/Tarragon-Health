@@ -22,20 +22,20 @@ function TierCard({ tier }: { tier: PricingTier }) {
       )}
     >
       {tier.highlight ? (
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-brand-green">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-deep-forest">
           Most popular
         </p>
       ) : null}
       <h3 className="font-heading text-2xl font-semibold text-charcoal-ink">{tier.name}</h3>
-      <p className="mt-1 text-sm text-charcoal-ink/60">{tier.whoFor}</p>
+      <p className="mt-1 text-sm text-charcoal-ink/70">{tier.whoFor}</p>
       <div className="mt-3 flex items-end gap-2">
         <p className="font-heading text-4xl font-bold text-clinical-navy">{tier.priceMain}</p>
         {tier.pricePeriod ? (
-          <p className="pb-1 text-sm text-charcoal-ink/60">{tier.pricePeriod}</p>
+          <p className="pb-1 text-sm text-charcoal-ink/70">{tier.pricePeriod}</p>
         ) : null}
       </div>
       {tier.priceSecondary ? (
-        <p className="mt-1 text-sm text-charcoal-ink/60">{tier.priceSecondary}</p>
+        <p className="mt-1 text-sm text-charcoal-ink/70">{tier.priceSecondary}</p>
       ) : null}
       <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">{tier.description}</p>
       <ul className="mt-6 space-y-3 border-t border-charcoal-ink/10 pt-6">
@@ -47,7 +47,7 @@ function TierCard({ tier }: { tier: PricingTier }) {
         ))}
       </ul>
       {tier.footnote ? (
-        <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/55">{tier.footnote}</p>
+        <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/70">{tier.footnote}</p>
       ) : null}
       <div className="mt-6 pt-2">
         <Button asChild className="w-full">
@@ -103,11 +103,11 @@ export function PricingTable() {
       </div>
 
       {currency === "GBP" ? (
-        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/60">
+        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70">
           {DIASPORA_FAMILY_NOTE}
         </p>
       ) : (
-        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/60">
+        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70">
           No plan has a set-up fee. No plan has a cancellation fee.
         </p>
       )}

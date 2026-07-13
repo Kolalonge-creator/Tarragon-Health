@@ -26,7 +26,7 @@ export function ContinuityPath() {
           <circle key={cx} cx={cx} cy={cy} r="5" className="fill-brand-green/70" />
         ))}
       </svg>
-      <div className="mt-2 flex justify-between text-xs text-charcoal-ink/50">
+      <div className="mt-2 flex justify-between text-xs text-charcoal-ink/70">
         {MOMENTS.map(({ label }) => (
           <span key={label}>{label}</span>
         ))}

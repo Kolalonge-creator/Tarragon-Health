@@ -25,7 +25,7 @@ export function PricingAddOns() {
               ))}
             </ul>
           ) : null}
-          <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/55">{addOn.availability}</p>
+          <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/70">{addOn.availability}</p>
         </div>
       ))}
     </div>

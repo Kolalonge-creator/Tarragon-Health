@@ -534,6 +534,11 @@ export type Database = {
           credential_type: string | null
           full_name: string
           id: string
+          indemnity_exempt: boolean
+          indemnity_exempt_by: string | null
+          indemnity_expires_at: string | null
+          indemnity_insurer: string | null
+          indemnity_policy_number: string | null
           license_verified_at: string | null
           organisation_id: string
           photo_url: string | null
@@ -551,6 +556,11 @@ export type Database = {
           credential_type?: string | null
           full_name: string
           id?: string
+          indemnity_exempt?: boolean
+          indemnity_exempt_by?: string | null
+          indemnity_expires_at?: string | null
+          indemnity_insurer?: string | null
+          indemnity_policy_number?: string | null
           license_verified_at?: string | null
           organisation_id: string
           photo_url?: string | null
@@ -568,6 +578,11 @@ export type Database = {
           credential_type?: string | null
           full_name?: string
           id?: string
+          indemnity_exempt?: boolean
+          indemnity_exempt_by?: string | null
+          indemnity_expires_at?: string | null
+          indemnity_insurer?: string | null
+          indemnity_policy_number?: string | null
           license_verified_at?: string | null
           organisation_id?: string
           photo_url?: string | null
@@ -578,6 +593,13 @@ export type Database = {
           verified_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "clinical_staff_indemnity_exempt_by_fkey"
+            columns: ["indemnity_exempt_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clinical_staff_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -597,6 +619,48 @@ export type Database = {
             columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_staff_indemnity_exemptions: {
+        Row: {
+          created_at: string
+          exempted_by: string
+          id: string
+          organisation_id: string
+          reason: string | null
+          role: Database["public"]["Enums"]["clinical_staff_role"] | null
+        }
+        Insert: {
+          created_at?: string
+          exempted_by: string
+          id?: string
+          organisation_id: string
+          reason?: string | null
+          role?: Database["public"]["Enums"]["clinical_staff_role"] | null
+        }
+        Update: {
+          created_at?: string
+          exempted_by?: string
+          id?: string
+          organisation_id?: string
+          reason?: string | null
+          role?: Database["public"]["Enums"]["clinical_staff_role"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_staff_indemnity_exemptions_exempted_by_fkey"
+            columns: ["exempted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_staff_indemnity_exemptions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
