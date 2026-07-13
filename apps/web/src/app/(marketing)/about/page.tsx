@@ -55,19 +55,19 @@ export default function AboutPage() {
       <Section variant="sage">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
               Founder
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
               Dr Kola Longe
             </h2>
-            <p className="mt-1 text-sm text-charcoal-ink/60">
+            <p className="mt-1 text-sm text-charcoal-ink/70">
               Founder &amp; CEO ·{" "}
               <a
                 href="https://www.linkedin.com/in/dr-kola-longe-408b15121/"
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-brand-green hover:underline"
+                className="font-medium text-deep-forest hover:underline"
               >
                 LinkedIn
               </a>
@@ -167,11 +167,11 @@ export default function AboutPage() {
             </div>
           ))}
         </div>
-        <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/60">
+        <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Think you&rsquo;re a fit for one of these?{" "}
           <Link
             href={`${MARKETING_ROUTES.contact}?source=careers`}
-            className="font-medium text-brand-green hover:underline"
+            className="font-medium text-deep-forest hover:underline"
           >
             Get in touch
           </Link>
@@ -188,9 +188,9 @@ export default function AboutPage() {
           secondaryHref={MARKETING_ROUTES.contact + "?source=about"}
           secondaryLabel="Get in touch"
         />
-        <p className="mt-6 text-center text-sm text-charcoal-ink/60">
+        <p className="mt-6 text-center text-sm text-charcoal-ink/70">
           Read more about what we do on the{" "}
-          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green hover:underline">
+          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
             Pricing
           </Link>{" "}
           page.

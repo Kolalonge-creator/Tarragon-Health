@@ -42,7 +42,7 @@ export function SectionHeading({
         <p
           className={cn(
             "mb-2 text-sm font-medium uppercase tracking-wide",
-            invert ? "text-white/60" : "text-brand-green"
+            invert ? "text-white/60" : "text-deep-forest"
           )}
         >
           {eyebrow}

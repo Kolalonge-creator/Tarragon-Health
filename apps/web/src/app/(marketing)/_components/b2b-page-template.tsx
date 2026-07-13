@@ -67,7 +67,7 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
       <Section variant="sage">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
               Example
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
@@ -102,7 +102,7 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
       <Section>
         <div className="grid items-start gap-10 lg:grid-cols-[1fr_1fr]">
           <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
               Your path
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">

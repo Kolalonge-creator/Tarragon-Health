@@ -105,7 +105,7 @@ export function MarketingFooter() {
         <FooterGroup title="Platform" links={FOOTER_LINKS.platform} />
       </div>
 
-      <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/50 sm:px-6">
+      <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
         © {new Date().getFullYear()} TarragonHealth. Clinician-led health monitoring for Nigerian families.
       </div>
     </footer>

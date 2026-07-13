@@ -82,7 +82,7 @@ export default function PricingPage() {
               {ALWAYS_FREE.description}
             </p>
           </div>
-          <p className="mt-6 text-center text-sm text-charcoal-ink/60">{ALWAYS_FREE_NOTE}</p>
+          <p className="mt-6 text-center text-sm text-charcoal-ink/70">{ALWAYS_FREE_NOTE}</p>
         </div>
       </Section>
 
@@ -109,7 +109,7 @@ export default function PricingPage() {
             </li>
           ))}
         </ol>
-        <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/60">
+        <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Nothing is ever taken from your card without you confirming that exact transaction first.
         </p>
       </Section>

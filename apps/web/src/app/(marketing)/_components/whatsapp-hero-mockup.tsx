@@ -22,7 +22,7 @@ export function WhatsappHeroMockup({ className }: { className?: string }) {
             </div>
             <div>
               <p className="text-xs font-semibold">Tarragon Care Team</p>
-              <p className="text-[10px] text-white/75">online · clinician Amaka</p>
+              <p className="text-[10px] text-white/95">online · clinician Amaka</p>
             </div>
           </div>
           <div className="flex flex-1 flex-col gap-2.5 p-3">

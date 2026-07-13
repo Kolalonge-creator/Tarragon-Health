@@ -47,7 +47,7 @@ export default function MarketingHomePage() {
           className="pointer-events-none absolute -right-16 top-10 -z-10 h-[320px] w-[320px] rounded-full bg-sprout-gold/15 blur-3xl"
         />
         <MarketingHero media={homepage.hero} visual={<WhatsappHeroMockup />}>
-          <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
             Clinician-led health monitoring
           </p>
           <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl lg:text-6xl">
@@ -122,7 +122,7 @@ export default function MarketingHomePage() {
             className="rounded-none border-0 shadow-none lg:min-h-full"
           />
           <div className="p-8 sm:p-10">
-            <p className="text-sm font-medium uppercase tracking-wide text-brand-green">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
               Priority programme
             </p>
             <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
