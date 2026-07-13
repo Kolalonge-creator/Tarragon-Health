@@ -177,7 +177,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Cervical screening overdue", value: "60 employees" },
       { label: "Urgent follow-up needed", value: "25 employees" },
     ],
-    cta: { label: "Request employer health plan", href: MARKETING_ROUTES.contact, source: "corporate" },
+    cta: { label: "See corporate health plans", href: MARKETING_ROUTES.corporate },
   },
   {
     key: "hmo",
@@ -195,7 +195,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Abnormal results caught early", value: "146" },
       { label: "Claims impact", value: "Reporting live" },
     ],
-    cta: { label: "Talk to Tarragon Health", href: MARKETING_ROUTES.contact, source: "hmo" },
+    cta: { label: "See HMO support", href: MARKETING_ROUTES.hmo },
   },
 ];
 
