@@ -38,11 +38,19 @@
   --font-heading: var(--font-sora);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* This app has no dark theme (no `dark:` Tailwind variants anywhere in the
+   codebase — every component uses hardcoded light-theme tokens, e.g.
+   bg-warm-ivory/text-charcoal-ink, per docs/BRAND_GUIDE.md). A prior
+   `prefers-color-scheme: dark` override here flipped --foreground to
+   near-white while every component's background stayed hardcoded light,
+   which is the root cause behind repeated "invisible text" bugs (login
+   fields, and separately the subscription page's outline buttons) — fixed
+   narrowly each time instead of here. `color-scheme: light` also stops
+   native form controls (date pickers, scrollbars) from rendering dark.
+   Reintroduce the dark override only alongside real dark: variants across
+   the component library, not in isolation. */
+:root {
+  color-scheme: light;
 }
 
 body {

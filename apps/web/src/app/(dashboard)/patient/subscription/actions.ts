@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeTransaction, disableSubscription } from "@/lib/paystack/transactions";
 
@@ -62,7 +63,13 @@ export async function changePlan(
       };
     }
   }
-  await supabase
+  // subscriptions' UPDATE RLS policy only grants org staff, not the
+  // subscriber themselves (unlike subscription_add_ons) — ownership was
+  // already verified above via requireOwnedSubscription's RLS-scoped SELECT,
+  // so this trusted write uses the service-role client rather than silently
+  // no-op'ing under the patient's own session (see createServiceRoleClient's
+  // docstring for this pattern).
+  await createServiceRoleClient()
     .from("subscriptions")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
     .eq("id", subscription.id);
@@ -234,7 +241,7 @@ export async function detachAddOn(subscriptionAddOnId: string): Promise<Subscrip
 }
 
 export async function cancelSubscription(subscriptionId: string): Promise<SubscriptionActionState> {
-  const { supabase, subscription } = await requireOwnedSubscription(subscriptionId);
+  const { subscription } = await requireOwnedSubscription(subscriptionId);
 
   if (subscription.provider_ref && subscription.provider_email_token) {
     const disableResult = await disableSubscription({
@@ -247,7 +254,9 @@ export async function cancelSubscription(subscriptionId: string): Promise<Subscr
     return { message: "Cancelling — you'll keep access until the end of your current billing period." };
   }
 
-  await supabase
+  // See the matching comment in changePlan above — subscriptions' UPDATE
+  // RLS policy doesn't grant the subscriber, only org staff.
+  await createServiceRoleClient()
     .from("subscriptions")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
     .eq("id", subscription.id);

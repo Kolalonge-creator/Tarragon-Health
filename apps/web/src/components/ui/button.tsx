@@ -10,8 +10,8 @@ const buttonVariants = cva(
       variant: {
         default: "bg-brand-green text-white hover:bg-brand-green/90",
         outline:
-          "border border-charcoal-ink/20 bg-transparent hover:bg-charcoal-ink/5",
-        ghost: "hover:bg-charcoal-ink/5",
+          "border border-charcoal-ink/20 bg-transparent text-charcoal-ink hover:bg-charcoal-ink/5",
+        ghost: "text-charcoal-ink hover:bg-charcoal-ink/5",
         link: "text-brand-green underline-offset-4 hover:underline",
       },
       size: {

@@ -21,11 +21,18 @@
 //     only event carrying the real `subscription_code`/`email_token` needed
 //     later for cancellation, but its payload does NOT echo back our
 //     metadata. It's correlated best-effort by matching the most recently
-//     activated, not-yet-enriched row for the same Paystack plan code. If
-//     that heuristic doesn't hold in practice, this event still gets logged
-//     to payment_transactions (never dropped) but the row goes un-enriched
-//     until reconciled — this needs verifying against a real payload before
-//     relying on self-serve cancellation in production.
+//     not-yet-enriched row for the same Paystack plan code. Confirmed via a
+//     real test-mode round trip (2026-07-13) that `subscription.create` can
+//     arrive and get processed a couple of ms *before* `charge.success` —
+//     so this match deliberately checks status IN ('trialing', 'active'),
+//     not just 'active', or the still-trialing row at that instant would
+//     never be found and the row would stay permanently un-enriched (the
+//     failure mode actually observed before this fix: a patient's
+//     self-cancel would silently only ever mark our own row cancelled,
+//     never touching the still-live Paystack subscription). If the
+//     heuristic still doesn't hold in some other ordering, this event stays
+//     logged to payment_transactions (never dropped) but the row goes
+//     un-enriched until reconciled.
 //   - `invoice.payment_failed` / `subscription.disable` / `subscription.not_renew`
 //     carry the subscription_code, matched against `provider_ref` (set by
 //     the subscription.create enrichment above).
@@ -241,7 +248,7 @@ Deno.serve(async (req) => {
             .select("id")
             .eq("plan_id", planMatch.id)
             .eq("provider", "paystack")
-            .eq("status", "active")
+            .in("status", ["trialing", "active"])
             .is("provider_email_token", null)
             .order("started_at", { ascending: false })
             .limit(1)
@@ -269,7 +276,7 @@ Deno.serve(async (req) => {
             .select("id")
             .eq("add_on_id", addOnMatch.id)
             .eq("provider", "paystack")
-            .eq("status", "active")
+            .in("status", ["trialing", "active"])
             .is("provider_email_token", null)
             .order("started_at", { ascending: false })
             .limit(1)

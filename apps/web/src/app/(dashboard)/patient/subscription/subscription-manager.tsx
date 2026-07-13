@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import {
   useCurrentSubscription,
   useAttachedAddOns,
@@ -28,7 +28,7 @@ const STATUS_BADGE: Record<string, { label: string; variant: "green" | "amber" |
 export function SubscriptionManager() {
   const { data: subscription, isLoading, isError, refetch: refetchSubscription } =
     useCurrentSubscription();
-  const { data: addOns } = useAttachedAddOns(subscription?.id);
+  const { data: addOns, refetch: refetchAddOns } = useAttachedAddOns(subscription?.id);
   const { data: catalogue } = useAvailableAddOns();
   const { data: plans } = useActivePatientPlans();
 
@@ -36,6 +36,17 @@ export function SubscriptionManager() {
   const [attachState, attachAction, attachPending] = useActionState(attachAddOn, undefined);
   const [pendingId, startTransition] = useTransition();
   const [rowMessage, setRowMessage] = useState<string | null>(null);
+
+  // changePlan's free-plan branch resolves in place (paid plans redirect to
+  // Paystack instead, which navigates away and re-fetches naturally) — a
+  // successful switch needs an explicit refetch, or the card above keeps
+  // showing the old plan/status despite the "Switched to..." message below it.
+  useEffect(() => {
+    if (changeState?.message) {
+      refetchSubscription();
+      refetchAddOns();
+    }
+  }, [changeState, refetchSubscription, refetchAddOns]);
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
   if (isError) return <p className="text-sm text-red-600">Could not load your subscription.</p>;
@@ -63,6 +74,7 @@ export function SubscriptionManager() {
     startTransition(async () => {
       const result = await detachAddOn(id);
       setRowMessage(result?.message ?? result?.error ?? null);
+      refetchAddOns();
     });
   }
 
