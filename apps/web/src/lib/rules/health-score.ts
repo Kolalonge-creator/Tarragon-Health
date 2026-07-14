@@ -1,3 +1,5 @@
+import { formatHba1cWithBracket } from "./hba1c-bracket";
+
 /**
  * Health Score v1 — rule-based/weighted-sum per docs/FULL_SPECIFICATION_V4.md
  * §7 ("app/models/health_score.py ... v1 can be rule-based/weighted-sum
@@ -42,6 +44,8 @@ export interface HealthScoreComponent {
   value: number;
   /** Weight actually used (redistributed if some components are unavailable). */
   weight: number;
+  /** Real-world value alongside the 0-100 sub-score, e.g. "5.9% (Prediabetic range)" for hba1c. */
+  detail?: string;
 }
 
 export interface ComputedHealthScore {
@@ -111,6 +115,7 @@ export function computeHealthScore(inputs: HealthScoreInputs): ComputedHealthSco
       key: "hba1c",
       value: hba1cSubScore(inputs.latestHba1cPercent),
       weight: BASE_WEIGHTS.hba1c,
+      detail: formatHba1cWithBracket(inputs.latestHba1cPercent),
     });
   }
   if (inputs.screeningCompliancePercent !== null) {
@@ -138,4 +143,28 @@ export function computeHealthScore(inputs: HealthScoreInputs): ComputedHealthSco
   const score = Math.round(weightedSum / totalWeight);
 
   return { score, riskLevel: riskLevelFor(score), components: available };
+}
+
+const TIP_THRESHOLD = 80;
+
+const COMPONENT_TIP: Record<HealthScoreComponent["key"], string> = {
+  bp_control:
+    "Logging your blood pressure regularly and staying on top of your medication schedule can make a real difference here.",
+  hba1c:
+    "A chat with your care team about your next HbA1c check, plus small, steady changes to diet and movement, can help bring this down over time.",
+  screening_compliance:
+    "You've got a screening or two waiting — booking it through your care team is the single easiest way to lift this score.",
+  bmi: "Small, sustainable shifts in activity or diet tend to move this in the right direction over time — no need to rush it.",
+  smoking:
+    "Cutting back on smoking, even gradually, is one of the fastest ways to lift both this score and your long-term health.",
+};
+
+/**
+ * Non-alarming, clinician-voice suggestions for any component still below
+ * TIP_THRESHOLD — per CLAUDE.md's brand voice ("a clinician who knows your
+ * name, not a hospital PA system", no fear-based urgency). Only ever
+ * suggests, never warns.
+ */
+export function getHealthScoreTips(components: HealthScoreComponent[]): string[] {
+  return components.filter((c) => c.value < TIP_THRESHOLD).map((c) => COMPONENT_TIP[c.key]);
 }

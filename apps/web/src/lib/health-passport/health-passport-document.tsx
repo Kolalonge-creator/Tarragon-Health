@@ -1,11 +1,12 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import type { HealthPassportData } from "./get-health-passport-data";
 
 const VITAL_LABEL: Record<string, string> = {
   blood_pressure: "Blood pressure",
   glucose: "Glucose",
   weight: "Weight",
-  pulse: "Pulse",
+  pulse: "Heart rate",
   temperature: "Temperature",
   spo2: "SpO2",
 };
@@ -61,12 +62,21 @@ export function HealthPassportDocument({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Vitals</Text>
-          {data.vitals.length === 0 && <Text style={styles.muted}>No vitals logged in this period.</Text>}
+          {data.vitals.length === 0 && data.bmi === null && (
+            <Text style={styles.muted}>No vitals logged in this period.</Text>
+          )}
+          {data.bmi !== null && (
+            <View style={styles.row}>
+              <Text>BMI</Text>
+              <Text style={styles.muted}>{data.bmi} kg/m²</Text>
+            </View>
+          )}
           {data.vitals.map((v) => (
             <View key={v.vitalType} style={styles.row}>
               <Text>{VITAL_LABEL[v.vitalType] ?? v.vitalType}</Text>
               <Text style={styles.muted}>
-                {formatVitalValue(v.vitalType, v.latest)} ({v.readingCount} readings)
+                {formatVitalValue(v.vitalType, v.latest)} ({v.readingCount} readings, last{" "}
+                {new Date(v.takenAt).toLocaleDateString()})
               </Text>
             </View>
           ))}
@@ -96,7 +106,8 @@ export function HealthPassportDocument({
             <View key={i} style={styles.row}>
               <Text>{r.code.toUpperCase()}</Text>
               <Text style={styles.muted}>
-                {r.value} {r.unit} · {new Date(r.takenAt).toLocaleDateString()}
+                {r.code === "hba1c" ? formatHba1cWithBracket(r.value) : `${r.value} ${r.unit}`} ·{" "}
+                {new Date(r.takenAt).toLocaleDateString()}
               </Text>
             </View>
           ))}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { computeHealthScore, type HealthScoreInputs } from "./health-score";
+import { computeHealthScore, getHealthScoreTips, type HealthScoreInputs } from "./health-score";
 
 const allUnavailable: HealthScoreInputs = {
   bpControlPercent: null,
@@ -84,5 +84,40 @@ describe("computeHealthScore", () => {
     })!;
     expect(never.score).toBeGreaterThan(former.score);
     expect(former.score).toBeGreaterThan(current.score);
+  });
+
+  it("includes the real HbA1c value with its bracket as the hba1c component's detail", () => {
+    const result = computeHealthScore({ ...allUnavailable, latestHba1cPercent: 5.9 })!;
+    const hba1c = result.components.find((c) => c.key === "hba1c");
+    expect(hba1c?.detail).toBe("5.9% (Prediabetic range)");
+  });
+});
+
+describe("getHealthScoreTips", () => {
+  it("returns no tips when every component is already at/above threshold", () => {
+    const result = computeHealthScore({
+      bpControlPercent: 100,
+      latestHba1cPercent: 5.2,
+      screeningCompliancePercent: 100,
+      bmi: 22,
+      smokingStatus: "never",
+      cigarettesPerDay: null,
+    })!;
+    expect(getHealthScoreTips(result.components)).toEqual([]);
+  });
+
+  it("returns a tip for each component below threshold, none for those above", () => {
+    const result = computeHealthScore({
+      bpControlPercent: 40,
+      latestHba1cPercent: null,
+      screeningCompliancePercent: 100,
+      bmi: 22,
+      smokingStatus: "current",
+      cigarettesPerDay: "20_plus",
+    })!;
+    const tips = getHealthScoreTips(result.components);
+    expect(tips).toHaveLength(2);
+    expect(tips.some((t) => t.toLowerCase().includes("blood pressure"))).toBe(true);
+    expect(tips.some((t) => t.toLowerCase().includes("smoking"))).toBe(true);
   });
 });

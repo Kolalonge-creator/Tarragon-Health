@@ -4,7 +4,11 @@ import { useLatestHealthScore } from "@/lib/queries/health-score";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import type { HealthScoreComponent, HealthScoreRiskLevel } from "@/lib/rules/health-score";
+import {
+  getHealthScoreTips,
+  type HealthScoreComponent,
+  type HealthScoreRiskLevel,
+} from "@/lib/rules/health-score";
 
 // Clinical-dashboard status colors (green/amber/red) — a separate system
 // from brand color, per CLAUDE.md. Matches risk-assessment-display.tsx's
@@ -27,6 +31,7 @@ const COMPONENT_LABEL: Record<HealthScoreComponent["key"], string> = {
 export function HealthScoreCard({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useLatestHealthScore(patientId);
   const components = (data?.inputs as { components?: HealthScoreComponent[] } | null)?.components ?? [];
+  const tips = getHealthScoreTips(components);
 
   return (
     <Card>
@@ -64,10 +69,25 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
                 {components.map((component) => (
                   <li key={component.key} className="flex items-center justify-between">
                     <span>{COMPONENT_LABEL[component.key]}</span>
-                    <span className="text-charcoal-ink/60">{Math.round(component.value)}/100</span>
+                    <span className="text-charcoal-ink/60">
+                      {component.detail && `${component.detail} · `}
+                      {Math.round(component.value)}/100
+                    </span>
                   </li>
                 ))}
               </ul>
+            )}
+            {tips.length > 0 && (
+              <div className="space-y-1 border-t border-charcoal-ink/10 pt-3">
+                <p className="text-xs font-medium text-charcoal-ink/70">
+                  A few things that could help
+                </p>
+                <ul className="list-inside list-disc space-y-1 text-sm text-charcoal-ink/80">
+                  {tips.map((tip) => (
+                    <li key={tip}>{tip}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </>
         )}
