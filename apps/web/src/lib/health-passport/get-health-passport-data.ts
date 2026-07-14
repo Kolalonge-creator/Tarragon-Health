@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchLatestBmi } from "@/lib/health-metrics/bmi";
 import type { Database } from "@tarragon/shared";
 
 /**
@@ -48,6 +49,8 @@ export interface HealthPassportData {
   periodStart: string;
   periodEnd: string;
   vitals: HealthPassportVitalsSummary[];
+  /** Rounded to 1dp; null if the patient has no logged weight+height on file. */
+  bmi: number | null;
   screenings: HealthPassportScreening[];
   labReadings: { code: string; value: number; unit: string; takenAt: string }[];
   reviewedEscalations: HealthPassportEscalation[];
@@ -64,7 +67,7 @@ export async function getHealthPassportData(
   periodStart.setMonth(periodStart.getMonth() - PERIOD_MONTHS);
   const periodStartIso = periodStart.toISOString();
 
-  const [vitalsRes, screeningsRes, labRes, escalationsRes, careTeamRes] = await Promise.all([
+  const [vitalsRes, screeningsRes, labRes, escalationsRes, careTeamRes, bmi] = await Promise.all([
     supabase
       .from("vitals_readings")
       .select("*")
@@ -95,6 +98,7 @@ export async function getHealthPassportData(
       .select("clinical_director_id")
       .eq("patient_id", patientId)
       .maybeSingle(),
+    fetchLatestBmi(supabase, patientId),
   ]);
 
   // Latest reading per vital_type, plus a count within the period.
@@ -176,6 +180,7 @@ export async function getHealthPassportData(
     periodStart: periodStartIso,
     periodEnd: periodEnd.toISOString(),
     vitals,
+    bmi: bmi !== null ? Math.round(bmi * 10) / 10 : null,
     screenings,
     labReadings: (labRes.data ?? []).map((row) => ({
       code: row.code,

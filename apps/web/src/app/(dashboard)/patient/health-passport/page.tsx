@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { getHealthPassportData } from "@/lib/health-passport/get-health-passport-data";
+import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -10,7 +11,7 @@ const VITAL_LABEL: Record<string, string> = {
   blood_pressure: "Blood pressure",
   glucose: "Glucose",
   weight: "Weight",
-  pulse: "Pulse",
+  pulse: "Heart rate",
   temperature: "Temperature",
   spo2: "SpO2",
 };
@@ -81,11 +82,17 @@ export default async function HealthPassportPage() {
           <CardTitle>Vitals</CardTitle>
         </CardHeader>
         <CardContent>
-          {data.vitals.length === 0 && (
+          {data.vitals.length === 0 && data.bmi === null && (
             <p className="text-sm text-charcoal-ink/60">No vitals logged in this period.</p>
           )}
-          {data.vitals.length > 0 && (
+          {(data.vitals.length > 0 || data.bmi !== null) && (
             <ul className="divide-y divide-charcoal-ink/10">
+              {data.bmi !== null && (
+                <li className="flex items-center justify-between py-2">
+                  <span className="text-sm font-medium text-charcoal-ink">BMI</span>
+                  <span className="text-sm text-charcoal-ink/60">{data.bmi} kg/m²</span>
+                </li>
+              )}
               {data.vitals.map((v) => (
                 <li key={v.vitalType} className="flex items-center justify-between py-2">
                   <span className="text-sm font-medium text-charcoal-ink">
@@ -93,7 +100,7 @@ export default async function HealthPassportPage() {
                   </span>
                   <span className="text-sm text-charcoal-ink/60">
                     {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
-                    period
+                    period · last logged {new Date(v.takenAt).toLocaleDateString()}
                   </span>
                 </li>
               ))}
@@ -144,7 +151,8 @@ export default async function HealthPassportPage() {
                 <li key={i} className="flex items-center justify-between py-2 text-sm">
                   <span className="font-medium text-charcoal-ink">{r.code.toUpperCase()}</span>
                   <span className="text-charcoal-ink/60">
-                    {r.value} {r.unit} · {new Date(r.takenAt).toLocaleDateString()}
+                    {r.code === "hba1c" ? formatHba1cWithBracket(r.value) : `${r.value} ${r.unit}`} ·{" "}
+                    {new Date(r.takenAt).toLocaleDateString()}
                   </span>
                 </li>
               ))}

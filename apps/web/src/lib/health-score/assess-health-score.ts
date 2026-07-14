@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { computeHealthScore, type HealthScoreInputs } from "@/lib/rules/health-score";
+import { fetchLatestBmi } from "@/lib/health-metrics/bmi";
 import type { Database, Json } from "@tarragon/shared";
 
 const BP_CONTROL_WINDOW_DAYS = 90;
@@ -59,36 +60,6 @@ async function fetchScreeningCompliancePercent(
   return Math.round((completed / rows.length) * 100);
 }
 
-async function fetchBmi(
-  supabase: SupabaseClient<Database>,
-  patientId: string
-): Promise<number | null> {
-  const [{ data: weightRow }, { data: heightRow }] = await Promise.all([
-    supabase
-      .from("vitals_readings")
-      .select("weight_kg")
-      .eq("patient_id", patientId)
-      .eq("vital_type", "weight")
-      .order("taken_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("risk_assessment_responses")
-      .select("response")
-      .eq("profile_id", patientId)
-      .eq("question_key", "height_cm")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  const weightKg = weightRow?.weight_kg ?? null;
-  const heightCm = typeof heightRow?.response === "number" ? heightRow.response : null;
-  if (!weightKg || !heightCm) return null;
-
-  const heightM = heightCm / 100;
-  return weightKg / (heightM * heightM);
-}
 
 async function fetchSmoking(
   supabase: SupabaseClient<Database>,
@@ -137,7 +108,7 @@ export async function assessHealthScoreBestEffort(
       fetchBpControlPercent(supabase, patientId),
       fetchLatestHba1c(supabase, patientId),
       fetchScreeningCompliancePercent(supabase, patientId),
-      fetchBmi(supabase, patientId),
+      fetchLatestBmi(supabase, patientId),
       fetchSmoking(supabase, patientId),
     ]);
 

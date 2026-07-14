@@ -21,9 +21,11 @@ export function useVitalsReadings(patientId: string) {
 
 const TREND_WINDOW_DAYS = 90;
 
+export type VitalsTrendType = "blood_pressure" | "glucose" | "weight" | "pulse";
+
 /** Ascending-order readings for charting (opposite of useVitalsReadings's
  * newest-first list order — a trend chart reads left to right). */
-export function useVitalsTrend(patientId: string, vitalType: "blood_pressure" | "glucose") {
+export function useVitalsTrend(patientId: string, vitalType: VitalsTrendType) {
   return useQuery({
     queryKey: ["vitals-trend", patientId, vitalType],
     queryFn: async () => {
@@ -31,7 +33,7 @@ export function useVitalsTrend(patientId: string, vitalType: "blood_pressure" | 
       const since = new Date(Date.now() - TREND_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("vitals_readings")
-        .select("taken_at, systolic, diastolic, glucose_mmol_l, glucose_context")
+        .select("taken_at, systolic, diastolic, glucose_mmol_l, glucose_context, weight_kg, pulse_bpm")
         .eq("patient_id", patientId)
         .eq("vital_type", vitalType)
         .gte("taken_at", since)
