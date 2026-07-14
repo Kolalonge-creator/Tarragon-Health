@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
+import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
 import {
@@ -73,6 +74,7 @@ export async function logVital(
   if (row.vital_type === "blood_pressure") {
     await assessBpControlBestEffort(supabase, user.id, profile.organisation_id);
   }
+  await assessHealthScoreBestEffort(supabase, user.id, profile.organisation_id);
 
   return { success: true };
 }
@@ -334,6 +336,10 @@ export async function submitRiskAssessment(
       }
     }
   }
+
+  // Smoking status/height/weight just (re)submitted feed the Health Score's
+  // smoking and BMI components directly.
+  await assessHealthScoreBestEffort(supabase, user.id, organisationId);
 
   return { success: true };
 }
