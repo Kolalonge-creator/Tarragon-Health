@@ -1,6 +1,8 @@
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { ContractStatusCard } from "@/components/contract-status-card";
+import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -28,7 +30,10 @@ export default async function CorporatePage() {
     );
   }
 
-  const analytics = await loadCohortAnalytics(profile.organisation_id);
+  const [analytics, contractPerformance] = await Promise.all([
+    loadCohortAnalytics(profile.organisation_id),
+    getContractPerformance(await createClient(), profile.organisation_id),
+  ]);
 
   if (!analytics) {
     return (
@@ -39,7 +44,9 @@ export default async function CorporatePage() {
           "Staff enrolment",
           "Workforce health — cohort risk distribution (no staff enrolled yet, or ML service unavailable)",
         ]}
-      />
+      >
+        <ContractStatusCard performance={contractPerformance} />
+      </DashboardPlaceholder>
     );
   }
 
@@ -49,6 +56,7 @@ export default async function CorporatePage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{greeting}</h1>
         <p className="text-charcoal-ink/60">Corporate admin dashboard</p>
       </div>
+      <ContractStatusCard performance={contractPerformance} />
       <CohortSummary analytics={analytics} />
     </div>
   );

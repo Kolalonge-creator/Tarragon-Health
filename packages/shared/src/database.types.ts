@@ -1774,6 +1774,44 @@ export type Database = {
         }
         Relationships: []
       }
+      outcomes_contracts: {
+        Row: {
+          contract_type: Database["public"]["Enums"]["outcomes_contract_type"]
+          created_at: string
+          effective_from: string
+          id: string
+          organisation_id: string
+          outcome_thresholds: Json
+          payout_terms: string | null
+        }
+        Insert: {
+          contract_type: Database["public"]["Enums"]["outcomes_contract_type"]
+          created_at?: string
+          effective_from?: string
+          id?: string
+          organisation_id: string
+          outcome_thresholds?: Json
+          payout_terms?: string | null
+        }
+        Update: {
+          contract_type?: Database["public"]["Enums"]["outcomes_contract_type"]
+          created_at?: string
+          effective_from?: string
+          id?: string
+          organisation_id?: string
+          outcome_thresholds?: Json
+          payout_terms?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outcomes_contracts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       panel_bundles: {
         Row: {
           code: string
@@ -3426,6 +3464,7 @@ export type Database = {
         | "lab"
         | "pharmacy"
         | "direct_consumer"
+      outcomes_contract_type: "capitation" | "fee_at_risk" | "flat"
       patient_device_status: "active" | "unpaired"
       patient_device_type: "bp_cuff" | "glucometer" | "scale"
       payment_provider: "paystack" | "stripe"
@@ -3725,6 +3764,7 @@ export const Constants = {
         "pharmacy",
         "direct_consumer",
       ],
+      outcomes_contract_type: ["capitation", "fee_at_risk", "flat"],
       patient_device_status: ["active", "unpaired"],
       patient_device_type: ["bp_cuff", "glucometer", "scale"],
       payment_provider: ["paystack", "stripe"],
