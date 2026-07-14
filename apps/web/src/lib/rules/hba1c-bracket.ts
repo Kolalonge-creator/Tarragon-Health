@@ -1,3 +1,5 @@
+import { hba1cPercentToMmolMol } from "@tarragon/shared";
+
 /**
  * WHO HbA1c bands, shared wherever a real HbA1c % value is displayed (not
  * a normalized sub-score) — Health Passport, the patient trend chart, the
@@ -16,7 +18,13 @@ export function getHba1cBracket(value: number): Hba1cBracket {
   return { label: "Diabetic range" };
 }
 
-/** "5.9% (Prediabetic range)" — the exact "real value with bracket" format requested. */
+/**
+ * "41 mmol/mol (5.9%, Prediabetic range)" — mmol/mol (IFCC) is the value
+ * lab_analyte_readings itself never stores (it's always NGSP %), so this
+ * is a display-only conversion via the fixed NGSP<->IFCC master equation,
+ * not a second unit the platform tracks independently.
+ */
 export function formatHba1cWithBracket(value: number): string {
-  return `${value}% (${getHba1cBracket(value).label})`;
+  const mmolMol = hba1cPercentToMmolMol(value);
+  return `${mmolMol} mmol/mol (${value}%, ${getHba1cBracket(value).label})`;
 }

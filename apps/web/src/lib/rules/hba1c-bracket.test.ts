@@ -19,7 +19,12 @@ describe("getHba1cBracket", () => {
 });
 
 describe("formatHba1cWithBracket", () => {
-  it("formats the real value with its bracket in parentheses", () => {
-    expect(formatHba1cWithBracket(5.9)).toBe("5.9% (Prediabetic range)");
+  it("formats mmol/mol first, with the % value and bracket in parentheses", () => {
+    expect(formatHba1cWithBracket(5.9)).toBe("41 mmol/mol (5.9%, Prediabetic range)");
+  });
+
+  it("matches the known clinical reference conversions", () => {
+    expect(formatHba1cWithBracket(6.5)).toBe("48 mmol/mol (6.5%, Diabetic range)");
+    expect(formatHba1cWithBracket(5.7)).toBe("39 mmol/mol (5.7%, Prediabetic range)");
   });
 });

@@ -89,7 +89,7 @@ describe("computeHealthScore", () => {
   it("includes the real HbA1c value with its bracket as the hba1c component's detail", () => {
     const result = computeHealthScore({ ...allUnavailable, latestHba1cPercent: 5.9 })!;
     const hba1c = result.components.find((c) => c.key === "hba1c");
-    expect(hba1c?.detail).toBe("5.9% (Prediabetic range)");
+    expect(hba1c?.detail).toBe("41 mmol/mol (5.9%, Prediabetic range)");
   });
 });
 

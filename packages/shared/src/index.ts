@@ -67,6 +67,17 @@ export function mmolLToMgDl(mmolL: number): number {
   return Math.round(mmolL * GLUCOSE_MMOL_TO_MGDL);
 }
 
+/** The official NGSP<->IFCC master equation slope/intercept — a fixed
+ * clinical-standard formula, not a model, so it's safe to hardcode here
+ * rather than depend on services/ml being up. */
+const HBA1C_IFCC_SLOPE = 10.929;
+const HBA1C_IFCC_INTERCEPT = 2.15;
+
+/** Convert HbA1c from NGSP % (the unit lab_analyte_readings stores) to IFCC mmol/mol. */
+export function hba1cPercentToMmolMol(percent: number): number {
+  return Math.round((percent - HBA1C_IFCC_INTERCEPT) * HBA1C_IFCC_SLOPE);
+}
+
 /** Whole-year age from a date_of_birth, or null if unknown. Used wherever a
  * rules engine needs age thresholds (risk tiers, screening/vaccination due
  * dates) — a single definition so they all agree on the same rough-but-
