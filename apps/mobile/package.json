@@ -2,7 +2,7 @@
   "name": "@tarragon/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -11,6 +11,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@babel/runtime": "^7.25.0",
     "@supabase/supabase-js": "^2.45.4",
     "@tarragon/shared": "workspace:*",
     "expo": "~51.0.0",
