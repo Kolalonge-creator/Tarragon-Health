@@ -10,6 +10,7 @@ import { PatientEscalations } from "@/components/patient-escalations";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "./care-team-contact";
+import { HealthScoreCard } from "@/components/health-score-card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { getPatientSummaryStats } from "./summary";
@@ -63,6 +64,7 @@ export default async function PatientPage() {
         </Link>
       </div>
       <YourCareTeam patientId={profile.id} />
+      <HealthScoreCard patientId={profile.id} />
       <RequiresEntitlement feature="family_dashboard" fallback={null}>
         <FamilyDashboardCard />
       </RequiresEntitlement>
