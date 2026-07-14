@@ -3383,6 +3383,108 @@ export type Database = {
           },
         ]
       }
+      wearable_connections: {
+        Row: {
+          connected_at: string
+          created_at: string
+          external_id: string | null
+          id: string
+          last_synced_at: string | null
+          organisation_id: string
+          patient_id: string
+          provider: Database["public"]["Enums"]["wearable_provider"]
+          status: Database["public"]["Enums"]["wearable_connection_status"]
+        }
+        Insert: {
+          connected_at?: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          organisation_id: string
+          patient_id: string
+          provider: Database["public"]["Enums"]["wearable_provider"]
+          status?: Database["public"]["Enums"]["wearable_connection_status"]
+        }
+        Update: {
+          connected_at?: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+          provider?: Database["public"]["Enums"]["wearable_provider"]
+          status?: Database["public"]["Enums"]["wearable_connection_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wearable_connections_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wearable_connections_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wearable_readings: {
+        Row: {
+          connection_id: string
+          created_at: string
+          external_reading_id: string | null
+          id: string
+          organisation_id: string
+          reading_type: string
+          recorded_at: string
+          unit: string | null
+          value: number | null
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          external_reading_id?: string | null
+          id?: string
+          organisation_id: string
+          reading_type: string
+          recorded_at: string
+          unit?: string | null
+          value?: number | null
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          external_reading_id?: string | null
+          id?: string
+          organisation_id?: string
+          reading_type?: string
+          recorded_at?: string
+          unit?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wearable_readings_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "wearable_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wearable_readings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -3557,7 +3659,7 @@ export type Database = {
         | "hmo_admin"
         | "corporate_admin"
         | "doctor"
-      vital_source: "manual" | "device"
+      vital_source: "manual" | "device" | "wearable"
       vital_type:
         | "blood_pressure"
         | "glucose"
@@ -3565,6 +3667,8 @@ export type Database = {
         | "pulse"
         | "temperature"
         | "spo2"
+      wearable_connection_status: "active" | "disconnected" | "error"
+      wearable_provider: "apple_health" | "oura" | "whoop" | "garmin" | "fitbit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3868,7 +3972,7 @@ export const Constants = {
         "corporate_admin",
         "doctor",
       ],
-      vital_source: ["manual", "device"],
+      vital_source: ["manual", "device", "wearable"],
       vital_type: [
         "blood_pressure",
         "glucose",
@@ -3877,6 +3981,8 @@ export const Constants = {
         "temperature",
         "spo2",
       ],
+      wearable_connection_status: ["active", "disconnected", "error"],
+      wearable_provider: ["apple_health", "oura", "whoop", "garmin", "fitbit"],
     },
   },
 } as const
