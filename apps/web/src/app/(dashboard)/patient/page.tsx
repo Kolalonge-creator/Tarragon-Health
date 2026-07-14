@@ -15,6 +15,8 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { getPatientSummaryStats } from "./summary";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
+import { SymptomLogForm } from "./symptom-log-form";
+import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { MedicationsList } from "./medications-list";
 import { TodaysDoses } from "./todays-doses";
@@ -98,6 +100,8 @@ export default async function PatientPage() {
       <VitalsForm patientId={profile.id} />
       <VitalsHistory patientId={profile.id} />
       <VitalsTrendChart patientId={profile.id} />
+      <SymptomLogForm patientId={profile.id} />
+      <SymptomLogHistory patientId={profile.id} />
       <TodaysDoses patientId={profile.id} />
       <MedicationsList
         patientId={profile.id}

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
+import { symptomLogSchema } from "@/lib/validation/symptoms";
 import {
   riskAssessmentSchema,
   QUESTION_CATEGORY,
@@ -71,6 +72,55 @@ export async function logVital(
 
   if (row.vital_type === "blood_pressure") {
     await assessBpControlBestEffort(supabase, user.id, profile.organisation_id);
+  }
+
+  return { success: true };
+}
+
+export type LogSymptomActionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Logs a patient-reported symptom. Deliberately does not accept or compute
+ * is_red_flag here — the private.handle_symptom_red_flag() trigger derives
+ * it server-side from symptom_type/severity and raises the clinician_alerts
+ * escalation, so this action can't accidentally under-report a red flag.
+ */
+export async function logSymptom(
+  _prevState: LogSymptomActionState,
+  formData: FormData
+): Promise<LogSymptomActionState> {
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = symptomLogSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "No organisation on file" };
+  }
+
+  const { error } = await supabase.from("symptoms").insert({
+    symptom_type: parsed.data.symptom_type,
+    severity: parsed.data.severity,
+    description: parsed.data.description || null,
+    patient_id: user.id,
+    organisation_id: profile.organisation_id,
+  });
+  if (error) {
+    return { error: error.message };
   }
 
   return { success: true };
