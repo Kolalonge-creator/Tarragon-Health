@@ -63,7 +63,7 @@ export const PROOF_STATS = [
   {
     value: "2",
     label: "ways to log",
-    detail: "WhatsApp and app/web, so care is not app-only.",
+    detail: "App or web, so your record stays accurate wherever you check in.",
   },
   {
     value: "4",
@@ -80,7 +80,7 @@ export const PROOF_STATS = [
 export const WHAT_YOU_GET = [
   {
     title: "Monitor",
-    body: "Log BP, glucose, medication, and preventive checks through WhatsApp or app — all in one health record.",
+    body: "Log BP, glucose, medication, and preventive checks through the app or web — all in one health record, with WhatsApp reminders to keep you on track.",
   },
   {
     title: "Review",

@@ -6,7 +6,7 @@ import { MarketingMediaFrame } from "./marketing-media-frame";
 import { cn } from "@/lib/utils";
 
 const WALKTHROUGH_STEPS = [
-  "Log a reading on WhatsApp or the app",
+  "Log a reading in the app",
   "Your care team reviews the trend",
   "Reminders keep follow-up on track",
   "Family gets a calm update when needed",

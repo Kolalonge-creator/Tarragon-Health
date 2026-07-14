@@ -1,9 +1,9 @@
-/** Signature hero visual — WhatsApp is the primary patient channel (CLAUDE.md). Pure CSS animation, no client JS. */
+/** Signature hero visual — WhatsApp carries reminders and human clinician chat only, never data entry (CLAUDE.md WhatsApp policy). Pure CSS animation, no client JS. */
 
 const MESSAGES = [
-  { from: "them" as const, delay: "0.3s", text: "Good morning! Time for your BP reading. Reply with your numbers, e.g. 128/82." },
-  { from: "me" as const, delay: "1.3s", text: "124/79 🙂" },
-  { from: "them" as const, delay: "2.3s", text: "That's within range and trending better than last week. Logged for Dad's file too." },
+  { from: "them" as const, delay: "0.3s", text: "Good morning! Your BP reading is due — log it in the Tarragon app, takes a moment." },
+  { from: "me" as const, delay: "1.3s", text: "Just logged it 🙂" },
+  { from: "them" as const, delay: "2.3s", text: "Saw it — 124/79, trending better than last week. Nice work. Logged for Dad's file too." },
   { from: "me" as const, delay: "3.3s", text: "Thank you!" },
 ];
 

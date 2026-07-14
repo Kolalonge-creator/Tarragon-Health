@@ -19,7 +19,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     intro:
       "Tarragon helps you log blood pressure readings, spot trends early, and get clinician review when numbers drift. Reminders keep follow-up consistent — between doctor visits, not just at them.",
     included: [
-      "BP logging via WhatsApp or app",
+      "BP logging via app or web",
       "Trend view for you and your care team",
       "Medication and follow-up reminders",
       "Clinician review when readings drift",
@@ -28,7 +28,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     howItWorks: [
       {
         title: "Log readings easily",
-        body: "Record blood pressure via app or WhatsApp — readings stay in one secure record.",
+        body: "Record blood pressure via app or web — readings stay in one secure record, with WhatsApp reminders to help you stay consistent.",
       },
       {
         title: "See your trend",
@@ -163,7 +163,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Get reminded, log it in seconds",
-        body: "A WhatsApp or app reminder lands at the right time; replying takes seconds and updates your record.",
+        body: "A WhatsApp or app reminder lands at the right time; logging it in the app takes seconds and keeps your record current.",
       },
       {
         title: "Never run out, never go quiet",
