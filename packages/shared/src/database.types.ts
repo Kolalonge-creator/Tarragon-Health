@@ -3033,33 +3033,36 @@ export type Database = {
       symptoms: {
         Row: {
           created_at: string
-          description: string
+          description: string | null
           id: string
           is_red_flag: boolean
           organisation_id: string
           patient_id: string
           reported_at: string
           severity: number | null
+          symptom_type: Database["public"]["Enums"]["symptom_type"]
         }
         Insert: {
           created_at?: string
-          description: string
+          description?: string | null
           id?: string
           is_red_flag?: boolean
           organisation_id: string
           patient_id: string
           reported_at?: string
           severity?: number | null
+          symptom_type: Database["public"]["Enums"]["symptom_type"]
         }
         Update: {
           created_at?: string
-          description?: string
+          description?: string | null
           id?: string
           is_red_flag?: boolean
           organisation_id?: string
           patient_id?: string
           reported_at?: string
           severity?: number | null
+          symptom_type?: Database["public"]["Enums"]["symptom_type"]
         }
         Relationships: [
           {
@@ -3494,6 +3497,15 @@ export type Database = {
         | "podiatry"
         | "other"
       subscription_status: "trialing" | "active" | "past_due" | "cancelled"
+      symptom_type:
+        | "pain"
+        | "fatigue"
+        | "breathlessness"
+        | "dizziness"
+        | "palpitations"
+        | "swelling"
+        | "nausea"
+        | "other"
       upgrade_condition:
         | "hypertension"
         | "diabetes"
@@ -3792,6 +3804,16 @@ export const Constants = {
         "other",
       ],
       subscription_status: ["trialing", "active", "past_due", "cancelled"],
+      symptom_type: [
+        "pain",
+        "fatigue",
+        "breathlessness",
+        "dizziness",
+        "palpitations",
+        "swelling",
+        "nausea",
+        "other",
+      ],
       upgrade_condition: [
         "hypertension",
         "diabetes",
