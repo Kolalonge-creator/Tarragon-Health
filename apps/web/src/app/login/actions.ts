@@ -54,7 +54,10 @@ export async function requestPhoneOtp(
   _prevState: LoginActionState,
   formData: FormData
 ): Promise<LoginActionState> {
-  const parsed = phoneOtpRequestSchema.safeParse({ phone: formData.get("phone") });
+  const parsed = phoneOtpRequestSchema.safeParse({
+    countryCode: formData.get("countryCode"),
+    phone: formData.get("phone"),
+  });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid phone number" };
   }
