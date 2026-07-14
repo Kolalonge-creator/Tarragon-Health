@@ -27,21 +27,23 @@ export function DashboardPlaceholder({
         </div>
       </div>
       {children}
-      <Card variant="soft">
-        <CardHeader>
-          <CardTitle>Coming in Sprint 2</CardTitle>
-          <CardDescription>
-            This shell confirms auth + role routing are wired up. Real data lands next.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="list-inside list-disc space-y-1.5 text-sm text-charcoal-ink/80">
-            {comingUp.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+      {comingUp.length > 0 && (
+        <Card variant="soft">
+          <CardHeader>
+            <CardTitle>Coming in Sprint 2</CardTitle>
+            <CardDescription>
+              This shell confirms auth + role routing are wired up. Real data lands next.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="list-inside list-disc space-y-1.5 text-sm text-charcoal-ink/80">
+              {comingUp.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

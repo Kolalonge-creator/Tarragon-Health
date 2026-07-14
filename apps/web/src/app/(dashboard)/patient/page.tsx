@@ -53,9 +53,15 @@ export default async function PatientPage() {
     <DashboardPlaceholder
       greeting={`Hi${profile.full_name ? `, ${profile.full_name}` : ""}`}
       roleLabel="Patient"
-      comingUp={["Health Passport download"]}
+      comingUp={[]}
     >
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-4">
+        <Link
+          href="/patient/health-passport"
+          className="text-sm font-medium text-brand-green hover:underline"
+        >
+          Health Passport →
+        </Link>
         <Link
           href="/patient/subscription"
           className="text-sm font-medium text-brand-green hover:underline"
