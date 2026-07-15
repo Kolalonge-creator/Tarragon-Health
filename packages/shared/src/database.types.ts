@@ -1739,6 +1739,8 @@ export type Database = {
           frequency: string | null
           id: string
           is_active: boolean
+          last_confirmed_at: string | null
+          last_confirmed_by: string | null
           organisation_id: string
           patient_id: string
           refill_date: string | null
@@ -1755,6 +1757,8 @@ export type Database = {
           frequency?: string | null
           id?: string
           is_active?: boolean
+          last_confirmed_at?: string | null
+          last_confirmed_by?: string | null
           organisation_id: string
           patient_id: string
           refill_date?: string | null
@@ -1771,6 +1775,8 @@ export type Database = {
           frequency?: string | null
           id?: string
           is_active?: boolean
+          last_confirmed_at?: string | null
+          last_confirmed_by?: string | null
           organisation_id?: string
           patient_id?: string
           refill_date?: string | null
@@ -1791,6 +1797,13 @@ export type Database = {
             columns: ["care_plan_id"]
             isOneToOne: false
             referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medications_last_confirmed_by_fkey"
+            columns: ["last_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
           {

@@ -96,6 +96,43 @@ export function useAddMedication() {
 }
 
 /**
+ * Tier 1 "confirm and continue" a stable, clinician-prescribed medication —
+ * the other half of Tier 1's job alongside useAddMedication, which they
+ * cannot call (20260715181500_pharmacy_authority_by_tier.sql blocks org
+ * staff without prescribing authority from inserting/updating medications
+ * at all). This path is narrower: only medications_update's
+ * can_confirm_medication_refill branch admits Tier 1, and
+ * private.enforce_medication_confirm_only (BEFORE UPDATE trigger) then
+ * restricts the write to refill_date only — drug/dose/frequency/active
+ * status are untouched no matter what the client sends. last_confirmed_by
+ * is never sent from here; the trigger derives it server-side from the
+ * caller's own active clinical_staff row, so it can't be spoofed.
+ */
+export function useConfirmMedicationRefill() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      medicationId,
+      refillDate,
+    }: {
+      medicationId: string;
+      patientId: string;
+      refillDate: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("medications")
+        .update({ refill_date: refillDate })
+        .eq("id", medicationId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: medicationsKey(variables.patientId) });
+    },
+  });
+}
+
+/**
  * Select-then-branch upsert against the (medication_id, scheduled_for_date,
  * scheduled_time) partial unique index — supabase-js's `onConflict` can't
  * target a partial index, same rationale as the reminder-rules mutations.

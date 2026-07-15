@@ -44,6 +44,10 @@ export default async function ClinicianPatientPage({
 
   const callerStaff = await getCurrentClinicalStaff();
   const canPrescribe = hasPrescribingAuthority(callerStaff);
+  // Tier 1's other half of the job (master plan §4/§8): confirm/continue an
+  // existing prescription without prescribing authority. Never Tier 2+/
+  // Director — they already get the unrestricted AddMedicationForm above.
+  const canConfirmRefill = !canPrescribe && callerStaff?.doctor_tier === "tier_1";
 
   return (
     <div className="space-y-6">
@@ -57,7 +61,11 @@ export default async function ClinicianPatientPage({
           tier — refill coordination is a staff-visible clinical detail
           regardless of what the patient's plan does or doesn't unlock for
           them on their own dashboard. */}
-      <MedicationsList patientId={patient.id} refillCoordinationEnabled />
+      <MedicationsList
+        patientId={patient.id}
+        refillCoordinationEnabled
+        canConfirmRefill={canConfirmRefill}
+      />
       {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
           continues existing prescriptions but has no new-prescribing
           authority — the DB RLS policy is the real gate
@@ -73,7 +81,9 @@ export default async function ClinicianPatientPage({
           <CardContent>
             <p className="text-sm text-charcoal-ink/60">
               Tier 1 doctors confirm and continue existing stable prescriptions under protocol —
-              starting a new medication needs a Tier 2+ doctor or the Clinical Director.
+              starting a new medication needs a Tier 2+ doctor or the Clinical Director. Use
+              &quot;Confirm &amp; continue&quot; on a prescribed medication above to extend its refill
+              date.
             </p>
           </CardContent>
         </Card>
