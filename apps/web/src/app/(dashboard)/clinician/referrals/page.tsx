@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   useOrgSpecialistReferrals,
-  useSpecialistProvidersByType,
+  useMatchedSpecialistProviders,
   useAssignSpecialistProvider,
   useSetReferralAppointment,
   useCloseReferral,
@@ -29,46 +29,77 @@ const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["varia
 };
 
 function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDetails }) {
-  const { data: providers, isLoading } = useSpecialistProvidersByType(referral.specialist_type);
+  const [state, setState] = useState("");
+  const [requireTelemedicine, setRequireTelemedicine] = useState(false);
+  const { data: providers, isLoading } = useMatchedSpecialistProviders({
+    specialistType: referral.specialist_type,
+    state: state || undefined,
+    requireTelemedicine,
+  });
   const assign = useAssignSpecialistProvider();
   const [providerId, setProviderId] = useState("");
 
   const chosen = providers?.find((p) => p.id === providerId);
 
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <div className="space-y-1">
-        <Label htmlFor={`provider-${referral.id}`}>Specialist provider</Label>
-        {isLoading && <p className="text-xs text-charcoal-ink/60">Loading providers…</p>}
-        {!isLoading && (providers?.length ?? 0) === 0 && (
-          <p className="text-xs text-charcoal-ink/60">No active providers for {referral.specialist_type} yet.</p>
-        )}
-        {!isLoading && (providers?.length ?? 0) > 0 && (
-          <Select id={`provider-${referral.id}`} value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-            <option value="">Select a provider</option>
-            {providers!.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} — ₦{koboToNaira(p.consultation_fee_kobo).toLocaleString()}
-              </option>
-            ))}
-          </Select>
-        )}
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1">
+          <Label htmlFor={`state-${referral.id}`}>State</Label>
+          <Input
+            id={`state-${referral.id}`}
+            placeholder="e.g. Lagos"
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            className="w-32"
+          />
+        </div>
+        <label className="flex items-center gap-1.5 pb-2 text-xs text-charcoal-ink/70">
+          <input
+            type="checkbox"
+            checked={requireTelemedicine}
+            onChange={(e) => setRequireTelemedicine(e.target.checked)}
+          />
+          Telemedicine only
+        </label>
       </div>
-      <Button
-        size="sm"
-        disabled={!chosen || assign.isPending}
-        onClick={() =>
-          chosen &&
-          assign.mutate({
-            referralId: referral.id,
-            organisationId: referral.organisation_id,
-            specialistProviderId: chosen.id,
-            feeKobo: chosen.consultation_fee_kobo,
-          })
-        }
-      >
-        {assign.isPending ? "Assigning…" : "Assign"}
-      </Button>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1">
+          <Label htmlFor={`provider-${referral.id}`}>Specialist provider</Label>
+          {isLoading && <p className="text-xs text-charcoal-ink/60">Loading providers…</p>}
+          {!isLoading && (providers?.length ?? 0) === 0 && (
+            <p className="text-xs text-charcoal-ink/60">No active providers match these filters yet.</p>
+          )}
+          {!isLoading && (providers?.length ?? 0) > 0 && (
+            <Select id={`provider-${referral.id}`} value={providerId} onChange={(e) => setProviderId(e.target.value)}>
+              <option value="">Select a provider</option>
+              {providers!.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {p.state ? ` · ${p.state}` : ""}
+                  {p.supports_telemedicine ? " · telemedicine" : ""} — ₦
+                  {koboToNaira(p.consultation_fee_kobo).toLocaleString()}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+        <Button
+          size="sm"
+          disabled={!chosen || assign.isPending}
+          onClick={() =>
+            chosen &&
+            assign.mutate({
+              referralId: referral.id,
+              organisationId: referral.organisation_id,
+              specialistProviderId: chosen.id,
+              feeKobo: chosen.consultation_fee_kobo,
+            })
+          }
+        >
+          {assign.isPending ? "Assigning…" : "Assign"}
+        </Button>
+      </div>
       {assign.isError && <p className="w-full text-xs text-red-600">Could not assign. Try again.</p>}
     </div>
   );

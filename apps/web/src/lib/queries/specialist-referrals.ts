@@ -46,20 +46,50 @@ export function useSpecialistReferral(referralId: string) {
 
 export type SpecialistProvider = Tables<"specialist_providers">;
 
-/** Active specialist_providers matching a specialist_type — populates the worklist's assignment picker. */
-export function useSpecialistProvidersByType(specialistType: Tables<"specialist_referrals">["specialist_type"] | null) {
+export interface SpecialistProviderMatchFilters {
+  specialistType: Tables<"specialist_referrals">["specialist_type"] | null;
+  state?: string;
+  requireTelemedicine?: boolean;
+  hmo?: string;
+}
+
+/**
+ * Active specialist_providers matching a specialist_type plus optional
+ * state/telemedicine/HMO filters — populates the worklist's assignment
+ * picker. Ordered so a same-state match sorts first, then alphabetically;
+ * done client-side rather than a Postgres CASE ORDER BY since the provider
+ * list is small (9 placeholder rows today) and this keeps the query itself
+ * simple. Patients don't choose between matched options themselves in this
+ * slice — the clinician still picks on their behalf, per
+ * docs/Tarragon_Health_Master_Operating_Plan_v4.md §7 Level 5a's Phase 1
+ * clinician-mediated model; patient choice is a flagged fast-follow.
+ */
+export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFilters) {
+  const { specialistType, state, requireTelemedicine, hmo } = filters;
   return useQuery({
-    queryKey: ["specialist-providers", specialistType ?? "none"],
+    queryKey: ["specialist-providers", specialistType ?? "none", state ?? "", requireTelemedicine ?? false, hmo ?? ""],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
+      let query = supabase
         .from("specialist_providers")
         .select("*")
         .eq("specialist_type", specialistType!)
-        .eq("is_active", true)
-        .order("name", { ascending: true });
+        .eq("is_active", true);
+      if (requireTelemedicine) {
+        query = query.eq("supports_telemedicine", true);
+      }
+      if (hmo) {
+        query = query.contains("accepted_hmos", [hmo]);
+      }
+      const { data, error } = await query.order("name", { ascending: true });
       if (error) throw error;
-      return data as SpecialistProvider[];
+      const providers = data as SpecialistProvider[];
+      if (!state) return providers;
+      return [...providers].sort((a, b) => {
+        const aMatch = a.state === state ? 0 : 1;
+        const bMatch = b.state === state ? 0 : 1;
+        return aMatch - bMatch || a.name.localeCompare(b.name);
+      });
     },
     enabled: !!specialistType,
   });
