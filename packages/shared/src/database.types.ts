@@ -1262,6 +1262,36 @@ export type Database = {
           },
         ]
       }
+      home_visit_providers: {
+        Row: {
+          created_at: string
+          home_visit_fee_kobo: number
+          id: string
+          is_active: boolean
+          name: string
+          regions: string[]
+          sample_types: string[]
+        }
+        Insert: {
+          created_at?: string
+          home_visit_fee_kobo?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          regions?: string[]
+          sample_types?: string[]
+        }
+        Update: {
+          created_at?: string
+          home_visit_fee_kobo?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          regions?: string[]
+          sample_types?: string[]
+        }
+        Relationships: []
+      }
       lab_analyte_readings: {
         Row: {
           code: string
@@ -1312,7 +1342,10 @@ export type Database = {
       }
       lab_orders: {
         Row: {
+          courier_reference: string | null
           created_at: string
+          home_visit_provider_id: string | null
+          home_visit_scheduled_at: string | null
           id: string
           investigation_tier: number
           order_number: string | null
@@ -1335,7 +1368,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          courier_reference?: string | null
           created_at?: string
+          home_visit_provider_id?: string | null
+          home_visit_scheduled_at?: string | null
           id?: string
           investigation_tier?: number
           order_number?: string | null
@@ -1358,7 +1394,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          courier_reference?: string | null
           created_at?: string
+          home_visit_provider_id?: string | null
+          home_visit_scheduled_at?: string | null
           id?: string
           investigation_tier?: number
           order_number?: string | null
@@ -1381,6 +1420,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lab_orders_home_visit_provider_id_fkey"
+            columns: ["home_visit_provider_id"]
+            isOneToOne: false
+            referencedRelation: "home_visit_providers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lab_orders_ordered_by_fkey"
             columns: ["ordered_by"]
@@ -1584,6 +1630,36 @@ export type Database = {
           name?: string
           role?: Database["public"]["Enums"]["lead_role"]
           source?: string
+        }
+        Relationships: []
+      }
+      logistics_partners: {
+        Row: {
+          created_at: string
+          delivery_fee_kobo: number
+          estimated_delivery_hours: number | null
+          id: string
+          is_active: boolean
+          name: string
+          regions: string[]
+        }
+        Insert: {
+          created_at?: string
+          delivery_fee_kobo?: number
+          estimated_delivery_hours?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          regions?: string[]
+        }
+        Update: {
+          created_at?: string
+          delivery_fee_kobo?: number
+          estimated_delivery_hours?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          regions?: string[]
         }
         Relationships: []
       }
@@ -2295,10 +2371,15 @@ export type Database = {
       }
       pharmacy_orders: {
         Row: {
+          courier_reference: string | null
           created_at: string
           delivered_at: string | null
+          delivery_address: Json | null
+          delivery_confirmed_at: string | null
+          estimated_delivery_at: string | null
           id: string
           items: Json
+          logistics_partner_id: string | null
           order_number: string | null
           ordered_by: string | null
           organisation_id: string
@@ -2316,10 +2397,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          courier_reference?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_address?: Json | null
+          delivery_confirmed_at?: string | null
+          estimated_delivery_at?: string | null
           id?: string
           items?: Json
+          logistics_partner_id?: string | null
           order_number?: string | null
           ordered_by?: string | null
           organisation_id: string
@@ -2337,10 +2423,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          courier_reference?: string | null
           created_at?: string
           delivered_at?: string | null
+          delivery_address?: Json | null
+          delivery_confirmed_at?: string | null
+          estimated_delivery_at?: string | null
           id?: string
           items?: Json
+          logistics_partner_id?: string | null
           order_number?: string | null
           ordered_by?: string | null
           organisation_id?: string
@@ -2358,6 +2449,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pharmacy_orders_logistics_partner_id_fkey"
+            columns: ["logistics_partner_id"]
+            isOneToOne: false
+            referencedRelation: "logistics_partners"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pharmacy_orders_ordered_by_fkey"
             columns: ["ordered_by"]
@@ -4020,6 +4118,10 @@ export type Database = {
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
+      set_pharmacy_order_delivery_address: {
+        Args: { p_address: Json; p_order_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       alert_level:
@@ -4047,7 +4149,12 @@ export type Database = {
       care_plan_status: "draft" | "active" | "completed" | "cancelled"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
-      commission_type: "lab" | "pharmacy" | "referral"
+      commission_type:
+        | "lab"
+        | "pharmacy"
+        | "referral"
+        | "home_visit"
+        | "delivery"
       contract_status:
         | "draft"
         | "submitted"
@@ -4374,7 +4481,13 @@ export const Constants = {
       care_plan_status: ["draft", "active", "completed", "cancelled"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
-      commission_type: ["lab", "pharmacy", "referral"],
+      commission_type: [
+        "lab",
+        "pharmacy",
+        "referral",
+        "home_visit",
+        "delivery",
+      ],
       contract_status: [
         "draft",
         "submitted",
