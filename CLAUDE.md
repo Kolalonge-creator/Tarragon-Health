@@ -3,13 +3,13 @@
 > Read every session. Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. Competitive-intelligence feature roadmap: `docs/FULL_SPECIFICATION_V4.md`. Clinician attribution & trust model: `docs/CLINICAL_TRUST_MODEL_SPEC.md` — authoritative for anything touching clinician/doctor attribution or escalation branding. This file is the operating contract — keep it under 200 lines, update "Current Sprint" every sprint.
 
 ## The Business
-Nigeria's digital-first chronic disease, preventive health, and family care coordination OS — the trusted coordination layer between patients, families, clinicians, labs, pharmacies, HMOs, and employers. App/web-first, clinician-led, escalation-driven, AI-automated, partner-network based, with WhatsApp/SMS as a follow-up and notification layer only (see Non-Negotiable Business Rules). **No owned clinics.** Five categories, all architecturally represented from Sprint 1 — they are commercially linked, each feeds the others:
+Nigeria's digital-first chronic disease, preventive health, and family care coordination OS — the trusted coordination layer between patients, families, doctors, labs, pharmacies, HMOs, and employers. App/web-first, doctor-led (Tarragon directly employs its day-to-day care-team doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`), escalation-driven, AI-automated, partner-network based, with WhatsApp/SMS as a follow-up and notification layer only (see Non-Negotiable Business Rules). **No owned clinics.** Five categories, all architecturally represented from Sprint 1 — they are commercially linked, each feeds the others:
 
 1. **Chronic Disease Management** *(core wedge)* — hypertension, diabetes; expansion: asthma, CKD, heart failure
 2. **Preventative Medicine** — cancer/metabolic/infectious/reproductive screening. **Abnormal result → Category 1 upgrade is the highest-priority business event in the platform — never lose it, never let it fail silently.**
 3. **Care Coordination** — lab network, pharmacy network, specialist referrals, hospital handoffs
 4. **B2B & Institutional** — corporate wellness, HMO capitation, NHIA/government programmes
-5. **Platform Infrastructure** *(backbone, not a product line)* — WhatsApp/SMS notification engine (reminders, alerts, confirmations — never signup or a feature's only interface), clinician-led delivery, AI clinical decisioning, longitudinal patient record, partner API layer, analytics
+5. **Platform Infrastructure** *(backbone, not a product line)* — WhatsApp/SMS notification engine (reminders, alerts, confirmations — never signup or a feature's only interface), doctor-led delivery, AI clinical decisioning, longitudinal patient record, partner API layer, analytics
 
 Prevention and chronic management **share the same patient record** — design every table and dashboard for dual-state.
 
@@ -41,8 +41,8 @@ Prevention and chronic management **share the same patient record** — design e
 - **Superseded 2026-07-11 — WhatsApp is not a required interface for signup or core platform actions.** Signup, onboarding, and every core patient/clinician transaction (vitals/meds/screening/booking logging, dose tracking, etc.) happen via app or web only — no bot-driven data entry over WhatsApp, ever, and no feature may be built to depend on a WhatsApp send succeeding. WhatsApp/SMS (Termii fallback) still carries reminders/alerts/confirmations, **and patients may message their doctor on WhatsApp for support, with the doctor replying on WhatsApp too** — that two-way channel is human-routed (a clinician inbox), never parsed by automation into a platform action.
 - Phone numbers always E.164 (`+234XXXXXXXXX`). Timezone always `Africa/Lagos`.
 - Every table has `organisation_id` — always filter by it. **RLS enforced at the Postgres level for every multi-tenant table — never bypass, never filter in application code instead.**
-- Clinician:patient ratio target — **1:120**. Four-level clinical escalation: routine → clinician review → urgent escalation → emergency/urgent care advice.
-- Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → clinician WhatsApp alert **immediate, not scheduled** → clinician has a 4-hour contact SLA → surfaces as Priority 1 (red) on clinician dashboard.
+- Doctor:patient ratio target — **1:120**, staffed by Tarragon-employed doctors. Four-level clinical escalation: routine → doctor review → urgent escalation (senior/escalation doctor) → emergency/urgent care advice.
+- Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → doctor WhatsApp alert **immediate, not scheduled** → doctor has a 4-hour contact SLA → surfaces as Priority 1 (red) on doctor dashboard.
 
 ## Device & Wearable Integration
 Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14, see Current Sprint). Consumer wearable cloud sync (Apple Health, Google Fit/Health Connect, Oura, WHOOP, Garmin, Fitbit) is **schema-scaffolded only (2026-07-14)** — `wearable_connections`/`wearable_readings` tables + RLS exist (migration `20260714140000_wearable_connections.sql`) and `apps/web/src/lib/wearables/oauth-providers.ts` has a tested, gracefully-degrading OAuth-URL builder for the 4 cloud-OAuth providers (Oura/WHOOP/Garmin/Fitbit) — but there is **no patient-facing "Connect" UI and no webhook ingestion route yet**, deliberately: none of the 5 providers' real developer apps/credentials exist, so a connect button would click through to nothing. Full spec: `docs/FULL_SPECIFICATION_V4.md` §5/§9 (`app/routers/wearables.py` — still unbuilt). Contract to follow when the consumer-wearable path is finished:
@@ -71,7 +71,7 @@ Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14,
 ## Brand (see `docs/BRAND_GUIDE.md` for full system)
 - Master tagline: **"Care that stays with you."** Wordmark: **TarragonHealth** (camel-case). Mark: **Guard Leaf** (shield + sprout crown + checkmark vein).
 - Tarragon Green `#0E7C52` (brand/primary actions), Clinical Navy `#12324B` (B2B/clinical documents). Clinical dashboard status colours (green/amber/red/blue/grey) are a **separate system** from brand colour — never confuse the two.
-- Voice: a clinician who knows your name, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
+- Voice: a doctor who knows your name, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
 
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
 Current Sprint: Sprint 4 — Python ML Microservice — **ON HOLD (2026-07-09)** per user decision to prioritize other platform work; do not resume ML work unless explicitly asked.
@@ -94,7 +94,7 @@ Active Service: TypeScript — **marketing site + platform convergence, merged t
 - Never deprioritise or silently swallow an abnormal screening result event
 - Never invent a standalone sub-brand name for an internal product (see `docs/BRAND_GUIDE.md` §7)
 - Never render a UI element claiming a doctor reviewed a specific case without a corresponding `reviewed_by`/`reviewed_at` record — the "Reviewed by Dr. X" pattern must be a single shared component that is null-gated, never a hardcoded string (see `docs/CLINICAL_TRUST_MODEL_SPEC.md` §2, §9)
-- Never make a doctor the default face of the day-to-day patient relationship — that's the clinician's role; doctor attribution is earned per-case through real escalation review, never applied as a uniform branding layer (`docs/CLINICAL_TRUST_MODEL_SPEC.md` §1, §9)
+- **Superseded 2026-07-15 — Tarragon now directly employs its own doctors; a named doctor is the default face of the day-to-day patient relationship** (see `docs/CLINICAL_TRUST_MODEL_SPEC.md` §1, §9, updated same date). Escalation-doctor review (a second, more senior doctor, distinct from the patient's own day-to-day doctor) is still earned per-case and must never be claimed without a real `reviewed_by`/`reviewed_at` record — that specific attribution rule still applies.
 
 ## Where to Look
 - System architecture, topology, RLS model, event pipelines, infra → `docs/ARCHITECTURE.md`
