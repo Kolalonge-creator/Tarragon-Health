@@ -6,8 +6,8 @@ import { signOut } from "../auth/actions";
 
 const ROLE_LABEL: Record<string, string> = {
   patient: "Patient",
-  clinician: "Clinician",
-  doctor: "Doctor",
+  clinician: "Care Team Doctor",
+  doctor: "Escalation Doctor",
   admin: "Admin",
   hmo_admin: "HMO admin",
   corporate_admin: "Corporate admin",

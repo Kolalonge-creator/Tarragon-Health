@@ -29,18 +29,20 @@ async function getCallerOrgAndDirector(): Promise<{
 
   // Only the Clinical Director signs protocols (CLINICAL_TRUST_MODEL_SPEC.md
   // §1) — the caller's own clinical_staff record, not just any staff login,
-  // must carry that role before a new version can be recorded.
+  // must carry the is_clinical_director flag before a new version can be
+  // recorded. That flag is orthogonal to doctor_tier (a Director can sit
+  // at any tier, or none) per docs/Tarragon_Health_Master_Operating_Plan_v4.md §4.
   const { data: director } = await supabase
     .from("clinical_staff")
     .select("id")
     .eq("organisation_id", profile.organisation_id)
     .eq("profile_id", user.id)
-    .eq("role", "clinical_director")
+    .eq("is_clinical_director", true)
     .eq("active", true)
     .maybeSingle();
   if (!director) {
     throw new Error(
-      "Only the org's active Clinical Director can sign a protocol version — add yourself to clinical_staff with that role first"
+      "Only the org's active Clinical Director can sign a protocol version — add yourself to clinical_staff as Clinical Director first"
     );
   }
 

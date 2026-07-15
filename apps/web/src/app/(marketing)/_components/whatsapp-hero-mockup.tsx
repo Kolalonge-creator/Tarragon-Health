@@ -1,10 +1,9 @@
-/** Signature hero visual — WhatsApp is the primary patient channel (CLAUDE.md). Pure CSS animation, no client JS. */
+/** Signature hero visual: WhatsApp carries reminders and human care-team support chat, not data entry (CLAUDE.md). Pure CSS animation, no client JS. */
 
 const MESSAGES = [
-  { from: "them" as const, delay: "0.3s", text: "Good morning! Time for your BP reading. Reply with your numbers, e.g. 128/82." },
-  { from: "me" as const, delay: "1.3s", text: "124/79 🙂" },
-  { from: "them" as const, delay: "2.3s", text: "That's within range and trending better than last week. Logged for Dad's file too." },
-  { from: "me" as const, delay: "3.3s", text: "Thank you!" },
+  { from: "them" as const, delay: "0.3s", text: "Good morning! Time for your BP reading, log it in the Tarragon app when you get a chance." },
+  { from: "them" as const, delay: "1.3s", text: "Got your reading: 124/79. That's within range and trending better than last week. Logged for Dad's file too." },
+  { from: "me" as const, delay: "2.3s", text: "Thank you!" },
 ];
 
 export function WhatsappHeroMockup({ className }: { className?: string }) {
@@ -22,7 +21,7 @@ export function WhatsappHeroMockup({ className }: { className?: string }) {
             </div>
             <div>
               <p className="text-xs font-semibold">Tarragon Care Team</p>
-              <p className="text-[10px] text-white/95">online · clinician Amaka</p>
+              <p className="text-[10px] text-white/95">online · Dr. Amaka</p>
             </div>
           </div>
           <div className="flex flex-1 flex-col gap-2.5 p-3">
@@ -62,7 +61,7 @@ export function WhatsappHeroMockup({ className }: { className?: string }) {
         className="motion-safe:opacity-0 absolute -right-2 top-4 hidden rounded-2xl bg-white px-4 py-3 text-xs font-semibold text-charcoal-ink shadow-xl shadow-charcoal-ink/10 motion-safe:[animation:marketing-fade-in_0.9s_ease-out_0.5s_forwards] lg:flex lg:items-center lg:gap-2"
       >
         <span className="h-2 w-2 rounded-full bg-brand-green" aria-hidden />
-        BP logged — 118/76
+        BP logged: 118/76
       </div>
       <div
         className="motion-safe:opacity-0 absolute -left-4 bottom-6 hidden rounded-2xl bg-white px-4 py-3 text-xs font-semibold text-charcoal-ink shadow-xl shadow-charcoal-ink/10 motion-safe:[animation:marketing-fade-in_0.9s_ease-out_0.7s_forwards] lg:flex lg:items-center lg:gap-2"

@@ -5,7 +5,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  * Gated under 'doctor_checkin' (see RequiresEntitlement usage in page.tsx).
  * No phone number is hardcoded here — WhatsApp is a human-routed support
  * channel (CLAUDE.md), so the actual thread is whatever number sent the
- * patient a reminder/notification, or one their clinician initiates for a
+ * patient a reminder/notification, or one their doctor initiates for a
  * scheduled check-in; inventing a fixed "contact us" number here would risk
  * it drifting from the org's real WhatsApp Business number.
  */

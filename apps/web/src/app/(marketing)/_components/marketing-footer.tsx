@@ -92,7 +92,7 @@ export function MarketingFooter() {
               Care that stays with you.
             </p>
             <p className="max-w-xs text-sm leading-relaxed text-white/65">
-              Clinician-led monitoring for chronic disease, preventive health,
+              Doctor-led monitoring for chronic disease, preventive health,
               family care, and the follow-up between visits.
             </p>
           </div>
@@ -106,7 +106,7 @@ export function MarketingFooter() {
       </div>
 
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
-        © {new Date().getFullYear()} TarragonHealth. Clinician-led health monitoring for Nigerian families.
+        © {new Date().getFullYear()} TarragonHealth. Doctor-led health monitoring for Nigerian families.
       </div>
     </footer>
   );

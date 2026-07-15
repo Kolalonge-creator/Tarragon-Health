@@ -1,9 +1,9 @@
-/** Signature continuity visual — echoes Guard Leaf checkmark vein (docs/MARKETING_SITE_SPEC.md §1). */
+/** Signature continuity visual, echoes Guard Leaf checkmark vein (docs/MARKETING_SITE_SPEC.md §1). */
 
 const MOMENTS = [
   { label: "Reading", cx: 32, cy: 50 },
   { label: "Reminder", cx: 112, cy: 32 },
-  { label: "Clinician call", cx: 208, cy: 38 },
+  { label: "Doctor call", cx: 208, cy: 38 },
   { label: "Family update", cx: 312, cy: 40 },
 ] as const;
 

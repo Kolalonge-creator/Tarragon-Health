@@ -4,11 +4,11 @@ import { MarketingFooter } from "./_components/marketing-footer";
 
 export const metadata: Metadata = {
   title: {
-    default: "TarragonHealth — Care that stays with you",
-    template: "%s — TarragonHealth",
+    default: "TarragonHealth | Care that stays with you",
+    template: "%s | TarragonHealth",
   },
   description:
-    "Clinician-led health monitoring for you, your parents, and your loved ones. Track blood pressure, blood sugar, medication, and preventive health in one secure platform.",
+    "Doctor-led health monitoring for you, your parents, and your loved ones. Track blood pressure, blood sugar, medication, and preventive health in one secure platform.",
 };
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {

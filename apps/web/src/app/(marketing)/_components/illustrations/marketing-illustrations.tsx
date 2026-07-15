@@ -5,7 +5,7 @@ type IllustrationProps = {
   className?: string;
 };
 
-/** Brand-aligned line illustrations — green/navy, calm Nigerian family care (docs/BRAND_GUIDE.md §8). */
+/** Brand-aligned line illustrations: green/navy, calm Nigerian family care (docs/BRAND_GUIDE.md §8). */
 export function MarketingIllustration({
   id,
   className,
@@ -136,7 +136,7 @@ function ConnectedCareIllustration({ className }: IllustrationProps) {
       </text>
       <rect x="96" y="168" width="256" height="48" rx="10" className="fill-sprout-gold/12" />
       <text x="112" y="198" className="fill-charcoal-ink text-[12px]">
-        Preventive check due — book & review
+        Preventive check due: book & review
       </text>
       <path
         d="M96 248 H352"

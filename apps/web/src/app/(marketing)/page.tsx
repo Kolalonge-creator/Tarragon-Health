@@ -26,9 +26,9 @@ import {
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
-  title: "TarragonHealth — Care that stays with you",
+  title: "TarragonHealth | Care that stays with you",
   description:
-    "Clinician-led health monitoring for you, your parents, and your loved ones. Track vitals, medication, labs, and preventive health in one secure platform.",
+    "Doctor-led health monitoring for you, your parents, and your loved ones. Track vitals, medication, labs, and preventive health in one secure platform.",
 };
 
 export default function MarketingHomePage() {
@@ -48,13 +48,13 @@ export default function MarketingHomePage() {
         />
         <MarketingHero media={homepage.hero} visual={<WhatsappHeroMockup />}>
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Clinician-led health monitoring
+            Doctor-led health monitoring
           </p>
           <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl lg:text-6xl">
             Care that stays with you.
           </h1>
           <p className="mt-4 font-heading text-xl text-charcoal-ink/80 sm:text-2xl">
-            Clinician-led health monitoring for you, your parents, and your loved ones.
+            Doctor-led health monitoring for you, your parents, and your loved ones.
           </p>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             Track blood pressure, blood sugar, medication, lab checks, and preventive health needs
@@ -91,7 +91,7 @@ export default function MarketingHomePage() {
         <StoryPanel
           eyebrow="The problem"
           title="Chronic disease is poorly followed up between doctor visits"
-          description="Families worry because readings drift, medication gets missed, and preventive checks slip — with no one watching consistently in between."
+          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between."
           media={homepage.problem}
         />
       </Section>
@@ -100,7 +100,7 @@ export default function MarketingHomePage() {
         <StoryPanel
           eyebrow="The solution"
           title="Tarragon monitors, reminds, reviews, coordinates, and escalates"
-          description="A clinician-led team keeps watch over your health record — calm follow-up when things are steady, escalation when they are not."
+          description="A doctor-led team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not."
           media={homepage.solution}
           reverse
         />
@@ -194,8 +194,8 @@ export default function MarketingHomePage() {
         <StoryPanel
           invertText
           eyebrow="Why trust us"
-          title="Clinician-led, protocol-driven, evidence-focused"
-          description="We are not a wellness app. Tarragon is built for the care between doctor visits — with clinicians who know your name and protocols that keep follow-up consistent."
+          title="Doctor-led, protocol-driven, evidence-focused"
+          description="We are not a wellness app. Tarragon is built for the care between doctor visits, with doctors who know your name and protocols that keep follow-up consistent."
           media={homepage.solution}
         />
       </Section>
@@ -203,7 +203,7 @@ export default function MarketingHomePage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="Why families trust Tarragon"
-          title="A clinician who knows your name. Not a hospital PA system."
+          title="A doctor who knows your name. Not a hospital PA system."
         />
         <TrustPillars />
       </Section>
@@ -216,7 +216,7 @@ export default function MarketingHomePage() {
       <Section>
         <CtaBand
           title="Simple, transparent pricing"
-          description="See what's included in each plan — no hidden costs."
+          description="See what's included in each plan, with no hidden costs."
           primaryHref={MARKETING_ROUTES.pricing}
           primaryLabel="View pricing"
           secondaryHref="/signup"
@@ -228,7 +228,7 @@ export default function MarketingHomePage() {
         <SectionHeading
           eyebrow="Questions"
           title="What families usually ask first"
-          description="Clear answers before anyone signs up — because trust starts with knowing what is included."
+          description="Clear answers before anyone signs up, because trust starts with knowing what is included."
         />
         <div className="mx-auto grid max-w-4xl gap-4">
           {HOMEPAGE_FAQS.map((faq) => (
@@ -252,7 +252,7 @@ export default function MarketingHomePage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Start monitoring today — for yourself or someone you love."
+          description="Start monitoring today, for yourself or someone you love."
           primaryHref="/signup"
           primaryLabel="Start monitoring"
         />

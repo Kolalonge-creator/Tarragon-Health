@@ -9,8 +9,8 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  * supabase/seed/seed.sql. */
 const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   clinician_review: {
-    title: "Clinician review is part of a paid plan",
-    body: "On Tarragon Free, no clinician reviews your readings. Upgrade to Essential Care or higher to get a named clinician following your numbers.",
+    title: "Doctor review is part of a paid plan",
+    body: "On Tarragon Free, no doctor reviews your readings. Upgrade to Essential Care or higher to get a named doctor following your numbers.",
   },
   doctor_checkin: {
     title: "Doctor check-ins are part of a paid plan",
@@ -18,11 +18,11 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   },
   lab_coordination: {
     title: "Lab test coordination is part of a paid plan",
-    body: "Your clinician books and coordinates lab tests for you on Essential Care or higher.",
+    body: "Your doctor books and coordinates lab tests for you on Essential Care or higher.",
   },
   medication_refills: {
     title: "Medication refill coordination is part of a paid plan",
-    body: "Upgrade to have your clinician coordinate refills through partner pharmacies for you.",
+    body: "Upgrade to have your doctor coordinate refills through partner pharmacies for you.",
   },
   family_dashboard: {
     title: "The family dashboard is part of the Family Plan",
