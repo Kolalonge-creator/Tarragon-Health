@@ -66,7 +66,7 @@ export default async function HealthPassportPage() {
           </h1>
           <p className="text-charcoal-ink/60">
             A summary of your health record for {periodLabel} — for your own records or to
-            share with another clinician. Not a substitute for your full medical record.
+            share with another doctor. Not a substitute for your full medical record.
           </p>
         </div>
         <Link

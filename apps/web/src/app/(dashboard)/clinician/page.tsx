@@ -9,7 +9,7 @@ export default async function ClinicianPage() {
   return (
     <DashboardPlaceholder
       greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
-      roleLabel="Clinician"
+      roleLabel="Care Team Doctor"
       comingUp={["Workload metrics (1:120 ratio target)"]}
     >
       <Worklist />

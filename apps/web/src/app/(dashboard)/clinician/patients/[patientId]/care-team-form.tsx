@@ -26,22 +26,22 @@ export function CareTeamForm({
         <CardTitle>Care team</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading clinicians…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading doctors…</p>}
         {!isLoading && assignable.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            No active clinicians on file for this organisation yet — add one to clinical_staff
+            No active doctors on file for this organisation yet — add one to clinical_staff
             first.
           </p>
         )}
         {assignable.length > 0 && (
           <div className="space-y-2">
-            <Label htmlFor="clinician">Assign clinician</Label>
+            <Label htmlFor="clinician">Assign doctor</Label>
             <Select
               id="clinician"
               value={clinicianProfileId}
               onChange={(e) => setClinicianProfileId(e.target.value)}
             >
-              <option value="">Select a clinician</option>
+              <option value="">Select a doctor</option>
               {assignable.map((c) => (
                 <option key={c.id} value={c.profile_id!}>
                   {c.full_name}

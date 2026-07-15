@@ -4,7 +4,7 @@ import type { EscalationLevel, EscalationStatus } from "@tarragon/shared";
 export const LEVEL_BADGE: Record<EscalationLevel, { variant: BadgeProps["variant"]; label: string }> = {
   emergency: { variant: "red", label: "Emergency" },
   urgent_escalation: { variant: "amber", label: "Urgent escalation" },
-  clinician_review: { variant: "blue", label: "Clinician review" },
+  clinician_review: { variant: "blue", label: "Doctor review" },
   routine: { variant: "grey", label: "Routine" },
 };
 
