@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s — TarragonHealth",
   },
   description:
-    "Clinician-led health monitoring for you, your parents, and your loved ones. Track blood pressure, blood sugar, medication, and preventive health in one secure platform.",
+    "Doctor-led health monitoring for you, your parents, and your loved ones. Track blood pressure, blood sugar, medication, and preventive health in one secure platform.",
 };
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {

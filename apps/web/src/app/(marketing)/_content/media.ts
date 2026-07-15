@@ -37,17 +37,17 @@ export const MARKETING_MEDIA = {
     } satisfies MarketingMediaSlot,
     solution: {
       illustration: "connected-care",
-      imageAlt: "Readings, reminders, and clinician review in one connected record",
+      imageAlt: "Readings, reminders, and doctor review in one connected record",
     } satisfies MarketingMediaSlot,
     /** Set youtubeId when a product walkthrough is ready on YouTube. */
     walkthroughVideo: {
       youtubeId: "",
       title: "See how Tarragon keeps care connected",
       caption:
-        "A two-minute look at logging vitals, clinician review, and family updates — calm follow-up between doctor visits.",
+        "A two-minute look at logging vitals, doctor review, and family updates — calm follow-up between doctor visits.",
       poster: {
         illustration: "clinician-follow-up",
-        imageAlt: "Clinician on a calm follow-up call with a patient",
+        imageAlt: "Doctor on a calm follow-up call with a patient",
       } satisfies MarketingMediaSlot,
     },
   },

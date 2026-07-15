@@ -30,7 +30,7 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
         )}
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            No care plan yet — your clinician will assign one after reviewing your health data.
+            No care plan yet — your doctor will assign one after reviewing your health data.
           </p>
         )}
         {data && data.length > 0 && (
@@ -50,7 +50,7 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
                   <p className="text-xs text-charcoal-ink/60">
                     {plan.assigned_clinician?.full_name
                       ? `Managed by ${plan.assigned_clinician.full_name}`
-                      : "Not yet assigned to a clinician"}
+                      : "Not yet assigned to a doctor"}
                   </p>
                   {targetRangeEntries.length > 0 && (
                     <p className="text-xs text-charcoal-ink/60">

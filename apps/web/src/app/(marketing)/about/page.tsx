@@ -38,7 +38,7 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
 export const metadata: Metadata = {
   title: "About — TarragonHealth",
   description:
-    "Why TarragonHealth exists: clinician-led continuity of care between doctor visits, for Nigerian families and the people who love them.",
+    "Why TarragonHealth exists: doctor-led continuity of care between doctor visits, for Nigerian families and the people who love them.",
 };
 
 export default function AboutPage() {
@@ -91,7 +91,7 @@ export default function AboutPage() {
               disease and preventive care in Nigeria: most complications
               aren&rsquo;t a failure of medicine, they&rsquo;re a failure of
               follow-up. Kola founded TarragonHealth to build the system that
-              closes that gap — clinician-led, protocol-driven, and never
+              closes that gap — doctor-led, protocol-driven, and never
               losing track of a patient between visits.
             </p>
           </div>
@@ -108,13 +108,13 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="The thesis"
           title="Continuity, not just monitoring"
-          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same clinician follow a person from a routine screening through an ongoing condition — the story never resets."
+          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same doctor follow a person from a routine screening through an ongoing condition — the story never resets."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {[
             {
-              title: "Clinician-led",
-              body: "A real clinician reviews readings and results — never an algorithm acting alone.",
+              title: "Doctor-led",
+              body: "A real doctor reviews readings and results — never an algorithm acting alone.",
             },
             {
               title: "Protocol-driven",

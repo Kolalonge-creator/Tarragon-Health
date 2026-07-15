@@ -30,12 +30,12 @@ export default async function OnboardingPage() {
             How your care works here
           </h2>
           <p className="text-sm text-charcoal-ink">
-            A named clinician on our care team follows your readings, checks in with you, and
+            A named doctor on our care team follows your readings, checks in with you, and
             documents your care as it happens — they&apos;re the person you&apos;ll actually hear
             from.
           </p>
           <p className="text-sm text-charcoal-ink">
-            Your care protocols — the thresholds and rules your clinician follows — are designed
+            Your care protocols — the thresholds and rules your doctor follows — are designed
             and supervised by our Clinical Director.
           </p>
           <p className="text-sm text-charcoal-ink">
