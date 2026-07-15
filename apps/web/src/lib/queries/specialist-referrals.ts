@@ -176,6 +176,51 @@ export function useSetReferralUrgency() {
   });
 }
 
+/**
+ * Records that a specialist's treatment plan came back — manually
+ * transcribed by org staff, since specialists have no platform login and
+ * nothing they send arrives through the app directly. Powers the
+ * "Treatment plan received" pipeline stage.
+ */
+export function useRecordTreatmentPlanReceived() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ referralId, note }: { referralId: string; note: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("specialist_referrals")
+        .update({ treatment_plan_received_at: new Date().toISOString(), treatment_plan_note: note })
+        .eq("id", referralId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
+    },
+  });
+}
+
+/**
+ * Marks shared-care handback: routine management responsibility has
+ * returned to Tarragon's own care team (docs/Tarragon_Health_Master_Operating_Plan_v4.md
+ * §7 Level 5c). Powers the final "Monitoring continues" pipeline stage.
+ */
+export function useRecordSharedCareHandback() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (referralId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("specialist_referrals")
+        .update({ shared_care_handback_at: new Date().toISOString() })
+        .eq("id", referralId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
+    },
+  });
+}
+
 /** Marks a booked referral's visit as done or cancelled — closes the worklist loop. */
 export function useCloseReferral() {
   const queryClient = useQueryClient();

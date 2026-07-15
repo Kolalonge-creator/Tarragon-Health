@@ -3029,9 +3029,12 @@ export type Database = {
           referral_reason: string | null
           screening_upgrade_id: string | null
           set_by: string | null
+          shared_care_handback_at: string | null
           specialist_provider_id: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note: string | null
+          treatment_plan_received_at: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["referral_urgency"] | null
         }
@@ -3054,9 +3057,12 @@ export type Database = {
           referral_reason?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
+          shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note?: string | null
+          treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
         }
@@ -3079,9 +3085,12 @@ export type Database = {
           referral_reason?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
+          shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note?: string | null
+          treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
         }

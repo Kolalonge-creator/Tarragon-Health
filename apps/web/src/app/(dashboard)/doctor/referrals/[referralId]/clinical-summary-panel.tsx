@@ -7,8 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { URGENCY_BADGE } from "@/lib/worklist/referral-urgency-badge";
-import { useSetReferralUrgency, type SpecialistReferralWithDetails } from "@/lib/queries/specialist-referrals";
+import {
+  useSetReferralUrgency,
+  useRecordTreatmentPlanReceived,
+  useRecordSharedCareHandback,
+  type SpecialistReferralWithDetails,
+} from "@/lib/queries/specialist-referrals";
 import type { ReferralUrgency } from "@tarragon/shared";
 import { assembleAndSaveClinicalSummary } from "./actions";
 
@@ -62,9 +68,12 @@ function formatVital(vital: ClinicalSummaryVital): string {
 export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferralWithDetails }) {
   const router = useRouter();
   const setUrgency = useSetReferralUrgency();
+  const recordTreatmentPlan = useRecordTreatmentPlanReceived();
+  const recordHandback = useRecordSharedCareHandback();
   const [urgency, setUrgencyLocal] = useState<ReferralUrgency | "">(referral.urgency ?? "");
   const [isPending, startTransition] = useTransition();
   const [assembleError, setAssembleError] = useState<string | null>(null);
+  const [treatmentPlanNote, setTreatmentPlanNote] = useState("");
 
   const summary = referral.clinical_summary as unknown as ClinicalSummary | null;
 
@@ -187,6 +196,63 @@ export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferra
           )}
         </CardContent>
       </Card>
+
+      {referral.status === "completed" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Treatment plan &amp; shared care</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 print:hidden">
+            {referral.treatment_plan_received_at ? (
+              <p className="text-sm text-charcoal-ink">
+                Treatment plan received {new Date(referral.treatment_plan_received_at).toLocaleDateString("en-GB")}
+                {referral.treatment_plan_note && ` — ${referral.treatment_plan_note}`}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="treatment-plan-note">Treatment plan (as sent back by the specialist)</Label>
+                <Textarea
+                  id="treatment-plan-note"
+                  value={treatmentPlanNote}
+                  onChange={(e) => setTreatmentPlanNote(e.target.value)}
+                  placeholder="Diagnosis, treatment recommendations, medication changes, follow-up plan…"
+                />
+                <Button
+                  size="sm"
+                  disabled={treatmentPlanNote.trim().length === 0 || recordTreatmentPlan.isPending}
+                  onClick={() =>
+                    recordTreatmentPlan.mutate(
+                      { referralId: referral.id, note: treatmentPlanNote.trim() },
+                      { onSuccess: () => router.refresh() }
+                    )
+                  }
+                >
+                  {recordTreatmentPlan.isPending ? "Saving…" : "Record treatment plan"}
+                </Button>
+              </div>
+            )}
+
+            {referral.treatment_plan_received_at &&
+              (referral.shared_care_handback_at ? (
+                <p className="text-sm text-charcoal-ink">
+                  Shared care resumed by your care team{" "}
+                  {new Date(referral.shared_care_handback_at).toLocaleDateString("en-GB")}
+                </p>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={recordHandback.isPending}
+                  onClick={() =>
+                    recordHandback.mutate(referral.id, { onSuccess: () => router.refresh() })
+                  }
+                >
+                  {recordHandback.isPending ? "Saving…" : "Confirm shared-care handback"}
+                </Button>
+              ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
