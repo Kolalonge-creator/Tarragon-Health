@@ -42,6 +42,9 @@ export function FacilityManager() {
   const [contactPhone, setContactPhone] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [hours, setHours] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
 
   function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -53,6 +56,9 @@ export function FacilityManager() {
       contact_phone: contactPhone || undefined,
       contact_email: contactEmail || undefined,
       address: address || undefined,
+      hours: hours || undefined,
+      latitude: latitude || undefined,
+      longitude: longitude || undefined,
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -67,6 +73,9 @@ export function FacilityManager() {
         setContactPhone("");
         setContactEmail("");
         setAddress("");
+        setHours("");
+        setLatitude("");
+        setLongitude("");
       },
     });
   }
@@ -148,6 +157,37 @@ export function FacilityManager() {
               <Label htmlFor="new_facility_address">Address (optional)</Label>
               <Input id="new_facility_address" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new_facility_hours">Opening hours (optional)</Label>
+              <Input
+                id="new_facility_hours"
+                placeholder="e.g. Mon-Sat 8am-6pm"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="new_facility_latitude">Latitude (optional)</Label>
+                <Input
+                  id="new_facility_latitude"
+                  type="number"
+                  step="any"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new_facility_longitude">Longitude (optional)</Label>
+                <Input
+                  id="new_facility_longitude"
+                  type="number"
+                  step="any"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                />
+              </div>
+            </div>
             {displayError && <p className="text-sm text-red-600">{displayError}</p>}
             <Button type="submit" disabled={createFacility.isPending}>
               {createFacility.isPending ? "Adding…" : "Add facility"}
@@ -181,6 +221,18 @@ export function FacilityManager() {
                       <Badge variant={facility.is_active ? "green" : "grey"}>
                         {facility.is_active ? "Active" : "Inactive"}
                       </Badge>
+                      {facility.verified && <Badge variant="blue">Verified</Badge>}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={updateFacility.isPending}
+                        onClick={() =>
+                          updateFacility.mutate({ id: facility.id, verified: !facility.verified })
+                        }
+                      >
+                        {facility.verified ? "Unverify" : "Verify"}
+                      </Button>
                       <Button
                         type="button"
                         size="sm"
