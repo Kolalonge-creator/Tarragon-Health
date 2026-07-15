@@ -3037,6 +3037,7 @@ export type Database = {
           clinical_summary: Json | null
           created_at: string
           id: string
+          interim_management_plan: string | null
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
@@ -3058,6 +3059,7 @@ export type Database = {
           treatment_plan_received_at: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["referral_urgency"] | null
+          waitlisted_at: string | null
         }
         Insert: {
           appointment_date?: string | null
@@ -3065,6 +3067,7 @@ export type Database = {
           clinical_summary?: Json | null
           created_at?: string
           id?: string
+          interim_management_plan?: string | null
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
@@ -3086,6 +3089,7 @@ export type Database = {
           treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
+          waitlisted_at?: string | null
         }
         Update: {
           appointment_date?: string | null
@@ -3093,6 +3097,7 @@ export type Database = {
           clinical_summary?: Json | null
           created_at?: string
           id?: string
+          interim_management_plan?: string | null
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id?: string
@@ -3114,6 +3119,7 @@ export type Database = {
           treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
+          waitlisted_at?: string | null
         }
         Relationships: [
           {
@@ -3586,6 +3592,99 @@ export type Database = {
           },
         ]
       }
+      video_consultations: {
+        Row: {
+          context: Database["public"]["Enums"]["video_consultation_context"]
+          created_at: string
+          ended_at: string | null
+          escalation_id: string | null
+          host_start_url: string | null
+          id: string
+          initiated_by: string | null
+          join_url: string | null
+          organisation_id: string
+          patient_id: string
+          scheduled_at: string | null
+          specialist_referral_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at: string
+          zoom_meeting_id: string | null
+        }
+        Insert: {
+          context: Database["public"]["Enums"]["video_consultation_context"]
+          created_at?: string
+          ended_at?: string | null
+          escalation_id?: string | null
+          host_start_url?: string | null
+          id?: string
+          initiated_by?: string | null
+          join_url?: string | null
+          organisation_id: string
+          patient_id: string
+          scheduled_at?: string | null
+          specialist_referral_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at?: string
+          zoom_meeting_id?: string | null
+        }
+        Update: {
+          context?: Database["public"]["Enums"]["video_consultation_context"]
+          created_at?: string
+          ended_at?: string | null
+          escalation_id?: string | null
+          host_start_url?: string | null
+          id?: string
+          initiated_by?: string | null
+          join_url?: string | null
+          organisation_id?: string
+          patient_id?: string
+          scheduled_at?: string | null
+          specialist_referral_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at?: string
+          zoom_meeting_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_consultations_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vitals_readings: {
         Row: {
           created_at: string
@@ -3861,6 +3960,47 @@ export type Database = {
           },
         ]
       }
+      zoom_webhook_events: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string
+          id: string
+          processed_at: string | null
+          provider_event_id: string
+          raw_payload: Json
+          video_consultation_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type: string
+          id?: string
+          processed_at?: string | null
+          provider_event_id: string
+          raw_payload?: Json
+          video_consultation_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string
+          id?: string
+          processed_at?: string | null
+          provider_event_id?: string
+          raw_payload?: Json
+          video_consultation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoom_webhook_events_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -3997,6 +4137,7 @@ export type Database = {
         | "pending_payment"
         | "payment_confirmed"
         | "pending"
+        | "waitlisted"
         | "booked"
         | "confirmed"
         | "completed"
@@ -4057,6 +4198,13 @@ export type Database = {
         | "corporate_admin"
         | "doctor"
         | "care_coordinator"
+      video_consultation_context: "pre_referral_triage" | "specialist_consult"
+      video_consultation_status:
+        | "scheduled"
+        | "started"
+        | "completed"
+        | "cancelled"
+        | "no_show"
       vital_source: "manual" | "device" | "wearable"
       vital_type:
         | "blood_pressure"
@@ -4324,6 +4472,7 @@ export const Constants = {
         "pending_payment",
         "payment_confirmed",
         "pending",
+        "waitlisted",
         "booked",
         "confirmed",
         "completed",
@@ -4391,6 +4540,14 @@ export const Constants = {
         "corporate_admin",
         "doctor",
         "care_coordinator",
+      ],
+      video_consultation_context: ["pre_referral_triage", "specialist_consult"],
+      video_consultation_status: [
+        "scheduled",
+        "started",
+        "completed",
+        "cancelled",
+        "no_show",
       ],
       vital_source: ["manual", "device", "wearable"],
       vital_type: [
