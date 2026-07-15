@@ -3,22 +3,20 @@
  * authoritative plans & pricing doc). Keep this in sync with that guide;
  * every price and label here should be traceable back to it.
  *
- * Deliberate exceptions (carried forward from the v1 doc, still true of v2):
- * - The docx repeatedly says "nurse" (nurse review, named nurse coordinator,
- *   etc.), but this file uses "clinician" instead, per an explicit
- *   platform-wide nurse->clinician terminology decision.
- * - The docx sells "Monthly doctor check-in" as a routine included feature
- *   on every paid plan. Per docs/CLINICAL_TRUST_MODEL_SPEC.md §9 ("the
- *   clinician, not a doctor, is the default face of the day-to-day patient
- *   relationship... doctor attribution is earned per-case, never applied
- *   uniformly"), routine recurring touchpoints are relabelled "clinician
- *   check-in" here. Genuine scheduled/booked doctor appointments (the
- *   Dedicated Care Coordinator add-on, Family Premium, diaspora Premium) and
- *   escalation-triggered doctor review stay attributed to "doctor": those
- *   are real, earned, or explicitly paid doctor time, not a uniform branding
- *   layer.
- * If the docx is revised again, keep re-deriving prices from it but keep
- * both of the above substitutions.
+ * Deliberate exception (2026-07-12, unchanged by the 2026-07-15 doctor-led
+ * update below): the docx repeatedly says "nurse" (nurse review, named nurse
+ * coordinator, etc.), but this file uses "doctor" instead, per the
+ * platform-wide nurse->doctor terminology decision. If the docx is revised
+ * again, keep re-deriving prices from it but keep the role word as "doctor".
+ *
+ * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
+ * the day-to-day touchpoints that used to be relabelled "clinician" (per the
+ * earlier "clinician is the default face" rule in
+ * docs/CLINICAL_TRUST_MODEL_SPEC.md §9) are back to "doctor" everywhere in
+ * this file, matching the docx and the current spec. Escalation-triggered
+ * doctor review (Priority doctor escalation) and explicitly paid/booked
+ * doctor appointments (Dedicated Care Coordinator, Family Premium, diaspora
+ * Premium) were already correctly attributed to "doctor" and are unchanged.
  */
 
 export type PricingLabel = "INCLUDED" | "BOOK & PAY" | "FREE ELSEWHERE" | "ADD-ON";
@@ -85,7 +83,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. No clinician reviews your readings on this plan; if something looks concerning, we'll encourage you to see a doctor and show you how to upgrade.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings on this plan; if something looks concerning, we'll encourage you to see a doctor and show you how to upgrade.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -95,7 +93,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Device setup guides", label: "INCLUDED" },
     ],
     footnote:
-      "Not included on this plan, and available only if you upgrade: clinician review, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
+      "Not included on this plan, and available only if you upgrade: doctor review, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
   },
   {
     id: "essential",
@@ -108,9 +106,9 @@ export const NGN_TIERS: PricingTier[] = [
     highlight: true,
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
-      { feature: "Monthly clinician review of your BP or glucose readings", label: "INCLUDED" },
-      { feature: "Monthly clinician check-in over WhatsApp", label: "INCLUDED" },
-      { feature: "Medication adherence follow-up from your clinician", label: "INCLUDED" },
+      { feature: "Monthly doctor review of your BP or glucose readings", label: "INCLUDED" },
+      { feature: "Monthly doctor check-in over WhatsApp", label: "INCLUDED" },
+      { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
       { feature: "Direct WhatsApp access to your care team", label: "INCLUDED" },
       { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "BOOK & PAY" },
       { feature: "Medication refills through partner pharmacies", label: "BOOK & PAY" },
@@ -129,7 +127,7 @@ export const NGN_TIERS: PricingTier[] = [
       "For patients managing more than one condition together, or anyone whose doctor recommends closer monitoring.",
     items: [
       { feature: "Everything in Essential Care", label: "INCLUDED" },
-      { feature: "Weekly clinician review (instead of monthly)", label: "INCLUDED" },
+      { feature: "Weekly doctor review (instead of monthly)", label: "INCLUDED" },
       { feature: "Support for multiple conditions on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
       { feature: "Lab tests", label: "BOOK & PAY" },
@@ -166,7 +164,7 @@ export const NGN_TIERS: PricingTier[] = [
     description: "Everything in Family Lite, plus a closer layer of coordination for your whole household.",
     items: [
       { feature: "Everything in Family Lite", label: "INCLUDED" },
-      { feature: "A named family clinician coordinator, not a rotating team", label: "INCLUDED" },
+      { feature: "A named family doctor coordinator, not a rotating team", label: "INCLUDED" },
       { feature: "Priority escalation across all members, every time, not only for abnormal readings", label: "INCLUDED" },
       { feature: "One Annual Health Check included free each year, for one member of your choice (a ₦60,000 value)", label: "INCLUDED" },
       { feature: "Lab tests and medication refills for each additional member", label: "BOOK & PAY" },
@@ -183,9 +181,9 @@ export const NGN_TIERS: PricingTier[] = [
     description: "Our closest level of family monitoring: everything in Family Plus, plus dedicated doctor time for every member.",
     items: [
       { feature: "Everything in Family Plus", label: "INCLUDED" },
-      { feature: "A named clinician coordinator plus a scheduled, booked monthly doctor appointment for every member", label: "INCLUDED" },
+      { feature: "A named doctor coordinator plus a scheduled, booked monthly doctor appointment for every member", label: "INCLUDED" },
       { feature: "Quarterly PDF health report, in addition to the monthly summary", label: "INCLUDED" },
-      { feature: "Expedited clinician response (under 2 hours) for every member, on any non-emergency question", label: "INCLUDED" },
+      { feature: "Expedited doctor response (under 2 hours) for every member, on any non-emergency question", label: "INCLUDED" },
       { feature: "Two Annual Health Checks included free each year, for members of your choice (up to ₦120,000 value)", label: "INCLUDED" },
       { feature: "Lab tests and medication refills beyond what's included", label: "BOOK & PAY" },
     ],
@@ -229,10 +227,10 @@ export const GBP_TIERS: PricingTier[] = [
     pricePeriod: "per month",
     priceSecondary: "or £990/year",
     description:
-      "Complete Care, plus a named clinician coordinator, a scheduled monthly doctor appointment (not just WhatsApp), and a quarterly PDF report: our closest level of care for a parent you can't check on in person. You are not just paying for WhatsApp check-ins, you're paying for peace of mind that someone is watching over your family while you're not there.",
+      "Complete Care, plus a named doctor coordinator, a scheduled monthly doctor appointment (not just WhatsApp), and a quarterly PDF report: our closest level of care for a parent you can't check on in person. You are not just paying for WhatsApp check-ins, you're paying for peace of mind that someone is watching over your family while you're not there.",
     items: [
       { feature: "Everything in Complete Care (Naira plan)", label: "INCLUDED" },
-      { feature: "A named clinician coordinator", label: "INCLUDED" },
+      { feature: "A named doctor coordinator", label: "INCLUDED" },
       { feature: "A scheduled, booked monthly doctor appointment, not just WhatsApp", label: "INCLUDED" },
       { feature: "A quarterly PDF report", label: "INCLUDED" },
       { feature: "Lab tests and medication refills in Nigeria", label: "BOOK & PAY" },
@@ -260,7 +258,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦60,000/year",
     label: "ADD-ON",
     description:
-      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a clinician consultation to walk you through your results. If anything comes back abnormal, your clinician follows up directly, with no automatic extra charge.",
+      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a doctor consultation to walk you through your results. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge.",
     availability: "Available to anyone, on any plan, including Tarragon Free.",
   },
   {
@@ -287,7 +285,7 @@ export const ADD_ONS: PricingAddOn[] = [
     description:
       "Turns Complete Care (₦15,000/month) into a fully dedicated service at ₦45,000/month total. Built for a parent or relative who needs closer, more personal attention, especially popular with diaspora families. If you're covering your whole family, Family Premium bundles this level of service at a lower blended cost.",
     items: [
-      { feature: "One named clinician coordinator (not a rotating team)", label: "INCLUDED" },
+      { feature: "One named doctor coordinator (not a rotating team)", label: "INCLUDED" },
       { feature: "A scheduled, booked monthly doctor appointment", label: "INCLUDED" },
       { feature: "Quarterly PDF health report sent to the family", label: "INCLUDED" },
       { feature: "Priority escalation", label: "INCLUDED" },
@@ -308,15 +306,15 @@ export const ADD_ONS: PricingAddOn[] = [
     name: "BP Monitor & Glucometer Starter Kit",
     price: "₦25,000–₦45,000",
     label: "ADD-ON",
-    description: "A home blood pressure monitor, a glucometer with starter test strips, and a short clinician call to walk you through using both correctly.",
+    description: "A home blood pressure monitor, a glucometer with starter test strips, and a short doctor call to walk you through using both correctly.",
     availability: "One-time purchase; can be paid in 3 monthly instalments if you prefer.",
   },
   {
     id: "expedited-response",
-    name: "Expedited Clinician Response",
+    name: "Expedited Doctor Response",
     price: "+₦5,000/month",
     label: "ADD-ON",
-    description: "Moves your clinician response time for non-emergency questions to under 2 hours, instead of the standard same-day/next-day response.",
+    description: "Moves your doctor response time for non-emergency questions to under 2 hours, instead of the standard same-day/next-day response.",
     availability: "Available on any paid plan.",
   },
   {
@@ -341,16 +339,16 @@ export const ALWAYS_FREE_NOTE =
 
 /** "Try Before You Commit" section: free trials of Complete Care from Tarragon Free. */
 export const FREE_TRIAL_INTRO =
-  "Tarragon Free stays free forever: it never expires and never turns into a paid plan on its own. But if you want to feel what it's like to have a real clinician actually watching your numbers, we offer two ways to try a paid plan at no cost.";
+  "Tarragon Free stays free forever: it never expires and never turns into a paid plan on its own. But if you want to feel what it's like to have a real doctor actually watching your numbers, we offer two ways to try a paid plan at no cost.";
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
     title: "Milestone trial: after your 90-Day Health Reset",
-    body: "Once you've completed the 90-Day Health Reset on Tarragon Free, we'll offer you 30 days of Complete Care at no charge, no card required to start. A real clinician reviews your numbers for a month so you can decide, with full information, whether it's worth paying for.",
+    body: "Once you've completed the 90-Day Health Reset on Tarragon Free, we'll offer you 30 days of Complete Care at no charge, no card required to start. A real doctor reviews your numbers for a month so you can decide, with full information, whether it's worth paying for.",
   },
   {
     title: "Risk-triggered trial: when your own numbers ask for it",
-    body: "If your logged readings show a pattern a clinician would want to look at (for example, several elevated blood pressure or glucose readings within 30 days), we'll proactively offer a free 30-day trial of Complete Care, so a clinician can review you before anything becomes urgent, not after.",
+    body: "If your logged readings show a pattern a doctor would want to look at (for example, several elevated blood pressure or glucose readings within 30 days), we'll proactively offer a free 30-day trial of Complete Care, so a doctor can review you before anything becomes urgent, not after.",
   },
 ];
 
@@ -362,7 +360,7 @@ export const FREE_TRIAL_TERMS: string[] = [
 
 export const BOOKING_STEPS: { title: string; body: string }[] = [
   {
-    title: "Your clinician tells you (or you ask)",
+    title: "Your doctor tells you (or you ask)",
     body: "A test, refill, or vaccine is due.",
   },
   {
@@ -379,7 +377,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "Your result or delivery comes back on WhatsApp",
-    body: "Explained in plain language. If anything needs attention, your clinician calls you; this does not create any new charge.",
+    body: "Explained in plain language. If anything needs attention, your doctor calls you; this does not create any new charge.",
   },
 ];
 
@@ -401,7 +399,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "My test came back abnormal. Will I be billed extra automatically?",
     answer:
-      "No. Your clinician will call you. If your doctor recommends moving to a higher level of care, that is entirely your choice, and you'll see the price clearly before you decide anything.",
+      "No. Your doctor will call you. If your doctor recommends moving to a higher level of care, that is entirely your choice, and you'll see the price clearly before you decide anything.",
   },
   {
     question: "Does Tarragon Free ever expire?",
@@ -411,7 +409,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "How do the free trials of Complete Care work?",
     answer:
-      "You'll be offered a 30-day free trial either after completing the 90-Day Health Reset, or if your logged readings suggest a clinician should take a closer look. No card is required to start, and at the end of the trial you simply return to Tarragon Free unless you choose to continue on a paid plan.",
+      "You'll be offered a 30-day free trial either after completing the 90-Day Health Reset, or if your logged readings suggest a doctor should take a closer look. No card is required to start, and at the end of the trial you simply return to Tarragon Free unless you choose to continue on a paid plan.",
   },
   {
     question: "Will my Naira price change without warning?",
@@ -425,7 +423,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "What if I need a test that isn't listed here?",
-    answer: "Ask your clinician on WhatsApp. We'll tell you if it's available, and you'll see the price before booking, exactly like every other test.",
+    answer: "Ask your doctor on WhatsApp. We'll tell you if it's available, and you'll see the price before booking, exactly like every other test.",
   },
   {
     question: "Is my payment information safe?",
