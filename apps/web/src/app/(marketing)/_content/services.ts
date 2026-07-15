@@ -62,13 +62,13 @@ export const PROOF_STATS = [
   },
   {
     value: "2",
-    label: "ways to log",
-    detail: "WhatsApp and app/web, so care is not app-only.",
+    label: "ways to reach your care team",
+    detail: "Message on WhatsApp or use the app/web dashboard, so support is never far away.",
   },
   {
     value: "4",
     label: "escalation levels",
-    detail: "Routine follow-up through doctor escalation.",
+    detail: "Routine review through emergency escalation, matched to what's needed.",
   },
   {
     value: "1",
@@ -80,7 +80,7 @@ export const PROOF_STATS = [
 export const WHAT_YOU_GET = [
   {
     title: "Monitor",
-    body: "Log BP, glucose, medication, and preventive checks through WhatsApp or app, all in one health record.",
+    body: "Log BP, glucose, medication, and preventive checks through the app or web, all in one health record.",
   },
   {
     title: "Review",
