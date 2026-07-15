@@ -145,3 +145,21 @@ export type EscalationLevel = Enums<"alert_level">;
 
 /** escalations.status — clinician-raised, doctor-owned case lifecycle. */
 export type EscalationStatus = Enums<"escalation_status">;
+
+/** specialist_referrals.status — assignment/payment/booking lifecycle. */
+export type ReferralStatus = Enums<"referral_status">;
+
+/** lab_orders.status — payment/collection/processing lifecycle. */
+export type LabOrderStatus = Enums<"lab_order_status">;
+
+/** pharmacy_orders.status — payment/fulfillment lifecycle. */
+export type PharmacyOrderStatus = Enums<"pharmacy_order_status">;
+
+/** commissions.commission_type — lab/pharmacy/referral partner-revenue source. */
+export type CommissionType = Enums<"commission_type">;
+
+/** commissions.status — pending/confirmed/paid settlement lifecycle. */
+export type CommissionStatus = Enums<"commission_status">;
+
+/** commissions.rate_type (and lab_tests/pharmacy_medications/panel_bundles/specialist_providers' matching columns) — percentage vs. flat-kobo. */
+export type CommissionRateType = Enums<"commission_rate_type">;

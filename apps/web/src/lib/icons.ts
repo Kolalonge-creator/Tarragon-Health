@@ -16,6 +16,7 @@ import {
   Sparkles,
   Lock,
   CreditCard,
+  Percent,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,4 +43,5 @@ export const SEMANTIC_ICON = {
   aiCoach: Sparkles,
   upgrade: Lock,
   billing: CreditCard,
+  commission: Percent,
 } as const satisfies Record<string, LucideIcon>;

@@ -39,6 +39,11 @@ export default async function ClinicianPage() {
           Support inbox →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href="/clinician/referrals" className="text-brand-green hover:underline">
+          Specialist referrals →
+        </Link>
+      </p>
     </DashboardPlaceholder>
   );
 }

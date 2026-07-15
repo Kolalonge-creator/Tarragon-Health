@@ -7,6 +7,7 @@ import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { ScreeningResultForm } from "./screening-result-form";
 import { CareTeamForm } from "./care-team-form";
+import { OrderLabTestForm } from "./order-lab-test-form";
 
 export default async function ClinicianPatientPage({
   params,
@@ -80,7 +81,10 @@ export default async function ClinicianPatientPage({
       <VitalsTrendChart patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />
       {patient.organisation_id && (
-        <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
+        <>
+          <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
+          <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
+        </>
       )}
     </div>
   );

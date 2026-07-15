@@ -21,6 +21,17 @@ const FACILITY_TYPE_LABEL: Record<Facility["type"], string> = {
   vaccination_centre: "Vaccination centre",
 };
 
+// 'lab'/'pharmacy' are excluded from the filter dropdown (not the lookup
+// map above, so any pre-existing row of either type still renders a
+// correct badge) — this open-ended facility-request form was never the
+// transactional path for either (Build 2's decision): pharmacy books
+// through PharmacyCatalogue, and lab tests book either via a due screening
+// on PreventiveScreeningCalendar or a clinician-generated order — never a
+// free-text request to an arbitrary facility.
+const SELECTABLE_FACILITY_TYPES = Object.entries(FACILITY_TYPE_LABEL).filter(
+  ([value]) => value !== "lab" && value !== "pharmacy",
+);
+
 /** Haversine great-circle distance in kilometres. */
 function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
@@ -36,7 +47,7 @@ function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: numb
  * "Find near me" discovery view (docs/FULL_SPECIFICATION_V4.md §2.3 — "a
  * patient-facing 'find near me' view ... distinct from the transactional
  * booking flow"). Reads public.facilities directly (now carrying
- * latitude/longitude/hours/verified — see 20260715150000_care_navigation_directory_columns.sql)
+ * latitude/longitude/hours/verified — see 20260715162815_care_navigation_directory_columns.sql)
  * rather than a separate directory table, so there's one directory, not two.
  * Booking stays as a secondary action per facility, same as before — this
  * is still fundamentally a browse/discover view, not a booking form.
@@ -105,7 +116,7 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
               onChange={(event) => setType(event.target.value as Facility["type"] | "")}
             >
               <option value="">All types</option>
-              {Object.entries(FACILITY_TYPE_LABEL).map(([value, label]) => (
+              {SELECTABLE_FACILITY_TYPES.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

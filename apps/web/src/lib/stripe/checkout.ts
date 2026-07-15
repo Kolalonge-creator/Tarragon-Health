@@ -52,6 +52,63 @@ export async function createCheckoutSession(args: {
 }
 
 /**
+ * Same hosted-checkout redirect as createCheckoutSession(), but in
+ * `mode: "payment"` instead of `"subscription"` — a single, non-recurring
+ * charge with no Stripe Subscription object created at all, so there's
+ * nothing for `subscription_data` to attach metadata to (payment-mode
+ * sessions never fire customer.subscription.* events). Used for one-off
+ * booking payments (lab/pharmacy/specialist referral).
+ *
+ * Takes `amountMinor`/`currency`/`description` and builds the line item via
+ * Stripe's inline `price_data` rather than a pre-created `stripePriceId` —
+ * unlike subscription plans, a booking's price is whatever that specific
+ * lab test/medication/referral costs, not a fixed catalogue Price object
+ * that would need creating in Stripe ahead of time for every possible amount.
+ */
+export async function createOneOffCheckoutSession(args: {
+  email: string;
+  amountMinor: number;
+  currency: "GBP" | "USD";
+  description: string;
+  successUrl: string;
+  cancelUrl: string;
+  metadata: CheckoutMetadata;
+}): Promise<StripeResult<{ checkoutUrl: string; sessionId: string }>> {
+  const metadata: Record<string, string> = {
+    kind: args.metadata.kind,
+    profile_id: args.metadata.profile_id,
+    item_code: args.metadata.item_code,
+    ...(args.metadata.booking_order_id ? { booking_order_id: args.metadata.booking_order_id } : {}),
+    ...(args.metadata.booking_order_type ? { booking_order_type: args.metadata.booking_order_type } : {}),
+  };
+
+  const result = await stripeCall((stripe) =>
+    stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: args.email,
+      line_items: [
+        {
+          price_data: {
+            currency: args.currency.toLowerCase(),
+            unit_amount: args.amountMinor,
+            product_data: { name: args.description },
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${args.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: args.cancelUrl,
+      metadata,
+    }),
+  );
+  if (!result.ok) return result;
+  if (!result.data.url) {
+    return { ok: false, error: "Stripe did not return a checkout URL" };
+  }
+  return { ok: true, data: { checkoutUrl: result.data.url, sessionId: result.data.id } };
+}
+
+/**
  * Same-request UX confirmation only ("payment received, activating…") for
  * the checkout-callback page — NEVER used to activate a subscription.
  * stripe-webhook's checkout.session.completed handler is the sole source of

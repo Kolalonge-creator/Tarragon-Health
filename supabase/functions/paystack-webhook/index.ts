@@ -39,14 +39,23 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-type CheckoutKind = "subscription" | "add_on";
+type CheckoutKind = "subscription" | "add_on" | "booking";
+type BookingOrderType = "lab" | "pharmacy" | "referral";
 
 interface CheckoutMetadata {
   kind?: CheckoutKind;
   profile_id?: string;
   item_code?: string;
   subscription_id?: string;
+  booking_order_id?: string;
+  booking_order_type?: BookingOrderType;
 }
+
+const BOOKING_TABLE: Record<BookingOrderType, "lab_orders" | "pharmacy_orders" | "specialist_referrals"> = {
+  lab: "lab_orders",
+  pharmacy: "pharmacy_orders",
+  referral: "specialist_referrals",
+};
 
 interface PaystackEvent {
   event: string;
@@ -166,7 +175,40 @@ Deno.serve(async (req) => {
           break;
         }
 
-        if (metadata.kind === "subscription") {
+        if (metadata.kind === "booking") {
+          const bookingOrderType = metadata.booking_order_type;
+          if (!bookingOrderType) {
+            await markFailed("booking charge.success missing metadata.booking_order_type");
+            break;
+          }
+          const table = BOOKING_TABLE[bookingOrderType];
+          const { data: row } = await supabase
+            .from(table)
+            .select("id, organisation_id")
+            .eq("pending_payment_provider_ref", event.data.reference)
+            .maybeSingle();
+
+          if (!row) {
+            await markFailed(`no ${table} row with pending_payment_provider_ref=${event.data.reference}`);
+            break;
+          }
+
+          await supabase
+            .from(table)
+            .update({
+              status: "payment_confirmed",
+              payment_provider: "paystack",
+              payment_provider_ref: event.data.reference,
+              pending_payment_provider_ref: null,
+            })
+            .eq("id", row.id);
+
+          await markProcessed({
+            organisation_id: row.organisation_id,
+            booking_order_id: row.id,
+            booking_order_type: bookingOrderType,
+          });
+        } else if (metadata.kind === "subscription") {
           const { data: row } = await supabase
             .from("subscriptions")
             .select("id, organisation_id, interval")

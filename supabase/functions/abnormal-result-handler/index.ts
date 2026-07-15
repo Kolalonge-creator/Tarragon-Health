@@ -255,6 +255,10 @@ Deno.serve(async (req) => {
           resultSummary ? `: ${resultSummary}` : ""
         }.`,
         status: "pending",
+        // Clinically-triggered, never payment-gated — see the booking_origin
+        // enum's contract in the payment rail (payment gates logistics only,
+        // never the clinical action itself).
+        origin: "clinically_triggered",
       })
       .select("id")
       .single();

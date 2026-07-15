@@ -42,6 +42,38 @@ export async function initializeTransaction(args: {
   };
 }
 
+/**
+ * Same hosted-checkout redirect as initializeTransaction(), but omits
+ * `plan` entirely — Paystack treats a transaction with no plan code as a
+ * single, non-recurring charge: it authorizes and captures the card once,
+ * fires `charge.success`, and never creates a subscription or expects a
+ * renewal. Used for one-off booking payments (lab/pharmacy/specialist
+ * referral), never for anything that should auto-renew.
+ */
+export async function initializeOneOffTransaction(args: {
+  email: string;
+  amountMinor: number;
+  currency: "NGN" | "GBP" | "USD";
+  callbackUrl: string;
+  metadata: CheckoutMetadata;
+}): Promise<PaystackResult<{ authorizationUrl: string; reference: string }>> {
+  const result = await paystackFetch<InitializeTransactionData>("/transaction/initialize", {
+    method: "POST",
+    body: {
+      email: args.email,
+      amount: args.amountMinor,
+      currency: args.currency,
+      callback_url: args.callbackUrl,
+      metadata: args.metadata,
+    },
+  });
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    data: { authorizationUrl: result.data.authorization_url, reference: result.data.reference },
+  };
+}
+
 interface VerifyTransactionData {
   status: string;
   reference: string;

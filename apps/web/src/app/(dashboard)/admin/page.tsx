@@ -200,6 +200,29 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.commission className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/commissions" className="hover:underline">
+              Commission tracking
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Every lab, pharmacy, and specialist-referral commission Tarragon has earned from its
+            partner network, and what&apos;s still owed vs. paid.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/commissions"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            View commissions →
+          </Link>
+        </CardContent>
+      </Card>
     </DashboardPlaceholder>
   );
 }
