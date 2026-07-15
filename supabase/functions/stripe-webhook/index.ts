@@ -130,7 +130,62 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const metadata = session.metadata as { kind?: string; profile_id?: string; item_code?: string } | null;
+        const metadata = session.metadata as
+          | {
+              kind?: string;
+              profile_id?: string;
+              item_code?: string;
+              booking_order_id?: string;
+              booking_order_type?: "lab" | "pharmacy" | "referral";
+            }
+          | null;
+
+        if (metadata?.kind === "booking") {
+          // Payment-mode sessions never create a Stripe Subscription object,
+          // so — unlike the subscription/add_on branch below — there is no
+          // subscriptionId to require here; activation is one-shot on this
+          // single event.
+          const bookingOrderType = metadata.booking_order_type;
+          if (!bookingOrderType) {
+            await markFailed("booking checkout.session.completed missing metadata.booking_order_type");
+            break;
+          }
+          const bookingTable =
+            bookingOrderType === "lab"
+              ? "lab_orders"
+              : bookingOrderType === "pharmacy"
+                ? "pharmacy_orders"
+                : "specialist_referrals";
+
+          const { data: bookingRow } = await supabase
+            .from(bookingTable)
+            .select("id, organisation_id")
+            .eq("pending_payment_provider_ref", session.id)
+            .maybeSingle();
+
+          if (!bookingRow) {
+            await markFailed(`no ${bookingTable} row with pending_payment_provider_ref=${session.id}`);
+            break;
+          }
+
+          await supabase
+            .from(bookingTable)
+            .update({
+              status: "payment_confirmed",
+              payment_provider: "stripe",
+              payment_provider_ref: session.id,
+              pending_payment_provider_ref: null,
+            })
+            .eq("id", bookingRow.id);
+
+          await markProcessed({
+            organisation_id: bookingRow.organisation_id,
+            booking_order_id: bookingRow.id,
+            booking_order_type: bookingOrderType,
+          });
+          break;
+        }
+
         const subscriptionId =
           typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
 

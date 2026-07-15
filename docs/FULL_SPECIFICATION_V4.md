@@ -64,6 +64,18 @@ Nigeria's digital-first chronic disease, preventive health, and family care coor
 | Weekly AI care messages | **Daily AI Health Coach** — WhatsApp-delivered nutrition, exercise, sleep, stress, and smoking-cessation coaching, Nigerian-food-aware | Lark Health, Superpower's 24/7 concierge, Omada's behaviour-change engine |
 | — | **Health Score engine** — new Python ML model, detailed below | Function Health, Superpower |
 
+### 2.6 Cross-Cutting Guardrail — Clinician-Originated Orders
+
+A patient must never be able to self-purchase an ad hoc lab test or a brand-new medication straight out of a catalogue with no clinical judgment involved — every transactional booking in Category 3 has to trace back to either the platform itself (a genuinely due, age/sex/frequency-driven screening) or a named clinician. This applies retroactively to the Care Coordination build (lab/pharmacy self-service catalogues), not just future work, since credibility and clinical safety are core to the platform's positioning against every competitor in §3 below.
+
+| Order type | Self-service (patient) | Requires a clinician |
+|---|---|---|
+| Lab test | Only a bundle matching a currently-due `screening_schedule` (booked from the Personalized Health Timeline / preventive screening calendar) | Any other catalogue test — clinician generates the order directly (`ordered_by` set) |
+| Medication | Refilling a medication a clinician already added (`medications.source = 'clinician'`) | Any new/never-prescribed medication — a clinician adds it to the patient's medication list first, which is what unlocks self-service refill |
+| Specialist referral | Never patient-initiated | Always clinician/trigger-created — unchanged, this was already the correct pattern and is the model the other two now follow |
+
+Enforcement is a database trigger plus RLS, not a UX convention — `lab_orders`/`pharmacy_orders` gained an `ordered_by` column (→ `clinical_staff`) and a `BEFORE INSERT` trigger that rejects any row that isn't either tied to a valid due screening/prescribed medication or explicitly clinician-attributed. A patient literally cannot construct a row that bypasses this by calling the API directly; it isn't just a hidden button. Where the patient-facing catalogue can no longer self-book (ad hoc lab tests, non-prescribed medications), the UI stays informational (browsable, priced) with a prompt to message the care team, rather than disappearing outright — per §11's guardrail below, this is a deliberate credibility/safety decision, not scope creep.
+
 ---
 
 ## 3. Competitive Map — What Tarragon Takes From Whom

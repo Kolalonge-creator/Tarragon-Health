@@ -21,6 +21,17 @@ const FACILITY_TYPE_LABEL: Record<Facility["type"], string> = {
   vaccination_centre: "Vaccination centre",
 };
 
+// 'lab'/'pharmacy' are excluded from the filter dropdown (not the lookup
+// map above, so any pre-existing row of either type still renders a
+// correct badge) — this open-ended facility-request form was never the
+// transactional path for either (Build 2's decision): pharmacy books
+// through PharmacyCatalogue, and lab tests book either via a due screening
+// on PreventiveScreeningCalendar or a clinician-generated order — never a
+// free-text request to an arbitrary facility.
+const SELECTABLE_FACILITY_TYPES = Object.entries(FACILITY_TYPE_LABEL).filter(
+  ([value]) => value !== "lab" && value !== "pharmacy",
+);
+
 export function FacilityDirectory({ patientId }: { patientId: string }) {
   const [type, setType] = useState<Facility["type"] | "">("");
   const [state, setState] = useState("");
@@ -47,7 +58,7 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
               onChange={(event) => setType(event.target.value as Facility["type"] | "")}
             >
               <option value="">All types</option>
-              {Object.entries(FACILITY_TYPE_LABEL).map(([value, label]) => (
+              {SELECTABLE_FACILITY_TYPES.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

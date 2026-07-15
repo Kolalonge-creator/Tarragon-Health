@@ -7,6 +7,7 @@ import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { YourCareTeam } from "@/components/your-care-team";
 import { PatientEscalations } from "@/components/patient-escalations";
+import { YourReferrals } from "@/components/your-referrals";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "./care-team-contact";
@@ -29,6 +30,11 @@ import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationRegistry } from "./vaccination-registry";
 import { LogVaccinationForm } from "./log-vaccination-form";
 import { FacilityDirectory } from "./facility-directory";
+import { LabCatalogue } from "./lab-catalogue";
+import { LabOrdersList } from "./lab-orders-list";
+import { LabResults } from "./lab-results";
+import { PharmacyCatalogue } from "./pharmacy-catalogue";
+import { PharmacyOrdersList } from "./pharmacy-orders-list";
 import { BookingRequestsList } from "./booking-requests-list";
 import { AiCoachChat } from "./ai-coach-chat";
 import { FamilyDashboardCard } from "./family-dashboard-card";
@@ -47,6 +53,9 @@ export default async function PatientPage() {
   const stats = await getPatientSummaryStats(profile.id);
   const { data: refillCoordinationEnabled } = await supabase.rpc("has_feature_access", {
     feature: "medication_refills",
+  });
+  const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
+    feature: "lab_coordination",
   });
 
   return (
@@ -75,6 +84,7 @@ export default async function PatientPage() {
         <FamilyDashboardCard />
       </RequiresEntitlement>
       <PatientEscalations patientId={profile.id} />
+      <YourReferrals patientId={profile.id} />
       <RequiresEntitlement
         feature="doctor_checkin"
         fallback={<UpgradePrompt feature="doctor_checkin" />}
@@ -117,12 +127,25 @@ export default async function PatientPage() {
       />
       <AddMedicationForm patientId={profile.id} source="patient" />
       <RequiresEntitlement
+        feature="medication_refills"
+        fallback={<UpgradePrompt feature="medication_refills" />}
+      >
+        {profile.organisation_id && (
+          <PharmacyCatalogue organisationId={profile.organisation_id} patientId={profile.id} />
+        )}
+        <PharmacyOrdersList patientId={profile.id} />
+      </RequiresEntitlement>
+      <RequiresEntitlement
         feature="clinician_review"
         fallback={<UpgradePrompt feature="clinician_review" />}
       >
         <CarePlanDisplay patientId={profile.id} />
       </RequiresEntitlement>
-      <PreventiveScreeningCalendar patientId={profile.id} />
+      <PreventiveScreeningCalendar
+        patientId={profile.id}
+        organisationId={profile.organisation_id}
+        bookingEnabled={labCoordinationEnabled ?? false}
+      />
       <RiskAssessmentForm patientId={profile.id} />
       <RiskAssessmentDisplay patientId={profile.id} />
       <VaccinationRegistry
@@ -134,11 +157,13 @@ export default async function PatientPage() {
         feature="lab_coordination"
         fallback={<UpgradePrompt feature="lab_coordination" />}
       >
-        {/* Single directory/booking surface backs both pricing.ts's "lab
-            test coordination" and "medication refill coordination" — labs,
-            pharmacies, hospitals, etc. all book through the same facility
-            directory, and both features are always granted together on
-            every current paid plan (see seed.sql). */}
+        <LabCatalogue />
+        <LabOrdersList patientId={profile.id} />
+        <LabResults patientId={profile.id} />
+        {/* FacilityDirectory/BookingRequestsList stay scoped to types with
+            no priced catalogue (hospital, radiology, optician,
+            vaccination_centre) — lab now books through the catalogue above,
+            per the "sole transactional path" decision (see facility-directory.tsx). */}
         <FacilityDirectory patientId={profile.id} />
         <BookingRequestsList patientId={profile.id} />
       </RequiresEntitlement>
