@@ -5,6 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { koboToNaira, type PharmacyOrderStatus } from "@tarragon/shared";
 import { PayForPharmacyOrderButton } from "@/components/pay-for-pharmacy-order-button";
+import { DeliveryAvailability } from "@/components/delivery-availability";
+import { DeliveryAddressForm } from "@/components/delivery-address-form";
+
+type DeliveryAddress = { street: string; area: string; state: string; phone: string };
 
 const PHARMACY_ORDER_STATUS_BADGE: Record<PharmacyOrderStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending_payment: { variant: "amber", label: "Awaiting payment" },
@@ -50,6 +54,22 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                 <p className="text-xs text-charcoal-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
                 {order.status === "pending_payment" && (
                   <PayForPharmacyOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                )}
+                {order.status === "payment_confirmed" && !order.delivery_address && (
+                  <DeliveryAddressForm orderId={order.id} />
+                )}
+                {(order.delivery_address ||
+                  order.status === "confirmed" ||
+                  order.status === "dispensed" ||
+                  order.status === "out_for_delivery" ||
+                  order.status === "delivered") && (
+                  <DeliveryAvailability
+                    region={(order.delivery_address as unknown as DeliveryAddress | null)?.state ?? null}
+                    logisticsPartnerName={order.logistics_partner?.name ?? null}
+                    estimatedDeliveryAt={order.estimated_delivery_at}
+                    courierReference={order.courier_reference}
+                    deliveryConfirmedAt={order.delivery_confirmed_at}
+                  />
                 )}
               </li>
             );

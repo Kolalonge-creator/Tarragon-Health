@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { koboToNaira, type LabOrderStatus } from "@tarragon/shared";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
+import { HomeCollectionAvailability } from "@/components/home-collection-availability";
 
 const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending_payment: { variant: "amber", label: "Awaiting payment" },
@@ -45,6 +46,13 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                 <p className="text-xs text-charcoal-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
                 {order.status === "pending_payment" && (
                   <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                )}
+                {(order.status === "payment_confirmed" || order.status === "ordered") && (
+                  <HomeCollectionAvailability
+                    region={order.provider?.regions?.[0] ?? null}
+                    homeVisitProviderName={order.home_visit_provider?.name ?? null}
+                    homeVisitScheduledAt={order.home_visit_scheduled_at}
+                  />
                 )}
               </li>
             );

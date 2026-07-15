@@ -38,6 +38,13 @@ export type PharmacyOrderItem = {
 
 export type PharmacyOrder = Tables<"pharmacy_orders">;
 
+export type PharmacyOrderWithLogistics = PharmacyOrder & {
+  logistics_partner: { name: string } | null;
+};
+
+const PHARMACY_ORDER_SELECT =
+  "*, logistics_partner:logistics_partners!pharmacy_orders_logistics_partner_id_fkey(name)";
+
 /** Patient's own pharmacy_orders, newest first. Client hook from the start — Build 4's lab-orders-list bug (server component missed cache invalidation) taught this. */
 export function usePatientPharmacyOrders(patientId: string) {
   return useQuery({
@@ -46,13 +53,33 @@ export function usePatientPharmacyOrders(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_orders")
-        .select("*")
+        .select(PHARMACY_ORDER_SELECT)
         .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
-      return data as PharmacyOrder[];
+      return data as PharmacyOrderWithLogistics[];
     },
     enabled: !!patientId,
+  });
+}
+
+/**
+ * All pharmacy_orders in the caller's org, newest first — ops/clinician
+ * worklist for assigning a courier/logistics partner. RLS
+ * (private.is_org_staff) does the org-scoping.
+ */
+export function useOrgPharmacyOrders() {
+  return useQuery({
+    queryKey: ["pharmacy-orders", "org"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_orders")
+        .select(PHARMACY_ORDER_SELECT)
+        .order("requested_at", { ascending: false });
+      if (error) throw error;
+      return data as PharmacyOrderWithLogistics[];
+    },
   });
 }
 
