@@ -1,15 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { EscalationLevel, Tables } from "@tarragon/shared";
+import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
   patient: { full_name: string | null } | null;
-  clinician_alert: { title: string; level: EscalationLevel } | null;
+  clinician_alert:
+    | {
+        title: string;
+        level: EscalationLevel;
+        screening_result: { result_status: ScreeningResultStatus } | null;
+      }
+    | null;
   assigned_doctor: { full_name: string | null } | null;
 };
 
 const ESCALATION_SELECT =
-  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, level), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
+  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, level, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
 
 /** All escalations in the caller's org, newest first — clinician tracking view. */
 export function useOrgEscalations() {

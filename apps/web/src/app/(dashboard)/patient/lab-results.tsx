@@ -1,14 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
+import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
 import type { ScreeningResultStatus } from "@tarragon/shared";
-
-const RESULT_STATUS_BADGE: Record<ScreeningResultStatus, { variant: BadgeProps["variant"]; label: string }> = {
-  normal: { variant: "green", label: "Normal" },
-  borderline: { variant: "amber", label: "Borderline" },
-  abnormal: { variant: "amber", label: "Needs follow-up" },
-  critical: { variant: "red", label: "Needs urgent follow-up" },
-};
 
 interface StoredInterpretation {
   result_status?: ScreeningResultStatus;

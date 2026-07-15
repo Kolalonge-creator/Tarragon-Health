@@ -682,6 +682,7 @@ export type Database = {
           level: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
           patient_id: string
+          screening_result_id: string | null
           sla_due_at: string | null
           status: Database["public"]["Enums"]["alert_status"]
           title: string
@@ -697,6 +698,7 @@ export type Database = {
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
           patient_id: string
+          screening_result_id?: string | null
           sla_due_at?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
           title: string
@@ -712,6 +714,7 @@ export type Database = {
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id?: string
           patient_id?: string
+          screening_result_id?: string | null
           sla_due_at?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
           title?: string
@@ -737,6 +740,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_screening_result_id_fkey"
+            columns: ["screening_result_id"]
+            isOneToOne: false
+            referencedRelation: "screening_results"
             referencedColumns: ["id"]
           },
         ]
