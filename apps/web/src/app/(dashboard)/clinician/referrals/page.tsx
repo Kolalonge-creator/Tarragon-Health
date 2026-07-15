@@ -7,6 +7,7 @@ import {
   useMatchedSpecialistProviders,
   useAssignSpecialistProvider,
   useSetReferralAppointment,
+  useWaitlistReferral,
   useCloseReferral,
   type SpecialistReferralWithDetails,
 } from "@/lib/queries/specialist-referrals";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { koboToNaira, type ReferralStatus } from "@tarragon/shared";
 
 const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["variant"]; label: string }> = {
@@ -26,6 +28,7 @@ const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["varia
   confirmed: { variant: "blue", label: "Confirmed" },
   completed: { variant: "green", label: "Completed" },
   declined: { variant: "grey", label: "Declined" },
+  waitlisted: { variant: "amber", label: "Waitlisted — no specialist available" },
 };
 
 function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDetails }) {
@@ -37,9 +40,12 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
     requireTelemedicine,
   });
   const assign = useAssignSpecialistProvider();
+  const waitlist = useWaitlistReferral();
   const [providerId, setProviderId] = useState("");
+  const [interimPlan, setInterimPlan] = useState("");
 
   const chosen = providers?.find((p) => p.id === providerId);
+  const noMatches = !isLoading && (providers?.length ?? 0) === 0;
 
   return (
     <div className="space-y-2">
@@ -67,7 +73,7 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
         <div className="space-y-1">
           <Label htmlFor={`provider-${referral.id}`}>Specialist provider</Label>
           {isLoading && <p className="text-xs text-charcoal-ink/60">Loading providers…</p>}
-          {!isLoading && (providers?.length ?? 0) === 0 && (
+          {noMatches && (
             <p className="text-xs text-charcoal-ink/60">No active providers match these filters yet.</p>
           )}
           {!isLoading && (providers?.length ?? 0) > 0 && (
@@ -101,6 +107,31 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
         </Button>
       </div>
       {assign.isError && <p className="w-full text-xs text-red-600">Could not assign. Try again.</p>}
+
+      {noMatches && (
+        <div className="space-y-2 border-t border-charcoal-ink/10 pt-2">
+          <Label htmlFor={`interim-plan-${referral.id}`}>
+            No specialist available — interim management plan (required to waitlist)
+          </Label>
+          <Textarea
+            id={`interim-plan-${referral.id}`}
+            value={interimPlan}
+            onChange={(e) => setInterimPlan(e.target.value)}
+            placeholder="What the patient's care team will do while a specialist is found…"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={interimPlan.trim().length === 0 || waitlist.isPending}
+            onClick={() =>
+              waitlist.mutate({ referralId: referral.id, interimManagementPlan: interimPlan.trim() })
+            }
+          >
+            {waitlist.isPending ? "Saving…" : "Waitlist this referral"}
+          </Button>
+          {waitlist.isError && <p className="text-xs text-red-600">Could not waitlist. Try again.</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -161,8 +192,11 @@ export default function ClinicianReferralsPage() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex items-center justify-between">
         <CardTitle>Specialist referrals</CardTitle>
+        <Link href="/clinician/referrals/waitlisted" className="text-xs text-brand-green hover:underline">
+          View waitlisted referrals
+        </Link>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
@@ -196,6 +230,11 @@ export default function ClinicianReferralsPage() {
                   {referral.appointment_date && (
                     <p className="text-xs text-charcoal-ink/60">
                       Appointment: {new Date(referral.appointment_date).toLocaleDateString()}
+                    </p>
+                  )}
+                  {referral.status === "waitlisted" && referral.interim_management_plan && (
+                    <p className="text-xs text-charcoal-ink/60">
+                      Interim plan: {referral.interim_management_plan}
                     </p>
                   )}
                   <Link

@@ -251,6 +251,73 @@ export function useRecordSharedCareHandback() {
   });
 }
 
+/**
+ * Waitlists a referral when zero active providers match its filters,
+ * recording the required interim management plan
+ * (docs/Tarragon_Health_Master_Operating_Plan_v4.md §7: a doctor must
+ * document an interim plan before waitlisting — enforced at the DB level
+ * by the specialist_referrals_waitlist_requires_plan CHECK constraint,
+ * this mutation would fail without a non-empty plan).
+ */
+export function useWaitlistReferral() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ referralId, interimManagementPlan }: { referralId: string; interimManagementPlan: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("specialist_referrals")
+        .update({
+          status: "waitlisted",
+          interim_management_plan: interimManagementPlan,
+          waitlisted_at: new Date().toISOString(),
+        })
+        .eq("id", referralId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
+    },
+  });
+}
+
+/**
+ * Waitlisted referrals in the caller's org, each annotated with a live
+ * count of currently-active matching providers — surfaced so staff can
+ * manually re-trigger assignment once a provider becomes available.
+ * Deliberately polling-based, not push-notified: no real-time
+ * slot/cancellation system exists anywhere in this codebase (see the
+ * migration comment on specialist_referrals_waitlist_columns), matching
+ * the Weight Scale BLE gap's documented posture, not an oversight.
+ */
+export function useWaitlistedReferrals() {
+  return useQuery({
+    queryKey: ["specialist-referrals", "waitlisted"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("specialist_referrals")
+        .select(REFERRAL_SELECT)
+        .eq("status", "waitlisted")
+        .order("waitlisted_at", { ascending: true });
+      if (error) throw error;
+      const referrals = data as SpecialistReferralWithDetails[];
+
+      const results = await Promise.all(
+        referrals.map(async (referral) => {
+          const { count } = await supabase
+            .from("specialist_providers")
+            .select("id", { count: "exact", head: true })
+            .eq("specialist_type", referral.specialist_type)
+            .eq("is_active", true);
+          return { referral, matchingProviderCount: count ?? 0 };
+        })
+      );
+      return results;
+    },
+    refetchInterval: 60_000,
+  });
+}
+
 /** Marks a booked referral's visit as done or cancelled — closes the worklist loop. */
 export function useCloseReferral() {
   const queryClient = useQueryClient();
