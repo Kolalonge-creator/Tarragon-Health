@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
+import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { NotesPanel } from "./notes-panel";
@@ -21,7 +22,7 @@ export default async function DoctorEscalationPage({
   const { data: escalation } = await supabase
     .from("escalations")
     .select(
-      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at)"
+      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
     )
     .eq("id", escalationId)
     .maybeSingle();
@@ -44,6 +45,9 @@ export default async function DoctorEscalationPage({
   const levelBadge = escalation.clinician_alert
     ? LEVEL_BADGE[escalation.clinician_alert.level]
     : null;
+  const resultBadge = escalation.clinician_alert?.screening_result
+    ? RESULT_STATUS_BADGE[escalation.clinician_alert.screening_result.result_status]
+    : null;
   const statusBadge = ESCALATION_STATUS_BADGE[escalation.status];
 
   return (
@@ -63,6 +67,7 @@ export default async function DoctorEscalationPage({
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex items-center gap-2">
+            {resultBadge && <Badge variant={resultBadge.variant}>{resultBadge.label}</Badge>}
             {levelBadge && <Badge variant={levelBadge.variant}>{levelBadge.label}</Badge>}
             <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
           </div>

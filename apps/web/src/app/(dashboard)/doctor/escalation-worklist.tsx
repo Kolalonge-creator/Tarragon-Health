@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
+import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
 import { SEVERITY_TILE_TINT } from "@/lib/worklist/severity-tile-tint";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationStatus } from "@tarragon/shared";
@@ -61,12 +62,18 @@ export function EscalationWorklist() {
               const levelBadge = escalation.clinician_alert
                 ? LEVEL_BADGE[escalation.clinician_alert.level]
                 : null;
+              const resultBadge = escalation.clinician_alert?.screening_result
+                ? RESULT_STATUS_BADGE[escalation.clinician_alert.screening_result.result_status]
+                : null;
               const statusBadge = ESCALATION_STATUS_BADGE[escalation.status];
 
               return (
                 <li key={escalation.id} className="flex items-center justify-between gap-4 py-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
+                      {resultBadge && (
+                        <Badge variant={resultBadge.variant}>{resultBadge.label}</Badge>
+                      )}
                       {levelBadge && (
                         <Badge variant={levelBadge.variant}>{levelBadge.label}</Badge>
                       )}
