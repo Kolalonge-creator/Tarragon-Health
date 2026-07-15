@@ -62,3 +62,10 @@ verify_jwt = false
 # STRIPE_WEBHOOK_SECRET is set.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Zoom calls this unauthenticated (no Supabase JWT) — validated instead via
+# x-zm-signature (HMAC-SHA256 of the raw body) when ZOOM_WEBHOOK_SECRET_TOKEN
+# is set. Also answers Zoom's one-time endpoint.url_validation handshake
+# needed to activate the webhook subscription.
+[functions.zoom-webhook]
+verify_jwt = false
