@@ -14,7 +14,7 @@
  *   uniformly"), routine recurring touchpoints are relabelled "clinician
  *   check-in" here. Genuine scheduled/booked doctor appointments (the
  *   Dedicated Care Coordinator add-on, Family Premium, diaspora Premium) and
- *   escalation-triggered doctor review stay attributed to "doctor" — those
+ *   escalation-triggered doctor review stay attributed to "doctor": those
  *   are real, earned, or explicitly paid doctor time, not a uniform branding
  *   layer.
  * If the docx is revised again, keep re-deriving prices from it but keep
