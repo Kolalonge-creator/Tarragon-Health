@@ -169,7 +169,7 @@ Results are always shown with previous value, current value, target, trend, and 
 
 ### Phase 2 additions
 - Disease-specific investigation bundles (Diabetes Annual Review, Hypertension Annual Review, Women's Preventive Screen, Executive Health Check)
-- Home sample collection via partner network
+- ~~Home sample collection via partner network~~ — pulled forward and built 2026-07-16 (see CLAUDE.md Current Sprint): `home_visit_providers` catalogue, staff assignment worklist, patient-facing availability/scheduling status. Dormant until a real provider is contracted (seed row ships `is_active = false`).
 
 ---
 
@@ -220,7 +220,7 @@ Maps directly onto the doctor-tier ladder in Section 4. Levels 1–4 are pilot-r
 | Supply medication | | | | | | ✓ |
 
 ### Workflow notes
-- **New medication:** Tier 2+ doctor decides treatment, issues e-prescription → patient picks pharmacy (collection or delivery, delivery is Phase 2) → pharmacy verifies and dispenses → Care Coordinator starts adherence check-ins (Day 3, Week 2, Month 1, Month 3, tied to the condition's review schedule) → Tier 1 spot-reviews.
+- **New medication:** Tier 2+ doctor decides treatment, issues e-prescription → patient picks pharmacy (collection, or delivery where a logistics partner is active for the region, per Section 8's Phase 2 additions above) → pharmacy verifies and dispenses → Care Coordinator starts adherence check-ins (Day 3, Week 2, Month 1, Month 3, tied to the condition's review schedule) → Tier 1 spot-reviews.
 - **Medication change:** Tier 2+ doctor stops the old prescription, issues the new one; pharmacy only ever sees the active prescription; full history stays in the longitudinal record.
 - **Specialist-initiated changes:** Tier 5 specialist uploads a consult summary; record and monitoring schedule update automatically; Tier 3/4 reconciles and resumes ongoing management.
 - **Refills:** Tier 1 confirms stable refills under protocol (Day 23 of a 30-day supply triggers a reminder → patient confirms → Tier 1 protocol-check → pharmacy fulfils). Never a fully silent auto-refill with zero clinical touch.
@@ -229,8 +229,8 @@ Maps directly onto the doctor-tier ladder in Section 4. Levels 1–4 are pilot-r
 - **Linked lab monitoring:** metformin → kidney function 6–12 monthly; ACE inhibitor → kidney function + potassium after initiation/dose change; statin → LFTs when indicated; warfarin → INR (Phase 3). Auto-created off the medication record.
 
 ### Phase 2 additions
-- Medication delivery via partner logistics network (currently collection-only in Phase 1)
-- Delivery status tracking surfaced to patient and, where consented, family
+- ~~Medication delivery via partner logistics network (currently collection-only in Phase 1)~~ — pulled forward and built 2026-07-16: `logistics_partners` catalogue, staff courier-assignment worklist, patient delivery-address capture, delivery status tracking. Dormant until a real logistics partner is contracted (seed row ships `is_active = false`).
+- Delivery status tracking surfaced to patient and, where consented, family — built as part of the above; family-visibility consent gating not yet added
 
 ---
 
@@ -278,8 +278,8 @@ Sits across all five categories; no patient interaction bypasses it.
 | Pharmacies | Prescription validation, dispensing, counselling | Phase 1 |
 | Specialist consultants | Referral-only input, informal in Phase 1, full network in Phase 2 | Phase 1 (informal) → Phase 2 (network) |
 | Hospitals | Urgent referral, post-discharge monitoring | Phase 1 referral; discharge-monitoring contracts Phase 2 |
-| Home-visit providers | Sample collection, frail-patient support | Phase 2 |
-| Pharmacy delivery/logistics partners | Medication delivery | Phase 2 |
+| Home-visit providers | Sample collection, frail-patient support | Built 2026-07-16 (pulled forward from Phase 2), dormant until a real partner is contracted |
+| Pharmacy delivery/logistics partners | Medication delivery | Built 2026-07-16 (pulled forward from Phase 2), dormant until a real partner is contracted |
 | Device/wearable manufacturers | BP monitors, glucometers, scales — API/Bluetooth integration | Phase 2 |
 | Physiotherapy / rehab providers | Referral pathway | Phase 3 |
 | Ambulance / emergency transport | Emergency escalation pathway | Phase 3 |
@@ -315,14 +315,14 @@ Organised by business category so it plugs directly into the existing sprint/cat
 ### Category 2 — Preventive Medicine
 - Tier 3 patient-initiated wellness testing catalogue + safeguard/education content (Section 6)
 - Investigation bundles: Diabetes Annual Review, Hypertension Annual Review, Women's Preventive Screen, Executive Health Check
-- Home sample collection via partner network
+- ~~Home sample collection via partner network~~ — built 2026-07-16, see Section 6
 
 ### Category 3 — Care Coordination
 - Full specialist-matching engine: nationwide network, specialty/state/availability/HMO filters, telemedicine-first automation
 - Automated referral-status pipeline visible to patient (Section 7, Level 5b)
 - Shared-care handback formalised in the record (Section 7, Level 5c)
 - Waitlist + interim management plan workflow for no-specialist-available cases
-- Medication delivery via partner logistics network (Section 8)
+- ~~Medication delivery via partner logistics network (Section 8)~~ — built 2026-07-16, see Section 8
 - Hospital discharge/post-admission monitoring contracts
 
 ### Category 4 — B2B & Institutional
