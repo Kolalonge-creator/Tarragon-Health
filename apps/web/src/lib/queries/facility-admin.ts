@@ -48,7 +48,7 @@ export function useUpdateFacility() {
     mutationFn: async ({
       id,
       ...patch
-    }: Partial<FacilityInput & { is_active: boolean }> & { id: string }) => {
+    }: Partial<FacilityInput & { is_active: boolean; verified: boolean }> & { id: string }) => {
       const supabase = createClient();
       const { error } = await supabase.from("facilities").update(patch).eq("id", id);
       if (error) throw error;

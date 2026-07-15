@@ -27,6 +27,9 @@ export const facilitySchema = z.object({
     .optional()
     .or(z.literal("").transform(() => undefined)),
   address: z.string().trim().max(500).optional(),
+  hours: z.string().trim().max(200).optional(),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
 });
 export type FacilityInput = z.infer<typeof facilitySchema>;
 
