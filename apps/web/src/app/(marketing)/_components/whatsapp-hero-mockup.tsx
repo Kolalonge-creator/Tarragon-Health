@@ -1,10 +1,9 @@
-/** Signature hero visual — WhatsApp is the primary patient channel (CLAUDE.md). Pure CSS animation, no client JS. */
+/** Signature hero visual — WhatsApp is a reminder/notification and doctor-support channel only, never a data-entry interface (see CLAUDE.md Non-Negotiable Business Rules). Pure CSS animation, no client JS. */
 
 const MESSAGES = [
-  { from: "them" as const, delay: "0.3s", text: "Good morning! Time for your BP reading. Reply with your numbers, e.g. 128/82." },
-  { from: "me" as const, delay: "1.3s", text: "124/79 🙂" },
-  { from: "them" as const, delay: "2.3s", text: "That's within range and trending better than last week. Logged for Dad's file too." },
-  { from: "me" as const, delay: "3.3s", text: "Thank you!" },
+  { from: "them" as const, delay: "0.3s", text: "Good morning! Time for your BP reading — log it in the Tarragon app when you get a chance." },
+  { from: "them" as const, delay: "1.3s", text: "Got your reading: 124/79. That's within range and trending better than last week. Logged for Dad's file too." },
+  { from: "me" as const, delay: "2.3s", text: "Thank you!" },
 ];
 
 export function WhatsappHeroMockup({ className }: { className?: string }) {
