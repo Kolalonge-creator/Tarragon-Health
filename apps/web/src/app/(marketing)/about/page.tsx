@@ -8,9 +8,9 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 /**
  * Key seats TarragonHealth needs beyond the founder as it scales past one
- * clinician — mapped to the five business categories in CLAUDE.md (chronic
+ * clinician, mapped to the five business categories in CLAUDE.md (chronic
  * disease + prevention, care coordination, B2B & institutional, platform
- * infrastructure, clinician-led delivery). All open — no names yet.
+ * infrastructure, clinician-led delivery). All open, no names yet.
  */
 const OPEN_ROLES: { title: string; scope: string }[] = [
   {
@@ -19,11 +19,11 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
   },
   {
     title: "Head of Clinical Operations",
-    scope: "Builds and leads the clinician-led review model — recruiting, training, and scheduling the clinicians who keep the clinician:patient ratio at 1:120.",
+    scope: "Builds and leads the clinician-led review model: recruiting, training, and scheduling the clinicians who keep the clinician:patient ratio at 1:120.",
   },
   {
     title: "Head of Engineering",
-    scope: "Owns the TypeScript platform and ML microservice — the system of record behind every reading, reminder, and escalation.",
+    scope: "Owns the TypeScript platform and ML microservice, the system of record behind every reading, reminder, and escalation.",
   },
   {
     title: "Head of Partnerships",
@@ -36,7 +36,7 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
 ];
 
 export const metadata: Metadata = {
-  title: "About — TarragonHealth",
+  title: "About",
   description:
     "Why TarragonHealth exists: clinician-led continuity of care between doctor visits, for Nigerian families and the people who love them.",
 };
@@ -48,7 +48,7 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="About"
           title="Built for the care that happens between visits"
-          description="Chronic disease isn't managed in the clinic — it's managed in the days after, in the missed dose, the reading nobody saw, and the follow-up call that never came. TarragonHealth exists to close that gap."
+          description="Chronic disease isn't managed in the clinic. It's managed in the days after, in the missed dose, the reading nobody saw, and the follow-up call that never came. TarragonHealth exists to close that gap."
         />
       </Section>
 
@@ -84,14 +84,14 @@ export default function AboutPage() {
             <p className="mt-4 leading-relaxed text-charcoal-ink/70">
               Working across both systems, he kept seeing the same pattern:
               the difference between a good outcome and a bad one was rarely
-              the diagnosis — it was whether the system around the patient
+              the diagnosis. It was whether the system around the patient
               responded in time. A condition caught and followed up within
               days looks nothing like the same condition missed for months.
               TarragonHealth grew out of that observation, applied to chronic
               disease and preventive care in Nigeria: most complications
               aren&rsquo;t a failure of medicine, they&rsquo;re a failure of
               follow-up. Kola founded TarragonHealth to build the system that
-              closes that gap — clinician-led, protocol-driven, and never
+              closes that gap, clinician-led, protocol-driven, and never
               losing track of a patient between visits.
             </p>
           </div>
@@ -108,13 +108,13 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="The thesis"
           title="Continuity, not just monitoring"
-          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same clinician follow a person from a routine screening through an ongoing condition — the story never resets."
+          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same clinician follow a person from a routine screening through an ongoing condition, and the story never resets."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {[
             {
               title: "Clinician-led",
-              body: "A real clinician reviews readings and results — never an algorithm acting alone.",
+              body: "A real clinician reviews readings and results, never an algorithm acting alone.",
             },
             {
               title: "Protocol-driven",
@@ -142,7 +142,7 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="Team"
           title="Roles we're building out next"
-          description="TarragonHealth is growing beyond one founder. These seats are open — no names yet — say hello if one of them is you."
+          description="TarragonHealth is growing beyond one founder. These seats are open, no names yet, so say hello if one of them is you."
         />
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {OPEN_ROLES.map((role) => (
@@ -183,7 +183,7 @@ export default function AboutPage() {
         <CtaBand
           variant="gradient"
           title="Come build continuity of care with us"
-          description="Whether you're a patient, a family member, an employer, or an HMO — we'd like to hear from you."
+          description="Whether you're a patient, a family member, an employer, or an HMO, we'd like to hear from you."
           primaryLabel="Start monitoring"
           secondaryHref={MARKETING_ROUTES.contact + "?source=about"}
           secondaryLabel="Get in touch"

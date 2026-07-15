@@ -50,7 +50,7 @@ export function MarketingVideo({
         <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">{caption}</p>
         {!hasYoutube && active ? (
           <p className="mt-4 text-sm text-charcoal-ink/70">
-            Full video walkthrough coming soon — tap the preview to step through how care stays
+            Full video walkthrough coming soon: tap the preview to step through how care stays
             connected.
           </p>
         ) : null}
@@ -67,7 +67,7 @@ export function MarketingVideo({
             aria-label={
               hasYoutube
                 ? `Play video: ${title}`
-                : `Preview how Tarragon works: ${title} — Calm follow-up call`
+                : `Preview how Tarragon works: ${title}. Calm follow-up call`
             }
           >
             <MarketingMediaFrame media={poster} />

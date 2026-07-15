@@ -1,5 +1,5 @@
 /**
- * Marketing media registry — illustrations, optional photos, and video embeds.
+ * Marketing media registry: illustrations, optional photos, and video embeds.
  *
  * To swap an illustration for a real photo, set `imageSrc` (file under
  * `public/marketing/`, e.g. `/marketing/hero-family.jpg`) and leave
@@ -44,7 +44,7 @@ export const MARKETING_MEDIA = {
       youtubeId: "",
       title: "See how Tarragon keeps care connected",
       caption:
-        "A two-minute look at logging vitals, clinician review, and family updates — calm follow-up between doctor visits.",
+        "A two-minute look at logging vitals, clinician review, and family updates: calm follow-up between doctor visits.",
       poster: {
         illustration: "clinician-follow-up",
         imageAlt: "Clinician on a calm follow-up call with a patient",
