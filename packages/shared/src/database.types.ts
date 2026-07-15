@@ -682,6 +682,7 @@ export type Database = {
           level: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
           patient_id: string
+          screening_result_id: string | null
           sla_due_at: string | null
           status: Database["public"]["Enums"]["alert_status"]
           title: string
@@ -697,6 +698,7 @@ export type Database = {
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
           patient_id: string
+          screening_result_id?: string | null
           sla_due_at?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
           title: string
@@ -712,6 +714,7 @@ export type Database = {
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id?: string
           patient_id?: string
+          screening_result_id?: string | null
           sla_due_at?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
           title?: string
@@ -737,6 +740,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_screening_result_id_fkey"
+            columns: ["screening_result_id"]
+            isOneToOne: false
+            referencedRelation: "screening_results"
             referencedColumns: ["id"]
           },
         ]
@@ -2962,40 +2972,61 @@ export type Database = {
       }
       specialist_providers: {
         Row: {
+          accepted_hmos: string[]
           commission_flat_kobo: number | null
           commission_rate: number | null
           commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
           consultation_fee_kobo: number
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
           id: string
           is_active: boolean
+          languages: string[]
           location: string | null
           name: string
           specialist_type: Database["public"]["Enums"]["specialist_type"]
+          state: string | null
+          supports_in_person: boolean
+          supports_telemedicine: boolean
         }
         Insert: {
+          accepted_hmos?: string[]
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           consultation_fee_kobo?: number
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          languages?: string[]
           location?: string | null
           name: string
           specialist_type: Database["public"]["Enums"]["specialist_type"]
+          state?: string | null
+          supports_in_person?: boolean
+          supports_telemedicine?: boolean
         }
         Update: {
+          accepted_hmos?: string[]
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           consultation_fee_kobo?: number
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          languages?: string[]
           location?: string | null
           name?: string
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
+          state?: string | null
+          supports_in_person?: boolean
+          supports_telemedicine?: boolean
         }
         Relationships: []
       }
@@ -3003,6 +3034,7 @@ export type Database = {
         Row: {
           appointment_date: string | null
           booking_confirmed_at: string | null
+          clinical_summary: Json | null
           created_at: string
           id: string
           organisation_id: string
@@ -3017,14 +3049,20 @@ export type Database = {
           referral_number: string | null
           referral_reason: string | null
           screening_upgrade_id: string | null
+          set_by: string | null
+          shared_care_handback_at: string | null
           specialist_provider_id: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note: string | null
+          treatment_plan_received_at: string | null
           updated_at: string
+          urgency: Database["public"]["Enums"]["referral_urgency"] | null
         }
         Insert: {
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          clinical_summary?: Json | null
           created_at?: string
           id?: string
           organisation_id: string
@@ -3039,14 +3077,20 @@ export type Database = {
           referral_number?: string | null
           referral_reason?: string | null
           screening_upgrade_id?: string | null
+          set_by?: string | null
+          shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note?: string | null
+          treatment_plan_received_at?: string | null
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["referral_urgency"] | null
         }
         Update: {
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          clinical_summary?: Json | null
           created_at?: string
           id?: string
           organisation_id?: string
@@ -3061,10 +3105,15 @@ export type Database = {
           referral_number?: string | null
           referral_reason?: string | null
           screening_upgrade_id?: string | null
+          set_by?: string | null
+          shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note?: string | null
+          treatment_plan_received_at?: string | null
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["referral_urgency"] | null
         }
         Relationships: [
           {
@@ -3086,6 +3135,13 @@ export type Database = {
             columns: ["screening_upgrade_id"]
             isOneToOne: false
             referencedRelation: "screening_upgrades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3530,6 +3586,99 @@ export type Database = {
           },
         ]
       }
+      video_consultations: {
+        Row: {
+          context: Database["public"]["Enums"]["video_consultation_context"]
+          created_at: string
+          ended_at: string | null
+          escalation_id: string | null
+          host_start_url: string | null
+          id: string
+          initiated_by: string | null
+          join_url: string | null
+          organisation_id: string
+          patient_id: string
+          scheduled_at: string | null
+          specialist_referral_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at: string
+          zoom_meeting_id: string | null
+        }
+        Insert: {
+          context: Database["public"]["Enums"]["video_consultation_context"]
+          created_at?: string
+          ended_at?: string | null
+          escalation_id?: string | null
+          host_start_url?: string | null
+          id?: string
+          initiated_by?: string | null
+          join_url?: string | null
+          organisation_id: string
+          patient_id: string
+          scheduled_at?: string | null
+          specialist_referral_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at?: string
+          zoom_meeting_id?: string | null
+        }
+        Update: {
+          context?: Database["public"]["Enums"]["video_consultation_context"]
+          created_at?: string
+          ended_at?: string | null
+          escalation_id?: string | null
+          host_start_url?: string | null
+          id?: string
+          initiated_by?: string | null
+          join_url?: string | null
+          organisation_id?: string
+          patient_id?: string
+          scheduled_at?: string | null
+          specialist_referral_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at?: string
+          zoom_meeting_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_consultations_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vitals_readings: {
         Row: {
           created_at: string
@@ -3805,6 +3954,47 @@ export type Database = {
           },
         ]
       }
+      zoom_webhook_events: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string
+          id: string
+          processed_at: string | null
+          provider_event_id: string
+          raw_payload: Json
+          video_consultation_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type: string
+          id?: string
+          processed_at?: string | null
+          provider_event_id: string
+          raw_payload?: Json
+          video_consultation_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string
+          id?: string
+          processed_at?: string | null
+          provider_event_id?: string
+          raw_payload?: Json
+          video_consultation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoom_webhook_events_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -3949,6 +4139,7 @@ export type Database = {
         | "patient_refers_patient"
         | "doctor_refers_patient"
         | "corporate_champion"
+      referral_urgency: "routine" | "priority" | "urgent"
       result_status: "normal" | "borderline" | "abnormal" | "critical"
       risk_assessment_category:
         | "lifestyle"
@@ -4000,6 +4191,13 @@ export type Database = {
         | "corporate_admin"
         | "doctor"
         | "care_coordinator"
+      video_consultation_context: "pre_referral_triage" | "specialist_consult"
+      video_consultation_status:
+        | "scheduled"
+        | "started"
+        | "completed"
+        | "cancelled"
+        | "no_show"
       vital_source: "manual" | "device" | "wearable"
       vital_type:
         | "blood_pressure"
@@ -4277,6 +4475,7 @@ export const Constants = {
         "doctor_refers_patient",
         "corporate_champion",
       ],
+      referral_urgency: ["routine", "priority", "urgent"],
       result_status: ["normal", "borderline", "abnormal", "critical"],
       risk_assessment_category: [
         "lifestyle",
@@ -4333,6 +4532,14 @@ export const Constants = {
         "corporate_admin",
         "doctor",
         "care_coordinator",
+      ],
+      video_consultation_context: ["pre_referral_triage", "specialist_consult"],
+      video_consultation_status: [
+        "scheduled",
+        "started",
+        "completed",
+        "cancelled",
+        "no_show",
       ],
       vital_source: ["manual", "device", "wearable"],
       vital_type: [
