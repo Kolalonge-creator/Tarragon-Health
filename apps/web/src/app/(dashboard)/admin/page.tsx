@@ -223,6 +223,29 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.logistics className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/logistics-partners" className="hover:underline">
+              Home visit &amp; delivery partners
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Add or activate a home-collection or delivery partner for a region — this is what
+            turns on real scheduling/tracking for patients there instead of &quot;coming soon&quot;.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/logistics-partners"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage partners →
+          </Link>
+        </CardContent>
+      </Card>
     </DashboardPlaceholder>
   );
 }

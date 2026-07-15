@@ -17,6 +17,7 @@ import {
   Lock,
   CreditCard,
   Percent,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,4 +45,5 @@ export const SEMANTIC_ICON = {
   upgrade: Lock,
   billing: CreditCard,
   commission: Percent,
+  logistics: Truck,
 } as const satisfies Record<string, LucideIcon>;

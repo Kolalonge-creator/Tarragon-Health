@@ -15,6 +15,8 @@ const TYPE_BADGE: Record<CommissionType, { variant: BadgeProps["variant"]; label
   lab: { variant: "blue", label: "Lab" },
   pharmacy: { variant: "green", label: "Pharmacy" },
   referral: { variant: "grey", label: "Referral" },
+  home_visit: { variant: "amber", label: "Home visit" },
+  delivery: { variant: "green", label: "Delivery" },
 };
 
 const STATUS_BADGE: Record<CommissionStatus, { variant: BadgeProps["variant"]; label: string }> = {
@@ -81,6 +83,8 @@ export function CommissionsDashboard() {
                 <option value="lab">Lab</option>
                 <option value="pharmacy">Pharmacy</option>
                 <option value="referral">Referral</option>
+                <option value="home_visit">Home visit</option>
+                <option value="delivery">Delivery</option>
               </Select>
             </div>
             <div className="space-y-1.5">

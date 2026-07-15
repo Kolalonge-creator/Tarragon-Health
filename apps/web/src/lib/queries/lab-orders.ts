@@ -53,8 +53,22 @@ export function useLabProviders() {
 
 export type LabOrderWithDetails = Tables<"lab_orders"> & {
   panel_bundle: { name: string } | null;
-  provider: { name: string } | null;
+  provider: { name: string; regions: string[] } | null;
+  home_visit_provider: { name: string } | null;
 };
+
+/**
+ * provider.regions is included as a best-effort region signal for the
+ * home-collection availability check on the patient's own order list —
+ * there is no profiles.state/region column anywhere in this codebase, so
+ * the already-chosen lab partner's own region is the closest proxy without
+ * inventing a new stored field. The authoritative region for scheduling
+ * itself is still whatever the assigning staff member manually selects
+ * (same UX as /clinician/referrals), this is only used for the read-only
+ * patient-facing availability hint.
+ */
+const LAB_ORDER_SELECT =
+  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name)";
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
 export function usePatientLabOrders(patientId: string) {
@@ -64,15 +78,33 @@ export function usePatientLabOrders(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("lab_orders")
-        .select(
-          "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name), provider:lab_providers!lab_orders_provider_id_fkey(name)",
-        )
+        .select(LAB_ORDER_SELECT)
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as LabOrderWithDetails[];
     },
     enabled: !!patientId,
+  });
+}
+
+/**
+ * All lab_orders in the caller's org, newest first — ops/clinician worklist
+ * for assigning a home-visit provider + scheduled time. RLS
+ * (private.is_org_staff) does the org-scoping.
+ */
+export function useOrgLabOrders() {
+  return useQuery({
+    queryKey: ["lab-orders", "org"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_orders")
+        .select(LAB_ORDER_SELECT)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as LabOrderWithDetails[];
+    },
   });
 }
 
