@@ -532,6 +532,7 @@ export type Database = {
           created_at: string
           credential_number: string | null
           credential_type: string | null
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
           full_name: string
           id: string
           indemnity_exempt: boolean
@@ -539,11 +540,11 @@ export type Database = {
           indemnity_expires_at: string | null
           indemnity_insurer: string | null
           indemnity_policy_number: string | null
+          is_clinical_director: boolean
           license_verified_at: string | null
           organisation_id: string
           photo_url: string | null
           profile_id: string | null
-          role: Database["public"]["Enums"]["clinical_staff_role"]
           specialty: string | null
           updated_at: string
           verified_by: string | null
@@ -554,6 +555,7 @@ export type Database = {
           created_at?: string
           credential_number?: string | null
           credential_type?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           full_name: string
           id?: string
           indemnity_exempt?: boolean
@@ -561,11 +563,11 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
+          is_clinical_director?: boolean
           license_verified_at?: string | null
           organisation_id: string
           photo_url?: string | null
           profile_id?: string | null
-          role: Database["public"]["Enums"]["clinical_staff_role"]
           specialty?: string | null
           updated_at?: string
           verified_by?: string | null
@@ -576,6 +578,7 @@ export type Database = {
           created_at?: string
           credential_number?: string | null
           credential_type?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           full_name?: string
           id?: string
           indemnity_exempt?: boolean
@@ -583,11 +586,11 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
+          is_clinical_director?: boolean
           license_verified_at?: string | null
           organisation_id?: string
           photo_url?: string | null
           profile_id?: string | null
-          role?: Database["public"]["Enums"]["clinical_staff_role"]
           specialty?: string | null
           updated_at?: string
           verified_by?: string | null
@@ -625,28 +628,31 @@ export type Database = {
       }
       clinical_staff_indemnity_exemptions: {
         Row: {
+          applies_to_director: boolean
           created_at: string
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by: string
           id: string
           organisation_id: string
           reason: string | null
-          role: Database["public"]["Enums"]["clinical_staff_role"] | null
         }
         Insert: {
+          applies_to_director?: boolean
           created_at?: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by: string
           id?: string
           organisation_id: string
           reason?: string | null
-          role?: Database["public"]["Enums"]["clinical_staff_role"] | null
         }
         Update: {
+          applies_to_director?: boolean
           created_at?: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by?: string
           id?: string
           organisation_id?: string
           reason?: string | null
-          role?: Database["public"]["Enums"]["clinical_staff_role"] | null
         }
         Relationships: [
           {
@@ -671,6 +677,7 @@ export type Database = {
           acknowledged_by: string | null
           created_at: string
           detail: string | null
+          escalation_level: number | null
           id: string
           level: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
@@ -685,6 +692,7 @@ export type Database = {
           acknowledged_by?: string | null
           created_at?: string
           detail?: string | null
+          escalation_level?: number | null
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
@@ -699,6 +707,7 @@ export type Database = {
           acknowledged_by?: string | null
           created_at?: string
           detail?: string | null
+          escalation_level?: number | null
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id?: string
@@ -1295,6 +1304,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          investigation_tier: number
           order_number: string | null
           ordered_at: string
           ordered_by: string | null
@@ -1317,6 +1327,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          investigation_tier?: number
           order_number?: string | null
           ordered_at?: string
           ordered_by?: string | null
@@ -1339,6 +1350,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          investigation_tier?: number
           order_number?: string | null
           ordered_at?: string
           ordered_by?: string | null
@@ -3824,10 +3836,6 @@ export type Database = {
         | "cardiovascular"
         | "other"
       care_plan_status: "draft" | "active" | "completed" | "cancelled"
-      clinical_staff_role:
-        | "clinical_director"
-        | "clinician"
-        | "escalation_doctor"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
       commission_type: "lab" | "pharmacy" | "referral"
@@ -3839,6 +3847,13 @@ export type Database = {
         | "paid"
         | "active"
       currency: "NGN" | "GBP" | "USD"
+      doctor_tier:
+        | "care_coordinator"
+        | "tier_1"
+        | "tier_2"
+        | "tier_3"
+        | "tier_4_senior_registrar"
+        | "tier_5_partner_specialist"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       facility_type:
@@ -3971,6 +3986,7 @@ export type Database = {
         | "hmo_admin"
         | "corporate_admin"
         | "doctor"
+        | "care_coordinator"
       vital_source: "manual" | "device" | "wearable"
       vital_type:
         | "blood_pressure"
@@ -4138,11 +4154,6 @@ export const Constants = {
         "other",
       ],
       care_plan_status: ["draft", "active", "completed", "cancelled"],
-      clinical_staff_role: [
-        "clinical_director",
-        "clinician",
-        "escalation_doctor",
-      ],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
       commission_type: ["lab", "pharmacy", "referral"],
@@ -4155,6 +4166,14 @@ export const Constants = {
         "active",
       ],
       currency: ["NGN", "GBP", "USD"],
+      doctor_tier: [
+        "care_coordinator",
+        "tier_1",
+        "tier_2",
+        "tier_3",
+        "tier_4_senior_registrar",
+        "tier_5_partner_specialist",
+      ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       facility_type: [
@@ -4300,6 +4319,7 @@ export const Constants = {
         "hmo_admin",
         "corporate_admin",
         "doctor",
+        "care_coordinator",
       ],
       vital_source: ["manual", "device", "wearable"],
       vital_type: [
