@@ -2972,40 +2972,61 @@ export type Database = {
       }
       specialist_providers: {
         Row: {
+          accepted_hmos: string[]
           commission_flat_kobo: number | null
           commission_rate: number | null
           commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
           consultation_fee_kobo: number
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
           id: string
           is_active: boolean
+          languages: string[]
           location: string | null
           name: string
           specialist_type: Database["public"]["Enums"]["specialist_type"]
+          state: string | null
+          supports_in_person: boolean
+          supports_telemedicine: boolean
         }
         Insert: {
+          accepted_hmos?: string[]
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           consultation_fee_kobo?: number
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          languages?: string[]
           location?: string | null
           name: string
           specialist_type: Database["public"]["Enums"]["specialist_type"]
+          state?: string | null
+          supports_in_person?: boolean
+          supports_telemedicine?: boolean
         }
         Update: {
+          accepted_hmos?: string[]
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           consultation_fee_kobo?: number
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          languages?: string[]
           location?: string | null
           name?: string
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
+          state?: string | null
+          supports_in_person?: boolean
+          supports_telemedicine?: boolean
         }
         Relationships: []
       }
@@ -3029,9 +3050,12 @@ export type Database = {
           referral_reason: string | null
           screening_upgrade_id: string | null
           set_by: string | null
+          shared_care_handback_at: string | null
           specialist_provider_id: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note: string | null
+          treatment_plan_received_at: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["referral_urgency"] | null
         }
@@ -3054,9 +3078,12 @@ export type Database = {
           referral_reason?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
+          shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note?: string | null
+          treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
         }
@@ -3079,9 +3106,12 @@ export type Database = {
           referral_reason?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
+          shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note?: string | null
+          treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
         }

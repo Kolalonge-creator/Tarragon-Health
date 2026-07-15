@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Stepper } from "@/components/ui/stepper";
+import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import { koboToNaira, type ReferralStatus } from "@tarragon/shared";
 import type { SpecialistReferralWithDetails } from "@/lib/queries/specialist-referrals";
 import { ClinicalSummaryPanel } from "./clinical-summary-panel";
@@ -69,6 +71,7 @@ export default async function DoctorReferralDetailPage({
         </CardHeader>
         <CardContent className="space-y-2">
           <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+          <Stepper steps={deriveReferralPipelineStages(typedReferral)} />
           {typedReferral.referral_reason && (
             <p className="text-sm text-charcoal-ink">{typedReferral.referral_reason}</p>
           )}

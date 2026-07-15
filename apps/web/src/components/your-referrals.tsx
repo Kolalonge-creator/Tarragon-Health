@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Stepper } from "@/components/ui/stepper";
+import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import type { ReferralStatus } from "@tarragon/shared";
 import { PayForReferralButton } from "./pay-for-referral-button";
 
@@ -32,7 +34,7 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
   const { data: referrals } = await supabase
     .from("specialist_referrals")
     .select(
-      "id, referral_number, specialist_type, status, referral_fee_kobo, appointment_date, created_at, specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name)",
+      "id, referral_number, specialist_type, status, urgency, referral_fee_kobo, appointment_date, booking_confirmed_at, specialist_provider_id, treatment_plan_received_at, shared_care_handback_at, created_at, specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name)",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -57,6 +59,7 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
               <p className="shrink-0 text-xs text-charcoal-ink/50">{formatDate(referral.created_at)}</p>
             </div>
             <p className="text-xs text-charcoal-ink/60">{PATIENT_STATUS_COPY[referral.status]}</p>
+            <Stepper steps={deriveReferralPipelineStages(referral)} />
             {referral.specialist_provider && (
               <p className="text-xs text-charcoal-ink/60">With {referral.specialist_provider.name}</p>
             )}
