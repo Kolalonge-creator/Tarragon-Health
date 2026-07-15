@@ -3037,6 +3037,7 @@ export type Database = {
           clinical_summary: Json | null
           created_at: string
           id: string
+          interim_management_plan: string | null
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
@@ -3058,6 +3059,7 @@ export type Database = {
           treatment_plan_received_at: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["referral_urgency"] | null
+          waitlisted_at: string | null
         }
         Insert: {
           appointment_date?: string | null
@@ -3065,6 +3067,7 @@ export type Database = {
           clinical_summary?: Json | null
           created_at?: string
           id?: string
+          interim_management_plan?: string | null
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
@@ -3086,6 +3089,7 @@ export type Database = {
           treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
+          waitlisted_at?: string | null
         }
         Update: {
           appointment_date?: string | null
@@ -3093,6 +3097,7 @@ export type Database = {
           clinical_summary?: Json | null
           created_at?: string
           id?: string
+          interim_management_plan?: string | null
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id?: string
@@ -3114,6 +3119,7 @@ export type Database = {
           treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
+          waitlisted_at?: string | null
         }
         Relationships: [
           {
@@ -4131,6 +4137,7 @@ export type Database = {
         | "pending_payment"
         | "payment_confirmed"
         | "pending"
+        | "waitlisted"
         | "booked"
         | "confirmed"
         | "completed"
@@ -4465,6 +4472,7 @@ export const Constants = {
         "pending_payment",
         "payment_confirmed",
         "pending",
+        "waitlisted",
         "booked",
         "confirmed",
         "completed",
