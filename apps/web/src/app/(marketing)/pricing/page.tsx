@@ -12,15 +12,18 @@ import {
   ALWAYS_FREE_NOTE,
   BOOKING_STEPS,
   EMPLOYER_HMO_NOTE,
+  FREE_TRIAL_INTRO,
+  FREE_TRIAL_TERMS,
+  FREE_TRIALS,
   NEVER_DO,
   PRICING_FAQ,
   PRICING_PROMISES,
 } from "../_content/pricing";
 
 export const metadata: Metadata = {
-  title: "Pricing — TarragonHealth",
+  title: "Pricing",
   description:
-    "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora (£). No hidden costs — every line item is clearly labelled.",
+    "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora (£). No hidden costs: every line item is clearly labelled.",
 };
 
 export const revalidate = 3600;
@@ -32,7 +35,7 @@ export default function PricingPage() {
         <SectionHeading
           eyebrow="Pricing"
           title="Simple, transparent plans"
-          description="Every line item carries exactly one label — included, book & pay, free elsewhere, or add-on. No hidden costs."
+          description="Every line item carries exactly one label: included, book & pay, free elsewhere, or add-on. No hidden costs."
         />
         <PricingTable />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
@@ -61,6 +64,32 @@ export default function PricingPage() {
 
       <Section>
         <SectionHeading
+          eyebrow="Try before you commit"
+          title="Free trials of real clinical care"
+          description={FREE_TRIAL_INTRO}
+        />
+        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
+          {FREE_TRIALS.map((trial) => (
+            <div
+              key={trial.title}
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-5"
+            >
+              <h3 className="font-heading text-base font-semibold text-charcoal-ink">
+                {trial.title}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{trial.body}</p>
+            </div>
+          ))}
+        </div>
+        <ul className="mx-auto mt-6 max-w-3xl space-y-2 text-center text-sm text-charcoal-ink/70">
+          {FREE_TRIAL_TERMS.map((term) => (
+            <li key={term}>{term}</li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section variant="sage">
+        <SectionHeading
           eyebrow="Add-ons"
           title="Optional extras, fully explained"
           description="Nothing here is automatically added to your plan. You choose them, you see the price, you confirm."
@@ -68,7 +97,7 @@ export default function PricingPage() {
         <PricingAddOns />
       </Section>
 
-      <Section variant="sage">
+      <Section>
         <SectionHeading eyebrow="What's always free" title="On any plan, including Free" />
         <div className="mx-auto max-w-2xl">
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
@@ -174,7 +203,7 @@ export default function PricingPage() {
         <CtaBand
           variant="gradient"
           title="Ready to get started?"
-          description="Join TarragonHealth today — for yourself or someone you love."
+          description="Join TarragonHealth today, for yourself or someone you love."
           secondaryHref={MARKETING_ROUTES.contact}
           secondaryLabel="Talk to us first"
         />
