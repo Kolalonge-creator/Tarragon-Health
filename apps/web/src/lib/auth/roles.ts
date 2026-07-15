@@ -9,6 +9,7 @@ export const ROLE_HOME_PATH: Record<UserRole, string> = {
   admin: "/admin",
   hmo_admin: "/dashboard/hmo",
   corporate_admin: "/dashboard/corporate",
+  care_coordinator: "/dashboard/care-coordinator",
 };
 
 export function getRoleHomePath(role: UserRole): string {

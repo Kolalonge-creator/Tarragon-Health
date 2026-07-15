@@ -24,7 +24,7 @@ async function getCallerOrganisationId(): Promise<string> {
   return profile.organisation_id;
 }
 
-/** Every clinical_staff record in the caller's org, any role/active state — admin management view. */
+/** Every clinical_staff record in the caller's org, any tier/active state — admin management view. */
 export function useAllClinicalStaff() {
   return useQuery({
     queryKey: ALL_STAFF_QUERY_KEY,
@@ -33,7 +33,8 @@ export function useAllClinicalStaff() {
       const { data, error } = await supabase
         .from("clinical_staff")
         .select("*")
-        .order("role", { ascending: true })
+        .order("is_clinical_director", { ascending: false })
+        .order("doctor_tier", { ascending: true })
         .order("full_name", { ascending: true });
       if (error) throw error;
       return data as ClinicalStaff[];
@@ -47,13 +48,18 @@ export function useAllClinicalStaff() {
  * self-attestation). profilePhone is optional: links the record to an
  * existing login (needed for anyone who'll act in the system — sign
  * escalations, sign protocols); a Clinical Director can also exist as a
- * bio-only marketing record with no login.
+ * bio-only marketing record with no login. doctorTier and
+ * isClinicalDirector are independent (docs/Tarragon_Health_Master_Operating_Plan_v4.md
+ * §4: a Director can sit at any tier, or none) — never inferred/defaulted,
+ * per the "never infer a doctor_tier in code" rule; an admin picks both
+ * explicitly.
  */
 export function useCreateClinicalStaff() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      role: ClinicalStaff["role"];
+      doctorTier: ClinicalStaff["doctor_tier"];
+      isClinicalDirector: boolean;
       fullName: string;
       credentialType?: string;
       credentialNumber?: string;
@@ -79,7 +85,8 @@ export function useCreateClinicalStaff() {
       const { error } = await supabase.from("clinical_staff").insert({
         organisation_id: organisationId,
         profile_id: profileId,
-        role: input.role,
+        doctor_tier: input.doctorTier,
+        is_clinical_director: input.isClinicalDirector,
         full_name: input.fullName,
         credential_type: input.credentialType || null,
         credential_number: input.credentialNumber || null,
@@ -125,10 +132,11 @@ export function useVerifyClinicalStaff() {
 
 /**
  * Records indemnity/malpractice insurance details — required before a
- * Clinical Director or Escalation Doctor can be activated
- * (docs/CLINICAL_TRUST_MODEL_SPEC.md §5). A DB constraint
- * (clinical_staff_active_requires_indemnity), not just this app code, blocks
- * activation of those two roles without current, non-expired cover on file.
+ * Clinical Director or Tier 4/5 clinician can be activated
+ * (docs/CLINICAL_TRUST_MODEL_SPEC.md §5,
+ * docs/Tarragon_Health_Master_Operating_Plan_v4.md §4). A DB trigger
+ * (private.enforce_clinical_staff_indemnity), not just this app code,
+ * blocks activation of those without current, non-expired cover on file.
  */
 export function useSetClinicalStaffIndemnity() {
   const queryClient = useQueryClient();
@@ -223,7 +231,7 @@ export function useSetClinicalStaffIndemnityExempt() {
   });
 }
 
-/** The caller's org's current org-wide (role = null) and per-role indemnity exemptions. */
+/** The caller's org's current org-wide, per-tier and director-wide indemnity exemptions. */
 export function useOrgIndemnityExemptions() {
   return useQuery({
     queryKey: INDEMNITY_EXEMPTIONS_QUERY_KEY,
@@ -240,21 +248,26 @@ export function useOrgIndemnityExemptions() {
 }
 
 /**
- * Grants an org-wide (role omitted) or whole-role indemnity exemption —
- * covers every current and future Clinical Director/Escalation Doctor in
- * that scope, not just one named record (contrast
- * useSetClinicalStaffIndemnityExempt). RLS restricts inserts here to admins
- * only, since this waives a compliance gate at organisation/role scope
- * rather than for one named individual.
+ * Grants an org-wide, whole-tier, or whole-director indemnity exemption —
+ * covers every current and future clinical_staff record in that scope, not
+ * just one named record (contrast useSetClinicalStaffIndemnityExempt).
+ * Exactly one of doctorTier/applyToDirector should be set (or neither, for
+ * org-wide) — a DB CHECK constraint
+ * (clinical_staff_indemnity_exemptions_single_scope) rejects setting both.
+ * RLS restricts inserts here to admins only, since this waives a compliance
+ * gate at organisation/tier/director scope rather than for one named
+ * individual.
  */
 export function useAddIndemnityExemption() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
-      role,
+      doctorTier,
+      applyToDirector,
       reason,
     }: {
-      role: ClinicalStaff["role"] | null;
+      doctorTier: ClinicalStaff["doctor_tier"] | null;
+      applyToDirector: boolean;
       reason?: string;
     }) => {
       const supabase = createClient();
@@ -266,7 +279,8 @@ export function useAddIndemnityExemption() {
 
       const { error } = await supabase.from("clinical_staff_indemnity_exemptions").insert({
         organisation_id: organisationId,
-        role,
+        doctor_tier: doctorTier,
+        applies_to_director: applyToDirector,
         reason: reason || null,
         exempted_by: user.id,
       });
@@ -278,7 +292,7 @@ export function useAddIndemnityExemption() {
   });
 }
 
-/** Revokes an org-wide or per-role indemnity exemption. */
+/** Revokes an org-wide, per-tier, or director-wide indemnity exemption. */
 export function useRemoveIndemnityExemption() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -296,7 +310,12 @@ export function useRemoveIndemnityExemption() {
   });
 }
 
-/** Active clinicians in the caller's org (RLS-scoped) — populates the care-team assignment select. */
+/**
+ * Active Tier 1-3 clinicians in the caller's org (RLS-scoped) — populates
+ * the care-team assignment select. Tier 1-3 is the day-to-day care-team
+ * band per docs/Tarragon_Health_Master_Operating_Plan_v4.md §4 (Tier 4/5
+ * are escalation/referral, not a per-patient assignment).
+ */
 export function useOrgClinicians() {
   return useQuery({
     queryKey: ["clinical-staff", "clinicians"],
@@ -305,7 +324,7 @@ export function useOrgClinicians() {
       const { data, error } = await supabase
         .from("clinical_staff")
         .select("*")
-        .eq("role", "clinician")
+        .in("doctor_tier", ["tier_1", "tier_2", "tier_3"])
         .eq("active", true)
         .order("full_name", { ascending: true });
       if (error) throw error;
@@ -340,7 +359,7 @@ export function useAssignCareTeam() {
         .from("clinical_staff")
         .select("profile_id")
         .eq("organisation_id", organisationId)
-        .eq("role", "clinical_director")
+        .eq("is_clinical_director", true)
         .eq("active", true)
         .not("profile_id", "is", null)
         .maybeSingle();

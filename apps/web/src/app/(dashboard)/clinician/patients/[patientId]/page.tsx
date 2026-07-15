@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { hasPrescribingAuthority } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
@@ -39,6 +41,9 @@ export default async function ClinicianPatientPage({
     );
   }
 
+  const callerStaff = await getCurrentClinicalStaff();
+  const canPrescribe = hasPrescribingAuthority(callerStaff);
+
   return (
     <div className="space-y-6">
       <div>
@@ -52,7 +57,26 @@ export default async function ClinicianPatientPage({
           regardless of what the patient's plan does or doesn't unlock for
           them on their own dashboard. */}
       <MedicationsList patientId={patient.id} refillCoordinationEnabled />
-      <AddMedicationForm patientId={patient.id} source="clinician" />
+      {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
+          continues existing prescriptions but has no new-prescribing
+          authority — the DB RLS policy is the real gate
+          (private.has_prescribing_authority), this just explains it
+          instead of surfacing a raw RLS error. */}
+      {canPrescribe ? (
+        <AddMedicationForm patientId={patient.id} source="clinician" />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Add a medication</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-charcoal-ink/60">
+              Tier 1 doctors confirm and continue existing stable prescriptions under protocol —
+              starting a new medication needs a Tier 2+ doctor or the Clinical Director.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       <VitalsTrendChart patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />
       {patient.organisation_id && (
