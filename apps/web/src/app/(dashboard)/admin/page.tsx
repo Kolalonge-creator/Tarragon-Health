@@ -141,7 +141,7 @@ export default async function AdminPage() {
             </Link>
           </CardTitle>
           <CardDescription>
-            Add and verify every named Clinical Director, clinician, and escalation doctor —
+            Add and verify every named Clinical Director, doctor, and escalation doctor —
             a record can&apos;t go active until its MDCN/NMCN credential is verified.
           </CardDescription>
         </CardHeader>

@@ -17,12 +17,12 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Stay ahead of high blood pressure before it causes complications.",
     campaignLine: "High blood pressure needs follow-up, not guesswork.",
     intro:
-      "Tarragon helps you log blood pressure readings, spot trends early, and get clinician review when numbers drift. Reminders keep follow-up consistent between doctor visits, not just at them.",
+      "Tarragon helps you log blood pressure readings, spot trends early, and get doctor review when numbers drift. Reminders keep follow-up consistent between doctor visits, not just at them.",
     included: [
       "BP logging via WhatsApp or app",
       "Trend view for you and your care team",
       "Medication and follow-up reminders",
-      "Clinician review when readings drift",
+      "Doctor review when readings drift",
       "Doctor escalation when closer care is needed",
     ],
     howItWorks: [
@@ -35,14 +35,14 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         body: "Track how your numbers change over weeks, not just single visits.",
       },
       {
-        title: "Clinician review & escalation",
-        body: "When readings need attention, a clinician-led team follows up and escalates to a doctor if needed.",
+        title: "Doctor review & escalation",
+        body: "When readings need attention, a doctor-led team follows up and escalates to a doctor if needed.",
       },
     ],
     metadata: {
       title: "Hypertension Monitoring",
       description:
-        "Clinician-led blood pressure monitoring with reminders, trend tracking, and escalation when closer care is needed.",
+        "Doctor-led blood pressure monitoring with reminders, trend tracking, and escalation when closer care is needed.",
     },
   },
   diabetes: {
@@ -50,13 +50,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Track glucose, HbA1c, medication, labs, and complications in one place.",
     campaignLine: "Diabetes care is more than sugar checks.",
     intro:
-      "Tarragon brings glucose logs, HbA1c tracking, medication adherence, and lab coordination into one platform, with clinician review when your numbers need a closer look.",
+      "Tarragon brings glucose logs, HbA1c tracking, medication adherence, and lab coordination into one platform, with doctor review when your numbers need a closer look.",
     included: [
       "Glucose and HbA1c tracking",
       "Medication reminders and adherence support",
       "Lab result follow-up in the same record",
       "Complication screening prompts",
-      "Clinician review when trends need attention",
+      "Doctor review when trends need attention",
     ],
     howItWorks: [
       {
@@ -69,13 +69,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Escalate when needed",
-        body: "Persistent highs or missed follow-ups trigger clinician review, calm, not alarming.",
+        body: "Persistent highs or missed follow-ups trigger doctor review, calm, not alarming.",
       },
     ],
     metadata: {
       title: "Diabetes Monitoring",
       description:
-        "Track glucose, HbA1c, medication, and labs in one clinician-led platform with escalation when closer care is needed.",
+        "Track glucose, HbA1c, medication, and labs in one doctor-led platform with escalation when closer care is needed.",
     },
   },
   parentcare: {
@@ -88,7 +88,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       "Parent health profile and monitoring goals",
       "Vitals, medication, and preventive check tracking",
       "Calm family updates for loved ones near or abroad",
-      "Clinician follow-up when readings or care gaps need attention",
+      "Doctor follow-up when readings or care gaps need attention",
       "Escalation support when closer care is needed",
     ],
     howItWorks: [
@@ -98,7 +98,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Stay informed",
-        body: "Receive clear updates on readings, reminders, and clinician follow-ups.",
+        body: "Receive clear updates on readings, reminders, and doctor follow-ups.",
       },
       {
         title: "Escalate with confidence",
@@ -121,7 +121,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       "Preventive screening calendar and care-gap tracking",
       "Reminders for cancer, metabolic, infectious, and reproductive checks",
       "Lab coordination when tests are due",
-      "Clinician review when results need attention",
+      "Doctor review when results need attention",
       "Upgrade path into chronic disease monitoring when follow-up is needed",
     ],
     howItWorks: [
@@ -135,26 +135,26 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Close the loop",
-        body: "When a result needs attention, a clinician-led team follows up immediately and connects you to chronic care if needed.",
+        body: "When a result needs attention, a doctor-led team follows up immediately and connects you to chronic care if needed.",
       },
     ],
     metadata: {
       title: "Preventive Health",
       description:
-        "Find care gaps early, complete overdue screenings, and get clinician follow-up when results need attention, on the same record as chronic care.",
+        "Find care gaps early, complete overdue screenings, and get doctor follow-up when results need attention, on the same record as chronic care.",
     },
   },
   medication: {
     slug: "medication",
     headline: "Reduce missed doses and avoid running out of medication.",
     intro:
-      "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders on WhatsApp or app, refill alerts before you run out, and a clinician-led team that follows up when doses are missed.",
+      "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders on WhatsApp or app, refill alerts before you run out, and a doctor-led team that follows up when doses are missed.",
     included: [
       "Medication schedule built into your health record",
       "WhatsApp and app reminders for every dose",
       "Refill alerts before you run out",
       "Pharmacy partner network for booking a refill",
-      "Clinician follow-up when doses are missed",
+      "Doctor follow-up when doses are missed",
     ],
     howItWorks: [
       {
@@ -167,7 +167,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Never run out, never go quiet",
-        body: "Refill alerts arrive before you're out, and a clinician checks in if doses are consistently missed.",
+        body: "Refill alerts arrive before you're out, and a doctor checks in if doses are consistently missed.",
       },
     ],
     metadata: {
@@ -185,7 +185,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       "Lab calendar synced to your chronic and preventive record",
       "Booking through Tarragon's trusted lab partner network",
       "Results explained in plain language, not jargon",
-      "Immediate clinician alert for abnormal results",
+      "Immediate doctor alert for abnormal results",
       "Follow-up tracked until the loop is closed",
     ],
     howItWorks: [
@@ -199,13 +199,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Never lose a result",
-        body: "A clinician reviews every result. Abnormal findings trigger immediate follow-up; never a forgotten report.",
+        body: "A doctor reviews every result. Abnormal findings trigger immediate follow-up; never a forgotten report.",
       },
     ],
     metadata: {
       title: "Lab Coordination",
       description:
-        "Know what lab tests are due, book them through a trusted partner network, and get clinician follow-up on every result.",
+        "Know what lab tests are due, book them through a trusted partner network, and get doctor follow-up on every result.",
     },
   },
 };

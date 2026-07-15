@@ -84,7 +84,7 @@ export const WHAT_YOU_GET = [
   },
   {
     title: "Review",
-    body: "A clinician-led team watches your trends, screens for care gaps, and follows up when something needs attention, including abnormal results.",
+    body: "A doctor-led team watches your trends, screens for care gaps, and follows up when something needs attention, including abnormal results.",
   },
   {
     title: "Coordinate",
@@ -103,7 +103,7 @@ export const HOW_IT_WORKS_STEPS = [
   { step: 1, title: "Sign up", body: "Create your account in minutes, for yourself or a loved one." },
   { step: 2, title: "Onboard", body: "Share your health history and what you want Tarragon to watch." },
   { step: 3, title: "Monitor", body: "Log vitals, take medication, and complete preventive checks." },
-  { step: 4, title: "Clinician review", body: "A clinician-led team reviews your readings and follows up." },
+  { step: 4, title: "Doctor review", body: "A doctor-led team reviews your readings and follows up." },
   { step: 5, title: "Doctor escalation", body: "When closer care is needed, we escalate; you are never alone." },
   { step: 6, title: "Family updates", body: "Keep family informed with calm, clear updates, near or far." },
 ] as const;
@@ -129,11 +129,11 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "patient",
     tabLabel: "For you",
     title: "Track your health without carrying it alone.",
-    body: "Blood pressure, blood sugar, medication, lab checks, and preventive reminders, in one secure place, with a clinician behind it when you need one.",
+    body: "Blood pressure, blood sugar, medication, lab checks, and preventive reminders, in one secure place, with a doctor behind it when you need one.",
     points: [
       "BP and glucose logging with trend review",
       "Medication reminders and refill alerts",
-      "Monthly clinician check-in, doctor escalation when needed",
+      "Monthly doctor check-in, doctor escalation when needed",
     ],
     stats: [
       { label: "Blood pressure", value: "124 / 79", pill: { text: "In range", tone: "green" } },
@@ -203,7 +203,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "What is Tarragon Health?",
     answer:
-      "TarragonHealth is a clinician-led monitoring platform for chronic disease, preventive health, and family care coordination in Nigeria.",
+      "TarragonHealth is a doctor-led monitoring platform for chronic disease, preventive health, and family care coordination in Nigeria.",
   },
   {
     question: "How do I log my blood pressure or glucose?",
@@ -213,12 +213,12 @@ export const HOMEPAGE_FAQS = [
   {
     question: "What happens when readings are high?",
     answer:
-      "Your readings are reviewed against care protocols. If they need attention, the clinician-led team follows up and escalates to a doctor when closer care is needed.",
+      "Your readings are reviewed against care protocols. If they need attention, the doctor-led team follows up and escalates to a doctor when closer care is needed.",
   },
   {
     question: "What about preventive checks and screening results?",
     answer:
-      "Tarragon tracks what checks may be due, reminds you to complete them, and reviews results when they come back. An abnormal screening result triggers clinician follow-up and can upgrade you into chronic care monitoring when needed.",
+      "Tarragon tracks what checks may be due, reminds you to complete them, and reviews results when they come back. An abnormal screening result triggers doctor follow-up and can upgrade you into chronic care monitoring when needed.",
   },
   {
     question: "Can I use Tarragon for my parent while I live abroad?",

@@ -13,9 +13,11 @@
 
 Read this spec's own §7 build-sequencing table against these Sprint numbers, not the literal Stage/§ numbers.
 
+**Superseded 2026-07-15 — Tarragon now directly employs its own doctors.** The day-to-day care-team role (Tier 2 below) is staffed by Tarragon-employed, MDCN-licensed doctors, not contracted nurses/clinicians, and is branded to patients as "your doctor," not "your clinician." This is a deliberate business-model change, not a copy typo: the earlier "clinician is the default face, doctor attribution is earned per-case" framing (§9, previously carried into CLAUDE.md's "Never" list) is retired. What's preserved from the original model: the underlying `clinical_staff.role` DB value for this tier remains `clinician` for schema/backward-compatibility reasons only — that is an internal identifier, not something a patient ever sees, and it does not need to match the customer-facing word. The three-tier structure, the null-gated `ReviewedByDoctor` attribution component, and the escalation SLA machinery are all still real and still required; only the brand word for Tier 2 changes.
+
 **One-line principle:** Every trust claim shown to a patient or family must be backed by a real, timestamped database record. No UI element may say "Dr. X reviewed this" unless Dr. X actually reviewed that specific case. The halo comes from real protocol authorship and real escalation review, not from borrowed titles.
 
-This directly extends Master Plan §10 (Clinical Operating Model) and §11 (Clinical Protocols), and Brand Package's existing voice line — *"a nurse who knows your name, not a hospital PA system"* — updated here to a clinician, not a generic doctor, at the center of the patient relationship. This spec makes that architecture concrete enough to build.
+This directly extends Master Plan §10 (Clinical Operating Model) and §11 (Clinical Protocols), and Brand Package's existing voice line — *"a doctor who knows your name, not a hospital PA system"* — a named, employed Tarragon doctor at the center of the patient relationship, with a separate escalation pool reserved for cases that need a second, more senior review. This spec makes that architecture concrete enough to build.
 
 ---
 
@@ -24,10 +26,10 @@ This directly extends Master Plan §10 (Clinical Operating Model) and §11 (Clin
 | Tier | Role | What they actually do | What gets branded |
 | --- | --- | --- | --- |
 | 1 | **Clinical Director** | One named, licensed doctor (or small named panel) who designs, approves, and version-signs every clinical protocol: BP/glucose thresholds, escalation triggers, red-flag rules, care plan templates. Reviewed quarterly, not per-patient. | Visible on marketing site, onboarding, and Health Passport footer as protocol author. Photo, bio, MDCN number. |
-| 2 | **Clinician (Care Team)** | Does the actual day-to-day work: reviews readings, calls patients, checks adherence, documents notes, follows protocol, escalates when rules trigger. This is the primary relationship the patient has. | Named, photographed, credentialed (NMCN number) on the patient's dashboard, WhatsApp signature, and call intro. This is the main trust surface, by design. |
-| 3 | **Escalation Doctor (Pool)** | Reviews only cases a clinician or the risk engine actually escalates — Amber/Red/Emergency tier. Writes a documented review note and action plan. | Named and shown **only on the specific case that was escalated**, with a timestamp — "Reviewed by Dr. Y, 14 Jul, 09:12." Never shown on cases that weren't escalated. |
+| 2 | **Doctor (Care Team)** | A Tarragon-employed, MDCN-licensed doctor who does the actual day-to-day work: reviews readings, calls patients, checks adherence, documents notes, follows protocol, escalates when rules trigger. This is the primary relationship the patient has. Internal DB role value stays `clinician` (schema/backward-compat only — not patient-facing). | Named, photographed, credentialed (MDCN number) on the patient's dashboard, WhatsApp signature, and call intro. This is the main trust surface, by design. |
+| 3 | **Escalation Doctor (Pool)** | Reviews only cases a Tier 2 doctor or the risk engine actually escalates — Amber/Red/Emergency tier. Writes a documented review note and action plan; typically a more senior/specialist doctor than the assigned Tier 2 doctor. | Named and shown **only on the specific case that was escalated**, with a timestamp — "Reviewed by Dr. Y, 14 Jul, 09:12." Never shown on cases that weren't escalated. |
 
-This replaces the earlier idea of doctor sign-off on every consult. The clinician carries the day-to-day trust relationship (which Nigerians already extend to credentialed professionals, not just the word "doctor"); the Clinical Director carries protocol credibility; the escalation doctor carries case-specific credibility exactly where it's earned.
+The day-to-day care-team role and the escalation pool are both staffed by real, employed/credentialed doctors now, distinguished by seniority and per-case involvement rather than by title: the Tier 2 doctor carries the day-to-day trust relationship (named, photographed, always visible); the Clinical Director carries protocol credibility; the escalation doctor carries case-specific credibility exactly where it's earned, on top of the Tier 2 doctor's own relationship.
 
 ---
 
@@ -36,9 +38,9 @@ This replaces the earlier idea of doctor sign-off on every consult. The clinicia
 | Touchpoint | What's shown | Copy pattern | DB requirement |
 | --- | --- | --- | --- |
 | Marketing site — About/Founder page | Clinical Director photo, bio, MDCN number | "Care protocols developed and supervised by Dr. [Name], MDCN [number]" | Static, editable via CMS/Content module |
-| Onboarding — "Your Care Team" screen | Assigned clinician (photo, name, credential) + Clinical Director badge | "Your clinician: Amaka O., NMCN — Your care protocols are supervised by Dr. [Name]" | `care_team_assignment` (patient_id → clinician_id, clinical_director_id) |
+| Onboarding — "Your Care Team" screen | Assigned Tier 2 doctor (photo, name, credential) + Clinical Director badge | "Your doctor: Dr. Amaka O., MDCN — Your care protocols are supervised by Dr. [Name]" | `care_team_assignment` (patient_id → clinician_id [internal name, patient-facing role is "doctor"], clinical_director_id) |
 | Patient/family dashboard | Persistent small badge, not a rotating claim | "Care protocols supervised by Dr. [Name]" — static, same for every patient | Pulled from `clinical_staff` where role = clinical_director |
-| WhatsApp / SMS check-ins | Signed by the clinician who actually sent it | "— Clinician Amaka, Tarragon Care Team" | `message_log.sender_id` → `clinical_staff` |
+| WhatsApp / SMS check-ins | Signed by the doctor who actually sent it | "— Dr. Amaka, Tarragon Care Team" | `message_log.sender_id` → `clinical_staff` |
 | Escalation notification (Amber/Red/Emergency only) | Named doctor, only after real review | "Dr. [Name] reviewed your case on 14 Jul and recommends..." | `escalations.reviewed_by`, `escalations.reviewed_at` must be non-null before this template can render |
 | Monthly / quarterly Health Passport & family report | Footer disclosure, plus a separate escalation line item only if one occurred | "Protocols supervised by Dr. [Name]." + conditionally: "This period included direct doctor review on [date] for [reason]." | Same escalation table, queried at report generation time |
 | Corporate / HMO reports | Clinical Director named as protocol owner; aggregate escalation stats, no individual doctor attribution needed | "Reviewed under protocols developed by Dr. [Name], Tarragon Clinical Director" | Aggregation query, no new fields |
@@ -84,7 +86,7 @@ This slots into the existing Stage 3 (Patient Profile), Stage 5 (Risk Scoring/Es
 - **License verification, not self-attestation.** Every `clinical_staff` record with role `clinical_director` or `escalation_doctor` requires MDCN registration number verified before `license_verified_at` is set. Re-verify annually. Clinicians similarly verified against NMCN.
 - **Indemnity/malpractice insurance** required for the Clinical Director and every escalation doctor before they're activated in the rota — this is what actually protects them, not the disclaimer text.
 - **No retroactive attribution.** `reviewed_by` and `reviewed_at` are set once, by the reviewing doctor, at time of review. No admin tooling should allow backfilling these fields after the fact.
-- **Consent screen honesty.** Onboarding consent copy should plainly state the real model: clinician-led monitoring, doctor-designed protocols, doctor review triggered by specific clinical criteria. This satisfies MDCN telemedicine disclosure expectations and, per the earlier discussion, is itself a trust asset — Nigerian consumers already distrust ambiguity (see the pricing-transparency principle in the Master Plan), and a plainly stated care model reads as more credible than a vague one.
+- **Consent screen honesty.** Onboarding consent copy should plainly state the real model: doctor-led day-to-day monitoring by Tarragon-employed physicians, doctor-designed protocols, a separate senior/escalation doctor review triggered by specific clinical criteria. This satisfies MDCN telemedicine disclosure expectations and, per the earlier discussion, is itself a trust asset — Nigerian consumers already distrust ambiguity (see the pricing-transparency principle in the Master Plan), and a plainly stated care model reads as more credible than a vague one.
 - **NDPR data residency** already covers `clinical_staff` credential data — no separate infrastructure needed, just make sure it lives in the same af-south-1 Supabase project as everything else.
 
 ---
@@ -136,6 +138,6 @@ Add to the Launch Gates table (Master Plan §27): **"Clinical attribution" — e
 
 ## 9. Non-Negotiables (candidates for CLAUDE.md)
 
-- No UI element may claim doctor review of a specific case without a corresponding `reviewed_by`/`reviewed_at` database record.
-- The clinician, not a doctor, is the default face of the day-to-day patient relationship.
-- Doctor attribution is earned per-case through real escalation review — never applied uniformly as a branding layer.
+- No UI element may claim escalation-doctor review of a specific case without a corresponding `reviewed_by`/`reviewed_at` database record.
+- A Tarragon-employed doctor (Tier 2, Care Team) is the default face of the day-to-day patient relationship — not a rotating or unnamed clinician.
+- A named *escalation* doctor's involvement in a specific case is still earned through real escalation review, never applied uniformly as a branding layer — the Tier 2 doctor's own attribution is always real (they are named on every case), but the additional "reviewed by Dr. Y" escalation credit only appears when that specific case was actually escalated and reviewed.

@@ -8,9 +8,9 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 /**
  * Key seats TarragonHealth needs beyond the founder as it scales past one
- * clinician, mapped to the five business categories in CLAUDE.md (chronic
+ * doctor, mapped to the five business categories in CLAUDE.md (chronic
  * disease + prevention, care coordination, B2B & institutional, platform
- * infrastructure, clinician-led delivery). All open, no names yet.
+ * infrastructure, doctor-led delivery). All open, no names yet.
  */
 const OPEN_ROLES: { title: string; scope: string }[] = [
   {
@@ -19,7 +19,7 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
   },
   {
     title: "Head of Clinical Operations",
-    scope: "Builds and leads the clinician-led review model: recruiting, training, and scheduling the clinicians who keep the clinician:patient ratio at 1:120.",
+    scope: "Builds and leads the doctor-led review model: recruiting, training, and scheduling the doctors who keep the doctor:patient ratio at 1:120.",
   },
   {
     title: "Head of Engineering",
@@ -38,7 +38,7 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Why TarragonHealth exists: clinician-led continuity of care between doctor visits, for Nigerian families and the people who love them.",
+    "Why TarragonHealth exists: doctor-led continuity of care between doctor visits, for Nigerian families and the people who love them.",
 };
 
 export default function AboutPage() {
@@ -91,7 +91,7 @@ export default function AboutPage() {
               disease and preventive care in Nigeria: most complications
               aren&rsquo;t a failure of medicine, they&rsquo;re a failure of
               follow-up. Kola founded TarragonHealth to build the system that
-              closes that gap, clinician-led, protocol-driven, and never
+              closes that gap, doctor-led, protocol-driven, and never
               losing track of a patient between visits.
             </p>
           </div>
@@ -108,13 +108,13 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="The thesis"
           title="Continuity, not just monitoring"
-          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same clinician follow a person from a routine screening through an ongoing condition, and the story never resets."
+          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same doctor follow a person from a routine screening through an ongoing condition, and the story never resets."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {[
             {
-              title: "Clinician-led",
-              body: "A real clinician reviews readings and results, never an algorithm acting alone.",
+              title: "Doctor-led",
+              body: "A real doctor reviews readings and results, never an algorithm acting alone.",
             },
             {
               title: "Protocol-driven",

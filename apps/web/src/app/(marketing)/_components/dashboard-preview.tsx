@@ -18,7 +18,7 @@ const CARE_ITEMS = [
 
 const CARE_PATH = [
   "Reading logged",
-  "Clinician review",
+  "Doctor review",
   "Follow-up note",
   "Family update",
 ] as const;
@@ -34,7 +34,7 @@ export function DashboardPreview() {
           One calm view for the care between visits
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-          Tarragon brings readings, reminders, preventive checks, clinician review,
+          Tarragon brings readings, reminders, preventive checks, doctor review,
           and family updates into one shared record, so the next step is clear.
         </p>
       </div>
@@ -52,7 +52,7 @@ export function DashboardPreview() {
               </p>
             </div>
             <span className="rounded-full bg-soft-sage px-3 py-1 text-xs font-medium text-deep-forest">
-              Clinician reviewed
+              Doctor reviewed
             </span>
           </div>
 
