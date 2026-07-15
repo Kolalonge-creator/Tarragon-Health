@@ -20,8 +20,8 @@ export default async function ClinicalStaffSettingsPage() {
           Clinical staff
         </h1>
         <p className="text-charcoal-ink/60">
-          The single source of truth for every named Clinical Director, clinician, and escalation
-          doctor shown anywhere in the product — docs/CLINICAL_TRUST_MODEL_SPEC.md §1/§4/§5. A
+          The single source of truth for every named Clinical Director, care team doctor, and
+          escalation doctor shown anywhere in the product — docs/CLINICAL_TRUST_MODEL_SPEC.md §1/§4/§5. A
           record starts inactive and unverified: verify the MDCN/NMCN credential before
           activating it, since an unverified record can never be marked active. License
           verification is annual — re-verify before the due date shown on each record. Clinical

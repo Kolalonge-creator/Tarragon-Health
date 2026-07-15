@@ -160,8 +160,8 @@ const COMPONENT_TIP: Record<HealthScoreComponent["key"], string> = {
 };
 
 /**
- * Non-alarming, clinician-voice suggestions for any component still below
- * TIP_THRESHOLD — per CLAUDE.md's brand voice ("a clinician who knows your
+ * Non-alarming, doctor-voice suggestions for any component still below
+ * TIP_THRESHOLD — per CLAUDE.md's brand voice ("a doctor who knows your
  * name, not a hospital PA system", no fear-based urgency). Only ever
  * suggests, never warns.
  */

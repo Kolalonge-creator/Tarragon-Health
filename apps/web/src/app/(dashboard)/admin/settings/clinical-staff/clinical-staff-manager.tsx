@@ -30,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 
 const ROLE_LABEL: Record<ClinicalStaff["role"], string> = {
   clinical_director: "Clinical Director",
-  clinician: "Clinician",
+  clinician: "Care Team Doctor",
   escalation_doctor: "Escalation Doctor",
 };
 
@@ -295,7 +295,7 @@ export function ClinicalStaffManager() {
               <Label htmlFor="role">Role</Label>
               <Select id="role" value={role} onChange={(e) => setRole(e.target.value as ClinicalStaff["role"])}>
                 <option value="clinical_director">Clinical Director</option>
-                <option value="clinician">Clinician</option>
+                <option value="clinician">Care Team Doctor</option>
                 <option value="escalation_doctor">Escalation Doctor</option>
               </Select>
             </div>
