@@ -3,9 +3,12 @@ packages:
   - "packages/*"
 
 # pnpm 11 removed `onlyBuiltDependencies`; approved build scripts now live in the
-# `allowBuilds` map (name -> boolean). sharp powers Next.js image optimisation and
-# unrs-resolver is a native resolver used by the ESLint/oxc toolchain.
+# `allowBuilds` map (name -> boolean). sharp powers Next.js image optimisation,
+# unrs-resolver is a native resolver used by the ESLint/oxc toolchain, and
+# @sentry/cli downloads the prebuilt Sentry CLI binary used for source-map
+# upload during build (apps/web/next.config.ts's withSentryConfig).
 allowBuilds:
+  '@sentry/cli': true
   sharp: true
   unrs-resolver: true
 
