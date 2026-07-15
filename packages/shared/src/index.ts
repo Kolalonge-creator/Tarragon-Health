@@ -149,6 +149,9 @@ export type EscalationStatus = Enums<"escalation_status">;
 /** specialist_referrals.status — assignment/payment/booking lifecycle. */
 export type ReferralStatus = Enums<"referral_status">;
 
+/** specialist_referrals.urgency — set by the assigning doctor, never inferred. */
+export type ReferralUrgency = Enums<"referral_urgency">;
+
 /** lab_orders.status — payment/collection/processing lifecycle. */
 export type LabOrderStatus = Enums<"lab_order_status">;
 
