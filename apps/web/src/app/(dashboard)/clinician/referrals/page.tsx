@@ -167,6 +167,12 @@ export default function ClinicianReferralsPage() {
                       Appointment: {new Date(referral.appointment_date).toLocaleDateString()}
                     </p>
                   )}
+                  <Link
+                    href={`/doctor/referrals/${referral.id}`}
+                    className="text-xs text-brand-green hover:underline"
+                  >
+                    Set urgency &amp; clinical summary
+                  </Link>
                   {referral.status === "pending" && <AssignProviderForm referral={referral} />}
                   {referral.status === "pending_payment" && (
                     <p className="text-xs text-charcoal-ink/60">Waiting on the patient to pay.</p>

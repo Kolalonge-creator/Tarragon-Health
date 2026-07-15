@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import type { ReferralUrgency, Tables } from "@tarragon/shared";
 
 export type SpecialistReferralWithDetails = Tables<"specialist_referrals"> & {
   patient: { full_name: string | null } | null;
@@ -23,6 +23,24 @@ export function useOrgSpecialistReferrals() {
       if (error) throw error;
       return data as SpecialistReferralWithDetails[];
     },
+  });
+}
+
+/** A single referral by id — the doctor-side referral detail page (urgency + clinical summary). */
+export function useSpecialistReferral(referralId: string) {
+  return useQuery({
+    queryKey: ["specialist-referrals", "detail", referralId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("specialist_referrals")
+        .select(REFERRAL_SELECT)
+        .eq("id", referralId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as SpecialistReferralWithDetails | null;
+    },
+    enabled: !!referralId,
   });
 }
 
@@ -121,6 +139,39 @@ export function useSetReferralAppointment() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
+    },
+  });
+}
+
+/**
+ * Sets a referral's urgency (routine/priority/urgent), recording who set it.
+ * Per docs/Tarragon_Health_Master_Operating_Plan_v4.md §7 Level 4 this is a
+ * Tier 4/Senior Registrar decision — enforced here only by UI placement
+ * (this control lives on the /doctor referral detail page, not /clinician),
+ * not yet a DB-level tier gate. A fast-follow
+ * private.has_referral_urgency_authority(org) (mirroring
+ * private.has_prescribing_authority) is the natural next step once that
+ * needs to be a hard guarantee rather than a route-level convention.
+ */
+export function useSetReferralUrgency() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ referralId, urgency }: { referralId: string; urgency: ReferralUrgency }) => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { error } = await supabase
+        .from("specialist_referrals")
+        .update({ urgency, set_by: user.id })
+        .eq("id", referralId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals", "detail", variables.referralId] });
     },
   });
 }

@@ -682,6 +682,7 @@ export type Database = {
           level: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
           patient_id: string
+          screening_result_id: string | null
           sla_due_at: string | null
           status: Database["public"]["Enums"]["alert_status"]
           title: string
@@ -697,6 +698,7 @@ export type Database = {
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
           patient_id: string
+          screening_result_id?: string | null
           sla_due_at?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
           title: string
@@ -712,6 +714,7 @@ export type Database = {
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id?: string
           patient_id?: string
+          screening_result_id?: string | null
           sla_due_at?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
           title?: string
@@ -737,6 +740,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_screening_result_id_fkey"
+            columns: ["screening_result_id"]
+            isOneToOne: false
+            referencedRelation: "screening_results"
             referencedColumns: ["id"]
           },
         ]
@@ -3003,6 +3013,7 @@ export type Database = {
         Row: {
           appointment_date: string | null
           booking_confirmed_at: string | null
+          clinical_summary: Json | null
           created_at: string
           id: string
           organisation_id: string
@@ -3017,14 +3028,17 @@ export type Database = {
           referral_number: string | null
           referral_reason: string | null
           screening_upgrade_id: string | null
+          set_by: string | null
           specialist_provider_id: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status: Database["public"]["Enums"]["referral_status"]
           updated_at: string
+          urgency: Database["public"]["Enums"]["referral_urgency"] | null
         }
         Insert: {
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          clinical_summary?: Json | null
           created_at?: string
           id?: string
           organisation_id: string
@@ -3039,14 +3053,17 @@ export type Database = {
           referral_number?: string | null
           referral_reason?: string | null
           screening_upgrade_id?: string | null
+          set_by?: string | null
           specialist_provider_id?: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["referral_urgency"] | null
         }
         Update: {
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          clinical_summary?: Json | null
           created_at?: string
           id?: string
           organisation_id?: string
@@ -3061,10 +3078,12 @@ export type Database = {
           referral_number?: string | null
           referral_reason?: string | null
           screening_upgrade_id?: string | null
+          set_by?: string | null
           specialist_provider_id?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["referral_urgency"] | null
         }
         Relationships: [
           {
@@ -3086,6 +3105,13 @@ export type Database = {
             columns: ["screening_upgrade_id"]
             isOneToOne: false
             referencedRelation: "screening_upgrades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3949,6 +3975,7 @@ export type Database = {
         | "patient_refers_patient"
         | "doctor_refers_patient"
         | "corporate_champion"
+      referral_urgency: "routine" | "priority" | "urgent"
       result_status: "normal" | "borderline" | "abnormal" | "critical"
       risk_assessment_category:
         | "lifestyle"
@@ -4277,6 +4304,7 @@ export const Constants = {
         "doctor_refers_patient",
         "corporate_champion",
       ],
+      referral_urgency: ["routine", "priority", "urgent"],
       result_status: ["normal", "borderline", "abnormal", "critical"],
       risk_assessment_category: [
         "lifestyle",
