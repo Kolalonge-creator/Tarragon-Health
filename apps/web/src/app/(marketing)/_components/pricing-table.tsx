@@ -91,12 +91,7 @@ export function PricingTable() {
         </button>
       </div>
 
-      <div
-        className={cn(
-          "grid gap-6",
-          currency === "NGN" ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2"
-        )}
-      >
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {tiers.map((tier) => (
           <TierCard key={tier.id} tier={tier} />
         ))}
