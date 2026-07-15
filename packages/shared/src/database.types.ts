@@ -532,6 +532,7 @@ export type Database = {
           created_at: string
           credential_number: string | null
           credential_type: string | null
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
           full_name: string
           id: string
           indemnity_exempt: boolean
@@ -539,11 +540,11 @@ export type Database = {
           indemnity_expires_at: string | null
           indemnity_insurer: string | null
           indemnity_policy_number: string | null
+          is_clinical_director: boolean
           license_verified_at: string | null
           organisation_id: string
           photo_url: string | null
           profile_id: string | null
-          role: Database["public"]["Enums"]["clinical_staff_role"]
           specialty: string | null
           updated_at: string
           verified_by: string | null
@@ -554,6 +555,7 @@ export type Database = {
           created_at?: string
           credential_number?: string | null
           credential_type?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           full_name: string
           id?: string
           indemnity_exempt?: boolean
@@ -561,11 +563,11 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
+          is_clinical_director?: boolean
           license_verified_at?: string | null
           organisation_id: string
           photo_url?: string | null
           profile_id?: string | null
-          role: Database["public"]["Enums"]["clinical_staff_role"]
           specialty?: string | null
           updated_at?: string
           verified_by?: string | null
@@ -576,6 +578,7 @@ export type Database = {
           created_at?: string
           credential_number?: string | null
           credential_type?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           full_name?: string
           id?: string
           indemnity_exempt?: boolean
@@ -583,11 +586,11 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
+          is_clinical_director?: boolean
           license_verified_at?: string | null
           organisation_id?: string
           photo_url?: string | null
           profile_id?: string | null
-          role?: Database["public"]["Enums"]["clinical_staff_role"]
           specialty?: string | null
           updated_at?: string
           verified_by?: string | null
@@ -625,28 +628,31 @@ export type Database = {
       }
       clinical_staff_indemnity_exemptions: {
         Row: {
+          applies_to_director: boolean
           created_at: string
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by: string
           id: string
           organisation_id: string
           reason: string | null
-          role: Database["public"]["Enums"]["clinical_staff_role"] | null
         }
         Insert: {
+          applies_to_director?: boolean
           created_at?: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by: string
           id?: string
           organisation_id: string
           reason?: string | null
-          role?: Database["public"]["Enums"]["clinical_staff_role"] | null
         }
         Update: {
+          applies_to_director?: boolean
           created_at?: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by?: string
           id?: string
           organisation_id?: string
           reason?: string | null
-          role?: Database["public"]["Enums"]["clinical_staff_role"] | null
         }
         Relationships: [
           {
@@ -671,6 +677,7 @@ export type Database = {
           acknowledged_by: string | null
           created_at: string
           detail: string | null
+          escalation_level: number | null
           id: string
           level: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
@@ -685,6 +692,7 @@ export type Database = {
           acknowledged_by?: string | null
           created_at?: string
           detail?: string | null
+          escalation_level?: number | null
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
@@ -699,6 +707,7 @@ export type Database = {
           acknowledged_by?: string | null
           created_at?: string
           detail?: string | null
+          escalation_level?: number | null
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id?: string
@@ -743,7 +752,9 @@ export type Database = {
           paid_at: string | null
           partner_name: string | null
           rate: number | null
+          rate_type: Database["public"]["Enums"]["commission_rate_type"]
           source_id: string | null
+          source_reference: string | null
           status: Database["public"]["Enums"]["commission_status"]
           updated_at: string
         }
@@ -757,7 +768,9 @@ export type Database = {
           paid_at?: string | null
           partner_name?: string | null
           rate?: number | null
+          rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           source_id?: string | null
+          source_reference?: string | null
           status?: Database["public"]["Enums"]["commission_status"]
           updated_at?: string
         }
@@ -771,7 +784,9 @@ export type Database = {
           paid_at?: string | null
           partner_name?: string | null
           rate?: number | null
+          rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           source_id?: string | null
+          source_reference?: string | null
           status?: Database["public"]["Enums"]["commission_status"]
           updated_at?: string
         }
@@ -825,6 +840,64 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "corporate_contracts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_roster_members: {
+        Row: {
+          added_by: string | null
+          claimed_at: string | null
+          claimed_profile_id: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          organisation_id: string
+          phone: string
+          status: Database["public"]["Enums"]["employer_roster_status"]
+        }
+        Insert: {
+          added_by?: string | null
+          claimed_at?: string | null
+          claimed_profile_id?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          organisation_id: string
+          phone: string
+          status?: Database["public"]["Enums"]["employer_roster_status"]
+        }
+        Update: {
+          added_by?: string | null
+          claimed_at?: string | null
+          claimed_profile_id?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          organisation_id?: string
+          phone?: string
+          status?: Database["public"]["Enums"]["employer_roster_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_roster_members_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_roster_members_claimed_profile_id_fkey"
+            columns: ["claimed_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_roster_members_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -982,11 +1055,15 @@ export type Database = {
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          hours: string | null
           id: string
           is_active: boolean
+          latitude: number | null
+          longitude: number | null
           name: string
           state: string
           type: Database["public"]["Enums"]["facility_type"]
+          verified: boolean
         }
         Insert: {
           address?: string | null
@@ -994,11 +1071,15 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          hours?: string | null
           id?: string
           is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name: string
           state: string
           type: Database["public"]["Enums"]["facility_type"]
+          verified?: boolean
         }
         Update: {
           address?: string | null
@@ -1006,11 +1087,15 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          hours?: string | null
           id?: string
           is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           state?: string
           type?: Database["public"]["Enums"]["facility_type"]
+          verified?: boolean
         }
         Relationships: []
       }
@@ -1219,10 +1304,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          investigation_tier: number
+          order_number: string | null
           ordered_at: string
+          ordered_by: string | null
           organisation_id: string
+          origin: Database["public"]["Enums"]["booking_origin"]
           panel_bundle_id: string | null
           patient_id: string
+          payment_provider:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
           provider_id: string | null
           resulted_at: string | null
           screening_schedule_id: string | null
@@ -1233,10 +1327,19 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          investigation_tier?: number
+          order_number?: string | null
           ordered_at?: string
+          ordered_by?: string | null
           organisation_id: string
+          origin?: Database["public"]["Enums"]["booking_origin"]
           panel_bundle_id?: string | null
           patient_id: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
           provider_id?: string | null
           resulted_at?: string | null
           screening_schedule_id?: string | null
@@ -1247,10 +1350,19 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          investigation_tier?: number
+          order_number?: string | null
           ordered_at?: string
+          ordered_by?: string | null
           organisation_id?: string
+          origin?: Database["public"]["Enums"]["booking_origin"]
           panel_bundle_id?: string | null
           patient_id?: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
           provider_id?: string | null
           resulted_at?: string | null
           screening_schedule_id?: string | null
@@ -1259,6 +1371,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lab_orders_ordered_by_fkey"
+            columns: ["ordered_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lab_orders_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -1381,7 +1500,9 @@ export type Database = {
       lab_tests: {
         Row: {
           code: string
+          commission_flat_kobo: number | null
           commission_rate: number | null
+          commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
           created_at: string
           id: string
           is_active: boolean
@@ -1392,7 +1513,9 @@ export type Database = {
         }
         Insert: {
           code: string
+          commission_flat_kobo?: number | null
           commission_rate?: number | null
+          commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           id?: string
           is_active?: boolean
@@ -1403,7 +1526,9 @@ export type Database = {
         }
         Update: {
           code?: string
+          commission_flat_kobo?: number | null
           commission_rate?: number | null
+          commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           id?: string
           is_active?: boolean
@@ -1774,6 +1899,54 @@ export type Database = {
         }
         Relationships: []
       }
+      outcome_reports: {
+        Row: {
+          generated_at: string
+          generated_by: string | null
+          id: string
+          organisation_id: string
+          period_end: string
+          period_start: string
+          published: boolean
+          snapshot: Json
+        }
+        Insert: {
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          organisation_id: string
+          period_end: string
+          period_start: string
+          published?: boolean
+          snapshot: Json
+        }
+        Update: {
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          published?: boolean
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outcome_reports_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outcome_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outcomes_contracts: {
         Row: {
           contract_type: Database["public"]["Enums"]["outcomes_contract_type"]
@@ -1815,6 +1988,9 @@ export type Database = {
       panel_bundles: {
         Row: {
           code: string
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
           created_at: string
           description: string | null
           id: string
@@ -1825,6 +2001,9 @@ export type Database = {
         }
         Insert: {
           code: string
+          commission_flat_kobo?: number | null
+          commission_rate?: number | null
+          commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           description?: string | null
           id?: string
@@ -1835,6 +2014,9 @@ export type Database = {
         }
         Update: {
           code?: string
+          commission_flat_kobo?: number | null
+          commission_rate?: number | null
+          commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           description?: string | null
           id?: string
@@ -1962,6 +2144,10 @@ export type Database = {
       payment_transactions: {
         Row: {
           amount_minor: number | null
+          booking_order_id: string | null
+          booking_order_type:
+            | Database["public"]["Enums"]["commission_type"]
+            | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"] | null
           error: string | null
@@ -1977,6 +2163,10 @@ export type Database = {
         }
         Insert: {
           amount_minor?: number | null
+          booking_order_id?: string | null
+          booking_order_type?:
+            | Database["public"]["Enums"]["commission_type"]
+            | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"] | null
           error?: string | null
@@ -1992,6 +2182,10 @@ export type Database = {
         }
         Update: {
           amount_minor?: number | null
+          booking_order_id?: string | null
+          booking_order_type?:
+            | Database["public"]["Enums"]["commission_type"]
+            | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"] | null
           error?: string | null
@@ -2031,6 +2225,9 @@ export type Database = {
       }
       pharmacy_medications: {
         Row: {
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
           created_at: string
           drug_name: string
           id: string
@@ -2040,6 +2237,9 @@ export type Database = {
           price_kobo: number
         }
         Insert: {
+          commission_flat_kobo?: number | null
+          commission_rate?: number | null
+          commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           drug_name: string
           id?: string
@@ -2049,6 +2249,9 @@ export type Database = {
           price_kobo?: number
         }
         Update: {
+          commission_flat_kobo?: number | null
+          commission_rate?: number | null
+          commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           drug_name?: string
           id?: string
@@ -2073,8 +2276,16 @@ export type Database = {
           delivered_at: string | null
           id: string
           items: Json
+          order_number: string | null
+          ordered_by: string | null
           organisation_id: string
+          origin: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payment_provider:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
           pharmacy_partner_id: string | null
           requested_at: string
           status: Database["public"]["Enums"]["pharmacy_order_status"]
@@ -2086,8 +2297,16 @@ export type Database = {
           delivered_at?: string | null
           id?: string
           items?: Json
+          order_number?: string | null
+          ordered_by?: string | null
           organisation_id: string
+          origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
           pharmacy_partner_id?: string | null
           requested_at?: string
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
@@ -2099,8 +2318,16 @@ export type Database = {
           delivered_at?: string | null
           id?: string
           items?: Json
+          order_number?: string | null
+          ordered_by?: string | null
           organisation_id?: string
+          origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id?: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
           pharmacy_partner_id?: string | null
           requested_at?: string
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
@@ -2108,6 +2335,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pharmacy_orders_ordered_by_fkey"
+            columns: ["ordered_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pharmacy_orders_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -2268,6 +2502,7 @@ export type Database = {
           metadata: Json
           onboarding_completed_at: string | null
           organisation_id: string | null
+          patient_number: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           sex: Database["public"]["Enums"]["sex"] | null
@@ -2282,6 +2517,7 @@ export type Database = {
           metadata?: Json
           onboarding_completed_at?: string | null
           organisation_id?: string | null
+          patient_number?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
@@ -2296,6 +2532,7 @@ export type Database = {
           metadata?: Json
           onboarding_completed_at?: string | null
           organisation_id?: string | null
+          patient_number?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
@@ -2710,6 +2947,45 @@ export type Database = {
           },
         ]
       }
+      specialist_providers: {
+        Row: {
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
+          consultation_fee_kobo: number
+          created_at: string
+          id: string
+          is_active: boolean
+          location: string | null
+          name: string
+          specialist_type: Database["public"]["Enums"]["specialist_type"]
+        }
+        Insert: {
+          commission_flat_kobo?: number | null
+          commission_rate?: number | null
+          commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
+          consultation_fee_kobo?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name: string
+          specialist_type: Database["public"]["Enums"]["specialist_type"]
+        }
+        Update: {
+          commission_flat_kobo?: number | null
+          commission_rate?: number | null
+          commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
+          consultation_fee_kobo?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name?: string
+          specialist_type?: Database["public"]["Enums"]["specialist_type"]
+        }
+        Relationships: []
+      }
       specialist_referrals: {
         Row: {
           appointment_date: string | null
@@ -2717,10 +2993,18 @@ export type Database = {
           created_at: string
           id: string
           organisation_id: string
+          origin: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payment_provider:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
           referral_fee_kobo: number
+          referral_number: string | null
           referral_reason: string | null
           screening_upgrade_id: string | null
+          specialist_provider_id: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status: Database["public"]["Enums"]["referral_status"]
           updated_at: string
@@ -2731,10 +3015,18 @@ export type Database = {
           created_at?: string
           id?: string
           organisation_id: string
+          origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
           referral_fee_kobo?: number
+          referral_number?: string | null
           referral_reason?: string | null
           screening_upgrade_id?: string | null
+          specialist_provider_id?: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
           updated_at?: string
@@ -2745,10 +3037,18 @@ export type Database = {
           created_at?: string
           id?: string
           organisation_id?: string
+          origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id?: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
           referral_fee_kobo?: number
+          referral_number?: string | null
           referral_reason?: string | null
           screening_upgrade_id?: string | null
+          specialist_provider_id?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
           updated_at?: string
@@ -2773,6 +3073,13 @@ export type Database = {
             columns: ["screening_upgrade_id"]
             isOneToOne: false
             referencedRelation: "screening_upgrades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
             referencedColumns: ["id"]
           },
         ]
@@ -3490,6 +3797,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_employer_roster_member: {
+        Args: { target_roster_id: string }
+        Returns: boolean
+      }
       find_profile_by_phone: {
         Args: { lookup_phone: string }
         Returns: {
@@ -3511,6 +3822,7 @@ export type Database = {
       annual_check_status: "pending" | "in_progress" | "completed"
       appointment_status: "scheduled" | "completed" | "cancelled" | "no_show"
       billing_interval: "monthly" | "yearly"
+      booking_origin: "patient_initiated" | "clinically_triggered" | "capitated"
       booking_request_status:
         | "requested"
         | "confirmed"
@@ -3524,10 +3836,7 @@ export type Database = {
         | "cardiovascular"
         | "other"
       care_plan_status: "draft" | "active" | "completed" | "cancelled"
-      clinical_staff_role:
-        | "clinical_director"
-        | "clinician"
-        | "escalation_doctor"
+      commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
       commission_type: "lab" | "pharmacy" | "referral"
       contract_status:
@@ -3538,6 +3847,14 @@ export type Database = {
         | "paid"
         | "active"
       currency: "NGN" | "GBP" | "USD"
+      doctor_tier:
+        | "care_coordinator"
+        | "tier_1"
+        | "tier_2"
+        | "tier_3"
+        | "tier_4_senior_registrar"
+        | "tier_5_partner_specialist"
+      employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       facility_type:
         | "hospital"
@@ -3549,6 +3866,8 @@ export type Database = {
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
       glucose_context: "fasting" | "random" | "post_meal"
       lab_order_status:
+        | "pending_payment"
+        | "payment_confirmed"
         | "ordered"
         | "sample_collected"
         | "processing"
@@ -3581,7 +3900,13 @@ export type Database = {
         | "invoice.payment_failed"
         | "other"
         | "invoice.payment_succeeded"
+        | "checkout.session.completed"
+        | "customer.subscription.created"
+        | "customer.subscription.updated"
+        | "customer.subscription.deleted"
       pharmacy_order_status:
+        | "pending_payment"
+        | "payment_confirmed"
         | "requested"
         | "confirmed"
         | "dispensed"
@@ -3600,6 +3925,8 @@ export type Database = {
       profile_access_level: "view" | "manage"
       referral_reward_status: "pending" | "earned" | "paid"
       referral_status:
+        | "pending_payment"
+        | "payment_confirmed"
         | "pending"
         | "booked"
         | "confirmed"
@@ -3659,6 +3986,7 @@ export type Database = {
         | "hmo_admin"
         | "corporate_admin"
         | "doctor"
+        | "care_coordinator"
       vital_source: "manual" | "device" | "wearable"
       vital_type:
         | "blood_pressure"
@@ -3806,6 +4134,11 @@ export const Constants = {
       annual_check_status: ["pending", "in_progress", "completed"],
       appointment_status: ["scheduled", "completed", "cancelled", "no_show"],
       billing_interval: ["monthly", "yearly"],
+      booking_origin: [
+        "patient_initiated",
+        "clinically_triggered",
+        "capitated",
+      ],
       booking_request_status: [
         "requested",
         "confirmed",
@@ -3821,11 +4154,7 @@ export const Constants = {
         "other",
       ],
       care_plan_status: ["draft", "active", "completed", "cancelled"],
-      clinical_staff_role: [
-        "clinical_director",
-        "clinician",
-        "escalation_doctor",
-      ],
+      commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
       commission_type: ["lab", "pharmacy", "referral"],
       contract_status: [
@@ -3837,6 +4166,15 @@ export const Constants = {
         "active",
       ],
       currency: ["NGN", "GBP", "USD"],
+      doctor_tier: [
+        "care_coordinator",
+        "tier_1",
+        "tier_2",
+        "tier_3",
+        "tier_4_senior_registrar",
+        "tier_5_partner_specialist",
+      ],
+      employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       facility_type: [
         "hospital",
@@ -3849,6 +4187,8 @@ export const Constants = {
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       glucose_context: ["fasting", "random", "post_meal"],
       lab_order_status: [
+        "pending_payment",
+        "payment_confirmed",
         "ordered",
         "sample_collected",
         "processing",
@@ -3883,8 +4223,14 @@ export const Constants = {
         "invoice.payment_failed",
         "other",
         "invoice.payment_succeeded",
+        "checkout.session.completed",
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
       ],
       pharmacy_order_status: [
+        "pending_payment",
+        "payment_confirmed",
         "requested",
         "confirmed",
         "dispensed",
@@ -3905,6 +4251,8 @@ export const Constants = {
       profile_access_level: ["view", "manage"],
       referral_reward_status: ["pending", "earned", "paid"],
       referral_status: [
+        "pending_payment",
+        "payment_confirmed",
         "pending",
         "booked",
         "confirmed",
@@ -3971,6 +4319,7 @@ export const Constants = {
         "hmo_admin",
         "corporate_admin",
         "doctor",
+        "care_coordinator",
       ],
       vital_source: ["manual", "device", "wearable"],
       vital_type: [
