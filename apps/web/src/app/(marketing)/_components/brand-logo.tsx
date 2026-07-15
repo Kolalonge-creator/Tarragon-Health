@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Guard Leaf mark — shield (protection) + sprout crown (prevention/growth) + checkmark vein (docs/BRAND_GUIDE.md §4). */
+/** Guard Leaf mark: shield (protection) + sprout crown (prevention/growth) + checkmark vein (docs/BRAND_GUIDE.md §4). */
 
 type Tone = "brand" | "on-navy";
 

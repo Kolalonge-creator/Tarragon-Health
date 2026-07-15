@@ -1,4 +1,4 @@
-/** Public marketing routes — keep in sync with nav, proxy public-path allowlist, and MARKETING_SITE_SPEC.md §2. */
+/** Public marketing routes: keep in sync with nav, proxy public-path allowlist, and MARKETING_SITE_SPEC.md §2. */
 
 export const MARKETING_ROUTES = {
   home: "/",

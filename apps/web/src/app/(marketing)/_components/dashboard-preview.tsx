@@ -35,7 +35,7 @@ export function DashboardPreview() {
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
           Tarragon brings readings, reminders, preventive checks, clinician review,
-          and family updates into one shared record — so the next step is clear.
+          and family updates into one shared record, so the next step is clear.
         </p>
       </div>
 

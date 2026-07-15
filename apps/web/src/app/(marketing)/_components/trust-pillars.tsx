@@ -1,12 +1,12 @@
-/** Voice personality pillars — docs/BRAND_GUIDE.md §3. */
+/** Voice personality pillars, docs/BRAND_GUIDE.md §3. */
 
 const PILLARS = [
-  { title: "Trustworthy", body: "Clinically credible, protocol-driven. We earn trust — we don't claim it." },
+  { title: "Trustworthy", body: "Clinically credible, protocol-driven. We earn trust; we don't claim it." },
   { title: "Warm", body: "A clinician who knows your name, not a hospital PA system." },
-  { title: "Calm", body: "We notice things early and say so calmly — never alarmist." },
+  { title: "Calm", body: "We notice things early and say so calmly, never alarmist." },
   { title: "Intelligent", body: "We explain an HbA1c result in one clear sentence, never patronise." },
   { title: "Premium but accessible", body: "High quality without feeling elitist. Well within reach." },
-  { title: "Nigerian-relevant", body: "Our examples are always local — the market BP cuff, garri, the family WhatsApp group." },
+  { title: "Nigerian-relevant", body: "Our examples are always local: the market BP cuff, garri, the family WhatsApp group." },
 ] as const;
 
 const NEVER_DO = [
