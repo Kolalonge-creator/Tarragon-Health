@@ -24,6 +24,12 @@ export function AddMedicationForm({
   const [newTime, setNewTime] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  // Patients can log a medication a specialist started (pathway Scenario 3),
+  // attributing it to the specialist by name + optional consultation document.
+  const [startedBySpecialist, setStartedBySpecialist] = useState(false);
+  const [prescriberName, setPrescriberName] = useState("");
+  const [prescriberDocUrl, setPrescriberDocUrl] = useState("");
+  const specialistFieldsShown = source === "patient" && startedBySpecialist;
 
   function addTime() {
     if (newTime && !scheduleTimes.includes(newTime)) {
@@ -44,6 +50,10 @@ export function AddMedicationForm({
       frequency: frequency || undefined,
       refill_date: refillDate || undefined,
       schedule_times: scheduleTimes,
+      prescriber_name: specialistFieldsShown ? prescriberName || undefined : undefined,
+      prescriber_document_url: specialistFieldsShown
+        ? prescriberDocUrl || undefined
+        : undefined,
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -51,8 +61,9 @@ export function AddMedicationForm({
     }
     setValidationError(null);
     setSuccess(false);
+    const effectiveSource = specialistFieldsShown ? "specialist" : source;
     addMedication.mutate(
-      { ...parsed.data, patientId, source },
+      { ...parsed.data, patientId, source: effectiveSource },
       {
         onSuccess: () => {
           setSuccess(true);
@@ -61,6 +72,9 @@ export function AddMedicationForm({
           setFrequency("");
           setRefillDate("");
           setScheduleTimes([]);
+          setStartedBySpecialist(false);
+          setPrescriberName("");
+          setPrescriberDocUrl("");
         },
       }
     );
@@ -149,6 +163,44 @@ export function AddMedicationForm({
               </div>
             )}
           </div>
+          {source === "patient" && (
+            <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+              <label className="flex items-center gap-2 text-sm text-charcoal-ink">
+                <input
+                  type="checkbox"
+                  checked={startedBySpecialist}
+                  onChange={(event) => setStartedBySpecialist(event.target.checked)}
+                  className="h-4 w-4"
+                />
+                A specialist started this medication
+              </label>
+              {specialistFieldsShown && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="prescriber_name">Specialist name</Label>
+                    <Input
+                      id="prescriber_name"
+                      placeholder="e.g. Dr. Adeyemi (Cardiologist)"
+                      value={prescriberName}
+                      onChange={(event) => setPrescriberName(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="prescriber_document_url">
+                      Consultation document link (optional)
+                    </Label>
+                    <Input
+                      id="prescriber_document_url"
+                      type="url"
+                      placeholder="https://…"
+                      value={prescriberDocUrl}
+                      onChange={(event) => setPrescriberDocUrl(event.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {displayError && <p className="text-sm text-red-600">{displayError}</p>}
           {success && <p className="text-sm text-brand-green">Medication added.</p>}
           <Button type="submit" disabled={addMedication.isPending}>

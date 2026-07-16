@@ -86,6 +86,69 @@ export function useOrgPharmacyOrders() {
   });
 }
 
+export type PharmacyOrderDispense = Tables<"pharmacy_order_dispenses">;
+
+/** Dispense records logged against a pharmacy order (what was collected). */
+export function useOrderDispenses(orderId: string) {
+  return useQuery({
+    queryKey: ["pharmacy-order-dispenses", orderId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_order_dispenses")
+        .select("*")
+        .eq("pharmacy_order_id", orderId)
+        .order("dispensed_on", { ascending: false });
+      if (error) throw error;
+      return data as PharmacyOrderDispense[];
+    },
+    enabled: !!orderId,
+  });
+}
+
+/**
+ * Record a dispense against an order. The patient may log what they collected
+ * themselves (source 'patient') — important for no-login pharmacies; org staff
+ * / a logged-in pharmacist log source 'pharmacy'. RLS scopes writes to the
+ * order owner or org staff.
+ */
+export function useRecordDispense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      order,
+      drugName,
+      quantity,
+      dispensedOn,
+      source,
+      recordedBy,
+    }: {
+      order: Pick<PharmacyOrder, "id" | "organisation_id" | "patient_id">;
+      drugName: string;
+      quantity: string | null;
+      dispensedOn: string;
+      source: "patient" | "pharmacy";
+      recordedBy: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("pharmacy_order_dispenses").insert({
+        organisation_id: order.organisation_id,
+        patient_id: order.patient_id,
+        pharmacy_order_id: order.id,
+        drug_name: drugName,
+        quantity: quantity,
+        dispensed_on: dispensedOn,
+        source,
+        recorded_by: recordedBy,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacy-order-dispenses", variables.order.id] });
+    },
+  });
+}
+
 /**
  * Patient books a medication with a chosen quantity. pharmacy_orders' INSERT
  * RLS allows patient_id = auth.uid() directly, same generic-loop policy
