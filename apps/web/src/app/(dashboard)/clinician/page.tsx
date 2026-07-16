@@ -59,6 +59,11 @@ export default async function ClinicianPage() {
           Care programme recommendations →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href="/clinician/preventive-reviews" className="text-brand-green hover:underline">
+          Periodic health reviews →
+        </Link>
+      </p>
     </DashboardPlaceholder>
   );
 }

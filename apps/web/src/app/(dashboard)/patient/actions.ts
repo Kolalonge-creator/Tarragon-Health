@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
+import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
 import { patientLocationSchema } from "@/lib/validation/patient-location";
@@ -433,6 +434,14 @@ export async function submitRiskAssessment(
   // Smoking status/height/weight just (re)submitted feed the Health Score's
   // smoking and BMI components directly.
   await assessHealthScoreBestEffort(supabase, user.id, organisationId);
+
+  // Materialise the vaccination schedule so its daily reminder cron has rows
+  // to work from — best-effort, never blocks the assessment.
+  await generateVaccinationScheduleBestEffort({
+    patientId: user.id,
+    organisationId,
+    ageYears,
+  });
 
   return { success: true };
 }

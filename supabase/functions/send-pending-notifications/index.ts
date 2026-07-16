@@ -150,6 +150,45 @@ const TEMPLATE_MAP: Record<
         `open the app to see details. — Tarragon Health`,
     };
   },
+  // Sent to the patient as a scheduled vaccination comes due (see
+  // private.queue_vaccination_reminders). Reminder only — logging/booking a
+  // dose always happens in-app, never over WhatsApp.
+  vaccination_due: (payload) => {
+    const vaccineName = String(payload.vaccine_name ?? "a vaccination");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "vaccination_due",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: vaccineName },
+            { type: "text", text: dueDate },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, your ${vaccineName} is due ${dueDate}. Open the Tarragon Health app to book or ` +
+        `log it. — Tarragon Health`,
+    };
+  },
+  // Sent to the patient as a scheduled periodic health review comes due (see
+  // private.queue_preventive_review_reminders). Reminder only — the review is
+  // completed by a doctor in the clinician worklist, never over WhatsApp.
+  preventive_review_due: (payload) => {
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "preventive_review_due",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: dueDate }] },
+      ],
+      smsText:
+        `Hi, your preventive health review is due ${dueDate}. Your care team will be in touch — ` +
+        `open the app to see details. — Tarragon Health`,
+    };
+  },
   // Sent to the patient on the payment_confirmed transition (see
   // enqueue_pharmacy_order_notifications). WhatsApp is attempted first; the
   // pharmacy_order_patient_confirmation Meta template must be approved for the
