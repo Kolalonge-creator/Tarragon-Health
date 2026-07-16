@@ -44,18 +44,25 @@ const styles = StyleSheet.create({
 export function HealthPassportDocument({
   patientName,
   data,
+  documentTitle = "Health Passport",
 }: {
   patientName: string;
   data: HealthPassportData;
+  /** Reused verbatim by the ParentCare/Family Premium quarterly report
+   * (see lib/reports/generate-quarterly-report.ts) — same layout, same
+   * data shape (just a shorter period window), different title so it
+   * reads as its own named artifact rather than a re-skinned Health
+   * Passport. */
+  documentTitle?: string;
 }) {
   const periodLabel = `${new Date(data.periodStart).toLocaleDateString()} - ${new Date(
     data.periodEnd
   ).toLocaleDateString()}`;
 
   return (
-    <Document title={`Health Passport - ${patientName}`}>
+    <Document title={`${documentTitle} - ${patientName}`}>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>Health Passport</Text>
+        <Text style={styles.title}>{documentTitle}</Text>
         <Text style={styles.subtitle}>
           {patientName} · {periodLabel} · TarragonHealth
         </Text>

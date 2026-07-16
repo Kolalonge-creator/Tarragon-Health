@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/generate-quarterly-reports",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
