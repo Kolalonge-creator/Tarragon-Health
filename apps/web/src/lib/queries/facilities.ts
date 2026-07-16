@@ -15,6 +15,7 @@ export type FacilityFilters = {
   type?: Facility["type"];
   state?: string;
   city?: string;
+  area?: string;
 };
 
 function bookingRequestsKey(patientId: string) {
@@ -41,6 +42,7 @@ export function useFacilities(filters: FacilityFilters) {
       if (filters.type) query = query.eq("type", filters.type);
       if (filters.state) query = query.ilike("state", `%${filters.state}%`);
       if (filters.city) query = query.ilike("city", `%${filters.city}%`);
+      if (filters.area) query = query.ilike("area", `%${filters.area}%`);
       const { data, error } = await query.order("name", { ascending: true });
       if (error) throw error;
       return data as FacilityWithServices[];

@@ -29,7 +29,9 @@ import { RiskAssessmentForm } from "./risk-assessment-form";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationRegistry } from "./vaccination-registry";
 import { LogVaccinationForm } from "./log-vaccination-form";
+import { VaccinationBooking } from "./vaccination-booking";
 import { FacilityDirectory } from "./facility-directory";
+import { PatientLocationForm } from "./patient-location-form";
 import { LabCatalogue } from "./lab-catalogue";
 import { LabOrdersList } from "./lab-orders-list";
 import { LabResults } from "./lab-results";
@@ -79,6 +81,9 @@ export default async function PatientPage() {
         </Link>
       </div>
       <YourCareTeam patientId={profile.id} />
+      <PatientLocationForm
+        initial={{ state: profile.state, city: profile.city, area: profile.area }}
+      />
       <HealthScoreCard patientId={profile.id} />
       <RequiresEntitlement feature="family_dashboard" fallback={null}>
         <FamilyDashboardCard />
@@ -131,7 +136,11 @@ export default async function PatientPage() {
         fallback={<UpgradePrompt feature="medication_refills" />}
       >
         {profile.organisation_id && (
-          <PharmacyCatalogue organisationId={profile.organisation_id} patientId={profile.id} />
+          <PharmacyCatalogue
+            organisationId={profile.organisation_id}
+            patientId={profile.id}
+            patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
+          />
         )}
         <PharmacyOrdersList patientId={profile.id} />
       </RequiresEntitlement>
@@ -145,12 +154,17 @@ export default async function PatientPage() {
         patientId={profile.id}
         organisationId={profile.organisation_id}
         bookingEnabled={labCoordinationEnabled ?? false}
+        patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
       />
       <RiskAssessmentForm patientId={profile.id} />
       <RiskAssessmentDisplay patientId={profile.id} />
       <VaccinationRegistry
         patientId={profile.id}
         ageYears={ageFromDateOfBirth(profile.date_of_birth)}
+      />
+      <VaccinationBooking
+        patientId={profile.id}
+        patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
       />
       <LogVaccinationForm patientId={profile.id} />
       <RequiresEntitlement

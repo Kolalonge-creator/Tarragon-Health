@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFacilities, type Facility, type FacilityWithServices } from "@/lib/queries/facilities";
+import { distanceKm } from "@/lib/geo";
 import { koboToNaira } from "@tarragon/shared";
 import { BookingRequestForm } from "./booking-request-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,17 +33,6 @@ const SELECTABLE_FACILITY_TYPES = Object.entries(FACILITY_TYPE_LABEL).filter(
   ([value]) => value !== "lab" && value !== "pharmacy",
 );
 
-/** Haversine great-circle distance in kilometres. */
-function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const R = 6371;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-}
-
 /**
  * "Find near me" discovery view (docs/FULL_SPECIFICATION_V4.md §2.3 — "a
  * patient-facing 'find near me' view ... distinct from the transactional
@@ -56,11 +46,12 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
   const [type, setType] = useState<Facility["type"] | "">("");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
+  const [area, setArea] = useState("");
   const [requestingFacilityId, setRequestingFacilityId] = useState<string | null>(null);
   const [nearMe, setNearMe] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  const facilities = useFacilities({ type: type || undefined, state, city });
+  const facilities = useFacilities({ type: type || undefined, state, city, area });
 
   const sorted = useMemo<FacilityWithServices[]>(() => {
     const rows = facilities.data ?? [];
@@ -107,7 +98,7 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
           {nearMe && <span className="text-xs text-charcoal-ink/60">Showing nearest first</span>}
           {locationError && <span className="text-xs text-red-600">{locationError}</span>}
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
             <Label htmlFor="facility_type">Type</Label>
             <Select
@@ -139,6 +130,15 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
               placeholder="e.g. Ikeja"
               value={city}
               onChange={(event) => setCity(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="facility_area">Area (optional)</Label>
+            <Input
+              id="facility_area"
+              placeholder="e.g. Allen Avenue"
+              value={area}
+              onChange={(event) => setArea(event.target.value)}
             />
           </div>
         </div>

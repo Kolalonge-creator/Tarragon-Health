@@ -6,10 +6,13 @@ export type PharmacyMedication = Tables<"pharmacy_medications">;
 export type PharmacyPartner = Tables<"pharmacy_partners">;
 
 export type PharmacyMedicationWithPartner = PharmacyMedication & {
-  pharmacy_partner: Pick<PharmacyPartner, "name" | "delivery" | "regions"> | null;
+  pharmacy_partner: Pick<
+    PharmacyPartner,
+    "id" | "name" | "delivery" | "regions" | "address" | "latitude" | "longitude" | "state" | "city" | "area"
+  > | null;
 };
 
-/** Active pharmacy_medications joined to their partner — every seeded row is directly bookable (no catalogue gap like lab's panel_bundle workaround). */
+/** Active pharmacy_medications joined to their partner — every seeded row is directly bookable (no catalogue gap like lab's panel_bundle workaround). Partner address/coordinates power nearest-pharmacy selection. */
 export function usePharmacyCatalogue() {
   return useQuery({
     queryKey: ["pharmacy-catalogue"],
@@ -18,7 +21,7 @@ export function usePharmacyCatalogue() {
       const { data, error } = await supabase
         .from("pharmacy_medications")
         .select(
-          "*, pharmacy_partner:pharmacy_partners!pharmacy_medications_pharmacy_partner_id_fkey(name, delivery, regions)",
+          "*, pharmacy_partner:pharmacy_partners!pharmacy_medications_pharmacy_partner_id_fkey(id, name, delivery, regions, address, latitude, longitude, state, city, area)",
         )
         .eq("is_active", true)
         .order("drug_name", { ascending: true });
@@ -99,12 +102,15 @@ export function useCreatePharmacyOrder() {
       pharmacyPartnerId,
       medication,
       quantity,
+      fulfilmentMethod = "pickup",
     }: {
       organisationId: string;
       patientId: string;
       pharmacyPartnerId: string;
       medication: PharmacyMedication;
       quantity: number;
+      /** Delivery is model-ready but gated in the UI until logistics partners onboard — defaults to pickup. */
+      fulfilmentMethod?: "pickup" | "delivery";
     }) => {
       const supabase = createClient();
       const item: PharmacyOrderItem = {
@@ -121,6 +127,7 @@ export function useCreatePharmacyOrder() {
         items: [item],
         total_kobo: medication.price_kobo * quantity,
         status: "pending_payment",
+        fulfilment_method: fulfilmentMethod,
       });
       if (error) throw error;
     },
