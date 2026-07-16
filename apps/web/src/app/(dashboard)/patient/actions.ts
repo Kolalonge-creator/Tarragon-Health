@@ -15,6 +15,7 @@ import {
 } from "@/lib/validation/risk-assessment";
 import { computeRiskTiers } from "@/lib/rules/risk-scoring";
 import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
+import { computeCareProgrammeRecommendations } from "@/lib/rules/care-programme-recommendations";
 import { ageFromDateOfBirth, mgDlToMmolL, type Json } from "@tarragon/shared";
 
 export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
@@ -384,6 +385,47 @@ export async function submitRiskAssessment(
         .eq("id", existing.id);
       if (scheduleUpdateError) {
         return { error: scheduleUpdateError.message };
+      }
+    }
+  }
+
+  // Recommended care programme(s) — the risk assessment's care-plan output.
+  // These are *suggestions* (never doctor-reviewed) that a clinician later
+  // promotes into a real care_plans row. Written via the service-role client
+  // for the same reason as prevention_risk_scores: the tier/rationale are the
+  // server's own computation, not values a patient session should set.
+  const programmeRecommendations = computeCareProgrammeRecommendations(
+    scores,
+    responses,
+    responses.weight_kg ?? latestWeight?.weight_kg ?? null,
+  );
+  if (programmeRecommendations.length > 0) {
+    // Skip conditions that already have an open (proposed) or accepted
+    // recommendation — retaking the assessment shouldn't pile up duplicates
+    // or re-propose something the care team already actioned.
+    const { data: existingRecs } = await serviceRoleClient
+      .from("care_plan_recommendations")
+      .select("condition, status")
+      .eq("patient_id", user.id)
+      .in("status", ["proposed", "accepted"]);
+    const alreadyOpen = new Set((existingRecs ?? []).map((row) => row.condition));
+
+    const newRecs = programmeRecommendations.filter((rec) => !alreadyOpen.has(rec.condition));
+    if (newRecs.length > 0) {
+      const { error: recError } = await serviceRoleClient
+        .from("care_plan_recommendations")
+        .insert(
+          newRecs.map((rec) => ({
+            organisation_id: organisationId,
+            patient_id: user.id,
+            condition: rec.condition,
+            tier: rec.tier,
+            rationale: rec.rationale,
+            inputs_snapshot: { tiers: Object.fromEntries(tiersByCondition) } as Json,
+          })),
+        );
+      if (recError) {
+        return { error: recError.message };
       }
     }
   }
