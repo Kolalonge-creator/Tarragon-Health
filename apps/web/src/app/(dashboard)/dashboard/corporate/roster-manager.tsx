@@ -25,7 +25,14 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  * additive, not a replacement for individual signup — nobody skips
  * onboarding, they just don't have to separately "join their employer" too.
  */
-export function RosterManager({ organisationId }: { organisationId: string }) {
+export function RosterManager({
+  organisationId,
+  entityLabel = "staff",
+}: {
+  organisationId: string;
+  /** "staff" (default, corporate) or "member" (HMO) — copy only, same table/hooks. */
+  entityLabel?: "staff" | "member";
+}) {
   const roster = useEmployerRoster(organisationId);
   const addMember = useAddRosterMember(organisationId);
   const claimMember = useClaimRosterMember(organisationId);
@@ -62,11 +69,12 @@ export function RosterManager({ organisationId }: { organisationId: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-          Staff enrolment
+          {entityLabel === "member" ? "Member enrolment" : "Staff enrolment"}
         </CardTitle>
         <CardDescription>
-          Add your workforce by phone number — they&apos;re attached to your organisation the moment they
-          sign up, or immediately if they already have a Tarragon account.
+          {entityLabel === "member"
+            ? "Add your members by phone number — they're attached to your organisation the moment they sign up, or immediately if they already have a Tarragon account."
+            : "Add your workforce by phone number — they're attached to your organisation the moment they sign up, or immediately if they already have a Tarragon account."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

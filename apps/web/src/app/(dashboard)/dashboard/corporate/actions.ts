@@ -4,6 +4,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { loadCohortAnalytics } from "@/lib/corporate/load-cohort-analytics";
 import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
+import { loadCareGaps } from "@/lib/care-gaps/load-care-gaps";
+import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import type { Json } from "@tarragon/shared";
 
 export type GenerateOutcomeReportState = { error?: string; message?: string } | undefined;
@@ -48,11 +50,23 @@ export async function generateOutcomeReport(
     return { error: "Not enough workforce data yet to generate a report (or the analytics service is unavailable)." };
   }
 
+  const [careGaps, costAvoided] = await Promise.all([
+    loadCareGaps(supabase, organisationId),
+    estimateCostAvoided(supabase, organisationId, analytics.abnormal_findings_count),
+  ]);
+
   const { error } = await supabase.from("outcome_reports").insert({
     organisation_id: organisationId,
     period_start: periodStart,
     period_end: periodEnd,
-    snapshot: { analytics, contractPerformance } as unknown as Json,
+    snapshot: {
+      analytics,
+      contractPerformance,
+      careGaps: careGaps
+        ? { totalOpen: careGaps.totalOpen, byType: careGaps.byType, closedLast90Days: careGaps.closedLast90Days }
+        : null,
+      costAvoided,
+    } as unknown as Json,
     generated_by: profile.id,
   });
   if (error) {
