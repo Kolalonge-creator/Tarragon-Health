@@ -1,7 +1,14 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { useAllSubscriptionPlansAdmin, useSetPlanActive, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useAllSubscriptionPlansAdmin,
+  useSetPlanActive,
+  ACTIVE_PLANS_QUERY_KEY,
+  ALL_PLANS_QUERY_KEY,
+  type SubscriptionPlan,
+} from "@/lib/queries/subscription-plans";
 import { createPlan, syncPlanNow } from "./actions";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +27,7 @@ function formatPrice(plan: SubscriptionPlan): string {
 export function PlansManager() {
   const { data: plans, isLoading, isError } = useAllSubscriptionPlansAdmin();
   const setActive = useSetPlanActive();
+  const queryClient = useQueryClient();
   const [createState, createAction, createPending] = useActionState(createPlan, undefined);
   const [syncPending, startSync] = useTransition();
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -50,6 +58,15 @@ export function PlansManager() {
     startSync(async () => {
       const result = await syncPlanNow(id);
       setSyncMessage(result?.message ?? result?.error ?? null);
+      // syncPlanNow is a raw server action (useTransition, not a React Query
+      // mutation), so nothing was invalidating the cache after it wrote
+      // paystack_plan_code/stripe_price_id/is_active -- the row's badge and
+      // "Sync to..." button stayed stale until a full page reload. Found
+      // while live-syncing ParentCare's 6 new plan rows: every sync
+      // succeeded server-side (confirmed via direct DB checks) but the UI
+      // kept showing "Inactive"/the sync button as if nothing had happened.
+      queryClient.invalidateQueries({ queryKey: ALL_PLANS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ACTIVE_PLANS_QUERY_KEY });
     });
   }
 

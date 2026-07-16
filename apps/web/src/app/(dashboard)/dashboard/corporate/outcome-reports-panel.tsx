@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
 import { generateOutcomeReport } from "./actions";
-import { useOutcomeReports, useTogglePublished, type OutcomeReport } from "@/lib/queries/outcome-reports";
+import { useOutcomeReports, useTogglePublished, reportsKey, type OutcomeReport } from "@/lib/queries/outcome-reports";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,9 +24,23 @@ export function OutcomeReportsPanel({ organisationId }: { organisationId: string
   const reports = useOutcomeReports(organisationId);
   const togglePublished = useTogglePublished(organisationId);
   const [state, formAction, pending] = useActionState(generateOutcomeReport, undefined);
+  const queryClient = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
   const [periodStart, setPeriodStart] = useState(quarterAgo(today));
   const [periodEnd, setPeriodEnd] = useState(today);
+
+  // generateOutcomeReport is a server action (useActionState), not a React
+  // Query mutation, so nothing invalidated useOutcomeReports' cache after a
+  // successful generate -- the "Report generated." message showed while the
+  // list below still said "No reports generated yet." until a full page
+  // reload. Found live-generating a report against this exact page.
+  const lastMessageRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (state?.message && state.message !== lastMessageRef.current) {
+      lastMessageRef.current = state.message;
+      queryClient.invalidateQueries({ queryKey: reportsKey(organisationId) });
+    }
+  }, [state?.message, organisationId, queryClient]);
 
   return (
     <Card>

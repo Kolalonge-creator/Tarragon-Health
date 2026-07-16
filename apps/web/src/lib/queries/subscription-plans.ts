@@ -4,8 +4,8 @@ import type { Tables } from "@tarragon/shared";
 
 export type SubscriptionPlan = Tables<"subscription_plans">;
 
-const ACTIVE_PLANS_QUERY_KEY = ["subscription-plans", "active"];
-const ALL_PLANS_QUERY_KEY = ["subscription-plans", "all"];
+export const ACTIVE_PLANS_QUERY_KEY = ["subscription-plans", "active"];
+export const ALL_PLANS_QUERY_KEY = ["subscription-plans", "all"];
 
 /** Every active plan across all currencies, for patient-facing plan
  * selection (onboarding, /patient/subscription) — callers filter by the

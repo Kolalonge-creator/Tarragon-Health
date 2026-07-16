@@ -4,7 +4,7 @@ import type { Tables } from "@tarragon/shared";
 
 export type OutcomeReport = Tables<"outcome_reports">;
 
-function reportsKey(organisationId: string) {
+export function reportsKey(organisationId: string) {
   return ["outcome-reports", organisationId];
 }
 

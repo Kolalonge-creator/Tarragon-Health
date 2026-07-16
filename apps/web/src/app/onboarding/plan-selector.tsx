@@ -17,11 +17,19 @@ function formatPrice(plan: SubscriptionPlan): string {
  * monthly/yearly toggle where both intervals exist (essential/complete) —
  * pricing.ts sells those two ways, modeled as separate plan rows since
  * subscription_plans has no per-row "annual variant" concept and Paystack
- * Plans are one interval each anyway (see supabase/seed/seed.sql). */
+ * Plans are one interval each anyway (see supabase/seed/seed.sql).
+ *
+ * The "_yearly" segment can sit anywhere in a diaspora code (e.g.
+ * "essential_yearly_gbp", not just "essential_yearly") since the currency
+ * suffix is appended after it — matching only a trailing "_yearly" here
+ * left every GBP/USD yearly row in its own ungrouped, toggle-less card
+ * (found while adding ParentCare's gbp/usd yearly variants, which hit the
+ * exact same shape). The lookahead strips "_yearly" wherever it appears as
+ * a whole segment, not just at the very end. */
 function groupByTier(plans: SubscriptionPlan[]) {
   const groups = new Map<string, { monthly?: SubscriptionPlan; yearly?: SubscriptionPlan }>();
   for (const plan of plans) {
-    const key = plan.code.replace(/_yearly$/, "");
+    const key = plan.code.replace(/_yearly(?=_|$)/, "");
     const entry = groups.get(key) ?? {};
     if (plan.interval === "yearly") entry.yearly = plan;
     else entry.monthly = plan;
