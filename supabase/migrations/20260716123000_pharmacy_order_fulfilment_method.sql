@@ -12,7 +12,12 @@
 -- intent explicit and lets the pharmacy alert say "for collection" vs "for
 -- delivery" correctly once delivery is enabled.
 
-create type public.pharmacy_fulfilment_method as enum ('pickup', 'delivery');
+-- Guarded for idempotent re-apply (no CREATE TYPE IF NOT EXISTS).
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'pharmacy_fulfilment_method') then
+    create type public.pharmacy_fulfilment_method as enum ('pickup', 'delivery');
+  end if;
+end $$;
 
 alter table public.pharmacy_orders
-  add column fulfilment_method public.pharmacy_fulfilment_method not null default 'pickup';
+  add column if not exists fulfilment_method public.pharmacy_fulfilment_method not null default 'pickup';

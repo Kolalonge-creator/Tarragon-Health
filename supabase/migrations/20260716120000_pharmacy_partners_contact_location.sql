@@ -35,20 +35,24 @@ alter table public.pharmacy_partners
   add column if not exists longitude            double precision,
   add column if not exists uses_platform_login  boolean not null default false;
 
--- Same E.164 shape enforced on profiles.phone / referrals.referred_phone.
-alter table public.pharmacy_partners
-  add constraint pharmacy_partners_contact_phone_e164
-  check (contact_phone is null or contact_phone ~ '^\+[1-9][0-9]{7,14}$');
-
--- Light sanity check only — full email validation belongs in the app layer.
-alter table public.pharmacy_partners
-  add constraint pharmacy_partners_contact_email_shape
-  check (contact_email is null or contact_email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$');
-
--- Latitude/longitude must be a sane coordinate pair when supplied.
-alter table public.pharmacy_partners
-  add constraint pharmacy_partners_latitude_range
-  check (latitude is null or (latitude >= -90 and latitude <= 90));
-alter table public.pharmacy_partners
-  add constraint pharmacy_partners_longitude_range
-  check (longitude is null or (longitude >= -180 and longitude <= 180));
+-- Constraints guarded for idempotent re-apply (Postgres has no
+-- ADD CONSTRAINT IF NOT EXISTS). E.164 shape matches profiles.phone; email is
+-- a light sanity check only; lat/long must be a sane coordinate pair.
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'pharmacy_partners_contact_phone_e164') then
+    alter table public.pharmacy_partners add constraint pharmacy_partners_contact_phone_e164
+      check (contact_phone is null or contact_phone ~ '^\+[1-9][0-9]{7,14}$');
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'pharmacy_partners_contact_email_shape') then
+    alter table public.pharmacy_partners add constraint pharmacy_partners_contact_email_shape
+      check (contact_email is null or contact_email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$');
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'pharmacy_partners_latitude_range') then
+    alter table public.pharmacy_partners add constraint pharmacy_partners_latitude_range
+      check (latitude is null or (latitude >= -90 and latitude <= 90));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'pharmacy_partners_longitude_range') then
+    alter table public.pharmacy_partners add constraint pharmacy_partners_longitude_range
+      check (longitude is null or (longitude >= -180 and longitude <= 180));
+  end if;
+end $$;
