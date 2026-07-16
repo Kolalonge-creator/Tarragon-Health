@@ -896,6 +896,106 @@ export type Database = {
           },
         ]
       }
+      drug_monitoring_rules: {
+        Row: {
+          created_at: string
+          drug_class: string
+          id: string
+          interval_months: number | null
+          is_active: boolean
+          match_pattern: string
+          monitor_on_initiation: boolean
+          monitoring_label: string
+        }
+        Insert: {
+          created_at?: string
+          drug_class: string
+          id?: string
+          interval_months?: number | null
+          is_active?: boolean
+          match_pattern: string
+          monitor_on_initiation?: boolean
+          monitoring_label: string
+        }
+        Update: {
+          created_at?: string
+          drug_class?: string
+          id?: string
+          interval_months?: number | null
+          is_active?: boolean
+          match_pattern?: string
+          monitor_on_initiation?: boolean
+          monitoring_label?: string
+        }
+        Relationships: []
+      }
+      medication_lab_monitoring: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          drug_class: string
+          due_date: string | null
+          id: string
+          medication_id: string
+          monitoring_label: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["lab_monitoring_status"]
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          drug_class: string
+          due_date?: string | null
+          id?: string
+          medication_id: string
+          monitoring_label: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["lab_monitoring_status"]
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          drug_class?: string
+          due_date?: string | null
+          id?: string
+          medication_id?: string
+          monitoring_label?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["lab_monitoring_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_lab_monitoring_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_lab_monitoring_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_lab_monitoring_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employer_roster_members: {
         Row: {
           added_by: string | null
@@ -4521,6 +4621,7 @@ export type Database = {
         | "vaccination_centre"
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
       glucose_context: "fasting" | "random" | "post_meal"
+      lab_monitoring_status: "pending" | "completed" | "cancelled"
       lab_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -4861,6 +4962,7 @@ export const Constants = {
       ],
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       glucose_context: ["fasting", "random", "post_meal"],
+      lab_monitoring_status: ["pending", "completed", "cancelled"],
       lab_order_status: [
         "pending_payment",
         "payment_confirmed",

@@ -21,6 +21,7 @@ import { SymptomLogForm } from "./symptom-log-form";
 import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { MedicationsList } from "./medications-list";
+import { LabMonitoringCard } from "./lab-monitoring-card";
 import { TodaysDoses } from "./todays-doses";
 import { AddMedicationForm } from "./add-medication-form";
 import { CarePlanDisplay } from "./care-plan-display";
@@ -131,6 +132,7 @@ export default async function PatientPage() {
         refillCoordinationEnabled={refillCoordinationEnabled ?? false}
         canStop
       />
+      <LabMonitoringCard patientId={profile.id} />
       <AddMedicationForm patientId={profile.id} source="patient" />
       <RequiresEntitlement
         feature="medication_refills"
