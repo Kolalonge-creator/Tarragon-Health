@@ -8,6 +8,112 @@ import { initializeTransaction } from "@/lib/paystack/transactions";
 import { isStripeConfigured } from "@/lib/stripe/client";
 import { createCheckoutSession } from "@/lib/stripe/checkout";
 import { resolveProvider } from "@/lib/billing/provider";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import {
+  demographicsSchema,
+  consentSchema,
+  identityVerificationSchema,
+} from "@/lib/validation/onboarding";
+import { verifyIdentity } from "@/lib/identity/provider";
+
+export type SaveDemographicsState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Saves the patient's own date of birth + sex on their profiles row
+ * (RLS-scoped — a patient may update their own profile). These are a hard
+ * prerequisite for finishing onboarding (see
+ * private.enforce_onboarding_prereqs) because the risk/screening engines are
+ * age/sex-dependent.
+ */
+export async function saveDemographics(
+  _prevState: SaveDemographicsState,
+  formData: FormData,
+): Promise<SaveDemographicsState> {
+  const parsed = demographicsSchema.safeParse({
+    dateOfBirth: formData.get("dateOfBirth"),
+    sex: formData.get("sex"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ date_of_birth: parsed.data.dateOfBirth, sex: parsed.data.sex })
+    .eq("id", user.id);
+  if (error) {
+    return { error: error.message };
+  }
+  return { success: true };
+}
+
+export type AcceptConsentsState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Records the caller's acceptance of every current consent version as an
+ * append-only patient_consents row. Idempotent-ish: re-accepting inserts new
+ * rows (the audit history is intentional), but has_required_consents only
+ * checks existence so a double-submit is harmless.
+ */
+export async function acceptConsents(
+  _prevState: AcceptConsentsState,
+  formData: FormData,
+): Promise<AcceptConsentsState> {
+  const parsed = consentSchema.safeParse({ accept: formData.get("accept") === "on" });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please accept to continue" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "This account has no organisation on file" };
+  }
+
+  const { data: versions, error: versionsError } = await supabase
+    .from("consent_versions")
+    .select("id, consent_type, version")
+    .eq("is_current", true);
+  if (versionsError) {
+    return { error: versionsError.message };
+  }
+  if (!versions || versions.length === 0) {
+    return { error: "No consents are configured — contact support." };
+  }
+
+  const { error } = await supabase.from("patient_consents").insert(
+    versions.map((version) => ({
+      organisation_id: profile.organisation_id!,
+      patient_id: user.id,
+      consent_type: version.consent_type,
+      consent_version_id: version.id,
+      version: version.version,
+    })),
+  );
+  if (error) {
+    return { error: error.message };
+  }
+  return { success: true };
+}
 
 /**
  * Marks onboarding complete for the signed-in caller only — there is no
@@ -31,6 +137,90 @@ export async function completeOnboarding() {
     .eq("id", user.id);
 
   redirect("/patient");
+}
+
+export type IdentityVerificationState =
+  | { error?: string; status?: "verified" | "pending" | "unavailable" }
+  | undefined;
+
+/**
+ * Optional KYC. Records a pending identity_verifications request (storing only
+ * the last 4 digits of the ID number — never the full NIN/BVN), then attempts
+ * verification through the provider boundary. When no provider is configured
+ * the request simply stays pending for ops/webhook resolution. This is never a
+ * blocker for onboarding.
+ */
+export async function submitIdentityVerification(
+  _prevState: IdentityVerificationState,
+  formData: FormData,
+): Promise<IdentityVerificationState> {
+  const parsed = identityVerificationSchema.safeParse({
+    method: formData.get("method"),
+    idNumber: formData.get("idNumber"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "This account has no organisation on file" };
+  }
+
+  const idLast4 = parsed.data.idNumber.slice(-4);
+
+  const { data: request, error: insertError } = await supabase
+    .from("identity_verifications")
+    .insert({
+      organisation_id: profile.organisation_id,
+      patient_id: user.id,
+      method: parsed.data.method,
+      status: "pending",
+      id_last4: idLast4,
+    })
+    .select("id")
+    .single();
+  if (insertError || !request) {
+    return { error: insertError?.message ?? "Could not record your request" };
+  }
+
+  const result = await verifyIdentity(parsed.data.method, parsed.data.idNumber);
+
+  if (result.ok && result.verified) {
+    // Verified results are written via the service-role client so the trust
+    // signal can never be self-asserted by a patient session.
+    const service = createServiceRoleClient();
+    const verifiedAt = new Date().toISOString();
+    await service
+      .from("identity_verifications")
+      .update({
+        status: "verified",
+        provider: result.provider,
+        reference: result.reference,
+        verified_at: verifiedAt,
+      })
+      .eq("id", request.id);
+    await service
+      .from("profiles")
+      .update({ identity_verified_at: verifiedAt })
+      .eq("id", user.id);
+    return { status: "verified" };
+  }
+
+  // Provider unavailable or not-yet-verified: leave the request pending.
+  return { status: result.ok ? "pending" : result.reason === "error" ? "pending" : "unavailable" };
 }
 
 export type StartCheckoutState = { error?: string } | undefined;

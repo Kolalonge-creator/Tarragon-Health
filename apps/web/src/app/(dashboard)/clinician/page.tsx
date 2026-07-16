@@ -54,6 +54,11 @@ export default async function ClinicianPage() {
           Adherence alerts →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href="/clinician/recommendations" className="text-brand-green hover:underline">
+          Care programme recommendations →
+        </Link>
+      </p>
     </DashboardPlaceholder>
   );
 }

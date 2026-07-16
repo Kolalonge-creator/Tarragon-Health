@@ -28,6 +28,7 @@ import { AddMedicationForm } from "./add-medication-form";
 import { CarePlanDisplay } from "./care-plan-display";
 import { PreventiveScreeningCalendar } from "./preventive-screening-calendar";
 import { RiskAssessmentForm } from "./risk-assessment-form";
+import { CareProgrammeRecommendations } from "./care-programme-recommendations";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationRegistry } from "./vaccination-registry";
 import { LogVaccinationForm } from "./log-vaccination-form";
@@ -162,6 +163,7 @@ export default async function PatientPage() {
         patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
       />
       <RiskAssessmentForm patientId={profile.id} />
+      <CareProgrammeRecommendations patientId={profile.id} />
       <RiskAssessmentDisplay patientId={profile.id} />
       <VaccinationRegistry
         patientId={profile.id}
