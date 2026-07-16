@@ -1,6 +1,7 @@
 "use client";
 
 import { useMatchedHomeVisitProviders } from "@/lib/queries/logistics-partners";
+import { useRegionServiceAvailable } from "@/lib/queries/service-regions";
 import { koboToNaira } from "@tarragon/shared";
 import { Badge } from "@/components/ui/badge";
 
@@ -33,6 +34,12 @@ export function HomeCollectionAvailability({
     region: region ?? undefined,
     sampleType,
   });
+  // Also require the state's rollout master switch to be on — an active provider whose
+  // region hasn't been launched yet must still read "coming soon".
+  const { data: regionOk, isLoading: regionLoading } = useRegionServiceAvailable(
+    region,
+    "home_visit",
+  );
 
   if (homeVisitProviderName) {
     return (
@@ -56,11 +63,11 @@ export function HomeCollectionAvailability({
     );
   }
 
-  if (isLoading) {
+  if (isLoading || regionLoading) {
     return <p className="text-xs text-charcoal-ink/60">Checking home collection availability…</p>;
   }
 
-  const available = (providers?.length ?? 0) > 0;
+  const available = (providers?.length ?? 0) > 0 && regionOk === true;
 
   if (!available) {
     return (

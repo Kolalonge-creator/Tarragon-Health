@@ -1,0 +1,48 @@
+/**
+ * Canonical Nigerian state list for the public signup dropdown.
+ *
+ * The public signup page can't read public.service_regions (RLS is authenticated-only), so
+ * the list is duplicated here as a static constant. `value` MUST match the seeded
+ * service_regions.state strings exactly (see 20260717100000_service_regions.sql) so the
+ * region gate resolves — in particular the FCT row's value is "Abuja" to match existing
+ * facilities/partner data. Post-login surfaces read service_regions live instead.
+ */
+export const NIGERIAN_STATES: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "Abia", label: "Abia" },
+  { value: "Adamawa", label: "Adamawa" },
+  { value: "Akwa Ibom", label: "Akwa Ibom" },
+  { value: "Anambra", label: "Anambra" },
+  { value: "Bauchi", label: "Bauchi" },
+  { value: "Bayelsa", label: "Bayelsa" },
+  { value: "Benue", label: "Benue" },
+  { value: "Borno", label: "Borno" },
+  { value: "Cross River", label: "Cross River" },
+  { value: "Delta", label: "Delta" },
+  { value: "Ebonyi", label: "Ebonyi" },
+  { value: "Edo", label: "Edo" },
+  { value: "Ekiti", label: "Ekiti" },
+  { value: "Enugu", label: "Enugu" },
+  { value: "Gombe", label: "Gombe" },
+  { value: "Imo", label: "Imo" },
+  { value: "Jigawa", label: "Jigawa" },
+  { value: "Kaduna", label: "Kaduna" },
+  { value: "Kano", label: "Kano" },
+  { value: "Katsina", label: "Katsina" },
+  { value: "Kebbi", label: "Kebbi" },
+  { value: "Kogi", label: "Kogi" },
+  { value: "Kwara", label: "Kwara" },
+  { value: "Lagos", label: "Lagos" },
+  { value: "Nasarawa", label: "Nasarawa" },
+  { value: "Niger", label: "Niger" },
+  { value: "Ogun", label: "Ogun" },
+  { value: "Ondo", label: "Ondo" },
+  { value: "Osun", label: "Osun" },
+  { value: "Oyo", label: "Oyo" },
+  { value: "Plateau", label: "Plateau" },
+  { value: "Rivers", label: "Rivers" },
+  { value: "Sokoto", label: "Sokoto" },
+  { value: "Taraba", label: "Taraba" },
+  { value: "Yobe", label: "Yobe" },
+  { value: "Zamfara", label: "Zamfara" },
+  { value: "Abuja", label: "Federal Capital Territory (Abuja)" },
+];
