@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAiConversation, useSendCoachMessage } from "@/lib/queries/ai-coach";
+import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +13,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 export function AiCoachChat({ patientId }: { patientId: string }) {
   const { data: conversation } = useAiConversation(patientId);
   const sendMessage = useSendCoachMessage(patientId);
+  const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
 
   const messages = conversation?.messages ?? [];
@@ -29,7 +32,15 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
     const message = draft.trim();
     if (!message || sendMessage.isPending) return;
     setDraft("");
-    sendMessage.mutate({ conversationId: conversation?.conversationId, message });
+    sendMessage.mutate(
+      { conversationId: conversation?.conversationId, message },
+      {
+        // An emergency-tier message raises an emergency_events row server-side —
+        // surface the EmergencyAlert dialog immediately rather than on next poll.
+        onSettled: () =>
+          queryClient.invalidateQueries({ queryKey: activeEmergencyKey(patientId) }),
+      }
+    );
   }
 
   return (
