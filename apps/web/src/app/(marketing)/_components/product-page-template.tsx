@@ -4,6 +4,7 @@ import { MarketingHero } from "./marketing-hero";
 import { MarketingMediaFrame } from "./marketing-media-frame";
 import { Section, SectionHeading } from "./section";
 import { CtaBand } from "./cta-band";
+import { EmergencyNotice } from "./emergency-notice";
 import { MARKETING_MEDIA } from "../_content/media";
 import type { ProductPageContent } from "../_content/products";
 import { PRICING_HREF } from "../_content/products";
@@ -88,6 +89,10 @@ export function ProductPageTemplate({ content }: { content: ProductPageContent }
           </div>
           <MarketingMediaFrame media={heroMedia} className="lg:sticky lg:top-24" />
         </div>
+      </Section>
+
+      <Section>
+        <EmergencyNotice />
       </Section>
 
       <Section>

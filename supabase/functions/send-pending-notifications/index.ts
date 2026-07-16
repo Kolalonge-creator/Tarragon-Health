@@ -296,6 +296,56 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Sent to the patient's saved emergency contact / next of kin (SMS + WhatsApp)
+  // when the patient reports an emergency and does not acknowledge it within the
+  // acknowledge-gated window (private.notify_unacknowledged_emergencies), or
+  // immediately via the patient's "Alert my emergency contact now" action. A
+  // one-way alert only — TarragonHealth never manages the emergency, it routes
+  // the contact to help the patient reach a hospital. `to_phone` in the payload
+  // is the contact's number (they are not a platform user).
+  emergency_contact_alert: (payload) => {
+    const contactName = String(payload.contact_name ?? "there");
+    const patientName = String(
+      payload.patient_name ?? "someone who lists you as their emergency contact",
+    );
+    const smsText =
+      `${contactName}, this is an urgent alert from Tarragon Health. ${patientName} reported a ` +
+      `possible medical emergency and may need your help. Please try to reach them now. If you ` +
+      `cannot and it is an emergency, help them get to the nearest hospital. — Tarragon Health`;
+    return {
+      metaTemplateName: "emergency_contact_alert",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: contactName },
+            { type: "text", text: patientName },
+          ],
+        },
+      ],
+      smsText,
+    };
+  },
+  // Sent to the patient after the follow-up window on an emergency event
+  // (private.notify_emergency_followups). Gentle check-in nudging them to update
+  // their care team in the app — the follow-up itself happens in-app, never over
+  // WhatsApp/SMS.
+  emergency_followup: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const smsText =
+      `Hi ${patientName}, we noticed you recently reported an emergency. We hope you're okay. ` +
+      `When you can, open the Tarragon Health app to let your care team know how you're doing. ` +
+      `— Tarragon Health`;
+    return {
+      metaTemplateName: "emergency_followup",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: patientName }] },
+      ],
+      smsText,
+    };
+  },
 };
 
 interface SendResult {
