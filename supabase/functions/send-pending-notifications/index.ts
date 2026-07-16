@@ -105,6 +105,35 @@ const TEMPLATE_MAP: Record<
         `Reply on WhatsApp or open the app. — Tarragon Health`,
     };
   },
+  // Sent to the patient as a scheduled adherence check-in comes due (see
+  // private.queue_medication_checkin_reminders). Reminds them to answer the
+  // check-in in the app — the response is never captured over WhatsApp/SMS.
+  medication_adherence_checkin: (payload) => {
+    const drugName = String(payload.drug_name ?? "your medication");
+    const type = String(payload.checkin_type ?? "");
+    const prompt =
+      type === "started"
+        ? `Have you started ${drugName}?`
+        : type === "side_effects"
+          ? `Any side effects from ${drugName}?`
+          : type === "missed_doses"
+            ? `How many doses of ${drugName} have you missed?`
+            : `Time for a quick review of ${drugName}.`;
+    return {
+      metaTemplateName: "medication_adherence_checkin",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: drugName },
+            { type: "text", text: prompt },
+          ],
+        },
+      ],
+      smsText: `${prompt} Open the Tarragon Health app to answer. — Tarragon Health`,
+    };
+  },
   // Sent to the patient as a scheduled medication review comes due (see
   // private.queue_medication_review_reminders). Reminder only — the review is
   // completed by a doctor in the clinician worklist, never over WhatsApp.

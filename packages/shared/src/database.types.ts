@@ -1836,6 +1836,73 @@ export type Database = {
         }
         Relationships: []
       }
+      medication_adherence_checkins: {
+        Row: {
+          checkin_type: Database["public"]["Enums"]["medication_checkin_type"]
+          created_at: string
+          due_date: string
+          id: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at: string | null
+          responded_at: string | null
+          response: string | null
+          status: Database["public"]["Enums"]["medication_checkin_status"]
+          updated_at: string
+        }
+        Insert: {
+          checkin_type: Database["public"]["Enums"]["medication_checkin_type"]
+          created_at?: string
+          due_date: string
+          id?: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at?: string | null
+          responded_at?: string | null
+          response?: string | null
+          status?: Database["public"]["Enums"]["medication_checkin_status"]
+          updated_at?: string
+        }
+        Update: {
+          checkin_type?: Database["public"]["Enums"]["medication_checkin_type"]
+          created_at?: string
+          due_date?: string
+          id?: string
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          reminder_sent_at?: string | null
+          responded_at?: string | null
+          response?: string | null
+          status?: Database["public"]["Enums"]["medication_checkin_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_adherence_checkins_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_adherence_checkins_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_adherence_checkins_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_logs: {
         Row: {
           created_at: string
@@ -4631,6 +4698,12 @@ export type Database = {
         | "resulted"
         | "cancelled"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other"
+      medication_checkin_status: "pending" | "responded" | "skipped"
+      medication_checkin_type:
+        | "started"
+        | "side_effects"
+        | "missed_doses"
+        | "lab_review"
       medication_log_status: "taken" | "missed" | "skipped"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist"
@@ -4973,6 +5046,13 @@ export const Constants = {
         "cancelled",
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other"],
+      medication_checkin_status: ["pending", "responded", "skipped"],
+      medication_checkin_type: [
+        "started",
+        "side_effects",
+        "missed_doses",
+        "lab_review",
+      ],
       medication_log_status: ["taken", "missed", "skipped"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist"],
