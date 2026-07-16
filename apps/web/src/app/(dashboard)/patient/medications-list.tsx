@@ -8,6 +8,8 @@ import {
   useStopMedication,
   type MedicationWithCarePlan,
 } from "@/lib/queries/medications";
+import { usePatientNextReview } from "@/lib/queries/medication-reviews";
+import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,6 +60,7 @@ export function MedicationsList({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <CabinetSummary patientId={patientId} />
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && (
           <p className="text-sm text-red-600">Could not load medications.</p>
@@ -106,7 +109,8 @@ export function MedicationsList({
                   )}
                   {medication.refill_date && refillCoordinationEnabled && (
                     <p className="text-xs text-charcoal-ink/60">
-                      Refill by {new Date(medication.refill_date).toLocaleDateString()}
+                      Refill by {new Date(medication.refill_date).toLocaleDateString()} ·{" "}
+                      {daysLeftLabel(medication.refill_date)}
                     </p>
                   )}
                   {medication.refill_date && !refillCoordinationEnabled && (
@@ -148,6 +152,51 @@ function formatCondition(condition: string): string {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+/** "· 5 days left" / "· due today" / "· 3 days overdue" for a date string. */
+function daysLeftLabel(dateStr: string): string {
+  const today = new Date(new Date().toDateString());
+  const target = new Date(new Date(dateStr).toDateString());
+  const days = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  if (days > 0) return `${days} day${days === 1 ? "" : "s"} left`;
+  if (days === 0) return "due today";
+  return `${-days} day${days === -1 ? "" : "s"} overdue`;
+}
+
+/** Top-of-cabinet summary: next medication review + next lab monitoring due. */
+function CabinetSummary({ patientId }: { patientId: string }) {
+  const { data: nextReview } = usePatientNextReview(patientId);
+  const { data: labMonitoring } = usePatientLabMonitoring(patientId);
+  const nextLab = (labMonitoring ?? []).find((m) => m.due_date != null);
+
+  if (!nextReview && !nextLab) return null;
+
+  return (
+    <div className="mb-3 grid gap-2 rounded-md bg-charcoal-ink/5 p-3 sm:grid-cols-2">
+      {nextReview && (
+        <div>
+          <p className="text-xs text-charcoal-ink/50">Next medication review</p>
+          <p className="text-sm text-charcoal-ink">
+            {new Date(nextReview.due_date).toLocaleDateString()}{" "}
+            <span className="text-charcoal-ink/50">· {daysLeftLabel(nextReview.due_date)}</span>
+          </p>
+        </div>
+      )}
+      {nextLab && nextLab.due_date && (
+        <div>
+          <p className="text-xs text-charcoal-ink/50">Next lab test</p>
+          <p className="text-sm text-charcoal-ink">
+            {nextLab.monitoring_label}
+            <span className="text-charcoal-ink/50">
+              {" "}
+              · {new Date(nextLab.due_date).toLocaleDateString()}
+            </span>
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ConfirmRefillForm({
