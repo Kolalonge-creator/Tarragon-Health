@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useConfirmMedicationRefill, useMedications, type Medication } from "@/lib/queries/medications";
+import {
+  useConfirmMedicationRefill,
+  useMedications,
+  useStoppedMedications,
+  useStopMedication,
+  type MedicationWithCarePlan,
+} from "@/lib/queries/medications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,10 +15,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+const SOURCE_BADGE: Record<
+  string,
+  { variant: "blue" | "grey" | "amber"; label: string }
+> = {
+  clinician: { variant: "blue", label: "Prescribed" },
+  specialist: { variant: "amber", label: "Specialist" },
+  patient: { variant: "grey", label: "Self-added" },
+};
+
 export function MedicationsList({
   patientId,
   refillCoordinationEnabled,
   canConfirmRefill = false,
+  canStop = false,
 }: {
   patientId: string;
   /** 'medication_refills' feature — Free tier tracks medications but gets
@@ -26,6 +42,10 @@ export function MedicationsList({
    * enforce_medication_confirm_only trigger) is the real gate; this only
    * decides whether the control renders. */
   canConfirmRefill?: boolean;
+  /** Renders the "Stop medication" control (patient's own view). RLS decides
+   * the real permission — the patient may stop their own self-/specialist-
+   * sourced rows; a clinician row needs prescribing authority. */
+  canStop?: boolean;
 }) {
   const { data, isLoading, isError } = useMedications(patientId);
 
@@ -47,57 +67,94 @@ export function MedicationsList({
         )}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
-            {data.map((medication) => (
-              <li key={medication.id} className="space-y-1 py-3">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-charcoal-ink">
-                    {medication.drug_name}
-                  </p>
-                  <Badge variant={medication.source === "clinician" ? "blue" : "grey"}>
-                    {medication.source === "clinician" ? "Prescribed" : "Self-added"}
-                  </Badge>
-                </div>
-                <p className="text-xs text-charcoal-ink/60">
-                  {[medication.dose, medication.frequency].filter(Boolean).join(" — ") ||
-                    "No dose/frequency set"}
-                </p>
-                {medication.refill_date && refillCoordinationEnabled && (
+            {data.map((medication) => {
+              const badge = SOURCE_BADGE[medication.source] ?? SOURCE_BADGE.patient;
+              return (
+                <li key={medication.id} className="space-y-1 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-charcoal-ink">
+                      {medication.drug_name}
+                    </p>
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                    {medication.care_plan?.condition && (
+                      <Badge variant="green">
+                        {formatCondition(medication.care_plan.condition)}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-charcoal-ink/60">
-                    Refill by {new Date(medication.refill_date).toLocaleDateString()}
+                    {[medication.dose, medication.frequency].filter(Boolean).join(" — ") ||
+                      "No dose/frequency set"}
                   </p>
-                )}
-                {medication.refill_date && !refillCoordinationEnabled && (
-                  <p className="text-xs text-charcoal-ink/60">
-                    Refill coordination is part of a paid plan —{" "}
-                    <a href="/patient/subscription" className="underline">
-                      see plans
-                    </a>
-                    .
-                  </p>
-                )}
-                {medication.last_confirmed_at && (
-                  <p className="text-xs text-charcoal-ink/60">
-                    Confirmed by your care team ·{" "}
-                    {new Date(medication.last_confirmed_at).toLocaleDateString()}
-                  </p>
-                )}
-                {canConfirmRefill && medication.source === "clinician" && (
-                  <ConfirmRefillForm medication={medication} patientId={patientId} />
-                )}
-              </li>
-            ))}
+                  {medication.source === "specialist" && medication.prescriber_name && (
+                    <p className="text-xs text-charcoal-ink/60">
+                      Started by {medication.prescriber_name}
+                      {medication.prescriber_document_url && (
+                        <>
+                          {" · "}
+                          <a
+                            href={medication.prescriber_document_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline"
+                          >
+                            consultation document
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {medication.refill_date && refillCoordinationEnabled && (
+                    <p className="text-xs text-charcoal-ink/60">
+                      Refill by {new Date(medication.refill_date).toLocaleDateString()}
+                    </p>
+                  )}
+                  {medication.refill_date && !refillCoordinationEnabled && (
+                    <p className="text-xs text-charcoal-ink/60">
+                      Refill coordination is part of a paid plan —{" "}
+                      <a href="/patient/subscription" className="underline">
+                        see plans
+                      </a>
+                      .
+                    </p>
+                  )}
+                  {medication.last_confirmed_at && (
+                    <p className="text-xs text-charcoal-ink/60">
+                      Confirmed by your care team ·{" "}
+                      {new Date(medication.last_confirmed_at).toLocaleDateString()}
+                    </p>
+                  )}
+                  {canConfirmRefill && medication.source === "clinician" && (
+                    <ConfirmRefillForm medication={medication} patientId={patientId} />
+                  )}
+                  {canStop && (
+                    <StopMedicationForm medication={medication} patientId={patientId} />
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
+
+        <PastMedications patientId={patientId} />
       </CardContent>
     </Card>
   );
+}
+
+/** Human-friendly care-plan condition label (enum values are snake_case). */
+function formatCondition(condition: string): string {
+  return condition
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 function ConfirmRefillForm({
   medication,
   patientId,
 }: {
-  medication: Medication;
+  medication: MedicationWithCarePlan;
   patientId: string;
 }) {
   const confirmRefill = useConfirmMedicationRefill();
@@ -139,5 +196,111 @@ function ConfirmRefillForm({
         <p className="text-xs text-brand-green basis-full">Confirmed and continued.</p>
       )}
     </form>
+  );
+}
+
+function StopMedicationForm({
+  medication,
+  patientId,
+}: {
+  medication: MedicationWithCarePlan;
+  patientId: string;
+}) {
+  const stopMedication = useStopMedication();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70"
+        onClick={() => setOpen(true)}
+      >
+        Stop medication
+      </Button>
+    );
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 p-2">
+      <div className="min-w-48 flex-1 space-y-1">
+        <Label htmlFor={`stop_reason_${medication.id}`} className="text-xs">
+          Reason (optional) — e.g. switched, side effects
+        </Label>
+        <Input
+          id={`stop_reason_${medication.id}`}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          className="h-8 text-xs"
+        />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={stopMedication.isPending}
+        onClick={() =>
+          stopMedication.mutate(
+            { medicationId: medication.id, patientId, stoppedReason: reason.trim() || null },
+            { onSuccess: () => setOpen(false) }
+          )
+        }
+      >
+        {stopMedication.isPending ? "Stopping…" : "Confirm stop"}
+      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+        Cancel
+      </Button>
+      {stopMedication.isError && (
+        <p className="basis-full text-xs text-red-600">
+          {(stopMedication.error as Error).message || "Could not stop this medication."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Collapsible medication history — stopped/switched drugs with when + why. */
+function PastMedications({ patientId }: { patientId: string }) {
+  const [open, setOpen] = useState(false);
+  const { data } = useStoppedMedications(patientId);
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <div className="mt-3 border-t border-charcoal-ink/10 pt-3">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs text-charcoal-ink/70"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {open ? "Hide" : "Show"} past medications ({data.length})
+      </Button>
+      {open && (
+        <ul className="mt-1 divide-y divide-charcoal-ink/10">
+          {data.map((medication) => (
+            <li key={medication.id} className="py-2">
+              <p className="text-sm text-charcoal-ink/70 line-through decoration-charcoal-ink/30">
+                {medication.drug_name}
+                {medication.dose ? ` — ${medication.dose}` : ""}
+              </p>
+              <p className="text-xs text-charcoal-ink/50">
+                Stopped
+                {medication.stopped_at
+                  ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
+                  : ""}
+                {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

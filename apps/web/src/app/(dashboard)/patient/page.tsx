@@ -129,6 +129,7 @@ export default async function PatientPage() {
       <MedicationsList
         patientId={profile.id}
         refillCoordinationEnabled={refillCoordinationEnabled ?? false}
+        canStop
       />
       <AddMedicationForm patientId={profile.id} source="patient" />
       <RequiresEntitlement

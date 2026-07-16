@@ -21,5 +21,21 @@ export const medicationSchema = z.object({
   refill_date: takenAtStyleDateField,
   schedule_times: scheduleTimesField,
   care_plan_id: z.string().uuid().optional(),
+  // Specialist attribution (pathway Scenario 3) — the external prescriber's
+  // name and optional consultation document. Only meaningful when the record
+  // is being added as a specialist-started medication.
+  prescriber_name: z.string().trim().max(200).optional(),
+  prescriber_document_url: z
+    .string()
+    .trim()
+    .url("Enter a valid link (https://…)")
+    .max(2000)
+    .optional(),
 });
 export type MedicationInput = z.infer<typeof medicationSchema>;
+
+/** Reason a medication was stopped/switched (pathway Scenario 2). */
+export const stopMedicationSchema = z.object({
+  stopped_reason: z.string().trim().max(300).optional(),
+});
+export type StopMedicationInput = z.infer<typeof stopMedicationSchema>;

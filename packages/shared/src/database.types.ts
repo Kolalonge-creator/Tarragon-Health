@@ -1902,9 +1902,13 @@ export type Database = {
           last_confirmed_by: string | null
           organisation_id: string
           patient_id: string
+          prescriber_document_url: string | null
+          prescriber_name: string | null
           refill_date: string | null
           schedule_times: Json
           source: Database["public"]["Enums"]["medication_source"]
+          stopped_at: string | null
+          stopped_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -1920,9 +1924,13 @@ export type Database = {
           last_confirmed_by?: string | null
           organisation_id: string
           patient_id: string
+          prescriber_document_url?: string | null
+          prescriber_name?: string | null
           refill_date?: string | null
           schedule_times?: Json
           source?: Database["public"]["Enums"]["medication_source"]
+          stopped_at?: string | null
+          stopped_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -1938,9 +1946,13 @@ export type Database = {
           last_confirmed_by?: string | null
           organisation_id?: string
           patient_id?: string
+          prescriber_document_url?: string | null
+          prescriber_name?: string | null
           refill_date?: string | null
           schedule_times?: Json
           source?: Database["public"]["Enums"]["medication_source"]
+          stopped_at?: string | null
+          stopped_reason?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4430,7 +4442,7 @@ export type Database = {
         | "cancelled"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other"
       medication_log_status: "taken" | "missed" | "skipped"
-      medication_source: "clinician" | "patient"
+      medication_source: "clinician" | "patient" | "specialist"
       notification_channel: "email" | "sms" | "in_app" | "whatsapp" | "push"
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
       organisation_type:
@@ -4770,7 +4782,7 @@ export const Constants = {
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other"],
       medication_log_status: ["taken", "missed", "skipped"],
-      medication_source: ["clinician", "patient"],
+      medication_source: ["clinician", "patient", "specialist"],
       notification_channel: ["email", "sms", "in_app", "whatsapp", "push"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],
       organisation_type: [
