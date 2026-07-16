@@ -3232,6 +3232,7 @@ export type Database = {
           onboarding_completed_at: string | null
           organisation_id: string | null
           patient_number: string | null
+          pharmacy_partner_id: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           sex: Database["public"]["Enums"]["sex"] | null
@@ -3250,6 +3251,7 @@ export type Database = {
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
+          pharmacy_partner_id?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
@@ -3268,6 +3270,7 @@ export type Database = {
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
+          pharmacy_partner_id?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
@@ -4749,6 +4752,43 @@ export type Database = {
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
+      pharmacist_order_allergies: {
+        Args: { p_order_id: string }
+        Returns: {
+          allergen: string
+          reaction: string | null
+          severity: string | null
+        }[]
+      }
+      pharmacist_order_medications: {
+        Args: { p_order_id: string }
+        Returns: {
+          drug_name: string
+          dose: string | null
+          frequency: string | null
+        }[]
+      }
+      pharmacist_orders: {
+        Args: never
+        Returns: {
+          order_id: string
+          order_number: string | null
+          status: string
+          patient_name: string | null
+          patient_number: string | null
+          items: Json
+          requested_at: string
+        }[]
+      }
+      pharmacist_record_dispense: {
+        Args: {
+          p_order_id: string
+          p_drug_name: string
+          p_quantity: string
+          p_dispensed_on: string
+        }
+        Returns: undefined
+      }
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
@@ -4950,6 +4990,7 @@ export type Database = {
         | "corporate_admin"
         | "doctor"
         | "care_coordinator"
+        | "pharmacist"
       video_consultation_context: "pre_referral_triage" | "specialist_consult"
       video_consultation_status:
         | "scheduled"
@@ -5313,6 +5354,7 @@ export const Constants = {
         "corporate_admin",
         "doctor",
         "care_coordinator",
+        "pharmacist",
       ],
       video_consultation_context: ["pre_referral_triage", "specialist_consult"],
       video_consultation_status: [
