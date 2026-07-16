@@ -67,11 +67,17 @@ export function IdentityVerificationCard({ patientId }: { patientId: string }) {
           {state?.status === "verified" && (
             <p className="text-sm text-brand-green">Your identity is verified.</p>
           )}
-          {(state?.status === "unavailable" || alreadyPending) && !state?.error && (
-            <p className="text-sm text-charcoal-ink/60">
-              Thanks — we&apos;ve recorded this and will confirm it shortly.
+          {state?.status === "failed" && (
+            <p className="text-sm text-red-600">
+              We couldn&apos;t verify that number. Check it and try again, or skip for now.
             </p>
           )}
+          {(state?.status === "unavailable" || state?.status === "pending" || alreadyPending) &&
+            !state?.error && (
+              <p className="text-sm text-charcoal-ink/60">
+                Thanks — we&apos;ve recorded this and will confirm it shortly.
+              </p>
+            )}
 
           <Button
             type="submit"

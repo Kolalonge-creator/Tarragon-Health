@@ -140,7 +140,7 @@ export async function completeOnboarding() {
 }
 
 export type IdentityVerificationState =
-  | { error?: string; status?: "verified" | "pending" | "unavailable" }
+  | { error?: string; status?: "verified" | "failed" | "pending" | "unavailable" }
   | undefined;
 
 /**
@@ -198,29 +198,38 @@ export async function submitIdentityVerification(
 
   const result = await verifyIdentity(parsed.data.method, parsed.data.idNumber);
 
-  if (result.ok && result.verified) {
-    // Verified results are written via the service-role client so the trust
-    // signal can never be self-asserted by a patient session.
+  if (result.ok) {
+    // Verified/failed results are written via the service-role client so the
+    // status can never be self-asserted by a patient session.
     const service = createServiceRoleClient();
-    const verifiedAt = new Date().toISOString();
+    if (result.verified) {
+      const verifiedAt = new Date().toISOString();
+      await service
+        .from("identity_verifications")
+        .update({
+          status: "verified",
+          provider: result.provider,
+          reference: result.reference,
+          verified_at: verifiedAt,
+        })
+        .eq("id", request.id);
+      await service
+        .from("profiles")
+        .update({ identity_verified_at: verifiedAt })
+        .eq("id", user.id);
+      return { status: "verified" };
+    }
+    // Provider reached, but the number didn't check out — a definitive fail.
     await service
       .from("identity_verifications")
-      .update({
-        status: "verified",
-        provider: result.provider,
-        reference: result.reference,
-        verified_at: verifiedAt,
-      })
+      .update({ status: "failed", provider: result.provider })
       .eq("id", request.id);
-    await service
-      .from("profiles")
-      .update({ identity_verified_at: verifiedAt })
-      .eq("id", user.id);
-    return { status: "verified" };
+    return { status: "failed" };
   }
 
-  // Provider unavailable or not-yet-verified: leave the request pending.
-  return { status: result.ok ? "pending" : result.reason === "error" ? "pending" : "unavailable" };
+  // Provider unavailable (unconfigured) or unreachable (transient error):
+  // leave the request pending for a retry / ops resolution.
+  return { status: result.reason === "unavailable" ? "unavailable" : "pending" };
 }
 
 export type StartCheckoutState = { error?: string } | undefined;
