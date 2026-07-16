@@ -133,6 +133,8 @@ $$;
 
 -- Same WHEN guard as the commission trigger: fire once, only on the transition
 -- into payment_confirmed (never on every subsequent status update).
+-- Dropped-then-created so a re-apply is idempotent.
+drop trigger if exists pharmacy_orders_enqueue_notifications on public.pharmacy_orders;
 create trigger pharmacy_orders_enqueue_notifications
   after update on public.pharmacy_orders
   for each row
