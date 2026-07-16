@@ -48,7 +48,7 @@ export function PreventiveProgrammes({
       tier: toRiskTier(score.tier),
     }));
     const recs = computePreventiveProgrammeRecommendations(scores, { ageYears, sex });
-    return new Map(recs.map((rec) => [rec.code, rec.rationale]));
+    return new Map<string, string>(recs.map((rec) => [rec.code, rec.rationale]));
   }, [riskScores.data, ageYears, sex]);
 
   const enrolmentByProgramme = useMemo(() => {

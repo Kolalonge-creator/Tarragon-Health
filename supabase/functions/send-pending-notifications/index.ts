@@ -189,6 +189,45 @@ const TEMPLATE_MAP: Record<
         `open the app to see details. — Tarragon Health`,
     };
   },
+  // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
+  // subject + body chosen by an admin, fanned out to a resolved audience. Email
+  // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement
+  // template, falling back to SMS meanwhile.
+  broadcast_announcement: (payload) => {
+    const subject = String(payload.subject ?? "A message from Tarragon Health");
+    const body = String(payload.body ?? "");
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    const bodyHtml = escapeHtml(body).replace(/\n/g, "<br>");
+    return {
+      metaTemplateName: "broadcast_announcement",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: subject },
+            { type: "text", text: body },
+          ],
+        },
+      ],
+      smsText: `${subject}: ${body} — Tarragon Health`,
+      email: {
+        subject,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<h2 style="color:#0E7C52;margin:0 0 12px">${escapeHtml(subject)}</h2>` +
+          `<p>${bodyHtml}</p>` +
+          `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `${subject}\n\n${body}\n\n— Tarragon Health`,
+      },
+    };
+  },
   // Sent to the patient on the payment_confirmed transition (see
   // enqueue_pharmacy_order_notifications). WhatsApp is attempted first; the
   // pharmacy_order_patient_confirmation Meta template must be approved for the

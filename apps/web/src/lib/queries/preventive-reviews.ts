@@ -52,7 +52,9 @@ export function useOrgPreventiveReviews() {
         .eq("status", "pending")
         .order("due_date", { ascending: true });
       if (error) throw error;
-      return data as PreventiveReviewWithContext[];
+      // Nested embed aliases defeat the generated row typing; the runtime shape
+      // matches PreventiveReviewWithContext.
+      return data as unknown as PreventiveReviewWithContext[];
     },
   });
 }

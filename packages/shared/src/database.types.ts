@@ -2506,6 +2506,59 @@ export type Database = {
           },
         ];
       };
+      notification_broadcasts: {
+        Row: {
+          audience: Database["public"]["Enums"]["broadcast_audience"];
+          audience_filter: Json;
+          body: string;
+          channels: Database["public"]["Enums"]["notification_channel"][];
+          created_at: string;
+          created_by: string;
+          id: string;
+          recipient_count: number;
+          sent_at: string | null;
+          status: Database["public"]["Enums"]["broadcast_status"];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          audience: Database["public"]["Enums"]["broadcast_audience"];
+          audience_filter?: Json;
+          body: string;
+          channels: Database["public"]["Enums"]["notification_channel"][];
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          recipient_count?: number;
+          sent_at?: string | null;
+          status?: Database["public"]["Enums"]["broadcast_status"];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          audience?: Database["public"]["Enums"]["broadcast_audience"];
+          audience_filter?: Json;
+          body?: string;
+          channels?: Database["public"]["Enums"]["notification_channel"][];
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          recipient_count?: number;
+          sent_at?: string | null;
+          status?: Database["public"]["Enums"]["broadcast_status"];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_broadcasts_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           attempts: number;
@@ -3834,6 +3887,57 @@ export type Database = {
           },
         ];
       };
+      region_waitlist: {
+        Row: {
+          care_recipient_id: string | null;
+          created_at: string;
+          id: string;
+          notified_at: string | null;
+          requester_id: string;
+          service_type: string;
+          state: string;
+          to_email: string | null;
+          to_phone: string | null;
+        };
+        Insert: {
+          care_recipient_id?: string | null;
+          created_at?: string;
+          id?: string;
+          notified_at?: string | null;
+          requester_id: string;
+          service_type: string;
+          state: string;
+          to_email?: string | null;
+          to_phone?: string | null;
+        };
+        Update: {
+          care_recipient_id?: string | null;
+          created_at?: string;
+          id?: string;
+          notified_at?: string | null;
+          requester_id?: string;
+          service_type?: string;
+          state?: string;
+          to_email?: string | null;
+          to_phone?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "region_waitlist_care_recipient_id_fkey";
+            columns: ["care_recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "region_waitlist_requester_id_fkey";
+            columns: ["requester_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       risk_assessment_responses: {
         Row: {
           category: Database["public"]["Enums"]["risk_assessment_category"];
@@ -4111,6 +4215,36 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      service_regions: {
+        Row: {
+          activated_at: string | null;
+          created_at: string;
+          display_name: string;
+          id: string;
+          is_active: boolean;
+          state: string;
+          updated_at: string;
+        };
+        Insert: {
+          activated_at?: string | null;
+          created_at?: string;
+          display_name: string;
+          id?: string;
+          is_active?: boolean;
+          state: string;
+          updated_at?: string;
+        };
+        Update: {
+          activated_at?: string | null;
+          created_at?: string;
+          display_name?: string;
+          id?: string;
+          is_active?: boolean;
+          state?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       specialist_providers: {
         Row: {
@@ -5218,6 +5352,17 @@ export type Database = {
       };
     };
     Functions: {
+      admin_broadcast_audience_count: {
+        Args: {
+          p_audience: Database["public"]["Enums"]["broadcast_audience"];
+          p_filter: Json;
+        };
+        Returns: number;
+      };
+      admin_send_broadcast: {
+        Args: { p_broadcast_id: string };
+        Returns: number;
+      };
       claim_employer_roster_member: {
         Args: { target_roster_id: string };
         Returns: boolean;
@@ -5269,6 +5414,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      region_service_available: {
+        Args: { p_service: string; p_state: string };
+        Returns: boolean;
+      };
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string };
         Returns: boolean;
@@ -5287,6 +5436,13 @@ export type Database = {
         "patient_initiated" | "clinically_triggered" | "capitated";
       booking_request_status:
         "requested" | "confirmed" | "completed" | "cancelled";
+      broadcast_audience:
+        | "all_patients"
+        | "patients_by_state"
+        | "subscribers_by_plan"
+        | "all_partners"
+        | "partners_by_type";
+      broadcast_status: "draft" | "sent";
       care_plan_condition:
         | "hypertension"
         | "diabetes"
@@ -5612,6 +5768,14 @@ export const Constants = {
         "completed",
         "cancelled",
       ],
+      broadcast_audience: [
+        "all_patients",
+        "patients_by_state",
+        "subscribers_by_plan",
+        "all_partners",
+        "partners_by_type",
+      ],
+      broadcast_status: ["draft", "sent"],
       care_plan_condition: [
         "hypertension",
         "diabetes",
