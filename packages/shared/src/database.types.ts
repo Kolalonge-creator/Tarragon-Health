@@ -525,6 +525,128 @@ export type Database = {
           },
         ]
       }
+      chronic_condition_programmes: {
+        Row: {
+          category: string
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          created_at: string
+          id: string
+          is_active: boolean
+          launch_priority: number
+          monitoring_vitals: Database["public"]["Enums"]["vital_type"][]
+          name: string
+          protocol_slug: string
+          review_cadence_months: number
+          short_description: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          launch_priority?: number
+          monitoring_vitals?: Database["public"]["Enums"]["vital_type"][]
+          name: string
+          protocol_slug: string
+          review_cadence_months?: number
+          short_description?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          launch_priority?: number
+          monitoring_vitals?: Database["public"]["Enums"]["vital_type"][]
+          name?: string
+          protocol_slug?: string
+          review_cadence_months?: number
+          short_description?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chronic_programme_enrolments: {
+        Row: {
+          care_plan_id: string | null
+          created_at: string
+          enrolled_at: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          source: Database["public"]["Enums"]["chronic_enrolment_source"]
+          status: Database["public"]["Enums"]["chronic_enrolment_status"]
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          care_plan_id?: string | null
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          source?: Database["public"]["Enums"]["chronic_enrolment_source"]
+          status?: Database["public"]["Enums"]["chronic_enrolment_status"]
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          care_plan_id?: string | null
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          programme_id?: string
+          source?: Database["public"]["Enums"]["chronic_enrolment_source"]
+          status?: Database["public"]["Enums"]["chronic_enrolment_status"]
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chronic_programme_enrolments_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_enrolments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_enrolments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_enrolments_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_condition_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_staff: {
         Row: {
           active: boolean
@@ -848,6 +970,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      condition_protocols: {
+        Row: {
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          created_at: string
+          escalation: Json
+          follow_up: Json
+          id: string
+          investigations: Json
+          monitoring: Json
+          prevention: Json
+          protocol_slug: string
+          source: string
+          source_reference: string | null
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          created_at?: string
+          escalation?: Json
+          follow_up?: Json
+          id?: string
+          investigations?: Json
+          monitoring?: Json
+          prevention?: Json
+          protocol_slug: string
+          source?: string
+          source_reference?: string | null
+          summary: string
+          updated_at?: string
+        }
+        Update: {
+          condition?: Database["public"]["Enums"]["care_plan_condition"]
+          created_at?: string
+          escalation?: Json
+          follow_up?: Json
+          id?: string
+          investigations?: Json
+          monitoring?: Json
+          prevention?: Json
+          protocol_slug?: string
+          source?: string
+          source_reference?: string | null
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       corporate_contracts: {
         Row: {
@@ -4819,7 +4989,12 @@ export type Database = {
         | "ckd"
         | "cardiovascular"
         | "other"
+        | "asthma"
+        | "copd"
+        | "heart_failure"
       care_plan_status: "draft" | "active" | "completed" | "cancelled"
+      chronic_enrolment_source: "recommended" | "staff" | "clinician"
+      chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
       commission_type:
@@ -5165,8 +5340,13 @@ export const Constants = {
         "ckd",
         "cardiovascular",
         "other",
+        "asthma",
+        "copd",
+        "heart_failure",
       ],
       care_plan_status: ["draft", "active", "completed", "cancelled"],
+      chronic_enrolment_source: ["recommended", "staff", "clinician"],
+      chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
       commission_type: [
