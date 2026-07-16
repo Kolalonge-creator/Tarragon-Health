@@ -1888,6 +1888,95 @@ export type Database = {
           },
         ]
       }
+      medication_review_cadences: {
+        Row: {
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          interval_months: number
+        }
+        Insert: {
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          interval_months: number
+        }
+        Update: {
+          condition?: Database["public"]["Enums"]["care_plan_condition"]
+          interval_months?: number
+        }
+        Relationships: []
+      }
+      medication_reviews: {
+        Row: {
+          care_plan_id: string
+          completed_at: string | null
+          created_at: string
+          due_date: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["medication_review_status"]
+          updated_at: string
+        }
+        Insert: {
+          care_plan_id: string
+          completed_at?: string | null
+          created_at?: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_review_status"]
+          updated_at?: string
+        }
+        Update: {
+          care_plan_id?: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reminder_sent_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_review_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_reviews_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_reviews_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medications: {
         Row: {
           added_by: string | null
@@ -4442,6 +4531,7 @@ export type Database = {
         | "cancelled"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other"
       medication_log_status: "taken" | "missed" | "skipped"
+      medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist"
       notification_channel: "email" | "sms" | "in_app" | "whatsapp" | "push"
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
@@ -4782,6 +4872,7 @@ export const Constants = {
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other"],
       medication_log_status: ["taken", "missed", "skipped"],
+      medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist"],
       notification_channel: ["email", "sms", "in_app", "whatsapp", "push"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],

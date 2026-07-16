@@ -44,6 +44,11 @@ export default async function ClinicianPage() {
           Specialist referrals →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href="/clinician/medication-reviews" className="text-brand-green hover:underline">
+          Medication reviews →
+        </Link>
+      </p>
     </DashboardPlaceholder>
   );
 }

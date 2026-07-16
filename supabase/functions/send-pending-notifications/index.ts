@@ -105,6 +105,22 @@ const TEMPLATE_MAP: Record<
         `Reply on WhatsApp or open the app. — Tarragon Health`,
     };
   },
+  // Sent to the patient as a scheduled medication review comes due (see
+  // private.queue_medication_review_reminders). Reminder only — the review is
+  // completed by a doctor in the clinician worklist, never over WhatsApp.
+  medication_review_due: (payload) => {
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "medication_review_due",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: dueDate }] },
+      ],
+      smsText:
+        `Hi, your medication review is due ${dueDate}. Your care team will be in touch — ` +
+        `open the app to see details. — Tarragon Health`,
+    };
+  },
   // Sent to the patient on the payment_confirmed transition (see
   // enqueue_pharmacy_order_notifications). WhatsApp is attempted first; the
   // pharmacy_order_patient_confirmation Meta template must be approved for the
