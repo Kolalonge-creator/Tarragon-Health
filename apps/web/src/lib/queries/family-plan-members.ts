@@ -51,13 +51,30 @@ export function useFamilyPlanMembers() {
   });
 }
 
+/** Plan-code prefixes that carry a household/member cap enforced by
+ * private.validate_family_plan_member_count() — "family" covers Family
+ * Lite/Plus/Premium (all share the 'family'/'family_plus'/'family_premium'
+ * exact codes), "parentcare" covers all 6 ParentCare currency/interval
+ * variants. */
+function isFamilyShapedPlanCode(code: string): boolean {
+  return code === "family" || code.startsWith("family_") || code.startsWith("parentcare");
+}
+
 /**
  * Enrolls an existing patient (they must already have signed up — see
- * public.find_profile_by_phone) as a family member on the caller's Family
- * Plan subscription. The DB-level family_plan_members_validate_count
- * trigger (20260712201534) enforces the 4 (+ Extra Family Member add-ons)
- * cap — this mutation surfaces that error message as-is rather than
- * duplicating the limit check client-side.
+ * public.find_profile_by_phone) as a member on the caller's Family/ParentCare
+ * subscription. The DB-level family_plan_members_validate_count trigger
+ * (20260712201534, extended in 20260716160000 for ParentCare) enforces the
+ * per-tier headcount cap — this mutation surfaces that error message as-is
+ * rather than duplicating the limit check client-side.
+ *
+ * Fetches the caller's active/trialing subscriptions and picks the first
+ * family-shaped one client-side, rather than filtering the embedded `plan`
+ * resource to an exact code — the original exact match on 'family' meant a
+ * Family Plus/Premium (or now ParentCare) subscriber's plan_id was always
+ * left null here, so the count-limit trigger could never resolve their real
+ * plan family (found while wiring ParentCare's "attach a parent" flow onto
+ * this same hook).
  */
 export function useAddFamilyPlanMember() {
   const queryClient = useQueryClient();
@@ -79,13 +96,12 @@ export function useAddFamilyPlanMember() {
         throw new Error("You can't add yourself as a family member.");
       }
 
-      const { data: planRow } = await supabase
+      const { data: subscriptions } = await supabase
         .from("subscriptions")
         .select("id, plan:subscription_plans!subscriptions_plan_id_fkey!inner(code)")
         .eq("subscriber_id", ownerId)
-        .in("status", ["active", "trialing"])
-        .eq("plan.code", "family")
-        .maybeSingle();
+        .in("status", ["active", "trialing"]);
+      const planRow = (subscriptions ?? []).find((s) => isFamilyShapedPlanCode(s.plan.code));
 
       const { error } = await supabase.from("family_plan_members").insert({
         organisation_id: organisationId,

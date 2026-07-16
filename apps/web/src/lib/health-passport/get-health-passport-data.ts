@@ -60,11 +60,15 @@ export interface HealthPassportData {
 export async function getHealthPassportData(
   supabase: SupabaseClient<Database>,
   patientId: string,
-  organisationId: string
+  organisationId: string,
+  /** Reused by the ParentCare/Family Premium quarterly report, which wants
+   * a 3-month window instead of Health Passport's 12-month one — same
+   * assembly logic, shorter lookback, no separate query builder. */
+  periodMonths: number = PERIOD_MONTHS
 ): Promise<HealthPassportData> {
   const periodEnd = new Date();
   const periodStart = new Date(periodEnd);
-  periodStart.setMonth(periodStart.getMonth() - PERIOD_MONTHS);
+  periodStart.setMonth(periodStart.getMonth() - periodMonths);
   const periodStartIso = periodStart.toISOString();
 
   const [vitalsRes, screeningsRes, labRes, escalationsRes, careTeamRes, bmi] = await Promise.all([

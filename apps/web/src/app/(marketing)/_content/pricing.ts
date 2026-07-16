@@ -189,6 +189,24 @@ export const NGN_TIERS: PricingTier[] = [
     ],
     footnote: "Extra members: +₦55,000/year each, up to 6 people total.",
   },
+  {
+    id: "parentcare",
+    name: "ParentCare",
+    whoFor: "Keeping close watch over your parent's health, even from a distance",
+    priceMain: "₦20,000",
+    pricePeriod: "per month",
+    priceSecondary: "or ₦200,000/year (2 months free) — covers up to 2 parents",
+    description:
+      "A dedicated plan for monitoring a parent's health: a named doctor coordinator, scheduled doctor review, and a quarterly report, built specifically for this relationship rather than a general family group.",
+    items: [
+      { feature: "Named doctor coordinator for your parent(s)", label: "INCLUDED" },
+      { feature: "Scheduled doctor review of their readings", label: "INCLUDED" },
+      { feature: "Priority escalation if something needs closer attention", label: "INCLUDED" },
+      { feature: "Quarterly PDF family report", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills", label: "BOOK & PAY" },
+    ],
+    footnote: "Extra parent: +₦70,000/year, or +₦7,000/month.",
+  },
 ];
 
 export const GBP_TIERS: PricingTier[] = [
@@ -235,6 +253,24 @@ export const GBP_TIERS: PricingTier[] = [
       { feature: "A quarterly PDF report", label: "INCLUDED" },
       { feature: "Lab tests and medication refills in Nigeria", label: "BOOK & PAY" },
     ],
+  },
+  {
+    id: "parentcare-gbp",
+    name: "ParentCare",
+    whoFor: "Both your parents, watched over from abroad",
+    priceMain: "£119",
+    pricePeriod: "per month",
+    priceSecondary: "or £1,190/year — covers up to 2 parents",
+    description:
+      "Built specifically for monitoring a parent's health rather than a general family group: a named doctor coordinator, scheduled doctor review, and a quarterly report, covering up to 2 parents on one subscription.",
+    items: [
+      { feature: "Named doctor coordinator for your parent(s)", label: "INCLUDED" },
+      { feature: "Scheduled doctor review of their readings", label: "INCLUDED" },
+      { feature: "Priority escalation if something needs closer attention", label: "INCLUDED" },
+      { feature: "Quarterly PDF family report", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills in Nigeria", label: "BOOK & PAY" },
+    ],
+    footnote: "Extra parent: +£390/year, or +£39/month.",
   },
 ];
 
