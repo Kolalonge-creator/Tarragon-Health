@@ -1,14 +1,138 @@
 "use client";
 
-import { usePatientPharmacyOrders, type PharmacyOrderItem } from "@/lib/queries/pharmacy-orders";
+import { useState } from "react";
+import {
+  usePatientPharmacyOrders,
+  useOrderDispenses,
+  useRecordDispense,
+  type PharmacyOrderItem,
+  type PharmacyOrderWithLogistics,
+} from "@/lib/queries/pharmacy-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { koboToNaira, type PharmacyOrderStatus } from "@tarragon/shared";
 import { PayForPharmacyOrderButton } from "@/components/pay-for-pharmacy-order-button";
 import { DeliveryAvailability } from "@/components/delivery-availability";
 import { DeliveryAddressForm } from "@/components/delivery-address-form";
 
 type DeliveryAddress = { street: string; area: string; state: string; phone: string };
+
+/** Patient records what they collected against an order (self-service, works
+ * even when the pharmacy doesn't log in). Existing dispense records shown too. */
+function OrderDispenses({
+  order,
+  patientId,
+}: {
+  order: PharmacyOrderWithLogistics;
+  patientId: string;
+}) {
+  const { data: dispenses } = useOrderDispenses(order.id);
+  const record = useRecordDispense();
+  const [open, setOpen] = useState(false);
+  const [drugName, setDrugName] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [dispensedOn, setDispensedOn] = useState(
+    new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }),
+  );
+
+  return (
+    <div className="pt-1">
+      {dispenses && dispenses.length > 0 && (
+        <ul className="mb-1 space-y-0.5">
+          {dispenses.map((d) => (
+            <li key={d.id} className="text-xs text-charcoal-ink/60">
+              Collected: {d.drug_name}
+              {d.quantity ? ` × ${d.quantity}` : ""} · {new Date(d.dispensed_on).toLocaleDateString()}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!open ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-charcoal-ink/70"
+          onClick={() => setOpen(true)}
+        >
+          Record what you collected
+        </Button>
+      ) : (
+        <div className="flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 p-2">
+          <div className="min-w-40 flex-1 space-y-1">
+            <Label htmlFor={`dispense_drug_${order.id}`} className="text-xs">
+              Medication
+            </Label>
+            <Input
+              id={`dispense_drug_${order.id}`}
+              value={drugName}
+              onChange={(e) => setDrugName(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="w-20 space-y-1">
+            <Label htmlFor={`dispense_qty_${order.id}`} className="text-xs">
+              Quantity
+            </Label>
+            <Input
+              id={`dispense_qty_${order.id}`}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="w-36 space-y-1">
+            <Label htmlFor={`dispense_date_${order.id}`} className="text-xs">
+              Date
+            </Label>
+            <Input
+              id={`dispense_date_${order.id}`}
+              type="date"
+              value={dispensedOn}
+              onChange={(e) => setDispensedOn(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={record.isPending || !drugName.trim()}
+            onClick={() =>
+              record.mutate(
+                {
+                  order,
+                  drugName: drugName.trim(),
+                  quantity: quantity.trim() || null,
+                  dispensedOn,
+                  source: "patient",
+                  recordedBy: patientId,
+                },
+                {
+                  onSuccess: () => {
+                    setOpen(false);
+                    setDrugName("");
+                    setQuantity("");
+                  },
+                },
+              )
+            }
+          >
+            {record.isPending ? "Saving…" : "Save"}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          {record.isError && (
+            <p className="basis-full text-xs text-red-600">Could not save. Try again.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const PHARMACY_ORDER_STATUS_BADGE: Record<PharmacyOrderStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending_payment: { variant: "amber", label: "Awaiting payment" },
@@ -70,6 +194,9 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                     courierReference={order.courier_reference}
                     deliveryConfirmedAt={order.delivery_confirmed_at}
                   />
+                )}
+                {order.status !== "pending_payment" && order.status !== "cancelled" && (
+                  <OrderDispenses order={order} patientId={patientId} />
                 )}
               </li>
             );

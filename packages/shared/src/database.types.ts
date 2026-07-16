@@ -2888,6 +2888,63 @@ export type Database = {
           },
         ]
       }
+      pharmacy_order_dispenses: {
+        Row: {
+          created_at: string
+          dispensed_on: string
+          drug_name: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          pharmacy_order_id: string
+          quantity: string | null
+          recorded_by: string | null
+          source: Database["public"]["Enums"]["dispense_source"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dispensed_on?: string
+          drug_name: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          pharmacy_order_id: string
+          quantity?: string | null
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["dispense_source"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dispensed_on?: string
+          drug_name?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          pharmacy_order_id?: string
+          quantity?: string | null
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["dispense_source"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_dispenses_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_dispenses_pharmacy_order_id_fkey"
+            columns: ["pharmacy_order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pharmacy_orders: {
         Row: {
           courier_reference: string | null
@@ -4748,6 +4805,7 @@ export type Database = {
         | "tier_5_partner_specialist"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
+      dispense_source: "patient" | "pharmacy"
       facility_type:
         | "hospital"
         | "lab"
@@ -5096,6 +5154,7 @@ export const Constants = {
       ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
+      dispense_source: ["patient", "pharmacy"],
       facility_type: [
         "hospital",
         "lab",
