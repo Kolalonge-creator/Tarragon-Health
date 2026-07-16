@@ -33,10 +33,12 @@ const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["varia
 
 function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDetails }) {
   const [state, setState] = useState("");
+  const [city, setCity] = useState("");
   const [requireTelemedicine, setRequireTelemedicine] = useState(false);
   const { data: providers, isLoading } = useMatchedSpecialistProviders({
     specialistType: referral.specialist_type,
     state: state || undefined,
+    city: city || undefined,
     requireTelemedicine,
   });
   const assign = useAssignSpecialistProvider();
@@ -57,6 +59,16 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
             placeholder="e.g. Lagos"
             value={state}
             onChange={(e) => setState(e.target.value)}
+            className="w-32"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`city-${referral.id}`}>City</Label>
+          <Input
+            id={`city-${referral.id}`}
+            placeholder="e.g. Ikeja"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
             className="w-32"
           />
         </div>
@@ -82,7 +94,9 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
               {providers!.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
-                  {p.state ? ` · ${p.state}` : ""}
+                  {[p.city, p.state].filter(Boolean).length > 0
+                    ? ` · ${[p.city, p.state].filter(Boolean).join(", ")}`
+                    : ""}
                   {p.supports_telemedicine ? " · telemedicine" : ""} — ₦
                   {koboToNaira(p.consultation_fee_kobo).toLocaleString()}
                 </option>

@@ -49,6 +49,7 @@ export type SpecialistProvider = Tables<"specialist_providers">;
 export interface SpecialistProviderMatchFilters {
   specialistType: Tables<"specialist_referrals">["specialist_type"] | null;
   state?: string;
+  city?: string;
   requireTelemedicine?: boolean;
   hmo?: string;
 }
@@ -65,9 +66,16 @@ export interface SpecialistProviderMatchFilters {
  * clinician-mediated model; patient choice is a flagged fast-follow.
  */
 export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFilters) {
-  const { specialistType, state, requireTelemedicine, hmo } = filters;
+  const { specialistType, state, city, requireTelemedicine, hmo } = filters;
   return useQuery({
-    queryKey: ["specialist-providers", specialistType ?? "none", state ?? "", requireTelemedicine ?? false, hmo ?? ""],
+    queryKey: [
+      "specialist-providers",
+      specialistType ?? "none",
+      state ?? "",
+      city ?? "",
+      requireTelemedicine ?? false,
+      hmo ?? "",
+    ],
     queryFn: async () => {
       const supabase = createClient();
       let query = supabase
@@ -85,11 +93,13 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
       if (error) throw error;
       const providers = data as SpecialistProvider[];
       if (!state) return providers;
-      return [...providers].sort((a, b) => {
-        const aMatch = a.state === state ? 0 : 1;
-        const bMatch = b.state === state ? 0 : 1;
-        return aMatch - bMatch || a.name.localeCompare(b.name);
-      });
+      // Locality score: same state+city best (0), same state only next (1),
+      // elsewhere last (2) — city refines within a state, per the location model.
+      const score = (p: SpecialistProvider) => {
+        if (p.state !== state) return 2;
+        return city && p.city === city ? 0 : 1;
+      };
+      return [...providers].sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name));
     },
     enabled: !!specialistType,
   });

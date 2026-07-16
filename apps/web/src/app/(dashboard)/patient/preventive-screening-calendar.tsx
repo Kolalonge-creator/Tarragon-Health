@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useScreeningSchedules } from "@/lib/queries/screening";
 import { todayIsoDate } from "@/lib/queries/medications";
-import { useLabCatalogue, useLabProviders, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
+import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
+import type { FacilityWithServices } from "@/lib/queries/facilities";
+import { FacilitySelector, type PatientLocation } from "./facility-selector";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
 
@@ -23,20 +23,22 @@ export function PreventiveScreeningCalendar({
   patientId,
   organisationId,
   bookingEnabled,
+  patientLocation,
 }: {
   patientId: string;
   organisationId: string | null;
   /** 'lab_coordination' feature — booking a due screening is a lab-booking
    * action same as the catalogue always was, so it's gated the same way. */
   bookingEnabled: boolean;
+  /** Pre-fills the "choose a lab near me" picker; null if the patient hasn't saved one. */
+  patientLocation?: PatientLocation | null;
 }) {
   const { data, isLoading, isError } = useScreeningSchedules(patientId);
   const { data: bundles } = useLabCatalogue();
-  const { data: providers } = useLabProviders();
   const createOrder = useCreateLabOrder();
   const today = todayIsoDate();
   const [bookingScheduleId, setBookingScheduleId] = useState<string | null>(null);
-  const [providerId, setProviderId] = useState("");
+  const [selectedFacility, setSelectedFacility] = useState<FacilityWithServices | null>(null);
 
   const canBook = bookingEnabled && !!organisationId;
 
@@ -89,59 +91,70 @@ export function PreventiveScreeningCalendar({
                   {isDue && canBook && bundle && (
                     <>
                       {bookingScheduleId === schedule.id ? (
-                        <div className="flex flex-wrap items-end gap-2">
-                          <div className="space-y-1">
-                            <Label htmlFor={`provider-${schedule.id}`}>Lab provider</Label>
-                            <Select
-                              id={`provider-${schedule.id}`}
-                              value={providerId}
-                              onChange={(e) => setProviderId(e.target.value)}
-                            >
-                              <option value="">Select a provider</option>
-                              {(providers ?? []).map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} — {p.regions.join(", ")}
-                                  {p.home_collection ? " (home collection)" : ""}
-                                </option>
-                              ))}
-                            </Select>
-                          </div>
-                          <Button
-                            size="sm"
-                            disabled={!providerId || createOrder.isPending}
-                            onClick={() =>
-                              createOrder.mutate(
-                                {
-                                  organisationId: organisationId!,
-                                  patientId,
-                                  panelBundleId: bundle.id,
-                                  providerId,
-                                  totalKobo: bundle.price_kobo,
-                                  screeningScheduleId: schedule.id,
-                                },
-                                {
-                                  onSuccess: () => {
-                                    setBookingScheduleId(null);
-                                    setProviderId("");
-                                  },
-                                }
-                              )
-                            }
-                          >
-                            {createOrder.isPending ? "Booking…" : "Confirm booking"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setBookingScheduleId(null)}
-                          >
-                            Cancel
-                          </Button>
-                          {createOrder.isError && (
-                            <p className="w-full text-xs text-red-600">
-                              Could not book. Try again.
+                        <div className="space-y-3 rounded-md border border-charcoal-ink/10 p-3">
+                          <p className="text-xs font-medium text-charcoal-ink">
+                            Choose a lab near you
+                          </p>
+                          <FacilitySelector
+                            type="lab"
+                            patientLocation={patientLocation}
+                            selectedFacilityId={selectedFacility?.id ?? null}
+                            onSelect={setSelectedFacility}
+                            idPrefix={`lab-${schedule.id}`}
+                            emptyText="No labs listed for that location yet — try a nearby city, or message your care team to arrange it."
+                          />
+                          {selectedFacility && !selectedFacility.lab_provider_id && (
+                            <p className="text-xs text-amber-700">
+                              This location can&apos;t take an online booking yet — pick another lab, or
+                              message your care team.
                             </p>
                           )}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              size="sm"
+                              disabled={
+                                !selectedFacility?.lab_provider_id || createOrder.isPending
+                              }
+                              onClick={() =>
+                                createOrder.mutate(
+                                  {
+                                    organisationId: organisationId!,
+                                    patientId,
+                                    panelBundleId: bundle.id,
+                                    providerId: selectedFacility!.lab_provider_id!,
+                                    facilityId: selectedFacility!.id,
+                                    totalKobo: bundle.price_kobo,
+                                    screeningScheduleId: schedule.id,
+                                  },
+                                  {
+                                    onSuccess: () => {
+                                      setBookingScheduleId(null);
+                                      setSelectedFacility(null);
+                                    },
+                                  }
+                                )
+                              }
+                            >
+                              {createOrder.isPending
+                                ? "Booking…"
+                                : `Confirm booking — ₦${koboToNaira(bundle.price_kobo).toLocaleString()}`}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setBookingScheduleId(null);
+                                setSelectedFacility(null);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            {createOrder.isError && (
+                              <p className="w-full text-xs text-red-600">
+                                Could not book. Try again.
+                              </p>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <Button
@@ -150,7 +163,7 @@ export function PreventiveScreeningCalendar({
                           size="sm"
                           onClick={() => {
                             setBookingScheduleId(schedule.id);
-                            setProviderId("");
+                            setSelectedFacility(null);
                           }}
                         >
                           Book now — ₦{koboToNaira(bundle.price_kobo).toLocaleString()}

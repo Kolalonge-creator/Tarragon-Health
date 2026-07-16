@@ -751,6 +751,45 @@ export type Database = {
           },
         ]
       }
+      cohort_cost_model_constants: {
+        Row: {
+          estimated_cost_avoided_per_abnormal_catch_kobo: number
+          id: string
+          organisation_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          estimated_cost_avoided_per_abnormal_catch_kobo?: number
+          id?: string
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          estimated_cost_avoided_per_abnormal_catch_kobo?: number
+          id?: string
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cohort_cost_model_constants_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cohort_cost_model_constants_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commissions: {
         Row: {
           amount_kobo: number
@@ -1061,6 +1100,7 @@ export type Database = {
       facilities: {
         Row: {
           address: string | null
+          area: string | null
           city: string
           contact_email: string | null
           contact_phone: string | null
@@ -1068,15 +1108,18 @@ export type Database = {
           hours: string | null
           id: string
           is_active: boolean
+          lab_provider_id: string | null
           latitude: number | null
           longitude: number | null
           name: string
+          pharmacy_partner_id: string | null
           state: string
           type: Database["public"]["Enums"]["facility_type"]
           verified: boolean
         }
         Insert: {
           address?: string | null
+          area?: string | null
           city: string
           contact_email?: string | null
           contact_phone?: string | null
@@ -1084,15 +1127,18 @@ export type Database = {
           hours?: string | null
           id?: string
           is_active?: boolean
+          lab_provider_id?: string | null
           latitude?: number | null
           longitude?: number | null
           name: string
+          pharmacy_partner_id?: string | null
           state: string
           type: Database["public"]["Enums"]["facility_type"]
           verified?: boolean
         }
         Update: {
           address?: string | null
+          area?: string | null
           city?: string
           contact_email?: string | null
           contact_phone?: string | null
@@ -1100,14 +1146,31 @@ export type Database = {
           hours?: string | null
           id?: string
           is_active?: boolean
+          lab_provider_id?: string | null
           latitude?: number | null
           longitude?: number | null
           name?: string
+          pharmacy_partner_id?: string | null
           state?: string
           type?: Database["public"]["Enums"]["facility_type"]
           verified?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "facilities_lab_provider_id_fkey"
+            columns: ["lab_provider_id"]
+            isOneToOne: false
+            referencedRelation: "lab_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facilities_pharmacy_partner_id_fkey"
+            columns: ["pharmacy_partner_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_partners"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       facility_services: {
         Row: {
@@ -1344,6 +1407,7 @@ export type Database = {
         Row: {
           courier_reference: string | null
           created_at: string
+          facility_id: string | null
           home_visit_provider_id: string | null
           home_visit_scheduled_at: string | null
           id: string
@@ -1370,6 +1434,7 @@ export type Database = {
         Insert: {
           courier_reference?: string | null
           created_at?: string
+          facility_id?: string | null
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -1396,6 +1461,7 @@ export type Database = {
         Update: {
           courier_reference?: string | null
           created_at?: string
+          facility_id?: string | null
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -1420,6 +1486,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lab_orders_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lab_orders_home_visit_provider_id_fkey"
             columns: ["home_visit_provider_id"]
@@ -2126,6 +2199,70 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_allergies: {
+        Row: {
+          allergen: string
+          created_at: string
+          id: string
+          noted_at: string
+          organisation_id: string
+          patient_id: string
+          reaction: string | null
+          recorded_by: string | null
+          severity: Database["public"]["Enums"]["allergy_severity"] | null
+          source: Database["public"]["Enums"]["allergy_source"]
+          updated_at: string
+        }
+        Insert: {
+          allergen: string
+          created_at?: string
+          id?: string
+          noted_at?: string
+          organisation_id: string
+          patient_id: string
+          reaction?: string | null
+          recorded_by?: string | null
+          severity?: Database["public"]["Enums"]["allergy_severity"] | null
+          source?: Database["public"]["Enums"]["allergy_source"]
+          updated_at?: string
+        }
+        Update: {
+          allergen?: string
+          created_at?: string
+          id?: string
+          noted_at?: string
+          organisation_id?: string
+          patient_id?: string
+          reaction?: string | null
+          recorded_by?: string | null
+          severity?: Database["public"]["Enums"]["allergy_severity"] | null
+          source?: Database["public"]["Enums"]["allergy_source"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_allergies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergies_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_devices: {
         Row: {
           ble_device_id: string
@@ -2179,6 +2316,51 @@ export type Database = {
           },
           {
             foreignKeyName: "patient_devices_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_quarterly_reports: {
+        Row: {
+          generated_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          period_end: string
+          period_start: string
+          snapshot: Json
+        }
+        Insert: {
+          generated_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          period_end: string
+          period_start: string
+          snapshot: Json
+        }
+        Update: {
+          generated_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          period_end?: string
+          period_start?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_quarterly_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_quarterly_reports_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -2377,6 +2559,7 @@ export type Database = {
           delivery_address: Json | null
           delivery_confirmed_at: string | null
           estimated_delivery_at: string | null
+          fulfilment_method: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id: string
           items: Json
           logistics_partner_id: string | null
@@ -2403,6 +2586,7 @@ export type Database = {
           delivery_address?: Json | null
           delivery_confirmed_at?: string | null
           estimated_delivery_at?: string | null
+          fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
           logistics_partner_id?: string | null
@@ -2429,6 +2613,7 @@ export type Database = {
           delivery_address?: Json | null
           delivery_confirmed_at?: string | null
           estimated_delivery_at?: string | null
+          fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
           logistics_partner_id?: string | null
@@ -2488,28 +2673,55 @@ export type Database = {
       }
       pharmacy_partners: {
         Row: {
+          address: string | null
+          area: string | null
+          city: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
           delivery: boolean
           id: string
           is_active: boolean
+          latitude: number | null
+          longitude: number | null
           name: string
           regions: string[]
+          state: string | null
+          uses_platform_login: boolean
         }
         Insert: {
+          address?: string | null
+          area?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           delivery?: boolean
           id?: string
           is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name: string
           regions?: string[]
+          state?: string | null
+          uses_platform_login?: boolean
         }
         Update: {
+          address?: string | null
+          area?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           delivery?: boolean
           id?: string
           is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           regions?: string[]
+          state?: string | null
+          uses_platform_login?: boolean
         }
         Relationships: []
       }
@@ -2615,6 +2827,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          area: string | null
+          city: string | null
           created_at: string
           date_of_birth: string | null
           full_name: string | null
@@ -2627,9 +2841,12 @@ export type Database = {
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           sex: Database["public"]["Enums"]["sex"] | null
+          state: string | null
           updated_at: string
         }
         Insert: {
+          area?: string | null
+          city?: string | null
           created_at?: string
           date_of_birth?: string | null
           full_name?: string | null
@@ -2642,9 +2859,12 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
+          state?: string | null
           updated_at?: string
         }
         Update: {
+          area?: string | null
+          city?: string | null
           created_at?: string
           date_of_birth?: string | null
           full_name?: string | null
@@ -2657,6 +2877,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
+          state?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3071,6 +3292,8 @@ export type Database = {
       specialist_providers: {
         Row: {
           accepted_hmos: string[]
+          area: string | null
+          city: string | null
           commission_flat_kobo: number | null
           commission_rate: number | null
           commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
@@ -3090,6 +3313,8 @@ export type Database = {
         }
         Insert: {
           accepted_hmos?: string[]
+          area?: string | null
+          city?: string | null
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
@@ -3109,6 +3334,8 @@ export type Database = {
         }
         Update: {
           accepted_hmos?: string[]
+          area?: string | null
+          city?: string | null
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
@@ -4101,7 +4328,17 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      patient_care_gaps: {
+        Row: {
+          condition_or_type: string | null
+          detail: Json | null
+          gap_type: string | null
+          opened_at: string | null
+          organisation_id: string | null
+          patient_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       claim_employer_roster_member: {
@@ -4130,6 +4367,8 @@ export type Database = {
         | "urgent_escalation"
         | "emergency"
       alert_status: "open" | "acknowledged" | "resolved"
+      allergy_severity: "mild" | "moderate" | "severe"
+      allergy_source: "patient" | "clinician"
       annual_check_status: "pending" | "in_progress" | "completed"
       appointment_status: "scheduled" | "completed" | "cancelled" | "no_show"
       billing_interval: "monthly" | "yearly"
@@ -4220,6 +4459,7 @@ export type Database = {
         | "customer.subscription.created"
         | "customer.subscription.updated"
         | "customer.subscription.deleted"
+      pharmacy_fulfilment_method: "pickup" | "delivery"
       pharmacy_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -4456,6 +4696,8 @@ export const Constants = {
         "emergency",
       ],
       alert_status: ["open", "acknowledged", "resolved"],
+      allergy_severity: ["mild", "moderate", "severe"],
+      allergy_source: ["patient", "clinician"],
       annual_check_status: ["pending", "in_progress", "completed"],
       appointment_status: ["scheduled", "completed", "cancelled", "no_show"],
       billing_interval: ["monthly", "yearly"],
@@ -4559,6 +4801,7 @@ export const Constants = {
         "customer.subscription.updated",
         "customer.subscription.deleted",
       ],
+      pharmacy_fulfilment_method: ["pickup", "delivery"],
       pharmacy_order_status: [
         "pending_payment",
         "payment_confirmed",

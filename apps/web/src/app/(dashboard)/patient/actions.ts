@@ -7,6 +7,7 @@ import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
+import { patientLocationSchema } from "@/lib/validation/patient-location";
 import {
   riskAssessmentSchema,
   QUESTION_CATEGORY,
@@ -79,6 +80,52 @@ export async function logVital(
     await assessHeartRateBestEffort(supabase, user.id, profile.organisation_id);
   }
   await assessHealthScoreBestEffort(supabase, user.id, profile.organisation_id);
+
+  return { success: true };
+}
+
+export type UpdateLocationActionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Saves the patient's own state/city/area on their profiles row (RLS-scoped —
+ * a patient may update their own profile). Blank fields clear that part of the
+ * saved location. These pre-fill the "choose a facility near me" pickers; no
+ * value is ever inferred.
+ */
+export async function updatePatientLocation(
+  _prevState: UpdateLocationActionState,
+  formData: FormData
+): Promise<UpdateLocationActionState> {
+  const parsed = patientLocationSchema.safeParse({
+    state: formData.get("state") ?? undefined,
+    city: formData.get("city") ?? undefined,
+    area: formData.get("area") ?? undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  // Empty string → null so a cleared field doesn't store "".
+  const norm = (value: string | undefined) => (value && value.length > 0 ? value : null);
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      state: norm(parsed.data.state),
+      city: norm(parsed.data.city),
+      area: norm(parsed.data.area),
+    })
+    .eq("id", user.id);
+  if (error) {
+    return { error: error.message };
+  }
 
   return { success: true };
 }

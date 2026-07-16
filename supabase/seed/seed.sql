@@ -111,29 +111,91 @@ on conflict (code) do nothing;
 -- ---------------------------------------------------------------------------
 -- pharmacy_partners
 -- ---------------------------------------------------------------------------
-insert into public.pharmacy_partners (name, delivery, regions)
+-- Contact (SMS/email for no-login fulfilment) + geocoordinates (nearest-pharmacy
+-- selection) added 2026-07-16. Emails use .example domains and the phones are
+-- clearly-fake +234 numbers so seeding never sends to a real inbox/handset.
+-- uses_platform_login flags the one demo partner that logs into the dashboard
+-- (Phase 8); the rest are notification-only. ON CONFLICT DO UPDATE backfills
+-- these columns onto partners already seeded before this migration.
+insert into public.pharmacy_partners
+  (name, delivery, regions, contact_phone, contact_email, address, latitude, longitude, uses_platform_login)
 values
-  ('Medplus',        true, array['Lagos', 'Abuja']),
-  ('HealthPlus',     true, array['Lagos', 'Abuja']),
-  ('Alpha Pharmacy', true, array['Lagos']),
-  ('MedsPal',        true, array['Lagos'])
-on conflict (name) do nothing;
+  ('Medplus',        true, array['Lagos', 'Abuja'], '+2348030000001', 'orders@medplus.example',        'Allen Avenue, Ikeja, Lagos',        6.6018, 3.3515, false),
+  ('HealthPlus',     true, array['Lagos', 'Abuja'], '+2348030000002', 'orders@healthplus.example',     'Adeola Odeku St, Victoria Island, Lagos', 6.4281, 3.4219, true),
+  ('Alpha Pharmacy', true, array['Lagos'],          '+2348030000003', 'care@alphapharmacy.example',    'Adeniran Ogunsanya, Surulere, Lagos', 6.5010, 3.3552, false),
+  ('MedsPal',        true, array['Lagos'],          '+2348030000004', 'orders@medspal.example',        'Admiralty Way, Lekki Phase 1, Lagos', 6.4698, 3.5852, false)
+on conflict (name) do update set
+  delivery           = excluded.delivery,
+  regions            = excluded.regions,
+  contact_phone      = excluded.contact_phone,
+  contact_email      = excluded.contact_email,
+  address            = excluded.address,
+  latitude           = excluded.latitude,
+  longitude          = excluded.longitude,
+  uses_platform_login = excluded.uses_platform_login;
 
--- pharmacy_medications — starter formulary (chronic-disease staples; price in kobo)
+-- pharmacy_medications — starter formulary (chronic-disease staples; price in kobo).
+-- Staple drugs are deliberately stocked by SEVERAL partners so "choose your
+-- nearest pharmacy" is a real choice (same drug, different partner/price/location).
 insert into public.pharmacy_medications (pharmacy_partner_id, drug_name, pack_size, price_kobo)
 select p.id, m.drug_name, m.pack_size, m.price_kobo
 from public.pharmacy_partners p
 join (values
-  ('Medplus',        'Amlodipine 5mg',  '30 tablets', 250000::bigint),
-  ('Medplus',        'Lisinopril 10mg', '30 tablets', 320000::bigint),
-  ('Medplus',        'Metformin 500mg', '60 tablets', 300000::bigint),
-  ('HealthPlus',     'Amlodipine 10mg', '30 tablets', 300000::bigint),
-  ('HealthPlus',     'Metformin 1000mg','60 tablets', 420000::bigint),
-  ('Alpha Pharmacy', 'Losartan 50mg',   '30 tablets', 380000::bigint),
-  ('MedsPal',        'Atorvastatin 20mg','30 tablets',450000::bigint)
+  ('Medplus',        'Amlodipine 5mg',   '30 tablets', 250000::bigint),
+  ('Medplus',        'Lisinopril 10mg',  '30 tablets', 320000::bigint),
+  ('Medplus',        'Metformin 500mg',  '60 tablets', 300000::bigint),
+  ('HealthPlus',     'Amlodipine 5mg',   '30 tablets', 265000::bigint),
+  ('HealthPlus',     'Metformin 500mg',  '60 tablets', 310000::bigint),
+  ('HealthPlus',     'Lisinopril 10mg',  '30 tablets', 335000::bigint),
+  ('Alpha Pharmacy', 'Amlodipine 5mg',   '30 tablets', 240000::bigint),
+  ('Alpha Pharmacy', 'Metformin 500mg',  '60 tablets', 295000::bigint),
+  ('Alpha Pharmacy', 'Losartan 50mg',    '30 tablets', 380000::bigint),
+  ('MedsPal',        'Metformin 500mg',  '60 tablets', 305000::bigint),
+  ('MedsPal',        'Atorvastatin 20mg','30 tablets', 450000::bigint)
 ) as m(partner_name, drug_name, pack_size, price_kobo)
   on m.partner_name = p.name
 on conflict (pharmacy_partner_id, drug_name, pack_size) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- facilities — physical directory for the "choose a facility near me" pickers
+-- (labs, vaccination centres, hospitals). Lab facilities link to the lab_providers
+-- row that runs them (facilities.lab_provider_id) so a booking there derives its
+-- commission-bearing provider; vaccination/hospital rows have no link and book via
+-- booking_requests. state/city/area + lat/lng make them findable by location.
+-- Idempotent via NOT EXISTS on name (facilities has no unique name constraint).
+-- ---------------------------------------------------------------------------
+insert into public.facilities
+  (name, type, state, city, area, address, latitude, longitude, verified, is_active, lab_provider_id)
+select
+  v.name, v.type::public.facility_type, v.state, v.city, v.area, v.address,
+  v.lat, v.lng, true, true, p.id
+from (values
+  -- Lab collection centres (linked to seeded lab_providers)
+  ('Synlab Nigeria — Ikeja',        'lab', 'Lagos', 'Ikeja',           'Allen Avenue',   'Allen Avenue, Ikeja',          6.6018, 3.3515, 'Synlab Nigeria'),
+  ('Synlab Nigeria — Wuse',         'lab', 'Abuja', 'Wuse',            'Wuse 2',         'Aminu Kano Cres, Wuse 2',      9.0765, 7.4796, 'Synlab Nigeria'),
+  ('Cerba Lancet — Victoria Island','lab', 'Lagos', 'Victoria Island', 'Adeola Odeku',   'Adeola Odeku St, VI',          6.4281, 3.4219, 'Cerba Lancet'),
+  ('Healthtracka — Lekki',          'lab', 'Lagos', 'Lekki',           'Lekki Phase 1',  'Admiralty Way, Lekki Phase 1', 6.4698, 3.5852, 'Healthtracka'),
+  ('Afriglobal Medicare — Yaba',    'lab', 'Lagos', 'Yaba',            'Sabo',           'Herbert Macaulay Way, Yaba',   6.5095, 3.3711, 'Afriglobal Medicare'),
+  -- Vaccination centres (no commercial link — booking-request only)
+  ('Ikeja Vaccination Centre',      'vaccination_centre', 'Lagos', 'Ikeja', 'Oba Akran', 'Oba Akran Ave, Ikeja',         6.6100, 3.3450, null),
+  ('Wuse Vaccination Centre',       'vaccination_centre', 'Abuja', 'Wuse',  'Wuse 2',    'Adetokunbo Ademola Cres, Wuse',9.0723, 7.4850, null),
+  -- Hospitals
+  ('Lagos General Hospital — Ikeja','hospital', 'Lagos', 'Ikeja', 'Ikeja GRA', 'Oba Akinjobi Way, Ikeja',            6.5833, 3.3500, null),
+  ('Garki Hospital — Abuja',        'hospital', 'Abuja', 'Garki', 'Area 3',    'Tafawa Balewa Way, Garki',           9.0333, 7.4930, null)
+) as v(name, type, state, city, area, address, lat, lng, provider_name)
+left join public.lab_providers p on p.name = v.provider_name
+where not exists (select 1 from public.facilities f where f.name = v.name);
+
+-- Backfill structured location onto the partner-keyed catalogues so their
+-- location filters work (both already carry address/geo or a `location` string).
+update public.pharmacy_partners set state = 'Lagos', city = 'Ikeja',           area = 'Allen Avenue'    where name = 'Medplus'        and state is null;
+update public.pharmacy_partners set state = 'Lagos', city = 'Victoria Island', area = 'Adeola Odeku'     where name = 'HealthPlus'     and state is null;
+update public.pharmacy_partners set state = 'Lagos', city = 'Surulere',        area = 'Adeniran Ogunsanya' where name = 'Alpha Pharmacy' and state is null;
+update public.pharmacy_partners set state = 'Lagos', city = 'Lekki',           area = 'Lekki Phase 1'   where name = 'MedsPal'        and state is null;
+
+-- Placeholder specialist catalogue is all Lagos-based (seeded in
+-- 20260715003255...); give them a state/city so locality matching has data.
+update public.specialist_providers set state = 'Lagos', city = 'Ikeja' where state is null;
 
 -- ---------------------------------------------------------------------------
 -- subscription_plans (NGN in kobo) — kept in sync with the marketing

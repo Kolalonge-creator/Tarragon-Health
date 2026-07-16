@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { YourCareTeam } from "@/components/your-care-team";
 import { PlanSelector } from "./plan-selector";
+import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 
 export default async function OnboardingPage() {
   const profile = await getCurrentProfile();
@@ -45,6 +46,10 @@ export default async function OnboardingPage() {
         </div>
 
         <YourCareTeam patientId={profile.id} />
+
+        <PatientLocationForm
+          initial={{ state: profile.state, city: profile.city, area: profile.area }}
+        />
 
         <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
           <h2 className="font-heading text-lg font-semibold text-charcoal-ink">

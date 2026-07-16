@@ -133,13 +133,17 @@ export function useCreateLabOrder() {
       patientId,
       panelBundleId,
       providerId,
+      facilityId,
       totalKobo,
       screeningScheduleId,
     }: {
       organisationId: string;
       patientId: string;
       panelBundleId: string;
+      /** Derived from the chosen facility's lab_provider_id — carries pricing/commission. */
       providerId: string;
+      /** The physical facility the patient chose (public.facilities). Optional for back-compat. */
+      facilityId?: string;
       totalKobo: number;
       screeningScheduleId: string;
     }) => {
@@ -149,6 +153,7 @@ export function useCreateLabOrder() {
         patient_id: patientId,
         panel_bundle_id: panelBundleId,
         provider_id: providerId,
+        facility_id: facilityId ?? null,
         total_kobo: totalKobo,
         status: "pending_payment",
         screening_schedule_id: screeningScheduleId,
