@@ -3427,6 +3427,174 @@ export type Database = {
           },
         ]
       }
+      preventive_programme_enrolments: {
+        Row: {
+          created_at: string
+          enrolled_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          source: Database["public"]["Enums"]["preventive_enrolment_source"]
+          status: Database["public"]["Enums"]["preventive_enrolment_status"]
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          source?: Database["public"]["Enums"]["preventive_enrolment_source"]
+          status?: Database["public"]["Enums"]["preventive_enrolment_status"]
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          programme_id?: string
+          source?: Database["public"]["Enums"]["preventive_enrolment_source"]
+          status?: Database["public"]["Enums"]["preventive_enrolment_status"]
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_programme_enrolments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_programme_enrolments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_programme_enrolments_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_programmes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          focus_areas: string[]
+          id: string
+          is_active: boolean
+          name: string
+          review_cadence_months: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          focus_areas?: string[]
+          id?: string
+          is_active?: boolean
+          name: string
+          review_cadence_months?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          focus_areas?: string[]
+          id?: string
+          is_active?: boolean
+          name?: string
+          review_cadence_months?: number
+        }
+        Relationships: []
+      }
+      preventive_reviews: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          due_date: string
+          enrolment_id: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["medication_review_status"]
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          due_date: string
+          enrolment_id: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_review_status"]
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string
+          enrolment_id?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reminder_sent_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_review_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_reviews_enrolment_id_fkey"
+            columns: ["enrolment_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_programme_enrolments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_reviews_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_access: {
         Row: {
           created_at: string
@@ -3669,6 +3837,57 @@ export type Database = {
           {
             foreignKeyName: "referrals_referrer_id_fkey"
             columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      region_waitlist: {
+        Row: {
+          care_recipient_id: string | null
+          created_at: string
+          id: string
+          notified_at: string | null
+          requester_id: string
+          service_type: string
+          state: string
+          to_email: string | null
+          to_phone: string | null
+        }
+        Insert: {
+          care_recipient_id?: string | null
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          requester_id: string
+          service_type: string
+          state: string
+          to_email?: string | null
+          to_phone?: string | null
+        }
+        Update: {
+          care_recipient_id?: string | null
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          requester_id?: string
+          service_type?: string
+          state?: string
+          to_email?: string | null
+          to_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "region_waitlist_care_recipient_id_fkey"
+            columns: ["care_recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "region_waitlist_requester_id_fkey"
+            columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -3955,6 +4174,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      service_regions: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       specialist_providers: {
         Row: {
@@ -4584,6 +4833,64 @@ export type Database = {
           },
         ]
       }
+      vaccination_schedules: {
+        Row: {
+          created_at: string
+          due_date: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at: string | null
+          status: Database["public"]["Enums"]["screening_status"]
+          updated_at: string
+          vaccination_catalog_id: string
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at?: string | null
+          status?: Database["public"]["Enums"]["screening_status"]
+          updated_at?: string
+          vaccination_catalog_id: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reminder_sent_at?: string | null
+          status?: Database["public"]["Enums"]["screening_status"]
+          updated_at?: string
+          vaccination_catalog_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vaccination_schedules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_schedules_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_schedules_vaccination_catalog_id_fkey"
+            columns: ["vaccination_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "vaccination_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_consultations: {
         Row: {
           context: Database["public"]["Enums"]["video_consultation_context"]
@@ -5059,6 +5366,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      region_service_available: {
+        Args: { p_service: string; p_state: string }
+        Returns: boolean
+      }
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
@@ -5197,6 +5508,8 @@ export type Database = {
         | "colorectal_ca"
         | "prostate_ca"
         | "other"
+      preventive_enrolment_source: "recommended" | "self" | "staff"
+      preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
       referral_reward_status: "pending" | "earned" | "paid"
       referral_status:
@@ -5558,6 +5871,8 @@ export const Constants = {
         "prostate_ca",
         "other",
       ],
+      preventive_enrolment_source: ["recommended", "self", "staff"],
+      preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
       referral_reward_status: ["pending", "earned", "paid"],
       referral_status: [

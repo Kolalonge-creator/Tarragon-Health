@@ -237,6 +237,65 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Sent to a waitlisted patient when their state is switched live
+  // (private.notify_region_waitlist). A "now available" nudge only — nothing is
+  // auto-booked; they open the app to act. Falls back to SMS until the Meta
+  // template is approved. care_recipient is set when they were waiting on behalf
+  // of a family member (e.g. a diaspora child for a parent in Nigeria).
+  region_now_available: (payload) => {
+    const state = String(payload.display_name ?? payload.state ?? "your state");
+    const rawServices = String(payload.services ?? "");
+    const requesterName = String(payload.requester_name ?? "there");
+    const careRecipient = payload.care_recipient ? String(payload.care_recipient) : null;
+
+    const SERVICE_WORDS: Record<string, string> = {
+      lab: "lab tests",
+      pharmacy: "pharmacy orders",
+      home_visit: "home sample collection",
+      delivery: "medication delivery",
+      specialist: "specialist referrals",
+    };
+    const servicesPretty =
+      rawServices
+        .split(",")
+        .map((s) => SERVICE_WORDS[s.trim()] ?? s.trim())
+        .filter((s) => s.length > 0)
+        .join(", ") || "our partner services";
+
+    const forWhom = careRecipient ? ` for ${careRecipient}` : "";
+    const smsText =
+      `Good news ${requesterName} — TarragonHealth is now live in ${state}${forWhom}. ` +
+      `You can now book ${servicesPretty} in the app. — Tarragon Health`;
+
+    return {
+      metaTemplateName: "region_now_available",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: state },
+            { type: "text", text: servicesPretty },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `TarragonHealth is now live in ${state}`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${requesterName},</p>` +
+          `<p>Great news — TarragonHealth is now live in <strong>${state}</strong>${careRecipient ? ` for ${careRecipient}` : ""}. ` +
+          `The services you asked us to tell you about are ready to book:</p>` +
+          `<p style="margin:16px 0"><strong>${servicesPretty}</strong></p>` +
+          `<p>Open the Tarragon Health app to book — everything is in one place.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
 };
 
 interface SendResult {
