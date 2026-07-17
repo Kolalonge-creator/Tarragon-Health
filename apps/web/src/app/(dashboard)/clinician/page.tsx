@@ -59,6 +59,11 @@ export default async function ClinicianPage() {
           Care programme recommendations →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href="/clinician/vaccinations" className="text-brand-green hover:underline">
+          Vaccination certificates →
+        </Link>
+      </p>
     </DashboardPlaceholder>
   );
 }

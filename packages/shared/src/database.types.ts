@@ -4774,40 +4774,64 @@ export type Database = {
       }
       vaccination_records: {
         Row: {
+          booking_request_id: string | null
           certificate_url: string | null
           created_at: string
           date_administered: string
           dose_number: number
           id: string
           organisation_id: string
+          physical_certificate_path: string | null
           profile_id: string
           provider: string | null
+          tarragon_certificate_issued_at: string | null
+          tarragon_certificate_serial: string | null
           updated_at: string
           vaccination_catalog_id: string
+          verification_note: string | null
+          verification_status: Database["public"]["Enums"]["vaccination_verification_status"]
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
+          booking_request_id?: string | null
           certificate_url?: string | null
           created_at?: string
           date_administered: string
           dose_number?: number
           id?: string
           organisation_id: string
+          physical_certificate_path?: string | null
           profile_id: string
           provider?: string | null
+          tarragon_certificate_issued_at?: string | null
+          tarragon_certificate_serial?: string | null
           updated_at?: string
           vaccination_catalog_id: string
+          verification_note?: string | null
+          verification_status?: Database["public"]["Enums"]["vaccination_verification_status"]
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
+          booking_request_id?: string | null
           certificate_url?: string | null
           created_at?: string
           date_administered?: string
           dose_number?: number
           id?: string
           organisation_id?: string
+          physical_certificate_path?: string | null
           profile_id?: string
           provider?: string | null
+          tarragon_certificate_issued_at?: string | null
+          tarragon_certificate_serial?: string | null
           updated_at?: string
           vaccination_catalog_id?: string
+          verification_note?: string | null
+          verification_status?: Database["public"]["Enums"]["vaccination_verification_status"]
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -5578,6 +5602,11 @@ export type Database = {
         | "doctor"
         | "care_coordinator"
         | "pharmacist"
+      vaccination_verification_status:
+        | "self_reported"
+        | "pending_verification"
+        | "verified"
+        | "rejected"
       video_consultation_context: "pre_referral_triage" | "specialist_consult"
       video_consultation_status:
         | "scheduled"
@@ -5948,6 +5977,12 @@ export const Constants = {
         "doctor",
         "care_coordinator",
         "pharmacist",
+      ],
+      vaccination_verification_status: [
+        "self_reported",
+        "pending_verification",
+        "verified",
+        "rejected",
       ],
       video_consultation_context: ["pre_referral_triage", "specialist_consult"],
       video_consultation_status: [

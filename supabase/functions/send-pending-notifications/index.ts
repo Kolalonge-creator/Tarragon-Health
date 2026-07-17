@@ -296,6 +296,79 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Sent to the patient as a scheduled vaccination comes due (see
+  // private.queue_vaccination_reminders). Reminder only — logging/booking a
+  // dose always happens in-app, never over WhatsApp.
+  vaccination_due: (payload) => {
+    const vaccineName = String(payload.vaccine_name ?? "a vaccination");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "vaccination_due",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: vaccineName },
+            { type: "text", text: dueDate },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, your ${vaccineName} is due ${dueDate}. Open the Tarragon Health app to book or ` +
+        `log it. — Tarragon Health`,
+    };
+  },
+  // Sent to the patient once a Tarragon doctor has confirmed the physical
+  // certificate they uploaded — the dose is now Tarragon-verified, their
+  // Tarragon certificate is ready to download in the app, and (if the vaccine
+  // is part of a series) the next dose has been scheduled. Confirmation only;
+  // the certificate itself lives behind app/web auth, never sent over the wire.
+  vaccination_verified: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const vaccineName = String(payload.vaccine_name ?? "your vaccination");
+    const serial = String(payload.certificate_serial ?? "");
+    const nextDose = payload.next_dose_date ? String(payload.next_dose_date) : null;
+    const nextLine = nextDose
+      ? ` Your next dose is due ${nextDose}.`
+      : "";
+    const smsText =
+      `Hi ${patientName}, your ${vaccineName} has been verified by your Tarragon care team ` +
+      `(certificate ${serial}). Download it in the app.${nextLine} — Tarragon Health`;
+    return {
+      metaTemplateName: "vaccination_verified",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: vaccineName },
+            { type: "text", text: serial },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your ${vaccineName} is verified — Tarragon certificate ${serial}`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>Your Tarragon care team has reviewed the certificate you uploaded and confirmed your ` +
+          `<strong>${vaccineName}</strong> dose. Your Tarragon certificate is ready.</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Certificate</td><td style="padding:4px 0"><strong>${serial}</strong></td></tr>` +
+          (nextDose
+            ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Next dose due</td><td style="padding:4px 0">${nextDose}</td></tr>`
+            : "") +
+          `</table>` +
+          `<p>Open the Tarragon Health app to download your certificate${nextDose ? " and book your next dose" : ""}.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
 };
 
 interface SendResult {
