@@ -29,6 +29,7 @@ import { CarePlanDisplay } from "./care-plan-display";
 import { PreventiveScreeningCalendar } from "./preventive-screening-calendar";
 import { RiskAssessmentForm } from "./risk-assessment-form";
 import { CareProgrammeRecommendations } from "./care-programme-recommendations";
+import { PreventiveProgrammes } from "./preventive-programmes";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationRegistry } from "./vaccination-registry";
 import { LogVaccinationForm } from "./log-vaccination-form";
@@ -189,6 +190,11 @@ export default async function PatientPage() {
       />
       <RiskAssessmentForm patientId={profile.id} />
       <CareProgrammeRecommendations patientId={profile.id} />
+      <PreventiveProgrammes
+        patientId={profile.id}
+        ageYears={ageFromDateOfBirth(profile.date_of_birth)}
+        sex={profile.sex}
+      />
       <RiskAssessmentDisplay patientId={profile.id} />
       <VaccinationRegistry
         patientId={profile.id}

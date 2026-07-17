@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useVaccinationCatalog, useLogVaccination } from "@/lib/queries/vaccination";
+import { syncVaccinationScheduleAction } from "./vaccination-actions";
 import { logVaccinationSchema } from "@/lib/validation/vaccination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,9 @@ export function LogVaccinationForm({ patientId }: { patientId: string }) {
           setDoseNumber("1");
           setDateAdministered("");
           setProvider("");
+          // Roll the persisted schedule (and its reminder) forward now the
+          // dose is on file — fire-and-forget, never blocks the UI.
+          void syncVaccinationScheduleAction();
         },
       }
     );
