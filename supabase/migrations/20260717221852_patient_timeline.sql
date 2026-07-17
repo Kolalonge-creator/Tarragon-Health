@@ -23,11 +23,12 @@
 --     hardcoded name. The UI renders "Reviewed by Dr X" via the shared
 --     ReviewedByDoctor component, which is null-gated on this column.
 --
--- Supersedes the read-time `public.patient_timeline` VIEW from the (unmerged)
--- patient-admissions-timeline branch: the founder-approved decision is that the
--- append-only table becomes the real spine, so we DROP that view first. When
--- that branch merges, its admissions rows flow in through the conditional
--- trigger at the bottom of this file and its card reads this table instead.
+-- Supersedes the read-time `public.patient_timeline` VIEW from the (unmerged
+-- at authoring time) patient-admissions-timeline branch: the founder-approved
+-- decision is that the append-only table becomes the real spine, so we DROP
+-- that view first. Confirmed live on this project: patient_hospital_admissions
+-- already exists as a real table (that branch's schema is already applied
+-- here), so the conditional admission/discharge triggers below attach for real.
 
 drop view if exists public.patient_timeline;
 
@@ -511,13 +512,9 @@ create trigger care_plans_timeline_status
   for each row execute function private.timeline_from_care_plan();
 
 -- --- patient_hospital_admissions → admission_recorded / discharge_recorded ---
--- This source table ships on the (still unmerged) patient-admissions-timeline
--- branch, so it may or may not exist in a given environment. The function is
--- created unconditionally (plpgsql binds table refs lazily, at first call) but
--- the triggers are only attached when the table actually exists — so this
--- migration applies cleanly on main-dev today and light up automatically once
--- that branch's table lands. Columns per that branch: admitted_on/discharged_on
--- (date), self_reported_diagnosis, patient_id, organisation_id.
+-- This source table ships on the patient-admissions-timeline branch and is
+-- already live on this project. Columns: admitted_on/discharged_on (date),
+-- self_reported_diagnosis, patient_id, organisation_id (all confirmed live).
 create or replace function private.timeline_from_admission()
 returns trigger
 language plpgsql
