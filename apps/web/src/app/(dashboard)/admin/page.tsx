@@ -250,6 +250,29 @@ export default async function AdminPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/broadcasts" className="hover:underline">
+              Broadcasts &amp; announcements
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Send an email/WhatsApp/SMS announcement to a targeted audience — all patients,
+            a state, subscribers on a plan, all partners, or a partner group.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/broadcasts"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Compose broadcast →
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
             <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             <Link href="/admin/settings/service-regions" className="hover:underline">
               Service regions (state rollout)

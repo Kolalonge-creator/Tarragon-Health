@@ -13,6 +13,7 @@ import { ServiceCardLink } from "./_components/service-card";
 import { StoryPanel } from "./_components/story-panel";
 import { TrustPillars } from "./_components/trust-pillars";
 import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
+import { EmergencyNotice } from "./_components/emergency-notice";
 import { MARKETING_MEDIA } from "./_content/media";
 import {
   AUDIENCE_TABS,
@@ -246,6 +247,10 @@ export default function MarketingHomePage() {
             </details>
           ))}
         </div>
+      </Section>
+
+      <Section>
+        <EmergencyNotice />
       </Section>
 
       <Section variant="sage" className="pb-24">

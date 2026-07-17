@@ -56,6 +56,24 @@ export async function logAiCoachEscalation(
     throw new Error(escalationError.message);
   }
 
+  // Surface the same acknowledge-gated emergency pathway to the patient that a
+  // danger-symptom checklist or symptom-log red flag raises. clinician_alert_id
+  // is passed so private.handle_emergency_event() reuses the alert we just
+  // created instead of raising a second one. A failure here must not lose the
+  // (already-persisted) clinician escalation above — the patient-facing alert
+  // is additive, so we log and continue rather than throw.
+  const { error: emergencyEventError } = await serviceRoleSupabase.from("emergency_events").insert({
+    organisation_id: organisationId,
+    patient_id: patientId,
+    source: "ai_coach",
+    trigger_detail: detail,
+    clinician_alert_id: alert.id,
+    status: "active",
+  });
+  if (emergencyEventError) {
+    console.error("ai-coach: could not create emergency_events row", emergencyEventError);
+  }
+
   await serviceRoleSupabase.from("audit_log").insert({
     organisation_id: organisationId,
     actor_id: patientId,

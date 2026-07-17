@@ -150,6 +150,84 @@ const TEMPLATE_MAP: Record<
         `open the app to see details. — Tarragon Health`,
     };
   },
+  // Sent to the patient as a scheduled vaccination comes due (see
+  // private.queue_vaccination_reminders). Reminder only — logging/booking a
+  // dose always happens in-app, never over WhatsApp.
+  vaccination_due: (payload) => {
+    const vaccineName = String(payload.vaccine_name ?? "a vaccination");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "vaccination_due",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: vaccineName },
+            { type: "text", text: dueDate },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, your ${vaccineName} is due ${dueDate}. Open the Tarragon Health app to book or ` +
+        `log it. — Tarragon Health`,
+    };
+  },
+  // Sent to the patient as a scheduled periodic health review comes due (see
+  // private.queue_preventive_review_reminders). Reminder only — the review is
+  // completed by a doctor in the clinician worklist, never over WhatsApp.
+  preventive_review_due: (payload) => {
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "preventive_review_due",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: dueDate }] },
+      ],
+      smsText:
+        `Hi, your preventive health review is due ${dueDate}. Your care team will be in touch — ` +
+        `open the app to see details. — Tarragon Health`,
+    };
+  },
+  // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
+  // subject + body chosen by an admin, fanned out to a resolved audience. Email
+  // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement
+  // template, falling back to SMS meanwhile.
+  broadcast_announcement: (payload) => {
+    const subject = String(payload.subject ?? "A message from Tarragon Health");
+    const body = String(payload.body ?? "");
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    const bodyHtml = escapeHtml(body).replace(/\n/g, "<br>");
+    return {
+      metaTemplateName: "broadcast_announcement",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: subject },
+            { type: "text", text: body },
+          ],
+        },
+      ],
+      smsText: `${subject}: ${body} — Tarragon Health`,
+      email: {
+        subject,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<h2 style="color:#0E7C52;margin:0 0 12px">${escapeHtml(subject)}</h2>` +
+          `<p>${bodyHtml}</p>` +
+          `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `${subject}\n\n${body}\n\n— Tarragon Health`,
+      },
+    };
+  },
   // Sent to the patient on the payment_confirmed transition (see
   // enqueue_pharmacy_order_notifications). WhatsApp is attempted first; the
   // pharmacy_order_patient_confirmation Meta template must be approved for the
@@ -296,29 +374,6 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
-  // Sent to the patient as a scheduled vaccination comes due (see
-  // private.queue_vaccination_reminders). Reminder only — logging/booking a
-  // dose always happens in-app, never over WhatsApp.
-  vaccination_due: (payload) => {
-    const vaccineName = String(payload.vaccine_name ?? "a vaccination");
-    const dueDate = String(payload.due_date ?? "soon");
-    return {
-      metaTemplateName: "vaccination_due",
-      languageCode: "en",
-      components: [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: vaccineName },
-            { type: "text", text: dueDate },
-          ],
-        },
-      ],
-      smsText:
-        `Hi, your ${vaccineName} is due ${dueDate}. Open the Tarragon Health app to book or ` +
-        `log it. — Tarragon Health`,
-    };
-  },
   // Sent to the patient once a Tarragon doctor has confirmed the physical
   // certificate they uploaded — the dose is now Tarragon-verified, their
   // Tarragon certificate is ready to download in the app, and (if the vaccine
@@ -329,9 +384,7 @@ const TEMPLATE_MAP: Record<
     const vaccineName = String(payload.vaccine_name ?? "your vaccination");
     const serial = String(payload.certificate_serial ?? "");
     const nextDose = payload.next_dose_date ? String(payload.next_dose_date) : null;
-    const nextLine = nextDose
-      ? ` Your next dose is due ${nextDose}.`
-      : "";
+    const nextLine = nextDose ? ` Your next dose is due ${nextDose}.` : "";
     const smsText =
       `Hi ${patientName}, your ${vaccineName} has been verified by your Tarragon care team ` +
       `(certificate ${serial}). Download it in the app.${nextLine} — Tarragon Health`;
@@ -367,6 +420,56 @@ const TEMPLATE_MAP: Record<
           `</div>`,
         text: smsText,
       },
+    };
+  },
+  // Sent to the patient's saved emergency contact / next of kin (SMS + WhatsApp)
+  // when the patient reports an emergency and does not acknowledge it within the
+  // acknowledge-gated window (private.notify_unacknowledged_emergencies), or
+  // immediately via the patient's "Alert my emergency contact now" action. A
+  // one-way alert only — TarragonHealth never manages the emergency, it routes
+  // the contact to help the patient reach a hospital. `to_phone` in the payload
+  // is the contact's number (they are not a platform user).
+  emergency_contact_alert: (payload) => {
+    const contactName = String(payload.contact_name ?? "there");
+    const patientName = String(
+      payload.patient_name ?? "someone who lists you as their emergency contact",
+    );
+    const smsText =
+      `${contactName}, this is an urgent alert from Tarragon Health. ${patientName} reported a ` +
+      `possible medical emergency and may need your help. Please try to reach them now. If you ` +
+      `cannot and it is an emergency, help them get to the nearest hospital. — Tarragon Health`;
+    return {
+      metaTemplateName: "emergency_contact_alert",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: contactName },
+            { type: "text", text: patientName },
+          ],
+        },
+      ],
+      smsText,
+    };
+  },
+  // Sent to the patient after the follow-up window on an emergency event
+  // (private.notify_emergency_followups). Gentle check-in nudging them to update
+  // their care team in the app — the follow-up itself happens in-app, never over
+  // WhatsApp/SMS.
+  emergency_followup: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const smsText =
+      `Hi ${patientName}, we noticed you recently reported an emergency. We hope you're okay. ` +
+      `When you can, open the Tarragon Health app to let your care team know how you're doing. ` +
+      `— Tarragon Health`;
+    return {
+      metaTemplateName: "emergency_followup",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: patientName }] },
+      ],
+      smsText,
     };
   },
 };
