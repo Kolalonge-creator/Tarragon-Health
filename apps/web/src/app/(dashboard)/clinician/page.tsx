@@ -60,6 +60,11 @@ export default async function ClinicianPage() {
         </Link>
       </p>
       <p className="text-sm">
+        <Link href="/clinician/vaccinations" className="text-brand-green hover:underline">
+          Vaccination certificates →
+        </Link>
+      </p>
+      <p className="text-sm">
         <Link href="/clinician/preventive-reviews" className="text-brand-green hover:underline">
           Periodic health reviews →
         </Link>
