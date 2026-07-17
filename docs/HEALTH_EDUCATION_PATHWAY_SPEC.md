@@ -129,14 +129,18 @@ Two tables only. **No behaviour-change table. No parallel source of truth.**
 
 ## 8. Verification
 
-- `pnpm typecheck` / `lint` / `test` green (new jest test for the knowledge-check scoring helper).
+- `pnpm typecheck` / `lint` / `test` (web 218, shared 35) + full production build green (new jest
+  test for the knowledge-check scoring helper).
 - Migrations applied via `apply_migration` (recorded in `schema_migrations`); `get_advisors` clean;
   feed RPC + RLS confirmed via rolled-back live SQL.
+- **Real-browser click-through** (worktree dev server + Chrome, as a parentcare-tier patient): the
+  card rendered the exact condition+risk-gated feed, `seen`/`understood` re-ranking worked live, and
+  a completed knowledge check persisted a real progress row (2/2, status=understood). No console errors.
 
-## 9. Deferred / owner steps (explicit ask required for functional code)
+## 9. Status + deferred (explicit ask required for functional code)
 
-- **Ops:** sync the `health-education` add-on rows to Paystack/Stripe to make them purchasable by
-  `essential` patients (same step as every add-on; until then, essential patients see the upsell).
+- **Committed + PR #66 against `main-dev`; add-on synced.** The `health-education` add-on is live +
+  active across NGN (Paystack) / USD / GBP (Stripe, test-mode), so `essential` patients can attach it.
 - Real content library: v1 seeds a handful of HTN/diabetes/general articles as honest placeholders —
   a clinician-vetted, Nigeria-relevant library (then asthma/CKD) is the real, unglamorous cost.
 - A full authoring CMS (rich body + knowledge-check editor in-app), reminder cron ("you have new
