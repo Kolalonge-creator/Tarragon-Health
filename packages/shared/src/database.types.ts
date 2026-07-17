@@ -217,27 +217,36 @@ export type Database = {
       }
       annual_review_workup_catalogue: {
         Row: {
+          applies_sex: Database["public"]["Enums"]["sex"] | null
           code: string
           created_at: string
           default_applicable: boolean
           description: string | null
           label: string
+          max_age: number | null
+          min_age: number | null
           sort_order: number
         }
         Insert: {
+          applies_sex?: Database["public"]["Enums"]["sex"] | null
           code: string
           created_at?: string
           default_applicable?: boolean
           description?: string | null
           label: string
+          max_age?: number | null
+          min_age?: number | null
           sort_order?: number
         }
         Update: {
+          applies_sex?: Database["public"]["Enums"]["sex"] | null
           code?: string
           created_at?: string
           default_applicable?: boolean
           description?: string | null
           label?: string
+          max_age?: number | null
+          min_age?: number | null
           sort_order?: number
         }
         Relationships: []
@@ -3903,6 +3912,93 @@ export type Database = {
           },
         ]
       }
+      patient_hospital_admissions: {
+        Row: {
+          admitted_on: string
+          clinician_alert_id: string | null
+          created_at: string
+          discharged_on: string | null
+          emergency_event_id: string | null
+          facility_id: string | null
+          facility_name: string | null
+          id: string
+          is_current: boolean | null
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+          self_reported_diagnosis: string | null
+          updated_at: string
+        }
+        Insert: {
+          admitted_on: string
+          clinician_alert_id?: string | null
+          created_at?: string
+          discharged_on?: string | null
+          emergency_event_id?: string | null
+          facility_id?: string | null
+          facility_name?: string | null
+          id?: string
+          is_current?: boolean | null
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+          self_reported_diagnosis?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admitted_on?: string
+          clinician_alert_id?: string | null
+          created_at?: string
+          discharged_on?: string | null
+          emergency_event_id?: string | null
+          facility_id?: string | null
+          facility_name?: string | null
+          id?: string
+          is_current?: boolean | null
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+          self_reported_diagnosis?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_hospital_admissions_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_emergency_event_id_fkey"
+            columns: ["emergency_event_id"]
+            isOneToOne: false
+            referencedRelation: "emergency_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_quarterly_reports: {
         Row: {
           generated_at: string
@@ -5959,7 +6055,9 @@ export type Database = {
           initiated_by: string | null
           join_url: string | null
           organisation_id: string
+          patient_confirmed_at: string | null
           patient_id: string
+          proposed_slots: string[] | null
           scheduled_at: string | null
           specialist_referral_id: string | null
           started_at: string | null
@@ -5978,7 +6076,9 @@ export type Database = {
           initiated_by?: string | null
           join_url?: string | null
           organisation_id: string
+          patient_confirmed_at?: string | null
           patient_id: string
+          proposed_slots?: string[] | null
           scheduled_at?: string | null
           specialist_referral_id?: string | null
           started_at?: string | null
@@ -5997,7 +6097,9 @@ export type Database = {
           initiated_by?: string | null
           join_url?: string | null
           organisation_id?: string
+          patient_confirmed_at?: string | null
           patient_id?: string
+          proposed_slots?: string[] | null
           scheduled_at?: string | null
           specialist_referral_id?: string | null
           started_at?: string | null
@@ -6325,6 +6427,62 @@ export type Database = {
           },
         ]
       }
+      web_events: {
+        Row: {
+          city: string | null
+          country: string | null
+          device_type: string | null
+          id: string
+          occurred_at: string
+          path: string
+          profile_id: string | null
+          referrer_host: string | null
+          region: string | null
+          session_id: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          device_type?: string | null
+          id?: string
+          occurred_at?: string
+          path: string
+          profile_id?: string | null
+          referrer_host?: string | null
+          region?: string | null
+          session_id?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          device_type?: string | null
+          id?: string
+          occurred_at?: string
+          path?: string
+          profile_id?: string | null
+          referrer_host?: string | null
+          region?: string | null
+          session_id?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "web_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zoom_webhook_events: {
         Row: {
           created_at: string
@@ -6379,6 +6537,20 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_timeline: {
+        Row: {
+          detail: string | null
+          event_at: string | null
+          event_id: string | null
+          event_type: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          source_table: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_broadcast_audience_count: {
@@ -6391,6 +6563,100 @@ export type Database = {
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
+      }
+      analytics_acquisition_funnel: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_active_users_timeseries: {
+        Args: { p_period?: string }
+        Returns: Json
+      }
+      analytics_audit_log: {
+        Args: {
+          p_action?: string
+          p_entity_type?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_org?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      analytics_audit_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_business_summary: { Args: never; Returns: Json }
+      analytics_clinical_outcomes: { Args: never; Returns: Json }
+      analytics_deliverability: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_accounting_summary: { Args: never; Returns: Json }
+      analytics_engagement_summary: { Args: never; Returns: Json }
+      analytics_facility_engagement: { Args: never; Returns: Json }
+      analytics_finance_inputs: { Args: never; Returns: Json }
+      analytics_governance_summary: { Args: never; Returns: Json }
+      analytics_investor_summary: { Args: never; Returns: Json }
+      analytics_risk_register: { Args: never; Returns: Json }
+      analytics_staff_activity: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_upsert_finance_input: {
+        Args: {
+          p_cash: number
+          p_currency: string
+          p_margin: number
+          p_marketing: number
+          p_month: string
+          p_new_customers: number | null
+          p_notes: string | null
+          p_opex: number
+        }
+        Returns: undefined
+      }
+      analytics_upsert_risk: {
+        Args: {
+          p_category: string
+          p_id: string | null
+          p_impact: string
+          p_likelihood: string
+          p_mitigation: string | null
+          p_owner: string | null
+          p_status: string
+          p_title: string
+        }
+        Returns: string
+      }
+      analytics_user_segments: { Args: never; Returns: Json }
+      analytics_escalation_quality: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_feature_adoption: { Args: never; Returns: Json }
+      analytics_financial_summary: { Args: never; Returns: Json }
+      analytics_growth_timeseries: {
+        Args: { p_period?: string }
+        Returns: Json
+      }
+      analytics_operations_summary: { Args: never; Returns: Json }
+      analytics_population_summary: { Args: never; Returns: Json }
+      analytics_retention_cohorts: { Args: never; Returns: Json }
+      analytics_revenue_by_plan: { Args: never; Returns: Json }
+      analytics_revenue_timeseries: {
+        Args: { p_period?: string }
+        Returns: Json
+      }
+      analytics_traffic_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_traffic_timeseries: {
+        Args: { p_from?: string; p_period?: string; p_to?: string }
+        Returns: Json
       }
       claim_employer_roster_member: {
         Args: { target_roster_id: string }
@@ -6717,6 +6983,7 @@ export type Database = {
         | "doctor"
         | "care_coordinator"
         | "pharmacist"
+        | "analyst"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -7140,6 +7407,7 @@ export const Constants = {
         "doctor",
         "care_coordinator",
         "pharmacist",
+        "analyst",
       ],
       vaccination_verification_status: [
         "self_reported",

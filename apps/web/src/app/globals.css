@@ -19,6 +19,16 @@
   --chart-systolic: #b91c1c;
   --chart-diastolic: #1d4ed8;
   --chart-glucose: #0e7c52;
+
+  /* Categorical palette for the platform analytics console (business/financial/
+     population distributions). Reuses brand hexes so it stays on-brand; a
+     separate system from the clinical dashboard status colours. */
+  --chart-analytics-1: #0e7c52;
+  --chart-analytics-2: #12324b;
+  --chart-analytics-3: #c9962b;
+  --chart-analytics-4: #1d4ed8;
+  --chart-analytics-5: #b91c1c;
+  --chart-analytics-6: #0b5c3e;
 }
 
 @theme inline {
@@ -34,6 +44,12 @@
   --color-chart-systolic: var(--chart-systolic);
   --color-chart-diastolic: var(--chart-diastolic);
   --color-chart-glucose: var(--chart-glucose);
+  --color-chart-analytics-1: var(--chart-analytics-1);
+  --color-chart-analytics-2: var(--chart-analytics-2);
+  --color-chart-analytics-3: var(--chart-analytics-3);
+  --color-chart-analytics-4: var(--chart-analytics-4);
+  --color-chart-analytics-5: var(--chart-analytics-5);
+  --color-chart-analytics-6: var(--chart-analytics-6);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-sora);
 }

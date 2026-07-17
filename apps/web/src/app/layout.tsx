@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Sora, Inter } from "next/font/google";
 import "./globals.css";
+import { PageTracker } from "@/components/analytics/page-tracker";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -28,7 +30,12 @@ export default function RootLayout({
       lang="en"
       className={`${sora.variable} ${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Suspense fallback={null}>
+          <PageTracker />
+        </Suspense>
+      </body>
     </html>
   );
 }
