@@ -181,6 +181,29 @@ export default async function AdminPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/health-education" className="hover:underline">
+              Health education library
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            The clinician-reviewed learning catalogue surfaced to patients, personalised to their
+            conditions and risk. Publish or hide articles and videos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/health-education"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage library →
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
             <SEMANTIC_ICON.billing className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             <Link href="/admin/settings/subscriptions" className="hover:underline">
               Subscription plans &amp; add-ons

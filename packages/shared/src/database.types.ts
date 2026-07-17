@@ -1468,6 +1468,130 @@ export type Database = {
           },
         ]
       }
+      health_education_content: {
+        Row: {
+          body: string
+          clinician_reviewed: boolean
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          created_at: string
+          estimated_minutes: number | null
+          id: string
+          is_active: boolean
+          knowledge_check: Json | null
+          min_risk_level: Database["public"]["Enums"]["risk_level"] | null
+          reviewed_at: string | null
+          reviewed_by_name: string | null
+          sort_order: number
+          summary: string | null
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          body: string
+          clinician_reviewed?: boolean
+          code: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          content_type?: Database["public"]["Enums"]["health_education_content_type"]
+          created_at?: string
+          estimated_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          knowledge_check?: Json | null
+          min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
+          sort_order?: number
+          summary?: string | null
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          body?: string
+          clinician_reviewed?: boolean
+          code?: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          content_type?: Database["public"]["Enums"]["health_education_content_type"]
+          created_at?: string
+          estimated_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          knowledge_check?: Json | null
+          min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
+          sort_order?: number
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      health_education_progress: {
+        Row: {
+          check_score: number | null
+          check_total: number | null
+          content_id: string
+          created_at: string
+          id: string
+          last_viewed_at: string
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          updated_at: string
+        }
+        Insert: {
+          check_score?: number | null
+          check_total?: number | null
+          content_id: string
+          created_at?: string
+          id?: string
+          last_viewed_at?: string
+          organisation_id: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["health_education_status"]
+          updated_at?: string
+        }
+        Update: {
+          check_score?: number | null
+          check_total?: number | null
+          content_id?: string
+          created_at?: string
+          id?: string
+          last_viewed_at?: string
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["health_education_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_education_progress_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_progress_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_progress_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       home_visit_providers: {
         Row: {
           created_at: string
@@ -5329,6 +5453,27 @@ export type Database = {
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
+      health_education_feed: {
+        Args: never
+        Returns: {
+          body: string
+          check_score: number
+          check_total: number
+          clinician_reviewed: boolean
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          estimated_minutes: number
+          has_knowledge_check: boolean
+          knowledge_check: Json
+          reviewed_by_name: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+          video_url: string
+        }[]
+      }
       pharmacist_order_allergies: {
         Args: { p_order_id: string }
         Returns: {
@@ -5438,6 +5583,8 @@ export type Database = {
         | "vaccination_centre"
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
       glucose_context: "fasting" | "random" | "post_meal"
+      health_education_content_type: "article" | "video"
+      health_education_status: "seen" | "understood" | "needs_review"
       identity_method: "nin" | "bvn" | "document"
       identity_verification_status: "pending" | "verified" | "failed"
       lab_monitoring_status: "pending" | "completed" | "cancelled"
@@ -5795,6 +5942,8 @@ export const Constants = {
       ],
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       glucose_context: ["fasting", "random", "post_meal"],
+      health_education_content_type: ["article", "video"],
+      health_education_status: ["seen", "understood", "needs_review"],
       identity_method: ["nin", "bvn", "document"],
       identity_verification_status: ["pending", "verified", "failed"],
       lab_monitoring_status: ["pending", "completed", "cancelled"],

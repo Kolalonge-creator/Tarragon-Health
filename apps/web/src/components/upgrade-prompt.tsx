@@ -28,6 +28,10 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: "The family dashboard is part of the Family Plan",
     body: "See every family member's care in one shared view, one combined bill, on the Family Plan.",
   },
+  health_education: {
+    title: "Personalised health education is part of a paid plan",
+    body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks. Included on Complete Care and above, or add it to Essential Care.",
+  },
 };
 
 const DEFAULT_COPY = {
