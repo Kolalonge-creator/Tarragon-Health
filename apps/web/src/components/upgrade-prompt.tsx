@@ -28,6 +28,14 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: "The family dashboard is part of the Family Plan",
     body: "See every family member's care in one shared view, one combined bill, on the Family Plan.",
   },
+  annual_review: {
+    title: "The Annual Health Review is part of a paid plan",
+    body: "Get a once-a-year whole-body workup — general bloods, heart and other screening — plus a video consult with your Tarragon doctor to talk through your whole year. Included on Complete Care, Family and ParentCare plans.",
+  },
+  lifestyle_coaching: {
+    title: "Lifestyle coaching is part of a paid plan",
+    body: "Get guided diet, exercise, weight, sleep and stress coaching with progress reviews from your care team — included in Complete, Family and ParentCare, or add it on to Essential.",
+  },
 };
 
 const DEFAULT_COPY = {

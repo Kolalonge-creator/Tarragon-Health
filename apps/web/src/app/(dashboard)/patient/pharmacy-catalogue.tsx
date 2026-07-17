@@ -8,6 +8,7 @@ import {
 } from "@/lib/queries/pharmacy-orders";
 import { useMedications } from "@/lib/queries/medications";
 import { distanceKm } from "@/lib/geo";
+import { RegionGate } from "@/components/region-gate";
 import type { PatientLocation } from "./facility-selector";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,6 +151,11 @@ export function PharmacyCatalogue({
           </div>
         </div>
 
+        <RegionGate
+          state={patientLocation?.state ?? null}
+          service="pharmacy"
+          serviceLabel="Pharmacy ordering"
+        >
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load the pharmacy catalogue.</p>}
         {catalogue && catalogue.length === 0 && (
@@ -340,6 +346,7 @@ export function PharmacyCatalogue({
             })}
           </ul>
         )}
+        </RegionGate>
       </CardContent>
     </Card>
   );

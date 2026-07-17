@@ -105,6 +105,14 @@ export function MarketingFooter() {
         <FooterGroup title="Platform" links={FOOTER_LINKS.platform} />
       </div>
 
+      <div className="border-t border-white/10 px-4 py-5 sm:px-6">
+        <p className="mx-auto max-w-3xl text-center text-xs leading-relaxed text-white/80">
+          <span className="font-semibold text-white">TarragonHealth does not provide emergency care.</span>{" "}
+          In a medical emergency, go to your nearest hospital immediately or call your local
+          emergency number.
+        </p>
+      </div>
+
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
         © {new Date().getFullYear()} TarragonHealth. Doctor-led health monitoring for Nigerian families.
       </div>

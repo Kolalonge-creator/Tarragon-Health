@@ -54,6 +54,31 @@ export default async function ClinicianPage() {
           Adherence alerts →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href="/clinician/recommendations" className="text-brand-green hover:underline">
+          Care programme recommendations →
+        </Link>
+      </p>
+      <p className="text-sm">
+        <Link href="/clinician/vaccinations" className="text-brand-green hover:underline">
+          Vaccination certificates →
+        </Link>
+      </p>
+      <p className="text-sm">
+        <Link href="/clinician/preventive-reviews" className="text-brand-green hover:underline">
+          Periodic health reviews →
+        </Link>
+      </p>
+      <p className="text-sm">
+        <Link href="/clinician/annual-reviews" className="text-brand-green hover:underline">
+          Annual health reviews →
+        </Link>
+      </p>
+      <p className="text-sm">
+        <Link href="/clinician/lifestyle-reviews" className="text-brand-green hover:underline">
+          Lifestyle progress reviews →
+        </Link>
+      </p>
     </DashboardPlaceholder>
   );
 }

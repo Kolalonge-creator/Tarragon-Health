@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
+import { NIGERIAN_STATES } from "@/lib/nigeria-states";
 import { signUp } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,20 @@ export function SignupForm() {
         </div>
         <p className="text-xs text-charcoal-ink/60">
           Living abroad and registering a family member? Choose their country code.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="state">State (optional)</Label>
+        <Select id="state" name="state" autoComplete="address-level1" defaultValue="">
+          <option value="">Prefer not to say</option>
+          {NIGERIAN_STATES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </Select>
+        <p className="text-xs text-charcoal-ink/60">
+          Helps us show what&apos;s available near you. You can add or change this anytime.
         </p>
       </div>
       <div className="space-y-1.5">

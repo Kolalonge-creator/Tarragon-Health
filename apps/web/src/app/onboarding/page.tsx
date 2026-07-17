@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { createClient } from "@/lib/supabase/server";
 import { YourCareTeam } from "@/components/your-care-team";
-import { PlanSelector } from "./plan-selector";
-import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
+import { OnboardingFlow } from "./onboarding-flow";
 
 export default async function OnboardingPage() {
   const profile = await getCurrentProfile();
@@ -16,52 +16,47 @@ export default async function OnboardingPage() {
     redirect("/patient");
   }
 
+  const supabase = await createClient();
+
+  // Consent is complete when the patient has an acceptance row for every
+  // current consent version.
+  const [{ data: currentVersions }, { data: myConsents }, { count: intakeCount }] =
+    await Promise.all([
+      supabase.from("consent_versions").select("id").eq("is_current", true),
+      supabase.from("patient_consents").select("consent_version_id").eq("patient_id", profile.id),
+      supabase
+        .from("risk_assessment_responses")
+        .select("id", { count: "exact", head: true })
+        .eq("profile_id", profile.id),
+    ]);
+
+  const acceptedIds = new Set((myConsents ?? []).map((row) => row.consent_version_id));
+  const consentDone =
+    (currentVersions?.length ?? 0) > 0 &&
+    (currentVersions ?? []).every((version) => acceptedIds.has(version.id));
+
   return (
     <div className="flex flex-1 items-center justify-center bg-charcoal-ink/[0.02] px-4 py-16">
-      <div className="w-full max-w-lg space-y-6">
-        <div className="text-center">
-          <h1 className="font-heading text-2xl font-semibold text-brand-green">
-            Welcome{profile.full_name ? `, ${profile.full_name}` : ""}
-          </h1>
-          <p className="mt-1 text-sm text-charcoal-ink/60">Care that stays with you.</p>
-        </div>
-
-        <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
-          <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
-            How your care works here
-          </h2>
-          <p className="text-sm text-charcoal-ink">
-            A named doctor on our care team follows your readings, checks in with you, and
-            documents your care as it happens — they&apos;re the person you&apos;ll actually hear
-            from.
-          </p>
-          <p className="text-sm text-charcoal-ink">
-            Your care protocols — the thresholds and rules your doctor follows — are designed
-            and supervised by our Clinical Director.
-          </p>
-          <p className="text-sm text-charcoal-ink">
-            If a reading or symptom meets specific clinical criteria, your case gets a doctor
-            review, and you&apos;ll see exactly who reviewed it and when.
-          </p>
-        </div>
-
-        <YourCareTeam patientId={profile.id} />
-
-        <PatientLocationForm
-          initial={{ state: profile.state, city: profile.city, area: profile.area }}
-        />
-
-        <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
-          <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
-            Choose your plan
-          </h2>
-          <p className="text-sm text-charcoal-ink/60">
-            Start free, or pick a paid plan now — you can change or cancel any time from your
-            dashboard.
-          </p>
-          <PlanSelector />
-        </div>
-      </div>
+      <OnboardingFlow
+        profile={{ id: profile.id, fullName: profile.full_name }}
+        careTeamSlot={<YourCareTeam patientId={profile.id} />}
+        initial={{
+          consentDone,
+          demographicsDone: !!profile.date_of_birth && !!profile.sex,
+          intakeDone: (intakeCount ?? 0) > 0,
+          dateOfBirth: profile.date_of_birth,
+          sex: profile.sex,
+          location: { state: profile.state, city: profile.city, area: profile.area },
+          emergencyContact: {
+            emergency_contact_name: profile.emergency_contact_name,
+            emergency_contact_phone: profile.emergency_contact_phone,
+            emergency_contact_relationship: profile.emergency_contact_relationship,
+            emergency_contact_consent: profile.emergency_contact_consent,
+            next_of_kin_name: profile.next_of_kin_name,
+            next_of_kin_phone: profile.next_of_kin_phone,
+          },
+        }}
+      />
     </div>
   );
 }

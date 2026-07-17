@@ -1,6 +1,7 @@
 "use client";
 
 import { useMatchedLogisticsPartners } from "@/lib/queries/logistics-partners";
+import { useRegionServiceAvailable } from "@/lib/queries/service-regions";
 import { koboToNaira } from "@tarragon/shared";
 import { Badge } from "@/components/ui/badge";
 
@@ -27,6 +28,8 @@ export function DeliveryAvailability({
   deliveryConfirmedAt?: string | null;
 }) {
   const { data: partners, isLoading } = useMatchedLogisticsPartners({ region: region ?? undefined });
+  // Master switch: a live logistics partner in a not-yet-launched state still reads "coming soon".
+  const { data: regionOk, isLoading: regionLoading } = useRegionServiceAvailable(region, "delivery");
 
   if (deliveryConfirmedAt) {
     return (
@@ -59,11 +62,11 @@ export function DeliveryAvailability({
     );
   }
 
-  if (isLoading) {
+  if (isLoading || regionLoading) {
     return <p className="text-xs text-charcoal-ink/60">Checking delivery availability…</p>;
   }
 
-  const available = (partners?.length ?? 0) > 0;
+  const available = (partners?.length ?? 0) > 0 && regionOk === true;
 
   if (!available) {
     return (
