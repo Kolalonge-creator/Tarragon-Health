@@ -8,6 +8,7 @@ import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { YourCareTeam } from "@/components/your-care-team";
 import { PatientEscalations } from "@/components/patient-escalations";
 import { YourReferrals } from "@/components/your-referrals";
+import { PatientTimeline } from "@/components/patient-timeline";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "./care-team-contact";
@@ -125,6 +126,7 @@ export default async function PatientPage() {
       <RequiresEntitlement feature="family_dashboard" fallback={null}>
         <FamilyDashboardCard />
       </RequiresEntitlement>
+      <PatientTimeline patientId={profile.id} />
       <PatientEscalations patientId={profile.id} />
       <YourReferrals patientId={profile.id} />
       <RequiresEntitlement

@@ -4002,6 +4002,73 @@ export type Database = {
           },
         ]
       }
+      patient_timeline: {
+        Row: {
+          actor_clinical_staff_id: string | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["timeline_event_type"]
+          id: string
+          metadata: Json
+          occurred_at: string
+          organisation_id: string
+          patient_id: string
+          source_id: string | null
+          source_table: string
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          actor_clinical_staff_id?: string | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["timeline_event_type"]
+          id?: string
+          metadata?: Json
+          occurred_at?: string
+          organisation_id: string
+          patient_id: string
+          source_id?: string | null
+          source_table: string
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          actor_clinical_staff_id?: string | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["timeline_event_type"]
+          id?: string
+          metadata?: Json
+          occurred_at?: string
+          organisation_id?: string
+          patient_id?: string
+          source_id?: string | null
+          source_table?: string
+          summary?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_timeline_actor_clinical_staff_id_fkey"
+            columns: ["actor_clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_timeline_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_timeline_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_transactions: {
         Row: {
           amount_minor: number | null
@@ -6703,6 +6770,22 @@ export type Database = {
         | "swelling"
         | "nausea"
         | "other"
+      timeline_event_type:
+        | "lab_completed"
+        | "lab_abnormal"
+        | "medication_started"
+        | "medication_stopped"
+        | "medication_missed"
+        | "referral_created"
+        | "referral_status_changed"
+        | "screening_due"
+        | "screening_completed"
+        | "vaccination_recorded"
+        | "escalation_raised"
+        | "escalation_resolved"
+        | "care_plan_updated"
+        | "admission_recorded"
+        | "discharge_recorded"
       upgrade_condition:
         | "hypertension"
         | "diabetes"
@@ -7124,6 +7207,23 @@ export const Constants = {
         "swelling",
         "nausea",
         "other",
+      ],
+      timeline_event_type: [
+        "lab_completed",
+        "lab_abnormal",
+        "medication_started",
+        "medication_stopped",
+        "medication_missed",
+        "referral_created",
+        "referral_status_changed",
+        "screening_due",
+        "screening_completed",
+        "vaccination_recorded",
+        "escalation_raised",
+        "escalation_resolved",
+        "care_plan_updated",
+        "admission_recorded",
+        "discharge_recorded",
       ],
       upgrade_condition: [
         "hypertension",
