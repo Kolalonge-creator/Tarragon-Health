@@ -81,6 +81,14 @@ export default async function PatientPage() {
         >
           Health Passport →
         </Link>
+        <RequiresEntitlement feature="lifestyle_coaching" fallback={null}>
+          <Link
+            href="/patient/lifestyle"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Lifestyle coaching →
+          </Link>
+        </RequiresEntitlement>
         <Link
           href="/patient/subscription"
           className="text-sm font-medium text-brand-green hover:underline"
