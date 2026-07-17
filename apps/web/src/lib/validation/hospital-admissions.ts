@@ -12,6 +12,7 @@ export const hospitalAdmissionSchema = z
     facility_name: z.string().trim().max(200).optional(),
     self_reported_diagnosis: z.string().trim().max(500).optional(),
     reason: z.string().trim().max(1000).optional(),
+    discharge_summary: z.string().trim().max(1000).optional(),
   })
   .refine(
     (v) =>
@@ -29,5 +30,6 @@ export const hospitalAdmissionUpdateSchema = z
     discharged_on: z.string().optional(),
     self_reported_diagnosis: z.string().trim().max(500).optional(),
     reason: z.string().trim().max(1000).optional(),
+    discharge_summary: z.string().trim().max(1000).optional(),
   });
 export type HospitalAdmissionUpdateInput = z.infer<typeof hospitalAdmissionUpdateSchema>;

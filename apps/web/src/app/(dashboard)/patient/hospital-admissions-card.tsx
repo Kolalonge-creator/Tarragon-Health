@@ -12,6 +12,7 @@ import { patientTimelineKey } from "@/lib/queries/hospital-admissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -63,6 +64,14 @@ function AdmissionRow({
           Reason (self-reported): {admission.self_reported_diagnosis}
         </p>
       )}
+      {admission.discharge_summary && (
+        <p className="text-xs text-charcoal-ink/70">
+          Discharge notes: {admission.discharge_summary}
+        </p>
+      )}
+      {admission.source === "staff_recorded" && (
+        <p className="text-xs text-charcoal-ink/60">Recorded by your care team.</p>
+      )}
 
       {admission.is_current && (
         <form action={formAction} className="flex flex-wrap items-end gap-2 pt-1">
@@ -83,6 +92,18 @@ function AdmissionRow({
               min={admission.admitted_on}
               required
               className="h-9"
+            />
+          </div>
+          <div className="w-full space-y-1">
+            <Label htmlFor={`discharge_summary_${admission.id}`} className="text-xs">
+              Discharge notes (optional)
+            </Label>
+            <Textarea
+              id={`discharge_summary_${admission.id}`}
+              name="discharge_summary"
+              rows={2}
+              className="text-sm"
+              placeholder="How you're doing, what happened at the hospital…"
             />
           </div>
           <Button type="submit" size="sm" variant="outline" disabled={pending}>

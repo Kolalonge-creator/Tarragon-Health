@@ -1513,52 +1513,73 @@ export type Database = {
           admitted_on: string
           clinician_alert_id: string | null
           created_at: string
+          discharge_review_alert_id: string | null
+          discharge_summary: string | null
           discharged_on: string | null
           emergency_event_id: string | null
           facility_id: string | null
           facility_name: string | null
           id: string
-          is_current: boolean
+          is_current: boolean | null
           organisation_id: string
           patient_id: string
           reason: string | null
+          recorded_by: string | null
           self_reported_diagnosis: string | null
+          source: Database["public"]["Enums"]["hospital_admission_source"]
           updated_at: string
         }
         Insert: {
           admitted_on: string
           clinician_alert_id?: string | null
           created_at?: string
+          discharge_review_alert_id?: string | null
+          discharge_summary?: string | null
           discharged_on?: string | null
           emergency_event_id?: string | null
           facility_id?: string | null
           facility_name?: string | null
           id?: string
+          is_current?: boolean | null
           organisation_id: string
           patient_id: string
           reason?: string | null
+          recorded_by?: string | null
           self_reported_diagnosis?: string | null
+          source?: Database["public"]["Enums"]["hospital_admission_source"]
           updated_at?: string
         }
         Update: {
           admitted_on?: string
           clinician_alert_id?: string | null
           created_at?: string
+          discharge_review_alert_id?: string | null
+          discharge_summary?: string | null
           discharged_on?: string | null
           emergency_event_id?: string | null
           facility_id?: string | null
           facility_name?: string | null
           id?: string
+          is_current?: boolean | null
           organisation_id?: string
           patient_id?: string
           reason?: string | null
+          recorded_by?: string | null
           self_reported_diagnosis?: string | null
+          source?: Database["public"]["Enums"]["hospital_admission_source"]
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "patient_hospital_admissions_clinician_alert_id_fkey"
             columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_discharge_review_alert_id_fkey"
+            columns: ["discharge_review_alert_id"]
             isOneToOne: false
             referencedRelation: "clinician_alerts"
             referencedColumns: ["id"]
@@ -1589,6 +1610,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
         ]
@@ -6670,6 +6698,7 @@ export type Database = {
       glucose_context: "fasting" | "random" | "post_meal"
       health_education_content_type: "article" | "video"
       health_education_status: "seen" | "understood" | "needs_review"
+      hospital_admission_source: "patient_reported" | "staff_recorded"
       identity_method: "nin" | "bvn" | "document"
       identity_verification_status: "pending" | "verified" | "failed"
       lab_monitoring_status: "pending" | "completed" | "cancelled"
@@ -7080,6 +7109,7 @@ export const Constants = {
       glucose_context: ["fasting", "random", "post_meal"],
       health_education_content_type: ["article", "video"],
       health_education_status: ["seen", "understood", "needs_review"],
+      hospital_admission_source: ["patient_reported", "staff_recorded"],
       identity_method: ["nin", "bvn", "document"],
       identity_verification_status: ["pending", "verified", "failed"],
       lab_monitoring_status: ["pending", "completed", "cancelled"],

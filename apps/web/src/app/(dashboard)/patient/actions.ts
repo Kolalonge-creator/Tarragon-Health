@@ -723,6 +723,7 @@ export async function logHospitalAdmission(
     facility_name: parsed.data.facility_name || null,
     self_reported_diagnosis: parsed.data.self_reported_diagnosis || null,
     reason: parsed.data.reason || null,
+    discharge_summary: parsed.data.discharge_summary || null,
   });
   if (error) {
     return { error: error.message };
@@ -757,6 +758,7 @@ export async function updateHospitalAdmission(
       discharged_on: parsed.data.discharged_on || null,
       self_reported_diagnosis: parsed.data.self_reported_diagnosis || null,
       reason: parsed.data.reason || null,
+      discharge_summary: parsed.data.discharge_summary || null,
     })
     .eq("id", parsed.data.id)
     .eq("patient_id", user.id);
