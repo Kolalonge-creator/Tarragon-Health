@@ -269,6 +269,29 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/service-regions" className="hover:underline">
+              Service regions (state rollout)
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Turn TarragonHealth on one state at a time. Activating a state opens its partner
+            actions and automatically notifies everyone waiting there.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/service-regions"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage regions →
+          </Link>
+        </CardContent>
+      </Card>
     </DashboardPlaceholder>
   );
 }

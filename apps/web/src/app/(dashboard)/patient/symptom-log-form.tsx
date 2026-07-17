@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { logSymptom } from "./actions";
+import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { SYMPTOM_TYPES, type SymptomLogInput } from "@/lib/validation/symptoms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,9 @@ export function SymptomLogForm({ patientId }: { patientId: string }) {
   useEffect(() => {
     if (state?.success) {
       queryClient.invalidateQueries({ queryKey: ["symptom-logs", patientId] });
+      // A high-severity symptom raises an emergency_events row server-side —
+      // surface the EmergencyAlert dialog immediately rather than on next poll.
+      queryClient.invalidateQueries({ queryKey: activeEmergencyKey(patientId) });
     }
   }, [state?.success, queryClient, patientId]);
 

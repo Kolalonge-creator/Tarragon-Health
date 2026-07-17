@@ -36,6 +36,9 @@ import { LogVaccinationForm } from "./log-vaccination-form";
 import { VaccinationBooking } from "./vaccination-booking";
 import { FacilityDirectory } from "./facility-directory";
 import { PatientLocationForm } from "./patient-location-form";
+import { EmergencyContactForm } from "./emergency-contact-form";
+import { DangerSymptomCheck } from "./danger-symptom-check";
+import { EmergencyAlert } from "./emergency-alert";
 import { LabCatalogue } from "./lab-catalogue";
 import { LabOrdersList } from "./lab-orders-list";
 import { LabResults } from "./lab-results";
@@ -44,6 +47,7 @@ import { PharmacyOrdersList } from "./pharmacy-orders-list";
 import { BookingRequestsList } from "./booking-requests-list";
 import { AiCoachChat } from "./ai-coach-chat";
 import { FamilyDashboardCard } from "./family-dashboard-card";
+import { AnnualReviewCard } from "./annual-review-card";
 
 export default async function PatientPage() {
   const profile = await getCurrentProfile();
@@ -84,11 +88,32 @@ export default async function PatientPage() {
           Manage your subscription →
         </Link>
       </div>
+      <EmergencyAlert
+        patientId={profile.id}
+        hasEmergencyContact={!!profile.emergency_contact_phone}
+      />
+      <DangerSymptomCheck patientId={profile.id} />
       <YourCareTeam patientId={profile.id} />
       <PatientLocationForm
         initial={{ state: profile.state, city: profile.city, area: profile.area }}
       />
+      <EmergencyContactForm
+        initial={{
+          emergency_contact_name: profile.emergency_contact_name,
+          emergency_contact_phone: profile.emergency_contact_phone,
+          emergency_contact_relationship: profile.emergency_contact_relationship,
+          emergency_contact_consent: profile.emergency_contact_consent,
+          next_of_kin_name: profile.next_of_kin_name,
+          next_of_kin_phone: profile.next_of_kin_phone,
+        }}
+      />
       <HealthScoreCard patientId={profile.id} />
+      <RequiresEntitlement
+        feature="annual_review"
+        fallback={<UpgradePrompt feature="annual_review" />}
+      >
+        <AnnualReviewCard patientId={profile.id} />
+      </RequiresEntitlement>
       <RequiresEntitlement feature="family_dashboard" fallback={null}>
         <FamilyDashboardCard />
       </RequiresEntitlement>

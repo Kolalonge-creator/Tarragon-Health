@@ -23,8 +23,17 @@ export async function GET(request: NextRequest) {
   // (auth.users.phone is only auto-populated for phone-identity signups —
   // see the note in apps/web/src/app/signup/actions.ts).
   const metadataPhone = data.user.user_metadata?.phone;
+  const metadataState = data.user.user_metadata?.state;
+  const backfill: { phone?: string; state?: string } = {};
   if (typeof metadataPhone === "string" && metadataPhone.length > 0) {
-    await supabase.from("profiles").update({ phone: metadataPhone }).eq("id", data.user.id);
+    backfill.phone = metadataPhone;
+  }
+  // Optional state chosen at signup (non-gating) — pre-fills profiles.state.
+  if (typeof metadataState === "string" && metadataState.length > 0) {
+    backfill.state = metadataState;
+  }
+  if (Object.keys(backfill).length > 0) {
+    await supabase.from("profiles").update(backfill).eq("id", data.user.id);
   }
 
   const { data: profile } = await supabase

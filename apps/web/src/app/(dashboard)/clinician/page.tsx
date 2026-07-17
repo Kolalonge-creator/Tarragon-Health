@@ -64,6 +64,11 @@ export default async function ClinicianPage() {
           Periodic health reviews →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href="/clinician/annual-reviews" className="text-brand-green hover:underline">
+          Annual health reviews →
+        </Link>
+      </p>
     </DashboardPlaceholder>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
+import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contact-form";
 import { ConsentStep } from "./consent-step";
 import { DemographicsForm } from "./demographics-form";
 import { IdentityVerificationCard } from "./identity-verification-card";
@@ -46,6 +47,14 @@ export function OnboardingFlow({
     dateOfBirth: string | null;
     sex: "male" | "female" | null;
     location: { state: string | null; city: string | null; area: string | null };
+    emergencyContact: {
+      emergency_contact_name: string | null;
+      emergency_contact_phone: string | null;
+      emergency_contact_relationship: string | null;
+      emergency_contact_consent: boolean | null;
+      next_of_kin_name: string | null;
+      next_of_kin_phone: string | null;
+    };
   };
 }) {
   const [consentDone, setConsentDone] = useState(initial.consentDone);
@@ -104,6 +113,10 @@ export function OnboardingFlow({
 
       {consentDone && demographicsDone && (
         <PatientLocationForm initial={initial.location} />
+      )}
+
+      {consentDone && demographicsDone && (
+        <EmergencyContactForm initial={initial.emergencyContact} />
       )}
 
       {consentDone && demographicsDone && (

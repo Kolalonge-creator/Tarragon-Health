@@ -23,6 +23,7 @@ export async function signUp(
     email: formData.get("email"),
     countryCode: formData.get("countryCode"),
     phone: formData.get("phone"),
+    state: formData.get("state"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
@@ -38,9 +39,14 @@ export async function signUp(
     options: {
       emailRedirectTo: `${origin}/auth/callback`,
       // auth.users.phone is only set by phone-identity signup; carrying the
-      // phone here lets /auth/callback backfill profiles.phone once the
-      // user confirms and we have a session to update it under RLS.
-      data: { full_name: parsed.data.fullName, phone: parsed.data.phone },
+      // phone (and optional state) here lets /auth/callback backfill
+      // profiles.phone/state once the user confirms and we have a session to
+      // update it under RLS.
+      data: {
+        full_name: parsed.data.fullName,
+        phone: parsed.data.phone,
+        ...(parsed.data.state ? { state: parsed.data.state } : {}),
+      },
     },
   });
   if (error) {

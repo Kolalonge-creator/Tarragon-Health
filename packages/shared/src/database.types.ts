@@ -215,6 +215,212 @@ export type Database = {
           },
         ];
       };
+      annual_review_workup_catalogue: {
+        Row: {
+          code: string;
+          created_at: string;
+          default_applicable: boolean;
+          description: string | null;
+          label: string;
+          sort_order: number;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          default_applicable?: boolean;
+          description?: string | null;
+          label: string;
+          sort_order?: number;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          default_applicable?: boolean;
+          description?: string | null;
+          label?: string;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      annual_review_workup_items: {
+        Row: {
+          annual_review_id: string;
+          code: string;
+          completed_at: string | null;
+          created_at: string;
+          id: string;
+          lab_order_id: string | null;
+          label: string;
+          organisation_id: string;
+          result_summary: string | null;
+          status: Database["public"]["Enums"]["annual_review_workup_status"];
+          updated_at: string;
+        };
+        Insert: {
+          annual_review_id: string;
+          code: string;
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          lab_order_id?: string | null;
+          label: string;
+          organisation_id: string;
+          result_summary?: string | null;
+          status?: Database["public"]["Enums"]["annual_review_workup_status"];
+          updated_at?: string;
+        };
+        Update: {
+          annual_review_id?: string;
+          code?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          lab_order_id?: string | null;
+          label?: string;
+          organisation_id?: string;
+          result_summary?: string | null;
+          status?: Database["public"]["Enums"]["annual_review_workup_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "annual_review_workup_items_annual_review_id_fkey";
+            columns: ["annual_review_id"];
+            isOneToOne: false;
+            referencedRelation: "annual_reviews";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "annual_review_workup_items_code_fkey";
+            columns: ["code"];
+            isOneToOne: false;
+            referencedRelation: "annual_review_workup_catalogue";
+            referencedColumns: ["code"];
+          },
+          {
+            foreignKeyName: "annual_review_workup_items_lab_order_id_fkey";
+            columns: ["lab_order_id"];
+            isOneToOne: false;
+            referencedRelation: "lab_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "annual_review_workup_items_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      annual_reviews: {
+        Row: {
+          care_plan_updated_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          current_stage: Database["public"]["Enums"]["annual_review_stage"];
+          cycle_year: number;
+          due_date: string;
+          id: string;
+          labs_completed_at: string | null;
+          medication_review_completed_at: string | null;
+          notes: string | null;
+          organisation_id: string;
+          patient_id: string;
+          questionnaire_completed_at: string | null;
+          reviewed_by: string | null;
+          risk_score_computed_at: string | null;
+          risk_score_id: string | null;
+          status: Database["public"]["Enums"]["annual_review_status"];
+          updated_at: string;
+          video_completed_at: string | null;
+          video_consultation_id: string | null;
+          year_summary: string | null;
+        };
+        Insert: {
+          care_plan_updated_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          current_stage?: Database["public"]["Enums"]["annual_review_stage"];
+          cycle_year: number;
+          due_date: string;
+          id?: string;
+          labs_completed_at?: string | null;
+          medication_review_completed_at?: string | null;
+          notes?: string | null;
+          organisation_id: string;
+          patient_id: string;
+          questionnaire_completed_at?: string | null;
+          reviewed_by?: string | null;
+          risk_score_computed_at?: string | null;
+          risk_score_id?: string | null;
+          status?: Database["public"]["Enums"]["annual_review_status"];
+          updated_at?: string;
+          video_completed_at?: string | null;
+          video_consultation_id?: string | null;
+          year_summary?: string | null;
+        };
+        Update: {
+          care_plan_updated_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          current_stage?: Database["public"]["Enums"]["annual_review_stage"];
+          cycle_year?: number;
+          due_date?: string;
+          id?: string;
+          labs_completed_at?: string | null;
+          medication_review_completed_at?: string | null;
+          notes?: string | null;
+          organisation_id?: string;
+          patient_id?: string;
+          questionnaire_completed_at?: string | null;
+          reviewed_by?: string | null;
+          risk_score_computed_at?: string | null;
+          risk_score_id?: string | null;
+          status?: Database["public"]["Enums"]["annual_review_status"];
+          updated_at?: string;
+          video_completed_at?: string | null;
+          video_consultation_id?: string | null;
+          year_summary?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "annual_reviews_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "annual_reviews_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "annual_reviews_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "clinical_staff";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "annual_reviews_risk_score_id_fkey";
+            columns: ["risk_score_id"];
+            isOneToOne: false;
+            referencedRelation: "patient_risk_scores";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "annual_reviews_video_consultation_id_fkey";
+            columns: ["video_consultation_id"];
+            isOneToOne: false;
+            referencedRelation: "video_consultations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       appointments: {
         Row: {
           clinician_id: string | null;
@@ -602,6 +808,128 @@ export type Database = {
           },
         ];
       };
+      chronic_condition_programmes: {
+        Row: {
+          category: string;
+          code: string;
+          condition: Database["public"]["Enums"]["care_plan_condition"];
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          launch_priority: number;
+          monitoring_vitals: Database["public"]["Enums"]["vital_type"][];
+          name: string;
+          protocol_slug: string;
+          review_cadence_months: number;
+          short_description: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          category?: string;
+          code: string;
+          condition: Database["public"]["Enums"]["care_plan_condition"];
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          launch_priority?: number;
+          monitoring_vitals?: Database["public"]["Enums"]["vital_type"][];
+          name: string;
+          protocol_slug: string;
+          review_cadence_months?: number;
+          short_description?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string;
+          code?: string;
+          condition?: Database["public"]["Enums"]["care_plan_condition"];
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          launch_priority?: number;
+          monitoring_vitals?: Database["public"]["Enums"]["vital_type"][];
+          name?: string;
+          protocol_slug?: string;
+          review_cadence_months?: number;
+          short_description?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      chronic_programme_enrolments: {
+        Row: {
+          care_plan_id: string | null;
+          created_at: string;
+          enrolled_at: string;
+          id: string;
+          notes: string | null;
+          organisation_id: string;
+          patient_id: string;
+          programme_id: string;
+          source: Database["public"]["Enums"]["chronic_enrolment_source"];
+          status: Database["public"]["Enums"]["chronic_enrolment_status"];
+          updated_at: string;
+          withdrawn_at: string | null;
+        };
+        Insert: {
+          care_plan_id?: string | null;
+          created_at?: string;
+          enrolled_at?: string;
+          id?: string;
+          notes?: string | null;
+          organisation_id: string;
+          patient_id: string;
+          programme_id: string;
+          source?: Database["public"]["Enums"]["chronic_enrolment_source"];
+          status?: Database["public"]["Enums"]["chronic_enrolment_status"];
+          updated_at?: string;
+          withdrawn_at?: string | null;
+        };
+        Update: {
+          care_plan_id?: string | null;
+          created_at?: string;
+          enrolled_at?: string;
+          id?: string;
+          notes?: string | null;
+          organisation_id?: string;
+          patient_id?: string;
+          programme_id?: string;
+          source?: Database["public"]["Enums"]["chronic_enrolment_source"];
+          status?: Database["public"]["Enums"]["chronic_enrolment_status"];
+          updated_at?: string;
+          withdrawn_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chronic_programme_enrolments_care_plan_id_fkey";
+            columns: ["care_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "care_plans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chronic_programme_enrolments_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chronic_programme_enrolments_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chronic_programme_enrolments_programme_id_fkey";
+            columns: ["programme_id"];
+            isOneToOne: false;
+            referencedRelation: "chronic_condition_programmes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clinical_staff: {
         Row: {
           active: boolean;
@@ -926,6 +1254,54 @@ export type Database = {
           },
         ];
       };
+      condition_protocols: {
+        Row: {
+          condition: Database["public"]["Enums"]["care_plan_condition"];
+          created_at: string;
+          escalation: Json;
+          follow_up: Json;
+          id: string;
+          investigations: Json;
+          monitoring: Json;
+          prevention: Json;
+          protocol_slug: string;
+          source: string;
+          source_reference: string | null;
+          summary: string;
+          updated_at: string;
+        };
+        Insert: {
+          condition: Database["public"]["Enums"]["care_plan_condition"];
+          created_at?: string;
+          escalation?: Json;
+          follow_up?: Json;
+          id?: string;
+          investigations?: Json;
+          monitoring?: Json;
+          prevention?: Json;
+          protocol_slug: string;
+          source?: string;
+          source_reference?: string | null;
+          summary: string;
+          updated_at?: string;
+        };
+        Update: {
+          condition?: Database["public"]["Enums"]["care_plan_condition"];
+          created_at?: string;
+          escalation?: Json;
+          follow_up?: Json;
+          id?: string;
+          investigations?: Json;
+          monitoring?: Json;
+          prevention?: Json;
+          protocol_slug?: string;
+          source?: string;
+          source_reference?: string | null;
+          summary?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       consent_versions: {
         Row: {
           body: string;
@@ -1038,6 +1414,99 @@ export type Database = {
           monitoring_label?: string;
         };
         Relationships: [];
+      };
+      emergency_events: {
+        Row: {
+          acknowledged_at: string | null;
+          acknowledged_by: string | null;
+          clinician_alert_id: string | null;
+          contact_notified_at: string | null;
+          created_at: string;
+          follow_up_due_at: string;
+          follow_up_notified_at: string | null;
+          followed_up_at: string | null;
+          followed_up_by: string | null;
+          id: string;
+          organisation_id: string;
+          patient_id: string;
+          source: Database["public"]["Enums"]["emergency_source"];
+          status: Database["public"]["Enums"]["emergency_event_status"];
+          trigger_detail: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
+          clinician_alert_id?: string | null;
+          contact_notified_at?: string | null;
+          created_at?: string;
+          follow_up_due_at?: string;
+          follow_up_notified_at?: string | null;
+          followed_up_at?: string | null;
+          followed_up_by?: string | null;
+          id?: string;
+          organisation_id: string;
+          patient_id: string;
+          source: Database["public"]["Enums"]["emergency_source"];
+          status?: Database["public"]["Enums"]["emergency_event_status"];
+          trigger_detail?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
+          clinician_alert_id?: string | null;
+          contact_notified_at?: string | null;
+          created_at?: string;
+          follow_up_due_at?: string;
+          follow_up_notified_at?: string | null;
+          followed_up_at?: string | null;
+          followed_up_by?: string | null;
+          id?: string;
+          organisation_id?: string;
+          patient_id?: string;
+          source?: Database["public"]["Enums"]["emergency_source"];
+          status?: Database["public"]["Enums"]["emergency_event_status"];
+          trigger_detail?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "emergency_events_acknowledged_by_fkey";
+            columns: ["acknowledged_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "emergency_events_clinician_alert_id_fkey";
+            columns: ["clinician_alert_id"];
+            isOneToOne: false;
+            referencedRelation: "clinician_alerts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "emergency_events_followed_up_by_fkey";
+            columns: ["followed_up_by"];
+            isOneToOne: false;
+            referencedRelation: "clinical_staff";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "emergency_events_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "emergency_events_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       employer_roster_members: {
         Row: {
@@ -1412,6 +1881,130 @@ export type Database = {
           {
             foreignKeyName: "family_plan_members_plan_owner_id_fkey";
             columns: ["plan_owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      health_education_content: {
+        Row: {
+          body: string;
+          clinician_reviewed: boolean;
+          code: string;
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null;
+          content_type: Database["public"]["Enums"]["health_education_content_type"];
+          created_at: string;
+          estimated_minutes: number | null;
+          id: string;
+          is_active: boolean;
+          knowledge_check: Json | null;
+          min_risk_level: Database["public"]["Enums"]["risk_level"] | null;
+          reviewed_at: string | null;
+          reviewed_by_name: string | null;
+          sort_order: number;
+          summary: string | null;
+          title: string;
+          updated_at: string;
+          video_url: string | null;
+        };
+        Insert: {
+          body: string;
+          clinician_reviewed?: boolean;
+          code: string;
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null;
+          content_type?: Database["public"]["Enums"]["health_education_content_type"];
+          created_at?: string;
+          estimated_minutes?: number | null;
+          id?: string;
+          is_active?: boolean;
+          knowledge_check?: Json | null;
+          min_risk_level?: Database["public"]["Enums"]["risk_level"] | null;
+          reviewed_at?: string | null;
+          reviewed_by_name?: string | null;
+          sort_order?: number;
+          summary?: string | null;
+          title: string;
+          updated_at?: string;
+          video_url?: string | null;
+        };
+        Update: {
+          body?: string;
+          clinician_reviewed?: boolean;
+          code?: string;
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null;
+          content_type?: Database["public"]["Enums"]["health_education_content_type"];
+          created_at?: string;
+          estimated_minutes?: number | null;
+          id?: string;
+          is_active?: boolean;
+          knowledge_check?: Json | null;
+          min_risk_level?: Database["public"]["Enums"]["risk_level"] | null;
+          reviewed_at?: string | null;
+          reviewed_by_name?: string | null;
+          sort_order?: number;
+          summary?: string | null;
+          title?: string;
+          updated_at?: string;
+          video_url?: string | null;
+        };
+        Relationships: [];
+      };
+      health_education_progress: {
+        Row: {
+          check_score: number | null;
+          check_total: number | null;
+          content_id: string;
+          created_at: string;
+          id: string;
+          last_viewed_at: string;
+          organisation_id: string;
+          patient_id: string;
+          status: Database["public"]["Enums"]["health_education_status"];
+          updated_at: string;
+        };
+        Insert: {
+          check_score?: number | null;
+          check_total?: number | null;
+          content_id: string;
+          created_at?: string;
+          id?: string;
+          last_viewed_at?: string;
+          organisation_id: string;
+          patient_id: string;
+          status?: Database["public"]["Enums"]["health_education_status"];
+          updated_at?: string;
+        };
+        Update: {
+          check_score?: number | null;
+          check_total?: number | null;
+          content_id?: string;
+          created_at?: string;
+          id?: string;
+          last_viewed_at?: string;
+          organisation_id?: string;
+          patient_id?: string;
+          status?: Database["public"]["Enums"]["health_education_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "health_education_progress_content_id_fkey";
+            columns: ["content_id"];
+            isOneToOne: false;
+            referencedRelation: "health_education_content";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_education_progress_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_education_progress_patient_id_fkey";
+            columns: ["patient_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -1905,6 +2498,357 @@ export type Database = {
           source?: string;
         };
         Relationships: [];
+      };
+      lifestyle_assessments: {
+        Row: {
+          activity_minutes_weekly: number | null;
+          alcohol_units_weekly: number | null;
+          created_at: string;
+          diet_quality: number | null;
+          id: string;
+          notes: string | null;
+          organisation_id: string;
+          patient_id: string;
+          sleep_hours_nightly: number | null;
+          smokes: boolean | null;
+          stress_level: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          activity_minutes_weekly?: number | null;
+          alcohol_units_weekly?: number | null;
+          created_at?: string;
+          diet_quality?: number | null;
+          id?: string;
+          notes?: string | null;
+          organisation_id: string;
+          patient_id: string;
+          sleep_hours_nightly?: number | null;
+          smokes?: boolean | null;
+          stress_level?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          activity_minutes_weekly?: number | null;
+          alcohol_units_weekly?: number | null;
+          created_at?: string;
+          diet_quality?: number | null;
+          id?: string;
+          notes?: string | null;
+          organisation_id?: string;
+          patient_id?: string;
+          sleep_hours_nightly?: number | null;
+          smokes?: boolean | null;
+          stress_level?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_assessments_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lifestyle_assessments_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lifestyle_checkins: {
+        Row: {
+          created_at: string;
+          due_date: string;
+          id: string;
+          organisation_id: string;
+          patient_id: string;
+          programme_enrolment_id: string;
+          reminder_sent_at: string | null;
+          responded_at: string | null;
+          response: string | null;
+          status: Database["public"]["Enums"]["lifestyle_checkin_status"];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          due_date: string;
+          id?: string;
+          organisation_id: string;
+          patient_id: string;
+          programme_enrolment_id: string;
+          reminder_sent_at?: string | null;
+          responded_at?: string | null;
+          response?: string | null;
+          status?: Database["public"]["Enums"]["lifestyle_checkin_status"];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          due_date?: string;
+          id?: string;
+          organisation_id?: string;
+          patient_id?: string;
+          programme_enrolment_id?: string;
+          reminder_sent_at?: string | null;
+          responded_at?: string | null;
+          response?: string | null;
+          status?: Database["public"]["Enums"]["lifestyle_checkin_status"];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_checkins_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lifestyle_checkins_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lifestyle_checkins_programme_enrolment_id_fkey";
+            columns: ["programme_enrolment_id"];
+            isOneToOne: false;
+            referencedRelation: "lifestyle_programme_enrolments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lifestyle_goals: {
+        Row: {
+          achieved_at: string | null;
+          created_at: string;
+          domain: Database["public"]["Enums"]["lifestyle_domain"];
+          id: string;
+          notes: string | null;
+          organisation_id: string;
+          patient_id: string;
+          status: Database["public"]["Enums"]["lifestyle_goal_status"];
+          target_date: string | null;
+          target_unit: string | null;
+          target_value: number | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          achieved_at?: string | null;
+          created_at?: string;
+          domain: Database["public"]["Enums"]["lifestyle_domain"];
+          id?: string;
+          notes?: string | null;
+          organisation_id: string;
+          patient_id: string;
+          status?: Database["public"]["Enums"]["lifestyle_goal_status"];
+          target_date?: string | null;
+          target_unit?: string | null;
+          target_value?: number | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          achieved_at?: string | null;
+          created_at?: string;
+          domain?: Database["public"]["Enums"]["lifestyle_domain"];
+          id?: string;
+          notes?: string | null;
+          organisation_id?: string;
+          patient_id?: string;
+          status?: Database["public"]["Enums"]["lifestyle_goal_status"];
+          target_date?: string | null;
+          target_unit?: string | null;
+          target_value?: number | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_goals_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lifestyle_goals_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lifestyle_programme_enrolments: {
+        Row: {
+          completed_at: string | null;
+          created_at: string;
+          id: string;
+          notes: string | null;
+          organisation_id: string;
+          patient_id: string;
+          programme_id: string;
+          started_at: string;
+          status: Database["public"]["Enums"]["lifestyle_enrolment_status"];
+          updated_at: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          organisation_id: string;
+          patient_id: string;
+          programme_id: string;
+          started_at?: string;
+          status?: Database["public"]["Enums"]["lifestyle_enrolment_status"];
+          updated_at?: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          notes?: string | null;
+          organisation_id?: string;
+          patient_id?: string;
+          programme_id?: string;
+          started_at?: string;
+          status?: Database["public"]["Enums"]["lifestyle_enrolment_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_programme_enrolments_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lifestyle_programme_enrolments_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lifestyle_programme_enrolments_programme_id_fkey";
+            columns: ["programme_id"];
+            isOneToOne: false;
+            referencedRelation: "lifestyle_programmes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lifestyle_programmes: {
+        Row: {
+          code: string;
+          created_at: string;
+          description: string | null;
+          domain: Database["public"]["Enums"]["lifestyle_programme_domain"];
+          duration_weeks: number | null;
+          id: string;
+          is_active: boolean;
+          name: string;
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          description?: string | null;
+          domain: Database["public"]["Enums"]["lifestyle_programme_domain"];
+          duration_weeks?: number | null;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          description?: string | null;
+          domain?: Database["public"]["Enums"]["lifestyle_programme_domain"];
+          duration_weeks?: number | null;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      lifestyle_reviews: {
+        Row: {
+          completed_at: string | null;
+          created_at: string;
+          due_date: string;
+          id: string;
+          notes: string | null;
+          organisation_id: string;
+          patient_id: string;
+          reminder_sent_at: string | null;
+          reviewed_by: string | null;
+          status: Database["public"]["Enums"]["lifestyle_review_status"];
+          updated_at: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          created_at?: string;
+          due_date: string;
+          id?: string;
+          notes?: string | null;
+          organisation_id: string;
+          patient_id: string;
+          reminder_sent_at?: string | null;
+          reviewed_by?: string | null;
+          status?: Database["public"]["Enums"]["lifestyle_review_status"];
+          updated_at?: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          created_at?: string;
+          due_date?: string;
+          id?: string;
+          notes?: string | null;
+          organisation_id?: string;
+          patient_id?: string;
+          reminder_sent_at?: string | null;
+          reviewed_by?: string | null;
+          status?: Database["public"]["Enums"]["lifestyle_review_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_reviews_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lifestyle_reviews_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lifestyle_reviews_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "clinical_staff";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       logistics_partners: {
         Row: {
@@ -3697,11 +4641,18 @@ export type Database = {
           city: string | null;
           created_at: string;
           date_of_birth: string | null;
+          emergency_contact_consent: boolean;
+          emergency_contact_consent_at: string | null;
+          emergency_contact_name: string | null;
+          emergency_contact_phone: string | null;
+          emergency_contact_relationship: string | null;
           full_name: string | null;
           id: string;
           identity_verified_at: string | null;
           is_active: boolean;
           metadata: Json;
+          next_of_kin_name: string | null;
+          next_of_kin_phone: string | null;
           onboarding_completed_at: string | null;
           organisation_id: string | null;
           patient_number: string | null;
@@ -3717,11 +4668,18 @@ export type Database = {
           city?: string | null;
           created_at?: string;
           date_of_birth?: string | null;
+          emergency_contact_consent?: boolean;
+          emergency_contact_consent_at?: string | null;
+          emergency_contact_name?: string | null;
+          emergency_contact_phone?: string | null;
+          emergency_contact_relationship?: string | null;
           full_name?: string | null;
           id: string;
           identity_verified_at?: string | null;
           is_active?: boolean;
           metadata?: Json;
+          next_of_kin_name?: string | null;
+          next_of_kin_phone?: string | null;
           onboarding_completed_at?: string | null;
           organisation_id?: string | null;
           patient_number?: string | null;
@@ -3737,11 +4695,18 @@ export type Database = {
           city?: string | null;
           created_at?: string;
           date_of_birth?: string | null;
+          emergency_contact_consent?: boolean;
+          emergency_contact_consent_at?: string | null;
+          emergency_contact_name?: string | null;
+          emergency_contact_phone?: string | null;
+          emergency_contact_relationship?: string | null;
           full_name?: string | null;
           id?: string;
           identity_verified_at?: string | null;
           is_active?: boolean;
           metadata?: Json;
+          next_of_kin_name?: string | null;
+          next_of_kin_phone?: string | null;
           onboarding_completed_at?: string | null;
           organisation_id?: string | null;
           patient_number?: string | null;
@@ -4812,42 +5777,73 @@ export type Database = {
       };
       vaccination_records: {
         Row: {
+          booking_request_id: string | null;
           certificate_url: string | null;
           created_at: string;
           date_administered: string;
           dose_number: number;
           id: string;
           organisation_id: string;
+          physical_certificate_path: string | null;
           profile_id: string;
           provider: string | null;
+          tarragon_certificate_issued_at: string | null;
+          tarragon_certificate_serial: string | null;
           updated_at: string;
           vaccination_catalog_id: string;
+          verification_note: string | null;
+          verification_status: Database["public"]["Enums"]["vaccination_verification_status"];
+          verified_at: string | null;
+          verified_by: string | null;
         };
         Insert: {
+          booking_request_id?: string | null;
           certificate_url?: string | null;
           created_at?: string;
           date_administered: string;
           dose_number?: number;
           id?: string;
           organisation_id: string;
+          physical_certificate_path?: string | null;
           profile_id: string;
           provider?: string | null;
+          tarragon_certificate_issued_at?: string | null;
+          tarragon_certificate_serial?: string | null;
           updated_at?: string;
           vaccination_catalog_id: string;
+          verification_note?: string | null;
+          verification_status?: Database["public"]["Enums"]["vaccination_verification_status"];
+          verified_at?: string | null;
+          verified_by?: string | null;
         };
         Update: {
+          booking_request_id?: string | null;
           certificate_url?: string | null;
           created_at?: string;
           date_administered?: string;
           dose_number?: number;
           id?: string;
           organisation_id?: string;
+          physical_certificate_path?: string | null;
           profile_id?: string;
           provider?: string | null;
+          tarragon_certificate_issued_at?: string | null;
+          tarragon_certificate_serial?: string | null;
           updated_at?: string;
           vaccination_catalog_id?: string;
+          verification_note?: string | null;
+          verification_status?: Database["public"]["Enums"]["vaccination_verification_status"];
+          verified_at?: string | null;
+          verified_by?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "vaccination_records_booking_request_id_fkey";
+            columns: ["booking_request_id"];
+            isOneToOne: false;
+            referencedRelation: "booking_requests";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "vaccination_records_organisation_id_fkey";
             columns: ["organisation_id"];
@@ -4867,6 +5863,13 @@ export type Database = {
             columns: ["vaccination_catalog_id"];
             isOneToOne: false;
             referencedRelation: "vaccination_catalog";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vaccination_records_verified_by_fkey";
+            columns: ["verified_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -4931,6 +5934,7 @@ export type Database = {
       };
       video_consultations: {
         Row: {
+          annual_review_id: string | null;
           context: Database["public"]["Enums"]["video_consultation_context"];
           created_at: string;
           ended_at: string | null;
@@ -4949,6 +5953,7 @@ export type Database = {
           zoom_meeting_id: string | null;
         };
         Insert: {
+          annual_review_id?: string | null;
           context: Database["public"]["Enums"]["video_consultation_context"];
           created_at?: string;
           ended_at?: string | null;
@@ -4967,6 +5972,7 @@ export type Database = {
           zoom_meeting_id?: string | null;
         };
         Update: {
+          annual_review_id?: string | null;
           context?: Database["public"]["Enums"]["video_consultation_context"];
           created_at?: string;
           ended_at?: string | null;
@@ -4985,6 +5991,13 @@ export type Database = {
           zoom_meeting_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "video_consultations_annual_review_id_fkey";
+            columns: ["annual_review_id"];
+            isOneToOne: false;
+            referencedRelation: "annual_reviews";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "video_consultations_escalation_id_fkey";
             columns: ["escalation_id"];
@@ -5377,6 +6390,27 @@ export type Database = {
       get_ai_coach_daily_limit: { Args: never; Returns: number };
       has_ai_coach_access: { Args: never; Returns: boolean };
       has_feature_access: { Args: { feature: string }; Returns: boolean };
+      health_education_feed: {
+        Args: never;
+        Returns: {
+          body: string;
+          check_score: number;
+          check_total: number;
+          clinician_reviewed: boolean;
+          code: string;
+          condition: Database["public"]["Enums"]["care_plan_condition"];
+          content_id: string;
+          content_type: Database["public"]["Enums"]["health_education_content_type"];
+          estimated_minutes: number;
+          has_knowledge_check: boolean;
+          knowledge_check: Json;
+          reviewed_by_name: string;
+          status: Database["public"]["Enums"]["health_education_status"];
+          summary: string;
+          title: string;
+          video_url: string;
+        }[];
+      };
       pharmacist_order_allergies: {
         Args: { p_order_id: string };
         Returns: {
@@ -5430,6 +6464,19 @@ export type Database = {
       allergy_severity: "mild" | "moderate" | "severe";
       allergy_source: "patient" | "clinician";
       annual_check_status: "pending" | "in_progress" | "completed";
+      annual_review_stage:
+        | "due"
+        | "questionnaire"
+        | "labs"
+        | "medication_review"
+        | "risk_score"
+        | "care_plan"
+        | "video_consult"
+        | "completed";
+      annual_review_status:
+        "pending" | "in_progress" | "completed" | "cancelled";
+      annual_review_workup_status:
+        "pending" | "ordered" | "completed" | "not_applicable";
       appointment_status: "scheduled" | "completed" | "cancelled" | "no_show";
       billing_interval: "monthly" | "yearly";
       booking_origin:
@@ -5449,9 +6496,14 @@ export type Database = {
         | "obesity"
         | "ckd"
         | "cardiovascular"
-        | "other";
+        | "other"
+        | "asthma"
+        | "copd"
+        | "heart_failure";
       care_plan_recommendation_status: "proposed" | "accepted" | "dismissed";
       care_plan_status: "draft" | "active" | "completed" | "cancelled";
+      chronic_enrolment_source: "recommended" | "staff" | "clinician";
+      chronic_enrolment_status: "enrolled" | "completed" | "withdrawn";
       commission_rate_type: "percentage" | "flat";
       commission_status: "pending" | "confirmed" | "paid";
       commission_type:
@@ -5468,6 +6520,8 @@ export type Database = {
         | "tier_3"
         | "tier_4_senior_registrar"
         | "tier_5_partner_specialist";
+      emergency_event_status: "active" | "acknowledged" | "resolved";
+      emergency_source: "danger_symptom_checklist" | "symptom_log" | "ai_coach";
       employer_roster_status: "pending" | "claimed" | "removed";
       escalation_status: "open" | "under_review" | "resolved" | "referred";
       facility_type:
@@ -5479,6 +6533,8 @@ export type Database = {
         | "vaccination_centre";
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other";
       glucose_context: "fasting" | "random" | "post_meal";
+      health_education_content_type: "article" | "video";
+      health_education_status: "seen" | "understood" | "needs_review";
       identity_method: "nin" | "bvn" | "document";
       identity_verification_status: "pending" | "verified" | "failed";
       lab_monitoring_status: "pending" | "completed" | "cancelled";
@@ -5491,6 +6547,12 @@ export type Database = {
         | "resulted"
         | "cancelled";
       lead_role: "patient" | "family" | "employer" | "hmo" | "other";
+      lifestyle_checkin_status: "pending" | "responded" | "skipped";
+      lifestyle_domain: "diet" | "exercise" | "weight" | "sleep" | "stress";
+      lifestyle_enrolment_status: "enrolled" | "completed" | "withdrawn";
+      lifestyle_goal_status: "active" | "achieved" | "abandoned";
+      lifestyle_programme_domain: "diet" | "exercise";
+      lifestyle_review_status: "pending" | "completed" | "cancelled";
       med_adherence_alert_level: "coach" | "doctor";
       med_adherence_alert_status: "open" | "acknowledged" | "resolved";
       medication_checkin_status: "pending" | "responded" | "skipped";
@@ -5604,7 +6666,10 @@ export type Database = {
         | "doctor"
         | "care_coordinator"
         | "pharmacist";
-      video_consultation_context: "pre_referral_triage" | "specialist_consult";
+      vaccination_verification_status:
+        "self_reported" | "pending_verification" | "verified" | "rejected";
+      video_consultation_context:
+        "pre_referral_triage" | "specialist_consult" | "annual_review";
       video_consultation_status:
         "scheduled" | "started" | "completed" | "cancelled" | "no_show";
       vital_source: "manual" | "device" | "wearable";
@@ -5755,6 +6820,28 @@ export const Constants = {
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician"],
       annual_check_status: ["pending", "in_progress", "completed"],
+      annual_review_stage: [
+        "due",
+        "questionnaire",
+        "labs",
+        "medication_review",
+        "risk_score",
+        "care_plan",
+        "video_consult",
+        "completed",
+      ],
+      annual_review_status: [
+        "pending",
+        "in_progress",
+        "completed",
+        "cancelled",
+      ],
+      annual_review_workup_status: [
+        "pending",
+        "ordered",
+        "completed",
+        "not_applicable",
+      ],
       appointment_status: ["scheduled", "completed", "cancelled", "no_show"],
       billing_interval: ["monthly", "yearly"],
       booking_origin: [
@@ -5783,9 +6870,14 @@ export const Constants = {
         "ckd",
         "cardiovascular",
         "other",
+        "asthma",
+        "copd",
+        "heart_failure",
       ],
       care_plan_recommendation_status: ["proposed", "accepted", "dismissed"],
       care_plan_status: ["draft", "active", "completed", "cancelled"],
+      chronic_enrolment_source: ["recommended", "staff", "clinician"],
+      chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
       commission_type: [
@@ -5814,6 +6906,8 @@ export const Constants = {
         "tier_4_senior_registrar",
         "tier_5_partner_specialist",
       ],
+      emergency_event_status: ["active", "acknowledged", "resolved"],
+      emergency_source: ["danger_symptom_checklist", "symptom_log", "ai_coach"],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       facility_type: [
@@ -5826,6 +6920,8 @@ export const Constants = {
       ],
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       glucose_context: ["fasting", "random", "post_meal"],
+      health_education_content_type: ["article", "video"],
+      health_education_status: ["seen", "understood", "needs_review"],
       identity_method: ["nin", "bvn", "document"],
       identity_verification_status: ["pending", "verified", "failed"],
       lab_monitoring_status: ["pending", "completed", "cancelled"],
@@ -5839,6 +6935,12 @@ export const Constants = {
         "cancelled",
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other"],
+      lifestyle_checkin_status: ["pending", "responded", "skipped"],
+      lifestyle_domain: ["diet", "exercise", "weight", "sleep", "stress"],
+      lifestyle_enrolment_status: ["enrolled", "completed", "withdrawn"],
+      lifestyle_goal_status: ["active", "achieved", "abandoned"],
+      lifestyle_programme_domain: ["diet", "exercise"],
+      lifestyle_review_status: ["pending", "completed", "cancelled"],
       med_adherence_alert_level: ["coach", "doctor"],
       med_adherence_alert_status: ["open", "acknowledged", "resolved"],
       medication_checkin_status: ["pending", "responded", "skipped"],
@@ -5980,7 +7082,17 @@ export const Constants = {
         "care_coordinator",
         "pharmacist",
       ],
-      video_consultation_context: ["pre_referral_triage", "specialist_consult"],
+      vaccination_verification_status: [
+        "self_reported",
+        "pending_verification",
+        "verified",
+        "rejected",
+      ],
+      video_consultation_context: [
+        "pre_referral_triage",
+        "specialist_consult",
+        "annual_review",
+      ],
       video_consultation_status: [
         "scheduled",
         "started",

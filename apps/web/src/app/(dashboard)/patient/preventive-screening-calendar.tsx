@@ -6,6 +6,7 @@ import { todayIsoDate } from "@/lib/queries/medications";
 import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
 import type { FacilityWithServices } from "@/lib/queries/facilities";
 import { FacilitySelector, type PatientLocation } from "./facility-selector";
+import { RegionGate } from "@/components/region-gate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,7 +90,11 @@ export function PreventiveScreeningCalendar({
                     Due {new Date(schedule.due_date).toLocaleDateString()}
                   </p>
                   {isDue && canBook && bundle && (
-                    <>
+                    <RegionGate
+                      state={patientLocation?.state ?? null}
+                      service="lab"
+                      serviceLabel="Lab booking"
+                    >
                       {bookingScheduleId === schedule.id ? (
                         <div className="space-y-3 rounded-md border border-charcoal-ink/10 p-3">
                           <p className="text-xs font-medium text-charcoal-ink">
@@ -169,7 +174,7 @@ export function PreventiveScreeningCalendar({
                           Book now — ₦{koboToNaira(bundle.price_kobo).toLocaleString()}
                         </Button>
                       )}
-                    </>
+                    </RegionGate>
                   )}
                 </li>
               );

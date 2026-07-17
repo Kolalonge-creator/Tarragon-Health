@@ -9,6 +9,8 @@ import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
 import { patientLocationSchema } from "@/lib/validation/patient-location";
+import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
+import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
 import {
   riskAssessmentSchema,
   QUESTION_CATEGORY,
@@ -442,6 +444,229 @@ export async function submitRiskAssessment(
     organisationId,
     ageYears,
   });
+
+  return { success: true };
+}
+
+export type UpdateEmergencyContactState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Saves the patient's emergency contact + next of kin on their own profiles row
+ * (RLS-scoped). Blank fields clear that part. The emergency-contact phone is
+ * what the acknowledge-gated auto-notify messages if the patient does not
+ * respond to an active emergency — mirrors updatePatientLocation.
+ */
+export async function updateEmergencyContact(
+  _prevState: UpdateEmergencyContactState,
+  formData: FormData
+): Promise<UpdateEmergencyContactState> {
+  const parsed = emergencyContactSchema.safeParse({
+    emergency_contact_name: formData.get("emergency_contact_name") ?? undefined,
+    emergency_contact_phone: formData.get("emergency_contact_phone") ?? undefined,
+    emergency_contact_relationship: formData.get("emergency_contact_relationship") ?? undefined,
+    emergency_contact_consent: formData.get("emergency_contact_consent") === "on",
+    next_of_kin_name: formData.get("next_of_kin_name") ?? undefined,
+    next_of_kin_phone: formData.get("next_of_kin_phone") ?? undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const norm = (value: string | undefined) => (value && value.length > 0 ? value : null);
+  const consent = parsed.data.emergency_contact_consent;
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      emergency_contact_name: norm(parsed.data.emergency_contact_name),
+      emergency_contact_phone: norm(parsed.data.emergency_contact_phone),
+      emergency_contact_relationship: norm(parsed.data.emergency_contact_relationship),
+      emergency_contact_consent: consent,
+      // Stamp when consent was given; clear it if consent is withdrawn.
+      emergency_contact_consent_at: consent ? new Date().toISOString() : null,
+      next_of_kin_name: norm(parsed.data.next_of_kin_name),
+      next_of_kin_phone: norm(parsed.data.next_of_kin_phone),
+    })
+    .eq("id", user.id);
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+export type ReportDangerState = { error?: string; success?: boolean; eventId?: string } | undefined;
+
+/**
+ * Records a one-touch danger-symptom report as an emergency_events row. The DB
+ * trigger raises the emergency-tier clinician_alert (2-hour SLA) — this action
+ * never decides urgency itself, so it can't under-report. The patient then sees
+ * the acknowledge-gated "go to the nearest hospital now" alert.
+ */
+export async function reportDangerSymptoms(
+  _prevState: ReportDangerState,
+  formData: FormData
+): Promise<ReportDangerState> {
+  const parsed = dangerReportSchema.safeParse({
+    signs: formData.getAll("signs"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Select at least one sign" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "No organisation on file" };
+  }
+
+  const { data, error } = await supabase
+    .from("emergency_events")
+    .insert({
+      patient_id: user.id,
+      organisation_id: profile.organisation_id,
+      source: "danger_symptom_checklist",
+      trigger_detail: dangerSignsSummary(parsed.data.signs as DangerSign[]),
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true, eventId: data.id };
+}
+
+export type EmergencyEventActionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Patient acknowledges their own active emergency ("I'm getting help"). The DB
+ * update guard forces acknowledged_by to the caller and prevents spoofing any
+ * staff-owned field. Acknowledging in-window suppresses the auto-notify.
+ */
+export async function acknowledgeEmergency(eventId: string): Promise<EmergencyEventActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const { error } = await supabase
+    .from("emergency_events")
+    .update({ acknowledged_at: new Date().toISOString(), status: "acknowledged" })
+    .eq("id", eventId)
+    .eq("patient_id", user.id)
+    .is("acknowledged_at", null);
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Immediately messages the patient's saved emergency contact (SMS + WhatsApp)
+ * for one of their own active events, without waiting for the acknowledge-gated
+ * timeout. Ownership is verified via the patient's own RLS-scoped session
+ * before any service-role write (same pattern as the AI-coach escalation) —
+ * notifications is queue-write only, so the send itself is off-session.
+ */
+export async function alertEmergencyContactNow(eventId: string): Promise<EmergencyEventActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  // Ownership + contact are read under the patient's own RLS session first.
+  const { data: event } = await supabase
+    .from("emergency_events")
+    .select("id, organisation_id, contact_notified_at")
+    .eq("id", eventId)
+    .eq("patient_id", user.id)
+    .single();
+  if (!event) {
+    return { error: "Emergency not found" };
+  }
+  if (event.contact_notified_at) {
+    return { success: true };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select(
+      "full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, emergency_contact_consent"
+    )
+    .eq("id", user.id)
+    .single();
+  if (!profile?.emergency_contact_phone) {
+    return { error: "Add an emergency contact number first so we can alert them." };
+  }
+  // Never message a contact without the patient's recorded consent.
+  if (!profile.emergency_contact_consent) {
+    return {
+      error: "Confirm your emergency contact has agreed to be contacted before we alert them.",
+    };
+  }
+
+  const payload = {
+    to_phone: profile.emergency_contact_phone,
+    contact_name: profile.emergency_contact_name ?? "there",
+    contact_relationship: profile.emergency_contact_relationship,
+    patient_name: profile.full_name ?? "someone who lists you as their emergency contact",
+  } as Json;
+
+  // notifications is queue-write only; the deployed dispatcher sends off-session.
+  const serviceRole = createServiceRoleClient();
+  const { error: notifyError } = await serviceRole.from("notifications").insert([
+    {
+      organisation_id: event.organisation_id,
+      recipient_id: user.id,
+      channel: "sms",
+      status: "pending",
+      template: "emergency_contact_alert",
+      payload,
+    },
+    {
+      organisation_id: event.organisation_id,
+      recipient_id: user.id,
+      channel: "whatsapp",
+      status: "pending",
+      template: "emergency_contact_alert",
+      payload,
+    },
+  ]);
+  if (notifyError) {
+    return { error: notifyError.message };
+  }
+
+  await serviceRole
+    .from("emergency_events")
+    .update({ contact_notified_at: new Date().toISOString() })
+    .eq("id", eventId);
 
   return { success: true };
 }

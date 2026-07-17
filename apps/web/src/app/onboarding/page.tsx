@@ -47,6 +47,14 @@ export default async function OnboardingPage() {
           dateOfBirth: profile.date_of_birth,
           sex: profile.sex,
           location: { state: profile.state, city: profile.city, area: profile.area },
+          emergencyContact: {
+            emergency_contact_name: profile.emergency_contact_name,
+            emergency_contact_phone: profile.emergency_contact_phone,
+            emergency_contact_relationship: profile.emergency_contact_relationship,
+            emergency_contact_consent: profile.emergency_contact_consent,
+            next_of_kin_name: profile.next_of_kin_name,
+            next_of_kin_phone: profile.next_of_kin_phone,
+          },
         }}
       />
     </div>

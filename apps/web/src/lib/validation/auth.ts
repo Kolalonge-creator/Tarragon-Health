@@ -42,6 +42,14 @@ export const signupSchema = z
       .string()
       .trim()
       .regex(/^\d{6,14}$/, "Enter a valid phone number"),
+    // Optional at signup — a non-gating personalisation only (pre-fills profiles.state so
+    // the first partner action knows the user's state). Onboarding captures the fuller
+    // state/city/area later regardless. Empty string is normalised to undefined.
+    state: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : undefined)),
     password: z.string().min(8, "Password must be at least 8 characters"),
   })
   .transform((data) => ({
