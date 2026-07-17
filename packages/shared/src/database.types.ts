@@ -1508,6 +1508,91 @@ export type Database = {
           },
         ]
       }
+      patient_hospital_admissions: {
+        Row: {
+          admitted_on: string
+          clinician_alert_id: string | null
+          created_at: string
+          discharged_on: string | null
+          emergency_event_id: string | null
+          facility_id: string | null
+          facility_name: string | null
+          id: string
+          is_current: boolean
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+          self_reported_diagnosis: string | null
+          updated_at: string
+        }
+        Insert: {
+          admitted_on: string
+          clinician_alert_id?: string | null
+          created_at?: string
+          discharged_on?: string | null
+          emergency_event_id?: string | null
+          facility_id?: string | null
+          facility_name?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+          self_reported_diagnosis?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admitted_on?: string
+          clinician_alert_id?: string | null
+          created_at?: string
+          discharged_on?: string | null
+          emergency_event_id?: string | null
+          facility_id?: string | null
+          facility_name?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+          self_reported_diagnosis?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_hospital_admissions_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_emergency_event_id_fkey"
+            columns: ["emergency_event_id"]
+            isOneToOne: false
+            referencedRelation: "emergency_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_hospital_admissions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employer_roster_members: {
         Row: {
           added_by: string | null
@@ -6376,6 +6461,20 @@ export type Database = {
           opened_at: string | null
           organisation_id: string | null
           patient_id: string | null
+        }
+        Relationships: []
+      }
+      patient_timeline: {
+        Row: {
+          detail: string | null
+          event_at: string | null
+          event_id: string | null
+          event_type: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          source_table: string | null
+          status: string | null
+          title: string | null
         }
         Relationships: []
       }

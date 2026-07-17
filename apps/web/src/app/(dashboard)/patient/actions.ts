@@ -12,6 +12,10 @@ import { patientLocationSchema } from "@/lib/validation/patient-location";
 import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
 import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
 import {
+  hospitalAdmissionSchema,
+  hospitalAdmissionUpdateSchema,
+} from "@/lib/validation/hospital-admissions";
+import {
   riskAssessmentSchema,
   QUESTION_CATEGORY,
   type RiskAssessmentInput,
@@ -667,6 +671,98 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     .from("emergency_events")
     .update({ contact_notified_at: new Date().toISOString() })
     .eq("id", eventId);
+
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Hospital admissions (patient-reported)
+// ---------------------------------------------------------------------------
+// A patient tells the platform they were/are admitted to hospital, with a
+// self-reported diagnosis and admission (and, once discharged, discharge) date.
+// The DB trigger raises a `clinician_review` care-plan-review alert — the plan
+// itself is only ever changed by a clinician (trust model). Duration is derived
+// from the two dates, never stored.
+
+export type HospitalAdmissionActionState =
+  | { error?: string; success?: boolean }
+  | undefined;
+
+export async function logHospitalAdmission(
+  _prevState: HospitalAdmissionActionState,
+  formData: FormData
+): Promise<HospitalAdmissionActionState> {
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = hospitalAdmissionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "No organisation on file" };
+  }
+
+  const { error } = await supabase.from("patient_hospital_admissions").insert({
+    patient_id: user.id,
+    organisation_id: profile.organisation_id,
+    admitted_on: parsed.data.admitted_on,
+    discharged_on: parsed.data.discharged_on || null,
+    facility_name: parsed.data.facility_name || null,
+    self_reported_diagnosis: parsed.data.self_reported_diagnosis || null,
+    reason: parsed.data.reason || null,
+  });
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function updateHospitalAdmission(
+  _prevState: HospitalAdmissionActionState,
+  formData: FormData
+): Promise<HospitalAdmissionActionState> {
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = hospitalAdmissionUpdateSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  // RLS restricts the update to the caller's own row; the BEFORE UPDATE guard
+  // additionally preserves every staff/system-owned field.
+  const { error } = await supabase
+    .from("patient_hospital_admissions")
+    .update({
+      discharged_on: parsed.data.discharged_on || null,
+      self_reported_diagnosis: parsed.data.self_reported_diagnosis || null,
+      reason: parsed.data.reason || null,
+    })
+    .eq("id", parsed.data.id)
+    .eq("patient_id", user.id);
+  if (error) {
+    return { error: error.message };
+  }
 
   return { success: true };
 }
