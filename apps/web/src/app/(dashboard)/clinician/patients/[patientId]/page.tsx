@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { PatientTimeline } from "@/components/patient-timeline";
 import { ScreeningResultForm } from "./screening-result-form";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
@@ -57,6 +58,7 @@ export default async function ClinicianPatientPage({
         </h1>
         {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
       </div>
+      <PatientTimeline patientId={patient.id} />
       {/* Clinician view is never gated by the patient's own subscription
           tier — refill coordination is a staff-visible clinical detail
           regardless of what the patient's plan does or doesn't unlock for
