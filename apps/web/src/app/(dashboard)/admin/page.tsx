@@ -181,6 +181,30 @@ export default async function AdminPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/conditions" className="hover:underline">
+              Chronic conditions
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            The phased chronic-disease catalogue. Launch with hypertension and diabetes; activate
+            asthma, COPD, heart failure, CKD and obesity as the programme scales. Each needs a
+            signed WHO protocol before it can go live.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/conditions"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage conditions →
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
             <SEMANTIC_ICON.billing className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             <Link href="/admin/settings/subscriptions" className="hover:underline">
               Subscription plans &amp; add-ons
