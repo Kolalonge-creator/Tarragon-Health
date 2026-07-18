@@ -375,6 +375,66 @@ export const staffActivitySchema = z.object({
 });
 export type StaffActivity = z.infer<typeof staffActivitySchema>;
 
+// ---- Patient activity (forensic / identified) -----------------------------
+export const patientSearchSchema = z
+  .array(
+    z.object({
+      patient_id: z.string(),
+      patient_number: z.string().nullable(),
+      name: z.string().nullable(),
+      phone: z.string().nullable(),
+      org: z.string().nullable(),
+      created_at: z.string(),
+    })
+  )
+  .default([]);
+export type PatientSearchResult = z.infer<typeof patientSearchSchema>;
+
+export const patientActivitySchema = z.object({
+  patient: z
+    .object({
+      patient_number: z.string().nullable(),
+      name: z.string().nullable(),
+      phone: z.string().nullable(),
+      created_at: z.string().nullable(),
+      onboarding_completed_at: z.string().nullable(),
+    })
+    .nullable()
+    .default(null),
+  engagement: z
+    .object({
+      total_login_sessions: z.number().default(0),
+      total_activity_events: z.number().default(0),
+      first_activity: z.string().nullable().default(null),
+      last_activity: z.string().nullable().default(null),
+      active_days: z.number().default(0),
+      days_since_last: z.number().nullable().default(null),
+    })
+    .partial()
+    .default({}),
+  login_sessions: z
+    .array(
+      z.object({
+        started: z.string(),
+        ended: z.string(),
+        duration_min: z.number(),
+        pageviews: z.number(),
+      })
+    )
+    .default([]),
+  activity: z
+    .array(
+      z.object({
+        occurred_at: z.string(),
+        type: z.string(),
+        label: z.string(),
+        source: z.string(),
+      })
+    )
+    .default([]),
+});
+export type PatientActivity = z.infer<typeof patientActivitySchema>;
+
 // ---- Governance & compliance ----------------------------------------------
 export const governanceSummarySchema = z.object({
   clinical: z

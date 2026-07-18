@@ -16,6 +16,7 @@ import {
   Clock4,
   Stethoscope,
   UserRound,
+  UserSearch,
   Users,
   Wallet,
 } from "lucide-react";
@@ -36,6 +37,7 @@ const TABS = [
   { href: "/analytics/facilities", label: "Facilities", icon: Building },
   { href: "/analytics/doctors", label: "Doctor performance", icon: Stethoscope },
   { href: "/analytics/team", label: "Team activity", icon: Clock4 },
+  { href: "/analytics/patient-activity", label: "Patient activity", icon: UserSearch },
   { href: "/analytics/governance", label: "Governance", icon: Gavel },
   { href: "/analytics/audit", label: "Audit log", icon: ScrollText },
 ] as const;

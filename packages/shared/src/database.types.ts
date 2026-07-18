@@ -6891,7 +6891,19 @@ export type Database = {
         Returns: Json
       }
       analytics_investor_summary: { Args: never; Returns: Json }
+      analytics_log_patient_access: {
+        Args: { p_patient_id: string; p_reason: string | null }
+        Returns: undefined
+      }
       analytics_operations_summary: { Args: never; Returns: Json }
+      analytics_patient_activity: {
+        Args: { p_patient_id: string }
+        Returns: Json
+      }
+      analytics_patient_search: {
+        Args: { p_query: string }
+        Returns: Json
+      }
       analytics_population_summary: { Args: never; Returns: Json }
       analytics_retention_cohorts: { Args: never; Returns: Json }
       analytics_revenue_by_plan: { Args: never; Returns: Json }

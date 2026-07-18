@@ -20,6 +20,8 @@ import {
   growthTimeseriesSchema,
   investorSummarySchema,
   operationsSummarySchema,
+  patientActivitySchema,
+  patientSearchSchema,
   populationSummarySchema,
   retentionCohortsSchema,
   riskRegisterSchema,
@@ -302,6 +304,48 @@ export function useFacilityEngagement() {
       const { data, error } = await createClient().rpc("analytics_facility_engagement");
       if (error) throw error;
       return facilityEngagementSchema.parse(data);
+    },
+  });
+}
+
+// ---- Patient activity (forensic / identified) -----------------------------
+export function usePatientSearch(query: string) {
+  return useQuery({
+    queryKey: ["analytics", "patient-search", query],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_patient_search", {
+        p_query: query,
+      });
+      if (error) throw error;
+      return patientSearchSchema.parse(data);
+    },
+    enabled: query.trim().length >= 2,
+  });
+}
+
+export function usePatientActivity(patientId: string | null) {
+  return useQuery({
+    queryKey: ["analytics", "patient-activity", patientId],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_patient_activity", {
+        p_patient_id: patientId as string,
+      });
+      if (error) throw error;
+      return patientActivitySchema.parse(data);
+    },
+    enabled: !!patientId,
+  });
+}
+
+/** Audits the analyst's access to a patient dossier (forensic hygiene). */
+export function useLogPatientAccess() {
+  return useMutation({
+    mutationFn: async ({ patientId, reason }: { patientId: string; reason: string }) => {
+      const { error } = await createClient().rpc("analytics_log_patient_access", {
+        p_patient_id: patientId,
+        p_reason: reason || null,
+      });
+      if (error) throw error;
     },
   });
 }
