@@ -313,3 +313,34 @@ values
      'Clinician response time for non-emergency questions moves to under 2 hours.',
      250, 'GBP', 'monthly', array['expedited_response'], null, false)
 on conflict (code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Health Education entitlement (mirrors 20260717151000). Appended here so a
+-- fresh env picks it up AFTER the plan/add-on inserts above — the migration's
+-- UPDATE would otherwise run before these rows exist. Idempotent.
+-- ---------------------------------------------------------------------------
+update public.subscription_plans
+   set features = array_append(features, 'health_education')
+ where code in (
+         'complete', 'complete_yearly',
+         'complete_usd', 'complete_gbp', 'complete_yearly_usd', 'complete_yearly_gbp',
+         'family', 'family_usd', 'family_gbp',
+         'parentcare', 'parentcare_yearly',
+         'parentcare_gbp', 'parentcare_yearly_gbp',
+         'parentcare_usd', 'parentcare_yearly_usd'
+       )
+   and not ('health_education' = any(features));
+
+insert into public.add_ons
+  (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code, is_active)
+values
+  ('health-education', 'Health Education',
+     'Personalised, clinician-reviewed learning built around your conditions, with short knowledge checks. Included free on Complete Care and above.',
+     500000, 'NGN', 'monthly', array['health_education'], 'essential', true),
+  ('health-education_usd', 'Health Education',
+     'Personalised, clinician-reviewed learning built around your conditions, with short knowledge checks. Included free on Complete Care and above.',
+     300, 'USD', 'monthly', array['health_education'], 'essential_usd', false),
+  ('health-education_gbp', 'Health Education',
+     'Personalised, clinician-reviewed learning built around your conditions, with short knowledge checks. Included free on Complete Care and above.',
+     250, 'GBP', 'monthly', array['health_education'], 'essential_gbp', false)
+on conflict (code) do nothing;

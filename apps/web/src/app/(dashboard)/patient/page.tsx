@@ -31,6 +31,7 @@ import { PreventiveScreeningCalendar } from "./preventive-screening-calendar";
 import { RiskAssessmentForm } from "./risk-assessment-form";
 import { CareProgrammeRecommendations } from "./care-programme-recommendations";
 import { PreventiveProgrammes } from "./preventive-programmes";
+import { HealthEducation } from "./health-education";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationRegistry } from "./vaccination-registry";
 import { LogVaccinationForm } from "./log-vaccination-form";
@@ -192,6 +193,17 @@ export default async function PatientPage() {
       >
         <CarePlanDisplay patientId={profile.id} />
       </RequiresEntitlement>
+      {profile.organisation_id && (
+        <RequiresEntitlement
+          feature="health_education"
+          fallback={<UpgradePrompt feature="health_education" />}
+        >
+          <HealthEducation
+            patientId={profile.id}
+            organisationId={profile.organisation_id}
+          />
+        </RequiresEntitlement>
+      )}
       <PreventiveScreeningCalendar
         patientId={profile.id}
         organisationId={profile.organisation_id}

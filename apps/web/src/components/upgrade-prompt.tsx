@@ -36,6 +36,10 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: "Lifestyle coaching is part of a paid plan",
     body: "Get guided diet, exercise, weight, sleep and stress coaching with progress reviews from your care team — included in Complete, Family and ParentCare, or add it on to Essential.",
   },
+  health_education: {
+    title: "Personalised health education is part of a paid plan",
+    body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks. Included on Complete Care and above, or add it to Essential Care.",
+  },
 };
 
 const DEFAULT_COPY = {
