@@ -61,6 +61,7 @@ export function OverviewDashboard() {
           { href: "/analytics/investor", title: "Investor", copy: "NRR/GRR, LTV/CAC, Rule of 40, runway." },
           { href: "/analytics/accounting", title: "Accounting", copy: "Rev-rec, deferred, AR aging, reconciliation." },
           { href: "/analytics/team", title: "Team activity", copy: "Staff logins, sessions, time on platform." },
+          { href: "/analytics/patient-activity", title: "Patient activity", copy: "Forensic per-patient engagement lookup." },
           { href: "/analytics/governance", title: "Governance", copy: "Credentials, consent, risk register." },
           {
             href: "/analytics/population",
