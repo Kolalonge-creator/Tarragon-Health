@@ -6915,8 +6915,8 @@ export type Database = {
           p_margin: number
           p_marketing: number
           p_month: string
-          p_new_customers: number
-          p_notes: string
+          p_new_customers: number | null
+          p_notes: string | null
           p_opex: number
         }
         Returns: undefined
@@ -6924,11 +6924,11 @@ export type Database = {
       analytics_upsert_risk: {
         Args: {
           p_category: string
-          p_id: string
+          p_id: string | null
           p_impact: string
           p_likelihood: string
-          p_mitigation: string
-          p_owner: string
+          p_mitigation: string | null
+          p_owner: string | null
           p_status: string
           p_title: string
         }
