@@ -2,20 +2,24 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useOrgAnnualReviews,
   useAdvanceAnnualReviewStage,
   useCompleteAnnualReview,
   useUpdateWorkupItem,
+  useWorkupCatalogue,
   type AnnualReviewWithContext,
   type AnnualReviewWorkupItem,
 } from "@/lib/queries/annual-reviews";
+import { proposeAnnualReviewConsult, addWorkupItem } from "./actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 // The ordered pathway, mapped to the completion column each stage owns. The
 // medication_review stage completion also triggers the DB-side reconciliation
@@ -72,6 +76,134 @@ function WorkupRow({ item }: { item: AnnualReviewWorkupItem }) {
         Save
       </Button>
     </li>
+  );
+}
+
+function toIso(localValue: string): string | null {
+  if (!localValue) return null;
+  const d = new Date(localValue);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Propose 1–3 candidate slots for the patient to confirm. */
+function ConsultProposer({ review }: { review: AnnualReviewWithContext }) {
+  const queryClient = useQueryClient();
+  const [slots, setSlots] = useState<string[]>(["", "", ""]);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const consult = review.video_consult;
+  if (consult?.scheduled_at) {
+    return (
+      <p className="text-sm text-charcoal-ink/70">
+        Video consult confirmed for{" "}
+        {new Date(consult.scheduled_at).toLocaleString("en-GB", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+        .
+      </p>
+    );
+  }
+  if (consult && (consult.proposed_slots?.length ?? 0) > 0) {
+    return (
+      <p className="text-sm text-charcoal-ink/70">
+        {consult.proposed_slots?.length} time(s) offered — awaiting the patient&apos;s pick.
+      </p>
+    );
+  }
+
+  const submit = async () => {
+    const iso = slots.map(toIso).filter((s): s is string => Boolean(s));
+    if (iso.length === 0) {
+      setError("Enter at least one time.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    const result = await proposeAnnualReviewConsult(review.id, iso);
+    setPending(false);
+    if (result && "error" in result) {
+      setError(result.error);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["annual-reviews"] });
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+        Offer video consult times
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {slots.map((value, i) => (
+          <Input
+            key={i}
+            type="datetime-local"
+            value={value}
+            onChange={(e) =>
+              setSlots((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))
+            }
+            className="h-8 w-auto text-xs"
+          />
+        ))}
+        <Button size="sm" disabled={pending} onClick={submit}>
+          {pending ? "Offering…" : "Offer times"}
+        </Button>
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+/** Add a catalogue workup item the age/sex auto-seed skipped. */
+function AddWorkup({ review }: { review: AnnualReviewWithContext }) {
+  const queryClient = useQueryClient();
+  const catalogue = useWorkupCatalogue();
+  const [code, setCode] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const present = new Set(review.workup_items.map((w) => w.code));
+  const options = (catalogue.data ?? []).filter((c) => !present.has(c.code));
+  if (options.length === 0) return null;
+
+  const submit = async () => {
+    if (!code) return;
+    setPending(true);
+    setError(null);
+    const result = await addWorkupItem(review.id, code);
+    setPending(false);
+    if (result && "error" in result) {
+      setError(result.error);
+      return;
+    }
+    setCode("");
+    queryClient.invalidateQueries({ queryKey: ["annual-reviews"] });
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        className="h-8 text-xs"
+      >
+        <option value="">Add a workup item…</option>
+        {options.map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.label}
+          </option>
+        ))}
+      </Select>
+      <Button size="sm" variant="outline" disabled={pending || !code} onClick={submit}>
+        Add
+      </Button>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
   );
 }
 
@@ -142,7 +274,13 @@ function ReviewCard({ review }: { review: AnnualReviewWithContext }) {
               <WorkupRow key={item.id} item={item} />
             ))}
           </ul>
+          <div className="mt-2">
+            <AddWorkup review={review} />
+          </div>
         </div>
+
+        {/* Video consult scheduling handshake */}
+        <ConsultProposer review={review} />
 
         {/* Year summary + complete */}
         <div className="space-y-1.5">

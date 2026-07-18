@@ -12,14 +12,23 @@ type ReviewingStaff = {
   credential_number: string | null;
 } | null;
 
+export type AnnualReviewConsult = {
+  id: string;
+  proposed_slots: string[] | null;
+  scheduled_at: string | null;
+  join_url: string | null;
+  status: string;
+} | null;
+
 export type AnnualReviewWithContext = AnnualReview & {
   patient: { full_name: string | null; patient_number: string | null } | null;
   reviewed_by_staff: ReviewingStaff;
   workup_items: AnnualReviewWorkupItem[];
+  video_consult: AnnualReviewConsult;
 };
 
 const REVIEW_SELECT =
-  "*, patient:profiles!annual_reviews_patient_id_fkey(full_name, patient_number), reviewed_by_staff:clinical_staff!annual_reviews_reviewed_by_fkey(full_name, credential_type, credential_number), workup_items:annual_review_workup_items(*)";
+  "*, patient:profiles!annual_reviews_patient_id_fkey(full_name, patient_number), reviewed_by_staff:clinical_staff!annual_reviews_reviewed_by_fkey(full_name, credential_type, credential_number), workup_items:annual_review_workup_items(*), video_consult:video_consultations!annual_reviews_video_consultation_id_fkey(id, proposed_slots, scheduled_at, join_url, status)";
 
 const patientKey = (patientId: string) => ["annual-reviews", "patient", patientId] as const;
 const orgKey = ["annual-reviews", "org"] as const;
@@ -134,6 +143,24 @@ export function useCompleteAnnualReview() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["annual-reviews"] });
+    },
+  });
+}
+
+export type WorkupCatalogueItem = Tables<"annual_review_workup_catalogue">;
+
+/** The full workup catalogue — powers the clinician "add item" picker. */
+export function useWorkupCatalogue() {
+  return useQuery({
+    queryKey: ["annual-reviews", "workup-catalogue"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("annual_review_workup_catalogue")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data as WorkupCatalogueItem[]) ?? [];
     },
   });
 }
