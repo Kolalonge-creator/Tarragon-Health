@@ -13,6 +13,7 @@ const ROLE_LABEL: Record<string, string> = {
   corporate_admin: "Corporate admin",
   care_coordinator: "Care Coordinator",
   pharmacist: "Partner Pharmacy",
+  analyst: "Platform Analytics",
 };
 
 export default async function DashboardLayout({
