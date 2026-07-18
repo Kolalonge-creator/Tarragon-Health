@@ -2141,6 +2141,157 @@ export type Database = {
           },
         ]
       }
+      custom_roles: {
+        Row: {
+          base_role: Database["public"]["Enums"]["user_role"]
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          base_role: Database["public"]["Enums"]["user_role"]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          base_role?: Database["public"]["Enums"]["user_role"]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permissions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          key: string
+          label: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          key: string
+          label: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          key?: string
+          label?: string
+        }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          custom_role_id: string
+          permission_key: string
+        }
+        Insert: {
+          custom_role_id: string
+          permission_key: string
+        }
+        Update: {
+          custom_role_id?: string
+          permission_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_permissions_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      user_permission_grants: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          id: string
+          permission_key: string
+          profile_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          permission_key: string
+          profile_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          permission_key?: string
+          profile_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permission_grants_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "user_permission_grants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permission_grants_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       home_visit_providers: {
         Row: {
           created_at: string
@@ -4997,6 +5148,7 @@ export type Database = {
           area: string | null
           city: string | null
           created_at: string
+          custom_role_id: string | null
           date_of_birth: string | null
           emergency_contact_consent: boolean
           emergency_contact_consent_at: string | null
@@ -5024,6 +5176,7 @@ export type Database = {
           area?: string | null
           city?: string | null
           created_at?: string
+          custom_role_id?: string | null
           date_of_birth?: string | null
           emergency_contact_consent?: boolean
           emergency_contact_consent_at?: string | null
@@ -5051,6 +5204,7 @@ export type Database = {
           area?: string | null
           city?: string | null
           created_at?: string
+          custom_role_id?: string | null
           date_of_birth?: string | null
           emergency_contact_consent?: boolean
           emergency_contact_consent_at?: string | null
@@ -5075,6 +5229,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -6830,6 +6991,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_member_activity: {
+        Args: { p_member: string }
+        Returns: Json
+      }
       admin_broadcast_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]

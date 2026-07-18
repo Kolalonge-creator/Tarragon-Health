@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCallerPermissions } from "@/lib/auth/permissions";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -7,10 +8,27 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 export default async function AdminPage() {
   const profile = await getCurrentProfile();
 
+  const { isSuperAdmin, keys } = await getCallerPermissions();
+  const canManageUsers =
+    isSuperAdmin ||
+    keys.has("users.provision") ||
+    keys.has("users.roles.assign") ||
+    keys.has("users.permissions.grant") ||
+    keys.has("roles.manage");
+  const canManagePartners =
+    isSuperAdmin ||
+    ["partners.labs.manage", "partners.pharmacies.manage", "partners.facilities.manage", "partners.specialists.manage", "partners.home_visit.manage", "partners.logistics.manage"].some(
+      (k) => keys.has(k)
+    );
+  const canViewAnalytics = isSuperAdmin || keys.has("analytics.view");
+  // A member only sees an operational card if they can actually use that surface.
+  // Cards with no dedicated capability key stay super-admin-only.
+  const can = (key: string) => isSuperAdmin || keys.has(key);
+
   return (
     <DashboardPlaceholder
       greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
-      roleLabel="Admin"
+      roleLabel={isSuperAdmin ? "Super Admin" : "Admin"}
       comingUp={[
         "Users, orgs, system health (API latency, WhatsApp delivery, ML status)",
         "Finance: MRR/ARR/churn/commission/receivables",
@@ -18,6 +36,73 @@ export default async function AdminPage() {
         "Audit trail + NDPR export/erasure tools",
       ]}
     >
+      {canManageUsers && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+              <Link href="/admin/settings/members" className="hover:underline">
+                Members &amp; access
+              </Link>
+            </CardTitle>
+            <CardDescription>
+              Create logins for employees and partners, assign roles, build custom roles, and
+              delegate specific capabilities to individual members.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/settings/members" className="text-sm font-medium text-brand-green hover:underline">
+              Manage members &amp; access →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {canManagePartners && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+              <Link href="/admin/settings/partners" className="hover:underline">
+                Partners
+              </Link>
+            </CardTitle>
+            <CardDescription>
+              Add and manage the partner network — labs, pharmacies, hospitals, specialists, and
+              logistics.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/settings/partners" className="text-sm font-medium text-brand-green hover:underline">
+              Manage partners →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {canViewAnalytics && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+              <Link href="/analytics" className="hover:underline">
+                Platform analytics
+              </Link>
+            </CardTitle>
+            <CardDescription>
+              Company-wide business, financial, and population-health intelligence across every
+              organisation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/analytics" className="text-sm font-medium text-brand-green hover:underline">
+              Open analytics console →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {isSuperAdmin && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -40,7 +125,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {isSuperAdmin && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -63,7 +150,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("partners.facilities.manage") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -86,7 +175,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {isSuperAdmin && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -108,7 +199,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {isSuperAdmin && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -131,7 +224,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("clinical_staff.manage") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -154,7 +249,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("protocols.manage") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -177,7 +274,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("conditions.manage") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -201,7 +300,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("health_education.manage") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -224,7 +325,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("subscriptions.manage") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -247,7 +350,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("commissions.view") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -270,7 +375,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {(can("partners.home_visit.manage") || can("partners.logistics.manage")) && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -293,7 +400,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("broadcasts.send") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -316,7 +425,9 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
 
+      {can("service_regions.manage") && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -339,6 +450,7 @@ export default async function AdminPage() {
           </Link>
         </CardContent>
       </Card>
+      )}
     </DashboardPlaceholder>
   );
 }

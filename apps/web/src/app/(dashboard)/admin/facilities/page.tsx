@@ -1,15 +1,15 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { hasPermission } from "@/lib/auth/permissions";
 import { FacilityManager } from "./facility-manager";
 
 export default async function AdminFacilitiesPage() {
   const profile = await getCurrentProfile();
+  if (!profile) redirect("/login");
 
-  // proxy.ts already blocks non-admins from reaching any /admin/** route at
-  // the routing layer — this is a defense-in-depth check on top of that,
-  // since this page's content (not just its RLS-protected data) is
-  // admin-only.
-  if (profile?.role !== "admin") {
+  // The super admin or a member delegated `partners.facilities.manage` may
+  // manage facilities. Content-level guard on top of the RLS the writes obey.
+  if (!(await hasPermission("partners.facilities.manage"))) {
     redirect("/admin");
   }
 

@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { hasAnyPermission } from "@/lib/auth/permissions";
 import { LogisticsPartnersManager } from "./logistics-partners-manager";
 
 export default async function LogisticsPartnersSettingsPage() {
   const profile = await getCurrentProfile();
+  if (!profile) redirect("/login");
 
-  // proxy.ts already blocks non-admins from reaching any /admin/** route at
-  // the routing layer — this is a defense-in-depth check on top of that.
-  if (profile?.role !== "admin") {
+  // Super admin, or a member delegated home-visit or logistics management.
+  if (!(await hasAnyPermission("partners.home_visit.manage", "partners.logistics.manage"))) {
     redirect("/admin");
   }
 
