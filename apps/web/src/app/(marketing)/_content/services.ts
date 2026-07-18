@@ -199,6 +199,8 @@ export const AUDIENCE_TABS: AudienceTab[] = [
   },
 ];
 
+// Ordered most-asked first: the homepage surfaces the top 4 and links out to
+// the rest (pricing FAQ + contact); the full set stays here as the source.
 export const HOMEPAGE_FAQS = [
   {
     question: "What is Tarragon Health?",
@@ -206,19 +208,9 @@ export const HOMEPAGE_FAQS = [
       "TarragonHealth is a health monitoring platform for chronic disease, preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
   },
   {
-    question: "How do I log my blood pressure or glucose?",
-    answer:
-      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team on WhatsApp for support. Logging itself happens on app or web.",
-  },
-  {
     question: "What happens when readings are high?",
     answer:
       "Your readings are reviewed against care protocols. If they need attention, your care team follows up and escalates to a doctor when closer care is needed.",
-  },
-  {
-    question: "What about preventive checks and screening results?",
-    answer:
-      "Tarragon tracks what checks may be due, reminds you to complete them, and reviews results when they come back. An abnormal screening result triggers doctor follow-up and can upgrade you into chronic care monitoring when needed.",
   },
   {
     question: "Can I use Tarragon for my parent while I live abroad?",
@@ -226,13 +218,23 @@ export const HOMEPAGE_FAQS = [
       "Yes. ParentCare is built for families who want calm updates and care coordination for loved ones in Nigeria.",
   },
   {
+    question: "How much does it cost?",
+    answer:
+      "Pricing is shown clearly with no hidden costs. Some services are included, some are book-and-pay through partners, and some are add-ons. See the pricing page for every plan and add-on in full.",
+  },
+  {
+    question: "How do I log my blood pressure or glucose?",
+    answer:
+      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team on WhatsApp for support. Logging itself happens on app or web.",
+  },
+  {
+    question: "What about preventive checks and screening results?",
+    answer:
+      "Tarragon tracks what checks may be due, reminds you to complete them, and reviews results when they come back. An abnormal screening result triggers doctor follow-up and can upgrade you into chronic care monitoring when needed.",
+  },
+  {
     question: "Do I need a smartphone?",
     answer:
       "You need a smartphone or computer to use the app or web dashboard, where your health record and care actions live. WhatsApp and SMS still bring you reminders, alerts, and a way to message your care team for support.",
-  },
-  {
-    question: "How much does it cost?",
-    answer:
-      "Pricing will be shown clearly with no hidden costs. Some services are included, some are book-and-pay through partners, and some are add-ons.",
   },
 ] as const;

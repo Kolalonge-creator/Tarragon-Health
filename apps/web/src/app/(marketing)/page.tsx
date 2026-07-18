@@ -104,7 +104,13 @@ export default function MarketingHomePage() {
           description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not."
           media={homepage.solution}
           reverse
-        />
+        >
+          <div className="mt-6">
+            <Button asChild variant="outline">
+              <Link href={MARKETING_ROUTES.about}>How Tarragon works</Link>
+            </Button>
+          </div>
+        </StoryPanel>
       </Section>
 
       <Section variant="sage">
@@ -170,21 +176,21 @@ export default function MarketingHomePage() {
 
       <Section>
         <SectionHeading eyebrow="How it works" title="From sign-up to family updates" />
-        <ol className="mx-auto grid max-w-4xl gap-4 lg:grid-cols-2">
+        <ol className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {HOW_IT_WORKS_STEPS.map(({ step, title, body }) => (
             <li
               key={step}
-              className="flex gap-4 rounded-xl border border-charcoal-ink/10 bg-white p-5 shadow-sm"
+              className="flex gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-4"
             >
               <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-clinical-navy text-sm font-semibold text-white"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-clinical-navy text-xs font-semibold text-white"
                 aria-hidden
               >
                 {step}
               </span>
               <div>
-                <h3 className="font-heading font-semibold text-charcoal-ink">{title}</h3>
-                <p className="mt-1 text-sm text-charcoal-ink/70">{body}</p>
+                <h3 className="font-heading text-sm font-semibold text-charcoal-ink">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/70">{body}</p>
               </div>
             </li>
           ))}
@@ -192,21 +198,22 @@ export default function MarketingHomePage() {
       </Section>
 
       <Section variant="navy">
-        <StoryPanel
-          invertText
-          eyebrow="Why trust us"
-          title="Consistent, protocol-driven, evidence-focused"
-          description="We are not a wellness app. Tarragon is built for the care between doctor visits, with doctors who know your name and protocols that keep follow-up consistent."
-          media={homepage.solution}
-        />
-      </Section>
-
-      <Section variant="sage">
         <SectionHeading
+          invert
           eyebrow="Why families trust Tarragon"
           title="A doctor who knows your name. Not a hospital PA system."
+          description="We are not a wellness app. Tarragon is built for the care between doctor visits — protocol-driven, evidence-focused, and consistent."
         />
         <TrustPillars />
+        <div className="mt-10 text-center">
+          <Link
+            href={MARKETING_ROUTES.about}
+            className="inline-flex items-center gap-1.5 font-medium text-white underline underline-offset-4 hover:text-white/80"
+          >
+            Read our story
+            <span aria-hidden>→</span>
+          </Link>
+        </div>
       </Section>
 
       <Section>
@@ -232,7 +239,7 @@ export default function MarketingHomePage() {
           description="Clear answers before anyone signs up, because trust starts with knowing what is included."
         />
         <div className="mx-auto grid max-w-4xl gap-4">
-          {HOMEPAGE_FAQS.map((faq) => (
+          {HOMEPAGE_FAQS.slice(0, 4).map((faq) => (
             <details
               key={faq.question}
               className="group rounded-xl border border-charcoal-ink/10 bg-white p-5"
@@ -247,6 +254,17 @@ export default function MarketingHomePage() {
             </details>
           ))}
         </div>
+        <p className="mx-auto mt-8 max-w-4xl text-center text-sm text-charcoal-ink/70">
+          More questions? See the full breakdown on our{" "}
+          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
+            pricing page
+          </Link>{" "}
+          or{" "}
+          <Link href={MARKETING_ROUTES.contact} className="font-medium text-deep-forest hover:underline">
+            get in touch
+          </Link>
+          .
+        </p>
       </Section>
 
       <Section>
