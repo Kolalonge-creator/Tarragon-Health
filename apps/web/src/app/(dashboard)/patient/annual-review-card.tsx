@@ -1,12 +1,15 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   usePatientAnnualReview,
   type AnnualReviewWithContext,
 } from "@/lib/queries/annual-reviews";
+import { confirmAnnualReviewSlot } from "./annual-review-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const STAGES: { key: string; label: string; stampedBy: keyof AnnualReviewWithContext }[] = [
   { key: "questionnaire", label: "Questionnaires", stampedBy: "questionnaire_completed_at" },
@@ -23,6 +26,94 @@ function formatDate(value: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** The doctor↔patient day/time handshake: pick one of the proposed slots. */
+function ConsultScheduler({
+  consult,
+  patientId,
+}: {
+  consult: NonNullable<AnnualReviewWithContext["video_consult"]>;
+  patientId: string;
+}) {
+  const queryClient = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Already agreed a time.
+  if (consult.scheduled_at) {
+    return (
+      <div className="rounded-md bg-blue-50 p-3 text-sm">
+        <p className="font-medium text-charcoal-ink">
+          Your video consult is booked for {formatDateTime(consult.scheduled_at)}.
+        </p>
+        {consult.join_url ? (
+          <a
+            href={consult.join_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-green hover:underline"
+          >
+            Join the call →
+          </a>
+        ) : (
+          <p className="text-charcoal-ink/60">Your join link will appear here shortly.</p>
+        )}
+      </div>
+    );
+  }
+
+  const slots = consult.proposed_slots ?? [];
+  if (slots.length === 0) {
+    return null;
+  }
+
+  const pick = async (slot: string) => {
+    setPending(true);
+    setError(null);
+    // Postgres returns timestamptz as "2026-07-20 09:00:00+00" (space + "+00"),
+    // which zod's .datetime() rejects — normalise to strict ISO first.
+    const isoSlot = new Date(slot).toISOString();
+    const result = await confirmAnnualReviewSlot(consult.id, isoSlot);
+    setPending(false);
+    if (result && "error" in result) {
+      setError(result.error);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["annual-reviews", "patient", patientId] });
+  };
+
+  return (
+    <div className="rounded-md border border-charcoal-ink/10 p-3 text-sm">
+      <p className="mb-2 font-medium text-charcoal-ink">
+        Your doctor offered these times for your annual review call — pick one:
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {slots.map((slot) => (
+          <Button
+            key={slot}
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => pick(slot)}
+          >
+            {formatDateTime(slot)}
+          </Button>
+        ))}
+      </div>
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </div>
+  );
 }
 
 /**
@@ -87,13 +178,8 @@ export function AnnualReviewCard({ patientId }: { patientId: string }) {
           </p>
         )}
 
-        {review.video_consultation_id && !completed && (
-          <Link
-            href="/patient/appointments"
-            className="inline-block text-sm font-medium text-brand-green hover:underline"
-          >
-            Your annual review video consult is booked →
-          </Link>
+        {review.video_consult && !completed && (
+          <ConsultScheduler consult={review.video_consult} patientId={patientId} />
         )}
 
         {completed && review.completed_at && (

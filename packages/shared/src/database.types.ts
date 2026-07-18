@@ -6026,7 +6026,9 @@ export type Database = {
           initiated_by: string | null
           join_url: string | null
           organisation_id: string
+          patient_confirmed_at: string | null
           patient_id: string
+          proposed_slots: string[] | null
           scheduled_at: string | null
           specialist_referral_id: string | null
           started_at: string | null
@@ -6045,7 +6047,9 @@ export type Database = {
           initiated_by?: string | null
           join_url?: string | null
           organisation_id: string
+          patient_confirmed_at?: string | null
           patient_id: string
+          proposed_slots?: string[] | null
           scheduled_at?: string | null
           specialist_referral_id?: string | null
           started_at?: string | null
@@ -6064,7 +6068,9 @@ export type Database = {
           initiated_by?: string | null
           join_url?: string | null
           organisation_id?: string
+          patient_confirmed_at?: string | null
           patient_id?: string
+          proposed_slots?: string[] | null
           scheduled_at?: string | null
           specialist_referral_id?: string | null
           started_at?: string | null
