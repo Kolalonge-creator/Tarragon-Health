@@ -60,6 +60,7 @@ export function OverviewDashboard() {
           { href: "/analytics/financial", title: "Financial", copy: "MRR, revenue, commissions, churn." },
           { href: "/analytics/investor", title: "Investor", copy: "NRR/GRR, LTV/CAC, Rule of 40, runway." },
           { href: "/analytics/accounting", title: "Accounting", copy: "Rev-rec, deferred, AR aging, reconciliation." },
+          { href: "/analytics/doctors", title: "Doctor performance", copy: "Panels, throughput, response speed." },
           { href: "/analytics/team", title: "Team activity", copy: "Staff logins, sessions, time on platform." },
           { href: "/analytics/governance", title: "Governance", copy: "Credentials, consent, risk register." },
           {
