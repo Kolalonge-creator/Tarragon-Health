@@ -4,16 +4,19 @@ import { AnalyticsNav } from "./_components/analytics-nav";
 
 /**
  * Platform Analytics & Audit Console — a company-wide, cross-organisation
- * surface for the dedicated `analyst` role, kept separate from `admin` (which
- * stays operational/settings-focused). Access is gated here at the layout so
- * every sub-page is covered; the underlying data RPCs are independently gated
- * by private.is_analyst(), so even a bypassed page would return nothing.
+ * surface for the dedicated `analyst` role AND the `admin` super admin (who has
+ * full platform control, so holds every analyst surface plus its own operational
+ * ones — "all the analyst data and more"). Access is gated here at the layout so
+ * every sub-page is covered; the underlying data RPCs are independently gated by
+ * private.is_analyst() (widened to analyst OR admin in
+ * 20260718230100_rbac_partner_rls_and_analyst_admin.sql), so even a bypassed page
+ * would return nothing.
  */
 export default async function AnalyticsLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
 
-  if (profile.role !== "analyst") {
+  if (profile.role !== "analyst" && profile.role !== "admin") {
     return (
       <div className="mx-auto max-w-3xl p-6">
         <h1 className="font-heading text-xl font-semibold text-clinical-navy">
