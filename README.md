@@ -9,7 +9,7 @@ full business/feature spec.
 
 ```
 apps/
-  web/          Next.js 16 web app (patient/nurse/doctor/admin/HMO/corporate)
+  web/          Next.js 16 web app (patient/clinician/doctor/admin/HMO/corporate)
   mobile/       React Native Expo app (planned)
 services/
   ml/           Python FastAPI ML microservice (stateless; scaffold pending)

@@ -2,6 +2,24 @@ packages:
   - "apps/*"
   - "packages/*"
 
-onlyBuiltDependencies:
-  - sharp
-  - unrs-resolver
+# pnpm 11 removed `onlyBuiltDependencies`; approved build scripts now live in the
+# `allowBuilds` map (name -> boolean). sharp powers Next.js image optimisation,
+# unrs-resolver is a native resolver used by the ESLint/oxc toolchain, and
+# @sentry/cli downloads the prebuilt Sentry CLI binary used for source-map
+# upload during build (apps/web/next.config.ts's withSentryConfig).
+allowBuilds:
+  '@sentry/cli': true
+  sharp: true
+  unrs-resolver: true
+
+# apps/mobile (react-native@0.74.5) pulls jest-environment-node/jest-mock@29.7.0
+# as transitive deps of its own internal test helpers, which we don't use. Left
+# unpinned, pnpm hoists both 29.x and 30.x copies into the workspace and Jest's
+# module-mocker construction picks up the mismatched 29.x build, breaking
+# `pnpm test` repo-wide with "clearMocksOnScope is not a function". Pin to the
+# 30.x line every other package already uses.
+overrides:
+  jest-environment-node: "30.4.1"
+  jest-mock: "30.4.1"
+  "@types/react": "19.2.17"
+  "@types/react-dom": "19.2.3"

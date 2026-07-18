@@ -25,14 +25,14 @@ Tarragon Health is not selling healthcare — it's selling **continuity**: "the 
 ## 3. Voice: Do / Don't
 | Do | Don't |
 |---|---|
-| "Your BP has been a little high this week — your nurse will call today." | "WARNING: Abnormal reading detected." |
+| "Your BP has been a little high this week — your clinician will call today." | "WARNING: Abnormal reading detected." |
 | "Dad's numbers looked good this week." | "Patient X-4471 vitals within normal parameters." |
 | "12% of your team are pre-diabetic — here's what that could cost, and how we bring it down." | "Revolutionary AI-powered platform disrupting Nigerian healthcare!" |
 
 **Words to use often:** Monitor · Follow-up · Remind · Coordinate · Support · Prevent · Escalate · Review · Loved ones · Parent · Family · Care gaps · Health record · Peace of mind
 **Words to avoid entirely:** Cure · Guaranteed · Emergency response · Instant doctor · Replace hospital · Diagnose yourself · Perfect control · No complications · Free healthcare
 
-Personality pillars: **Trustworthy** (we earn trust, don't claim it) · **Warm** (a nurse who knows your name, not a hospital PA system) · **Intelligent** (explain HbA1c in one clear sentence, never patronise) · **Calm** (notice things early and calmly, never alarmist) · **Premium but accessible** · **Nigerian-relevant** (local examples — jollof, garri, market BP cuffs — always).
+Personality pillars: **Trustworthy** (we earn trust, don't claim it) · **Warm** (a clinician who knows your name, not a hospital PA system) · **Intelligent** (explain HbA1c in one clear sentence, never patronise) · **Calm** (notice things early and calmly, never alarmist) · **Premium but accessible** · **Nigerian-relevant** (local examples — jollof, garri, market BP cuffs — always).
 
 ## 4. Logo — "Guard Leaf"
 Shield silhouette (protection, continuous monitoring) + sprout crown (two leaflets at the apex — prevention and growth) + checkmark vein (the leaf's midrib drawn as a checkmark — a completed reading, a closed care gap). Assets: `Tarragon_Health_Logo_Mark.png` (mark alone), `Tarragon_Health_Logo_Lockup.png` (mark + wordmark + tagline).
@@ -63,7 +63,7 @@ Usage ratio: 60% Ivory/Sage/White (space to breathe) · 25% Green/Forest/Navy (b
 *(Full hex values for Sprout Gold, Soft Sage, Warm Ivory, Charcoal Ink, and Deep Forest are defined in the project's existing CSS design-token file — pull from there, don't re-derive.)*
 
 ### Clinical status colours — a SEPARATE system, never confuse with brand colour
-A 5-state system powers patient/family/nurse dashboards: **Green** (normal/on-track) · **Amber** (borderline/needs attention) · **Red** (abnormal/urgent — reserved strictly for true clinical alerts so it never loses meaning) · **Blue** (informational) · **Grey** (pending/not yet due). Always pair colour with an icon — never colour alone (colour-blind safety).
+A 5-state system powers patient/family/clinician dashboards: **Green** (normal/on-track) · **Amber** (borderline/needs attention) · **Red** (abnormal/urgent — reserved strictly for true clinical alerts so it never loses meaning) · **Blue** (informational) · **Grey** (pending/not yet due). Always pair colour with an icon — never colour alone (colour-blind safety).
 
 ## 6. Typography
 | Use | Typeface | Notes |
@@ -74,17 +74,17 @@ A 5-state system powers patient/family/nurse dashboards: **Green** (normal/on-tr
 | WhatsApp/SMS | Plain text only | Voice and structure carry the brand, not styling |
 
 ## 7. Icon System
-Single rounded-stroke set, 2px weight, single colour (Deep Forest or Tarragon Green). **Never** photo-realistic medical icons. BP monitoring → cuff/pulse line · Diabetes → glucose droplet · Medication → pill bottle · Labs → test tube · ParentCare → parent+child figures · Nurse follow-up → headset · Preventive → shield+check · Family → linked circles · Escalation → care note · Pharmacy → medicine bag · Corporate → building+pulse · HMO → population grid.
+Single rounded-stroke set, 2px weight, single colour (Deep Forest or Tarragon Green). **Never** photo-realistic medical icons. BP monitoring → cuff/pulse line · Diabetes → glucose droplet · Medication → pill bottle · Labs → test tube · ParentCare → parent+child figures · Clinician follow-up → headset · Preventive → shield+check · Family → linked circles · Escalation → care note · Pharmacy → medicine bag · Corporate → building+pulse · HMO → population grid.
 
 ## 8. Photography & Illustration
-**Show:** adult children with parents, Nigerian families in natural settings, older adults using BP monitors, nurses on calm follow-up calls, people reassured (not sick), clean homes, technology used simply.
+**Show:** adult children with parents, Nigerian families in natural settings, older adults using BP monitors, clinicians on calm follow-up calls, people reassured (not sick), clean homes, technology used simply.
 **Avoid:** emergency scenes, critically ill people, overly Western stock, hospital corridors only, doctors pointing at charts, fake call-centre smiles, generic wellness yoga imagery.
 
 ## 9. Dashboard UI Pattern
 Card-based, never dense clinical tables for patients/families. Each card: current status (green/amber/red) · relevant trend · one clear next action.
 - **Patient dashboard:** today's status, latest BP, latest glucose, medication, labs due, preventive checks, Health Passport, next action
 - **Family dashboard:** "Is my loved one okay?", medication status, latest readings, upcoming actions, monthly report, alerts
-- **Nurse dashboard:** patients due today, abnormal readings, missed medications, labs overdue, escalations, family updates pending, caseload metrics
+- **Clinician dashboard:** patients due today, abnormal readings, missed medications, labs overdue, escalations, family updates pending, caseload metrics
 
 ## 10. Copy Reference Snippets
 
@@ -126,6 +126,6 @@ Single master brand — **no independent sub-brands**. Product names are descrip
 | Primary colour | Tarragon Green `#0E7C52` · B2B: Clinical Navy `#12324B` |
 | Fonts | Sora (headlines) · Inter (UI/body) |
 | Archetype | Guardian (primary) · Guide (secondary) |
-| Voice in one line | A nurse who knows your name, not a hospital PA system |
+| Voice in one line | A clinician who knows your name, not a hospital PA system |
 | Best product CTA | Start monitoring. |
 | Never do | Fear-based urgency · red medical crosses · Western stock photography · invented sub-brand names |

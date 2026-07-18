@@ -45,3 +45,27 @@ template = "Your Tarragon Health code is {{ .Code }}"
 
 [edge_runtime]
 enabled = true
+
+# Meta calls this unauthenticated (no Supabase JWT) — GET handshake uses
+# hub.verify_token, POST is validated via X-Hub-Signature-256 when
+# WHATSAPP_APP_SECRET is set (docs/ARCHITECTURE.md §8).
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+# Paystack calls this unauthenticated (no Supabase JWT) — validated instead
+# via HMAC-SHA512 x-paystack-signature when PAYSTACK_WEBHOOK_SECRET is set.
+[functions.paystack-webhook]
+verify_jwt = false
+
+# Stripe calls this unauthenticated (no Supabase JWT) — validated instead via
+# stripe-signature, checked with the Stripe SDK's constructEventAsync when
+# STRIPE_WEBHOOK_SECRET is set.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Zoom calls this unauthenticated (no Supabase JWT) — validated instead via
+# x-zm-signature (HMAC-SHA256 of the raw body) when ZOOM_WEBHOOK_SECRET_TOKEN
+# is set. Also answers Zoom's one-time endpoint.url_validation handshake
+# needed to activate the webhook subscription.
+[functions.zoom-webhook]
+verify_jwt = false

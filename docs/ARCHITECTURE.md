@@ -12,10 +12,10 @@ These derive directly from `CLAUDE.md` and shape every decision below.
 
 1. **Two layers, one boundary.** A TypeScript platform owns all state, auth, and business logic. A Python ML service is **stateless**, has **no database access**, and only ever receives data in the request body over HTTP. The platform must keep working if ML is down.
 2. **Multi-tenant by construction.** Every domain table carries `organisation_id`. Tenant isolation is enforced by **Postgres Row-Level Security (RLS)** — never in application code, never bypassed "just for this query".
-3. **WhatsApp is a first-class channel, not an add-on.** Every patient-facing capability must work via WhatsApp/SMS **and** app/web. No feature ships app-only.
+3. **App/web is the interface for signup and every core action; WhatsApp is notifications plus human support chat, never automation.** *(Superseded 2026-07-11 — see CLAUDE.md.)* Signup, onboarding, and every core patient/clinician transaction (vitals/meds/screening/booking, etc.) happen via app or web — no feature may depend on a WhatsApp send succeeding, and there is no WhatsApp-initiated signup or bot-driven data entry. Patients may message their doctor on WhatsApp for support and the doctor may reply there too — that two-way channel is human-routed to a clinician inbox, never parsed by automation into a platform action.
 4. **The abnormal-result event is sacred.** A screening result of `abnormal|critical` triggering a Category 1 upgrade is the highest-priority event in the system. It must be immediate, reliable, and auditable — never lost, never silently swallowed.
 5. **Money is exact.** All NGN stored in **kobo** (integer). Diaspora billing in GBP (primary) / USD (secondary) via Stripe.
-6. **Data residency + compliance first.** Supabase Postgres in **`af-south-1`** for NDPR. Immutable audit log for every clinical, billing, and ML event.
+6. **Data residency + compliance first.** Supabase Postgres in **`eu-west-1`** (Supabase has no Africa region; closest available to Nigeria, NDPR residency gap accepted for now). Immutable audit log for every clinical, billing, and ML event.
 7. **Everything typed.** TypeScript strict, no `any`, Zod at every API boundary. Python 3.12, Pydantic v2 at every ML endpoint.
 
 ---
@@ -27,12 +27,12 @@ These derive directly from `CLAUDE.md` and shape every decision below.
 | Monorepo | **pnpm workspaces + Turborepo** | pnpm only — never npm/yarn |
 | Web | **Next.js 16**, TypeScript, Tailwind v4, shadcn/ui | `apps/web`. (Note: repo is on Next.js **16**, not 15 as older docs said — 16 is the decision of record. This Next.js has breaking changes vs. training data — read `node_modules/next/dist/docs/` before writing framework code, per `AGENTS.md`.) |
 | Mobile | React Native **Expo** | `apps/mobile` |
-| DB / Auth / Storage / Realtime | **Supabase Postgres**, `af-south-1`, pgvector | RLS enforced platform-wide |
+| DB / Auth / Storage / Realtime | **Supabase Postgres**, `eu-west-1`, pgvector | RLS enforced platform-wide; NDPR residency gap accepted (no Supabase Africa region) |
 | Edge compute | Supabase **Edge Functions** (Deno) | Triggers, webhooks, the abnormal-result handler |
-| Cache / queues / conversation state | **Upstash Redis** | WhatsApp conversation state lives here, not Postgres |
+| Cache / queues / notification state | **Upstash Redis** | Outbound WhatsApp/SMS notification/delivery state (dedup/retry) lives here, not Postgres — no bot/intent routing; inbound WhatsApp is human support chat only (§1.3, §8) |
 | AI orchestration | **LangGraph.js + Claude API** | Clinical workflows, summaries, triage support |
 | ML microservice | **Python 3.12 + FastAPI 0.115+**, uv | `services/ml` — stateless, standalone |
-| Comms | **WhatsApp Cloud API** (primary), **Termii SMS** (fallback) | E.164 numbers, `Africa/Lagos` tz |
+| Comms | **WhatsApp Cloud API** + **Termii SMS** (fallback) | Notifications + human doctor↔patient support chat only — never a transactional/signup interface (§1.3) — E.164 numbers, `Africa/Lagos` tz |
 | Payments | **Paystack** (NGN), **Stripe** (GBP/USD) | Kobo storage, webhook-driven |
 | Hosting | **Vercel** (web + Edge), **Railway/Render** (ML — TBD), **Cloudflare** (DNS/edge) | ML host not yet provisioned |
 | Shared types/client | `packages/shared` | Zod schemas, DB types, typed `ml-client.ts` |
@@ -46,8 +46,7 @@ graph TB
   subgraph Actors
     P[Patient]
     F[Family member]
-    N[Nurse / Clinician]
-    D[Doctor]
+    N[Clinician]
     A[Admin]
     HMO[HMO admin]
     CORP[Corporate admin]
@@ -66,7 +65,7 @@ graph TB
     AI[LangGraph.js + Claude]
   end
 
-  subgraph Data["Supabase (af-south-1)"]
+  subgraph Data["Supabase (eu-west-1)"]
     DB[(Postgres + RLS + pgvector)]
     STORE[(Storage)]
     AUTH[Supabase Auth]
@@ -83,7 +82,7 @@ graph TB
   end
 
   P & F --> WA & WEB & MOB
-  N & D & A & HMO & CORP --> WEB
+  N & A & HMO & CORP --> WEB
   WA <--> EDGE
   SMS <--> EDGE
   WEB & MOB --> API
@@ -128,7 +127,7 @@ graph LR
 ```
 tarragonhealth/
 ├─ apps/
-│  ├─ web/                 # Next.js 16 (App Router) — patient/nurse/doctor/admin/HMO/corporate UIs
+│  ├─ web/                 # Next.js 16 (App Router) — patient/clinician/doctor/admin/HMO/corporate UIs
 │  └─ mobile/              # React Native Expo
 ├─ services/
 │  └─ ml/                  # FastAPI 0.115+, Python 3.12, uv — stateless ML microservice
@@ -136,7 +135,7 @@ tarragonhealth/
 │  └─ shared/              # Zod schemas, generated DB types, ml-client.ts, constants (kobo, tz, enums)
 ├─ supabase/
 │  ├─ migrations/          # SQL migrations (schema + RLS policies)
-│  ├─ functions/           # Edge Functions (AbnormalResultHandler, whatsapp-webhook, paystack-webhook…)
+│  ├─ functions/           # Edge Functions (AbnormalResultHandler, send-pending-notifications, whatsapp-webhook, paystack-webhook…) — whatsapp-webhook only routes to a clinician support inbox, never automates a platform action (§1.3, §8)
 │  └─ seed/                # screen_types, lab/pharmacy partners, panel bundles
 ├─ docs/                   # ARCHITECTURE.md, FEATURE_SPEC.md, BRAND_GUIDE.md
 ├─ brand/                  # logo assets
@@ -158,12 +157,12 @@ Every domain table has `organisation_id uuid not null`. `profiles` links to `aut
 | Role | Can see |
 |---|---|
 | `patient` | Own rows only |
-| `nurse` / `clinician` | Patients within their `organisation_id` |
+| `clinician` | Patients within their `organisation_id` |
 | `hmo_admin` | Their HMO's member patients |
 | `corporate_admin` | Their enrolled employees |
 | `admin` (super) | All rows |
 
-Isolation invariant (tested at launch gate): **a nurse in Org A querying Org B patients returns 0 rows.** No service-role key in client contexts; the anon/authenticated key + RLS is the default path. Service-role usage is confined to trusted server/Edge contexts and audited.
+Isolation invariant (tested at launch gate): **a clinician in Org A querying Org B patients returns 0 rows.** No service-role key in client contexts; the anon/authenticated key + RLS is the default path. Service-role usage is confined to trusted server/Edge contexts and audited.
 
 ### 6.2 Schema Domains
 
@@ -184,17 +183,17 @@ erDiagram
   profiles ||--o{ lab_orders : places
   lab_providers ||--o{ lab_orders : fulfils
   lab_orders ||--o{ commissions : earns
-  profiles ||--o{ nurse_alerts : raises
-  nurse_alerts ||--o{ escalations : escalates
+  profiles ||--o{ clinician_alerts : raises
+  clinician_alerts ||--o{ escalations : escalates
   subscription_plans ||--o{ subscriptions : instantiated_by
 ```
 
-- **Core/Auth (§3.1):** `profiles`, `organisations`.
-- **Chronic (§3.2):** `vitals_readings`, `care_plans`, `medications`, `medication_logs`, `risk_scores`/`patient_risk_scores`, `appointments`, `symptoms`, `nurse_alerts`, `escalations`.
-- **Prevention (§3.3):** `screening_schedules`, `screen_types` (seed ≥12), `screening_results`, `screening_upgrades`, `annual_health_checks`, `specialist_referrals`, `family_plan_members`.
-- **Care coordination (§3.4):** `lab_providers`, `lab_tests`, `lab_orders`, `panel_bundles`, `lab_result_interpretations`, `pharmacy_partners`, `pharmacy_medications`, `pharmacy_orders`, `commissions`.
+- **Core/Auth (§3.1):** `profiles`, `organisations`, `profile_access` (family/multi-profile login delegation — additive to `family_plan_members`, see V1 consumer-spec reconciliation in `docs/FEATURE_SPEC.md`).
+- **Chronic (§3.2):** `vitals_readings`, `care_plans`, `medications`, `medication_logs`, `patient_risk_scores` (chronic-disease ML/rule scoring), `appointments`, `symptoms`, `clinician_alerts`, `escalations`.
+- **Prevention (§3.3):** `screening_schedules`, `screen_types` (seed ≥12), `screening_results`, `screening_upgrades`, `annual_health_checks`, `specialist_referrals`, `family_plan_members`, `risk_assessment_responses`, `prevention_risk_scores` (rule-based condition tiering, distinct from `patient_risk_scores` above), `vaccination_catalog`, `vaccination_records`.
+- **Care coordination (§3.4):** `lab_providers`, `lab_tests`, `lab_orders`, `panel_bundles`, `lab_result_interpretations`, `pharmacy_partners`, `pharmacy_medications`, `pharmacy_orders`, `commissions`, `facilities`, `booking_requests` (curated directory + request-based booking, not real-time scheduling).
 - **B2B/Billing (§3.5):** `subscription_plans`, `subscriptions`, `hmo_contracts`, `corporate_contracts`, `commissions` (shared).
-- **Platform (§3.6):** `audit_log` (immutable — no UPDATE/DELETE at the Postgres constraint level), `notifications`, `referrals`. `conversation_state` lives in **Upstash Redis**, not Postgres.
+- **Platform (§3.6):** `audit_log` (immutable — no UPDATE/DELETE at the Postgres constraint level), `notifications`, `referrals`, `ai_conversations` (AI Health Coach scaffold — LangGraph.js/Claude API wiring is a separate future phase). `conversation_state` lives in **Upstash Redis**, not Postgres.
 
 ### 6.3 Money & Units
 
@@ -218,7 +217,7 @@ sequenceDiagram
   participant ML as ML /interpret (optional)
   participant CP as care_plans / specialist_referrals
   participant WA as WhatsApp
-  participant NUR as Nurse dashboard
+  participant CLIN as Clinician dashboard
 
   LAB->>DB: INSERT screening_results (result_status = abnormal|critical)
   DB->>TRG: row insert fires trigger
@@ -227,52 +226,57 @@ sequenceDiagram
   EF->>ML: (optional) interpret result [5s timeout, fallback to rules]
   EF->>DB: INSERT screening_upgrades (audit)
   alt BP-related
-    EF->>CP: draft hypertension care_plan (nurse review)
+    EF->>CP: draft hypertension care_plan (clinician review)
   else Glucose-related
-    EF->>CP: draft diabetes care_plan (nurse review)
+    EF->>CP: draft diabetes care_plan (clinician review)
   else Cancer-related
     EF->>CP: create specialist_referral
   end
-  EF->>WA: nurse alert IMMEDIATELY (not scheduled)
-  EF->>WA: patient msg: "Your result needs a follow-up. Your nurse will call you today."
-  EF->>NUR: surface as Priority 1 (red), 4-hour contact SLA
+  EF->>WA: clinician alert IMMEDIATELY (not scheduled)
+  EF->>WA: patient msg: "Your result needs a follow-up. Your clinician will call you today."
+  EF->>CLIN: surface as Priority 1 (red), 4-hour contact SLA
 ```
 
 **Reliability requirements:**
 - Trigger→handler path must be **durable** (retry on failure; dead-letter + alert if the handler fails — never a silent drop).
-- Nurse WhatsApp alert must arrive **within 60 seconds** (launch gate).
+- Clinician WhatsApp alert must arrive **within 60 seconds** (launch gate).
 - Every step writes to `audit_log`. The `screening_upgrades` row is the permanent record of the event.
 - ML interpretation is **optional/advisory** — if ML is down, the rule-based path still fires the upgrade.
 
 ---
 
-## 8. WhatsApp / SMS Conversation Engine
+## 8. WhatsApp / SMS: Notifications + Human Support Chat (no automation)
+
+*Superseded 2026-07-11 — this was previously specced as an inbound conversational engine (webhook + intent router + vitals/meds/screening/lab-booking bots that wrote platform data from parsed WhatsApp messages). Per CLAUDE.md's WhatsApp policy, that automation is cut: app/web is the only interface for signup and every core patient/clinician transaction. Two things remain, both below: (1) outbound notifications, and (2) inbound messages, but only as human-routed doctor↔patient support chat — never parsed into a platform action.*
 
 ```mermaid
 graph TB
-  META[WhatsApp Cloud API] -- webhook --> WHOOK[Edge Fn: whatsapp-webhook]
-  WHOOK --> STATE{conversation_state\n(Upstash Redis, keyed by phone)}
-  STATE --> ROUTER[Intent router]
-  ROUTER --> V[Vitals bot]
-  ROUTER --> MEDS[Medication bot]
-  ROUTER --> SCR[Screening bot]
-  ROUTER --> LABB[Lab booking bot]
-  ROUTER --> AIF[LangGraph clinical flow]
-  V & MEDS & SCR & LABB --> DB[(Postgres via RLS-aware service)]
-  AIF --> CLAUDE[Claude API]
-  WHOOK -- delivery failure --> SMSFB[Termii SMS fallback]
+  subgraph "Outbound: notifications (automated)"
+    APP[App/web action: vitals log, med log, screening booked, result ready] --> DB[(Postgres)]
+    DB --> QUEUE[notifications table]
+    CRON[Scheduled send / DB trigger] --> QUEUE
+    QUEUE --> SEND[Edge Fn: send-pending-notifications]
+    SEND --> META[WhatsApp Cloud API]
+    META -- delivery failure --> SMSFB[Termii SMS fallback]
+    SEND --> STATE[(conversation_state in Upstash Redis:\ndedup / retry / delivery status)]
+  end
+
+  subgraph "Inbound: support chat (human-routed, no automation)"
+    PAT[Patient WhatsApp message] --> WHOOK[Edge Fn: whatsapp-webhook]
+    WHOOK --> INBOX[(support_messages: clinician inbox,\nsurfaced in clinician dashboard)]
+    INBOX --> CLIN[Clinician reads + replies]
+    CLIN --> META
+  end
 ```
 
-- **Per-phone conversation state** in Redis drives routing; Postgres stays the system of record.
-- Every patient action available on WhatsApp has a matching app/web path (parity is a launch requirement).
-- Meta message templates must be approved (~2 weeks lead time before launch).
-- SMS (Termii) is the fallback when WhatsApp delivery fails.
+- **Outbound (automated):** every notification originates from something that already happened via app/web (a vitals log, a scheduled reminder, an abnormal result) — WhatsApp never initiates or drives an action. Meta message templates must be approved (~2 weeks lead time before launch). SMS (Termii) is the fallback when WhatsApp delivery fails.
+- **Inbound (human-only):** `whatsapp-webhook` does nothing but store the message and surface it in a clinician's support inbox — no intent router, no bot, no parsing into a `vitals`/`medication_logs`/booking write. A clinician reads it like a helpdesk ticket and replies from the platform, which sends via the WhatsApp Cloud API. There is no WhatsApp-side account creation, signup, or automated data entry, ever.
 
 ---
 
 ## 9. AI & ML Layers (two distinct things)
 
-**AI orchestration (TypeScript, LangGraph.js + Claude):** conversational clinical workflows, patient education, summaries, nurse prioritisation, triage support, admin automation. Runs inside the platform; can call the ML service for numbers.
+**AI orchestration (TypeScript, LangGraph.js + Claude):** conversational clinical workflows, patient education, summaries, clinician prioritisation, triage support, admin automation. Runs inside the platform; can call the ML service for numbers.
 
 **ML microservice (Python, deterministic models):** `services/ml`, stateless, `X-Service-Key`-authed endpoints:
 
@@ -315,7 +319,7 @@ graph LR
 ## 11. Background Jobs, Notifications & Scheduling
 
 - **Reminders/schedulers** (screening due, med refills, missed-reading alerts): Upstash-backed scheduled jobs; persistent/long-running compute on Railway.
-- **`notifications`** table records channel = email/SMS/in-app/WhatsApp; WhatsApp primary.
+- **`notifications`** table records channel = email/SMS/in-app/WhatsApp; WhatsApp/SMS is the follow-up channel, not primary — app/web is the interface (§1.3).
 - **Batch ML re-scoring** trigger exposed to admin (ML model versioning + cohort re-score).
 
 ---
@@ -324,9 +328,9 @@ graph LR
 
 - **RLS** on every multi-tenant table; reviewed by a *fresh* review pass before launch (reviewer pattern).
 - **`audit_log`** immutable at the Postgres level (no UPDATE/DELETE); logs clinical, billing, and ML-prediction events.
-- **NDPR:** data residency in `af-south-1`; patient data export (JSON + PDF within 72h); right-to-erasure (anonymise personal fields, retain clinical minimum for the regulatory period).
+- **NDPR:** data residency in `eu-west-1` (Supabase has no Africa region; gap accepted for now — revisit if Supabase adds one or a residency requirement forces a different provider); patient data export (JSON + PDF within 72h); right-to-erasure (anonymise personal fields, retain clinical minimum for the regulatory period).
 - **Secrets:** never committed. `X-Service-Key` must never appear in git history. `.env.example` updated for every new var.
-- **Transport:** platform ↔ ML over HTTPS with `X-Service-Key`; webhook signature validation for Paystack/Stripe/WhatsApp.
+- **Transport:** platform ↔ ML over HTTPS with `X-Service-Key`; webhook signature validation for Paystack/Stripe/WhatsApp (WhatsApp's webhook carries both outbound delivery-status callbacks and inbound support-chat messages, which are only ever stored and surfaced to a clinician inbox for a human reply — never parsed into an automated platform action; see §1.3, §8).
 
 ---
 
@@ -335,7 +339,7 @@ graph LR
 | Component | Host | Region/Notes |
 |---|---|---|
 | Web + Edge Functions | Vercel | Edge near users; functions invoke Supabase |
-| Postgres/Auth/Storage/Realtime | Supabase | **af-south-1** (NDPR) |
+| Postgres/Auth/Storage/Realtime | Supabase | **eu-west-1** (NDPR residency gap accepted — no Supabase Africa region) |
 | Redis | Upstash | Low-latency to platform |
 | ML service | **Railway/Render — TBD (not yet provisioned)** | Persistent compute; deploy target for Sprint 4 |
 | DNS/edge | Cloudflare | |
@@ -372,7 +376,7 @@ Only `NEXT_PUBLIC_`-prefixed vars are client-exposed.
 - **Errors/latency:** Sentry across web, Edge Functions, and ML.
 - **Admin system health panel:** API latency, WhatsApp delivery rate, ML status, alert-queue depth.
 - **CI (Turborepo-aware):** TS — typecheck (strict, no `any`), ESLint, Jest, migrations build. Python — mypy, pytest, Pydantic schema checks. Feature branches only; never commit to `main`.
-- **Definition of Done** per `CLAUDE.md`: TS compiles + lint + tests + migrations committed; Python mypy + pytest + typed schemas; WhatsApp parity for patient-facing features; `.env.example` updated.
+- **Definition of Done** per `CLAUDE.md`: TS compiles + lint + tests + migrations committed; Python mypy + pytest + typed schemas; feature works fully via app/web (WhatsApp/SMS notifications additive, never required); `.env.example` updated.
 
 ---
 
@@ -381,8 +385,8 @@ Only `NEXT_PUBLIC_`-prefixed vars are client-exposed.
 | Sprint | Architectural deliverable |
 |---|---|
 | **1** | Monorepo (pnpm+Turbo) scaffold · Supabase Auth (phone OTP + email) · full 5-category schema + RLS policies · seed data · FastAPI `/health` scaffold + Docker + CI |
-| **2** | Core Patient OS — vitals, care plans, prevention scheduler, **AbnormalResultHandler**, patient + nurse dashboards |
-| **3** | WhatsApp webhook + conversation engine, vitals/meds/screening/lab-booking bots, LangGraph clinical flow, family portal, SMS fallback |
+| **2** | Core Patient OS — vitals, care plans, prevention scheduler, **AbnormalResultHandler**, patient + clinician dashboards |
+| **3** | WhatsApp/SMS outbound notification engine (reminders/alerts/confirmations for vitals/meds/screening/lab-booking — app/web remains the interface) + inbound human support chat (webhook → clinician inbox, no automation), LangGraph clinical flow, family portal, SMS fallback |
 | **4** | ML service — SCORE2, HbA1c trajectory, BP control, lab/screening interpretation, cohort analytics, batch; deploy to Railway/Render; wire `ml-client` with 5s timeout + fallback |
 | **5** | Lab & pharmacy network — catalogues, bundle pricing, screening-specific booking, commission tracking |
 | **6** | Billing/revenue — plans, Paystack subscriptions, Stripe diaspora, HMO capitation, corporate billing, financial dashboard |
@@ -399,7 +403,7 @@ Only `NEXT_PUBLIC_`-prefixed vars are client-exposed.
 | 2 | Next.js version | **Next.js 16** is the decision of record (repo already on 16); older docs said 15 |
 | 3 | Package manager | **pnpm** — repo currently has an npm lockfile; convert during Sprint 1 scaffold |
 | 4 | Repo shape | Migrate current single-app root into `apps/web` under the monorepo during Sprint 1 |
-| 5 | Durable trigger delivery | Confirm retry/dead-letter mechanism for AbnormalResultHandler (Postgres → Edge) |
+| 5 | Durable trigger delivery | **Partially resolved (2026-07-11):** AbnormalResultHandler Edge Function now exists and the trigger invokes it via `net.http_post` immediately on insert. The DB-side audit trail (`screening_upgrades` + `clinician_alerts` + 4h SLA) is unconditional and was already durable. Still open: no retry/dead-letter queue if `net.http_post` itself fails or the function 5xxs after receiving the request — a failed WhatsApp send is only visible via the `audit_log` row, not retried |
 | 6 | Pricing reconciliation | Two pricing bands exist in the spec; lock final numbers before Sprint 6 |
 | 7 | Meta template approval | Submit WhatsApp templates ~2 weeks before launch |
 

@@ -3,24 +3,185 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Brand palette — docs/BRAND_GUIDE.md §5. This is the project's design-
+     token file the brand guide refers to. */
+  --brand-green: #0e7c52;
+  --clinical-navy: #12324b;
+  --charcoal-ink: #171717;
+  --sprout-gold: #c9962b;
+  --soft-sage: #e7eee7;
+  --warm-ivory: #faf7f0;
+  --deep-forest: #0b5c3e;
+
+  /* Vitals trend chart series — distinct from the brand/dashboard-status
+     colour systems (docs/BRAND_GUIDE.md §5), used only inside chart.tsx. */
+  --chart-systolic: #b91c1c;
+  --chart-diastolic: #1d4ed8;
+  --chart-glucose: #0e7c52;
+
+  /* Categorical palette for the platform analytics console (business/financial/
+     population distributions). Reuses brand hexes so it stays on-brand; a
+     separate system from the clinical dashboard status colours. */
+  --chart-analytics-1: #0e7c52;
+  --chart-analytics-2: #12324b;
+  --chart-analytics-3: #c9962b;
+  --chart-analytics-4: #1d4ed8;
+  --chart-analytics-5: #b91c1c;
+  --chart-analytics-6: #0b5c3e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand-green: var(--brand-green);
+  --color-clinical-navy: var(--clinical-navy);
+  --color-charcoal-ink: var(--charcoal-ink);
+  --color-sprout-gold: var(--sprout-gold);
+  --color-soft-sage: var(--soft-sage);
+  --color-warm-ivory: var(--warm-ivory);
+  --color-deep-forest: var(--deep-forest);
+  --color-chart-systolic: var(--chart-systolic);
+  --color-chart-diastolic: var(--chart-diastolic);
+  --color-chart-glucose: var(--chart-glucose);
+  --color-chart-analytics-1: var(--chart-analytics-1);
+  --color-chart-analytics-2: var(--chart-analytics-2);
+  --color-chart-analytics-3: var(--chart-analytics-3);
+  --color-chart-analytics-4: var(--chart-analytics-4);
+  --color-chart-analytics-5: var(--chart-analytics-5);
+  --color-chart-analytics-6: var(--chart-analytics-6);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-sora);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* This app has no dark theme (no `dark:` Tailwind variants anywhere in the
+   codebase — every component uses hardcoded light-theme tokens, e.g.
+   bg-warm-ivory/text-charcoal-ink, per docs/BRAND_GUIDE.md). A prior
+   `prefers-color-scheme: dark` override here flipped --foreground to
+   near-white while every component's background stayed hardcoded light,
+   which is the root cause behind repeated "invisible text" bugs (login
+   fields, and separately the subscription page's outline buttons) — fixed
+   narrowly each time instead of here. `color-scheme: light` also stops
+   native form controls (date pickers, scrollbars) from rendering dark.
+   Reintroduce the dark override only alongside real dark: variants across
+   the component library, not in isolation. */
+:root {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+@keyframes marketing-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marketing-hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/*
+ * Combines the fade-in (from MarketingMediaFrame's own utility class) with the
+ * float loop in a single declaration — two separate `animation` shorthand
+ * declarations on the same element don't merge, the later/unlayered one wins
+ * outright, which silently dropped the fade-in and left the hero at opacity:0.
+ */
+.marketing-hero-float {
+  animation:
+    marketing-fade-in 0.9s ease-out forwards,
+    marketing-hero-float 5s ease-in-out 0.9s infinite;
+}
+
+@keyframes marketing-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marketing-typing-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes marketing-typing-show {
+  0%,
+  16% {
+    opacity: 0;
+  }
+  18%,
+  26% {
+    opacity: 1;
+  }
+  28%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.marketing-bubble {
+  opacity: 0;
+  animation: marketing-bubble-in 0.5s cubic-bezier(0.22, 0.9, 0.32, 1) forwards;
+}
+
+.marketing-typing {
+  opacity: 0;
+  animation: marketing-typing-show 6s ease-in-out infinite;
+}
+
+.marketing-typing-dot {
+  animation: marketing-typing-dot 1s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe\:opacity-0 {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .marketing-hero-float {
+    animation: none !important;
+  }
+
+  .marketing-bubble,
+  .marketing-typing {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .marketing-typing {
+    display: none !important;
+  }
+
+  .marketing-typing-dot {
+    animation: none !important;
+  }
 }

@@ -7,6 +7,8 @@
  */
 
 export * from "./ml-client";
+export * from "./ai-coach-types";
+export * from "./device-readings";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -22,14 +24,69 @@ export const CURRENCY = {
 } as const;
 export type Currency = (typeof CURRENCY)[keyof typeof CURRENCY];
 
-/** Convert whole Naira to kobo (the unit everything is stored in). */
-export function nairaToKobo(naira: number): number {
-  return Math.round(naira * 100);
+/** Convert a whole-unit amount to minor units (kobo/pence/cents) — all three
+ * currencies this project bills in use the same 100x convention, so there's
+ * no per-currency branching needed. */
+export function toMinorUnits(amount: number, _currency: Currency): number {
+  return Math.round(amount * 100);
 }
 
-/** Convert kobo back to Naira for presentation only. */
+/** Convert minor units back to whole units for presentation only. */
+export function fromMinorUnits(minor: number, _currency: Currency): number {
+  return minor / 100;
+}
+
+/** Convert whole Naira to kobo (the unit everything is stored in). Thin NGN-
+ * specific alias over toMinorUnits() kept for existing call sites. */
+export function nairaToKobo(naira: number): number {
+  return toMinorUnits(naira, CURRENCY.NGN);
+}
+
+/** Convert kobo back to Naira for presentation only. Thin NGN-specific alias
+ * over fromMinorUnits() kept for existing call sites. */
 export function koboToNaira(kobo: number): number {
-  return kobo / 100;
+  return fromMinorUnits(kobo, CURRENCY.NGN);
+}
+
+export const CURRENCY_SYMBOL: Record<Currency, string> = {
+  NGN: "₦",
+  GBP: "£",
+  USD: "$",
+};
+
+/** Molar mass of glucose (g/mol) — the standard mmol/L <-> mg/dL conversion factor. */
+export const GLUCOSE_MMOL_TO_MGDL = 18.0182;
+
+/** Convert blood glucose from mg/dL to mmol/L (the unit vitals_readings stores). */
+export function mgDlToMmolL(mgDl: number): number {
+  return Math.round((mgDl / GLUCOSE_MMOL_TO_MGDL) * 100) / 100;
+}
+
+/** Convert blood glucose from mmol/L to mg/dL, for display in the patient's preferred unit. */
+export function mmolLToMgDl(mmolL: number): number {
+  return Math.round(mmolL * GLUCOSE_MMOL_TO_MGDL);
+}
+
+/** The official NGSP<->IFCC master equation slope/intercept — a fixed
+ * clinical-standard formula, not a model, so it's safe to hardcode here
+ * rather than depend on services/ml being up. */
+const HBA1C_IFCC_SLOPE = 10.929;
+const HBA1C_IFCC_INTERCEPT = 2.15;
+
+/** Convert HbA1c from NGSP % (the unit lab_analyte_readings stores) to IFCC mmol/mol. */
+export function hba1cPercentToMmolMol(percent: number): number {
+  return Math.round((percent - HBA1C_IFCC_INTERCEPT) * HBA1C_IFCC_SLOPE);
+}
+
+/** Whole-year age from a date_of_birth, or null if unknown. Used wherever a
+ * rules engine needs age thresholds (risk tiers, screening/vaccination due
+ * dates) — a single definition so they all agree on the same rough-but-
+ * consistent calendar math. */
+export function ageFromDateOfBirth(dateOfBirth: string | null): number | null {
+  if (!dateOfBirth) return null;
+  return Math.floor(
+    (Date.now() - new Date(dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+  );
 }
 
 /** Nigerian E.164 phone number, e.g. +234XXXXXXXXXX. */
@@ -38,6 +95,31 @@ export const E164_NG = /^\+234\d{10}$/;
 export function isValidNgPhone(value: string): boolean {
   return E164_NG.test(value);
 }
+
+/** Any E.164 phone number (country code + subscriber number, 8-15 digits total). */
+export const E164_GENERIC = /^\+[1-9]\d{7,14}$/;
+
+export function isValidE164Phone(value: string): boolean {
+  return E164_GENERIC.test(value);
+}
+
+/**
+ * Country dial codes offered on signup. Nigeria is the primary market and
+ * listed first/default; the rest cover where Nigerian diaspora family
+ * members registering for a family package are most likely to be based.
+ */
+export const COUNTRY_CALLING_CODES = [
+  { iso: "NG", label: "Nigeria", dialCode: "+234" },
+  { iso: "GB", label: "United Kingdom", dialCode: "+44" },
+  { iso: "US", label: "United States / Canada", dialCode: "+1" },
+  { iso: "GH", label: "Ghana", dialCode: "+233" },
+  { iso: "ZA", label: "South Africa", dialCode: "+27" },
+  { iso: "KE", label: "Kenya", dialCode: "+254" },
+  { iso: "AE", label: "United Arab Emirates", dialCode: "+971" },
+  { iso: "IE", label: "Ireland", dialCode: "+353" },
+  { iso: "DE", label: "Germany", dialCode: "+49" },
+] as const;
+export type CountryCallingCode = (typeof COUNTRY_CALLING_CODES)[number];
 
 /** profiles.role enum — derived from the generated DB types (FEATURE_SPEC §3.1). */
 export type UserRole = Enums<"user_role">;
@@ -58,5 +140,29 @@ export type BusinessCategory = (typeof BUSINESS_CATEGORIES)[number];
 /** Screening result status — abnormal|critical drives the Cat 1 upgrade flow. */
 export type ScreeningResultStatus = Enums<"result_status">;
 
-/** Four-level clinical escalation ladder (nurse_alerts.level). */
+/** Four-level clinical escalation ladder (clinician_alerts.level). */
 export type EscalationLevel = Enums<"alert_level">;
+
+/** escalations.status — clinician-raised, doctor-owned case lifecycle. */
+export type EscalationStatus = Enums<"escalation_status">;
+
+/** specialist_referrals.status — assignment/payment/booking lifecycle. */
+export type ReferralStatus = Enums<"referral_status">;
+
+/** specialist_referrals.urgency — set by the assigning doctor, never inferred. */
+export type ReferralUrgency = Enums<"referral_urgency">;
+
+/** lab_orders.status — payment/collection/processing lifecycle. */
+export type LabOrderStatus = Enums<"lab_order_status">;
+
+/** pharmacy_orders.status — payment/fulfillment lifecycle. */
+export type PharmacyOrderStatus = Enums<"pharmacy_order_status">;
+
+/** commissions.commission_type — lab/pharmacy/referral partner-revenue source. */
+export type CommissionType = Enums<"commission_type">;
+
+/** commissions.status — pending/confirmed/paid settlement lifecycle. */
+export type CommissionStatus = Enums<"commission_status">;
+
+/** commissions.rate_type (and lab_tests/pharmacy_medications/panel_bundles/specialist_providers' matching columns) — percentage vs. flat-kobo. */
+export type CommissionRateType = Enums<"commission_rate_type">;
