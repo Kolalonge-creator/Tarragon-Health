@@ -10,7 +10,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
  * Key seats TarragonHealth needs beyond the founder as it scales past one
  * doctor, mapped to the five business categories in CLAUDE.md (chronic
  * disease + prevention, care coordination, B2B & institutional, platform
- * infrastructure, doctor-led delivery). All open, no names yet.
+ * infrastructure, clinical delivery). All open, no names yet.
  */
 const OPEN_ROLES: { title: string; scope: string }[] = [
   {
@@ -19,7 +19,7 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
   },
   {
     title: "Head of Clinical Operations",
-    scope: "Builds and leads the doctor-led review model: recruiting, training, and scheduling the doctors who keep the doctor:patient ratio at 1:120.",
+    scope: "Builds and leads the clinical review model: recruiting, training, and scheduling the doctors who keep the doctor:patient ratio at 1:120.",
   },
   {
     title: "Head of Engineering",
@@ -38,7 +38,7 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Why TarragonHealth exists: doctor-led continuity of care between doctor visits, for Nigerian families and the people who love them.",
+    "Why TarragonHealth exists: continuity of care between doctor visits, for Nigerian families and the people who love them.",
 };
 
 export default function AboutPage() {
@@ -91,7 +91,7 @@ export default function AboutPage() {
               disease and preventive care in Nigeria: most complications
               aren&rsquo;t a failure of medicine, they&rsquo;re a failure of
               follow-up. Kola founded TarragonHealth to build the system that
-              closes that gap, doctor-led, protocol-driven, and never
+              closes that gap: protocol-driven, clinically grounded, and never
               losing track of a patient between visits.
             </p>
           </div>
@@ -113,8 +113,8 @@ export default function AboutPage() {
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {[
             {
-              title: "Doctor-led",
-              body: "A real doctor reviews readings and results, never an algorithm acting alone.",
+              title: "Clinically reviewed",
+              body: "Every reading and result is reviewed by your clinical team, never an algorithm acting alone.",
             },
             {
               title: "Protocol-driven",

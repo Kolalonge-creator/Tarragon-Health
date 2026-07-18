@@ -36,13 +36,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Doctor review & escalation",
-        body: "When readings need attention, a doctor-led team follows up and escalates to a doctor if needed.",
+        body: "When readings need attention, your care team follows up and escalates to a doctor if needed.",
       },
     ],
     metadata: {
       title: "Hypertension Monitoring",
       description:
-        "Doctor-led blood pressure monitoring with reminders, trend tracking, and escalation when closer care is needed.",
+        "Blood pressure monitoring with reminders, trend tracking, and escalation when closer care is needed.",
     },
   },
   diabetes: {
@@ -75,7 +75,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Diabetes Monitoring",
       description:
-        "Track glucose, HbA1c, medication, and labs in one doctor-led platform with escalation when closer care is needed.",
+        "Track glucose, HbA1c, medication, and labs in one platform, with escalation when closer care is needed.",
     },
   },
   parentcare: {
@@ -135,7 +135,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Close the loop",
-        body: "When a result needs attention, a doctor-led team follows up immediately and connects you to chronic care if needed.",
+        body: "When a result needs attention, your care team follows up immediately and connects you to chronic care if needed.",
       },
     ],
     metadata: {
@@ -148,7 +148,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     slug: "medication",
     headline: "Reduce missed doses and avoid running out of medication.",
     intro:
-      "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders on WhatsApp or app, refill alerts before you run out, and a doctor-led team that follows up when doses are missed.",
+      "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders on WhatsApp or app, refill alerts before you run out, and a care team that follows up when doses are missed.",
     included: [
       "Medication schedule built into your health record",
       "WhatsApp and app reminders for every dose",

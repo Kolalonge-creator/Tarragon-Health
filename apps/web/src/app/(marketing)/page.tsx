@@ -29,7 +29,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "TarragonHealth | Care that stays with you",
   description:
-    "Doctor-led health monitoring for you, your parents, and your loved ones. Track vitals, medication, labs, and preventive health in one secure platform.",
+    "Health monitoring for you, your parents, and your loved ones. Track vitals, medication, labs, and preventive health in one secure platform.",
 };
 
 export default function MarketingHomePage() {
@@ -49,13 +49,13 @@ export default function MarketingHomePage() {
         />
         <MarketingHero media={homepage.hero} visual={<WhatsappHeroMockup />}>
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Doctor-led health monitoring
+            Continuity, not just monitoring
           </p>
           <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl lg:text-6xl">
             Care that stays with you.
           </h1>
           <p className="mt-4 font-heading text-xl text-charcoal-ink/80 sm:text-2xl">
-            Doctor-led health monitoring for you, your parents, and your loved ones.
+            Health monitoring for you, your parents, and your loved ones.
           </p>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             Track blood pressure, blood sugar, medication, lab checks, and preventive health needs
@@ -101,7 +101,7 @@ export default function MarketingHomePage() {
         <StoryPanel
           eyebrow="The solution"
           title="Tarragon monitors, reminds, reviews, coordinates, and escalates"
-          description="A doctor-led team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not."
+          description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not."
           media={homepage.solution}
           reverse
         />
@@ -195,7 +195,7 @@ export default function MarketingHomePage() {
         <StoryPanel
           invertText
           eyebrow="Why trust us"
-          title="Doctor-led, protocol-driven, evidence-focused"
+          title="Consistent, protocol-driven, evidence-focused"
           description="We are not a wellness app. Tarragon is built for the care between doctor visits, with doctors who know your name and protocols that keep follow-up consistent."
           media={homepage.solution}
         />
