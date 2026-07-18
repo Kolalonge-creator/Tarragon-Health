@@ -40,6 +40,7 @@ import { FacilityDirectory } from "./facility-directory";
 import { PatientLocationForm } from "./patient-location-form";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
+import { HospitalAdmissionsCard } from "./hospital-admissions-card";
 import { EmergencyAlert } from "./emergency-alert";
 import { LabCatalogue } from "./lab-catalogue";
 import { LabOrdersList } from "./lab-orders-list";
@@ -129,6 +130,7 @@ export default async function PatientPage() {
       </RequiresEntitlement>
       <PatientTimeline patientId={profile.id} />
       <PatientEscalations patientId={profile.id} />
+      <HospitalAdmissionsCard patientId={profile.id} />
       <YourReferrals patientId={profile.id} />
       <RequiresEntitlement
         feature="doctor_checkin"
