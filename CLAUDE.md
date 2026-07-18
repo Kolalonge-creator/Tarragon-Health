@@ -90,7 +90,8 @@ Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14,
 ## Brand (see `docs/BRAND_GUIDE.md` for full system)
 - Master tagline: **"Care that stays with you."** Wordmark: **TarragonHealth** (camel-case). Mark: **Guard Leaf** (shield + sprout crown + checkmark vein).
 - Tarragon Green `#0E7C52` (brand/primary actions), Clinical Navy `#12324B` (B2B/clinical documents). Clinical dashboard status colours (green/amber/red/blue/grey) are a **separate system** from brand colour — never confuse the two.
-- Voice: a doctor who knows your name, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
+- Voice: warm and personal, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
+- **Do not use "doctor-led" as a headline/marketing claim** (retired 2026-07-18 — it reads as over-promising and unprofessional). Describe the actual clinical process instead — "clinical review and escalation", "your care team", "reviewed against care protocols" — and reference doctors concretely in process/explanation ("escalates to a doctor", "the doctors who keep the 1:120 ratio"), never as a blanket brand adjective. The operating model is unchanged (Tarragon still employs its own doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`); this is a public-copy/positioning rule only.
 
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
 
