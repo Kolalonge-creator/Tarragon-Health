@@ -469,7 +469,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "How do I place an order for a test, refill, or add-on?",
     answer:
-      "Reply on your Tarragon WhatsApp thread, or tap the relevant button in the app (“Book a Test,” “Request Refill,” “Add a Service”). You'll always see the price before confirming.",
+      "Tap the relevant button in the app (“Book a Test,” “Request Refill,” “Add a Service”). You'll always see the price before confirming — if your clinician flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
   },
 ];
 
