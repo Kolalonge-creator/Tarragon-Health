@@ -9,6 +9,7 @@ import {
   businessSummarySchema,
   clinicalOutcomesSchema,
   deliverabilitySchema,
+  doctorPerformanceSchema,
   engagementSummarySchema,
   escalationQualitySchema,
   facilityEngagementSchema,
@@ -345,6 +346,18 @@ export function useLogPatientAccess() {
         p_reason: reason || null,
       });
       if (error) throw error;
+    },
+  });
+}
+
+// ---- Doctor performance (de-identified) -----------------------------------
+export function useDoctorPerformance() {
+  return useQuery({
+    queryKey: ["analytics", "doctor-performance"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_doctor_performance", {});
+      if (error) throw error;
+      return doctorPerformanceSchema.parse(data);
     },
   });
 }

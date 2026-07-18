@@ -208,10 +208,10 @@ update public.specialist_providers set state = 'Lagos', city = 'Ikeja' where sta
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features)
 values
   ('free', 'Tarragon Free',
-     'Self-tracking, reminders, education, Health Passport. No clinician review on this plan.',
+     'Self-tracking, reminders, education, Health Passport. No doctor review on this plan.',
      0, 'NGN', 'monthly', array['tracking', 'reminders', 'education']),
   ('essential', 'Essential Care',
-     'One condition: monthly clinician review, monthly doctor check-in, WhatsApp care team access.',
+     'One condition: monthly doctor review, monthly doctor check-in, WhatsApp care team access.',
      800000, 'NGN', 'monthly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills']),
   ('essential_yearly', 'Essential Care (yearly)',
@@ -219,22 +219,50 @@ values
      8000000, 'NGN', 'yearly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills']),
   ('complete', 'Complete Care',
-     'Multiple conditions or higher risk: weekly clinician review, priority doctor escalation.',
+     'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
      1500000, 'NGN', 'monthly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation']),
   ('complete_yearly', 'Complete Care (yearly)',
      'Complete Care billed annually — 2 months free.',
      15000000, 'NGN', 'yearly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation']),
-  ('family', 'Family Plan',
-     'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
+  ('family', 'Family Lite',
+     'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill, monthly family report.',
      15000000, 'NGN', 'yearly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'])
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
--- add_ons — the 4 recurring, attach-to-subscription add-ons only (see
--- pricing.ts ADD_ONS). The pay-per-use "BOOK & PAY" items (HPV vaccine,
+-- NGN higher tiers added after the V2 pricing update (marketing NGN_TIERS
+-- family-plus / family-premium / parentcare). Seeded is_active=false — same
+-- convention as the diaspora rows below: each activates only once an admin
+-- syncs it to a real Paystack Plan via /admin/settings/subscriptions, so a
+-- Stripe/Paystack outage never leaves a selectable-but-uncheckoutable plan.
+-- ---------------------------------------------------------------------------
+insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features, is_active)
+values
+  ('family_plus', 'Family Plus',
+     'Everything in Family Lite, plus a named family doctor coordinator, priority escalation across all members, and one free Annual Health Check a year.',
+     22000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator'], false),
+  ('family_premium', 'Family Premium',
+     'Everything in Family Plus, plus a named doctor coordinator with a scheduled monthly appointment for every member, quarterly reports, expedited response, and two free Annual Health Checks a year.',
+     32000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'expedited_response', 'quarterly_report'], false),
+  ('parentcare', 'ParentCare',
+     'Dedicated monitoring for up to 2 parents: named doctor coordinator, scheduled doctor review, quarterly family report, priority escalation, and lab/pharmacy coordination.',
+     2000000, 'NGN', 'monthly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
+  ('parentcare_yearly', 'ParentCare (yearly)',
+     'ParentCare billed annually — 2 months free.',
+     20000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false)
+on conflict (code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- add_ons — the base recurring, attach-to-subscription add-ons (see
+-- pricing.ts ADD_ONS); the tier/currency-specific extra-member add-ons are
+-- seeded in the block below. The pay-per-use "BOOK & PAY" items (HPV vaccine,
 -- starter kit, Annual Health Check) are intentionally not modeled here.
 -- ---------------------------------------------------------------------------
 insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code)
@@ -243,14 +271,49 @@ values
      'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
      2500000, 'NGN', 'yearly', array['prevention_coordination'], null),
   ('care-coordinator', 'Dedicated Care Coordinator',
-     'One named clinician coordinator, a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
+     'One named doctor coordinator, a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
      3000000, 'NGN', 'monthly', array['dedicated_coordinator'], 'complete'),
   ('extra-family-member', 'Extra Family Member',
      'Adds one more person to the Family Plan (up to 6 total) at Complete Care–level monitoring.',
      3000000, 'NGN', 'yearly', array['extra_family_slot'], 'family'),
-  ('expedited-response', 'Expedited Clinician Response',
-     'Clinician response time for non-emergency questions moves to under 2 hours.',
+  ('expedited-response', 'Expedited Doctor Response',
+     'Doctor response time for non-emergency questions moves to under 2 hours.',
      500000, 'NGN', 'monthly', array['expedited_response'], null)
+on conflict (code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Extra-member add-ons for the higher family tiers + ParentCare (marketing
+-- pricing.ts ADD_ONS extra-family-member tiered pricing + ParentCare's extra
+-- parent). restricted_to_plan_code is an exact-match string, so each
+-- tier/currency/interval variant gets its own row. is_active=false until the
+-- parent plan is synced, matching the plans above.
+-- ---------------------------------------------------------------------------
+insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code, is_active)
+values
+  ('extra-family-member-plus', 'Extra Family Member (Family Plus)',
+     'Adds one more person to Family Plus (up to 6 total) at the same level of monitoring.',
+     4000000, 'NGN', 'yearly', array['extra_family_slot'], 'family_plus', false),
+  ('extra-family-member-premium', 'Extra Family Member (Family Premium)',
+     'Adds one more person to Family Premium (up to 6 total) at the same level of monitoring.',
+     5500000, 'NGN', 'yearly', array['extra_family_slot'], 'family_premium', false),
+  ('extra-parentcare-member', 'Extra Parent (ParentCare)',
+     'Adds a third parent to a ParentCare subscription at the same level of monitoring.',
+     700000, 'NGN', 'monthly', array['extra_family_slot'], 'parentcare', false),
+  ('extra-parentcare-member-yearly', 'Extra Parent (ParentCare, yearly)',
+     'Adds a third parent to a yearly ParentCare subscription at the same level of monitoring.',
+     7000000, 'NGN', 'yearly', array['extra_family_slot'], 'parentcare_yearly', false),
+  ('extra-parentcare-member-gbp', 'Extra Parent (ParentCare)',
+     'Adds a third parent to a ParentCare subscription at the same level of monitoring.',
+     3900, 'GBP', 'monthly', array['extra_family_slot'], 'parentcare_gbp', false),
+  ('extra-parentcare-member-yearly-gbp', 'Extra Parent (ParentCare, yearly)',
+     'Adds a third parent to a yearly ParentCare subscription at the same level of monitoring.',
+     39000, 'GBP', 'yearly', array['extra_family_slot'], 'parentcare_yearly_gbp', false),
+  ('extra-parentcare-member-usd', 'Extra Parent (ParentCare)',
+     'Adds a third parent to a ParentCare subscription at the same level of monitoring.',
+     700, 'USD', 'monthly', array['extra_family_slot'], 'parentcare_usd', false),
+  ('extra-parentcare-member-yearly-usd', 'Extra Parent (ParentCare, yearly)',
+     'Adds a third parent to a yearly ParentCare subscription at the same level of monitoring.',
+     7000, 'USD', 'yearly', array['extra_family_slot'], 'parentcare_yearly_usd', false)
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -264,26 +327,39 @@ on conflict (code) do nothing;
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features, is_active)
 values
-  ('essential_usd', 'Essential Care', 'One condition: monthly clinician review, monthly doctor check-in, WhatsApp care team access.',
+  ('essential_usd', 'Essential Care', 'One condition: monthly doctor review, monthly doctor check-in, WhatsApp care team access.',
      500, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
-  ('essential_gbp', 'Essential Care', 'One condition: monthly clinician review, monthly doctor check-in, WhatsApp care team access.',
-     400, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+  ('essential_gbp', 'Essential Care', 'One condition: monthly doctor review, monthly doctor check-in, WhatsApp care team access.',
+     2500, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
   ('essential_yearly_usd', 'Essential Care (yearly)', 'Essential Care billed annually — 2 months free.',
      5000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
   ('essential_yearly_gbp', 'Essential Care (yearly)', 'Essential Care billed annually — 2 months free.',
-     4000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
-  ('complete_usd', 'Complete Care', 'Multiple conditions or higher risk: weekly clinician review, priority doctor escalation.',
+     25000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+  ('complete_usd', 'Complete Care', 'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
      1000, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
-  ('complete_gbp', 'Complete Care', 'Multiple conditions or higher risk: weekly clinician review, priority doctor escalation.',
-     800, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+  ('complete_gbp', 'Complete Care', 'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
+     5900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
   ('complete_yearly_usd', 'Complete Care (yearly)', 'Complete Care billed annually — 2 months free.',
      10000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
   ('complete_yearly_gbp', 'Complete Care (yearly)', 'Complete Care billed annually — 2 months free.',
-     8000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
-  ('family_usd', 'Family Plan', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
+     59000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+  ('family_usd', 'Family Lite', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
      10000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'], false),
-  ('family_gbp', 'Family Plan', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
-     8000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'], false)
+  ('family_gbp', 'Family Lite', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
+     8000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'], false),
+  -- Diaspora Premium (marketing GBP_TIERS diaspora-premium) + ParentCare diaspora variants.
+  ('diaspora_premium_gbp', 'Premium Care (Diaspora)', 'Complete Care, plus a named doctor coordinator, a scheduled monthly doctor appointment, and a quarterly PDF report.',
+     9900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'dedicated_coordinator', 'quarterly_report'], false),
+  ('diaspora_premium_yearly_gbp', 'Premium Care (Diaspora, yearly)', 'Premium Care (Diaspora) billed annually.',
+     99000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'dedicated_coordinator', 'quarterly_report'], false),
+  ('parentcare_gbp', 'ParentCare', 'Dedicated monitoring for up to 2 parents from abroad: named doctor coordinator, scheduled doctor review, quarterly family report, priority escalation, and lab/pharmacy coordination in Nigeria.',
+     11900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
+  ('parentcare_yearly_gbp', 'ParentCare (yearly)', 'ParentCare billed annually — 2 months free.',
+     119000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
+  ('parentcare_usd', 'ParentCare', 'Dedicated monitoring for up to 2 parents from abroad: named doctor coordinator, scheduled doctor review, quarterly family report, priority escalation, and lab/pharmacy coordination in Nigeria.',
+     2000, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
+  ('parentcare_yearly_usd', 'ParentCare (yearly)', 'ParentCare billed annually — 2 months free.',
+     20000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false)
 on conflict (code) do nothing;
 
 insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code, is_active)

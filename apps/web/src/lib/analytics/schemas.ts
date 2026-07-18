@@ -306,6 +306,42 @@ export const facilityEngagementSchema = z.object({
 });
 export type FacilityEngagement = z.infer<typeof facilityEngagementSchema>;
 
+// ---- Doctor performance (de-identified) -----------------------------------
+export const doctorPerformanceSchema = z.object({
+  by_doctor: z
+    .array(
+      z.object({
+        doctor: z.string(),
+        role: z.string(),
+        tier: z.string().nullable(),
+        patients_assigned: z.number(),
+        escalations_reviewed: z.number(),
+        alerts_acknowledged: z.number(),
+        meds_confirmed: z.number(),
+        reviews_completed: z.number(),
+        avg_ack_minutes: z.number(),
+        avg_resolution_hours: z.number(),
+        sla_met_pct: z.number().nullable(),
+        last_active_at: z.string().nullable(),
+        patient_panel: z.array(z.string()).default([]),
+      })
+    )
+    .default([]),
+  recent_responses: z
+    .array(
+      z.object({
+        doctor: z.string(),
+        patient: z.string(),
+        type: z.string(),
+        raised_at: z.string(),
+        responded_at: z.string(),
+        response_min: z.number(),
+      })
+    )
+    .default([]),
+});
+export type DoctorPerformance = z.infer<typeof doctorPerformanceSchema>;
+
 // ---- Staff (Tarragon team) activity ---------------------------------------
 export const staffActivitySchema = z.object({
   staff_total: z.number().default(0),
