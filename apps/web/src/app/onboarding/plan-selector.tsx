@@ -53,6 +53,9 @@ export function PlanSelector() {
 
   const visiblePlans = plans.filter((p) => p.code === "free" || p.currency === currency);
   const groups = groupByTier(visiblePlans);
+  const selectedPlan = selectedCode ? plans.find((p) => p.code === selectedCode) : undefined;
+  const selectedIsPaid = !!selectedPlan && selectedPlan.price_minor > 0;
+  const selectedInterval = selectedPlan?.interval === "yearly" ? "year" : "month";
 
   return (
     <form action={formAction} className="space-y-4">
@@ -123,6 +126,11 @@ export function PlanSelector() {
 
       <input type="hidden" name="planCode" value={selectedCode ?? ""} />
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {selectedIsPaid && (
+        <p className="rounded-lg bg-charcoal-ink/5 p-3 text-xs text-charcoal-ink/70">
+          {`Your plan renews automatically every ${selectedInterval} until you cancel. Payments aren’t refundable — if you cancel, your plan stays active until the end of the ${selectedInterval} you’ve paid for, then won’t renew.`}
+        </p>
+      )}
       <Button type="submit" className="w-full" disabled={pending || !selectedCode}>
         {pending ? "Starting…" : "Continue"}
       </Button>

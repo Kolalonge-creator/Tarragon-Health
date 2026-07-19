@@ -37,6 +37,7 @@ export function SubscriptionManager() {
   const [attachState, attachAction, attachPending] = useActionState(attachAddOn, undefined);
   const [pendingId, startTransition] = useTransition();
   const [rowMessage, setRowMessage] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   // Undefined until the patient manually switches tabs — until then, the
   // tab tracks their current plan's currency (falls back to NGN once
   // `subscription` has loaded and has no plan/is on the currency-less free plan).
@@ -92,6 +93,7 @@ export function SubscriptionManager() {
     startTransition(async () => {
       const result = await cancelSubscription(subscription.id);
       setRowMessage(result?.message ?? result?.error ?? null);
+      setConfirmingCancel(false);
       refetchSubscription();
     });
   }
@@ -115,14 +117,52 @@ export function SubscriptionManager() {
                 )
               : null}
             {subscription.current_period_end &&
-              ` · renews ${new Date(subscription.current_period_end).toLocaleDateString()}`}
+              (subscription.status === "cancelled"
+                ? ` · access until ${new Date(subscription.current_period_end).toLocaleDateString()}`
+                : ` · renews automatically on ${new Date(subscription.current_period_end).toLocaleDateString()}`)}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {subscription.status !== "cancelled" && subscription.plan && subscription.plan.price_minor > 0 && (
-            <Button size="sm" variant="outline" disabled={pendingId} onClick={handleCancel}>
-              Cancel plan
-            </Button>
+            <div className="space-y-3">
+              <p className="text-xs text-charcoal-ink/60">
+                {`This plan renews automatically every ${
+                  subscription.plan.interval === "yearly" ? "year" : "month"
+                } until you cancel. Payments already made aren’t refundable — if you cancel, your plan stays active until the end of the ${
+                  subscription.plan.interval === "yearly" ? "year" : "month"
+                } you’ve paid for, then won’t renew.`}
+              </p>
+              {confirmingCancel ? (
+                <div className="space-y-3 rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/5 p-3">
+                  <p className="text-sm text-charcoal-ink/80">
+                    Stop future renewals?{" "}
+                    {subscription.current_period_end
+                      ? `You'll keep full access until ${new Date(
+                          subscription.current_period_end,
+                        ).toLocaleDateString()}, then your plan won't renew.`
+                      : "You'll keep access until the end of the period you've already paid for, then your plan won't renew."}{" "}
+                    Payments already made aren&apos;t refundable.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={pendingId} onClick={handleCancel}>
+                      Yes, cancel renewal
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={pendingId}
+                      onClick={() => setConfirmingCancel(false)}
+                    >
+                      Keep my plan
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setConfirmingCancel(true)}>
+                  Cancel plan
+                </Button>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
