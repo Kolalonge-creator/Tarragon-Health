@@ -48,6 +48,13 @@ _SCREEN_TYPE_FLAG: dict[str, str] = {
     "fit": "fit",
     "hba1c": "hba1c",
     "blood_pressure": "blood_pressure",
+    # Sensitive infectious screens — tag so a positive result carries a flag
+    # (defence-in-depth for the sensitive-positive gate, which primarily keys
+    # off screening_results.screen_type_code; see
+    # handle_abnormal_screening_result).
+    "hiv": "hiv",
+    "hep_b": "hep_b",
+    "hep_c": "hep_c",
 }
 
 _SICKLE_CELL_NORMAL = {"AA"}

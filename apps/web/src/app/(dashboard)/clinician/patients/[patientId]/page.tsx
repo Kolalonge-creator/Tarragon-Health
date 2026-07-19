@@ -6,9 +6,11 @@ import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { PatientTimeline } from "@/components/patient-timeline";
+import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
+import { HealthCheckReview } from "./health-check-review";
 
 export default async function ClinicianPatientPage({
   params,
@@ -45,6 +47,33 @@ export default async function ClinicianPatientPage({
 
   const callerStaff = await getCurrentClinicalStaff();
   const canPrescribe = hasPrescribingAuthority(callerStaff);
+
+  // Current-year Health Check status for the "Review & communicate" control.
+  const year = new Date().getFullYear();
+  const { data: healthCheck } = await supabase
+    .from("annual_health_checks")
+    .select("reviewed_at, reviewed_by")
+    .eq("patient_id", patientId)
+    .eq("year", year)
+    .maybeSingle();
+  let reviewedByName: string | null = null;
+  if (healthCheck?.reviewed_by) {
+    const { data: reviewer } = await supabase
+      .from("clinical_staff")
+      .select("full_name, credential_type, credential_number")
+      .eq("id", healthCheck.reviewed_by)
+      .maybeSingle();
+    if (reviewer) {
+      reviewedByName = [
+        `Dr. ${reviewer.full_name}`,
+        reviewer.credential_type && reviewer.credential_number
+          ? `${reviewer.credential_type} ${reviewer.credential_number}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
+  }
   // Tier 1's other half of the job (master plan §4/§8): confirm/continue an
   // existing prescription without prescribing authority. Never Tier 2+/
   // Director — they already get the unrestricted AddMedicationForm above.
@@ -91,7 +120,13 @@ export default async function ClinicianPatientPage({
         </Card>
       )}
       <VitalsTrendChart patientId={patient.id} />
+      <MentalHealthSummary patientId={patient.id} showScores />
       <ScreeningResultForm patientId={patient.id} />
+      <HealthCheckReview
+        patientId={patient.id}
+        reviewedAt={healthCheck?.reviewed_at ?? null}
+        reviewedByName={reviewedByName}
+      />
       {patient.organisation_id && (
         <>
           <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />

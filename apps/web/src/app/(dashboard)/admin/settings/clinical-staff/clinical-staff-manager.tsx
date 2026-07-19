@@ -11,6 +11,7 @@ import {
   useOrgIndemnityExemptions,
   useAddIndemnityExemption,
   useRemoveIndemnityExemption,
+  useOrgAttestationStatuses,
   type ClinicalStaff,
   type ClinicalStaffIndemnityExemption,
 } from "@/lib/queries/clinical-staff";
@@ -65,6 +66,15 @@ function ReverifyBadge({ licenseVerifiedAt }: { licenseVerifiedAt: string }) {
   if (days < 0) return <Badge variant="red">Re-verification overdue</Badge>;
   if (days <= 30) return <Badge variant="amber">Re-verify by {formatDate(due.toISOString())}</Badge>;
   return <Badge variant="grey">Re-verify by {formatDate(due.toISOString())}</Badge>;
+}
+
+/** Red-flag attestation status (AHC pathway §26). */
+function AttestationBadge({ expiresAt }: { expiresAt: string | null }) {
+  if (!expiresAt) return <Badge variant="grey">Attestation not signed</Badge>;
+  const days = daysUntil(expiresAt);
+  if (days < 0) return <Badge variant="red">Attestation lapsed</Badge>;
+  if (days <= 30) return <Badge variant="amber">Attestation expires {formatDate(expiresAt)}</Badge>;
+  return <Badge variant="green">Attested until {formatDate(expiresAt)}</Badge>;
 }
 
 function IndemnityBadge({ expiresAt }: { expiresAt: string | null }) {
@@ -286,6 +296,7 @@ function IndemnityExemptionsSection() {
 export function ClinicalStaffManager() {
   const { data: staff, isLoading, isError } = useAllClinicalStaff();
   const { data: orgExemptions } = useOrgIndemnityExemptions();
+  const { data: attestations } = useOrgAttestationStatuses();
   const create = useCreateClinicalStaff();
   const verify = useVerifyClinicalStaff();
   const setActive = useSetClinicalStaffActive();
@@ -456,11 +467,12 @@ export function ClinicalStaffManager() {
                             ? `Verified ${formatDate(s.license_verified_at)}`
                             : "Not verified"}
                         </p>
-                        {s.license_verified_at && (
-                          <div className="mt-1">
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {s.license_verified_at && (
                             <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
-                          </div>
-                        )}
+                          )}
+                          <AttestationBadge expiresAt={attestations?.[s.id] ?? null} />
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={s.active ? "green" : "grey"}>

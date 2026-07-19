@@ -22,6 +22,8 @@ function formatReading(reading: Tables<"vitals_readings">): string {
       return `${reading.temperature_c}°C`;
     case "spo2":
       return `${reading.spo2_pct}%`;
+    case "waist_circumference":
+      return `${reading.waist_cm} cm`;
     default:
       return "—";
   }

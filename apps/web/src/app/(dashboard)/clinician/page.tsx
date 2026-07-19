@@ -3,11 +3,34 @@ import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-p
 import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/doctor-tier";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/server";
 import { Worklist } from "./worklist";
+import { AttestationCard } from "./attestation-card";
 
 export default async function ClinicianPage() {
   const profile = await getCurrentProfile();
   const staff = await getCurrentClinicalStaff();
+
+  // Red-flag attestation status (AHC pathway §26) — shown only to an active
+  // clinical_staff member. Resolves the caller's staff row + latest attestation.
+  const supabase = await createClient();
+  const { data: attestationStaff } = await supabase
+    .from("clinical_staff")
+    .select("id")
+    .eq("profile_id", profile?.id ?? "")
+    .eq("active", true)
+    .maybeSingle();
+  let attestationExpiresAt: string | null = null;
+  if (attestationStaff) {
+    const { data: latest } = await supabase
+      .from("clinical_staff_attestations")
+      .select("expires_at")
+      .eq("clinical_staff_id", attestationStaff.id)
+      .order("expires_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    attestationExpiresAt = latest?.expires_at ?? null;
+  }
 
   // Tier 1-4 Doctor Dashboard: one worklist, tier-gated view — per
   // docs/Tarragon_Health_Master_Operating_Plan_v4.md §12 this dashboard is
@@ -28,6 +51,7 @@ export default async function ClinicianPage() {
           <CardContent className="py-3 text-sm text-charcoal-ink/70">{authorityBlurb}</CardContent>
         </Card>
       )}
+      {attestationStaff && <AttestationCard expiresAt={attestationExpiresAt} />}
       <Worklist />
       <p className="text-sm">
         <Link href="/clinician/escalations" className="text-brand-green hover:underline">

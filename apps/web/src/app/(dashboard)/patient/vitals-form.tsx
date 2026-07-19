@@ -17,6 +17,7 @@ const VITAL_TYPES = [
   { value: "pulse", label: "Pulse" },
   { value: "temperature", label: "Temperature" },
   { value: "spo2", label: "SpO2" },
+  { value: "waist_circumference", label: "Waist circumference" },
 ] as const;
 
 type VitalType = (typeof VITAL_TYPES)[number]["value"];
@@ -143,6 +144,17 @@ export function VitalsForm({ patientId }: { patientId: string }) {
             <div className="space-y-1.5">
               <Label htmlFor="spo2_pct">SpO2 (%)</Label>
               <Input id="spo2_pct" name="spo2_pct" type="number" required />
+            </div>
+          )}
+
+          {vitalType === "waist_circumference" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="waist_cm">Waist circumference (cm)</Label>
+              <Input id="waist_cm" name="waist_cm" type="number" step="0.5" required />
+              <p className="text-xs text-charcoal-ink/60">
+                Measure around your middle, just above the hip bones, after breathing out.
+                A raised measurement is 94 cm or more for men, 80 cm or more for women.
+              </p>
             </div>
           )}
 

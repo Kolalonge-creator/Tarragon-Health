@@ -14,6 +14,7 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "./care-team-contact";
 import { HealthScoreCard } from "@/components/health-score-card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { Card, CardContent } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { getPatientSummaryStats } from "./summary";
 import { VitalsForm } from "./vitals-form";
@@ -119,6 +120,19 @@ export default async function PatientPage() {
         }}
       />
       <HealthScoreCard patientId={profile.id} />
+      <Card variant="soft">
+        <CardContent className="flex items-center justify-between gap-3 py-4">
+          <div>
+            <p className="text-sm font-medium text-charcoal-ink">Your Health Check</p>
+            <p className="text-xs text-charcoal-ink/60">
+              Your yearly whole-body check — the right checks for you, reviewed by your care team.
+            </p>
+          </div>
+          <Link href="/patient/health-check" className="shrink-0 text-sm text-brand-green hover:underline">
+            Start →
+          </Link>
+        </CardContent>
+      </Card>
       <RequiresEntitlement
         feature="annual_review"
         fallback={<UpgradePrompt feature="annual_review" />}
