@@ -8592,6 +8592,7 @@ export type Database = {
         Row: {
           add_on_id: string
           amount_minor: number
+          cancel_at_period_end: boolean
           cancelled_at: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
@@ -8611,6 +8612,7 @@ export type Database = {
         Insert: {
           add_on_id: string
           amount_minor?: number
+          cancel_at_period_end?: boolean
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -8630,6 +8632,7 @@ export type Database = {
         Update: {
           add_on_id?: string
           amount_minor?: number
+          cancel_at_period_end?: boolean
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -8727,6 +8730,7 @@ export type Database = {
       subscriptions: {
         Row: {
           amount_minor: number
+          cancel_at_period_end: boolean
           cancelled_at: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
@@ -8746,6 +8750,7 @@ export type Database = {
         }
         Insert: {
           amount_minor?: number
+          cancel_at_period_end?: boolean
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -8765,6 +8770,7 @@ export type Database = {
         }
         Update: {
           amount_minor?: number
+          cancel_at_period_end?: boolean
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]

@@ -240,13 +240,16 @@ Deno.serve(async (req) => {
         if (subRow) {
           const patch: Record<string, unknown> = {};
           if (periodEnd) patch.current_period_end = periodEnd;
-          if (subscription.cancel_at_period_end) {
-            patch.status = "cancelled";
-            patch.cancelled_at = new Date().toISOString();
-          }
-          if (Object.keys(patch).length > 0) {
-            await supabase.from("subscriptions").update(patch).eq("id", subRow.id);
-          }
+          // Mirror Stripe's own cancel_at_period_end onto our row rather than
+          // flipping status to 'cancelled' immediately: Stripe keeps the
+          // subscription active until the period end (then fires
+          // customer.subscription.deleted, handled below), and the paid period
+          // is non-refundable and must run to its end. has_feature_access
+          // keeps entitlement alive until current_period_end; the daily
+          // sweeper settles the status afterwards. Toggling back off (patient
+          // resumed) is reflected too.
+          patch.cancel_at_period_end = subscription.cancel_at_period_end === true;
+          await supabase.from("subscriptions").update(patch).eq("id", subRow.id);
           await markProcessed({ subscription_id: subRow.id });
           break;
         }
@@ -260,13 +263,8 @@ Deno.serve(async (req) => {
         if (addOnRow) {
           const patch: Record<string, unknown> = {};
           if (periodEnd) patch.current_period_end = periodEnd;
-          if (subscription.cancel_at_period_end) {
-            patch.status = "cancelled";
-            patch.cancelled_at = new Date().toISOString();
-          }
-          if (Object.keys(patch).length > 0) {
-            await supabase.from("subscription_add_ons").update(patch).eq("id", addOnRow.id);
-          }
+          patch.cancel_at_period_end = subscription.cancel_at_period_end === true;
+          await supabase.from("subscription_add_ons").update(patch).eq("id", addOnRow.id);
           await markProcessed({ subscription_add_on_id: addOnRow.id });
           break;
         }
