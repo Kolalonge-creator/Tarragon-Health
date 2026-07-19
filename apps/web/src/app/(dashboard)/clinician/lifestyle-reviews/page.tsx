@@ -1,95 +1,60 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { LifestyleReviewsClient, type PendingReview } from "./lifestyle-reviews-client";
 
-import { useState } from "react";
-import Link from "next/link";
-import {
-  useOrgLifestyleReviews,
-  useCompleteLifestyleReview,
-  type LifestyleReviewWithPatient,
-} from "@/lib/queries/lifestyle";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+/**
+ * Clinician worklist for periodic lifestyle reviews (spec §12). Org-staff gated
+ * (defense in depth on RLS). Completing a review server-stamps reviewed_by and
+ * rolls the next one at the condition cadence.
+ */
+export default async function LifestyleReviewsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-function ReviewRow({ review }: { review: LifestyleReviewWithPatient }) {
-  const complete = useCompleteLifestyleReview();
-  const [notes, setNotes] = useState("");
-  const overdue = new Date(review.due_date) < new Date(new Date().toDateString());
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) redirect("/");
 
-  return (
-    <li className="space-y-2 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">
-          {review.patient?.full_name ?? "Patient"}
-          {review.patient?.patient_number ? ` · ${review.patient.patient_number}` : ""}
-        </p>
-        <Badge variant={overdue ? "red" : "amber"}>
-          {overdue ? "Overdue" : "Due"} {new Date(review.due_date).toLocaleDateString()}
-        </Badge>
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor={`notes_${review.id}`} className="text-xs">
-          Progress notes (diet, activity, weight, sleep, stress, next steps)
-        </Label>
-        <Textarea
-          id={`notes_${review.id}`}
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          rows={2}
-          className="text-sm"
-        />
-      </div>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={complete.isPending}
-        onClick={() => complete.mutate({ reviewId: review.id, notes: notes.trim() || null })}
-      >
-        {complete.isPending ? "Completing…" : "Complete review"}
-      </Button>
-      {complete.isError && (
-        <p className="text-xs text-red-600">
-          {(complete.error as Error).message || "Could not complete this review."}
-        </p>
-      )}
-    </li>
-  );
-}
+  const { data: reviews } = await supabase
+    .from("lpe_reviews")
+    .select("id, patient_id, due_date, enrollment_id, lpe_enrollments(condition)")
+    .eq("status", "pending")
+    .order("due_date", { ascending: true });
 
-export default function LifestyleReviewsPage() {
-  const { data, isLoading, isError } = useOrgLifestyleReviews();
+  const patientIds = [...new Set((reviews ?? []).map((r) => r.patient_id))];
+  const nameById = new Map<string, string>();
+  if (patientIds.length) {
+    const { data: people } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", patientIds);
+    for (const p of people ?? []) nameById.set(p.id, p.full_name ?? "Patient");
+  }
+
+  const pending: PendingReview[] = (reviews ?? []).map((r) => ({
+    id: r.id,
+    patientName: nameById.get(r.patient_id) ?? "Patient",
+    condition:
+      (r.lpe_enrollments as { condition: string } | null)?.condition ?? "lifestyle",
+    dueDate: r.due_date,
+  }));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="text-2xl font-semibold">Lifestyle reviews</h1>
+        <p className="text-muted-foreground text-sm">
+          Periodic check-ins on patients&apos; lifestyle programmes. Completing
+          one schedules the next automatically.
+        </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Lifestyle progress reviews due</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-          {isError && <p className="text-sm text-red-600">Could not load lifestyle reviews.</p>}
-          {data && data.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">
-              No progress reviews are due right now. A review is scheduled automatically when a
-              patient starts lifestyle coaching, and rolls forward every three months.
-            </p>
-          )}
-          {data && data.length > 0 && (
-            <ul className="divide-y divide-charcoal-ink/10">
-              {data.map((review) => (
-                <ReviewRow key={review.id} review={review} />
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <LifestyleReviewsClient reviews={pending} />
     </div>
   );
 }
