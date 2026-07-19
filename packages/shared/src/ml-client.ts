@@ -216,6 +216,44 @@ export interface BatchPredictionResponse {
   results: BatchItemResult[];
 }
 
+// --- /lifestyle/trends + /lifestyle/engagement (services/ml/app/schemas/lifestyle.py) ---
+
+export interface LifestyleTrendPointIn {
+  /** ISO datetime with offset, e.g. "2026-07-19T09:00:00Z". */
+  taken_at: string;
+  value: number;
+}
+
+export interface LifestyleTrendRequest {
+  points: LifestyleTrendPointIn[];
+  plateau_eps?: number;
+}
+
+export interface LifestyleTrendResponse {
+  points: number;
+  slope_per_day: number | null;
+  mean: number | null;
+  first_value: number | null;
+  last_value: number | null;
+  plateau_detected: boolean;
+  signal_version: string;
+}
+
+export interface LifestyleEngagementRequest {
+  /** ISO datetimes of the patient's recent logs. */
+  log_timestamps: string[];
+  as_of: string;
+  expected_per_week?: number;
+}
+
+export interface LifestyleEngagementResponse {
+  days_since_last_log: number | null;
+  logs_last_14d: number;
+  expected_logs_last_14d: number;
+  disengagement_risk: number;
+  signal_version: string;
+}
+
 export interface MlClientConfig {
   /** Base URL of the ML service, e.g. https://ml.tarragon.internal */
   baseUrl: string;
@@ -259,6 +297,12 @@ export interface MlClient {
   analyseCohort(body: CohortAnalyticsRequest): Promise<CohortAnalyticsResponse | null>;
   /** `POST /batch/predict` — heterogeneous batch of cvd/hba1c/bp_control items. */
   batchPredict(body: BatchPredictionRequest): Promise<BatchPredictionResponse | null>;
+  /** `POST /lifestyle/trends` — least-squares trend + plateau flag (advisory). */
+  lifestyleTrends(body: LifestyleTrendRequest): Promise<LifestyleTrendResponse | null>;
+  /** `POST /lifestyle/engagement` — heuristic disengagement risk (advisory). */
+  lifestyleEngagement(
+    body: LifestyleEngagementRequest,
+  ): Promise<LifestyleEngagementResponse | null>;
 }
 
 function joinUrl(baseUrl: string, path: string): string {
@@ -338,6 +382,17 @@ export function createMlClient(config: MlClientConfig): MlClient {
     },
     batchPredict(body) {
       return safeRequest<BatchPredictionResponse>(config, "POST", "/batch/predict", body);
+    },
+    lifestyleTrends(body) {
+      return safeRequest<LifestyleTrendResponse>(config, "POST", "/lifestyle/trends", body);
+    },
+    lifestyleEngagement(body) {
+      return safeRequest<LifestyleEngagementResponse>(
+        config,
+        "POST",
+        "/lifestyle/engagement",
+        body,
+      );
     },
   };
 }

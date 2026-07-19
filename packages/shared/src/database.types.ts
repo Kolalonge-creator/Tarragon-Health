@@ -1697,6 +1697,44 @@ export type Database = {
           },
         ]
       }
+      custom_roles: {
+        Row: {
+          base_role: Database["public"]["Enums"]["user_role"]
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          base_role: Database["public"]["Enums"]["user_role"]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          base_role?: Database["public"]["Enums"]["user_role"]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drug_monitoring_rules: {
         Row: {
           created_at: string
@@ -2372,157 +2410,6 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      custom_roles: {
-        Row: {
-          base_role: Database["public"]["Enums"]["user_role"]
-          created_at: string
-          created_by: string | null
-          description: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          base_role: Database["public"]["Enums"]["user_role"]
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          base_role?: Database["public"]["Enums"]["user_role"]
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "custom_roles_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      permissions: {
-        Row: {
-          category: string
-          created_at: string
-          description: string | null
-          key: string
-          label: string
-        }
-        Insert: {
-          category: string
-          created_at?: string
-          description?: string | null
-          key: string
-          label: string
-        }
-        Update: {
-          category?: string
-          created_at?: string
-          description?: string | null
-          key?: string
-          label?: string
-        }
-        Relationships: []
-      }
-      role_permissions: {
-        Row: {
-          custom_role_id: string
-          permission_key: string
-        }
-        Insert: {
-          custom_role_id: string
-          permission_key: string
-        }
-        Update: {
-          custom_role_id?: string
-          permission_key?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "role_permissions_custom_role_id_fkey"
-            columns: ["custom_role_id"]
-            isOneToOne: false
-            referencedRelation: "custom_roles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "role_permissions_permission_key_fkey"
-            columns: ["permission_key"]
-            isOneToOne: false
-            referencedRelation: "permissions"
-            referencedColumns: ["key"]
-          },
-        ]
-      }
-      user_permission_grants: {
-        Row: {
-          granted_at: string
-          granted_by: string | null
-          id: string
-          permission_key: string
-          profile_id: string
-          revoked_at: string | null
-          revoked_by: string | null
-        }
-        Insert: {
-          granted_at?: string
-          granted_by?: string | null
-          id?: string
-          permission_key: string
-          profile_id: string
-          revoked_at?: string | null
-          revoked_by?: string | null
-        }
-        Update: {
-          granted_at?: string
-          granted_by?: string | null
-          id?: string
-          permission_key?: string
-          profile_id?: string
-          revoked_at?: string | null
-          revoked_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_permission_grants_granted_by_fkey"
-            columns: ["granted_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_permission_grants_permission_key_fkey"
-            columns: ["permission_key"]
-            isOneToOne: false
-            referencedRelation: "permissions"
-            referencedColumns: ["key"]
-          },
-          {
-            foreignKeyName: "user_permission_grants_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_permission_grants_revoked_by_fkey"
-            columns: ["revoked_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3348,6 +3235,854 @@ export type Database = {
           regions?: string[]
         }
         Relationships: []
+      }
+      lpe_consents: {
+        Row: {
+          channel: string | null
+          created_at: string
+          granted_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          revoked_at: string | null
+          scope: string
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string
+          granted_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          revoked_at?: string | null
+          scope?: string
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string
+          granted_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          revoked_at?: string | null
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_consents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_consents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_content_blocks: {
+        Row: {
+          body_md: string
+          clinician_reviewed: boolean
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at: string
+          embedding: string | null
+          id: string
+          key: string
+          module: Database["public"]["Enums"]["lpe_module"] | null
+          reading_level: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body_md: string
+          clinician_reviewed?: boolean
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          key: string
+          module?: Database["public"]["Enums"]["lpe_module"] | null
+          reading_level?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body_md?: string
+          clinician_reviewed?: boolean
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          key?: string
+          module?: Database["public"]["Enums"]["lpe_module"] | null
+          reading_level?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lpe_enrollments: {
+        Row: {
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          consent_id: string | null
+          created_at: string
+          doctor_id: string | null
+          ended_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          paused_reason: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["lpe_enrollment_status"]
+          updated_at: string
+        }
+        Insert: {
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          consent_id?: string | null
+          created_at?: string
+          doctor_id?: string | null
+          ended_at?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          paused_reason?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["lpe_enrollment_status"]
+          updated_at?: string
+        }
+        Update: {
+          condition?: Database["public"]["Enums"]["care_plan_condition"]
+          consent_id?: string | null
+          created_at?: string
+          doctor_id?: string | null
+          ended_at?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          paused_reason?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["lpe_enrollment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_enrollments_consent_fk"
+            columns: ["consent_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_consents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_enrollments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_enrollments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_enrollments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_goal_instances: {
+        Row: {
+          created_at: string
+          goal_template_id: string | null
+          id: string
+          metric_key: string | null
+          module: Database["public"]["Enums"]["lpe_module"]
+          organisation_id: string
+          personalised: boolean
+          programme_instance_id: string
+          status: Database["public"]["Enums"]["lpe_goal_status"]
+          target: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          goal_template_id?: string | null
+          id?: string
+          metric_key?: string | null
+          module: Database["public"]["Enums"]["lpe_module"]
+          organisation_id: string
+          personalised?: boolean
+          programme_instance_id: string
+          status?: Database["public"]["Enums"]["lpe_goal_status"]
+          target?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          goal_template_id?: string | null
+          id?: string
+          metric_key?: string | null
+          module?: Database["public"]["Enums"]["lpe_module"]
+          organisation_id?: string
+          personalised?: boolean
+          programme_instance_id?: string
+          status?: Database["public"]["Enums"]["lpe_goal_status"]
+          target?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_goal_instances_goal_template_id_fkey"
+            columns: ["goal_template_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_goal_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_goal_instances_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_goal_instances_programme_instance_id_fkey"
+            columns: ["programme_instance_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_programme_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_goal_templates: {
+        Row: {
+          cadence: string | null
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          metric_key: string | null
+          module: Database["public"]["Enums"]["lpe_module"]
+          phase_template_id: string
+          priority: number
+          target: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cadence?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          metric_key?: string | null
+          module: Database["public"]["Enums"]["lpe_module"]
+          phase_template_id: string
+          priority?: number
+          target?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cadence?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          metric_key?: string | null
+          module?: Database["public"]["Enums"]["lpe_module"]
+          phase_template_id?: string
+          priority?: number
+          target?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_goal_templates_phase_template_id_fkey"
+            columns: ["phase_template_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_phase_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_measurements: {
+        Row: {
+          context: Json | null
+          created_at: string
+          enrollment_id: string | null
+          flagged: boolean
+          id: string
+          organisation_id: string
+          patient_id: string
+          red_flag_event_id: string | null
+          source: Database["public"]["Enums"]["lpe_measurement_source"]
+          taken_at: string
+          type: Database["public"]["Enums"]["lpe_measurement_type"]
+          unit: string
+          validated: boolean
+          value_json: Json | null
+          value_num: number | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          enrollment_id?: string | null
+          flagged?: boolean
+          id?: string
+          organisation_id: string
+          patient_id: string
+          red_flag_event_id?: string | null
+          source: Database["public"]["Enums"]["lpe_measurement_source"]
+          taken_at: string
+          type: Database["public"]["Enums"]["lpe_measurement_type"]
+          unit: string
+          validated?: boolean
+          value_json?: Json | null
+          value_num?: number | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          enrollment_id?: string | null
+          flagged?: boolean
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          red_flag_event_id?: string | null
+          source?: Database["public"]["Enums"]["lpe_measurement_source"]
+          taken_at?: string
+          type?: Database["public"]["Enums"]["lpe_measurement_type"]
+          unit?: string
+          validated?: boolean
+          value_json?: Json | null
+          value_num?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_measurements_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_measurements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_measurements_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_measurements_red_flag_event_fk"
+            columns: ["red_flag_event_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_red_flag_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_phase_instances: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          organisation_id: string
+          phase_template_id: string
+          programme_instance_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["lpe_phase_status"]
+          target_end_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          phase_template_id: string
+          programme_instance_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["lpe_phase_status"]
+          target_end_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          phase_template_id?: string
+          programme_instance_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["lpe_phase_status"]
+          target_end_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_phase_instances_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_phase_instances_phase_template_id_fkey"
+            columns: ["phase_template_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_phase_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_phase_instances_programme_instance_id_fkey"
+            columns: ["programme_instance_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_programme_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_phase_templates: {
+        Row: {
+          auto_advance: boolean
+          created_at: string
+          duration_days_max: number | null
+          duration_days_min: number | null
+          id: string
+          key: string
+          kind: Database["public"]["Enums"]["lpe_phase_kind"]
+          name: string
+          order_index: number
+          programme_template_id: string
+          updated_at: string
+        }
+        Insert: {
+          auto_advance?: boolean
+          created_at?: string
+          duration_days_max?: number | null
+          duration_days_min?: number | null
+          id?: string
+          key: string
+          kind: Database["public"]["Enums"]["lpe_phase_kind"]
+          name: string
+          order_index: number
+          programme_template_id: string
+          updated_at?: string
+        }
+        Update: {
+          auto_advance?: boolean
+          created_at?: string
+          duration_days_max?: number | null
+          duration_days_min?: number | null
+          id?: string
+          key?: string
+          kind?: Database["public"]["Enums"]["lpe_phase_kind"]
+          name?: string
+          order_index?: number
+          programme_template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_phase_templates_programme_template_id_fkey"
+            columns: ["programme_template_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_programme_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_programme_instances: {
+        Row: {
+          created_at: string
+          current_phase_instance_id: string | null
+          enrollment_id: string
+          goals_config: Json
+          id: string
+          organisation_id: string
+          programme_template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_phase_instance_id?: string | null
+          enrollment_id: string
+          goals_config?: Json
+          id?: string
+          organisation_id: string
+          programme_template_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_phase_instance_id?: string | null
+          enrollment_id?: string
+          goals_config?: Json
+          id?: string
+          organisation_id?: string
+          programme_template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_programme_instances_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: true
+            referencedRelation: "lpe_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_programme_instances_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_programme_instances_programme_template_id_fkey"
+            columns: ["programme_template_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_programme_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_programme_templates: {
+        Row: {
+          active: boolean
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          created_at: string
+          id: string
+          modules: Json
+          name: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          active?: boolean
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          created_at?: string
+          id?: string
+          modules?: Json
+          name: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          active?: boolean
+          condition?: Database["public"]["Enums"]["care_plan_condition"]
+          created_at?: string
+          id?: string
+          modules?: Json
+          name?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      lpe_red_flag_events: {
+        Row: {
+          action: Database["public"]["Enums"]["lpe_red_flag_action"]
+          clinician_alert_id: string | null
+          created_at: string
+          enrollment_id: string | null
+          escalation_level: number
+          id: string
+          measurement_id: string | null
+          opened_at: string
+          organisation_id: string
+          patient_id: string
+          rule_key: string
+          severity: Database["public"]["Enums"]["lpe_red_flag_severity"]
+          status: Database["public"]["Enums"]["lpe_red_flag_status"]
+          stood_down_at: string | null
+          stood_down_by: string | null
+          stood_down_reason: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["lpe_red_flag_action"]
+          clinician_alert_id?: string | null
+          created_at?: string
+          enrollment_id?: string | null
+          escalation_level: number
+          id?: string
+          measurement_id?: string | null
+          opened_at?: string
+          organisation_id: string
+          patient_id: string
+          rule_key: string
+          severity: Database["public"]["Enums"]["lpe_red_flag_severity"]
+          status?: Database["public"]["Enums"]["lpe_red_flag_status"]
+          stood_down_at?: string | null
+          stood_down_by?: string | null
+          stood_down_reason?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["lpe_red_flag_action"]
+          clinician_alert_id?: string | null
+          created_at?: string
+          enrollment_id?: string | null
+          escalation_level?: number
+          id?: string
+          measurement_id?: string | null
+          opened_at?: string
+          organisation_id?: string
+          patient_id?: string
+          rule_key?: string
+          severity?: Database["public"]["Enums"]["lpe_red_flag_severity"]
+          status?: Database["public"]["Enums"]["lpe_red_flag_status"]
+          stood_down_at?: string | null
+          stood_down_by?: string | null
+          stood_down_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_red_flag_events_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_red_flag_events_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_red_flag_events_measurement_id_fkey"
+            columns: ["measurement_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_measurements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_red_flag_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_red_flag_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_red_flag_events_stood_down_by_fkey"
+            columns: ["stood_down_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_reviews: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          due_date: string
+          enrollment_id: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["medication_review_status"]
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          due_date: string
+          enrollment_id: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_review_status"]
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string
+          enrollment_id?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reminder_sent_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_review_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_reviews_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_reviews_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_task_instances: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          due_at: string
+          goal_instance_id: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          source: Database["public"]["Enums"]["lpe_measurement_source"] | null
+          status: Database["public"]["Enums"]["lpe_task_status"]
+          task_window: Json | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          due_at: string
+          goal_instance_id: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          source?: Database["public"]["Enums"]["lpe_measurement_source"] | null
+          status?: Database["public"]["Enums"]["lpe_task_status"]
+          task_window?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          due_at?: string
+          goal_instance_id?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          source?: Database["public"]["Enums"]["lpe_measurement_source"] | null
+          status?: Database["public"]["Enums"]["lpe_task_status"]
+          task_window?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_task_instances_goal_instance_id_fkey"
+            columns: ["goal_instance_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_goal_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_task_instances_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lpe_task_instances_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lpe_task_templates: {
+        Row: {
+          channel: Database["public"]["Enums"]["lpe_task_channel"]
+          created_at: string
+          goal_template_id: string
+          id: string
+          instruction: string | null
+          key: string
+          schedule: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          channel?: Database["public"]["Enums"]["lpe_task_channel"]
+          created_at?: string
+          goal_template_id: string
+          id?: string
+          instruction?: string | null
+          key: string
+          schedule?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["lpe_task_channel"]
+          created_at?: string
+          goal_template_id?: string
+          id?: string
+          instruction?: string | null
+          key?: string
+          schedule?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_task_templates_goal_template_id_fkey"
+            columns: ["goal_template_id"]
+            isOneToOne: false
+            referencedRelation: "lpe_goal_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       medication_adherence_alerts: {
         Row: {
@@ -4831,6 +5566,30 @@ export type Database = {
           },
         ]
       }
+      permissions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          key: string
+          label: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          key: string
+          label: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          key?: string
+          label?: string
+        }
+        Relationships: []
+      }
       pharmacy_medications: {
         Row: {
           commission_flat_kobo: number | null
@@ -5803,6 +6562,36 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          custom_role_id: string
+          permission_key: string
+        }
+        Insert: {
+          custom_role_id: string
+          permission_key: string
+        }
+        Update: {
+          custom_role_id?: string
+          permission_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_permissions_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       screen_types: {
         Row: {
           age_from: number | null
@@ -6606,6 +7395,65 @@ export type Database = {
           },
         ]
       }
+      user_permission_grants: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          id: string
+          permission_key: string
+          profile_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          permission_key: string
+          profile_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          permission_key?: string
+          profile_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permission_grants_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "user_permission_grants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permission_grants_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vaccination_catalog: {
         Row: {
           code: string
@@ -7286,6 +8134,28 @@ export type Database = {
       }
     }
     Views: {
+      lpe_programme_outcomes: {
+        Row: {
+          active: number | null
+          completed: number | null
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null
+          disengaged: number | null
+          enrolled: number | null
+          maintenance: number | null
+          organisation_id: string | null
+          paused: number | null
+          reviews_overdue: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lpe_enrollments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_care_gaps: {
         Row: {
           condition_or_type: string | null
@@ -7299,10 +8169,6 @@ export type Database = {
       }
     }
     Functions: {
-      admin_member_activity: {
-        Args: { p_member: string }
-        Returns: Json
-      }
       admin_broadcast_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]
@@ -7310,6 +8176,7 @@ export type Database = {
         }
         Returns: number
       }
+      admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
@@ -7373,10 +8240,7 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
-      analytics_patient_search: {
-        Args: { p_query: string }
-        Returns: Json
-      }
+      analytics_patient_search: { Args: { p_query: string }; Returns: Json }
       analytics_population_summary: { Args: never; Returns: Json }
       analytics_retention_cohorts: { Args: never; Returns: Json }
       analytics_revenue_by_plan: { Args: never; Returns: Json }
@@ -7645,6 +8509,51 @@ export type Database = {
       lifestyle_goal_status: "active" | "achieved" | "abandoned"
       lifestyle_programme_domain: "diet" | "exercise"
       lifestyle_review_status: "pending" | "completed" | "cancelled"
+      lpe_enrollment_status:
+        | "draft"
+        | "active"
+        | "paused"
+        | "maintenance"
+        | "disengaged"
+        | "completed"
+      lpe_goal_status: "active" | "achieved" | "softened" | "abandoned"
+      lpe_measurement_source: "app" | "web" | "coordinator" | "device"
+      lpe_measurement_type:
+        | "bp"
+        | "glucose"
+        | "weight"
+        | "waist"
+        | "bmi_derived"
+        | "activity_minutes"
+        | "steps"
+        | "strength_session"
+        | "food_log"
+        | "mood"
+        | "sleep"
+        | "ketones"
+        | "insulin_dose"
+        | "med_adherence"
+        | "foot_check"
+        | "symptom"
+        | "side_effect"
+      lpe_module: "diet" | "activity" | "behaviour" | "sleep" | "stress"
+      lpe_phase_kind:
+        | "foundation"
+        | "build"
+        | "strengthen"
+        | "maintenance"
+        | "continuous"
+      lpe_phase_status: "pending" | "active" | "completed"
+      lpe_red_flag_action:
+        | "supportive_reply"
+        | "same_day_review"
+        | "auto_pause_weightloss"
+        | "page_oncall"
+        | "refer"
+      lpe_red_flag_severity: "amber" | "red" | "emergency"
+      lpe_red_flag_status: "open" | "stood_down"
+      lpe_task_channel: "app" | "whatsapp_reminder"
+      lpe_task_status: "pending" | "done" | "missed" | "skipped"
       med_adherence_alert_level: "coach" | "doctor"
       med_adherence_alert_status: "open" | "acknowledged" | "resolved"
       medication_checkin_status: "pending" | "responded" | "skipped"
@@ -8086,6 +8995,55 @@ export const Constants = {
       lifestyle_goal_status: ["active", "achieved", "abandoned"],
       lifestyle_programme_domain: ["diet", "exercise"],
       lifestyle_review_status: ["pending", "completed", "cancelled"],
+      lpe_enrollment_status: [
+        "draft",
+        "active",
+        "paused",
+        "maintenance",
+        "disengaged",
+        "completed",
+      ],
+      lpe_goal_status: ["active", "achieved", "softened", "abandoned"],
+      lpe_measurement_source: ["app", "web", "coordinator", "device"],
+      lpe_measurement_type: [
+        "bp",
+        "glucose",
+        "weight",
+        "waist",
+        "bmi_derived",
+        "activity_minutes",
+        "steps",
+        "strength_session",
+        "food_log",
+        "mood",
+        "sleep",
+        "ketones",
+        "insulin_dose",
+        "med_adherence",
+        "foot_check",
+        "symptom",
+        "side_effect",
+      ],
+      lpe_module: ["diet", "activity", "behaviour", "sleep", "stress"],
+      lpe_phase_kind: [
+        "foundation",
+        "build",
+        "strengthen",
+        "maintenance",
+        "continuous",
+      ],
+      lpe_phase_status: ["pending", "active", "completed"],
+      lpe_red_flag_action: [
+        "supportive_reply",
+        "same_day_review",
+        "auto_pause_weightloss",
+        "page_oncall",
+        "refer",
+      ],
+      lpe_red_flag_severity: ["amber", "red", "emergency"],
+      lpe_red_flag_status: ["open", "stood_down"],
+      lpe_task_channel: ["app", "whatsapp_reminder"],
+      lpe_task_status: ["pending", "done", "missed", "skipped"],
       med_adherence_alert_level: ["coach", "doctor"],
       med_adherence_alert_status: ["open", "acknowledged", "resolved"],
       medication_checkin_status: ["pending", "responded", "skipped"],

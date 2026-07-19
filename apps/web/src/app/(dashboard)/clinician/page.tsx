@@ -80,8 +80,13 @@ export default async function ClinicianPage() {
         </Link>
       </p>
       <p className="text-sm">
+        <Link href="/clinician/lifestyle-flags" className="text-brand-green hover:underline">
+          Lifestyle safety flags →
+        </Link>
+      </p>
+      <p className="text-sm">
         <Link href="/clinician/lifestyle-reviews" className="text-brand-green hover:underline">
-          Lifestyle progress reviews →
+          Lifestyle reviews →
         </Link>
       </p>
       <p className="text-sm">
