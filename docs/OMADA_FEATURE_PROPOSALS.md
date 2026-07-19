@@ -1,5 +1,13 @@
 # Omada-Inspired Feature Proposals — Build Backlog
 
+> **Update (2026-07-19): P1, P2, and P3 (dormant) are now BUILT** on branch
+> `claude/omada-features-tarragon-rsbu04` — see the CLAUDE.md "Current Sprint"
+> 2026-07-19 entry for the as-built log. Migrations are written but were NOT
+> applied to the remote DB in that session (Supabase tooling was offline);
+> `database.types.ts` was hand-patched to match, and nothing was browser-verified
+> — the owner applies migrations + regenerates types + click-through on their Mac.
+> Items 4–7 remain decisions-only (no build). The original proposal follows.
+
 > **Status: PROPOSED (2026-07-19).** Not built. This is a scoped backlog produced from a review of
 > Omada Health's platform against what Tarragon already ships (see CLAUDE.md "Current Sprint"). Each
 > item below is filtered through Tarragon's non-negotiables: **no owned clinics**, **WhatsApp/SMS is

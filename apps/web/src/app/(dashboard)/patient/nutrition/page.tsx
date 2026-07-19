@@ -4,9 +4,10 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
-import { LifestyleFlow } from "../lifestyle-flow";
+import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
+import { NutritionFlow } from "../nutrition-flow";
 
-export default async function LifestylePage() {
+export default async function NutritionPage() {
   const profile = await getCurrentProfile();
   if (!profile) {
     redirect("/login");
@@ -16,31 +17,25 @@ export default async function LifestylePage() {
   }
 
   return (
-    <DashboardPlaceholder
-      greeting="Lifestyle coaching"
-      roleLabel="Patient"
-      comingUp={[]}
-    >
-      <div className="flex justify-end gap-4">
+    <DashboardPlaceholder greeting="Meal & nutrition" roleLabel="Patient" comingUp={[]}>
+      <div className="flex justify-end">
         <Link
-          href="/patient/nutrition"
+          href="/patient/lifestyle"
           className="text-sm font-medium text-brand-green hover:underline"
         >
-          Meal &amp; nutrition →
-        </Link>
-        <Link href="/patient" className="text-sm font-medium text-brand-green hover:underline">
-          ← Back to dashboard
+          ← Back to lifestyle coaching
         </Link>
       </div>
       <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Small, steady changes to how you eat, move, sleep and manage stress — guided by your care
-        team. Set goals, follow a programme, and get a progress review every few months.
+        Log what you eat — with a photo if you like. We&apos;ll estimate the portions and carbs to
+        help you and your care team spot patterns. It&apos;s a coaching guide, not a medical
+        measurement.
       </p>
       <RequiresEntitlement
         feature="lifestyle_coaching"
         fallback={<UpgradePrompt feature="lifestyle_coaching" />}
       >
-        <LifestyleFlow patientId={profile.id} />
+        <NutritionFlow patientId={profile.id} visionConfigured={isMealVisionConfigured()} />
       </RequiresEntitlement>
     </DashboardPlaceholder>
   );

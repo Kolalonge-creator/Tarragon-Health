@@ -13,6 +13,7 @@ import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "./care-team-contact";
 import { HealthScoreCard } from "@/components/health-score-card";
+import { CgmCard } from "@/components/cgm-card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { getPatientSummaryStats } from "./summary";
@@ -79,6 +80,12 @@ export default async function PatientPage() {
     >
       <div className="flex justify-end gap-4">
         <Link
+          href="/patient/messages"
+          className="text-sm font-medium text-brand-green hover:underline"
+        >
+          Messages →
+        </Link>
+        <Link
           href="/patient/health-passport"
           className="text-sm font-medium text-brand-green hover:underline"
         >
@@ -90,6 +97,14 @@ export default async function PatientPage() {
             className="text-sm font-medium text-brand-green hover:underline"
           >
             Lifestyle coaching →
+          </Link>
+        </RequiresEntitlement>
+        <RequiresEntitlement feature="lifestyle_coaching" fallback={null}>
+          <Link
+            href="/patient/nutrition"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Meal &amp; nutrition →
           </Link>
         </RequiresEntitlement>
         <Link
@@ -119,6 +134,7 @@ export default async function PatientPage() {
         }}
       />
       <HealthScoreCard patientId={profile.id} />
+      <CgmCard patientId={profile.id} />
       <RequiresEntitlement
         feature="annual_review"
         fallback={<UpgradePrompt feature="annual_review" />}
