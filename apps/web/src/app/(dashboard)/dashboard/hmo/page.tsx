@@ -11,6 +11,7 @@ import { OutcomeReportsPanel } from "../corporate/outcome-reports-panel";
 import { CohortSummary } from "../corporate/cohort-summary";
 import { CareGapPanel } from "./care-gap-panel";
 import { ClaimsImpactCard } from "./claims-impact-card";
+import { LifestyleOutcomesCard } from "@/components/lifestyle-outcomes-card";
 
 export default async function HmoPage() {
   const profile = await getCurrentProfile();
@@ -67,6 +68,7 @@ export default async function HmoPage() {
       <CohortSummary analytics={analytics} />
       <CareGapPanel summary={careGaps} />
       <ClaimsImpactCard estimate={costAvoided} />
+      <LifestyleOutcomesCard organisationId={profile.organisation_id} />
       <OutcomeReportsPanel organisationId={profile.organisation_id} />
     </div>
   );

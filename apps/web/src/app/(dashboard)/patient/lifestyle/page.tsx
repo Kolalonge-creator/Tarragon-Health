@@ -1,41 +1,35 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
+import { createClient } from "@/lib/supabase/server";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
-import { LifestyleFlow } from "../lifestyle-flow";
+import { getLifestyleState } from "@/lib/lifestyle/service";
+import { LifestyleClient } from "./lifestyle-client";
 
+/**
+ * Patient lifestyle programme (LPE). Entitlement-gated by
+ * public.has_feature_access('lifestyle_coaching') — same guard as every other
+ * gated patient page. Logging flows through the LPE safety pipeline
+ * (lib/lifestyle/ingest → evaluateRedFlags before any reply).
+ */
 export default async function LifestylePage() {
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    redirect("/login");
-  }
-  if (!profile.onboarding_completed_at) {
-    redirect("/onboarding");
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: hasAccess } = await supabase.rpc("has_feature_access", {
+    feature: "lifestyle_coaching",
+  });
+  if (!hasAccess) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold">Your lifestyle programme</h1>
+        <UpgradePrompt feature="lifestyle_coaching" />
+      </div>
+    );
   }
 
-  return (
-    <DashboardPlaceholder
-      greeting="Lifestyle coaching"
-      roleLabel="Patient"
-      comingUp={[]}
-    >
-      <div className="flex justify-end">
-        <Link href="/patient" className="text-sm font-medium text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Small, steady changes to how you eat, move, sleep and manage stress — guided by your care
-        team. Set goals, follow a programme, and get a progress review every few months.
-      </p>
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <LifestyleFlow patientId={profile.id} />
-      </RequiresEntitlement>
-    </DashboardPlaceholder>
-  );
+  const enrollments = await getLifestyleState(supabase, user.id);
+
+  return <LifestyleClient enrollments={enrollments} />;
 }
