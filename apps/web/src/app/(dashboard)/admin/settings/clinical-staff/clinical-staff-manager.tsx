@@ -451,6 +451,9 @@ export function ClinicalStaffManager() {
                           </span>
                         </p>
                         <p className="text-xs text-charcoal-ink/60">
+                          {s.staff_number && (
+                            <span className="font-medium text-charcoal-ink/70">{s.staff_number} · </span>
+                          )}
                           {s.credential_type && s.credential_number && `${s.credential_type} ${s.credential_number} · `}
                           {s.license_verified_at
                             ? `Verified ${formatDate(s.license_verified_at)}`

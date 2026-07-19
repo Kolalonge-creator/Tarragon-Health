@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { logVital } from "./actions";
 import type { GlucoseUnit } from "@/lib/validation/vitals";
+import { vitalsReadingSchema } from "@/lib/validation/vitals";
+import { crosscheckVital, type VitalCrosscheck } from "@/lib/vitals/plausibility";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,11 +29,49 @@ export function VitalsForm({ patientId }: { patientId: string }) {
   const [state, formAction, pending] = useActionState(logVital, undefined);
   const queryClient = useQueryClient();
 
+  // Crosscheck nudge: when a reading lands outside the normal band we ask the
+  // patient to confirm it before saving, and show how to take a cleaner
+  // reading — but never block it (a real abnormal value must still reach the
+  // record). confirmedRef is a one-shot bypass so the confirm button can
+  // re-submit the same form past the guard without waiting on a state update.
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmedRef = useRef(false);
+  const [crosscheck, setCrosscheck] = useState<VitalCrosscheck | null>(null);
+
   useEffect(() => {
     if (state?.success) {
       queryClient.invalidateQueries({ queryKey: ["vitals-readings", patientId] });
     }
   }, [state?.success, queryClient, patientId]);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (confirmedRef.current) {
+      confirmedRef.current = false; // consume the one-shot bypass, let the action run
+      return;
+    }
+    const raw = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const parsed = vitalsReadingSchema.safeParse(raw);
+    // If it doesn't even parse, let the Server Action surface the field error.
+    if (!parsed.success) return;
+    const result = crosscheckVital(parsed.data);
+    if (result) {
+      event.preventDefault();
+      setCrosscheck(result);
+    }
+  }
+
+  function confirmAndSave() {
+    confirmedRef.current = true;
+    setCrosscheck(null);
+    formRef.current?.requestSubmit();
+  }
+
+  // Any edit (including changing the reading type) invalidates a pending
+  // crosscheck so the patient re-confirms the corrected value.
+  function resetGuard() {
+    confirmedRef.current = false;
+    setCrosscheck((current) => (current ? null : current));
+  }
 
   return (
     <Card>
@@ -39,7 +79,13 @@ export function VitalsForm({ patientId }: { patientId: string }) {
         <CardTitle>Log a reading</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4">
+        <form
+          ref={formRef}
+          action={formAction}
+          onSubmit={handleSubmit}
+          onChange={resetGuard}
+          className="space-y-4"
+        >
           <input type="hidden" name="vital_type" value={vitalType} />
           <div className="space-y-1.5">
             <Label htmlFor="vital_type_select">Reading type</Label>
@@ -151,14 +197,44 @@ export function VitalsForm({ patientId }: { patientId: string }) {
             <Input id="note" name="note" type="text" maxLength={500} />
           </div>
 
+          {crosscheck && (
+            <div
+              role="alert"
+              className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"
+            >
+              <p className="font-medium text-amber-900">{crosscheck.message}</p>
+              <p className="mt-1 text-amber-900/80">Tips for an accurate reading:</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-amber-900/80">
+                {crosscheck.tips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" size="sm" disabled={pending} onClick={confirmAndSave}>
+                  {pending ? "Saving…" : "Yes, this reading is correct — save it"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCrosscheck(null)}
+                >
+                  I&apos;ll re-check it
+                </Button>
+              </div>
+            </div>
+          )}
+
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
             <p className="text-sm text-brand-green">Reading logged.</p>
           )}
 
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save reading"}
-          </Button>
+          {!crosscheck && (
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save reading"}
+            </Button>
+          )}
         </form>
       </CardContent>
     </Card>
