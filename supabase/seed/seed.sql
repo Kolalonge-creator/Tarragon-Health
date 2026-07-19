@@ -412,11 +412,11 @@ insert into public.add_ons
 values
   ('health-education', 'Health Education',
      'Personalised, clinician-reviewed learning built around your conditions, with short knowledge checks. Included free on Complete Care and above.',
-     500000, 'NGN', 'monthly', array['health_education'], 'essential', true),
+     500000, 'NGN', 'monthly', array['health_education'], null, true),
   ('health-education_usd', 'Health Education',
      'Personalised, clinician-reviewed learning built around your conditions, with short knowledge checks. Included free on Complete Care and above.',
-     300, 'USD', 'monthly', array['health_education'], 'essential_usd', false),
+     300, 'USD', 'monthly', array['health_education'], null, false),
   ('health-education_gbp', 'Health Education',
      'Personalised, clinician-reviewed learning built around your conditions, with short knowledge checks. Included free on Complete Care and above.',
-     250, 'GBP', 'monthly', array['health_education'], 'essential_gbp', false)
+     250, 'GBP', 'monthly', array['health_education'], null, false)
 on conflict (code) do nothing;
