@@ -1018,6 +1018,7 @@ export type Database = {
           credential_number: string | null
           credential_type: string | null
           doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          employee_number: string | null
           full_name: string
           id: string
           indemnity_exempt: boolean
@@ -1041,6 +1042,7 @@ export type Database = {
           credential_number?: string | null
           credential_type?: string | null
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          employee_number?: string | null
           full_name: string
           id?: string
           indemnity_exempt?: boolean
@@ -1064,6 +1066,7 @@ export type Database = {
           credential_number?: string | null
           credential_type?: string | null
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          employee_number?: string | null
           full_name?: string
           id?: string
           indemnity_exempt?: boolean

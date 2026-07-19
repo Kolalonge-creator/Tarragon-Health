@@ -312,9 +312,10 @@ export function ClinicalStaffManager() {
         <CardHeader>
           <CardTitle>Add clinical staff</CardTitle>
           <CardDescription>
-            Starts inactive and unverified. Link an existing login by phone number if this person
-            needs to act in the system (sign escalations, sign protocols) — leave it blank for a
-            bio-only Clinical Director record.
+            Starts inactive and unverified. A unique employee number (EMP-000123) is assigned
+            automatically so staff who share a name and tier can be told apart. Link an existing
+            login by phone number if this person needs to act in the system (sign escalations, sign
+            protocols) — leave it blank for a bio-only Clinical Director record.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -451,6 +452,9 @@ export function ClinicalStaffManager() {
                           </span>
                         </p>
                         <p className="text-xs text-charcoal-ink/60">
+                          {s.employee_number && (
+                            <span className="font-mono text-charcoal-ink/70">{s.employee_number} · </span>
+                          )}
                           {s.credential_type && s.credential_number && `${s.credential_type} ${s.credential_number} · `}
                           {s.license_verified_at
                             ? `Verified ${formatDate(s.license_verified_at)}`
