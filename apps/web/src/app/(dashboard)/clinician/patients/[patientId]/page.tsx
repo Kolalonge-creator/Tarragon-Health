@@ -9,6 +9,7 @@ import { PatientTimeline } from "@/components/patient-timeline";
 import { ScreeningResultForm } from "./screening-result-form";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
+import { BpLadderPanel } from "./bp-ladder-panel";
 
 export default async function ClinicianPatientPage({
   params,
@@ -68,6 +69,7 @@ export default async function ClinicianPatientPage({
         refillCoordinationEnabled
         canConfirmRefill={canConfirmRefill}
       />
+      <BpLadderPanel patientId={patient.id} />
       {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
           continues existing prescriptions but has no new-prescribing
           authority — the DB RLS policy is the real gate
