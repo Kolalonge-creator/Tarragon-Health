@@ -144,7 +144,7 @@ function ConnectedCareIllustration({ className }: IllustrationProps) {
         strokeWidth="2"
         strokeLinecap="round"
       />
-      {["Reading", "Review", "Reminder", "Family"].map((step, i) => (
+      {["Reading", "Review", "Reminder", "Follow-up"].map((step, i) => (
         <g key={step} transform={`translate(${108 + i * 72} 260)`}>
           <circle r="14" className="fill-brand-green" />
           <text x="-10" y="36" className="fill-charcoal-ink/60 text-[10px]">

@@ -119,7 +119,7 @@ export function MarketingFooter() {
       </div>
 
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
-        © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerian families.
+        © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.
       </div>
     </footer>
   );

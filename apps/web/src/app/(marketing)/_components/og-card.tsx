@@ -18,7 +18,7 @@ const GOLD = "#E8B33D";
 export function renderOgImage({
   title,
   subtitle,
-  footer = "For Nigerian families",
+  footer = "For Nigerians",
 }: {
   title: string;
   subtitle: string;
