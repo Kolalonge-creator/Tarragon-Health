@@ -10,21 +10,31 @@ const takenAtField = z
     message: "Enter a valid date and time",
   });
 
-export const bloodPressureSchema = z.object({
-  vital_type: z.literal("blood_pressure"),
-  systolic: z.coerce
-    .number()
-    .int()
-    .min(60, "Systolic must be at least 60 mmHg")
-    .max(200, "Systolic must be at most 200 mmHg"),
-  diastolic: z.coerce
-    .number()
-    .int()
-    .min(40, "Diastolic must be at least 40 mmHg")
-    .max(130, "Diastolic must be at most 130 mmHg"),
-  note: noteField,
-  taken_at: takenAtField,
-});
+export const bloodPressureSchema = z
+  .object({
+    vital_type: z.literal("blood_pressure"),
+    // Full plausible range per TH-CP-HTN-001 §5.4 (SBP 60-260, DBP 30-160). The
+    // old 60-200 / 40-130 clamp rejected true hypertensive-crisis readings
+    // (e.g. 210/125) — the single most dangerous values the BP red-flag engine
+    // exists to catch. A genuine crisis reading must be enterable so it can
+    // escalate; only physically-implausible entries are rejected.
+    systolic: z.coerce
+      .number()
+      .int()
+      .min(60, "Systolic must be at least 60 mmHg")
+      .max(260, "Please re-check — systolic above 260 mmHg is outside the measurable range"),
+    diastolic: z.coerce
+      .number()
+      .int()
+      .min(30, "Diastolic must be at least 30 mmHg")
+      .max(160, "Please re-check — diastolic above 160 mmHg is outside the measurable range"),
+    note: noteField,
+    taken_at: takenAtField,
+  })
+  .refine((data) => data.systolic > data.diastolic, {
+    path: ["systolic"],
+    message: "Systolic must be higher than diastolic — please re-check the two numbers",
+  });
 
 /** Clinically sane range per unit, since a patient may enter either. */
 export const GLUCOSE_RANGE = {
