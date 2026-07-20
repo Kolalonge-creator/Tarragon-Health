@@ -4,6 +4,7 @@ import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/d
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent } from "@/components/ui/card";
 import { Worklist } from "./worklist";
+import { RedFlagAttestation } from "./red-flag-attestation";
 
 export default async function ClinicianPage() {
   const profile = await getCurrentProfile();
@@ -28,6 +29,7 @@ export default async function ClinicianPage() {
           <CardContent className="py-3 text-sm text-charcoal-ink/70">{authorityBlurb}</CardContent>
         </Card>
       )}
+      {staff && <RedFlagAttestation />}
       <Worklist />
       <p className="text-sm">
         <Link href="/clinician/escalations" className="text-brand-green hover:underline">

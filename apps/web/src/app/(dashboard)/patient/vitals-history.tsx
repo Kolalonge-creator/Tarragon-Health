@@ -16,12 +16,18 @@ function formatReading(reading: Tables<"vitals_readings">): string {
     }
     case "weight":
       return `${reading.weight_kg} kg`;
+    case "waist_circumference":
+      return `${reading.waist_cm} cm (waist)`;
     case "pulse":
       return `${reading.pulse_bpm} bpm`;
     case "temperature":
       return `${reading.temperature_c}°C`;
     case "spo2":
       return `${reading.spo2_pct}%`;
+    case "ketones":
+      return reading.ketones_mmol_l !== null
+        ? `${reading.ketones_mmol_l} mmol/L (blood ketones)`
+        : `${reading.ketone_urine ?? "—"} (urine ketones)`;
     default:
       return "—";
   }

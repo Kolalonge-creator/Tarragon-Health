@@ -60,7 +60,7 @@ describe("deviceReadingSchema — glucose", () => {
   });
 
   it("rejects glucose out of range for the given unit", () => {
-    expect(deviceReadingSchema.safeParse({ ...valid, glucose_value: 1 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, glucose_value: 0.5 }).success).toBe(false);
   });
 
   it("requires glucose_context (the GATT characteristic doesn't carry it)", () => {
