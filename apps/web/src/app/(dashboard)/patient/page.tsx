@@ -45,6 +45,7 @@ import { EmergencyAlert } from "./emergency-alert";
 import { LabCatalogue } from "./lab-catalogue";
 import { LabOrdersList } from "./lab-orders-list";
 import { LabResults } from "./lab-results";
+import { ResultDocuments } from "./result-documents";
 import { PharmacyCatalogue } from "./pharmacy-catalogue";
 import { PharmacyOrdersList } from "./pharmacy-orders-list";
 import { BookingRequestsList } from "./booking-requests-list";
@@ -243,6 +244,10 @@ export default async function PatientPage() {
         <FacilityDirectory patientId={profile.id} />
         <BookingRequestsList patientId={profile.id} />
       </RequiresEntitlement>
+      {/* Result documents (upload + view your own lab results) are available to
+          every patient regardless of the lab-coordination entitlement — getting
+          a result onto the record and reviewed is a basic safety capability. */}
+      <ResultDocuments patientId={profile.id} />
       {coachAccess && <AiCoachChat patientId={profile.id} />}
     </DashboardPlaceholder>
   );

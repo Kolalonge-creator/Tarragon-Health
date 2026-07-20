@@ -7,6 +7,7 @@ import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { ScreeningResultForm } from "./screening-result-form";
+import { ResultDocumentsSection } from "./result-documents-section";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
 
@@ -91,6 +92,7 @@ export default async function ClinicianPatientPage({
         </Card>
       )}
       <VitalsTrendChart patientId={patient.id} />
+      <ResultDocumentsSection patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />
       {patient.organisation_id && (
         <>
