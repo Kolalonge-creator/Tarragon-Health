@@ -130,6 +130,16 @@ export const spo2Schema = z.object({
   taken_at: takenAtField,
 });
 
+export const waistCircumferenceSchema = z.object({
+  vital_type: z.literal("waist_circumference"),
+  waist_cm: z.coerce
+    .number()
+    .min(40, "Waist must be at least 40 cm")
+    .max(200, "Waist must be at most 200 cm"),
+  note: noteField,
+  taken_at: takenAtField,
+});
+
 export const vitalsReadingSchema = z
   .discriminatedUnion("vital_type", [
     bloodPressureSchema,
@@ -140,6 +150,7 @@ export const vitalsReadingSchema = z
     temperatureSchema,
     spo2Schema,
     waistSchema,
+    waistCircumferenceSchema,
   ])
   .superRefine((data, ctx) => {
     if (data.vital_type === "glucose") {

@@ -7,6 +7,7 @@ import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
+import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { CareTeamForm } from "./care-team-form";
@@ -20,6 +21,7 @@ import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
+import { HealthCheckReview } from "./health-check-review";
 
 export default async function ClinicianPatientPage({
   params,
@@ -63,6 +65,33 @@ export default async function ClinicianPatientPage({
     .eq("patient_id", patientId)
     .maybeSingle();
   const isPregnant = pregnancy?.is_pregnant ?? false;
+
+  // Current-year Health Check status for the "Review & communicate" control.
+  const year = new Date().getFullYear();
+  const { data: healthCheck } = await supabase
+    .from("annual_health_checks")
+    .select("reviewed_at, reviewed_by")
+    .eq("patient_id", patientId)
+    .eq("year", year)
+    .maybeSingle();
+  let reviewedByName: string | null = null;
+  if (healthCheck?.reviewed_by) {
+    const { data: reviewer } = await supabase
+      .from("clinical_staff")
+      .select("full_name, credential_type, credential_number")
+      .eq("id", healthCheck.reviewed_by)
+      .maybeSingle();
+    if (reviewer) {
+      reviewedByName = [
+        `Dr. ${reviewer.full_name}`,
+        reviewer.credential_type && reviewer.credential_number
+          ? `${reviewer.credential_type} ${reviewer.credential_number}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
+  }
   // Tier 1's other half of the job (master plan §4/§8): confirm/continue an
   // existing prescription without prescribing authority. Never Tier 2+/
   // Director — they already get the unrestricted AddMedicationForm above.
@@ -135,7 +164,13 @@ export default async function ClinicianPatientPage({
       {callerStaff && <FootAssessmentForm patientId={patient.id} />}
       {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
       <ResultDocumentsSection patientId={patient.id} />
+      <MentalHealthSummary patientId={patient.id} showScores />
       <ScreeningResultForm patientId={patient.id} />
+      <HealthCheckReview
+        patientId={patient.id}
+        reviewedAt={healthCheck?.reviewed_at ?? null}
+        reviewedByName={reviewedByName}
+      />
       {patient.organisation_id && (
         <>
           <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />

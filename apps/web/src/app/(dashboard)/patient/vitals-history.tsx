@@ -28,6 +28,8 @@ function formatReading(reading: Tables<"vitals_readings">): string {
       return reading.ketones_mmol_l !== null
         ? `${reading.ketones_mmol_l} mmol/L (blood ketones)`
         : `${reading.ketone_urine ?? "—"} (urine ketones)`;
+    case "waist_circumference":
+      return `${reading.waist_cm} cm`;
     default:
       return "—";
   }

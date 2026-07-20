@@ -496,6 +496,9 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          review_summary: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: Database["public"]["Enums"]["annual_check_status"]
           tests_completed: Json
           total_cost_kobo: number
@@ -509,6 +512,9 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          review_summary?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: Database["public"]["Enums"]["annual_check_status"]
           tests_completed?: Json
           total_cost_kobo?: number
@@ -522,6 +528,9 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          review_summary?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: Database["public"]["Enums"]["annual_check_status"]
           tests_completed?: Json
           total_cost_kobo?: number
@@ -538,6 +547,105 @@ export type Database = {
           },
           {
             foreignKeyName: "annual_health_checks_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_staff_attestations: {
+        Row: {
+          attestation_version: string
+          attested_at: string
+          clinical_staff_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          organisation_id: string
+        }
+        Insert: {
+          attestation_version?: string
+          attested_at?: string
+          clinical_staff_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          organisation_id: string
+        }
+        Update: {
+          attestation_version?: string
+          attested_at?: string
+          clinical_staff_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          organisation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_staff_attestations_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_staff_attestations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mental_health_screens: {
+        Row: {
+          created_at: string
+          crisis_flagged: boolean
+          hazardous: boolean | null
+          id: string
+          instrument: string
+          item_responses: Json
+          organisation_id: string
+          patient_id: string
+          severity_band: string
+          total_score: number
+        }
+        Insert: {
+          created_at?: string
+          crisis_flagged?: boolean
+          hazardous?: boolean | null
+          id?: string
+          instrument: string
+          item_responses?: Json
+          organisation_id: string
+          patient_id: string
+          severity_band: string
+          total_score: number
+        }
+        Update: {
+          created_at?: string
+          crisis_flagged?: boolean
+          hazardous?: boolean | null
+          id?: string
+          instrument?: string
+          item_responses?: Json
+          organisation_id?: string
+          patient_id?: string
+          severity_band?: string
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mental_health_screens_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mental_health_screens_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -6638,6 +6746,7 @@ export type Database = {
           recommended_provider_type:
             | Database["public"]["Enums"]["organisation_type"]
             | null
+          sensitive: boolean
           sex_applicability: Database["public"]["Enums"]["screen_applicability"]
         }
         Insert: {
@@ -6653,6 +6762,7 @@ export type Database = {
           recommended_provider_type?:
             | Database["public"]["Enums"]["organisation_type"]
             | null
+          sensitive?: boolean
           sex_applicability?: Database["public"]["Enums"]["screen_applicability"]
         }
         Update: {
@@ -6668,6 +6778,7 @@ export type Database = {
           recommended_provider_type?:
             | Database["public"]["Enums"]["organisation_type"]
             | null
+          sensitive?: boolean
           sex_applicability?: Database["public"]["Enums"]["screen_applicability"]
         }
         Relationships: []
@@ -6683,6 +6794,7 @@ export type Database = {
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary: string | null
           schedule_id: string | null
+          screen_type_code: string | null
         }
         Insert: {
           abnormal_flags?: string[]
@@ -6694,6 +6806,7 @@ export type Database = {
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
           schedule_id?: string | null
+          screen_type_code?: string | null
         }
         Update: {
           abnormal_flags?: string[]
@@ -6705,6 +6818,7 @@ export type Database = {
           result_status?: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
           schedule_id?: string | null
+          screen_type_code?: string | null
         }
         Relationships: [
           {
@@ -7801,6 +7915,7 @@ export type Database = {
           taken_at: string
           temperature_c: number | null
           vital_type: Database["public"]["Enums"]["vital_type"]
+          waist_cm: number | null
           weight_kg: number | null
         }
         Insert: {
@@ -7823,6 +7938,7 @@ export type Database = {
           taken_at?: string
           temperature_c?: number | null
           vital_type: Database["public"]["Enums"]["vital_type"]
+          waist_cm?: number | null
           weight_kg?: number | null
         }
         Update: {
@@ -7845,6 +7961,7 @@ export type Database = {
           taken_at?: string
           temperature_c?: number | null
           vital_type?: Database["public"]["Enums"]["vital_type"]
+          waist_cm?: number | null
           weight_kg?: number | null
         }
         Relationships: [
@@ -8324,6 +8441,7 @@ export type Database = {
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
+      open_health_check: { Args: never; Returns: string }
       health_education_feed: {
         Args: never
         Returns: {
@@ -8499,7 +8617,11 @@ export type Database = {
         | "tier_4_senior_registrar"
         | "tier_5_partner_specialist"
       emergency_event_status: "active" | "acknowledged" | "resolved"
-      emergency_source: "danger_symptom_checklist" | "symptom_log" | "ai_coach"
+      emergency_source:
+        | "danger_symptom_checklist"
+        | "symptom_log"
+        | "ai_coach"
+        | "intake_screen"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       facility_type:
@@ -8745,6 +8867,7 @@ export type Database = {
         | "pulse"
         | "temperature"
         | "spo2"
+        | "waist_circumference"
       wearable_connection_status: "active" | "disconnected" | "error"
       wearable_provider: "apple_health" | "oura" | "whoop" | "garmin" | "fitbit"
     }
@@ -8998,7 +9121,12 @@ export const Constants = {
         "tier_5_partner_specialist",
       ],
       emergency_event_status: ["active", "acknowledged", "resolved"],
-      emergency_source: ["danger_symptom_checklist", "symptom_log", "ai_coach"],
+      emergency_source: [
+        "danger_symptom_checklist",
+        "symptom_log",
+        "ai_coach",
+        "intake_screen",
+      ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       facility_type: [
@@ -9267,6 +9395,7 @@ export const Constants = {
         "pulse",
         "temperature",
         "spo2",
+        "waist_circumference",
       ],
       wearable_connection_status: ["active", "disconnected", "error"],
       wearable_provider: ["apple_health", "oura", "whoop", "garmin", "fitbit"],
