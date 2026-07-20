@@ -1,6 +1,6 @@
 """Lifestyle signal tests (heuristic-v1)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from app.scoring.lifestyle import (
     TrendPoint,
@@ -8,7 +8,7 @@ from app.scoring.lifestyle import (
     compute_trend,
 )
 
-UTC = timezone.utc
+UTC = UTC
 
 
 def _dt(day: int) -> datetime:
