@@ -432,6 +432,107 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Sent to the patient when a clinician/specialist prescribes a medication
+  // (private.enqueue_medication_prescribed_notifications). Email is the
+  // guaranteed channel the requirement asks for; WhatsApp is attempted first on
+  // the whatsapp row, falling back to SMS until the Meta template is approved.
+  medication_prescribed_patient: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const drugName = String(payload.drug_name ?? "your medication");
+    const dose = String(payload.dose ?? "");
+    const frequency = String(payload.frequency ?? "");
+    const details =
+      String(payload.details ?? "").trim() ||
+      [drugName, dose, frequency].filter((s) => s.length > 0).join(" ");
+    const prescriberName = String(payload.prescriber_name ?? "");
+    const smsText =
+      `Hi ${patientName}, a new medication has been added to your care plan: ${details}. ` +
+      `See the full details in the Tarragon Health app. — Tarragon Health`;
+    return {
+      metaTemplateName: "medication_prescribed_patient",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: patientName },
+            { type: "text", text: details },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `A new medication has been added to your care plan`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>A new medication has been added to your care plan. Here are the details:</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Medication</td><td style="padding:4px 0"><strong>${drugName}</strong></td></tr>` +
+          (dose ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Dose</td><td style="padding:4px 0">${dose}</td></tr>` : "") +
+          (frequency ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">How to take it</td><td style="padding:4px 0">${frequency}</td></tr>` : "") +
+          (prescriberName ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Prescribed by</td><td style="padding:4px 0">${prescriberName}</td></tr>` : "") +
+          `</table>` +
+          `<p>Open the Tarragon Health app to see your full medication list, reminders, and refill dates.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Sent to the patient for every lab order
+  // (private.enqueue_lab_order_requested_notifications). A doctor/system order
+  // reads as "requested for you"; a self-booked order reads as a showable
+  // confirmation to present at the lab. Email is the guaranteed channel;
+  // WhatsApp falls back to SMS until the Meta template lands.
+  lab_order_requested_patient: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const orderNumber = String(payload.order_number ?? "your order");
+    const testName = String(payload.test_name ?? "a lab test");
+    const selfBooked = payload.self_booked === true;
+    const lead = selfBooked
+      ? `Your lab test order is confirmed. Show order ${orderNumber} at the lab so they know exactly what to run.`
+      : `Your care team has requested a lab test for you.`;
+    const smsText = selfBooked
+      ? `Hi ${patientName}, your lab order is confirmed: ${testName} (order ${orderNumber}). ` +
+        `Show order ${orderNumber} at the lab to have it done. — Tarragon Health`
+      : `Hi ${patientName}, a lab test has been requested for you: ${testName} ` +
+        `(order ${orderNumber}). See the details in the Tarragon Health app. — Tarragon Health`;
+    return {
+      metaTemplateName: "lab_order_requested_patient",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: patientName },
+            { type: "text", text: testName },
+            { type: "text", text: orderNumber },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: selfBooked
+          ? `Your lab test order ${orderNumber} is confirmed`
+          : `A lab test has been requested for you`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>${lead} Here are the details:</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Test</td><td style="padding:4px 0"><strong>${testName}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Order number</td><td style="padding:4px 0"><strong>${orderNumber}</strong></td></tr>` +
+          `</table>` +
+          `<p>Open the Tarragon Health app to see the order, choose where to have it done, and track your results.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
   // Sent to the patient once a Tarragon doctor has confirmed the physical
   // certificate they uploaded — the dose is now Tarragon-verified, their
   // Tarragon certificate is ready to download in the app, and (if the vaccine
