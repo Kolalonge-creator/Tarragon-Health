@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
+import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
@@ -15,6 +16,11 @@ import {
   hospitalAdmissionSchema,
   hospitalAdmissionUpdateSchema,
 } from "@/lib/validation/hospital-admissions";
+import {
+  insulinLogSchema,
+  footSelfCheckSchema,
+  sickDayLogSchema,
+} from "@/lib/validation/diabetes-logs";
 import {
   riskAssessmentSchema,
   QUESTION_CATEGORY,
@@ -56,20 +62,33 @@ export async function logVital(
 
   const { taken_at, ...reading } = parsed.data;
 
-  // vitals_readings only has a glucose_mmol_l column — convert here if the
-  // patient entered mg/dL, so the DB always stores the canonical unit.
-  const row =
-    reading.vital_type === "glucose"
-      ? {
-          ...reading,
-          glucose_value: undefined,
-          glucose_unit: undefined,
-          glucose_mmol_l:
-            reading.glucose_unit === "mg_dl"
-              ? mgDlToMmolL(reading.glucose_value)
-              : reading.glucose_value,
-        }
-      : reading;
+  // vitals_readings stores canonical columns per type — normalise the form
+  // shape into DB columns here (glucose→glucose_mmol_l; drop the ketone_kind
+  // form discriminator, keeping only the ketones_mmol_l / ketone_urine column
+  // that was actually filled).
+  let row:
+    | typeof reading
+    | (Omit<Extract<typeof reading, { vital_type: "glucose" }>, "glucose_value" | "glucose_unit"> & {
+        glucose_mmol_l: number;
+      })
+    | Omit<Extract<typeof reading, { vital_type: "ketones" }>, "ketone_kind">;
+  if (reading.vital_type === "glucose") {
+    const { glucose_value, glucose_unit, ...rest } = reading;
+    row = {
+      ...rest,
+      glucose_mmol_l: glucose_unit === "mg_dl" ? mgDlToMmolL(glucose_value) : glucose_value,
+    };
+  } else if (reading.vital_type === "ketones") {
+    // ketone_kind is a form-only discriminator; keep only the real columns.
+    row = {
+      vital_type: "ketones",
+      ketones_mmol_l: reading.ketones_mmol_l,
+      ketone_urine: reading.ketone_urine,
+      note: reading.note,
+    };
+  } else {
+    row = reading;
+  }
 
   const { error } = await supabase.from("vitals_readings").insert({
     ...row,
@@ -86,6 +105,11 @@ export async function logVital(
   }
   if (row.vital_type === "pulse") {
     await assessHeartRateBestEffort(supabase, user.id, profile.organisation_id);
+  }
+  // Glucose OR ketones both re-run the glucose red-flag engine — a ketone log
+  // pairs with the latest glucose to catch suspected DKA (§15.3).
+  if (row.vital_type === "glucose" || row.vital_type === "ketones") {
+    await assessGlucoseBestEffort(supabase, user.id, profile.organisation_id);
   }
   await assessHealthScoreBestEffort(supabase, user.id, profile.organisation_id);
 
@@ -766,5 +790,135 @@ export async function updateHospitalAdmission(
     return { error: error.message };
   }
 
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Diabetes structured self-monitoring (§10.1): insulin, foot self-check,
+// sick-day. All patient-authored; a flagged foot problem raises a same-day
+// clinician alert via the DB trigger (§18.1), so this action can't under-report.
+// ---------------------------------------------------------------------------
+
+async function currentPatientOrg(): Promise<
+  { supabase: Awaited<ReturnType<typeof createClient>>; userId: string; organisationId: string } | { error: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) return { error: "No organisation on file" };
+  return { supabase, userId: user.id, organisationId: profile.organisation_id };
+}
+
+export type DiabetesLogActionState = { error?: string; success?: boolean } | undefined;
+
+export async function logInsulin(
+  _prev: DiabetesLogActionState,
+  formData: FormData
+): Promise<DiabetesLogActionState> {
+  const parsed = insulinLogSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const ctx = await currentPatientOrg();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const { error } = await ctx.supabase.from("insulin_logs").insert({
+    patient_id: ctx.userId,
+    organisation_id: ctx.organisationId,
+    insulin_type: parsed.data.insulin_type,
+    units: parsed.data.units,
+    injected_at: parsed.data.injected_at ? new Date(parsed.data.injected_at).toISOString() : undefined,
+    note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function logFootSelfCheck(
+  _prev: DiabetesLogActionState,
+  formData: FormData
+): Promise<DiabetesLogActionState> {
+  const parsed = footSelfCheckSchema.safeParse({
+    any_problem: formData.get("any_problem"),
+    findings: formData.getAll("findings"),
+    photo_url: formData.get("photo_url") ?? undefined,
+    note: formData.get("note") ?? undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const ctx = await currentPatientOrg();
+  if ("error" in ctx) return { error: ctx.error };
+
+  // A finding implies a problem even if the toggle wasn't set — never
+  // under-report a foot issue.
+  const anyProblem = parsed.data.any_problem || parsed.data.findings.length > 0;
+
+  const { error } = await ctx.supabase.from("foot_self_checks").insert({
+    patient_id: ctx.userId,
+    organisation_id: ctx.organisationId,
+    any_problem: anyProblem,
+    findings: parsed.data.findings,
+    photo_url: parsed.data.photo_url,
+    note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function logSickDay(
+  _prev: DiabetesLogActionState,
+  formData: FormData
+): Promise<DiabetesLogActionState> {
+  const parsed = sickDayLogSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const ctx = await currentPatientOrg();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const { error } = await ctx.supabase.from("sick_day_logs").insert({
+    patient_id: ctx.userId,
+    organisation_id: ctx.organisationId,
+    illness: parsed.data.illness,
+    appetite: parsed.data.appetite,
+    vomiting: parsed.data.vomiting,
+    note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+/**
+ * Patient self-reports pregnancy (§20.2). A pregnant patient with diabetes is
+ * obstetric-led — the app surfaces the "referred to antenatal care" banner and
+ * the drug-safety advisory contraindicates oral agents / ACEi-ARB. Upsert on
+ * the patient's own row (RLS-scoped).
+ */
+export async function setPregnancyStatus(
+  _prev: DiabetesLogActionState,
+  formData: FormData
+): Promise<DiabetesLogActionState> {
+  const isPregnant = formData.get("is_pregnant") === "true";
+  const eddRaw = (formData.get("estimated_due_date") as string | null) ?? null;
+  const edd = eddRaw && !Number.isNaN(Date.parse(eddRaw)) ? eddRaw : null;
+
+  const ctx = await currentPatientOrg();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const { error } = await ctx.supabase.from("patient_pregnancy").upsert(
+    {
+      patient_id: ctx.userId,
+      organisation_id: ctx.organisationId,
+      is_pregnant: isPregnant,
+      estimated_due_date: isPregnant ? edd : null,
+    },
+    { onConflict: "patient_id" }
+  );
+  if (error) return { error: error.message };
   return { success: true };
 }

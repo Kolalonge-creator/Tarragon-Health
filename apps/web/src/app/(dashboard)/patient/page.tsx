@@ -19,6 +19,13 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { getPatientSummaryStats } from "./summary";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
+import { DiabetesSelfMonitoring } from "./diabetes-self-monitoring";
+import { FootRiskStatus } from "./foot-risk-status";
+import { ComplicationStatus } from "./complication-status";
+import { GlucoseInsights } from "./glucose-insights";
+import { FindriscCheck } from "./findrisc-check";
+import { PregnancyStatus } from "./pregnancy-status";
+import { DiabetesGuidance } from "./diabetes-guidance";
 import { SymptomLogForm } from "./symptom-log-form";
 import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -183,6 +190,13 @@ export default async function PatientPage() {
       <VitalsHistory patientId={profile.id} />
       <VitalsTrendChart patientId={profile.id} />
       <LipidProfileCard patientId={profile.id} />
+      <DiabetesSelfMonitoring />
+      <GlucoseInsights patientId={profile.id} />
+      <FootRiskStatus patientId={profile.id} />
+      <ComplicationStatus patientId={profile.id} />
+      <FindriscCheck />
+      <PregnancyStatus patientId={profile.id} />
+      <DiabetesGuidance />
       <SymptomLogForm patientId={profile.id} />
       <SymptomLogHistory patientId={profile.id} />
       <TodaysDoses patientId={profile.id} />

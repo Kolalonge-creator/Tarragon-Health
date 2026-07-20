@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useAddMedication } from "@/lib/queries/medications";
 import { medicationSchema } from "@/lib/validation/medications";
+import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export function AddMedicationForm({
   patientId,
   source,
+  pregnant = false,
 }: {
   patientId: string;
   source: "patient" | "clinician";
+  /** Clinician context: patient is pregnant → advisory contraindicates orals / ACEi-ARB. */
+  pregnant?: boolean;
 }) {
   const addMedication = useAddMedication();
   const [drugName, setDrugName] = useState("");
@@ -83,6 +87,16 @@ export function AddMedicationForm({
   const mutationError = (addMedication.error as Error | null)?.message ?? null;
   const displayError = validationError ?? mutationError;
 
+  // Clinician-facing prescribe-time drug-safety cautions (§13.5). Advisory only
+  // — the platform never blocks a prescription; the doctor decides. Shown for
+  // recognised glucose-lowering drugs; patient self-add keeps a calm UI.
+  const safetyNotes = source === "clinician" ? diabetesDrugSafety(drugName, { pregnant }) : [];
+  const SEVERITY_STYLE: Record<DrugSafetySeverity, string> = {
+    contraindicated: "text-red-700",
+    caution: "text-amber-700",
+    info: "text-charcoal-ink/70",
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -98,6 +112,21 @@ export function AddMedicationForm({
               onChange={(event) => setDrugName(event.target.value)}
               required
             />
+            {safetyNotes.length > 0 && (
+              <div className="mt-1 space-y-1 rounded-md border border-amber-200 bg-amber-50/50 p-2.5">
+                <p className="text-xs font-medium text-charcoal-ink/80">
+                  Prescribing notes (advisory)
+                </p>
+                <ul className="space-y-0.5">
+                  {safetyNotes.map((n, i) => (
+                    <li key={i} className={`text-xs ${SEVERITY_STYLE[n.severity]}`}>
+                      {n.severity === "contraindicated" ? "⛔ " : n.severity === "caution" ? "⚠️ " : "• "}
+                      {n.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">

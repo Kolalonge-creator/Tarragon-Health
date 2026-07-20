@@ -1386,6 +1386,7 @@ export type Database = {
           organisation_id: string
           photo_url: string | null
           profile_id: string | null
+          red_flag_attested_at: string | null
           specialty: string | null
           staff_number: string | null
           updated_at: string
@@ -1410,6 +1411,7 @@ export type Database = {
           organisation_id: string
           photo_url?: string | null
           profile_id?: string | null
+          red_flag_attested_at?: string | null
           specialty?: string | null
           staff_number?: string | null
           updated_at?: string
@@ -1434,6 +1436,7 @@ export type Database = {
           organisation_id?: string
           photo_url?: string | null
           profile_id?: string | null
+          red_flag_attested_at?: string | null
           specialty?: string | null
           staff_number?: string | null
           updated_at?: string
@@ -4978,6 +4981,81 @@ export type Database = {
           },
         ]
       }
+      patient_glucose_targets: {
+        Row: {
+          category: Database["public"]["Enums"]["glycaemic_target_category"]
+          created_at: string
+          fasting_max: number
+          fasting_min: number
+          hba1c_target_percent: number | null
+          id: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          set_by: string | null
+          updated_at: string
+          upper_target: number
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["glycaemic_target_category"]
+          created_at?: string
+          fasting_max?: number
+          fasting_min?: number
+          hba1c_target_percent?: number | null
+          id?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          set_by?: string | null
+          updated_at?: string
+          upper_target?: number
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["glycaemic_target_category"]
+          created_at?: string
+          fasting_max?: number
+          fasting_min?: number
+          hba1c_target_percent?: number | null
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          set_by?: string | null
+          updated_at?: string
+          upper_target?: number
+        }
+        Relationships: []
+      }
+      patient_pregnancy: {
+        Row: {
+          created_at: string
+          estimated_due_date: string | null
+          id: string
+          is_pregnant: boolean
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_due_date?: string | null
+          id?: string
+          is_pregnant?: boolean
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          estimated_due_date?: string | null
+          id?: string
+          is_pregnant?: boolean
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       patient_hospital_admissions: {
         Row: {
           admitted_on: string
@@ -7523,6 +7601,213 @@ export type Database = {
           },
         ]
       }
+      diabetes_complication_checks: {
+        Row: {
+          abnormal: boolean
+          check_type: Database["public"]["Enums"]["complication_check_type"]
+          created_at: string
+          done_at: string
+          id: string
+          next_due_at: string | null
+          organisation_id: string
+          outcome: string | null
+          patient_id: string
+          recorded_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          abnormal?: boolean
+          check_type: Database["public"]["Enums"]["complication_check_type"]
+          created_at?: string
+          done_at?: string
+          id?: string
+          next_due_at?: string | null
+          organisation_id: string
+          outcome?: string | null
+          patient_id: string
+          recorded_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          abnormal?: boolean
+          check_type?: Database["public"]["Enums"]["complication_check_type"]
+          created_at?: string
+          done_at?: string
+          id?: string
+          next_due_at?: string | null
+          organisation_id?: string
+          outcome?: string | null
+          patient_id?: string
+          recorded_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      diabetic_foot_assessments: {
+        Row: {
+          assessed_at: string
+          assessed_by: string | null
+          created_at: string
+          findings: string | null
+          id: string
+          next_due_at: string | null
+          organisation_id: string
+          patient_id: string
+          pulses_present: boolean | null
+          risk_class: Database["public"]["Enums"]["foot_risk_class"]
+          sensation_left: Database["public"]["Enums"]["foot_sensation"] | null
+          sensation_right: Database["public"]["Enums"]["foot_sensation"] | null
+          updated_at: string
+        }
+        Insert: {
+          assessed_at?: string
+          assessed_by?: string | null
+          created_at?: string
+          findings?: string | null
+          id?: string
+          next_due_at?: string | null
+          organisation_id: string
+          patient_id: string
+          pulses_present?: boolean | null
+          risk_class: Database["public"]["Enums"]["foot_risk_class"]
+          sensation_left?: Database["public"]["Enums"]["foot_sensation"] | null
+          sensation_right?: Database["public"]["Enums"]["foot_sensation"] | null
+          updated_at?: string
+        }
+        Update: {
+          assessed_at?: string
+          assessed_by?: string | null
+          created_at?: string
+          findings?: string | null
+          id?: string
+          next_due_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+          pulses_present?: boolean | null
+          risk_class?: Database["public"]["Enums"]["foot_risk_class"]
+          sensation_left?: Database["public"]["Enums"]["foot_sensation"] | null
+          sensation_right?: Database["public"]["Enums"]["foot_sensation"] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      foot_self_checks: {
+        Row: {
+          any_problem: boolean
+          checked_at: string
+          clinician_alert_id: string | null
+          created_at: string
+          findings: string[]
+          id: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          photo_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          any_problem?: boolean
+          checked_at?: string
+          clinician_alert_id?: string | null
+          created_at?: string
+          findings?: string[]
+          id?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          photo_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          any_problem?: boolean
+          checked_at?: string
+          clinician_alert_id?: string | null
+          created_at?: string
+          findings?: string[]
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          photo_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      insulin_logs: {
+        Row: {
+          created_at: string
+          id: string
+          injected_at: string
+          insulin_type: Database["public"]["Enums"]["insulin_type"]
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          units: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          injected_at?: string
+          insulin_type: Database["public"]["Enums"]["insulin_type"]
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          units: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          injected_at?: string
+          insulin_type?: Database["public"]["Enums"]["insulin_type"]
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          units?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sick_day_logs: {
+        Row: {
+          appetite: Database["public"]["Enums"]["appetite_level"]
+          created_at: string
+          id: string
+          illness: string | null
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          started_on: string
+          updated_at: string
+          vomiting: boolean
+        }
+        Insert: {
+          appetite?: Database["public"]["Enums"]["appetite_level"]
+          created_at?: string
+          id?: string
+          illness?: string | null
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          started_on?: string
+          updated_at?: string
+          vomiting?: boolean
+        }
+        Update: {
+          appetite?: Database["public"]["Enums"]["appetite_level"]
+          created_at?: string
+          id?: string
+          illness?: string | null
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          started_on?: string
+          updated_at?: string
+          vomiting?: boolean
+        }
+        Relationships: []
+      }
       vitals_readings: {
         Row: {
           cgm_connection_id: string | null
@@ -7533,6 +7818,8 @@ export type Database = {
           glucose_context: Database["public"]["Enums"]["glucose_context"] | null
           glucose_mmol_l: number | null
           id: string
+          ketone_urine: string | null
+          ketones_mmol_l: number | null
           note: string | null
           organisation_id: string
           patient_id: string
@@ -7543,6 +7830,7 @@ export type Database = {
           taken_at: string
           temperature_c: number | null
           vital_type: Database["public"]["Enums"]["vital_type"]
+          waist_cm: number | null
           weight_kg: number | null
         }
         Insert: {
@@ -7556,6 +7844,8 @@ export type Database = {
             | null
           glucose_mmol_l?: number | null
           id?: string
+          ketone_urine?: string | null
+          ketones_mmol_l?: number | null
           note?: string | null
           organisation_id: string
           patient_id: string
@@ -7566,6 +7856,7 @@ export type Database = {
           taken_at?: string
           temperature_c?: number | null
           vital_type: Database["public"]["Enums"]["vital_type"]
+          waist_cm?: number | null
           weight_kg?: number | null
         }
         Update: {
@@ -7579,6 +7870,8 @@ export type Database = {
             | null
           glucose_mmol_l?: number | null
           id?: string
+          ketone_urine?: string | null
+          ketones_mmol_l?: number | null
           note?: string | null
           organisation_id?: string
           patient_id?: string
@@ -7589,6 +7882,7 @@ export type Database = {
           taken_at?: string
           temperature_c?: number | null
           vital_type?: Database["public"]["Enums"]["vital_type"]
+          waist_cm?: number | null
           weight_kg?: number | null
         }
         Relationships: [
@@ -7907,6 +8201,17 @@ export type Database = {
       }
     }
     Views: {
+      diabetes_quality_metrics: {
+        Row: {
+          diabetic_patients: number | null
+          foot_uptodate: number | null
+          organisation_id: string | null
+          renal_uptodate: number | null
+          retinal_uptodate: number | null
+          target_set: number | null
+        }
+        Relationships: []
+      }
       lpe_programme_outcomes: {
         Row: {
           active: number | null
@@ -8163,6 +8468,17 @@ export type Database = {
         | "clinician_review"
         | "urgent_escalation"
         | "emergency"
+      appetite_level: "normal" | "reduced" | "none"
+      complication_check_type: "retinal" | "renal"
+      foot_risk_class: "low" | "increased" | "high" | "active"
+      foot_sensation: "normal" | "reduced" | "absent"
+      glycaemic_target_category: "tight" | "standard" | "relaxed"
+      insulin_type:
+        | "soluble"
+        | "nph"
+        | "premixed"
+        | "analogue_rapid"
+        | "analogue_long"
       alert_status: "open" | "acknowledged" | "resolved"
       allergy_severity: "mild" | "moderate" | "severe"
       allergy_source: "patient" | "clinician"
@@ -8250,7 +8566,11 @@ export type Database = {
         | "tier_4_senior_registrar"
         | "tier_5_partner_specialist"
       emergency_event_status: "active" | "acknowledged" | "resolved"
-      emergency_source: "danger_symptom_checklist" | "symptom_log" | "ai_coach"
+      emergency_source:
+        | "danger_symptom_checklist"
+        | "symptom_log"
+        | "ai_coach"
+        | "glucose_red_flag"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       facility_type:
@@ -8261,7 +8581,13 @@ export type Database = {
         | "optician"
         | "vaccination_centre"
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
-      glucose_context: "fasting" | "random" | "post_meal"
+      glucose_context:
+        | "fasting"
+        | "random"
+        | "post_meal"
+        | "pre_meal"
+        | "bedtime"
+        | "night"
       health_education_content_type: "article" | "video"
       health_education_status: "seen" | "understood" | "needs_review"
       hospital_admission_source: "patient_reported" | "staff_recorded"
@@ -8492,6 +8818,8 @@ export type Database = {
         | "pulse"
         | "temperature"
         | "spo2"
+        | "ketones"
+        | "waist_circumference"
       wearable_connection_status: "active" | "disconnected" | "error"
       wearable_provider: "apple_health" | "oura" | "whoop" | "garmin" | "fitbit"
     }
@@ -8627,6 +8955,18 @@ export const Constants = {
         "urgent_escalation",
         "emergency",
       ],
+      appetite_level: ["normal", "reduced", "none"],
+      complication_check_type: ["retinal", "renal"],
+      foot_risk_class: ["low", "increased", "high", "active"],
+      foot_sensation: ["normal", "reduced", "absent"],
+      glycaemic_target_category: ["tight", "standard", "relaxed"],
+      insulin_type: [
+        "soluble",
+        "nph",
+        "premixed",
+        "analogue_rapid",
+        "analogue_long",
+      ],
       alert_status: ["open", "acknowledged", "resolved"],
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician"],
@@ -8728,7 +9068,12 @@ export const Constants = {
         "tier_5_partner_specialist",
       ],
       emergency_event_status: ["active", "acknowledged", "resolved"],
-      emergency_source: ["danger_symptom_checklist", "symptom_log", "ai_coach"],
+      emergency_source: [
+        "danger_symptom_checklist",
+        "symptom_log",
+        "ai_coach",
+        "glucose_red_flag",
+      ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       facility_type: [
@@ -8740,7 +9085,14 @@ export const Constants = {
         "vaccination_centre",
       ],
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
-      glucose_context: ["fasting", "random", "post_meal"],
+      glucose_context: [
+        "fasting",
+        "random",
+        "post_meal",
+        "pre_meal",
+        "bedtime",
+        "night",
+      ],
       health_education_content_type: ["article", "video"],
       health_education_status: ["seen", "understood", "needs_review"],
       hospital_admission_source: ["patient_reported", "staff_recorded"],
@@ -8993,6 +9345,8 @@ export const Constants = {
         "pulse",
         "temperature",
         "spo2",
+        "ketones",
+        "waist_circumference",
       ],
       wearable_connection_status: ["active", "disconnected", "error"],
       wearable_provider: ["apple_health", "oura", "whoop", "garmin", "fitbit"],

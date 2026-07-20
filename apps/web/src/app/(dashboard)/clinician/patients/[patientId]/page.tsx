@@ -12,6 +12,10 @@ import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
 import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
+import { FootAssessmentForm } from "./foot-assessment-form";
+import { ComplicationCheckForm } from "./complication-check-form";
+import { GlucoseTargetForm } from "./glucose-target-form";
+import { TreatmentLadder } from "./treatment-ladder";
 
 export default async function ClinicianPatientPage({
   params,
@@ -48,6 +52,13 @@ export default async function ClinicianPatientPage({
 
   const callerStaff = await getCurrentClinicalStaff();
   const canPrescribe = hasPrescribingAuthority(callerStaff);
+  // Pregnancy context for the drug-safety advisory (§20.2).
+  const { data: pregnancy } = await supabase
+    .from("patient_pregnancy")
+    .select("is_pregnant")
+    .eq("patient_id", patientId)
+    .maybeSingle();
+  const isPregnant = pregnancy?.is_pregnant ?? false;
   // Tier 1's other half of the job (master plan §4/§8): confirm/continue an
   // existing prescription without prescribing authority. Never Tier 2+/
   // Director — they already get the unrestricted AddMedicationForm above.
@@ -90,7 +101,7 @@ export default async function ClinicianPatientPage({
           (private.has_prescribing_authority), this just explains it
           instead of surfacing a raw RLS error. */}
       {canPrescribe ? (
-        <AddMedicationForm patientId={patient.id} source="clinician" />
+        <AddMedicationForm patientId={patient.id} source="clinician" pregnant={isPregnant} />
       ) : (
         <Card>
           <CardHeader>
@@ -106,6 +117,7 @@ export default async function ClinicianPatientPage({
           </CardContent>
         </Card>
       )}
+      <TreatmentLadder />
       <VitalsTrendChart patientId={patient.id} />
       <LipidProfileCard patientId={patient.id} />
       <CardiovascularRiskPanel
@@ -113,6 +125,11 @@ export default async function ClinicianPatientPage({
         assessment={cvAssessment}
         initialProfile={cvProfile ?? null}
       />
+      {/* Foot-risk classification is a clinical act — only an active
+          clinical_staff member (not a Care Coordinator) sees the form. */}
+      {callerStaff && <GlucoseTargetForm patientId={patient.id} />}
+      {callerStaff && <FootAssessmentForm patientId={patient.id} />}
+      {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
       <ScreeningResultForm patientId={patient.id} />
       {patient.organisation_id && (
         <>
