@@ -173,6 +173,19 @@ const TEMPLATE_MAP: Record<
         `log it. — Tarragon Health`,
     };
   },
+  // Sent to the patient when their care team replies in an in-app message
+  // thread. Notification only — the message itself is read in the app, never
+  // over WhatsApp/SMS.
+  new_care_message: () => {
+    return {
+      metaTemplateName: "new_care_message",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText:
+        "You have a new message from your care team. Open the Tarragon Health app to read and " +
+        "reply. — Tarragon Health",
+    };
+  },
   // Sent to the patient as a scheduled periodic health review comes due (see
   // private.queue_preventive_review_reminders). Reminder only — the review is
   // completed by a doctor in the clinician worklist, never over WhatsApp.

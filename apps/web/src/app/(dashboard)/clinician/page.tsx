@@ -40,6 +40,11 @@ export default async function ClinicianPage() {
         </Link>
       </p>
       <p className="text-sm">
+        <Link href="/clinician/messages" className="text-brand-green hover:underline">
+          Patient messages →
+        </Link>
+      </p>
+      <p className="text-sm">
         <Link href="/clinician/referrals" className="text-brand-green hover:underline">
           Specialist referrals →
         </Link>
