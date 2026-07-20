@@ -8,6 +8,7 @@ import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { ScreeningResultForm } from "./screening-result-form";
+import { ResultDocumentsSection } from "./result-documents-section";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
@@ -130,6 +131,7 @@ export default async function ClinicianPatientPage({
       {callerStaff && <GlucoseTargetForm patientId={patient.id} />}
       {callerStaff && <FootAssessmentForm patientId={patient.id} />}
       {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
+      <ResultDocumentsSection patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />
       {patient.organisation_id && (
         <>

@@ -2847,6 +2847,109 @@ export type Database = {
         }
         Relationships: []
       }
+      lab_result_documents: {
+        Row: {
+          clinician_alert_id: string | null
+          created_at: string
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          lab_order_id: string | null
+          mime_type: string | null
+          note: string | null
+          organisation_id: string
+          original_filename: string | null
+          patient_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: Database["public"]["Enums"]["lab_result_document_source"]
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          lab_order_id?: string | null
+          mime_type?: string | null
+          note?: string | null
+          organisation_id: string
+          original_filename?: string | null
+          patient_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: Database["public"]["Enums"]["lab_result_document_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          lab_order_id?: string | null
+          mime_type?: string | null
+          note?: string | null
+          organisation_id?: string
+          original_filename?: string | null
+          patient_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: Database["public"]["Enums"]["lab_result_document_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_result_documents_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_result_interpretations: {
         Row: {
           created_at: string
@@ -8602,6 +8705,7 @@ export type Database = {
         | "processing"
         | "resulted"
         | "cancelled"
+      lab_result_document_source: "patient" | "lab_liaison" | "clinician" | "admin"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other"
       lpe_enrollment_status:
         | "draft"
@@ -8795,6 +8899,7 @@ export type Database = {
         | "care_coordinator"
         | "pharmacist"
         | "analyst"
+        | "lab_liaison"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -9318,6 +9423,7 @@ export const Constants = {
         "care_coordinator",
         "pharmacist",
         "analyst",
+        "lab_liaison",
       ],
       vaccination_verification_status: [
         "self_reported",
