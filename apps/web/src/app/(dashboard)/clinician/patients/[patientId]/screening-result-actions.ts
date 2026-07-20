@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { screeningResultSchema } from "@/lib/validation/screening-result";
 import { computeNonHdl } from "@/lib/lipids/analytes";
+import { flagCvRiskEscalations } from "@/lib/cv-risk/escalate";
 import {
   createMlClientFromEnv,
   type AnalyteReadingIn,
@@ -166,6 +167,18 @@ export async function submitScreeningResult(
     }),
     maybeComputeHba1cTrajectory(mlClient, { organisationId, patientId, hasHba1cResult: analytes.some((a) => a.code === "hba1c") }),
   ]);
+
+  // After a lipid panel (and once the fresh CVD risk above has been written),
+  // run the config-driven CV-risk assessment and flag any escalation for
+  // clinician review — untreated high-risk/secondary prevention, very high
+  // LDL/Non-HDL, or a worsening trend. Best-effort: never blocks the result.
+  if (input.screen_type_code === "lipid_panel") {
+    try {
+      await flagCvRiskEscalations(patientId, organisationId);
+    } catch {
+      // A missing config or transient error must not fail result recording.
+    }
+  }
 
   return { success: true };
 }

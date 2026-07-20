@@ -10,6 +10,8 @@ import { PatientTimeline } from "@/components/patient-timeline";
 import { ScreeningResultForm } from "./screening-result-form";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
+import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
+import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 
 export default async function ClinicianPatientPage({
   params,
@@ -50,6 +52,19 @@ export default async function ClinicianPatientPage({
   // existing prescription without prescribing authority. Never Tier 2+/
   // Director — they already get the unrestricted AddMedicationForm above.
   const canConfirmRefill = !canPrescribe && callerStaff?.doctor_tier === "tier_1";
+
+  // Cardiovascular-risk assessment (lipids as one input to total CV risk) +
+  // the patient's recorded CV history, for the CardiovascularRiskPanel.
+  const cvAssessment = patient.organisation_id
+    ? await loadCvRiskAssessment(supabase, patient.id, patient.organisation_id)
+    : null;
+  const { data: cvProfile } = await supabase
+    .from("patient_cardiovascular_profile")
+    .select(
+      "established_ascvd, prior_mi, prior_stroke_tia, prior_pad, prior_revascularisation, familial_hypercholesterolaemia, notes"
+    )
+    .eq("patient_id", patient.id)
+    .maybeSingle();
 
   return (
     <div className="space-y-6">
@@ -93,6 +108,11 @@ export default async function ClinicianPatientPage({
       )}
       <VitalsTrendChart patientId={patient.id} />
       <LipidProfileCard patientId={patient.id} />
+      <CardiovascularRiskPanel
+        patientId={patient.id}
+        assessment={cvAssessment}
+        initialProfile={cvProfile ?? null}
+      />
       <ScreeningResultForm patientId={patient.id} />
       {patient.organisation_id && (
         <>

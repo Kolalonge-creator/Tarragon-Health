@@ -14,6 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
+      cv_risk_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          organisation_id: string
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id: string
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cv_risk_config_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cv_risk_config_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_cardiovascular_profile: {
+        Row: {
+          created_at: string
+          established_ascvd: boolean
+          familial_hypercholesterolaemia: boolean
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          prior_mi: boolean
+          prior_pad: boolean
+          prior_revascularisation: boolean
+          prior_stroke_tia: boolean
+          recorded_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          established_ascvd?: boolean
+          familial_hypercholesterolaemia?: boolean
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          prior_mi?: boolean
+          prior_pad?: boolean
+          prior_revascularisation?: boolean
+          prior_stroke_tia?: boolean
+          recorded_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          established_ascvd?: boolean
+          familial_hypercholesterolaemia?: boolean
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          prior_mi?: boolean
+          prior_pad?: boolean
+          prior_revascularisation?: boolean
+          prior_stroke_tia?: boolean
+          recorded_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_cardiovascular_profile_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_cardiovascular_profile_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_cardiovascular_profile_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       add_ons: {
         Row: {
           code: string
@@ -7861,6 +7982,7 @@ export type Database = {
       }
     }
     Functions: {
+      sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       admin_broadcast_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]
