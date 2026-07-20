@@ -423,16 +423,24 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
-  // Sent to the patient when the system or a doctor generates a lab test order
-  // for them (private.enqueue_lab_order_requested_notifications). Email is the
-  // guaranteed channel; WhatsApp falls back to SMS until the Meta template lands.
+  // Sent to the patient for every lab order
+  // (private.enqueue_lab_order_requested_notifications). A doctor/system order
+  // reads as "requested for you"; a self-booked order reads as a showable
+  // confirmation to present at the lab. Email is the guaranteed channel;
+  // WhatsApp falls back to SMS until the Meta template lands.
   lab_order_requested_patient: (payload) => {
     const patientName = String(payload.patient_name ?? "there");
     const orderNumber = String(payload.order_number ?? "your order");
     const testName = String(payload.test_name ?? "a lab test");
-    const smsText =
-      `Hi ${patientName}, a lab test has been requested for you: ${testName} ` +
-      `(order ${orderNumber}). See the details in the Tarragon Health app. — Tarragon Health`;
+    const selfBooked = payload.self_booked === true;
+    const lead = selfBooked
+      ? `Your lab test order is confirmed. Show order ${orderNumber} at the lab so they know exactly what to run.`
+      : `Your care team has requested a lab test for you.`;
+    const smsText = selfBooked
+      ? `Hi ${patientName}, your lab order is confirmed: ${testName} (order ${orderNumber}). ` +
+        `Show order ${orderNumber} at the lab to have it done. — Tarragon Health`
+      : `Hi ${patientName}, a lab test has been requested for you: ${testName} ` +
+        `(order ${orderNumber}). See the details in the Tarragon Health app. — Tarragon Health`;
     return {
       metaTemplateName: "lab_order_requested_patient",
       languageCode: "en",
@@ -448,11 +456,13 @@ const TEMPLATE_MAP: Record<
       ],
       smsText,
       email: {
-        subject: `A lab test has been requested for you`,
+        subject: selfBooked
+          ? `Your lab test order ${orderNumber} is confirmed`
+          : `A lab test has been requested for you`,
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hi ${patientName},</p>` +
-          `<p>Your care team has requested a lab test for you. Here are the details:</p>` +
+          `<p>${lead} Here are the details:</p>` +
           `<table style="border-collapse:collapse;margin:16px 0">` +
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Test</td><td style="padding:4px 0"><strong>${testName}</strong></td></tr>` +
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Order number</td><td style="padding:4px 0"><strong>${orderNumber}</strong></td></tr>` +

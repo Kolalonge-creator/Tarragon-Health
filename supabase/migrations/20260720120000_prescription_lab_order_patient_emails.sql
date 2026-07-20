@@ -24,10 +24,11 @@
 --   • Medications: only clinician/specialist-*prescribed* meds notify. A
 --     patient who self-adds a medication (source = 'patient') already knows
 --     about it, so no email is sent for those.
---   • Lab orders: only orders the *system or a doctor* generated notify — i.e.
---     origin <> 'patient_initiated' OR ordered_by is set. A patient's own
---     self-booked order is something they just did themselves, so it is not
---     re-announced to them here.
+--   • Lab orders: EVERY lab order notifies the patient. A doctor/system-
+--     generated order tells them a test was requested for them; a self-booked
+--     order gives them a showable confirmation (order number + test name) to
+--     present at the lab so it knows exactly what they ordered. The copy varies
+--     on payload.self_booked.
 -- New templates (medication_prescribed_patient, lab_order_requested_patient)
 -- are added to the send-pending-notifications Edge Function in the same change;
 -- until that function is redeployed, these rows render as "unknown template".
@@ -119,12 +120,12 @@ declare
   v_patient_email text;
   v_test_name     text;
   v_order_ref     text;
+  v_self_booked   boolean;
 begin
-  -- Only system/doctor-generated orders notify. A patient's own self-booked
-  -- order (origin = 'patient_initiated', no ordered_by) is not re-announced.
-  if new.origin = 'patient_initiated' and new.ordered_by is null then
-    return new;
-  end if;
+  -- Every lab order notifies the patient. Self-booked orders get a showable
+  -- confirmation to present at the lab; doctor/system orders get a "requested
+  -- for you" message. The template branches on self_booked.
+  v_self_booked := (new.origin = 'patient_initiated' and new.ordered_by is null);
 
   select * into v_patient from public.profiles where id = new.patient_id;
   select email into v_patient_email from auth.users where id = new.patient_id;
@@ -144,7 +145,8 @@ begin
         'to_email',     v_patient_email,
         'patient_name', coalesce(v_patient.full_name, 'there'),
         'order_number', v_order_ref,
-        'test_name',    v_test_name
+        'test_name',    v_test_name,
+        'self_booked',  v_self_booked
       )
     );
   end if;
@@ -158,7 +160,8 @@ begin
     jsonb_build_object(
       'patient_name', coalesce(v_patient.full_name, 'there'),
       'order_number', v_order_ref,
-      'test_name',    v_test_name
+      'test_name',    v_test_name,
+      'self_booked',  v_self_booked
     )
   );
 
