@@ -19,7 +19,7 @@ const PILLARS = [
   },
   {
     title: "Premium, within reach",
-    body: "High-quality, consistent care that stays affordable, built for Nigerian families rather than a select few.",
+    body: "High-quality, consistent care that stays affordable, built for Nigerians rather than a select few.",
   },
   {
     title: "Built for Nigeria",

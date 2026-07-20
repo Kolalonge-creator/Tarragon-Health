@@ -39,7 +39,7 @@ const OPEN_ROLES: { title: string; scope: string }[] = [
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Why TarragonHealth exists: continuity of care between doctor visits, for Nigerian families and the people who love them.",
+    "Why TarragonHealth exists: continuity of care between doctor visits, for Nigerians and the people who love them.",
   alternates: { canonical: MARKETING_ROUTES.about },
 };
 
