@@ -4728,6 +4728,51 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_bp_targets: {
+        Row: {
+          category: string
+          created_at: string
+          home_diastolic: number
+          home_systolic: number
+          id: string
+          office_diastolic: number
+          office_systolic: number
+          organisation_id: string
+          patient_id: string
+          rationale: string | null
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          home_diastolic: number
+          home_systolic: number
+          id?: string
+          office_diastolic: number
+          office_systolic: number
+          organisation_id: string
+          patient_id: string
+          rationale?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          home_diastolic?: number
+          home_systolic?: number
+          id?: string
+          office_diastolic?: number
+          office_systolic?: number
+          organisation_id?: string
+          patient_id?: string
+          rationale?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       patient_allergies: {
         Row: {
           allergen: string
@@ -7994,6 +8039,7 @@ export type Database = {
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
+      hbpm_summary: { Args: { p_patient: string }; Returns: Json }
       health_education_feed: {
         Args: never
         Returns: {
