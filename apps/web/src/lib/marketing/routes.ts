@@ -2,6 +2,10 @@
 
 export const MARKETING_ROUTES = {
   home: "/",
+  services: "/services",
+  chronicCare: "/chronic-care",
+  careCoordination: "/care-coordination",
+  whoItsFor: "/who-its-for",
   hypertension: "/hypertension",
   diabetes: "/diabetes",
   parentcare: "/parentcare",
@@ -10,6 +14,7 @@ export const MARKETING_ROUTES = {
   labs: "/labs",
   pricing: "/pricing",
   about: "/about",
+  faq: "/faq",
   corporate: "/corporate",
   hmo: "/hmo",
   contact: "/contact",
@@ -20,6 +25,10 @@ export type MarketingRouteKey = keyof typeof MARKETING_ROUTES;
 /** Routes built in the current scaffold pass (update as pages ship). */
 export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "home",
+  "services",
+  "chronicCare",
+  "careCoordination",
+  "whoItsFor",
   "hypertension",
   "diabetes",
   "parentcare",
@@ -28,6 +37,7 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "labs",
   "pricing",
   "about",
+  "faq",
   "corporate",
   "hmo",
   "contact",

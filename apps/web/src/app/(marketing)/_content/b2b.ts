@@ -65,6 +65,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       title: "Corporate Health",
       description:
         "Corporate wellness plans that surface workforce chronic disease risk and close care gaps early, with anonymised reporting for HR.",
+      alternates: { canonical: "/corporate" },
     },
   },
   hmo: {
@@ -109,6 +110,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       title: "HMO Support",
       description:
         "Monitor member risk, close care gaps, and generate outcome evidence: chronic disease and preventive care for HMO members.",
+      alternates: { canonical: "/hmo" },
     },
   },
 };

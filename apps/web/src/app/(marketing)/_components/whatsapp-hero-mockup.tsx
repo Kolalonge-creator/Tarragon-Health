@@ -2,7 +2,7 @@
 
 const MESSAGES = [
   { from: "them" as const, delay: "0.3s", text: "Good morning! Time for your BP reading, log it in the Tarragon app when you get a chance." },
-  { from: "them" as const, delay: "1.3s", text: "Got your reading: 124/79. That's within range and trending better than last week. Logged for Dad's file too." },
+  { from: "them" as const, delay: "1.3s", text: "Got your reading: 124/79. That's within range and trending better than last week. I've noted it on your record." },
   { from: "me" as const, delay: "2.3s", text: "Thank you!" },
 ];
 

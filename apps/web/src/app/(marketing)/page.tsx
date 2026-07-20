@@ -1,35 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { AudienceTabs } from "./_components/audience-tabs";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
-import { DashboardPreview } from "./_components/dashboard-preview";
 import { MarketingHero } from "./_components/marketing-hero";
 import { MarketingMediaFrame } from "./_components/marketing-media-frame";
 import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
-import { ServiceCardLink } from "./_components/service-card";
 import { StoryPanel } from "./_components/story-panel";
-import { TrustPillars } from "./_components/trust-pillars";
 import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { MARKETING_MEDIA } from "./_content/media";
-import {
-  AUDIENCE_TABS,
-  HOMEPAGE_FAQS,
-  HOW_IT_WORKS_STEPS,
-  PREVENTION_CALLOUT,
-  PROOF_STATS,
-  SERVICE_CARDS,
-  WHAT_YOU_GET,
-} from "./_content/services";
+import { PREVENTION_CALLOUT, PROOF_STATS, WHAT_YOU_GET } from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
   title: "TarragonHealth | Care that stays with you",
   description:
-    "Health monitoring for you, your parents, and your loved ones. Track vitals, medication, labs, and preventive health in one secure platform.",
+    "Health monitoring for chronic disease, preventive health, and care coordination. Track vitals, medication, labs, and preventive checks in one secure platform.",
+  alternates: { canonical: "/" },
 };
 
 export default function MarketingHomePage() {
@@ -55,12 +44,11 @@ export default function MarketingHomePage() {
             Care that stays with you.
           </h1>
           <p className="mt-4 font-heading text-xl text-charcoal-ink/80 sm:text-2xl">
-            Health monitoring for you, your parents, and your loved ones.
+            Health monitoring for chronic disease, prevention, and care coordination.
           </p>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             Track blood pressure, blood sugar, medication, lab checks, and preventive health needs
-            in one secure platform. Tarragon helps families stay informed and supports escalation
-            when closer care is needed.
+            in one secure platform, with clinical review and escalation when closer care is needed.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
@@ -98,19 +86,19 @@ export default function MarketingHomePage() {
       </Section>
 
       <Section>
-        <StoryPanel
+        <SectionHeading
           eyebrow="The solution"
           title="Tarragon monitors, reminds, reviews, coordinates, and escalates"
-          description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not."
-          media={homepage.solution}
-          reverse
-        >
-          <div className="mt-6">
-            <Button asChild variant="outline">
-              <Link href={MARKETING_ROUTES.about}>How Tarragon works</Link>
-            </Button>
-          </div>
-        </StoryPanel>
+          description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not. See how it works, end to end, on our services page."
+        />
+        <div className="flex flex-wrap justify-center gap-3">
+          <Button asChild>
+            <Link href={MARKETING_ROUTES.services}>See how Tarragon works</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={MARKETING_ROUTES.about}>About Tarragon</Link>
+          </Button>
+        </div>
       </Section>
 
       <Section variant="sage">
@@ -151,7 +139,10 @@ export default function MarketingHomePage() {
         <SectionHeading eyebrow="What you get" title="Monitoring that stays connected" />
         <div className="grid gap-6 md:grid-cols-3">
           {WHAT_YOU_GET.map((pillar) => (
-            <div key={pillar.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
+            <div
+              key={pillar.title}
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 transition duration-200 hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-md"
+            >
               <h3 className="font-heading text-xl font-semibold text-charcoal-ink">
                 {pillar.title}
               </h3>
@@ -162,63 +153,44 @@ export default function MarketingHomePage() {
       </Section>
 
       <Section>
-        <DashboardPreview />
-      </Section>
-
-      <Section variant="sage">
-        <SectionHeading eyebrow="Services" title="What we help you manage" />
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICE_CARDS.map((service) => (
-            <ServiceCardLink key={service.key} service={service} />
-          ))}
-        </div>
-      </Section>
-
-      <Section>
-        <SectionHeading eyebrow="How it works" title="From sign-up to family updates" />
-        <ol className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {HOW_IT_WORKS_STEPS.map(({ step, title, body }) => (
-            <li
-              key={step}
-              className="flex gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-4"
-            >
-              <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-clinical-navy text-xs font-semibold text-white"
-                aria-hidden
-              >
-                {step}
-              </span>
-              <div>
-                <h3 className="font-heading text-sm font-semibold text-charcoal-ink">{title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/70">{body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </Section>
-
-      <Section variant="navy">
         <SectionHeading
-          invert
-          eyebrow="Why families trust Tarragon"
-          title="A doctor who knows your name. Not a hospital PA system."
-          description="We are not a wellness app. Tarragon is built for the care between doctor visits — protocol-driven, evidence-focused, and consistent."
+          eyebrow="Explore"
+          title="Find the care that fits you"
+          description="Whether you're managing a condition, staying ahead of one, or looking after someone else, there's a place to start."
         />
-        <TrustPillars />
-        <div className="mt-10 text-center">
-          <Link
-            href={MARKETING_ROUTES.about}
-            className="inline-flex items-center gap-1.5 font-medium text-white underline underline-offset-4 hover:text-white/80"
-          >
-            Read our story
-            <span aria-hidden>→</span>
-          </Link>
+        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
+          {[
+            {
+              href: MARKETING_ROUTES.services,
+              title: "Services",
+              body: "Everything Tarragon helps you manage, and how it fits together.",
+            },
+            {
+              href: MARKETING_ROUTES.whoItsFor,
+              title: "Who it's for",
+              body: "For you, for families, for employers, and for HMOs.",
+            },
+            {
+              href: MARKETING_ROUTES.pricing,
+              title: "Pricing",
+              body: "Clear plans with no hidden costs. See what's included.",
+            },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="group rounded-xl border border-charcoal-ink/10 bg-white p-6 transition-colors hover:border-brand-green/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+            >
+              <h3 className="font-heading text-lg font-semibold text-charcoal-ink group-hover:text-brand-green">
+                {item.title}
+                <span aria-hidden className="ml-1 inline-block transition-transform group-hover:translate-x-0.5">
+                  →
+                </span>
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
+            </Link>
+          ))}
         </div>
-      </Section>
-
-      <Section>
-        <SectionHeading eyebrow="Who it's for" title="Whoever you're looking after, Tarragon speaks your language." />
-        <AudienceTabs tabs={AUDIENCE_TABS} />
       </Section>
 
       <Section>
@@ -230,41 +202,6 @@ export default function MarketingHomePage() {
           secondaryHref="/signup"
           secondaryLabel="Start monitoring"
         />
-      </Section>
-
-      <Section variant="sage">
-        <SectionHeading
-          eyebrow="Questions"
-          title="What families usually ask first"
-          description="Clear answers before anyone signs up, because trust starts with knowing what is included."
-        />
-        <div className="mx-auto grid max-w-4xl gap-4">
-          {HOMEPAGE_FAQS.slice(0, 4).map((faq) => (
-            <details
-              key={faq.question}
-              className="group rounded-xl border border-charcoal-ink/10 bg-white p-5"
-            >
-              <summary className="cursor-pointer list-none font-heading text-lg font-semibold text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2">
-                {faq.question}
-                <span className="float-right ml-4 text-brand-green transition-transform group-open:rotate-45">
-                  +
-                </span>
-              </summary>
-              <p className="mt-3 text-charcoal-ink/70">{faq.answer}</p>
-            </details>
-          ))}
-        </div>
-        <p className="mx-auto mt-8 max-w-4xl text-center text-sm text-charcoal-ink/70">
-          More questions? See the full breakdown on our{" "}
-          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
-            pricing page
-          </Link>{" "}
-          or{" "}
-          <Link href={MARKETING_ROUTES.contact} className="font-medium text-deep-forest hover:underline">
-            get in touch
-          </Link>
-          .
-        </p>
       </Section>
 
       <Section>

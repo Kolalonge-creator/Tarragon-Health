@@ -73,7 +73,7 @@ export const PROOF_STATS = [
   {
     value: "1",
     label: "shared record",
-    detail: "Chronic care, prevention, labs, and family updates together.",
+    detail: "Chronic care, prevention, medication, and labs together, in one place.",
   },
 ] as const;
 
@@ -88,7 +88,7 @@ export const WHAT_YOU_GET = [
   },
   {
     title: "Coordinate",
-    body: "Preventive checks, labs, medication, doctor escalation, and family updates stay connected instead of scattered.",
+    body: "Preventive checks, labs, medication, and doctor escalation stay connected instead of scattered.",
   },
 ] as const;
 
@@ -105,7 +105,11 @@ export const HOW_IT_WORKS_STEPS = [
   { step: 3, title: "Monitor", body: "Log vitals, take medication, and complete preventive checks." },
   { step: 4, title: "Doctor review", body: "Your care team reviews your readings and follows up." },
   { step: 5, title: "Doctor escalation", body: "When closer care is needed, we escalate; you are never alone." },
-  { step: 6, title: "Family updates", body: "Keep family informed with calm, clear updates, near or far." },
+  {
+    step: 6,
+    title: "Family updates (optional)",
+    body: "On ParentCare, family can opt in to calm, clear updates about a loved one, near or far. Not on by default, and only for those who choose it.",
+  },
 ] as const;
 
 export type AudienceStat = {
@@ -147,7 +151,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "family",
     tabLabel: "For families",
     title: "Know how your parent is doing, even from far away.",
-    body: "Track Mum's blood pressure, Dad's medication, and preventive checks, with updates that feel human, not clinical.",
+    body: "With ParentCare, track Mum's blood pressure, Dad's medication, and preventive checks, with opt-in updates that feel human, not clinical. Family updates are a ParentCare feature you choose, not something every plan sends.",
     points: [
       "Is my parent okay today? Green, amber, or red.",
       "Are they taking their medication?",
@@ -159,7 +163,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "This week's readings", value: "Stable trend" },
       { label: "Overdue", value: "", pill: { text: "Nothing", tone: "green" } },
     ],
-    cta: null,
+    cta: { label: "Explore ParentCare", href: MARKETING_ROUTES.parentcare },
   },
   {
     key: "corporate",

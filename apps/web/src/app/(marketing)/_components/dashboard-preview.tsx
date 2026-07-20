@@ -20,7 +20,7 @@ const CARE_PATH = [
   "Reading logged",
   "Doctor review",
   "Follow-up note",
-  "Family update",
+  "Family update (ParentCare)",
 ] as const;
 
 export function DashboardPreview() {
@@ -34,8 +34,9 @@ export function DashboardPreview() {
           One calm view for the care between visits
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-          Tarragon brings readings, reminders, preventive checks, doctor review,
-          and family updates into one shared record, so the next step is clear.
+          Tarragon brings readings, reminders, preventive checks, and doctor
+          review into one shared record, so the next step is clear. On
+          ParentCare, families can opt in to updates too.
         </p>
       </div>
 
