@@ -14,21 +14,41 @@ describe("vitalsReadingSchema — blood_pressure", () => {
     ).toBe(false);
   });
 
-  it("rejects systolic above 200", () => {
+  // TH-CP-HTN-001 §5.4 H2: crisis readings must be enterable so they can
+  // escalate — the range is SBP 60-260 / DBP 30-160.
+  it("accepts a hypertensive-crisis reading (210/125)", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, systolic: "201" }).success
+      vitalsReadingSchema.safeParse({ ...valid, systolic: "210", diastolic: "125" }).success
+    ).toBe(true);
+  });
+
+  it("rejects implausible systolic above 260", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, systolic: "261" }).success
     ).toBe(false);
   });
 
-  it("rejects diastolic below 40", () => {
+  it("accepts diastolic 39 (now within the widened range)", () => {
     expect(
       vitalsReadingSchema.safeParse({ ...valid, diastolic: "39" }).success
+    ).toBe(true);
+  });
+
+  it("rejects implausible diastolic below 30", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, diastolic: "29" }).success
     ).toBe(false);
   });
 
-  it("rejects diastolic above 130", () => {
+  it("rejects diastolic above 160", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, diastolic: "131" }).success
+      vitalsReadingSchema.safeParse({ ...valid, diastolic: "161" }).success
+    ).toBe(false);
+  });
+
+  it("rejects a reading where systolic is not above diastolic", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, systolic: "80", diastolic: "90" }).success
     ).toBe(false);
   });
 });
