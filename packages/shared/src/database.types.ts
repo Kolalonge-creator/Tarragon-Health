@@ -14,6 +14,336 @@ export type Database = {
   }
   public: {
     Tables: {
+      bariatric_referrals: {
+        Row: {
+          bmi: number | null
+          created_at: string
+          criteria: Json
+          eligible: boolean
+          id: string
+          notes: string | null
+          obesity_assessment_id: string | null
+          organisation_id: string
+          patient_id: string
+          referred_at: string
+          referred_by: string | null
+          specialist_referral_id: string | null
+          status: Database["public"]["Enums"]["bariatric_referral_status"]
+          updated_at: string
+        }
+        Insert: {
+          bmi?: number | null
+          created_at?: string
+          criteria?: Json
+          eligible?: boolean
+          id?: string
+          notes?: string | null
+          obesity_assessment_id?: string | null
+          organisation_id: string
+          patient_id: string
+          referred_at?: string
+          referred_by?: string | null
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["bariatric_referral_status"]
+          updated_at?: string
+        }
+        Update: {
+          bmi?: number | null
+          created_at?: string
+          criteria?: Json
+          eligible?: boolean
+          id?: string
+          notes?: string | null
+          obesity_assessment_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          referred_at?: string
+          referred_by?: string | null
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["bariatric_referral_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bariatric_referrals_obesity_assessment_id_fkey"
+            columns: ["obesity_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "obesity_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bariatric_referrals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bariatric_referrals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bariatric_referrals_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bariatric_referrals_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obesity_assessments: {
+        Row: {
+          adiposity_confirmed: boolean | null
+          assessed_at: string
+          assessed_by: string | null
+          bmi: number
+          bmi_category: Database["public"]["Enums"]["obesity_bmi_category"]
+          clinical_status:
+            | Database["public"]["Enums"]["obesity_clinical_status"]
+            | null
+          complications: Json
+          created_at: string
+          eoss_stage: number | null
+          functional_limitation: boolean
+          height_cm: number
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          secondary_causes: Json
+          updated_at: string
+          waist_cm: number | null
+          waist_risk: Database["public"]["Enums"]["obesity_waist_risk"] | null
+          weight_kg: number
+          whtr: number | null
+        }
+        Insert: {
+          adiposity_confirmed?: boolean | null
+          assessed_at?: string
+          assessed_by?: string | null
+          bmi: number
+          bmi_category: Database["public"]["Enums"]["obesity_bmi_category"]
+          clinical_status?:
+            | Database["public"]["Enums"]["obesity_clinical_status"]
+            | null
+          complications?: Json
+          created_at?: string
+          eoss_stage?: number | null
+          functional_limitation?: boolean
+          height_cm: number
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          secondary_causes?: Json
+          updated_at?: string
+          waist_cm?: number | null
+          waist_risk?: Database["public"]["Enums"]["obesity_waist_risk"] | null
+          weight_kg: number
+          whtr?: number | null
+        }
+        Update: {
+          adiposity_confirmed?: boolean | null
+          assessed_at?: string
+          assessed_by?: string | null
+          bmi?: number
+          bmi_category?: Database["public"]["Enums"]["obesity_bmi_category"]
+          clinical_status?:
+            | Database["public"]["Enums"]["obesity_clinical_status"]
+            | null
+          complications?: Json
+          created_at?: string
+          eoss_stage?: number | null
+          functional_limitation?: boolean
+          height_cm?: number
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          secondary_causes?: Json
+          updated_at?: string
+          waist_cm?: number | null
+          waist_risk?: Database["public"]["Enums"]["obesity_waist_risk"] | null
+          weight_kg?: number
+          whtr?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obesity_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obesity_ed_screens: {
+        Row: {
+          administered_by: string | null
+          clinician_alert_id: string | null
+          created_at: string
+          disordered_behaviours: Json
+          id: string
+          low_mood: boolean
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          positive: boolean
+          scoff_control: boolean
+          scoff_fat: boolean
+          scoff_food_dominates: boolean
+          scoff_one_stone: boolean
+          scoff_score: number
+          scoff_sick: boolean
+          screened_at: string
+          self_harm_risk: boolean
+          self_reported: boolean
+        }
+        Insert: {
+          administered_by?: string | null
+          clinician_alert_id?: string | null
+          created_at?: string
+          disordered_behaviours?: Json
+          id?: string
+          low_mood?: boolean
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          positive?: boolean
+          scoff_control?: boolean
+          scoff_fat?: boolean
+          scoff_food_dominates?: boolean
+          scoff_one_stone?: boolean
+          scoff_score?: number
+          scoff_sick?: boolean
+          screened_at?: string
+          self_harm_risk?: boolean
+          self_reported?: boolean
+        }
+        Update: {
+          administered_by?: string | null
+          clinician_alert_id?: string | null
+          created_at?: string
+          disordered_behaviours?: Json
+          id?: string
+          low_mood?: boolean
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          positive?: boolean
+          scoff_control?: boolean
+          scoff_fat?: boolean
+          scoff_food_dominates?: boolean
+          scoff_one_stone?: boolean
+          scoff_score?: number
+          scoff_sick?: boolean
+          screened_at?: string
+          self_harm_risk?: boolean
+          self_reported?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obesity_ed_screens_administered_by_fkey"
+            columns: ["administered_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_ed_screens_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_ed_screens_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_ed_screens_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pathway_attestations: {
+        Row: {
+          attested_at: string
+          clinical_staff_id: string
+          created_at: string
+          id: string
+          organisation_id: string
+          pathway_version: number
+          protocol_slug: string
+          statement: string
+        }
+        Insert: {
+          attested_at?: string
+          clinical_staff_id: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          pathway_version?: number
+          protocol_slug: string
+          statement: string
+        }
+        Update: {
+          attested_at?: string
+          clinical_staff_id?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          pathway_version?: number
+          protocol_slug?: string
+          statement?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pathway_attestations_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pathway_attestations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       add_ons: {
         Row: {
           code: string
@@ -8105,6 +8435,23 @@ export type Database = {
         | "all_partners"
         | "partners_by_type"
       broadcast_status: "draft" | "sent"
+      bariatric_referral_status:
+        | "proposed"
+        | "referred"
+        | "workup"
+        | "scheduled"
+        | "completed"
+        | "declined"
+        | "not_eligible"
+      obesity_bmi_category:
+        | "underweight"
+        | "healthy"
+        | "overweight"
+        | "obesity_class_i"
+        | "obesity_class_ii"
+        | "obesity_class_iii"
+      obesity_clinical_status: "preclinical" | "clinical"
+      obesity_waist_risk: "normal" | "raised" | "high"
       care_plan_condition:
         | "hypertension"
         | "diabetes"
@@ -8580,6 +8927,25 @@ export const Constants = {
         "partners_by_type",
       ],
       broadcast_status: ["draft", "sent"],
+      bariatric_referral_status: [
+        "proposed",
+        "referred",
+        "workup",
+        "scheduled",
+        "completed",
+        "declined",
+        "not_eligible",
+      ],
+      obesity_bmi_category: [
+        "underweight",
+        "healthy",
+        "overweight",
+        "obesity_class_i",
+        "obesity_class_ii",
+        "obesity_class_iii",
+      ],
+      obesity_clinical_status: ["preclinical", "clinical"],
+      obesity_waist_risk: ["normal", "raised", "high"],
       care_plan_condition: [
         "hypertension",
         "diabetes",
