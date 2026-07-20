@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 export type SignAttestationState = { error?: string; success?: boolean } | undefined;
 
 /** The current attestation text a doctor signs — kept in sync with the
- * migration's default `attestation_version`. */
-export const ATTESTATION_VERSION = "AHC-2026-v1";
+ * migration's default `attestation_version`. Module-local: a "use server"
+ * module may only export async functions, so this cannot be exported. */
+const ATTESTATION_VERSION = "AHC-2026-v1";
 
 /**
  * Records the caller's annual red-flag attestation (AHC pathway §26). The
