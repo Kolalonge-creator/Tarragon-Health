@@ -4,6 +4,7 @@ import { User } from "lucide-react";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
+import { TrustPillars } from "../_components/trust-pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 /**
@@ -39,6 +40,7 @@ export const metadata: Metadata = {
   title: "About",
   description:
     "Why TarragonHealth exists: continuity of care between doctor visits, for Nigerian families and the people who love them.",
+  alternates: { canonical: MARKETING_ROUTES.about },
 };
 
 export default function AboutPage() {
@@ -121,8 +123,8 @@ export default function AboutPage() {
               body: "Escalation follows a defined four-level pathway, every time, for every patient.",
             },
             {
-              title: "Family included",
-              body: "The people looking after a parent or partner stay informed, not left guessing.",
+              title: "Family included, if you choose",
+              body: "On ParentCare, the people looking after a parent can opt in to updates, so they stay informed rather than left guessing. It is a choice, not a default.",
             },
           ].map((item) => (
             <div
@@ -136,6 +138,16 @@ export default function AboutPage() {
             </div>
           ))}
         </div>
+      </Section>
+
+      <Section variant="navy">
+        <SectionHeading
+          invert
+          eyebrow="What we stand for"
+          title="How we work, and what we won't do"
+          description="Tarragon is built for the care between doctor visits: protocol-driven, evidence-focused, and consistent. These are the commitments behind that."
+        />
+        <TrustPillars />
       </Section>
 
       <Section variant="sage">

@@ -1,19 +1,38 @@
-/** Voice personality pillars, docs/BRAND_GUIDE.md §3. */
+/** What Tarragon stands for, grounded in real practice, docs/BRAND_GUIDE.md §3. */
 
 const PILLARS = [
-  { title: "Trustworthy", body: "Clinically credible, protocol-driven. We earn trust; we don't claim it." },
-  { title: "Warm", body: "A doctor who knows your name, not a hospital PA system." },
-  { title: "Calm", body: "We notice things early and say so calmly, never alarmist." },
-  { title: "Intelligent", body: "We explain an HbA1c result in one clear sentence, never patronise." },
-  { title: "Premium but accessible", body: "High quality without feeling elitist. Well within reach." },
-  { title: "Nigerian-relevant", body: "Our examples are always local: the market BP cuff, garri, the family WhatsApp group." },
+  {
+    title: "Clinically reviewed",
+    body: "Real doctors review your readings and results against care protocols, never an algorithm acting alone.",
+  },
+  {
+    title: "Warm, not automated",
+    body: "You get a care team who knows your name and follows up like a person, not a hospital PA system.",
+  },
+  {
+    title: "Calm, early follow-up",
+    body: "We notice things early and reach out calmly, so a small change gets attention before it becomes a crisis.",
+  },
+  {
+    title: "Explained in plain language",
+    body: "We tell you what a result means and what to do next in clear words, so you are never left guessing.",
+  },
+  {
+    title: "Premium, within reach",
+    body: "High-quality, consistent care that stays affordable, built for Nigerian families rather than a select few.",
+  },
+  {
+    title: "Built for Nigeria",
+    body: "Grounded in how care really works here, from the pharmacy down the road to the lab across town.",
+  },
 ] as const;
 
-const NEVER_DO = [
-  "No fear-based urgency",
-  "No hidden costs, ever",
-  "No “guaranteed” outcomes",
-  "Never replaces your hospital",
+/** Honest commitments, positively framed (avoids the curt-negative marketing tone). */
+const COMMITMENTS = [
+  "No fear-based urgency, ever",
+  "Clear, upfront pricing with no hidden costs",
+  "Honest about what we can and can't do",
+  "We support your hospital, never replace it",
 ] as const;
 
 export function TrustPillars() {
@@ -31,13 +50,13 @@ export function TrustPillars() {
         ))}
       </div>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        {NEVER_DO.map((item) => (
+        {COMMITMENTS.map((item) => (
           <span
             key={item}
             className="inline-flex items-center gap-2 rounded-full border border-charcoal-ink/10 bg-white px-4 py-2 text-xs font-medium text-charcoal-ink/70"
           >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-charcoal-ink/40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-              <path d="M18 6L6 18M6 6l12 12" />
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-brand-green" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M20 6L9 17l-5-5" />
             </svg>
             {item}
           </span>

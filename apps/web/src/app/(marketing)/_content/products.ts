@@ -211,7 +211,14 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
 };
 
 export function getProductPage(slug: string): ProductPageContent | undefined {
-  return PRODUCT_PAGES[slug];
+  const page = PRODUCT_PAGES[slug];
+  if (!page) return undefined;
+  // Inject the per-page canonical from the slug so every programme page
+  // self-canonicalises (the slug matches its marketing route: /hypertension …).
+  return {
+    ...page,
+    metadata: { ...page.metadata, alternates: { canonical: `/${page.slug}` } },
+  };
 }
 
 export const PRICING_HREF = MARKETING_ROUTES.pricing;
