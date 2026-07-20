@@ -61,6 +61,7 @@ import { BookingRequestsList } from "./booking-requests-list";
 import { AiCoachChat } from "./ai-coach-chat";
 import { FamilyDashboardCard } from "./family-dashboard-card";
 import { AnnualReviewCard } from "./annual-review-card";
+import { ObesitySummary } from "./obesity-summary";
 
 export default async function PatientPage() {
   const profile = await getCurrentProfile();
@@ -228,6 +229,7 @@ export default async function PatientPage() {
       >
         <CarePlanDisplay patientId={profile.id} />
       </RequiresEntitlement>
+      <ObesitySummary patientId={profile.id} />
       {profile.organisation_id && (
         <RequiresEntitlement
           feature="health_education"

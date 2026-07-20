@@ -14,123 +14,332 @@ export type Database = {
   }
   public: {
     Tables: {
-      cv_risk_config: {
+      bariatric_referrals: {
         Row: {
-          approved_at: string | null
-          approved_by: string | null
-          config: Json
+          bmi: number | null
           created_at: string
-          id: string
-          is_active: boolean
-          notes: string | null
-          organisation_id: string
-          version: number
-        }
-        Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
-          config: Json
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          notes?: string | null
-          organisation_id: string
-          version: number
-        }
-        Update: {
-          approved_at?: string | null
-          approved_by?: string | null
-          config?: Json
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          notes?: string | null
-          organisation_id?: string
-          version?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cv_risk_config_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "clinical_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cv_risk_config_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      patient_cardiovascular_profile: {
-        Row: {
-          created_at: string
-          established_ascvd: boolean
-          familial_hypercholesterolaemia: boolean
+          criteria: Json
+          eligible: boolean
           id: string
           notes: string | null
+          obesity_assessment_id: string | null
           organisation_id: string
           patient_id: string
-          prior_mi: boolean
-          prior_pad: boolean
-          prior_revascularisation: boolean
-          prior_stroke_tia: boolean
-          recorded_by: string | null
+          referred_at: string
+          referred_by: string | null
+          specialist_referral_id: string | null
+          status: Database["public"]["Enums"]["bariatric_referral_status"]
           updated_at: string
         }
         Insert: {
+          bmi?: number | null
           created_at?: string
-          established_ascvd?: boolean
-          familial_hypercholesterolaemia?: boolean
+          criteria?: Json
+          eligible?: boolean
           id?: string
           notes?: string | null
+          obesity_assessment_id?: string | null
           organisation_id: string
           patient_id: string
-          prior_mi?: boolean
-          prior_pad?: boolean
-          prior_revascularisation?: boolean
-          prior_stroke_tia?: boolean
-          recorded_by?: string | null
+          referred_at?: string
+          referred_by?: string | null
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["bariatric_referral_status"]
           updated_at?: string
         }
         Update: {
+          bmi?: number | null
           created_at?: string
-          established_ascvd?: boolean
-          familial_hypercholesterolaemia?: boolean
+          criteria?: Json
+          eligible?: boolean
           id?: string
           notes?: string | null
+          obesity_assessment_id?: string | null
           organisation_id?: string
           patient_id?: string
-          prior_mi?: boolean
-          prior_pad?: boolean
-          prior_revascularisation?: boolean
-          prior_stroke_tia?: boolean
-          recorded_by?: string | null
+          referred_at?: string
+          referred_by?: string | null
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["bariatric_referral_status"]
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "patient_cardiovascular_profile_organisation_id_fkey"
+            foreignKeyName: "bariatric_referrals_obesity_assessment_id_fkey"
+            columns: ["obesity_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "obesity_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bariatric_referrals_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "patient_cardiovascular_profile_patient_id_fkey"
+            foreignKeyName: "bariatric_referrals_patient_id_fkey"
             columns: ["patient_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "patient_cardiovascular_profile_recorded_by_fkey"
-            columns: ["recorded_by"]
+            foreignKeyName: "bariatric_referrals_referred_by_fkey"
+            columns: ["referred_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bariatric_referrals_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obesity_assessments: {
+        Row: {
+          adiposity_confirmed: boolean | null
+          assessed_at: string
+          assessed_by: string | null
+          bmi: number
+          bmi_category: Database["public"]["Enums"]["obesity_bmi_category"]
+          clinical_status:
+            | Database["public"]["Enums"]["obesity_clinical_status"]
+            | null
+          complications: Json
+          created_at: string
+          eoss_stage: number | null
+          functional_limitation: boolean
+          height_cm: number
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          secondary_causes: Json
+          updated_at: string
+          waist_cm: number | null
+          waist_risk: Database["public"]["Enums"]["obesity_waist_risk"] | null
+          weight_kg: number
+          whtr: number | null
+        }
+        Insert: {
+          adiposity_confirmed?: boolean | null
+          assessed_at?: string
+          assessed_by?: string | null
+          bmi: number
+          bmi_category: Database["public"]["Enums"]["obesity_bmi_category"]
+          clinical_status?:
+            | Database["public"]["Enums"]["obesity_clinical_status"]
+            | null
+          complications?: Json
+          created_at?: string
+          eoss_stage?: number | null
+          functional_limitation?: boolean
+          height_cm: number
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          secondary_causes?: Json
+          updated_at?: string
+          waist_cm?: number | null
+          waist_risk?: Database["public"]["Enums"]["obesity_waist_risk"] | null
+          weight_kg: number
+          whtr?: number | null
+        }
+        Update: {
+          adiposity_confirmed?: boolean | null
+          assessed_at?: string
+          assessed_by?: string | null
+          bmi?: number
+          bmi_category?: Database["public"]["Enums"]["obesity_bmi_category"]
+          clinical_status?:
+            | Database["public"]["Enums"]["obesity_clinical_status"]
+            | null
+          complications?: Json
+          created_at?: string
+          eoss_stage?: number | null
+          functional_limitation?: boolean
+          height_cm?: number
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          secondary_causes?: Json
+          updated_at?: string
+          waist_cm?: number | null
+          waist_risk?: Database["public"]["Enums"]["obesity_waist_risk"] | null
+          weight_kg?: number
+          whtr?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obesity_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obesity_ed_screens: {
+        Row: {
+          administered_by: string | null
+          clinician_alert_id: string | null
+          created_at: string
+          disordered_behaviours: Json
+          id: string
+          low_mood: boolean
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          positive: boolean
+          scoff_control: boolean
+          scoff_fat: boolean
+          scoff_food_dominates: boolean
+          scoff_one_stone: boolean
+          scoff_score: number
+          scoff_sick: boolean
+          screened_at: string
+          self_harm_risk: boolean
+          self_reported: boolean
+        }
+        Insert: {
+          administered_by?: string | null
+          clinician_alert_id?: string | null
+          created_at?: string
+          disordered_behaviours?: Json
+          id?: string
+          low_mood?: boolean
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          positive?: boolean
+          scoff_control?: boolean
+          scoff_fat?: boolean
+          scoff_food_dominates?: boolean
+          scoff_one_stone?: boolean
+          scoff_score?: number
+          scoff_sick?: boolean
+          screened_at?: string
+          self_harm_risk?: boolean
+          self_reported?: boolean
+        }
+        Update: {
+          administered_by?: string | null
+          clinician_alert_id?: string | null
+          created_at?: string
+          disordered_behaviours?: Json
+          id?: string
+          low_mood?: boolean
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          positive?: boolean
+          scoff_control?: boolean
+          scoff_fat?: boolean
+          scoff_food_dominates?: boolean
+          scoff_one_stone?: boolean
+          scoff_score?: number
+          scoff_sick?: boolean
+          screened_at?: string
+          self_harm_risk?: boolean
+          self_reported?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obesity_ed_screens_administered_by_fkey"
+            columns: ["administered_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_ed_screens_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_ed_screens_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obesity_ed_screens_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pathway_attestations: {
+        Row: {
+          attested_at: string
+          clinical_staff_id: string
+          created_at: string
+          id: string
+          organisation_id: string
+          pathway_version: number
+          protocol_slug: string
+          statement: string
+        }
+        Insert: {
+          attested_at?: string
+          clinical_staff_id: string
+          created_at?: string
+          id?: string
+          organisation_id: string
+          pathway_version?: number
+          protocol_slug: string
+          statement: string
+        }
+        Update: {
+          attested_at?: string
+          clinical_staff_id?: string
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          pathway_version?: number
+          protocol_slug?: string
+          statement?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pathway_attestations_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pathway_attestations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -744,156 +953,6 @@ export type Database = {
           },
         ]
       }
-      care_message_threads: {
-        Row: {
-          care_plan_id: string | null
-          created_at: string
-          created_by: string | null
-          escalation_id: string | null
-          id: string
-          last_message_at: string
-          organisation_id: string
-          patient_id: string
-          status: Database["public"]["Enums"]["care_message_thread_status"]
-          subject: string
-          updated_at: string
-        }
-        Insert: {
-          care_plan_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          escalation_id?: string | null
-          id?: string
-          last_message_at?: string
-          organisation_id: string
-          patient_id: string
-          status?: Database["public"]["Enums"]["care_message_thread_status"]
-          subject: string
-          updated_at?: string
-        }
-        Update: {
-          care_plan_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          escalation_id?: string | null
-          id?: string
-          last_message_at?: string
-          organisation_id?: string
-          patient_id?: string
-          status?: Database["public"]["Enums"]["care_message_thread_status"]
-          subject?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "care_message_threads_care_plan_id_fkey"
-            columns: ["care_plan_id"]
-            isOneToOne: false
-            referencedRelation: "care_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_message_threads_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_message_threads_escalation_id_fkey"
-            columns: ["escalation_id"]
-            isOneToOne: false
-            referencedRelation: "escalations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_message_threads_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_message_threads_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      care_messages: {
-        Row: {
-          actor_clinical_staff_id: string | null
-          author_profile_id: string | null
-          author_role: Database["public"]["Enums"]["care_message_author"]
-          body: string
-          created_at: string
-          id: string
-          organisation_id: string
-          patient_id: string
-          thread_id: string
-        }
-        Insert: {
-          actor_clinical_staff_id?: string | null
-          author_profile_id?: string | null
-          author_role: Database["public"]["Enums"]["care_message_author"]
-          body: string
-          created_at?: string
-          id?: string
-          organisation_id: string
-          patient_id: string
-          thread_id: string
-        }
-        Update: {
-          actor_clinical_staff_id?: string | null
-          author_profile_id?: string | null
-          author_role?: Database["public"]["Enums"]["care_message_author"]
-          body?: string
-          created_at?: string
-          id?: string
-          organisation_id?: string
-          patient_id?: string
-          thread_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "care_messages_actor_clinical_staff_id_fkey"
-            columns: ["actor_clinical_staff_id"]
-            isOneToOne: false
-            referencedRelation: "clinical_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_messages_author_profile_id_fkey"
-            columns: ["author_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_messages_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_messages_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_messages_thread_id_fkey"
-            columns: ["thread_id"]
-            isOneToOne: false
-            referencedRelation: "care_message_threads"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       care_plan_recommendations: {
         Row: {
           care_plan_id: string | null
@@ -1159,91 +1218,6 @@ export type Database = {
           },
         ]
       }
-      cgm_connections: {
-        Row: {
-          cgm_partner_id: string
-          connected_at: string
-          created_at: string
-          external_device_id: string | null
-          id: string
-          organisation_id: string
-          patient_id: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          cgm_partner_id: string
-          connected_at?: string
-          created_at?: string
-          external_device_id?: string | null
-          id?: string
-          organisation_id: string
-          patient_id: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          cgm_partner_id?: string
-          connected_at?: string
-          created_at?: string
-          external_device_id?: string | null
-          id?: string
-          organisation_id?: string
-          patient_id?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cgm_connections_cgm_partner_id_fkey"
-            columns: ["cgm_partner_id"]
-            isOneToOne: false
-            referencedRelation: "cgm_partners"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cgm_connections_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cgm_connections_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cgm_partners: {
-        Row: {
-          code: string
-          created_at: string
-          id: string
-          is_active: boolean
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       chronic_condition_programmes: {
         Row: {
           category: string
@@ -1386,9 +1360,7 @@ export type Database = {
           organisation_id: string
           photo_url: string | null
           profile_id: string | null
-          red_flag_attested_at: string | null
           specialty: string | null
-          staff_number: string | null
           updated_at: string
           verified_by: string | null
         }
@@ -1411,9 +1383,7 @@ export type Database = {
           organisation_id: string
           photo_url?: string | null
           profile_id?: string | null
-          red_flag_attested_at?: string | null
           specialty?: string | null
-          staff_number?: string | null
           updated_at?: string
           verified_by?: string | null
         }
@@ -1436,9 +1406,7 @@ export type Database = {
           organisation_id?: string
           photo_url?: string | null
           profile_id?: string | null
-          red_flag_attested_at?: string | null
           specialty?: string | null
-          staff_number?: string | null
           updated_at?: string
           verified_by?: string | null
         }
@@ -2847,109 +2815,6 @@ export type Database = {
         }
         Relationships: []
       }
-      lab_result_documents: {
-        Row: {
-          clinician_alert_id: string | null
-          created_at: string
-          file_path: string
-          file_size_bytes: number | null
-          id: string
-          lab_order_id: string | null
-          mime_type: string | null
-          note: string | null
-          organisation_id: string
-          original_filename: string | null
-          patient_id: string
-          review_note: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          source: Database["public"]["Enums"]["lab_result_document_source"]
-          updated_at: string
-          uploaded_by: string | null
-        }
-        Insert: {
-          clinician_alert_id?: string | null
-          created_at?: string
-          file_path: string
-          file_size_bytes?: number | null
-          id?: string
-          lab_order_id?: string | null
-          mime_type?: string | null
-          note?: string | null
-          organisation_id: string
-          original_filename?: string | null
-          patient_id: string
-          review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          source: Database["public"]["Enums"]["lab_result_document_source"]
-          updated_at?: string
-          uploaded_by?: string | null
-        }
-        Update: {
-          clinician_alert_id?: string | null
-          created_at?: string
-          file_path?: string
-          file_size_bytes?: number | null
-          id?: string
-          lab_order_id?: string | null
-          mime_type?: string | null
-          note?: string | null
-          organisation_id?: string
-          original_filename?: string | null
-          patient_id?: string
-          review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          source?: Database["public"]["Enums"]["lab_result_document_source"]
-          updated_at?: string
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "lab_result_documents_clinician_alert_id_fkey"
-            columns: ["clinician_alert_id"]
-            isOneToOne: false
-            referencedRelation: "clinician_alerts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lab_result_documents_lab_order_id_fkey"
-            columns: ["lab_order_id"]
-            isOneToOne: false
-            referencedRelation: "lab_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lab_result_documents_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lab_result_documents_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lab_result_documents_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lab_result_documents_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       lab_result_interpretations: {
         Row: {
           created_at: string
@@ -3084,6 +2949,357 @@ export type Database = {
           source?: string
         }
         Relationships: []
+      }
+      lifestyle_assessments: {
+        Row: {
+          activity_minutes_weekly: number | null
+          alcohol_units_weekly: number | null
+          created_at: string
+          diet_quality: number | null
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          sleep_hours_nightly: number | null
+          smokes: boolean | null
+          stress_level: number | null
+          updated_at: string
+        }
+        Insert: {
+          activity_minutes_weekly?: number | null
+          alcohol_units_weekly?: number | null
+          created_at?: string
+          diet_quality?: number | null
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          sleep_hours_nightly?: number | null
+          smokes?: boolean | null
+          stress_level?: number | null
+          updated_at?: string
+        }
+        Update: {
+          activity_minutes_weekly?: number | null
+          alcohol_units_weekly?: number | null
+          created_at?: string
+          diet_quality?: number | null
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          sleep_hours_nightly?: number | null
+          smokes?: boolean | null
+          stress_level?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lifestyle_checkins: {
+        Row: {
+          created_at: string
+          due_date: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          programme_enrolment_id: string
+          reminder_sent_at: string | null
+          responded_at: string | null
+          response: string | null
+          status: Database["public"]["Enums"]["lifestyle_checkin_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          programme_enrolment_id: string
+          reminder_sent_at?: string | null
+          responded_at?: string | null
+          response?: string | null
+          status?: Database["public"]["Enums"]["lifestyle_checkin_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          programme_enrolment_id?: string
+          reminder_sent_at?: string | null
+          responded_at?: string | null
+          response?: string | null
+          status?: Database["public"]["Enums"]["lifestyle_checkin_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_checkins_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_checkins_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_checkins_programme_enrolment_id_fkey"
+            columns: ["programme_enrolment_id"]
+            isOneToOne: false
+            referencedRelation: "lifestyle_programme_enrolments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lifestyle_goals: {
+        Row: {
+          achieved_at: string | null
+          created_at: string
+          domain: Database["public"]["Enums"]["lifestyle_domain"]
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["lifestyle_goal_status"]
+          target_date: string | null
+          target_unit: string | null
+          target_value: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          achieved_at?: string | null
+          created_at?: string
+          domain: Database["public"]["Enums"]["lifestyle_domain"]
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["lifestyle_goal_status"]
+          target_date?: string | null
+          target_unit?: string | null
+          target_value?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          achieved_at?: string | null
+          created_at?: string
+          domain?: Database["public"]["Enums"]["lifestyle_domain"]
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["lifestyle_goal_status"]
+          target_date?: string | null
+          target_unit?: string | null
+          target_value?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_goals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_goals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lifestyle_programme_enrolments: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["lifestyle_enrolment_status"]
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["lifestyle_enrolment_status"]
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          programme_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["lifestyle_enrolment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_programme_enrolments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_programme_enrolments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_programme_enrolments_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "lifestyle_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lifestyle_programmes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          domain: Database["public"]["Enums"]["lifestyle_programme_domain"]
+          duration_weeks: number | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          domain: Database["public"]["Enums"]["lifestyle_programme_domain"]
+          duration_weeks?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          domain?: Database["public"]["Enums"]["lifestyle_programme_domain"]
+          duration_weeks?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lifestyle_reviews: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          due_date: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["lifestyle_review_status"]
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          reminder_sent_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["lifestyle_review_status"]
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reminder_sent_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["lifestyle_review_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_reviews_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       logistics_partners: {
         Row: {
@@ -4684,69 +4900,6 @@ export type Database = {
           },
         ]
       }
-      nutrition_log_entries: {
-        Row: {
-          ai_estimate: Json | null
-          ai_status: string
-          confirmed_carbs_g: number | null
-          created_at: string
-          description: string | null
-          id: string
-          logged_at: string
-          meal_type: Database["public"]["Enums"]["meal_type"]
-          organisation_id: string
-          patient_confirmed: boolean
-          patient_id: string
-          photo_path: string | null
-          updated_at: string
-        }
-        Insert: {
-          ai_estimate?: Json | null
-          ai_status?: string
-          confirmed_carbs_g?: number | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          logged_at?: string
-          meal_type: Database["public"]["Enums"]["meal_type"]
-          organisation_id: string
-          patient_confirmed?: boolean
-          patient_id: string
-          photo_path?: string | null
-          updated_at?: string
-        }
-        Update: {
-          ai_estimate?: Json | null
-          ai_status?: string
-          confirmed_carbs_g?: number | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          logged_at?: string
-          meal_type?: Database["public"]["Enums"]["meal_type"]
-          organisation_id?: string
-          patient_confirmed?: boolean
-          patient_id?: string
-          photo_path?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nutrition_log_entries_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "nutrition_log_entries_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       organisations: {
         Row: {
           created_at: string
@@ -5083,81 +5236,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      patient_glucose_targets: {
-        Row: {
-          category: Database["public"]["Enums"]["glycaemic_target_category"]
-          created_at: string
-          fasting_max: number
-          fasting_min: number
-          hba1c_target_percent: number | null
-          id: string
-          note: string | null
-          organisation_id: string
-          patient_id: string
-          set_by: string | null
-          updated_at: string
-          upper_target: number
-        }
-        Insert: {
-          category?: Database["public"]["Enums"]["glycaemic_target_category"]
-          created_at?: string
-          fasting_max?: number
-          fasting_min?: number
-          hba1c_target_percent?: number | null
-          id?: string
-          note?: string | null
-          organisation_id: string
-          patient_id: string
-          set_by?: string | null
-          updated_at?: string
-          upper_target?: number
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["glycaemic_target_category"]
-          created_at?: string
-          fasting_max?: number
-          fasting_min?: number
-          hba1c_target_percent?: number | null
-          id?: string
-          note?: string | null
-          organisation_id?: string
-          patient_id?: string
-          set_by?: string | null
-          updated_at?: string
-          upper_target?: number
-        }
-        Relationships: []
-      }
-      patient_pregnancy: {
-        Row: {
-          created_at: string
-          estimated_due_date: string | null
-          id: string
-          is_pregnant: boolean
-          organisation_id: string
-          patient_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          estimated_due_date?: string | null
-          id?: string
-          is_pregnant?: boolean
-          organisation_id: string
-          patient_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          estimated_due_date?: string | null
-          id?: string
-          is_pregnant?: boolean
-          organisation_id?: string
-          patient_id?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       patient_hospital_admissions: {
         Row: {
@@ -7704,216 +7782,8 @@ export type Database = {
           },
         ]
       }
-      diabetes_complication_checks: {
-        Row: {
-          abnormal: boolean
-          check_type: Database["public"]["Enums"]["complication_check_type"]
-          created_at: string
-          done_at: string
-          id: string
-          next_due_at: string | null
-          organisation_id: string
-          outcome: string | null
-          patient_id: string
-          recorded_by: string | null
-          updated_at: string
-        }
-        Insert: {
-          abnormal?: boolean
-          check_type: Database["public"]["Enums"]["complication_check_type"]
-          created_at?: string
-          done_at?: string
-          id?: string
-          next_due_at?: string | null
-          organisation_id: string
-          outcome?: string | null
-          patient_id: string
-          recorded_by?: string | null
-          updated_at?: string
-        }
-        Update: {
-          abnormal?: boolean
-          check_type?: Database["public"]["Enums"]["complication_check_type"]
-          created_at?: string
-          done_at?: string
-          id?: string
-          next_due_at?: string | null
-          organisation_id?: string
-          outcome?: string | null
-          patient_id?: string
-          recorded_by?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      diabetic_foot_assessments: {
-        Row: {
-          assessed_at: string
-          assessed_by: string | null
-          created_at: string
-          findings: string | null
-          id: string
-          next_due_at: string | null
-          organisation_id: string
-          patient_id: string
-          pulses_present: boolean | null
-          risk_class: Database["public"]["Enums"]["foot_risk_class"]
-          sensation_left: Database["public"]["Enums"]["foot_sensation"] | null
-          sensation_right: Database["public"]["Enums"]["foot_sensation"] | null
-          updated_at: string
-        }
-        Insert: {
-          assessed_at?: string
-          assessed_by?: string | null
-          created_at?: string
-          findings?: string | null
-          id?: string
-          next_due_at?: string | null
-          organisation_id: string
-          patient_id: string
-          pulses_present?: boolean | null
-          risk_class: Database["public"]["Enums"]["foot_risk_class"]
-          sensation_left?: Database["public"]["Enums"]["foot_sensation"] | null
-          sensation_right?: Database["public"]["Enums"]["foot_sensation"] | null
-          updated_at?: string
-        }
-        Update: {
-          assessed_at?: string
-          assessed_by?: string | null
-          created_at?: string
-          findings?: string | null
-          id?: string
-          next_due_at?: string | null
-          organisation_id?: string
-          patient_id?: string
-          pulses_present?: boolean | null
-          risk_class?: Database["public"]["Enums"]["foot_risk_class"]
-          sensation_left?: Database["public"]["Enums"]["foot_sensation"] | null
-          sensation_right?: Database["public"]["Enums"]["foot_sensation"] | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      foot_self_checks: {
-        Row: {
-          any_problem: boolean
-          checked_at: string
-          clinician_alert_id: string | null
-          created_at: string
-          findings: string[]
-          id: string
-          note: string | null
-          organisation_id: string
-          patient_id: string
-          photo_url: string | null
-          updated_at: string
-        }
-        Insert: {
-          any_problem?: boolean
-          checked_at?: string
-          clinician_alert_id?: string | null
-          created_at?: string
-          findings?: string[]
-          id?: string
-          note?: string | null
-          organisation_id: string
-          patient_id: string
-          photo_url?: string | null
-          updated_at?: string
-        }
-        Update: {
-          any_problem?: boolean
-          checked_at?: string
-          clinician_alert_id?: string | null
-          created_at?: string
-          findings?: string[]
-          id?: string
-          note?: string | null
-          organisation_id?: string
-          patient_id?: string
-          photo_url?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      insulin_logs: {
-        Row: {
-          created_at: string
-          id: string
-          injected_at: string
-          insulin_type: Database["public"]["Enums"]["insulin_type"]
-          note: string | null
-          organisation_id: string
-          patient_id: string
-          units: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          injected_at?: string
-          insulin_type: Database["public"]["Enums"]["insulin_type"]
-          note?: string | null
-          organisation_id: string
-          patient_id: string
-          units: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          injected_at?: string
-          insulin_type?: Database["public"]["Enums"]["insulin_type"]
-          note?: string | null
-          organisation_id?: string
-          patient_id?: string
-          units?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      sick_day_logs: {
-        Row: {
-          appetite: Database["public"]["Enums"]["appetite_level"]
-          created_at: string
-          id: string
-          illness: string | null
-          note: string | null
-          organisation_id: string
-          patient_id: string
-          started_on: string
-          updated_at: string
-          vomiting: boolean
-        }
-        Insert: {
-          appetite?: Database["public"]["Enums"]["appetite_level"]
-          created_at?: string
-          id?: string
-          illness?: string | null
-          note?: string | null
-          organisation_id: string
-          patient_id: string
-          started_on?: string
-          updated_at?: string
-          vomiting?: boolean
-        }
-        Update: {
-          appetite?: Database["public"]["Enums"]["appetite_level"]
-          created_at?: string
-          id?: string
-          illness?: string | null
-          note?: string | null
-          organisation_id?: string
-          patient_id?: string
-          started_on?: string
-          updated_at?: string
-          vomiting?: boolean
-        }
-        Relationships: []
-      }
       vitals_readings: {
         Row: {
-          cgm_connection_id: string | null
           created_at: string
           device_id: string | null
           diastolic: number | null
@@ -7921,8 +7791,6 @@ export type Database = {
           glucose_context: Database["public"]["Enums"]["glucose_context"] | null
           glucose_mmol_l: number | null
           id: string
-          ketone_urine: string | null
-          ketones_mmol_l: number | null
           note: string | null
           organisation_id: string
           patient_id: string
@@ -7933,11 +7801,9 @@ export type Database = {
           taken_at: string
           temperature_c: number | null
           vital_type: Database["public"]["Enums"]["vital_type"]
-          waist_cm: number | null
           weight_kg: number | null
         }
         Insert: {
-          cgm_connection_id?: string | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
@@ -7947,8 +7813,6 @@ export type Database = {
             | null
           glucose_mmol_l?: number | null
           id?: string
-          ketone_urine?: string | null
-          ketones_mmol_l?: number | null
           note?: string | null
           organisation_id: string
           patient_id: string
@@ -7959,11 +7823,9 @@ export type Database = {
           taken_at?: string
           temperature_c?: number | null
           vital_type: Database["public"]["Enums"]["vital_type"]
-          waist_cm?: number | null
           weight_kg?: number | null
         }
         Update: {
-          cgm_connection_id?: string | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
@@ -7973,8 +7835,6 @@ export type Database = {
             | null
           glucose_mmol_l?: number | null
           id?: string
-          ketone_urine?: string | null
-          ketones_mmol_l?: number | null
           note?: string | null
           organisation_id?: string
           patient_id?: string
@@ -7985,17 +7845,9 @@ export type Database = {
           taken_at?: string
           temperature_c?: number | null
           vital_type?: Database["public"]["Enums"]["vital_type"]
-          waist_cm?: number | null
           weight_kg?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "vitals_readings_cgm_connection_id_fkey"
-            columns: ["cgm_connection_id"]
-            isOneToOne: false
-            referencedRelation: "cgm_connections"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "vitals_readings_device_id_fkey"
             columns: ["device_id"]
@@ -8304,17 +8156,6 @@ export type Database = {
       }
     }
     Views: {
-      diabetes_quality_metrics: {
-        Row: {
-          diabetic_patients: number | null
-          foot_uptodate: number | null
-          organisation_id: string | null
-          renal_uptodate: number | null
-          retinal_uptodate: number | null
-          target_set: number | null
-        }
-        Relationships: []
-      }
       lpe_programme_outcomes: {
         Row: {
           active: number | null
@@ -8350,7 +8191,6 @@ export type Database = {
       }
     }
     Functions: {
-      sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       admin_broadcast_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]
@@ -8542,10 +8382,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      post_care_message: {
-        Args: { p_body: string; p_thread_id: string }
-        Returns: string
-      }
       region_service_available: {
         Args: { p_service: string; p_state: string }
         Returns: boolean
@@ -8554,16 +8390,6 @@ export type Database = {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
       }
-      start_care_thread: {
-        Args: {
-          p_body: string
-          p_care_plan_id?: string
-          p_escalation_id?: string
-          p_patient_id?: string
-          p_subject: string
-        }
-        Returns: string
-      }
     }
     Enums: {
       alert_level:
@@ -8571,17 +8397,6 @@ export type Database = {
         | "clinician_review"
         | "urgent_escalation"
         | "emergency"
-      appetite_level: "normal" | "reduced" | "none"
-      complication_check_type: "retinal" | "renal"
-      foot_risk_class: "low" | "increased" | "high" | "active"
-      foot_sensation: "normal" | "reduced" | "absent"
-      glycaemic_target_category: "tight" | "standard" | "relaxed"
-      insulin_type:
-        | "soluble"
-        | "nph"
-        | "premixed"
-        | "analogue_rapid"
-        | "analogue_long"
       alert_status: "open" | "acknowledged" | "resolved"
       allergy_severity: "mild" | "moderate" | "severe"
       allergy_source: "patient" | "clinician"
@@ -8620,8 +8435,23 @@ export type Database = {
         | "all_partners"
         | "partners_by_type"
       broadcast_status: "draft" | "sent"
-      care_message_author: "patient" | "care_team"
-      care_message_thread_status: "open" | "closed"
+      bariatric_referral_status:
+        | "proposed"
+        | "referred"
+        | "workup"
+        | "scheduled"
+        | "completed"
+        | "declined"
+        | "not_eligible"
+      obesity_bmi_category:
+        | "underweight"
+        | "healthy"
+        | "overweight"
+        | "obesity_class_i"
+        | "obesity_class_ii"
+        | "obesity_class_iii"
+      obesity_clinical_status: "preclinical" | "clinical"
+      obesity_waist_risk: "normal" | "raised" | "high"
       care_plan_condition:
         | "hypertension"
         | "diabetes"
@@ -8669,11 +8499,7 @@ export type Database = {
         | "tier_4_senior_registrar"
         | "tier_5_partner_specialist"
       emergency_event_status: "active" | "acknowledged" | "resolved"
-      emergency_source:
-        | "danger_symptom_checklist"
-        | "symptom_log"
-        | "ai_coach"
-        | "glucose_red_flag"
+      emergency_source: "danger_symptom_checklist" | "symptom_log" | "ai_coach"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       facility_type:
@@ -8684,13 +8510,7 @@ export type Database = {
         | "optician"
         | "vaccination_centre"
       family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
-      glucose_context:
-        | "fasting"
-        | "random"
-        | "post_meal"
-        | "pre_meal"
-        | "bedtime"
-        | "night"
+      glucose_context: "fasting" | "random" | "post_meal"
       health_education_content_type: "article" | "video"
       health_education_status: "seen" | "understood" | "needs_review"
       hospital_admission_source: "patient_reported" | "staff_recorded"
@@ -8705,8 +8525,13 @@ export type Database = {
         | "processing"
         | "resulted"
         | "cancelled"
-      lab_result_document_source: "patient" | "lab_liaison" | "clinician" | "admin"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other"
+      lifestyle_checkin_status: "pending" | "responded" | "skipped"
+      lifestyle_domain: "diet" | "exercise" | "weight" | "sleep" | "stress"
+      lifestyle_enrolment_status: "enrolled" | "completed" | "withdrawn"
+      lifestyle_goal_status: "active" | "achieved" | "abandoned"
+      lifestyle_programme_domain: "diet" | "exercise"
+      lifestyle_review_status: "pending" | "completed" | "cancelled"
       lpe_enrollment_status:
         | "draft"
         | "active"
@@ -8752,7 +8577,6 @@ export type Database = {
       lpe_red_flag_status: "open" | "stood_down"
       lpe_task_channel: "app" | "whatsapp_reminder"
       lpe_task_status: "pending" | "done" | "missed" | "skipped"
-      meal_type: "breakfast" | "lunch" | "dinner" | "snack"
       med_adherence_alert_level: "coach" | "doctor"
       med_adherence_alert_status: "open" | "acknowledged" | "resolved"
       medication_checkin_status: "pending" | "responded" | "skipped"
@@ -8883,7 +8707,6 @@ export type Database = {
         | "care_plan_updated"
         | "admission_recorded"
         | "discharge_recorded"
-        | "message_posted"
       upgrade_condition:
         | "hypertension"
         | "diabetes"
@@ -8899,7 +8722,6 @@ export type Database = {
         | "care_coordinator"
         | "pharmacist"
         | "analyst"
-        | "lab_liaison"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -8915,7 +8737,7 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "no_show"
-      vital_source: "manual" | "device" | "wearable" | "cgm"
+      vital_source: "manual" | "device" | "wearable"
       vital_type:
         | "blood_pressure"
         | "glucose"
@@ -8923,8 +8745,6 @@ export type Database = {
         | "pulse"
         | "temperature"
         | "spo2"
-        | "ketones"
-        | "waist_circumference"
       wearable_connection_status: "active" | "disconnected" | "error"
       wearable_provider: "apple_health" | "oura" | "whoop" | "garmin" | "fitbit"
     }
@@ -9060,18 +8880,6 @@ export const Constants = {
         "urgent_escalation",
         "emergency",
       ],
-      appetite_level: ["normal", "reduced", "none"],
-      complication_check_type: ["retinal", "renal"],
-      foot_risk_class: ["low", "increased", "high", "active"],
-      foot_sensation: ["normal", "reduced", "absent"],
-      glycaemic_target_category: ["tight", "standard", "relaxed"],
-      insulin_type: [
-        "soluble",
-        "nph",
-        "premixed",
-        "analogue_rapid",
-        "analogue_long",
-      ],
       alert_status: ["open", "acknowledged", "resolved"],
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician"],
@@ -9119,8 +8927,25 @@ export const Constants = {
         "partners_by_type",
       ],
       broadcast_status: ["draft", "sent"],
-      care_message_author: ["patient", "care_team"],
-      care_message_thread_status: ["open", "closed"],
+      bariatric_referral_status: [
+        "proposed",
+        "referred",
+        "workup",
+        "scheduled",
+        "completed",
+        "declined",
+        "not_eligible",
+      ],
+      obesity_bmi_category: [
+        "underweight",
+        "healthy",
+        "overweight",
+        "obesity_class_i",
+        "obesity_class_ii",
+        "obesity_class_iii",
+      ],
+      obesity_clinical_status: ["preclinical", "clinical"],
+      obesity_waist_risk: ["normal", "raised", "high"],
       care_plan_condition: [
         "hypertension",
         "diabetes",
@@ -9173,12 +8998,7 @@ export const Constants = {
         "tier_5_partner_specialist",
       ],
       emergency_event_status: ["active", "acknowledged", "resolved"],
-      emergency_source: [
-        "danger_symptom_checklist",
-        "symptom_log",
-        "ai_coach",
-        "glucose_red_flag",
-      ],
+      emergency_source: ["danger_symptom_checklist", "symptom_log", "ai_coach"],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       facility_type: [
@@ -9190,14 +9010,7 @@ export const Constants = {
         "vaccination_centre",
       ],
       family_relationship: ["spouse", "parent", "child", "sibling", "other"],
-      glucose_context: [
-        "fasting",
-        "random",
-        "post_meal",
-        "pre_meal",
-        "bedtime",
-        "night",
-      ],
+      glucose_context: ["fasting", "random", "post_meal"],
       health_education_content_type: ["article", "video"],
       health_education_status: ["seen", "understood", "needs_review"],
       hospital_admission_source: ["patient_reported", "staff_recorded"],
@@ -9214,6 +9027,12 @@ export const Constants = {
         "cancelled",
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other"],
+      lifestyle_checkin_status: ["pending", "responded", "skipped"],
+      lifestyle_domain: ["diet", "exercise", "weight", "sleep", "stress"],
+      lifestyle_enrolment_status: ["enrolled", "completed", "withdrawn"],
+      lifestyle_goal_status: ["active", "achieved", "abandoned"],
+      lifestyle_programme_domain: ["diet", "exercise"],
+      lifestyle_review_status: ["pending", "completed", "cancelled"],
       lpe_enrollment_status: [
         "draft",
         "active",
@@ -9263,7 +9082,6 @@ export const Constants = {
       lpe_red_flag_status: ["open", "stood_down"],
       lpe_task_channel: ["app", "whatsapp_reminder"],
       lpe_task_status: ["pending", "done", "missed", "skipped"],
-      meal_type: ["breakfast", "lunch", "dinner", "snack"],
       med_adherence_alert_level: ["coach", "doctor"],
       med_adherence_alert_status: ["open", "acknowledged", "resolved"],
       medication_checkin_status: ["pending", "responded", "skipped"],
@@ -9405,7 +9223,6 @@ export const Constants = {
         "care_plan_updated",
         "admission_recorded",
         "discharge_recorded",
-        "message_posted",
       ],
       upgrade_condition: [
         "hypertension",
@@ -9423,7 +9240,6 @@ export const Constants = {
         "care_coordinator",
         "pharmacist",
         "analyst",
-        "lab_liaison",
       ],
       vaccination_verification_status: [
         "self_reported",
@@ -9443,7 +9259,7 @@ export const Constants = {
         "cancelled",
         "no_show",
       ],
-      vital_source: ["manual", "device", "wearable", "cgm"],
+      vital_source: ["manual", "device", "wearable"],
       vital_type: [
         "blood_pressure",
         "glucose",
@@ -9451,8 +9267,6 @@ export const Constants = {
         "pulse",
         "temperature",
         "spo2",
-        "ketones",
-        "waist_circumference",
       ],
       wearable_connection_status: ["active", "disconnected", "error"],
       wearable_provider: ["apple_health", "oura", "whoop", "garmin", "fitbit"],

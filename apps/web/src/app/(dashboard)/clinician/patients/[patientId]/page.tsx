@@ -17,6 +17,9 @@ import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
 import { TreatmentLadder } from "./treatment-ladder";
+import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
+import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
+import { ObesityAttestationCard } from "./obesity-attestation-card";
 
 export default async function ClinicianPatientPage({
   params,
@@ -31,7 +34,7 @@ export default async function ClinicianPatientPage({
   // lookup in this app.
   const { data: patient } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, organisation_id")
+    .select("id, full_name, phone, organisation_id, sex")
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
@@ -139,6 +142,12 @@ export default async function ClinicianPatientPage({
           <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
         </>
       )}
+      {/* Obesity pathway (TH-CP-OB-001): attestation gate, structured
+          assessment (classification + staging + screens), and the mandatory
+          ED/mental-health screen that auto-pauses weight-loss on a positive. */}
+      <ObesityAttestationCard />
+      <ObesityAssessmentPanel patientId={patient.id} patientSex={patient.sex} />
+      <ObesityEdScreenForm patientId={patient.id} />
     </div>
   );
 }
