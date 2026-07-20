@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { screeningResultSchema } from "@/lib/validation/screening-result";
+import { computeNonHdl } from "@/lib/lipids/analytes";
 import {
   createMlClientFromEnv,
   type AnalyteReadingIn,
@@ -116,13 +117,37 @@ export async function submitScreeningResult(
       code === "hba1c" ? "percent" : code === "psa" ? "ng/mL" : "mg/dL";
     // Store hba1c in its canonical percent value regardless of the unit the
     // form submitted, so history stays comparable across readings.
-    const analyteReadingRows = interpretation.analyte_results.map((result) => ({
+    // `code` is widened to string because Non-HDL is an app-derived analyte
+    // (not part of the ML AnalyteCode union); the DB column is free text.
+    const analyteReadingRows: {
+      organisation_id: string;
+      patient_id: string;
+      code: string;
+      value: number;
+      unit: string;
+    }[] = interpretation.analyte_results.map((result) => ({
       organisation_id: organisationId,
       patient_id: patientId,
       code: result.code,
       value: result.code === "hba1c" && result.value_percent !== null ? result.value_percent : result.value,
       unit: unitFor(result.code),
     }));
+    // Persist computed Non-HDL (Total − HDL) as its own longitudinal analyte
+    // so it trends alongside the measured lipids and feeds the CV-risk engine
+    // — never a separate table, just a derived row (see lib/lipids/analytes).
+    const nonHdl = computeNonHdl(
+      input.total_cholesterol_mg_dl ?? null,
+      input.hdl_cholesterol_mg_dl ?? null
+    );
+    if (input.screen_type_code === "lipid_panel" && nonHdl !== null) {
+      analyteReadingRows.push({
+        organisation_id: organisationId,
+        patient_id: patientId,
+        code: "non_hdl_cholesterol",
+        value: nonHdl,
+        unit: "mg/dL",
+      });
+    }
     const { error: readingsError } = await supabase
       .from("lab_analyte_readings")
       .insert(analyteReadingRows);

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 
 const RELATIONSHIP_LABEL: Record<string, string> = {
   spouse: "Spouse",
@@ -108,23 +109,34 @@ export function FamilyMembersManager() {
           {members && members.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
               {members.map((member) => (
-                <li key={member.id} className="flex items-center justify-between gap-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-charcoal-ink">
-                      {member.member?.full_name ?? "Unknown"}
-                    </p>
-                    <p className="text-xs text-charcoal-ink/60">
-                      {RELATIONSHIP_LABEL[member.relationship] ?? member.relationship}
-                    </p>
+                <li key={member.id} className="space-y-3 py-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-charcoal-ink">
+                        {member.member?.full_name ?? "Unknown"}
+                      </p>
+                      <p className="text-xs text-charcoal-ink/60">
+                        {RELATIONSHIP_LABEL[member.relationship] ?? member.relationship}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={removeMember.isPending}
+                      onClick={() => removeMember.mutate(member.id)}
+                    >
+                      Remove
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={removeMember.isPending}
-                    onClick={() => removeMember.mutate(member.id)}
-                  >
-                    Remove
-                  </Button>
+                  {/* Consent-gated: the lipid history only appears if this
+                      member has granted you view access (profile_access) —
+                      RLS enforces it, so with no grant the card shows the
+                      neutral empty state below rather than their data. */}
+                  <LipidProfileCard
+                    patientId={member.member_id}
+                    title={`${member.member?.full_name ?? "Member"} · lipid profile`}
+                    emptyMessage="No lipid results are shared with you for this member yet. They can grant you view access from their account."
+                  />
                 </li>
               ))}
             </ul>

@@ -23,6 +23,7 @@ import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { MedicationsList } from "./medications-list";
 import { LabMonitoringCard } from "./lab-monitoring-card";
+import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { AdherenceCheckins } from "./adherence-checkins";
 import { TodaysDoses } from "./todays-doses";
 import { AddMedicationForm } from "./add-medication-form";
@@ -165,6 +166,7 @@ export default async function PatientPage() {
       <VitalsForm patientId={profile.id} />
       <VitalsHistory patientId={profile.id} />
       <VitalsTrendChart patientId={profile.id} />
+      <LipidProfileCard patientId={profile.id} />
       <SymptomLogForm patientId={profile.id} />
       <SymptomLogHistory patientId={profile.id} />
       <TodaysDoses patientId={profile.id} />

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { ScreeningResultForm } from "./screening-result-form";
 import { CareTeamForm } from "./care-team-form";
@@ -91,6 +92,7 @@ export default async function ClinicianPatientPage({
         </Card>
       )}
       <VitalsTrendChart patientId={patient.id} />
+      <LipidProfileCard patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />
       {patient.organisation_id && (
         <>
