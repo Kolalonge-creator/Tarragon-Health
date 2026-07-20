@@ -109,16 +109,6 @@ export const temperatureSchema = z.object({
   taken_at: takenAtField,
 });
 
-export const waistSchema = z.object({
-  vital_type: z.literal("waist_circumference"),
-  waist_cm: z.coerce
-    .number()
-    .min(40, "Waist must be at least 40 cm")
-    .max(200, "Waist must be at most 200 cm"),
-  note: noteField,
-  taken_at: takenAtField,
-});
-
 export const spo2Schema = z.object({
   vital_type: z.literal("spo2"),
   spo2_pct: z.coerce
@@ -149,7 +139,6 @@ export const vitalsReadingSchema = z
     pulseSchema,
     temperatureSchema,
     spo2Schema,
-    waistSchema,
     waistCircumferenceSchema,
   ])
   .superRefine((data, ctx) => {

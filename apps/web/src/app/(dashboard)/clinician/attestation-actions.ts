@@ -5,6 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export type AttestationState = { error?: string; success?: boolean } | undefined;
+export type SignAttestationState =
+  | { error?: string; success?: boolean }
+  | undefined;
+
+/** The current attestation text a doctor signs — kept in sync with the
+ * migration's default `attestation_version`. Module-local: a "use server"
+ * module may only export async functions, so this cannot be exported. */
+const ATTESTATION_VERSION = "AHC-2026-v1";
 
 /**
  * A doctor attests they know and will act on the diabetes red flags (§25).
@@ -14,14 +22,30 @@ export type AttestationState = { error?: string; success?: boolean } | undefined
  * attest for themselves. Re-attest annually.
  */
 export async function attestRedFlags(): Promise<AttestationState> {
-import { createClient } from "@/lib/supabase/server";
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
 
-export type SignAttestationState = { error?: string; success?: boolean } | undefined;
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("id")
+    .eq("profile_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
+  if (!staff) return { error: "No active care-team record for your account" };
 
-/** The current attestation text a doctor signs — kept in sync with the
- * migration's default `attestation_version`. Module-local: a "use server"
- * module may only export async functions, so this cannot be exported. */
-const ATTESTATION_VERSION = "AHC-2026-v1";
+  const today = new Date().toISOString().slice(0, 10);
+  const { error } = await createServiceRoleClient()
+    .from("clinical_staff")
+    .update({ red_flag_attested_at: today })
+    .eq("id", staff.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/clinician");
+  return { success: true };
+}
 
 /**
  * Records the caller's annual red-flag attestation (AHC pathway §26). The
@@ -45,33 +69,28 @@ export async function signAttestation(
 
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("id")
-    .eq("profile_id", user.id)
-    .eq("active", true)
-    .maybeSingle();
-  if (!staff) return { error: "No active care-team record for your account" };
-
-  const today = new Date().toISOString().slice(0, 10);
-  const { error } = await createServiceRoleClient()
-    .from("clinical_staff")
-    .update({ red_flag_attested_at: today })
-    .eq("id", staff.id);
-  if (error) return { error: error.message };
-
-  revalidatePath("/clinician");
     .select("id, organisation_id")
     .eq("profile_id", user.id)
     .eq("active", true)
     .maybeSingle();
   if (!staff) {
-    return { error: "Only an active Tarragon care-team doctor can sign this attestation" };
+    return {
+      error:
+        "Only an active Tarragon care-team doctor can sign this attestation",
+    };
   }
+
+  // expires_at is also enforced by the set_attestation_expiry trigger (+1yr);
+  // we pass it explicitly so the (trigger-unaware) generated Insert type is
+  // satisfied, computing the same +1-year value.
+  const expiresAt = new Date();
+  expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
   const { error } = await supabase.from("clinical_staff_attestations").insert({
     organisation_id: staff.organisation_id,
     clinical_staff_id: staff.id,
     attestation_version: ATTESTATION_VERSION,
-    // expires_at defaulted by the set_attestation_expiry trigger (+1 year).
+    expires_at: expiresAt.toISOString(),
   });
   if (error) return { error: error.message };
 
