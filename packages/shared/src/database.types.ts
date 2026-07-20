@@ -1152,6 +1152,7 @@ export type Database = {
           photo_url: string | null
           profile_id: string | null
           specialty: string | null
+          staff_number: string | null
           updated_at: string
           verified_by: string | null
         }
@@ -1175,6 +1176,7 @@ export type Database = {
           photo_url?: string | null
           profile_id?: string | null
           specialty?: string | null
+          staff_number?: string | null
           updated_at?: string
           verified_by?: string | null
         }
@@ -1198,6 +1200,7 @@ export type Database = {
           photo_url?: string | null
           profile_id?: string | null
           specialty?: string | null
+          staff_number?: string | null
           updated_at?: string
           verified_by?: string | null
         }

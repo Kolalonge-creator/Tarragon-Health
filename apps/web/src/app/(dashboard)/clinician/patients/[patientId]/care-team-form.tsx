@@ -45,6 +45,7 @@ export function CareTeamForm({
               {assignable.map((c) => (
                 <option key={c.id} value={c.profile_id!}>
                   {c.full_name}
+                  {c.staff_number ? ` (${c.staff_number})` : ""}
                   {c.credential_type && c.credential_number
                     ? ` — ${c.credential_type} ${c.credential_number}`
                     : ""}
