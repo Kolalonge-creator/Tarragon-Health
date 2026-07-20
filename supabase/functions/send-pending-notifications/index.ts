@@ -189,6 +189,64 @@ const TEMPLATE_MAP: Record<
         `open the app to see details. — Tarragon Health`,
     };
   },
+  // Sent to an entitled patient when their yearly Annual Health Review cycle
+  // opens (see private.queue_annual_reviews). Reminder only — the review runs
+  // through the in-app clinician worklist, never over WhatsApp.
+  annual_review_due: (payload) => {
+    const cycleYear = String(payload.cycle_year ?? "this year");
+    return {
+      metaTemplateName: "annual_review_due",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: cycleYear }] },
+      ],
+      smsText:
+        `Hi, your ${cycleYear} Annual Health Review has started. Your care team will guide ` +
+        `you through it — open the app to see what's next. — Tarragon Health`,
+    };
+  },
+  // Sent to the patient after they confirm a video-consult slot for their
+  // Annual Health Review (patient annual-review-actions). Confirmation only —
+  // the consult link lives in the app.
+  annual_review_consult_scheduled: (payload) => {
+    const raw = String(payload.scheduled_at ?? "");
+    const when = (() => {
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime())
+        ? "the agreed time"
+        : d.toLocaleString("en-NG", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: "Africa/Lagos",
+          });
+    })();
+    return {
+      metaTemplateName: "annual_review_consult_scheduled",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: when }] },
+      ],
+      smsText:
+        `Your Annual Health Review video consult is confirmed for ${when}. ` +
+        `The join link is in the Tarragon Health app. — Tarragon Health`,
+    };
+  },
+  // Sent to the patient as a lifestyle programme review comes due (see
+  // private.queue_lpe_review_reminders). Reminder only — the review is
+  // completed by their care team in-app, never over WhatsApp.
+  lifestyle_review_due: (payload) => {
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "lifestyle_review_due",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: dueDate }] },
+      ],
+      smsText:
+        `Hi, your lifestyle programme review is due ${dueDate}. Your care team will be in ` +
+        `touch — open the app to see details. — Tarragon Health`,
+    };
+  },
   // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
   // subject + body chosen by an admin, fanned out to a resolved audience. Email
   // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement
