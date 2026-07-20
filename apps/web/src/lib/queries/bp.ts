@@ -15,6 +15,23 @@ export interface HbpmSummary {
   } | null;
 }
 
+export interface BpSecondaryFlags {
+  flags: string[];
+}
+
+export function useBpSecondaryFlags(patientId: string) {
+  return useQuery({
+    queryKey: ["bp-secondary-flags", patientId],
+    queryFn: async (): Promise<BpSecondaryFlags> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("bp_secondary_flags", { p_patient: patientId });
+      if (error) throw error;
+      return data as unknown as BpSecondaryFlags;
+    },
+    enabled: !!patientId,
+  });
+}
+
 export function useHbpmSummary(patientId: string) {
   return useQuery({
     queryKey: ["hbpm-summary", patientId],

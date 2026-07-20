@@ -1,9 +1,16 @@
 "use client";
 
 import { useMedications } from "@/lib/queries/medications";
-import { useHbpmSummary } from "@/lib/queries/bp";
+import { useHbpmSummary, useBpSecondaryFlags } from "@/lib/queries/bp";
 import { bpDrugClass, inferBpLadderStep } from "@/lib/rules/bp-drug-class";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const SECONDARY_FLAG_LABEL: Record<string, string> = {
+  young_onset_under_40:
+    "Confirmed hypertension under age 40 — assess for a secondary cause (§7.3).",
+  resistant_htn:
+    "Above target on ≥3 antihypertensives including a diuretic — resistant HTN: confirm adherence, exclude secondary causes / white-coat, consider referral (§18.6).",
+};
 
 // Nigeria HEARTS stepped ladder (§12.3) — display copy mirrors the admin-editable
 // public.bp_ladder_steps catalogue. Decision SUPPORT: the doctor authorises every
@@ -26,7 +33,9 @@ const SAFETY_NOTES = [
 export function BpLadderPanel({ patientId }: { patientId: string }) {
   const { data: meds } = useMedications(patientId);
   const { data: hbpm } = useHbpmSummary(patientId);
+  const { data: secondary } = useBpSecondaryFlags(patientId);
 
+  const secondaryFlags = secondary?.flags ?? [];
   const bpMeds = (meds ?? []).filter((m) => bpDrugClass(m.drug_name) != null);
   const currentStep = inferBpLadderStep(bpMeds.map((m) => m.drug_name));
   const atTarget = hbpm?.average?.at_target ?? null;
@@ -73,6 +82,25 @@ export function BpLadderPanel({ patientId }: { patientId: string }) {
             <li key={n}>{n}</li>
           ))}
         </ul>
+
+        {secondaryFlags.length > 0 && (
+          <div className="rounded-md bg-amber-50 p-3 ring-1 ring-amber-200">
+            <p className="text-xs font-semibold text-amber-800">
+              Secondary-cause / resistance flags
+            </p>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-amber-900">
+              {secondaryFlags.map((f) => (
+                <li key={f}>{SECONDARY_FLAG_LABEL[f] ?? f}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <p className="text-xs text-charcoal-ink/60">
+          Baseline work-up: order the Hypertension Panel (U&E/eGFR, electrolytes,
+          lipids, HbA1c, urinalysis, urine ACR) and record a 12-lead ECG for every
+          newly confirmed patient (§8).
+        </p>
       </CardContent>
     </Card>
   );

@@ -7914,6 +7914,8 @@ export type Database = {
         Returns: number
       }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
+      bp_secondary_flags: { Args: { p_patient: string }; Returns: Json }
+      htn_quality_metrics: { Args: { p_org: string }; Returns: Json }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
