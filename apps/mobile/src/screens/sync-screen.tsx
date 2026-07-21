@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Button, FlatList, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { Tables } from "@tarragon/shared";
 import { connectAndSubscribe, type ParsedReading } from "@/lib/ble";
 import { postDeviceReading } from "@/lib/api";
+import { colors, spacing } from "@/ui/theme";
+import {
+  Card,
+  ChoiceChip,
+  ErrorText,
+  MutedText,
+  PrimaryButton,
+  ScreenTitle,
+  SecondaryButton,
+} from "@/ui/components";
 
 type PatientDevice = Tables<"patient_devices">;
 type GlucoseContext = "fasting" | "random" | "post_meal";
@@ -109,54 +120,79 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
 
   if (!supported) {
     return (
-      <View style={{ flex: 1, padding: 16, gap: 12 }}>
-        <Text>Syncing isn&apos;t supported yet for this device type ({device.device_type}).</Text>
-        <Button title="Back" onPress={onBack} />
+      <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>
+        <MutedText>
+          Syncing isn&apos;t supported yet for this device type ({device.device_type}).
+        </MutedText>
+        <SecondaryButton title="Back" onPress={onBack} />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, padding: 16, gap: 12 }}>
-      <Text style={{ fontSize: 20, fontWeight: "600" }}>{device.nickname ?? device.model ?? "Device"}</Text>
-      {connecting ? <ActivityIndicator /> : null}
-      {connectError ? <Text style={{ color: "#B3261E" }}>{connectError}</Text> : null}
-      <Text style={{ color: "#666" }}>Take a reading on the device to see it appear below.</Text>
+    <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>
+      <ScreenTitle>{device.nickname ?? device.model ?? "Device"}</ScreenTitle>
+      {connecting ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <ActivityIndicator color={colors.brand} />
+          <MutedText>Connecting…</MutedText>
+        </View>
+      ) : null}
+      {connectError ? <ErrorText>{connectError}</ErrorText> : null}
+      <MutedText>Take a reading on the device to see it appear below.</MutedText>
       <FlatList
         data={pending}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={{ gap: 10 }}
         renderItem={({ item }) => (
-          <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: "#eee", gap: 8 }}>
+          <Card style={{ gap: 10 }}>
             {item.reading.deviceType === "bp_cuff" ? (
-              <Text style={{ fontSize: 16 }}>
-                {item.reading.systolic}/{item.reading.diastolic} mmHg
-                {item.reading.pulseBpm ? ` · ${item.reading.pulseBpm} bpm` : ""}
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
+                {item.reading.systolic}/{item.reading.diastolic}{" "}
+                <Text style={{ fontSize: 14, fontWeight: "400", color: colors.muted }}>mmHg</Text>
+                {item.reading.pulseBpm ? (
+                  <Text style={{ fontSize: 14, fontWeight: "400", color: colors.muted }}>
+                    {" "}
+                    · {item.reading.pulseBpm} bpm
+                  </Text>
+                ) : null}
               </Text>
             ) : (
-              <Text style={{ fontSize: 16 }}>{item.reading.glucoseMmolL ?? "—"} mmol/L</Text>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
+                {item.reading.glucoseMmolL ?? "—"}{" "}
+                <Text style={{ fontSize: 14, fontWeight: "400", color: colors.muted }}>mmol/L</Text>
+              </Text>
             )}
 
             {item.status === "pending" && item.reading.deviceType === "bp_cuff" && (
-              <Button title="Save reading" onPress={() => save(item)} />
+              <PrimaryButton title="Save reading" onPress={() => save(item)} />
             )}
             {item.status === "pending" &&
               item.reading.deviceType === "glucometer" &&
               (item.reading.glucoseMmolL === null ? (
-                <Text style={{ color: "#666" }}>Device didn&apos;t report a concentration value.</Text>
+                <MutedText>Device didn&apos;t report a concentration value.</MutedText>
               ) : (
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  <Button title="Fasting" onPress={() => save(item, "fasting")} />
-                  <Button title="Random" onPress={() => save(item, "random")} />
-                  <Button title="After a meal" onPress={() => save(item, "post_meal")} />
+                <View style={{ gap: 8 }}>
+                  <MutedText>When was this reading taken?</MutedText>
+                  <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                    <ChoiceChip title="Fasting" onPress={() => save(item, "fasting")} />
+                    <ChoiceChip title="Random" onPress={() => save(item, "random")} />
+                    <ChoiceChip title="After a meal" onPress={() => save(item, "post_meal")} />
+                  </View>
                 </View>
               ))}
-            {item.status === "saving" && <ActivityIndicator />}
-            {item.status === "saved" && <Text style={{ color: "#0E7C52" }}>Saved</Text>}
-            {item.status === "error" && <Text style={{ color: "#B3261E" }}>{item.error}</Text>}
-          </View>
+            {item.status === "saving" && <ActivityIndicator color={colors.brand} />}
+            {item.status === "saved" && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                <Text style={{ color: colors.success, fontWeight: "600" }}>Saved</Text>
+              </View>
+            )}
+            {item.status === "error" && <ErrorText>{item.error}</ErrorText>}
+          </Card>
         )}
       />
-      <Button title="Back" onPress={onBack} />
+      <SecondaryButton title="Back" onPress={onBack} />
     </View>
   );
 }
