@@ -1,13 +1,35 @@
 /**
- * Pricing content, sourced from Tarragon_Health_Pricing_Guide_v2.docx (the
- * authoritative plans & pricing doc). Keep this in sync with that guide;
- * every price and label here should be traceable back to it.
+ * Pricing content, sourced from Tarragon_Health_Pricing_Guide_v3.docx (the
+ * authoritative plans & pricing doc, regenerated 2026-07-21 — it absorbs the
+ * decisions below and drops v2's "nurse" wording for "doctor" platform-wide,
+ * so the old nurse->doctor translation exception is retired). Keep this file
+ * in sync with that guide; every price and label here should be traceable
+ * back to it. v2 is kept alongside for history only.
  *
- * Deliberate exception (2026-07-12, unchanged by the 2026-07-15 doctor-led
- * update below): the docx repeatedly says "nurse" (nurse review, named nurse
- * coordinator, etc.), but this file uses "doctor" instead, per the
- * platform-wide nurse->doctor terminology decision. If the docx is revised
- * again, keep re-deriving prices from it but keep the role word as "doctor".
+ * Pricing decisions 2026-07-21 (now reflected in the v3 docx):
+ * - ParentCare (NGN) repriced ₦20,000 → ₦25,000/month (₦200,000 → ₦250,000
+ *   yearly; extra parent +₦7,000 → +₦8,000/month) so the per-parent price no
+ *   longer undercuts the Dedicated Care Coordinator add-on it bundles.
+ * - "Annual Health Review" renamed "Annual Doctor Review" to stop the
+ *   near-collision with the "Annual Health Check" screening product.
+ * - Annual Health Check aligned to the live partner-lab bundle price
+ *   (₦65,000 — the DB `panel_bundles.annual_health_check` row is the source
+ *   of truth; marketing previously said ₦60,000).
+ * - Family Lite's "every member gets Complete Care–level monitoring" promise
+ *   reworded to needs-matched monitoring (the old wording contractually
+ *   over-promised the loss-making case).
+ * - Typical partner-lab prices (TYPICAL_PRICES) mirror the live `lab_tests`/
+ *   `panel_bundles` catalogue — re-derive from the DB when partners reprice.
+ * - Diaspora Family plans are now real, self-service tiers (were
+ *   quote-only), and the ENTIRE diaspora price book was rebased ~50% lower
+ *   the same day (founder decision): the care is delivered to the person in
+ *   Nigeria (same cost base as NGN), and a new platform without brand trust
+ *   cannot carry the old 6-9x NGN premium. Now ~2.5-3.5x NGN: Essential
+ *   £15/mo, Complete £29/mo, Premium £49/mo, ParentCare £59/mo (2 parents),
+ *   Family Lite £290 / Plus £430 / Premium £620 per year (USD ~1.3x GBP:
+ *   $19/$39/$79/mo, family $390/$570/$820/yr). Extra member +£60/£80/£120
+ *   ($80/$110/$160); extra parent +£19/mo ($25). Still ~80-85% gross margin
+ *   — diaspora remains the margin engine, at a price that converts.
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
@@ -134,7 +156,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Medication refills", label: "BOOK & PAY" },
     ],
     footnote:
-      "The Annual Health Check (full body screening) is not bundled free into Complete Care. It's a ₦60,000/year add-on available on any plan, so the price you see is the price you actually pay.",
+      "The Annual Health Check (full body screening) is not bundled free into Complete Care. It's a ₦65,000/year add-on available on any plan, so the price you see is the price you actually pay.",
   },
   {
     id: "family-lite",
@@ -145,7 +167,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceSecondary: "covers up to 4 people",
     description: "One plan, one bill, for your whole household, including a parent you want to keep an eye on.",
     items: [
-      { feature: "Every member gets Complete Care–level monitoring", label: "INCLUDED" },
+      { feature: "Monitoring matched to each member: Complete Care–level for members with a chronic condition, prevention tracking for everyone else", label: "INCLUDED" },
       { feature: "Shared family dashboard", label: "INCLUDED" },
       { feature: "One combined bill instead of separate subscriptions", label: "INCLUDED" },
       { feature: "Monthly family report", label: "INCLUDED" },
@@ -166,7 +188,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Everything in Family Lite", label: "INCLUDED" },
       { feature: "A named family doctor coordinator, not a rotating team", label: "INCLUDED" },
       { feature: "Priority escalation across all members, every time, not only for abnormal readings", label: "INCLUDED" },
-      { feature: "One Annual Health Check included free each year, for one member of your choice (a ₦60,000 value)", label: "INCLUDED" },
+      { feature: "One Annual Health Check included free each year, for one member of your choice (a ₦65,000 value)", label: "INCLUDED" },
       { feature: "Lab tests and medication refills for each additional member", label: "BOOK & PAY" },
     ],
     footnote: "Extra members: +₦40,000/year each, up to 6 people total.",
@@ -184,7 +206,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "A named doctor coordinator plus a scheduled, booked monthly doctor appointment for every member", label: "INCLUDED" },
       { feature: "Quarterly PDF health report, in addition to the monthly summary", label: "INCLUDED" },
       { feature: "Expedited doctor response (under 2 hours) for every member, on any non-emergency question", label: "INCLUDED" },
-      { feature: "Two Annual Health Checks included free each year, for members of your choice (up to ₦120,000 value)", label: "INCLUDED" },
+      { feature: "Two Annual Health Checks included free each year, for members of your choice (up to ₦130,000 value)", label: "INCLUDED" },
       { feature: "Lab tests and medication refills beyond what's included", label: "BOOK & PAY" },
     ],
     footnote: "Extra members: +₦55,000/year each, up to 6 people total.",
@@ -193,9 +215,9 @@ export const NGN_TIERS: PricingTier[] = [
     id: "parentcare",
     name: "ParentCare",
     whoFor: "Keeping close watch over your parent's health, even from a distance",
-    priceMain: "₦20,000",
+    priceMain: "₦25,000",
     pricePeriod: "per month",
-    priceSecondary: "or ₦200,000/year (2 months free) — covers up to 2 parents",
+    priceSecondary: "or ₦250,000/year (2 months free) — covers up to 2 parents",
     description:
       "A dedicated plan for monitoring a parent's health: a named doctor coordinator, scheduled doctor review, and a quarterly report, built specifically for this relationship rather than a general family group.",
     items: [
@@ -205,7 +227,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Quarterly PDF family report", label: "INCLUDED" },
       { feature: "Lab tests and medication refills", label: "BOOK & PAY" },
     ],
-    footnote: "Extra parent: +₦70,000/year, or +₦7,000/month.",
+    footnote: "Extra parent: +₦80,000/year, or +₦8,000/month.",
   },
 ];
 
@@ -214,9 +236,9 @@ export const GBP_TIERS: PricingTier[] = [
     id: "diaspora-essential",
     name: "Essential Care (Diaspora)",
     whoFor: "One condition, monitored from abroad",
-    priceMain: "£25",
+    priceMain: "£15",
     pricePeriod: "per month",
-    priceSecondary: "or £250/year",
+    priceSecondary: "or £150/year",
     description: "Everything included is the same as Essential Care in Naira, billed in British Pounds.",
     highlight: true,
     items: [
@@ -228,9 +250,9 @@ export const GBP_TIERS: PricingTier[] = [
     id: "diaspora-complete",
     name: "Complete Care (Diaspora)",
     whoFor: "Multiple conditions, monitored from abroad",
-    priceMain: "£59",
+    priceMain: "£29",
     pricePeriod: "per month",
-    priceSecondary: "or £590/year",
+    priceSecondary: "or £290/year",
     description: "Everything included is the same as Complete Care in Naira, billed in British Pounds.",
     items: [
       { feature: "Everything in Complete Care (Naira plan)", label: "INCLUDED" },
@@ -241,9 +263,9 @@ export const GBP_TIERS: PricingTier[] = [
     id: "diaspora-premium",
     name: "Premium Care (Diaspora)",
     whoFor: "Parents you can't check on in person",
-    priceMain: "£99",
+    priceMain: "£49",
     pricePeriod: "per month",
-    priceSecondary: "or £990/year",
+    priceSecondary: "or £490/year",
     description:
       "Complete Care, plus a named doctor coordinator, a scheduled monthly doctor appointment (not just WhatsApp), and a quarterly PDF report: our closest level of care for a parent you can't check on in person. You are not just paying for WhatsApp check-ins, you're paying for peace of mind that someone is watching over your family while you're not there.",
     items: [
@@ -255,12 +277,67 @@ export const GBP_TIERS: PricingTier[] = [
     ],
   },
   {
+    id: "family-lite-gbp",
+    name: "Family Lite",
+    whoFor: "Your whole family back home, on one plan",
+    priceMain: "£290",
+    pricePeriod: "per year",
+    priceSecondary: "covers up to 4 people",
+    description:
+      "One plan and one bill for your family in Nigeria: monitoring matched to each member, a shared dashboard you can check from anywhere, and a monthly family report.",
+    items: [
+      { feature: "Monitoring matched to each member: Complete Care–level for members with a chronic condition, prevention tracking for everyone else", label: "INCLUDED" },
+      { feature: "Shared family dashboard you can read from abroad", label: "INCLUDED" },
+      { feature: "One combined bill in pounds", label: "INCLUDED" },
+      { feature: "Monthly family report", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills in Nigeria, per member", label: "BOOK & PAY" },
+    ],
+    footnote: "Extra members: +£60/year each, up to 6 people total.",
+  },
+  {
+    id: "family-plus-gbp",
+    name: "Family Plus",
+    whoFor: "Families who want fewer gaps between check-ins",
+    priceMain: "£430",
+    pricePeriod: "per year",
+    priceSecondary: "covers up to 4 people",
+    description:
+      "Everything in Family Lite, plus a named family doctor coordinator, priority escalation for every member, and one Annual Health Check included each year.",
+    items: [
+      { feature: "Everything in Family Lite", label: "INCLUDED" },
+      { feature: "A named family doctor coordinator, not a rotating team", label: "INCLUDED" },
+      { feature: "Priority escalation across all members, every time", label: "INCLUDED" },
+      { feature: "One Annual Health Check included free each year, for one member of your choice (a ₦65,000 value)", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills in Nigeria, per member", label: "BOOK & PAY" },
+    ],
+    footnote: "Extra members: +£80/year each, up to 6 people total.",
+  },
+  {
+    id: "family-premium-gbp",
+    name: "Family Premium",
+    whoFor: "Our closest level of family monitoring, from abroad",
+    priceMain: "£620",
+    pricePeriod: "per year",
+    priceSecondary: "covers up to 4 people",
+    description:
+      "Everything in Family Plus, plus a scheduled monthly doctor appointment for every member, quarterly PDF reports, expedited response, and two Annual Health Checks a year.",
+    items: [
+      { feature: "Everything in Family Plus", label: "INCLUDED" },
+      { feature: "A named doctor coordinator plus a scheduled, booked monthly doctor appointment for every member", label: "INCLUDED" },
+      { feature: "Quarterly PDF health report, in addition to the monthly summary", label: "INCLUDED" },
+      { feature: "Expedited doctor response (under 2 hours) for every member", label: "INCLUDED" },
+      { feature: "Two Annual Health Checks included free each year, for members of your choice (up to ₦130,000 value)", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills in Nigeria, beyond what's included", label: "BOOK & PAY" },
+    ],
+    footnote: "Extra members: +£120/year each, up to 6 people total.",
+  },
+  {
     id: "parentcare-gbp",
     name: "ParentCare",
     whoFor: "Both your parents, watched over from abroad",
-    priceMain: "£119",
+    priceMain: "£59",
     pricePeriod: "per month",
-    priceSecondary: "or £1,190/year — covers up to 2 parents",
+    priceSecondary: "or £590/year — covers up to 2 parents",
     description:
       "Built specifically for monitoring a parent's health rather than a general family group: a named doctor coordinator, scheduled doctor review, and a quarterly report, covering up to 2 parents on one subscription.",
     items: [
@@ -270,12 +347,21 @@ export const GBP_TIERS: PricingTier[] = [
       { feature: "Quarterly PDF family report", label: "INCLUDED" },
       { feature: "Lab tests and medication refills in Nigeria", label: "BOOK & PAY" },
     ],
-    footnote: "Extra parent: +£390/year, or +£39/month.",
+    footnote: "Extra parent: +£190/year, or +£19/month.",
   },
 ];
 
 export const DIASPORA_FAMILY_NOTE =
-  "Want a Family Plan billed in GBP for multiple relatives back home? Message our team directly and we'll quote you: this is the one case where we ask you to talk to us first, simply because family sizes vary and we want to get the number right for you before you commit to anything.";
+  "All diaspora plans are also available in US dollars inside the app. Family bigger than 6 people, or something unusual? Message our team and we'll build you a custom quote — same no-hidden-cost approach.";
+
+/**
+ * Honesty note for diaspora buyers subscribing for THEMSELVES: monitoring
+ * and doctor review work anywhere, but the partner network (labs, pharmacies,
+ * home visits) is physically in Nigeria. Saying so up front costs a few
+ * conversions and buys the thing a new platform needs most — trust.
+ */
+export const DIASPORA_SELF_USE_NOTE =
+  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, WhatsApp access, and health record all work wherever you are — but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
 export type PricingAddOn = {
   id: string;
@@ -291,7 +377,7 @@ export const ADD_ONS: PricingAddOn[] = [
   {
     id: "annual-health-check",
     name: "Annual Health Check",
-    price: "₦60,000/year",
+    price: "₦65,000/year",
     label: "ADD-ON",
     description:
       "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a doctor consultation to walk you through your results. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge.",
@@ -373,11 +459,11 @@ export const ADD_ONS: PricingAddOn[] = [
   },
   {
     id: "annual-review",
-    name: "Annual Health Review",
+    name: "Annual Doctor Review",
     price: "₦70,000/year",
     label: "ADD-ON",
     description:
-      "A once-a-year, whole-body review that sits above your routine condition check-ins: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short doctor video consultation to walk through your year and the plan ahead. This is the yearly review programme, distinct from the one-off Annual Health Check screening above.",
+      "Once a year, your doctor sits down with your whole year of care: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short video consultation to talk through the year behind you and the plan ahead. Different from the Annual Health Check above: the Check is a day of screening tests; the Doctor Review is your whole year of care, reviewed with your doctor.",
     availability: "Included on the comprehensive plans (Complete Care, Family, and ParentCare). Available as an add-on on lower plans.",
   },
   {
@@ -389,6 +475,47 @@ export const ADD_ONS: PricingAddOn[] = [
     availability: "Price shown at time of booking. See What's Always Free below for the free version, ages 9–14.",
   },
 ];
+
+/**
+ * Typical prices for the most common BOOK & PAY items, mirrored from the live
+ * partner-lab catalogue (`lab_tests`/`panel_bundles`). "From" phrasing because
+ * partner prices vary slightly by lab and location; the exact price is always
+ * shown before booking.
+ */
+export const TYPICAL_PRICES: { item: string; price: string }[] = [
+  { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
+  { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
+  { item: "Kidney function (U&E + eGFR)", price: "from ₦8,000" },
+  { item: "Urinalysis", price: "from ₦3,000" },
+  { item: "Diabetes panel (HbA1c + kidney + urine)", price: "from ₦18,500" },
+  { item: "Hypertension panel (kidney + cholesterol + urine)", price: "from ₦22,000" },
+  { item: "PSA (prostate screening)", price: "from ₦12,000" },
+  { item: "Cervical smear", price: "from ₦18,000" },
+  { item: "HIV screening", price: "from ₦6,000" },
+  { item: "Hepatitis B screening", price: "from ₦7,000" },
+];
+
+export const TYPICAL_PRICES_NOTE =
+  "These are the current prices at our partner labs, so you can budget before you ever book. Your exact price (including your chosen lab and location) is always shown before you confirm — and if it ever differs from what you see here, the price at booking is the one that counts, and you can simply decline.";
+
+/**
+ * "Tarragon vs your HMO" — complementary positioning, never disparaging. HMOs
+ * (including our partners) pay for treatment; Tarragon is the monitoring layer
+ * that works alongside them.
+ */
+export const HMO_COMPARE_INTRO =
+  "A common question: “Why pay ₦8,000/month for Tarragon when a basic HMO plan costs ₦3,500?” Because they do different jobs — and they work best together.";
+
+export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }[] = [
+  { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },
+  { need: "A doctor reviews your BP and blood sugar readings every month, even when you feel fine", hmo: false, tarragon: true },
+  { need: "Spots a worrying pattern in your numbers and escalates it before it becomes an emergency", hmo: false, tarragon: true },
+  { need: "Reminds you, books your labs and refills, and tracks your results over time", hmo: false, tarragon: true },
+  { need: "Keeps your whole health story in one record your family can see (with your consent)", hmo: false, tarragon: true },
+];
+
+export const HMO_COMPARE_NOTE =
+  "Keep your HMO — you'll still need it the day you're admitted. Tarragon is the layer that watches your numbers between hospital visits so that day comes later, or not at all. We already work alongside Nigerian HMOs, and if your employer or HMO wants Tarragon for its members, they can talk to us directly.";
 
 export const ALWAYS_FREE: PricingLineItem & { description: string } = {
   feature: "HPV vaccine for girls aged 9–14",
@@ -483,6 +610,21 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
     question: "Can I cancel anytime?",
     answer:
       "Yes. Monthly plans can be cancelled anytime and simply end at the close of your current billing period. Annual plans are prepaid for the year, but you can turn off auto-renewal at any time; you just won't be billed again next year.",
+  },
+  {
+    question: "I already have an HMO. Do I still need Tarragon?",
+    answer:
+      "They do different jobs. Your HMO pays your treatment bills when you're ill; Tarragon watches your numbers between hospital visits — a doctor reviews your readings, escalates worrying patterns early, and coordinates your labs and refills. Keep your HMO; Tarragon works alongside it.",
+  },
+  {
+    question: "What do lab tests actually cost?",
+    answer:
+      "Typical partner-lab prices are listed on this page (for example, HbA1c from ₦8,000 and a lipid panel from ₦9,000), and your exact price is always shown before you confirm any booking. Nothing is ever charged without your confirmation.",
+  },
+  {
+    question: "What's the difference between the Annual Health Check and the Annual Doctor Review?",
+    answer:
+      "The Annual Health Check (₦65,000/year) is a day of screening tests: bloods, BP, BMI, one cancer screening, and a doctor consultation about the results. The Annual Doctor Review (₦70,000/year, already included on Complete Care, Family, and ParentCare plans) is your whole year of care reviewed with your doctor: questionnaires, labs, a medication review, an updated care plan, and a video consultation.",
   },
   {
     question: "What if I need a test that isn't listed here?",

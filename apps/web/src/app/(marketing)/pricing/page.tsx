@@ -4,6 +4,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { PricingTable } from "../_components/pricing-table";
 import { PricingAddOns } from "../_components/pricing-addons";
 import { PricingLabelBadge } from "../_components/pricing-label";
+import { PlanFinder } from "../_components/plan-finder";
 import { CtaBand } from "../_components/cta-band";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -12,6 +13,11 @@ import {
   ALWAYS_FREE_NOTE,
   BOOKING_STEPS,
   EMPLOYER_HMO_NOTE,
+  HMO_COMPARE_INTRO,
+  HMO_COMPARE_NOTE,
+  HMO_COMPARE_ROWS,
+  TYPICAL_PRICES,
+  TYPICAL_PRICES_NOTE,
   FREE_TRIAL_INTRO,
   FREE_TRIAL_TERMS,
   FREE_TRIALS,
@@ -53,6 +59,7 @@ export default function PricingPage() {
           title="Simple, transparent plans"
           description="Every line item carries exactly one label: included, book & pay, free elsewhere, or add-on. No hidden costs."
         />
+        <PlanFinder />
         <PricingTable />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
@@ -102,6 +109,51 @@ export default function PricingPage() {
             <li key={term}>{term}</li>
           ))}
         </ul>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow="Tarragon vs your HMO"
+          title="Keep your HMO. Add the layer that watches."
+          description={HMO_COMPARE_INTRO}
+        />
+        <div className="mx-auto max-w-3xl overflow-x-auto">
+          <table className="w-full min-w-[32rem] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white text-sm">
+            <thead>
+              <tr className="bg-warm-ivory text-left">
+                <th scope="col" className="p-4 font-heading font-semibold text-charcoal-ink">
+                  What you need
+                </th>
+                <th scope="col" className="p-4 text-center font-heading font-semibold text-charcoal-ink">
+                  Your HMO
+                </th>
+                <th scope="col" className="p-4 text-center font-heading font-semibold text-charcoal-ink">
+                  TarragonHealth
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {HMO_COMPARE_ROWS.map((row) => (
+                <tr key={row.need} className="border-t border-charcoal-ink/10">
+                  <td className="border-t border-charcoal-ink/10 p-4 text-charcoal-ink/80">{row.need}</td>
+                  <td className="border-t border-charcoal-ink/10 p-4 text-center" aria-label={row.hmo ? "Covered by your HMO" : "Not covered by your HMO"}>
+                    <span aria-hidden className={row.hmo ? "text-brand-green" : "text-charcoal-ink/30"}>
+                      {row.hmo ? "✓" : "—"}
+                    </span>
+                  </td>
+                  <td className="border-t border-charcoal-ink/10 p-4 text-center" aria-label={row.tarragon ? "Covered by TarragonHealth" : "Not covered by TarragonHealth"}>
+                    <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/30"}>
+                      {row.tarragon ? "✓" : "—"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mx-auto mt-6 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
+          {HMO_COMPARE_NOTE}
+        </p>
       </Section>
 
       <Section variant="sage">
@@ -157,6 +209,25 @@ export default function PricingPage() {
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Nothing is ever taken from your card without you confirming that exact transaction first.
         </p>
+      </Section>
+
+      <Section variant="sage">
+        <SectionHeading
+          eyebrow="Typical prices"
+          title="What book &amp; pay items usually cost"
+          description={TYPICAL_PRICES_NOTE}
+        />
+        <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2">
+          {TYPICAL_PRICES.map((entry) => (
+            <div
+              key={entry.item}
+              className="flex items-center justify-between gap-3 rounded-xl border border-charcoal-ink/10 bg-white px-5 py-4"
+            >
+              <span className="text-sm text-charcoal-ink/80">{entry.item}</span>
+              <span className="shrink-0 text-sm font-semibold text-clinical-navy">{entry.price}</span>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section variant="navy">

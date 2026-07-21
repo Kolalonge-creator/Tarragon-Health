@@ -11,6 +11,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@expo/vector-icons": "^14.0.3",
     "@supabase/supabase-js": "^2.45.4",
     "@tarragon/shared": "workspace:*",
     "expo": "~51.0.0",
@@ -18,7 +19,8 @@
     "react": "18.2.0",
     "react-native": "0.74.5",
     "react-native-ble-plx": "^3.2.1",
-    "react-native-url-polyfill": "^2.0.0"
+    "react-native-url-polyfill": "^2.0.0",
+    "react-native-webview": "13.8.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

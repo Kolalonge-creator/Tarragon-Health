@@ -17,11 +17,10 @@ const VITAL_TYPES = [
   { value: "glucose", label: "Glucose" },
   { value: "ketones", label: "Ketones" },
   { value: "weight", label: "Weight" },
-  { value: "waist_circumference", label: "Waist" },
+  { value: "waist_circumference", label: "Waist circumference" },
   { value: "pulse", label: "Pulse" },
   { value: "temperature", label: "Temperature" },
   { value: "spo2", label: "SpO2" },
-  { value: "waist_circumference", label: "Waist circumference" },
 ] as const;
 
 type VitalType = (typeof VITAL_TYPES)[number]["value"];

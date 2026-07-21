@@ -323,7 +323,7 @@ export default function AnnualReviewsPage() {
         <Link href="/clinician" className="text-sm text-brand-green hover:underline">
           ← Back to dashboard
         </Link>
-        <h1 className="mt-2 text-xl font-semibold text-charcoal-ink">Annual health reviews</h1>
+        <h1 className="mt-2 text-xl font-semibold text-charcoal-ink">Annual Doctor Reviews</h1>
         <p className="text-sm text-charcoal-ink/70">
           Whole-body annual reviews for subscribed patients. Completing the medication-review stage
           adopts and rolls each patient&apos;s condition medication reviews — no double review.
