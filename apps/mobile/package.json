@@ -18,7 +18,8 @@
     "react": "18.2.0",
     "react-native": "0.74.5",
     "react-native-ble-plx": "^3.2.1",
-    "react-native-url-polyfill": "^2.0.0"
+    "react-native-url-polyfill": "^2.0.0",
+    "react-native-webview": "13.8.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
