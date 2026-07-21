@@ -38,6 +38,7 @@ export const PERMISSION_KEYS = [
   "logistics.orders.manage",
   "analytics.view",
   "members.activity.view",
+  "integrations.manage",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
