@@ -29,7 +29,7 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     body: "See every family member's care in one shared view, one combined bill, on the Family Plan.",
   },
   annual_review: {
-    title: "The Annual Health Review is part of a paid plan",
+    title: "The Annual Doctor Review is part of a paid plan",
     body: "Get a once-a-year whole-body workup — general bloods, heart and other screening — plus a video consult with your Tarragon doctor to talk through your whole year. Included on Complete Care, Family and ParentCare plans.",
   },
   lifestyle_coaching: {

@@ -261,11 +261,11 @@ values
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'expedited_response', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education'], false),
   ('parentcare', 'ParentCare',
      'Dedicated monitoring for up to 2 parents: named doctor coordinator, scheduled doctor review, quarterly family report, priority escalation, and lab/pharmacy coordination.',
-     2000000, 'NGN', 'monthly',
+     2500000, 'NGN', 'monthly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
   ('parentcare_yearly', 'ParentCare (yearly)',
      'ParentCare billed annually — 2 months free.',
-     20000000, 'NGN', 'yearly',
+     25000000, 'NGN', 'yearly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false)
 on conflict (code) do nothing;
 
@@ -308,10 +308,10 @@ values
      5500000, 'NGN', 'yearly', array['extra_family_slot'], 'family_premium', false),
   ('extra-parentcare-member', 'Extra Parent (ParentCare)',
      'Adds a third parent to a ParentCare subscription at the same level of monitoring.',
-     700000, 'NGN', 'monthly', array['extra_family_slot'], 'parentcare', false),
+     800000, 'NGN', 'monthly', array['extra_family_slot'], 'parentcare', false),
   ('extra-parentcare-member-yearly', 'Extra Parent (ParentCare, yearly)',
      'Adds a third parent to a yearly ParentCare subscription at the same level of monitoring.',
-     7000000, 'NGN', 'yearly', array['extra_family_slot'], 'parentcare_yearly', false),
+     8000000, 'NGN', 'yearly', array['extra_family_slot'], 'parentcare_yearly', false),
   ('extra-parentcare-member-gbp', 'Extra Parent (ParentCare)',
      'Adds a third parent to a ParentCare subscription at the same level of monitoring.',
      3900, 'GBP', 'monthly', array['extra_family_slot'], 'parentcare_gbp', false),

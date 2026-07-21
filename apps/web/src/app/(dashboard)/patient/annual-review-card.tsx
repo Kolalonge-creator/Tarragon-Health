@@ -137,7 +137,7 @@ export function AnnualReviewCard({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle>Your {review.cycle_year} annual health review</CardTitle>
+        <CardTitle>Your {review.cycle_year} Annual Doctor Review</CardTitle>
         <Badge variant={completed ? "green" : "blue"}>
           {completed ? "Completed" : review.status === "in_progress" ? "In progress" : "Due"}
         </Badge>

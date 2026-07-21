@@ -102,7 +102,7 @@ export default async function ClinicianPage() {
       </p>
       <p className="text-sm">
         <Link href="/clinician/annual-reviews" className="text-brand-green hover:underline">
-          Annual health reviews →
+          Annual Doctor Reviews →
         </Link>
       </p>
       <p className="text-sm">
