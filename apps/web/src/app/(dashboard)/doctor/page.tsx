@@ -1,6 +1,8 @@
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/doctor-tier";
+import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent } from "@/components/ui/card";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { EscalationWorklist } from "./escalation-worklist";
 
 export default async function DoctorPage() {
@@ -13,19 +15,18 @@ export default async function DoctorPage() {
   const authorityBlurb = staff?.doctor_tier ? DOCTOR_TIER_AUTHORITY_BLURB[staff.doctor_tier] : undefined;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Welcome{profile?.full_name ? `, ${profile.full_name}` : ""}
-        </h1>
-        <p className="text-charcoal-ink/60">{roleLabel} dashboard</p>
-      </div>
+    <DashboardPlaceholder
+      greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
+      roleLabel={roleLabel}
+      comingUp={[]}
+      icon={SEMANTIC_ICON.escalation}
+    >
       {authorityBlurb && (
         <Card variant="soft">
           <CardContent className="py-3 text-sm text-charcoal-ink/70">{authorityBlurb}</CardContent>
         </Card>
       )}
       <EscalationWorklist />
-    </div>
+    </DashboardPlaceholder>
   );
 }
