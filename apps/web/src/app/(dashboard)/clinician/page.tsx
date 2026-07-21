@@ -1,12 +1,95 @@
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/doctor-tier";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { Worklist } from "./worklist";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
+
+const QUICK_LINKS: { href: string; label: string; blurb: string; icon: LucideIcon }[] = [
+  {
+    href: "/clinician/escalations",
+    label: "Escalations",
+    blurb: "All open and resolved escalations",
+    icon: SEMANTIC_ICON.escalation,
+  },
+  {
+    href: "/clinician/support-inbox",
+    label: "Support inbox",
+    blurb: "WhatsApp support messages from patients",
+    icon: NAV_ICON.inbox,
+  },
+  {
+    href: "/clinician/messages",
+    label: "Patient messages",
+    blurb: "In-app care messaging threads",
+    icon: NAV_ICON.messages,
+  },
+  {
+    href: "/clinician/referrals",
+    label: "Specialist referrals",
+    blurb: "Refer and track specialist care",
+    icon: NAV_ICON.referral,
+  },
+  {
+    href: "/clinician/medication-reviews",
+    label: "Medication reviews",
+    blurb: "Scheduled medication review worklist",
+    icon: SEMANTIC_ICON.medication,
+  },
+  {
+    href: "/clinician/adherence",
+    label: "Adherence alerts",
+    blurb: "Missed-dose escalation ladder",
+    icon: SEMANTIC_ICON.carePlan,
+  },
+  {
+    href: "/clinician/recommendations",
+    label: "Care recommendations",
+    blurb: "Programme proposals awaiting review",
+    icon: SEMANTIC_ICON.preventive,
+  },
+  {
+    href: "/clinician/vaccinations",
+    label: "Vaccination certificates",
+    blurb: "Verify patient-uploaded certificates",
+    icon: NAV_ICON.vaccination,
+  },
+  {
+    href: "/clinician/preventive-reviews",
+    label: "Periodic health reviews",
+    blurb: "Preventive programme review cadence",
+    icon: NAV_ICON.review,
+  },
+  {
+    href: "/clinician/annual-reviews",
+    label: "Annual Doctor Reviews",
+    blurb: "Whole-year workup orchestration",
+    icon: SEMANTIC_ICON.booking,
+  },
+  {
+    href: "/clinician/lifestyle-flags",
+    label: "Lifestyle safety flags",
+    blurb: "Safety triggers from lifestyle programmes",
+    icon: NAV_ICON.lifestyle,
+  },
+  {
+    href: "/clinician/lifestyle-reviews",
+    label: "Lifestyle reviews",
+    blurb: "Progress reviews on lifestyle goals",
+    icon: NAV_ICON.review,
+  },
+  {
+    href: "/clinician/care-plan-review",
+    label: "Care plan review",
+    blurb: "Plans that may need attention",
+    icon: SEMANTIC_ICON.carePlan,
+  },
+];
 
 export default async function ClinicianPage() {
   const profile = await getCurrentProfile();
@@ -55,71 +138,33 @@ export default async function ClinicianPage() {
       {staff && <RedFlagAttestation />}
       {attestationStaff && <AttestationCard expiresAt={attestationExpiresAt} />}
       <Worklist />
-      <p className="text-sm">
-        <Link href="/clinician/escalations" className="text-brand-green hover:underline">
-          View all escalations →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/support-inbox" className="text-brand-green hover:underline">
-          Support inbox →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/messages" className="text-brand-green hover:underline">
-          Patient messages →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/referrals" className="text-brand-green hover:underline">
-          Specialist referrals →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/medication-reviews" className="text-brand-green hover:underline">
-          Medication reviews →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/adherence" className="text-brand-green hover:underline">
-          Adherence alerts →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/recommendations" className="text-brand-green hover:underline">
-          Care programme recommendations →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/vaccinations" className="text-brand-green hover:underline">
-          Vaccination certificates →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/preventive-reviews" className="text-brand-green hover:underline">
-          Periodic health reviews →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/annual-reviews" className="text-brand-green hover:underline">
-          Annual Doctor Reviews →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/lifestyle-flags" className="text-brand-green hover:underline">
-          Lifestyle safety flags →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/lifestyle-reviews" className="text-brand-green hover:underline">
-          Lifestyle reviews →
-        </Link>
-      </p>
-      <p className="text-sm">
-        <Link href="/clinician/care-plan-review" className="text-brand-green hover:underline">
-          Care plans that may need review →
-        </Link>
-      </p>
+      <section aria-labelledby="clinician-worklists-heading" className="space-y-3">
+        <h2
+          id="clinician-worklists-heading"
+          className="font-heading text-lg font-semibold text-charcoal-ink"
+        >
+          Worklists &amp; tools
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {QUICK_LINKS.map(({ href, label, blurb, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className="group flex items-start gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm transition-all hover:border-brand-green/40 hover:shadow-md"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-soft-sage">
+                <Icon className="h-4.5 w-4.5 text-deep-forest" strokeWidth={2} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-charcoal-ink group-hover:text-deep-forest">
+                  {label}
+                </span>
+                <span className="block truncate text-xs text-charcoal-ink/55">{blurb}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
     </DashboardPlaceholder>
   );
 }

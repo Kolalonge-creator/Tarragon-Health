@@ -15,7 +15,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl border border-charcoal-ink/10 shadow-sm",
+        "rounded-xl border border-charcoal-ink/10 shadow-sm transition-shadow hover:shadow-md",
         CARD_VARIANT[variant],
         className
       )}
