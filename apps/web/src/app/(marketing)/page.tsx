@@ -55,7 +55,7 @@ export default function MarketingHomePage() {
               <Link href="/signup">Start monitoring</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href={MARKETING_ROUTES.contact}>Join the 90-Day Health Reset</Link>
+              <Link href="/signup">Join the 90-Day Health Reset</Link>
             </Button>
           </div>
         </MarketingHero>

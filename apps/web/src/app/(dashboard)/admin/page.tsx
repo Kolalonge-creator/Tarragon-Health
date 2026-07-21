@@ -374,6 +374,14 @@ export default async function AdminPage() {
           >
             Manage plans &amp; add-ons →
           </Link>
+          <div className="mt-2">
+            <Link
+              href="/admin/settings/diaspora-pricing"
+              className="text-sm font-medium text-brand-green hover:underline"
+            >
+              Diaspora pricing (USD) →
+            </Link>
+          </div>
         </CardContent>
       </Card>
       )}

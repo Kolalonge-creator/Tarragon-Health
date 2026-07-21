@@ -25,6 +25,13 @@ export const SERVICE_CARDS: ServiceCard[] = [
     built: true,
   },
   {
+    key: "obesity",
+    href: MARKETING_ROUTES.obesity,
+    title: "Obesity & Weight",
+    description: "A structured, doctor-reviewed programme to manage weight and related conditions.",
+    built: true,
+  },
+  {
     key: "parentcare",
     href: MARKETING_ROUTES.parentcare,
     title: "ParentCare",

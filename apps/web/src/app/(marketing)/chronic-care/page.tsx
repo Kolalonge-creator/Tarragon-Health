@@ -9,11 +9,11 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "Chronic care",
   description:
-    "Ongoing monitoring for chronic conditions like hypertension and diabetes: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
+    "Ongoing monitoring for chronic conditions like hypertension, diabetes, and obesity: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
   alternates: { canonical: MARKETING_ROUTES.chronicCare },
 };
 
-const CHRONIC_KEYS = ["hypertension", "diabetes"] as const;
+const CHRONIC_KEYS = ["hypertension", "diabetes", "obesity"] as const;
 const CHRONIC_CARDS = SERVICE_CARDS.filter((card) =>
   (CHRONIC_KEYS as readonly string[]).includes(card.key)
 );

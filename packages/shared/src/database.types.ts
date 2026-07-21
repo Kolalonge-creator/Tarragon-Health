@@ -6668,6 +6668,35 @@ export type Database = {
         };
         Relationships: [];
       };
+      platform_currency_settings: {
+        Row: {
+          id: boolean;
+          updated_at: string;
+          updated_by: string | null;
+          usd_per_gbp: number;
+        };
+        Insert: {
+          id?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+          usd_per_gbp?: number;
+        };
+        Update: {
+          id?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+          usd_per_gbp?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "platform_currency_settings_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       platform_finance_inputs: {
         Row: {
           cash_balance_minor: number;

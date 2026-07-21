@@ -78,6 +78,39 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         "Track glucose, HbA1c, medication, and labs in one platform, with escalation when closer care is needed.",
     },
   },
+  obesity: {
+    slug: "obesity",
+    headline: "A supported, doctor-reviewed programme to manage weight and the health that comes with it.",
+    campaignLine: "Weight is a health condition, managed with real support.",
+    intro:
+      "Tarragon's obesity programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
+    included: [
+      "Weight and waist tracking on one record",
+      "A personalised lifestyle and activity plan",
+      "Monitoring for related conditions like blood pressure and blood sugar",
+      "Regular check-ins and progress reviews",
+      "Doctor review, with escalation when closer care is needed",
+    ],
+    howItWorks: [
+      {
+        title: "Set a plan together",
+        body: "Your care team reviews your history and helps set realistic goals on a structured programme.",
+      },
+      {
+        title: "Track and stay supported",
+        body: "Log weight and habits, get check-ins, and keep related conditions monitored on the same record.",
+      },
+      {
+        title: "Review and escalate",
+        body: "Progress is reviewed against care protocols, and closer care is arranged through a defined pathway when it's needed.",
+      },
+    ],
+    metadata: {
+      title: "Obesity & Weight Management",
+      description:
+        "A structured, doctor-reviewed obesity programme: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
+    },
+  },
   parentcare: {
     slug: "parentcare",
     headline: "Know how your parent is doing, even when you are not there every day.",
