@@ -1,16 +1,12 @@
 /**
- * Pricing content, sourced from Tarragon_Health_Pricing_Guide_v2.docx (the
- * authoritative plans & pricing doc). Keep this in sync with that guide;
- * every price and label here should be traceable back to it.
+ * Pricing content, sourced from Tarragon_Health_Pricing_Guide_v3.docx (the
+ * authoritative plans & pricing doc, regenerated 2026-07-21 — it absorbs the
+ * decisions below and drops v2's "nurse" wording for "doctor" platform-wide,
+ * so the old nurse->doctor translation exception is retired). Keep this file
+ * in sync with that guide; every price and label here should be traceable
+ * back to it. v2 is kept alongside for history only.
  *
- * Deliberate exception (2026-07-12, unchanged by the 2026-07-15 doctor-led
- * update below): the docx repeatedly says "nurse" (nurse review, named nurse
- * coordinator, etc.), but this file uses "doctor" instead, per the
- * platform-wide nurse->doctor terminology decision. If the docx is revised
- * again, keep re-deriving prices from it but keep the role word as "doctor".
- *
- * Pricing decisions 2026-07-21 (ahead of the docx — a v3 of the guide should
- * absorb these):
+ * Pricing decisions 2026-07-21 (now reflected in the v3 docx):
  * - ParentCare (NGN) repriced ₦20,000 → ₦25,000/month (₦200,000 → ₦250,000
  *   yearly; extra parent +₦7,000 → +₦8,000/month) so the per-parent price no
  *   longer undercuts the Dedicated Care Coordinator add-on it bundles.
@@ -24,6 +20,12 @@
  *   over-promised the loss-making case).
  * - Typical partner-lab prices (TYPICAL_PRICES) mirror the live `lab_tests`/
  *   `panel_bundles` catalogue — re-derive from the DB when partners reprice.
+ * - Diaspora Family plans are now real, self-service tiers (were
+ *   quote-only): Family Lite £590 / Plus £890 / Premium £1,390 per year
+ *   (USD $790/$1,190/$1,890 in-app), anchored to the NGN tier ratios with
+ *   the same diaspora premium the other GBP plans carry (Family Lite = one
+ *   Complete Care yearly, exactly like NGN). Extra member: +£120/£160/£250
+ *   per year by tier ($160/$210/$340).
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
@@ -271,6 +273,61 @@ export const GBP_TIERS: PricingTier[] = [
     ],
   },
   {
+    id: "family-lite-gbp",
+    name: "Family Lite",
+    whoFor: "Your whole family back home, on one plan",
+    priceMain: "£590",
+    pricePeriod: "per year",
+    priceSecondary: "covers up to 4 people",
+    description:
+      "One plan and one bill for your family in Nigeria: monitoring matched to each member, a shared dashboard you can check from anywhere, and a monthly family report.",
+    items: [
+      { feature: "Monitoring matched to each member: Complete Care–level for members with a chronic condition, prevention tracking for everyone else", label: "INCLUDED" },
+      { feature: "Shared family dashboard you can read from abroad", label: "INCLUDED" },
+      { feature: "One combined bill in pounds", label: "INCLUDED" },
+      { feature: "Monthly family report", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills in Nigeria, per member", label: "BOOK & PAY" },
+    ],
+    footnote: "Extra members: +£120/year each, up to 6 people total.",
+  },
+  {
+    id: "family-plus-gbp",
+    name: "Family Plus",
+    whoFor: "Families who want fewer gaps between check-ins",
+    priceMain: "£890",
+    pricePeriod: "per year",
+    priceSecondary: "covers up to 4 people",
+    description:
+      "Everything in Family Lite, plus a named family doctor coordinator, priority escalation for every member, and one Annual Health Check included each year.",
+    items: [
+      { feature: "Everything in Family Lite", label: "INCLUDED" },
+      { feature: "A named family doctor coordinator, not a rotating team", label: "INCLUDED" },
+      { feature: "Priority escalation across all members, every time", label: "INCLUDED" },
+      { feature: "One Annual Health Check included free each year, for one member of your choice (a ₦65,000 value)", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills in Nigeria, per member", label: "BOOK & PAY" },
+    ],
+    footnote: "Extra members: +£160/year each, up to 6 people total.",
+  },
+  {
+    id: "family-premium-gbp",
+    name: "Family Premium",
+    whoFor: "Our closest level of family monitoring, from abroad",
+    priceMain: "£1,390",
+    pricePeriod: "per year",
+    priceSecondary: "covers up to 4 people",
+    description:
+      "Everything in Family Plus, plus a scheduled monthly doctor appointment for every member, quarterly PDF reports, expedited response, and two Annual Health Checks a year.",
+    items: [
+      { feature: "Everything in Family Plus", label: "INCLUDED" },
+      { feature: "A named doctor coordinator plus a scheduled, booked monthly doctor appointment for every member", label: "INCLUDED" },
+      { feature: "Quarterly PDF health report, in addition to the monthly summary", label: "INCLUDED" },
+      { feature: "Expedited doctor response (under 2 hours) for every member", label: "INCLUDED" },
+      { feature: "Two Annual Health Checks included free each year, for members of your choice (up to ₦130,000 value)", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills in Nigeria, beyond what's included", label: "BOOK & PAY" },
+    ],
+    footnote: "Extra members: +£250/year each, up to 6 people total.",
+  },
+  {
     id: "parentcare-gbp",
     name: "ParentCare",
     whoFor: "Both your parents, watched over from abroad",
@@ -291,7 +348,7 @@ export const GBP_TIERS: PricingTier[] = [
 ];
 
 export const DIASPORA_FAMILY_NOTE =
-  "Want a Family Plan billed in GBP for multiple relatives back home? Message our team directly and we'll quote you: this is the one case where we ask you to talk to us first, simply because family sizes vary and we want to get the number right for you before you commit to anything.";
+  "All diaspora plans are also available in US dollars inside the app. Family bigger than 6 people, or something unusual? Message our team and we'll build you a custom quote — same no-hidden-cost approach.";
 
 export type PricingAddOn = {
   id: string;

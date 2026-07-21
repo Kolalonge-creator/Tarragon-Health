@@ -37,12 +37,19 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
   }
   if (who === "family") {
     if (from === "abroad") {
-      return {
-        plan: "A GBP Family Plan — quoted for you",
-        price: "Message our team",
-        why: "Family sizes vary, so for GBP family cover we quote you directly before you commit to anything.",
-        secondary: "Covering just your parents? ParentCare (Diaspora) at £119/month covers up to 2 parents.",
-      };
+      return health === "multiple"
+        ? {
+            plan: "Family Plus (Diaspora)",
+            price: "£890/year for up to 4 people",
+            why: "A named family doctor coordinator and priority escalation for every member back home — billed in pounds, visible from anywhere.",
+            secondary: "Family Lite (£590/year) works too if you mainly want everyone monitored on one bill.",
+          }
+        : {
+            plan: "Family Lite (Diaspora)",
+            price: "£590/year for up to 4 people",
+            why: "One plan and one bill in pounds for your family in Nigeria, with monitoring matched to each member's needs.",
+            secondary: "Covering just your parents? ParentCare (Diaspora) at £119/month covers up to 2 parents.",
+          };
     }
     return health === "multiple"
       ? {

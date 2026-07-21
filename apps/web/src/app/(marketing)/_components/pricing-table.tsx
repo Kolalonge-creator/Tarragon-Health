@@ -58,7 +58,14 @@ function TierCard({ tier }: { tier: PricingTier }) {
   );
 }
 
-const FAMILY_TIER_IDS = ["family-lite", "family-plus", "family-premium"];
+/** Matches both NGN ("family-lite") and diaspora ("family-lite-gbp") ids. */
+function isFamilyTier(tier: PricingTier): boolean {
+  return tier.id.startsWith("family-");
+}
+
+function isParentcareTier(tier: PricingTier): boolean {
+  return tier.id.startsWith("parentcare");
+}
 
 /**
  * The three family tiers collapsed into one card with a level toggle — a
@@ -129,9 +136,9 @@ function FamilyPlansCard({ tiers }: { tiers: PricingTier[] }) {
 export function PricingTable() {
   const [currency, setCurrency] = useState<"NGN" | "GBP">("NGN");
   const tiers = currency === "NGN" ? NGN_TIERS : GBP_TIERS;
-  const individualTiers = tiers.filter((t) => !FAMILY_TIER_IDS.includes(t.id) && t.id !== "parentcare");
-  const familyTiers = tiers.filter((t) => FAMILY_TIER_IDS.includes(t.id));
-  const parentcareTier = tiers.find((t) => t.id === "parentcare");
+  const individualTiers = tiers.filter((t) => !isFamilyTier(t) && !isParentcareTier(t));
+  const familyTiers = tiers.filter(isFamilyTier);
+  const parentcareTier = tiers.find(isParentcareTier);
 
   return (
     <div>
