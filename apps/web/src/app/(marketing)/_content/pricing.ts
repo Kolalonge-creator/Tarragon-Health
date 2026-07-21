@@ -21,11 +21,15 @@
  * - Typical partner-lab prices (TYPICAL_PRICES) mirror the live `lab_tests`/
  *   `panel_bundles` catalogue — re-derive from the DB when partners reprice.
  * - Diaspora Family plans are now real, self-service tiers (were
- *   quote-only): Family Lite £590 / Plus £890 / Premium £1,390 per year
- *   (USD $790/$1,190/$1,890 in-app), anchored to the NGN tier ratios with
- *   the same diaspora premium the other GBP plans carry (Family Lite = one
- *   Complete Care yearly, exactly like NGN). Extra member: +£120/£160/£250
- *   per year by tier ($160/$210/$340).
+ *   quote-only), and the ENTIRE diaspora price book was rebased ~50% lower
+ *   the same day (founder decision): the care is delivered to the person in
+ *   Nigeria (same cost base as NGN), and a new platform without brand trust
+ *   cannot carry the old 6-9x NGN premium. Now ~2.5-3.5x NGN: Essential
+ *   £15/mo, Complete £29/mo, Premium £49/mo, ParentCare £59/mo (2 parents),
+ *   Family Lite £290 / Plus £430 / Premium £620 per year (USD ~1.3x GBP:
+ *   $19/$39/$79/mo, family $390/$570/$820/yr). Extra member +£60/£80/£120
+ *   ($80/$110/$160); extra parent +£19/mo ($25). Still ~80-85% gross margin
+ *   — diaspora remains the margin engine, at a price that converts.
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
@@ -232,9 +236,9 @@ export const GBP_TIERS: PricingTier[] = [
     id: "diaspora-essential",
     name: "Essential Care (Diaspora)",
     whoFor: "One condition, monitored from abroad",
-    priceMain: "£25",
+    priceMain: "£15",
     pricePeriod: "per month",
-    priceSecondary: "or £250/year",
+    priceSecondary: "or £150/year",
     description: "Everything included is the same as Essential Care in Naira, billed in British Pounds.",
     highlight: true,
     items: [
@@ -246,9 +250,9 @@ export const GBP_TIERS: PricingTier[] = [
     id: "diaspora-complete",
     name: "Complete Care (Diaspora)",
     whoFor: "Multiple conditions, monitored from abroad",
-    priceMain: "£59",
+    priceMain: "£29",
     pricePeriod: "per month",
-    priceSecondary: "or £590/year",
+    priceSecondary: "or £290/year",
     description: "Everything included is the same as Complete Care in Naira, billed in British Pounds.",
     items: [
       { feature: "Everything in Complete Care (Naira plan)", label: "INCLUDED" },
@@ -259,9 +263,9 @@ export const GBP_TIERS: PricingTier[] = [
     id: "diaspora-premium",
     name: "Premium Care (Diaspora)",
     whoFor: "Parents you can't check on in person",
-    priceMain: "£99",
+    priceMain: "£49",
     pricePeriod: "per month",
-    priceSecondary: "or £990/year",
+    priceSecondary: "or £490/year",
     description:
       "Complete Care, plus a named doctor coordinator, a scheduled monthly doctor appointment (not just WhatsApp), and a quarterly PDF report: our closest level of care for a parent you can't check on in person. You are not just paying for WhatsApp check-ins, you're paying for peace of mind that someone is watching over your family while you're not there.",
     items: [
@@ -276,7 +280,7 @@ export const GBP_TIERS: PricingTier[] = [
     id: "family-lite-gbp",
     name: "Family Lite",
     whoFor: "Your whole family back home, on one plan",
-    priceMain: "£590",
+    priceMain: "£290",
     pricePeriod: "per year",
     priceSecondary: "covers up to 4 people",
     description:
@@ -288,13 +292,13 @@ export const GBP_TIERS: PricingTier[] = [
       { feature: "Monthly family report", label: "INCLUDED" },
       { feature: "Lab tests and medication refills in Nigeria, per member", label: "BOOK & PAY" },
     ],
-    footnote: "Extra members: +£120/year each, up to 6 people total.",
+    footnote: "Extra members: +£60/year each, up to 6 people total.",
   },
   {
     id: "family-plus-gbp",
     name: "Family Plus",
     whoFor: "Families who want fewer gaps between check-ins",
-    priceMain: "£890",
+    priceMain: "£430",
     pricePeriod: "per year",
     priceSecondary: "covers up to 4 people",
     description:
@@ -306,13 +310,13 @@ export const GBP_TIERS: PricingTier[] = [
       { feature: "One Annual Health Check included free each year, for one member of your choice (a ₦65,000 value)", label: "INCLUDED" },
       { feature: "Lab tests and medication refills in Nigeria, per member", label: "BOOK & PAY" },
     ],
-    footnote: "Extra members: +£160/year each, up to 6 people total.",
+    footnote: "Extra members: +£80/year each, up to 6 people total.",
   },
   {
     id: "family-premium-gbp",
     name: "Family Premium",
     whoFor: "Our closest level of family monitoring, from abroad",
-    priceMain: "£1,390",
+    priceMain: "£620",
     pricePeriod: "per year",
     priceSecondary: "covers up to 4 people",
     description:
@@ -325,15 +329,15 @@ export const GBP_TIERS: PricingTier[] = [
       { feature: "Two Annual Health Checks included free each year, for members of your choice (up to ₦130,000 value)", label: "INCLUDED" },
       { feature: "Lab tests and medication refills in Nigeria, beyond what's included", label: "BOOK & PAY" },
     ],
-    footnote: "Extra members: +£250/year each, up to 6 people total.",
+    footnote: "Extra members: +£120/year each, up to 6 people total.",
   },
   {
     id: "parentcare-gbp",
     name: "ParentCare",
     whoFor: "Both your parents, watched over from abroad",
-    priceMain: "£119",
+    priceMain: "£59",
     pricePeriod: "per month",
-    priceSecondary: "or £1,190/year — covers up to 2 parents",
+    priceSecondary: "or £590/year — covers up to 2 parents",
     description:
       "Built specifically for monitoring a parent's health rather than a general family group: a named doctor coordinator, scheduled doctor review, and a quarterly report, covering up to 2 parents on one subscription.",
     items: [
@@ -343,12 +347,21 @@ export const GBP_TIERS: PricingTier[] = [
       { feature: "Quarterly PDF family report", label: "INCLUDED" },
       { feature: "Lab tests and medication refills in Nigeria", label: "BOOK & PAY" },
     ],
-    footnote: "Extra parent: +£390/year, or +£39/month.",
+    footnote: "Extra parent: +£190/year, or +£19/month.",
   },
 ];
 
 export const DIASPORA_FAMILY_NOTE =
   "All diaspora plans are also available in US dollars inside the app. Family bigger than 6 people, or something unusual? Message our team and we'll build you a custom quote — same no-hidden-cost approach.";
+
+/**
+ * Honesty note for diaspora buyers subscribing for THEMSELVES: monitoring
+ * and doctor review work anywhere, but the partner network (labs, pharmacies,
+ * home visits) is physically in Nigeria. Saying so up front costs a few
+ * conversions and buys the thing a new platform needs most — trust.
+ */
+export const DIASPORA_SELF_USE_NOTE =
+  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, WhatsApp access, and health record all work wherever you are — but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
 export type PricingAddOn = {
   id: string;

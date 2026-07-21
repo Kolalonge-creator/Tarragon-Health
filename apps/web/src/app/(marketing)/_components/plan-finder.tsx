@@ -24,10 +24,10 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
     return from === "abroad"
       ? {
           plan: "ParentCare (Diaspora)",
-          price: "£119/month for up to 2 parents",
+          price: "£59/month for up to 2 parents",
           why: "A named doctor coordinator, scheduled reviews of their readings, and a quarterly report you can read from anywhere.",
           secondary:
-            "Watching over one parent only? Premium Care (Diaspora) at £99/month is the single-person version.",
+            "Watching over one parent only? Premium Care (Diaspora) at £49/month is the single-person version.",
         }
       : {
           plan: "ParentCare",
@@ -40,15 +40,15 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
       return health === "multiple"
         ? {
             plan: "Family Plus (Diaspora)",
-            price: "£890/year for up to 4 people",
+            price: "£430/year for up to 4 people",
             why: "A named family doctor coordinator and priority escalation for every member back home — billed in pounds, visible from anywhere.",
-            secondary: "Family Lite (£590/year) works too if you mainly want everyone monitored on one bill.",
+            secondary: "Family Lite (£290/year) works too if you mainly want everyone monitored on one bill.",
           }
         : {
             plan: "Family Lite (Diaspora)",
-            price: "£590/year for up to 4 people",
+            price: "£290/year for up to 4 people",
             why: "One plan and one bill in pounds for your family in Nigeria, with monitoring matched to each member's needs.",
-            secondary: "Covering just your parents? ParentCare (Diaspora) at £119/month covers up to 2 parents.",
+            secondary: "Covering just your parents? ParentCare (Diaspora) at £59/month covers up to 2 parents.",
           };
     }
     return health === "multiple"
@@ -78,7 +78,7 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
     return from === "abroad"
       ? {
           plan: "Essential Care (Diaspora)",
-          price: "£25/month",
+          price: "£15/month",
           why: "The same Essential Care monitoring, billed in pounds.",
         }
       : {
@@ -90,7 +90,7 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
   return from === "abroad"
     ? {
         plan: "Complete Care (Diaspora)",
-        price: "£59/month",
+        price: "£29/month",
         why: "Weekly doctor review and support for multiple conditions on one care plan, billed in pounds.",
       }
     : {

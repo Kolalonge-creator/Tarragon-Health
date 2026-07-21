@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   DIASPORA_FAMILY_NOTE,
+  DIASPORA_SELF_USE_NOTE,
   GBP_TIERS,
   NGN_TIERS,
   PRICING_LABELS,
@@ -188,9 +189,10 @@ export function PricingTable() {
       )}
 
       {currency === "GBP" ? (
-        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          {DIASPORA_FAMILY_NOTE}
-        </p>
+        <div className="mx-auto mt-6 max-w-2xl space-y-3 text-center text-sm text-charcoal-ink/70">
+          <p>{DIASPORA_FAMILY_NOTE}</p>
+          <p>{DIASPORA_SELF_USE_NOTE}</p>
+        </div>
       ) : (
         <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70">
           No plan has a set-up fee. No plan has a cancellation fee.
