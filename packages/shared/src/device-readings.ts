@@ -1,25 +1,36 @@
 /**
  * Bluetooth SIG GATT parsers for clinical device ingestion (BP cuffs,
- * glucometers) — CLAUDE.md "Device & Wearable Integration", clinical
- * Bluetooth path. Pure decoding logic, platform-agnostic (runs identically
- * under Jest/node and inside the Expo/Hermes runtime) so it can be unit
- * tested without any real hardware or a BLE library.
+ * glucometers, weight scales, thermometers, pulse oximeters) — CLAUDE.md
+ * "Device & Wearable Integration", clinical Bluetooth path. Pure decoding
+ * logic, platform-agnostic (runs identically under Jest/node and inside the
+ * Expo/Hermes runtime) so it can be unit tested without any real hardware
+ * or a BLE library.
  *
- * Covers the standard GATT characteristics a compliant BP cuff/glucometer
- * exposes: Blood Pressure Measurement (0x2A35) under the Blood Pressure
- * Service (0x1810), and Glucose Measurement (0x2A18) under the Glucose
- * Service (0x1808). Values are IEEE 11073-20601 SFLOATs, little-endian.
+ * Covers the standard GATT measurement characteristics: Blood Pressure
+ * (0x2A35 / service 0x1810), Glucose (0x2A18 / 0x1808), Weight (0x2A9D /
+ * 0x181D), Temperature (0x2A1C / 0x1809), and PLX Spot-Check (0x2A5E /
+ * 0x1822). Values are IEEE 11073-20601 SFLOATs (or 32-bit FLOATs for
+ * temperature), little-endian.
  */
 
 export const BLE_SERVICE_UUID = {
   bloodPressure: "00001810-0000-1000-8000-00805f9b34fb",
   glucose: "00001808-0000-1000-8000-00805f9b34fb",
+  weightScale: "0000181d-0000-1000-8000-00805f9b34fb",
+  healthThermometer: "00001809-0000-1000-8000-00805f9b34fb",
+  pulseOximeter: "00001822-0000-1000-8000-00805f9b34fb",
 } as const;
 
 export const BLE_CHARACTERISTIC_UUID = {
   bloodPressureMeasurement: "00002a35-0000-1000-8000-00805f9b34fb",
   glucoseMeasurement: "00002a18-0000-1000-8000-00805f9b34fb",
+  weightMeasurement: "00002a9d-0000-1000-8000-00805f9b34fb",
+  temperatureMeasurement: "00002a1c-0000-1000-8000-00805f9b34fb",
+  plxSpotCheckMeasurement: "00002a5e-0000-1000-8000-00805f9b34fb",
 } as const;
+
+/** 1 lb in kg (exact avoirdupois definition) — Weight Measurement imperial conversion. */
+const LB_TO_KG = 0.45359237;
 
 /**
  * Glucose (C6H12O6) molar mass, g/mol — used only to convert a Glucose
@@ -215,5 +226,163 @@ export function parseGlucoseMeasurement(data: Uint8Array): GlucoseReading {
     sequenceNumber,
     glucoseMmolL,
     timestamp: new Date(timestampMs).toISOString(),
+  };
+}
+
+/** GATT Date Time field (7 bytes: year u16 LE, month, day, hours, minutes, seconds) → ISO 8601. */
+function readDateTime(data: Uint8Array, offset: number): string {
+  const year = readUint16LE(data, offset);
+  const month = data[offset + 2];
+  const day = data[offset + 3];
+  const hours = data[offset + 4];
+  const minutes = data[offset + 5];
+  const seconds = data[offset + 6];
+  return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds)).toISOString();
+}
+
+/**
+ * Decode an IEEE 11073-20601 32-bit FLOAT (used by Temperature Measurement,
+ * unlike the 16-bit SFLOAT everywhere else): an 8-bit signed exponent (byte
+ * 3) and a 24-bit signed mantissa (bytes 0-2, little-endian), value =
+ * mantissa * 10^exponent. Returns NaN/±Infinity for the spec's sentinel
+ * mantissas, same contract as decodeSFloat.
+ */
+export function decodeFloatMed(data: Uint8Array, offset: number): number {
+  const mantissaRaw = data[offset] + (data[offset + 1] << 8) + (data[offset + 2] << 16);
+  const exponentRaw = data[offset + 3];
+
+  if (mantissaRaw === 0x7fffff || mantissaRaw === 0x800000 || mantissaRaw === 0x800001) {
+    return NaN; // NaN / NRes / reserved
+  }
+  if (mantissaRaw === 0x7ffffe) return Infinity;
+  if (mantissaRaw === 0x800002) return -Infinity;
+
+  const mantissa = mantissaRaw >= 0x800000 ? mantissaRaw - 0x1000000 : mantissaRaw;
+  const exponent = exponentRaw >= 0x80 ? exponentRaw - 0x100 : exponentRaw;
+  return mantissa * Math.pow(10, exponent);
+}
+
+export interface WeightReading {
+  weightKg: number;
+  /** ISO 8601, present only if the scale includes a Time Stamp field. */
+  timestamp?: string;
+}
+
+/**
+ * Parse a Weight Measurement characteristic (0x2A9D) payload per the GATT
+ * Weight Scale Service spec:
+ * Flags(1) | Weight uint16(2) | [Time Stamp(7)] | [User ID(1)] | [BMI(2) + Height(2)]
+ *
+ * Weight resolution is fixed by the spec's measurement units: 0.005 kg (SI)
+ * or 0.01 lb (imperial) — imperial is converted to kg here so the platform
+ * only ever sees kg (vitals_readings.weight_kg). The spec's 0xFFFF weight
+ * means "measurement unsuccessful" and is rejected rather than decoded.
+ */
+export function parseWeightMeasurement(data: Uint8Array): WeightReading {
+  let offset = 0;
+  const flags = data[offset++];
+  const isImperial = (flags & 0x01) !== 0;
+  const hasTimestamp = (flags & 0x02) !== 0;
+
+  const rawWeight = readUint16LE(data, offset);
+  offset += 2;
+  if (rawWeight === 0xffff) {
+    throw new Error("Scale reported an unsuccessful measurement — step on again and retry");
+  }
+
+  const weightKg = isImperial ? rawWeight * 0.01 * LB_TO_KG : rawWeight * 0.005;
+
+  let timestamp: string | undefined;
+  if (hasTimestamp) {
+    timestamp = readDateTime(data, offset);
+    offset += 7;
+  }
+  // User ID and BMI/Height fields (if present) are not surfaced — the
+  // platform derives BMI itself from the profile height.
+
+  return {
+    weightKg: Math.round(weightKg * 100) / 100,
+    timestamp,
+  };
+}
+
+export interface TemperatureReading {
+  temperatureC: number;
+  /** ISO 8601, present only if the thermometer includes a Time Stamp field. */
+  timestamp?: string;
+}
+
+/**
+ * Parse a Temperature Measurement characteristic (0x2A1C) payload per the
+ * GATT Health Thermometer Service spec:
+ * Flags(1) | Temperature FLOAT32(4) | [Time Stamp(7)] | [Temperature Type(1)]
+ *
+ * Fahrenheit readings are converted so the platform only sees Celsius
+ * (vitals_readings.temperature_c).
+ */
+export function parseTemperatureMeasurement(data: Uint8Array): TemperatureReading {
+  let offset = 0;
+  const flags = data[offset++];
+  const isFahrenheit = (flags & 0x01) !== 0;
+  const hasTimestamp = (flags & 0x02) !== 0;
+
+  const raw = decodeFloatMed(data, offset);
+  offset += 4;
+  if (!Number.isFinite(raw)) {
+    throw new Error("Temperature measurement contains an invalid (NaN) reading");
+  }
+  const temperatureC = isFahrenheit ? ((raw - 32) * 5) / 9 : raw;
+
+  let timestamp: string | undefined;
+  if (hasTimestamp) {
+    timestamp = readDateTime(data, offset);
+    offset += 7;
+  }
+
+  return {
+    temperatureC: Math.round(temperatureC * 10) / 10,
+    timestamp,
+  };
+}
+
+export interface SpO2Reading {
+  spo2Pct: number;
+  pulseBpm?: number;
+  /** ISO 8601, present only if the oximeter includes a Timestamp field. */
+  timestamp?: string;
+}
+
+/**
+ * Parse a PLX Spot-Check Measurement characteristic (0x2A5E) payload per
+ * the GATT Pulse Oximeter Service spec:
+ * Flags(1) | SpO2 SFLOAT(2) | Pulse Rate SFLOAT(2) | [Timestamp(7)] |
+ * [Measurement Status(2)] | [Device and Sensor Status(3)] | [Pulse Amplitude Index SFLOAT(2)]
+ */
+export function parsePlxSpotCheckMeasurement(data: Uint8Array): SpO2Reading {
+  let offset = 0;
+  const flags = data[offset++];
+  const hasTimestamp = (flags & 0x01) !== 0;
+
+  const spo2 = decodeSFloat(readUint16LE(data, offset));
+  offset += 2;
+  const pulse = decodeSFloat(readUint16LE(data, offset));
+  offset += 2;
+
+  if (!Number.isFinite(spo2)) {
+    throw new Error("Pulse oximeter measurement contains an invalid (NaN) SpO2 reading");
+  }
+
+  let timestamp: string | undefined;
+  if (hasTimestamp) {
+    timestamp = readDateTime(data, offset);
+    offset += 7;
+  }
+  // Measurement Status / Device and Sensor Status / Pulse Amplitude Index
+  // (if present) follow — not surfaced.
+
+  return {
+    spo2Pct: Math.round(spo2),
+    pulseBpm: Number.isFinite(pulse) ? Math.round(pulse) : undefined,
+    timestamp,
   };
 }

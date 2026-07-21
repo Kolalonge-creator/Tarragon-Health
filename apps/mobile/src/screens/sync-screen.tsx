@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Tables } from "@tarragon/shared";
-import { connectAndSubscribe, type ParsedReading } from "@/lib/ble";
+import { connectAndSubscribe, type ParsedReading, type SupportedDeviceType } from "@/lib/ble";
 import { postDeviceReading } from "@/lib/api";
 import { colors, spacing } from "@/ui/theme";
 import {
@@ -31,6 +31,79 @@ interface SyncScreenProps {
   onBack: () => void;
 }
 
+const SUPPORTED_TYPES: readonly SupportedDeviceType[] = [
+  "bp_cuff",
+  "glucometer",
+  "scale",
+  "thermometer",
+  "pulse_oximeter",
+];
+
+function isSupported(deviceType: string): deviceType is SupportedDeviceType {
+  return (SUPPORTED_TYPES as readonly string[]).includes(deviceType);
+}
+
+/**
+ * Only Glucose Measurement carries a device-side sequence number; every
+ * other characteristic's idempotency key is derived locally from the
+ * timestamp + values — stable across a retry of *this* submit, but can't
+ * dedupe a genuine device-side replay of the same historical record, which
+ * is a GATT-spec limitation, not a gap in this code.
+ */
+function readingKey(reading: ParsedReading): string {
+  switch (reading.deviceType) {
+    case "bp_cuff":
+      return `${reading.timestamp ?? new Date().toISOString()}-${reading.systolic}-${reading.diastolic}`;
+    case "glucometer":
+      return `glucose-${reading.sequenceNumber}`;
+    case "scale":
+      return `weight-${reading.timestamp ?? new Date().toISOString()}-${reading.weightKg}`;
+    case "thermometer":
+      return `temp-${reading.timestamp ?? new Date().toISOString()}-${reading.temperatureC}`;
+    case "pulse_oximeter":
+      return `spo2-${reading.timestamp ?? new Date().toISOString()}-${reading.spo2Pct}`;
+  }
+}
+
+function ReadingValue({ reading }: { reading: ParsedReading }) {
+  const unitStyle = { fontSize: 14, fontWeight: "400" as const, color: colors.muted };
+  const valueStyle = { fontSize: 20, fontWeight: "700" as const, color: colors.ink };
+  switch (reading.deviceType) {
+    case "bp_cuff":
+      return (
+        <Text style={valueStyle}>
+          {reading.systolic}/{reading.diastolic} <Text style={unitStyle}>mmHg</Text>
+          {reading.pulseBpm ? <Text style={unitStyle}> · {reading.pulseBpm} bpm</Text> : null}
+        </Text>
+      );
+    case "glucometer":
+      return (
+        <Text style={valueStyle}>
+          {reading.glucoseMmolL ?? "—"} <Text style={unitStyle}>mmol/L</Text>
+        </Text>
+      );
+    case "scale":
+      return (
+        <Text style={valueStyle}>
+          {reading.weightKg} <Text style={unitStyle}>kg</Text>
+        </Text>
+      );
+    case "thermometer":
+      return (
+        <Text style={valueStyle}>
+          {reading.temperatureC} <Text style={unitStyle}>°C</Text>
+        </Text>
+      );
+    case "pulse_oximeter":
+      return (
+        <Text style={valueStyle}>
+          {reading.spo2Pct} <Text style={unitStyle}>% SpO2</Text>
+          {reading.pulseBpm ? <Text style={unitStyle}> · {reading.pulseBpm} bpm</Text> : null}
+        </Text>
+      );
+  }
+}
+
 /**
  * Connects to an already-paired peripheral, live-decodes its measurement
  * notifications via the shared GATT parsers, and lets the patient confirm
@@ -43,7 +116,7 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(true);
 
-  const supported = device.device_type === "bp_cuff" || device.device_type === "glucometer";
+  const supported = isSupported(device.device_type);
 
   useEffect(() => {
     if (!supported) return;
@@ -52,18 +125,10 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
 
     connectAndSubscribe(
       device.ble_device_id,
-      device.device_type as "bp_cuff" | "glucometer",
+      device.device_type as SupportedDeviceType,
       (reading) => {
         if (cancelled) return;
-        // Blood Pressure Measurement has no sequence number in the GATT
-        // spec (unlike Glucose Measurement), so the idempotency key is
-        // derived locally — stable across a retry of *this* submit, but
-        // can't dedupe a genuine device-side replay of the same historical
-        // record, which is a GATT-spec limitation, not a gap in this code.
-        const id =
-          reading.deviceType === "bp_cuff"
-            ? `${reading.timestamp ?? new Date().toISOString()}-${reading.systolic}-${reading.diastolic}`
-            : `glucose-${reading.sequenceNumber}`;
+        const id = readingKey(reading);
         setPending((prev) => (prev.some((p) => p.id === id) ? prev : [{ id, reading, status: "pending" }, ...prev]));
       },
       (error) => setConnectError(error.message)
@@ -89,26 +154,34 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
 
     const { reading } = item;
     const taken_at = reading.timestamp ?? new Date().toISOString();
+    const base = { device_id: device.id, external_reading_id: item.id, taken_at };
     const payload =
       reading.deviceType === "bp_cuff"
         ? {
+            ...base,
             vital_type: "blood_pressure" as const,
-            device_id: device.id,
-            external_reading_id: item.id,
-            taken_at,
             systolic: reading.systolic,
             diastolic: reading.diastolic,
             pulse_bpm: reading.pulseBpm,
           }
-        : {
-            vital_type: "glucose" as const,
-            device_id: device.id,
-            external_reading_id: item.id,
-            taken_at,
-            glucose_value: reading.glucoseMmolL,
-            glucose_unit: "mmol_l" as const,
-            glucose_context: glucoseContext,
-          };
+        : reading.deviceType === "glucometer"
+          ? {
+              ...base,
+              vital_type: "glucose" as const,
+              glucose_value: reading.glucoseMmolL,
+              glucose_unit: "mmol_l" as const,
+              glucose_context: glucoseContext,
+            }
+          : reading.deviceType === "scale"
+            ? { ...base, vital_type: "weight" as const, weight_kg: reading.weightKg }
+            : reading.deviceType === "thermometer"
+              ? { ...base, vital_type: "temperature" as const, temperature_c: reading.temperatureC }
+              : {
+                  ...base,
+                  vital_type: "spo2" as const,
+                  spo2_pct: reading.spo2Pct,
+                  pulse_bpm: reading.pulseBpm,
+                };
 
     const result = await postDeviceReading(payload);
     setPending((prev) =>
@@ -146,27 +219,8 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
         contentContainerStyle={{ gap: 10 }}
         renderItem={({ item }) => (
           <Card style={{ gap: 10 }}>
-            {item.reading.deviceType === "bp_cuff" ? (
-              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
-                {item.reading.systolic}/{item.reading.diastolic}{" "}
-                <Text style={{ fontSize: 14, fontWeight: "400", color: colors.muted }}>mmHg</Text>
-                {item.reading.pulseBpm ? (
-                  <Text style={{ fontSize: 14, fontWeight: "400", color: colors.muted }}>
-                    {" "}
-                    · {item.reading.pulseBpm} bpm
-                  </Text>
-                ) : null}
-              </Text>
-            ) : (
-              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
-                {item.reading.glucoseMmolL ?? "—"}{" "}
-                <Text style={{ fontSize: 14, fontWeight: "400", color: colors.muted }}>mmol/L</Text>
-              </Text>
-            )}
+            <ReadingValue reading={item.reading} />
 
-            {item.status === "pending" && item.reading.deviceType === "bp_cuff" && (
-              <PrimaryButton title="Save reading" onPress={() => save(item)} />
-            )}
             {item.status === "pending" &&
               item.reading.deviceType === "glucometer" &&
               (item.reading.glucoseMmolL === null ? (
@@ -181,6 +235,9 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
                   </View>
                 </View>
               ))}
+            {item.status === "pending" && item.reading.deviceType !== "glucometer" && (
+              <PrimaryButton title="Save reading" onPress={() => save(item)} />
+            )}
             {item.status === "saving" && <ActivityIndicator color={colors.brand} />}
             {item.status === "saved" && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

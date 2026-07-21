@@ -88,15 +88,62 @@ describe("deviceReadingSchema — weight", () => {
   });
 });
 
+describe("deviceReadingSchema — temperature", () => {
+  const valid = {
+    vital_type: "temperature",
+    device_id: deviceId,
+    external_reading_id: "1",
+    taken_at: "2026-07-21T08:30:00.000Z",
+    temperature_c: 38.4,
+  };
+
+  it("accepts a valid reading, including clinically severe values the manual form caps", () => {
+    expect(deviceReadingSchema.safeParse(valid).success).toBe(true);
+    expect(deviceReadingSchema.safeParse({ ...valid, temperature_c: 33.5 }).success).toBe(true);
+    expect(deviceReadingSchema.safeParse({ ...valid, temperature_c: 43 }).success).toBe(true);
+  });
+
+  it("rejects temperature out of instrument range", () => {
+    expect(deviceReadingSchema.safeParse({ ...valid, temperature_c: 25 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, temperature_c: 50 }).success).toBe(false);
+  });
+});
+
+describe("deviceReadingSchema — spo2", () => {
+  const valid = {
+    vital_type: "spo2",
+    device_id: deviceId,
+    external_reading_id: "1",
+    taken_at: "2026-07-21T08:30:00.000Z",
+    spo2_pct: 97,
+    pulse_bpm: 72,
+  };
+
+  it("accepts a valid reading, with pulse optional", () => {
+    expect(deviceReadingSchema.safeParse(valid).success).toBe(true);
+    const withoutPulse = { ...valid, pulse_bpm: undefined };
+    expect(deviceReadingSchema.safeParse(withoutPulse).success).toBe(true);
+  });
+
+  it("accepts severe hypoxaemia the manual form caps (must reach escalation, not bounce)", () => {
+    expect(deviceReadingSchema.safeParse({ ...valid, spo2_pct: 62 }).success).toBe(true);
+  });
+
+  it("rejects impossible values", () => {
+    expect(deviceReadingSchema.safeParse({ ...valid, spo2_pct: 101 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, spo2_pct: 40 }).success).toBe(false);
+  });
+});
+
 describe("deviceReadingSchema — discriminated union shape", () => {
   it("rejects an unknown vital_type", () => {
     expect(
       deviceReadingSchema.safeParse({
-        vital_type: "spo2",
+        vital_type: "waist_circumference",
         device_id: deviceId,
         external_reading_id: "1",
         taken_at: "2026-07-13T08:30:00.000Z",
-        spo2_pct: 98,
+        waist_cm: 90,
       }).success
     ).toBe(false);
   });

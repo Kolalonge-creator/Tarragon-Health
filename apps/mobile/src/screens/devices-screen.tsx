@@ -20,6 +20,8 @@ const DEVICE_LABELS: Record<string, string> = {
   bp_cuff: "Blood pressure cuff",
   glucometer: "Glucometer",
   scale: "Weight scale",
+  thermometer: "Thermometer",
+  pulse_oximeter: "Pulse oximeter",
 };
 
 function deviceLabel(deviceType: string): string {
@@ -29,6 +31,8 @@ function deviceLabel(deviceType: string): string {
 function deviceIcon(deviceType: string): keyof typeof Ionicons.glyphMap {
   if (deviceType === "bp_cuff") return "heart-outline";
   if (deviceType === "glucometer") return "water-outline";
+  if (deviceType === "thermometer") return "thermometer-outline";
+  if (deviceType === "pulse_oximeter") return "pulse-outline";
   return "scale-outline";
 }
 
@@ -115,7 +119,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
                 No devices paired yet
               </Text>
               <MutedText>
-                Pair your blood pressure cuff or glucometer to sync readings automatically.
+                Pair your BP cuff, glucometer, scale, thermometer, or pulse oximeter to sync readings automatically.
               </MutedText>
             </Card>
           }
@@ -164,7 +168,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
             </Text>
           </View>
           <MutedText>
-            Turn on your blood pressure cuff or glucometer and put it in pairing mode.
+            Turn on your device (BP cuff, glucometer, scale, thermometer, or pulse oximeter) and put it in pairing mode.
           </MutedText>
           {scanError ? <ErrorText>{scanError}</ErrorText> : null}
           <FlatList
