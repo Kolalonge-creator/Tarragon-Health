@@ -60,7 +60,17 @@ values
   ('influenza',          'Influenza',          'Annual, optional.',
      '{"interval_years": 1}'::jsonb),
   ('shingles',           'Shingles',           'From age 50.',
-     '{"min_age": 50}'::jsonb)
+     '{"min_age": 50}'::jsonb),
+  ('covid_19',           'COVID-19',           'Per current national guidance; boosters for higher-risk/older adults.',
+     '{"interval_years": 1}'::jsonb),
+  ('pneumococcal',       'Pneumococcal',       'Older adults and those with chronic disease, per guidance.',
+     '{"min_age": 65}'::jsonb),
+  ('meningococcal',      'Meningococcal',      'In outbreaks / meningitis-belt risk, per guidance.',
+     '{"doses": 1}'::jsonb),
+  ('typhoid',            'Typhoid',            'Risk- and travel-based.',
+     '{"doses": 1}'::jsonb),
+  ('hepatitis_a',        'Hepatitis A',        'Risk- and travel-based; 2-dose series.',
+     '{"dose_schedule_months": [0, 6]}'::jsonb)
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------

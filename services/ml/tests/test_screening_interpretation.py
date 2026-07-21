@@ -19,6 +19,11 @@ _TRIGGER_RECOGNISED_TOKENS = {
     "bp", "blood_pressure", "hypertension",
     "glucose", "hba1c", "diabetes",
     "psa", "cancer", "mammography", "cervical", "fit",
+    # Sensitive qualitative screens: the trigger recognises these in its
+    # sensitivity array (array['hiv','hep_b','hep_c','psa',...]) so the result
+    # is delivered personally, and still creates a screening_upgrade under the
+    # 'other' condition — abnormal, never silently swallowed.
+    "hiv", "hep_b", "hep_c",
 }
 
 
@@ -70,9 +75,11 @@ def test_qualitative_positive_is_abnormal_no_condition_flag() -> None:
         screen_type_code="hiv", sex="male", age=30, qualitative_result="positive"
     )
     assert result.result_status == "abnormal"
-    # HIV isn't one of AbnormalResultHandler's named conditions -> falls to
-    # 'other' downstream, but must still surface as abnormal, never dropped.
-    assert result.abnormal_flags == []
+    # HIV isn't one of the chronic-condition categories -> falls to 'other'
+    # downstream, but must still surface as abnormal, never dropped. It now
+    # emits a 'hiv' sensitivity flag so the abnormal-result-handler delivers
+    # the result personally (defence-in-depth for sensitive screens).
+    assert result.abnormal_flags == ["hiv"]
 
 
 def test_qualitative_negative_is_normal() -> None:

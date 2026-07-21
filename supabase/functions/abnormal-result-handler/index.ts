@@ -36,6 +36,10 @@ interface RequestBody {
   condition: UpgradeCondition;
   abnormal_flags: string[];
   result_summary: string | null;
+  // Sensitive positives (HIV / hepatitis / cancer) are doctor-delivered — the
+  // trigger sets this so the patient auto-message is suppressed (AHC pathway
+  // §10/§18.3/§23). Optional for backward-compatibility with older callers.
+  sensitive?: boolean;
 }
 
 const CONDITION_LABEL: Record<UpgradeCondition, string> = {
@@ -166,6 +170,7 @@ Deno.serve(async (req) => {
     condition,
     abnormal_flags: abnormalFlags,
     result_summary: resultSummary,
+    sensitive,
   } = body;
 
   if (!screeningResultId || !organisationId || !patientId || !condition) {
@@ -303,8 +308,20 @@ Deno.serve(async (req) => {
   }
 
   // Patient follow-up message — reassurance, not the clinical detail.
+  //
+  // Sensitive positives (HIV / hepatitis / cancer) are NEVER auto-messaged:
+  // the news is broken by a doctor, with care and immediate linkage (AHC
+  // pathway §10/§18.3/§23). The clinician alert above still fired, so the
+  // result is never lost — it just waits for a human. This gate is the whole
+  // point of the `sensitive` flag; do not "helpfully" send a generic message
+  // here on the assumption it's harmless.
   let patientNotified = false;
-  if (patient?.phone) {
+  if (sensitive) {
+    await auditEvent("abnormal_result.patient_notification_suppressed_sensitive", "profiles", patientId, {
+      reason: "sensitive result — doctor-delivered per AHC pathway §23",
+      condition,
+    });
+  } else if (patient?.phone) {
     const result = await sendWithFallback(
       patient.phone,
       "abnormal_result_patient_followup",
@@ -326,5 +343,6 @@ Deno.serve(async (req) => {
     clinician_alerts_sent: clinicianAlertsSent,
     clinician_alerts_failed: clinicianAlertsFailed,
     patient_notified: patientNotified,
+    patient_notification_suppressed_sensitive: Boolean(sensitive),
   });
 });

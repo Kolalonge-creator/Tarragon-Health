@@ -43,6 +43,31 @@ export function useAllClinicalStaff() {
 }
 
 /**
+ * Latest attestation expiry per clinical_staff_id in the caller's org (AHC
+ * pathway §26). Returns a map so the admin manager can badge each doctor's
+ * red-flag attestation status. Reads the append-only history and keeps the
+ * newest expiry per staff member.
+ */
+export function useOrgAttestationStatuses() {
+  return useQuery({
+    queryKey: ["clinical-staff", "attestations"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinical_staff_attestations")
+        .select("clinical_staff_id, expires_at")
+        .order("expires_at", { ascending: false });
+      if (error) throw error;
+      const latest: Record<string, string> = {};
+      for (const row of data ?? []) {
+        if (!(row.clinical_staff_id in latest)) latest[row.clinical_staff_id] = row.expires_at;
+      }
+      return latest;
+    },
+  });
+}
+
+/**
  * Adds a new clinical_staff record — starts inactive and unverified by
  * design (CLINICAL_TRUST_MODEL_SPEC.md §5: license verification, not
  * self-attestation). profilePhone is optional: links the record to an

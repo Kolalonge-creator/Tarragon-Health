@@ -113,5 +113,8 @@ export function crosscheckVital(input: VitalsReadingInput): VitalCrosscheck | nu
       if (input.weight_kg < 35) return build("low", "weight", WEIGHT_TIPS);
       return null;
     }
+    // Vitals with no plausibility band (e.g. waist_circumference) never nudge.
+    default:
+      return null;
   }
 }

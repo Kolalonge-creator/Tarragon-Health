@@ -108,6 +108,9 @@ export async function submitScreeningResult(
     result_status: interpretation.result_status,
     result_summary: interpretation.summary,
     abnormal_flags: interpretation.abnormal_flags,
+    // Drives the abnormal-result trigger's sensitive-positive gate — a
+    // positive HIV/hep/cancer result is doctor-delivered, never auto-messaged.
+    screen_type_code: input.screen_type_code,
   });
   if (insertError) {
     return { error: insertError.message };

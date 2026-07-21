@@ -1,0 +1,11 @@
+-- Tarragon Health — Lab Liaison Officer account role
+--
+-- A dedicated non-clinical back-office employee who receives patient lab
+-- results by email from partner labs (labs that do not log into Tarragon) and
+-- uploads each result document into the correct patient's record. Modelled as
+-- its own account role — the same one-line enum-extension pattern used for
+-- 'pharmacist' (20260716177000) and 'analyst' (20260717180633).
+--
+-- A new enum value must be committed before any other statement can *use* it,
+-- so this lives in its own migration ahead of the lab_result_documents build.
+alter type public.user_role add value if not exists 'lab_liaison';

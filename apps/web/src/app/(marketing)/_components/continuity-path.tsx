@@ -4,7 +4,7 @@ const MOMENTS = [
   { label: "Reading", cx: 32, cy: 50 },
   { label: "Reminder", cx: 112, cy: 32 },
   { label: "Doctor call", cx: 208, cy: 38 },
-  { label: "Family update", cx: 312, cy: 40 },
+  { label: "Follow-up", cx: 312, cy: 40 },
 ] as const;
 
 export function ContinuityPath() {

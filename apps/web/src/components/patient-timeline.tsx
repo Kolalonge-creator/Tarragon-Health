@@ -30,6 +30,7 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   referral_created: { dot: "bg-clinical-navy", label: "Referral" },
   care_plan_updated: { dot: "bg-clinical-navy", label: "Care plan" },
   admission_recorded: { dot: "bg-clinical-navy", label: "Admission" },
+  message_posted: { dot: "bg-clinical-navy", label: "Message" },
 };
 
 function formatWhen(value: string): string {
