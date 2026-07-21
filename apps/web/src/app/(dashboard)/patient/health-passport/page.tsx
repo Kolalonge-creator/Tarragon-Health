@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { getHealthPassportData } from "@/lib/health-passport/get-health-passport-data";
 import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
+import { LIPID_ANALYTE_META, isLipidAnalyteCode } from "@/lib/lipids/analytes";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -15,6 +16,16 @@ const VITAL_LABEL: Record<string, string> = {
   temperature: "Temperature",
   spo2: "SpO2",
 };
+
+// Patient-facing label for a lab analyte code: known lipid codes get their
+// proper names; anything else is humanised (hba1c → HBA1C was the old
+// behaviour — underscored codes must never surface raw in patient copy).
+function labResultLabel(code: string): string {
+  if (isLipidAnalyteCode(code)) return LIPID_ANALYTE_META[code].label;
+  if (code === "hba1c") return "HbA1c";
+  const words = code.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 function formatVitalValue(vitalType: string, latest: Record<string, unknown>): string {
   switch (vitalType) {
@@ -149,7 +160,7 @@ export default async function HealthPassportPage() {
             <ul className="divide-y divide-charcoal-ink/10">
               {data.labReadings.map((r, i) => (
                 <li key={i} className="flex items-center justify-between py-2 text-sm">
-                  <span className="font-medium text-charcoal-ink">{r.code.toUpperCase()}</span>
+                  <span className="font-medium text-charcoal-ink">{labResultLabel(r.code)}</span>
                   <span className="text-charcoal-ink/60">
                     {r.code === "hba1c" ? formatHba1cWithBracket(r.value) : `${r.value} ${r.unit}`} ·{" "}
                     {new Date(r.takenAt).toLocaleDateString()}
