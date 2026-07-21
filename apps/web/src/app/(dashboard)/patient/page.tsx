@@ -13,16 +13,26 @@ import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "./care-team-contact";
 import { HealthScoreCard } from "@/components/health-score-card";
+import { CgmCard } from "@/components/cgm-card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { Card, CardContent } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { getPatientSummaryStats } from "./summary";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
+import { DiabetesSelfMonitoring } from "./diabetes-self-monitoring";
+import { FootRiskStatus } from "./foot-risk-status";
+import { ComplicationStatus } from "./complication-status";
+import { GlucoseInsights } from "./glucose-insights";
+import { FindriscCheck } from "./findrisc-check";
+import { PregnancyStatus } from "./pregnancy-status";
+import { DiabetesGuidance } from "./diabetes-guidance";
 import { SymptomLogForm } from "./symptom-log-form";
 import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { MedicationsList } from "./medications-list";
 import { LabMonitoringCard } from "./lab-monitoring-card";
+import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { AdherenceCheckins } from "./adherence-checkins";
 import { TodaysDoses } from "./todays-doses";
 import { AddMedicationForm } from "./add-medication-form";
@@ -45,12 +55,14 @@ import { EmergencyAlert } from "./emergency-alert";
 import { LabCatalogue } from "./lab-catalogue";
 import { LabOrdersList } from "./lab-orders-list";
 import { LabResults } from "./lab-results";
+import { ResultDocuments } from "./result-documents";
 import { PharmacyCatalogue } from "./pharmacy-catalogue";
 import { PharmacyOrdersList } from "./pharmacy-orders-list";
 import { BookingRequestsList } from "./booking-requests-list";
 import { AiCoachChat } from "./ai-coach-chat";
 import { FamilyDashboardCard } from "./family-dashboard-card";
 import { AnnualReviewCard } from "./annual-review-card";
+import { ObesitySummary } from "./obesity-summary";
 
 export default async function PatientPage() {
   const profile = await getCurrentProfile();
@@ -79,6 +91,12 @@ export default async function PatientPage() {
     >
       <div className="flex justify-end gap-4">
         <Link
+          href="/patient/messages"
+          className="text-sm font-medium text-brand-green hover:underline"
+        >
+          Messages →
+        </Link>
+        <Link
           href="/patient/health-passport"
           className="text-sm font-medium text-brand-green hover:underline"
         >
@@ -90,6 +108,14 @@ export default async function PatientPage() {
             className="text-sm font-medium text-brand-green hover:underline"
           >
             Lifestyle coaching →
+          </Link>
+        </RequiresEntitlement>
+        <RequiresEntitlement feature="lifestyle_coaching" fallback={null}>
+          <Link
+            href="/patient/nutrition"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Meal &amp; nutrition →
           </Link>
         </RequiresEntitlement>
         <Link
@@ -119,6 +145,20 @@ export default async function PatientPage() {
         }}
       />
       <HealthScoreCard patientId={profile.id} />
+      <CgmCard patientId={profile.id} />
+      <Card variant="soft">
+        <CardContent className="flex items-center justify-between gap-3 py-4">
+          <div>
+            <p className="text-sm font-medium text-charcoal-ink">Your Health Check</p>
+            <p className="text-xs text-charcoal-ink/60">
+              Your yearly whole-body check — the right checks for you, reviewed by your care team.
+            </p>
+          </div>
+          <Link href="/patient/health-check" className="shrink-0 text-sm text-brand-green hover:underline">
+            Start →
+          </Link>
+        </CardContent>
+      </Card>
       <RequiresEntitlement
         feature="annual_review"
         fallback={<UpgradePrompt feature="annual_review" />}
@@ -165,6 +205,14 @@ export default async function PatientPage() {
       <VitalsForm patientId={profile.id} />
       <VitalsHistory patientId={profile.id} />
       <VitalsTrendChart patientId={profile.id} />
+      <LipidProfileCard patientId={profile.id} />
+      <DiabetesSelfMonitoring />
+      <GlucoseInsights patientId={profile.id} />
+      <FootRiskStatus patientId={profile.id} />
+      <ComplicationStatus patientId={profile.id} />
+      <FindriscCheck />
+      <PregnancyStatus patientId={profile.id} />
+      <DiabetesGuidance />
       <SymptomLogForm patientId={profile.id} />
       <SymptomLogHistory patientId={profile.id} />
       <TodaysDoses patientId={profile.id} />
@@ -195,6 +243,7 @@ export default async function PatientPage() {
       >
         <CarePlanDisplay patientId={profile.id} />
       </RequiresEntitlement>
+      <ObesitySummary patientId={profile.id} />
       {profile.organisation_id && (
         <RequiresEntitlement
           feature="health_education"
@@ -243,6 +292,10 @@ export default async function PatientPage() {
         <FacilityDirectory patientId={profile.id} />
         <BookingRequestsList patientId={profile.id} />
       </RequiresEntitlement>
+      {/* Result documents (upload + view your own lab results) are available to
+          every patient regardless of the lab-coordination entitlement — getting
+          a result onto the record and reviewed is a basic safety capability. */}
+      <ResultDocuments patientId={profile.id} />
       {coachAccess && <AiCoachChat patientId={profile.id} />}
     </DashboardPlaceholder>
   );

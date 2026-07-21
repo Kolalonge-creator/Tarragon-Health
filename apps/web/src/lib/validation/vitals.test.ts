@@ -45,15 +45,27 @@ describe("vitalsReadingSchema — glucose (mmol/L)", () => {
     expect(vitalsReadingSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("rejects glucose below 2 mmol/L", () => {
+  it("rejects implausible glucose below 1 mmol/L", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "1" }).success
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "0.5" }).success
     ).toBe(false);
   });
 
-  it("rejects glucose above 33 mmol/L", () => {
+  it("accepts a severe-hypo value (1.5 mmol/L) so the red-flag engine can catch it", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "34" }).success
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "1.5" }).success
+    ).toBe(true);
+  });
+
+  it("accepts a DKA-range high (36 mmol/L) so it is not blocked as invalid", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "36" }).success
+    ).toBe(true);
+  });
+
+  it("rejects implausible glucose above 40 mmol/L", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "41" }).success
     ).toBe(false);
   });
 
@@ -93,15 +105,15 @@ describe("vitalsReadingSchema — glucose (mg/dL)", () => {
     expect(vitalsReadingSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("rejects glucose below 36 mg/dL", () => {
+  it("rejects implausible glucose below 18 mg/dL", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "35" }).success
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "17" }).success
     ).toBe(false);
   });
 
-  it("rejects glucose above 594 mg/dL", () => {
+  it("rejects implausible glucose above 720 mg/dL", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "595" }).success
+      vitalsReadingSchema.safeParse({ ...valid, glucose_value: "721" }).success
     ).toBe(false);
   });
 
@@ -109,6 +121,40 @@ describe("vitalsReadingSchema — glucose (mg/dL)", () => {
     // 5.6 would be a valid mmol/L reading, but as mg/dL it's far too low.
     expect(
       vitalsReadingSchema.safeParse({ ...valid, glucose_value: "5.6" }).success
+    ).toBe(false);
+  });
+});
+
+describe("vitalsReadingSchema — ketones", () => {
+  it("accepts a blood ketone reading", () => {
+    expect(
+      vitalsReadingSchema.safeParse({
+        vital_type: "ketones",
+        ketone_kind: "blood",
+        ketones_mmol_l: "3.2",
+      }).success
+    ).toBe(true);
+  });
+
+  it("accepts a urine ketone band", () => {
+    expect(
+      vitalsReadingSchema.safeParse({
+        vital_type: "ketones",
+        ketone_kind: "urine",
+        ketone_urine: "large",
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects a blood kind with no value", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ vital_type: "ketones", ketone_kind: "blood" }).success
+    ).toBe(false);
+  });
+
+  it("rejects a urine kind with no band", () => {
+    expect(
+      vitalsReadingSchema.safeParse({ vital_type: "ketones", ketone_kind: "urine" }).success
     ).toBe(false);
   });
 });

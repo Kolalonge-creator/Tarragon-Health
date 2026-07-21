@@ -7,10 +7,10 @@ import { MARKETING_ROUTES, MARKETING_ROUTES_BUILT } from "@/lib/marketing/routes
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { key: "hypertension" as const, label: "Hypertension" },
-  { key: "diabetes" as const, label: "Diabetes" },
-  { key: "parentcare" as const, label: "ParentCare" },
+  { key: "chronicCare" as const, label: "Chronic care" },
   { key: "prevention" as const, label: "Prevention" },
+  { key: "careCoordination" as const, label: "Care coordination" },
+  { key: "whoItsFor" as const, label: "Who it's for" },
   { key: "pricing" as const, label: "Pricing" },
 ];
 
@@ -28,7 +28,7 @@ export function MarketingNav() {
           <BrandLockup />
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-6 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-6 lg:flex">
           {NAV_LINKS.map(({ key, label }) => (
             <Link
               key={key}
@@ -62,7 +62,7 @@ export function MarketingNav() {
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
-            className="flex flex-col gap-1.5 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm md:hidden"
+            className="flex flex-col gap-1.5 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm lg:hidden"
           >
             <span
               className={cn(
@@ -84,7 +84,7 @@ export function MarketingNav() {
       </div>
 
       {open ? (
-        <nav aria-label="Mobile" className="flex flex-col border-t border-charcoal-ink/10 bg-warm-ivory px-4 pb-4 sm:px-6 md:hidden">
+        <nav aria-label="Mobile" className="flex flex-col border-t border-charcoal-ink/10 bg-warm-ivory px-4 pb-4 sm:px-6 lg:hidden">
           {NAV_LINKS.map(({ key, label }) => (
             <Link
               key={key}

@@ -14,6 +14,7 @@ const ROLE_LABEL: Record<string, string> = {
   care_coordinator: "Care Coordinator",
   pharmacist: "Partner Pharmacy",
   analyst: "Platform Analytics",
+  lab_liaison: "Lab Liaison Officer",
 };
 
 export default async function DashboardLayout({

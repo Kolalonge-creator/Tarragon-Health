@@ -144,7 +144,7 @@ function ConnectedCareIllustration({ className }: IllustrationProps) {
         strokeWidth="2"
         strokeLinecap="round"
       />
-      {["Reading", "Review", "Reminder", "Family"].map((step, i) => (
+      {["Reading", "Review", "Reminder", "Follow-up"].map((step, i) => (
         <g key={step} transform={`translate(${108 + i * 72} 260)`}>
           <circle r="14" className="fill-brand-green" />
           <text x="-10" y="36" className="fill-charcoal-ink/60 text-[10px]">
@@ -250,7 +250,7 @@ function ParentCareIllustration({ className }: IllustrationProps) {
       />
       <rect x="156" y="248" width="168" height="56" rx="12" className="fill-white stroke-brand-green/20" strokeWidth="2" />
       <text x="172" y="282" className="fill-charcoal-ink text-[12px]">
-        Family update: Mum&apos;s week looked steady
+        Follow-up: this week&apos;s readings looked steady
       </text>
     </svg>
   );

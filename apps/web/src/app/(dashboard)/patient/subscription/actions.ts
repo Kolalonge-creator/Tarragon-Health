@@ -358,7 +358,10 @@ export async function cancelSubscription(subscriptionId: string): Promise<Subscr
     if (!disableResult.ok) {
       return { error: `Couldn't cancel (${disableResult.error}) — try again.` };
     }
-    return { message: "Cancelling — you'll keep access until the end of your current billing period." };
+    return {
+      message:
+        "Renewal cancelled — you'll keep access until the end of the period you've already paid for, which isn't refundable, then your plan won't renew.",
+    };
   }
 
   // See the matching comment in changePlan above — subscriptions' UPDATE

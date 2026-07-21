@@ -24,13 +24,29 @@ export const metadata: Metadata = {
   title: "Pricing",
   description:
     "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora (£). No hidden costs: every line item is clearly labelled.",
+  alternates: { canonical: MARKETING_ROUTES.pricing },
 };
 
 export const revalidate = 3600;
 
+/** FAQPage structured data for the pricing questions — eligible for rich results. */
+const pricingFaqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: PRICING_FAQ.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: { "@type": "Answer", text: faq.answer },
+  })),
+};
+
 export default function PricingPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingFaqJsonLd) }}
+      />
       <Section className="pt-20">
         <SectionHeading
           eyebrow="Pricing"

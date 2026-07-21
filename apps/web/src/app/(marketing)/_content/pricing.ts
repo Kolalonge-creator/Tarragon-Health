@@ -365,7 +365,7 @@ export const ADD_ONS: PricingAddOn[] = [
   {
     id: "lifestyle-coaching",
     name: "Lifestyle Coaching",
-    price: "₦15,000/month",
+    price: "₦25,000/month",
     label: "ADD-ON",
     description:
       "A guided programme for diet, activity, and weight: a personal assessment, goals you set with support, structured diet and exercise tracks, and in-app check-ins, with a progress review every three months.",
@@ -374,7 +374,7 @@ export const ADD_ONS: PricingAddOn[] = [
   {
     id: "annual-review",
     name: "Annual Health Review",
-    price: "₦50,000/year",
+    price: "₦70,000/year",
     label: "ADD-ON",
     description:
       "A once-a-year, whole-body review that sits above your routine condition check-ins: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short doctor video consultation to walk through your year and the plan ahead. This is the yearly review programme, distinct from the one-off Annual Health Check screening above.",

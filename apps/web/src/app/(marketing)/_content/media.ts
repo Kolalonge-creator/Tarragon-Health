@@ -44,7 +44,7 @@ export const MARKETING_MEDIA = {
       youtubeId: "",
       title: "See how Tarragon keeps care connected",
       caption:
-        "A two-minute look at logging vitals, doctor review, and family updates: calm follow-up between doctor visits.",
+        "A two-minute look at logging vitals, doctor review, and coordinated follow-up: calm care between doctor visits.",
       poster: {
         illustration: "clinician-follow-up",
         imageAlt: "Doctor on a calm follow-up call with a patient",

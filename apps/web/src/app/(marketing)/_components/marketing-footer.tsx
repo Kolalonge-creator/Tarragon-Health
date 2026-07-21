@@ -3,19 +3,24 @@ import { BrandLockup } from "./brand-logo";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 const FOOTER_LINKS = {
-  priorityProgrammes: [
+  care: [
+    { href: MARKETING_ROUTES.services, label: "Services" },
+    { href: MARKETING_ROUTES.chronicCare, label: "Chronic care" },
+    { href: MARKETING_ROUTES.prevention, label: "Prevention" },
+    { href: MARKETING_ROUTES.careCoordination, label: "Care coordination" },
+  ],
+  programmes: [
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
     { href: MARKETING_ROUTES.parentcare, label: "ParentCare" },
-    { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
-  ],
-  coordination: [
     { href: MARKETING_ROUTES.medication, label: "Medication" },
     { href: MARKETING_ROUTES.labs, label: "Labs" },
   ],
   company: [
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
+    { href: MARKETING_ROUTES.whoItsFor, label: "Who it's for" },
     { href: MARKETING_ROUTES.about, label: "About" },
+    { href: MARKETING_ROUTES.faq, label: "FAQ" },
     { href: MARKETING_ROUTES.contact, label: "Contact" },
   ],
   business: [
@@ -98,8 +103,8 @@ export function MarketingFooter() {
           </div>
         </div>
 
-        <FooterGroup title="Priority programmes" links={FOOTER_LINKS.priorityProgrammes} />
-        <FooterGroup title="Coordination" links={FOOTER_LINKS.coordination} />
+        <FooterGroup title="Care" links={FOOTER_LINKS.care} />
+        <FooterGroup title="Programmes" links={FOOTER_LINKS.programmes} />
         <FooterGroup title="Company" links={FOOTER_LINKS.company} />
         <FooterGroup title="Business" links={FOOTER_LINKS.business} />
         <FooterGroup title="Platform" links={FOOTER_LINKS.platform} />
@@ -114,7 +119,7 @@ export function MarketingFooter() {
       </div>
 
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
-        © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerian families.
+        © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.
       </div>
     </footer>
   );

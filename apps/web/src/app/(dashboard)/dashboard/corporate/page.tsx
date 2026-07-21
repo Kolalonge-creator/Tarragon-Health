@@ -11,6 +11,7 @@ import { AgeBandSummary } from "./age-band-summary";
 import { OutcomeEvidenceSummary } from "./outcome-evidence-summary";
 import { loadAgeBandDistribution } from "@/lib/corporate/load-age-band-distribution";
 import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
+import { LifestyleOutcomesCard } from "@/components/lifestyle-outcomes-card";
 
 export default async function CorporatePage() {
   const profile = await getCurrentProfile();
@@ -66,6 +67,7 @@ export default async function CorporatePage() {
       <CohortSummary analytics={analytics} />
       <AgeBandSummary distribution={ageBands} />
       <OutcomeEvidenceSummary organisationId={profile.organisation_id} costAvoided={costAvoided} />
+      <LifestyleOutcomesCard organisationId={profile.organisation_id} />
       <OutcomeReportsPanel organisationId={profile.organisation_id} />
     </div>
   );

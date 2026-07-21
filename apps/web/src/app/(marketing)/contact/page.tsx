@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Contact",
   description:
     "Join TarragonHealth, request an employer health plan, or talk to us about HMO partnerships.",
+  alternates: { canonical: "/contact" },
 };
 
 export default async function ContactPage({

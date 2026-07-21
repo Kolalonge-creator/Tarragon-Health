@@ -276,6 +276,32 @@ export default async function AdminPage() {
       </Card>
       )}
 
+      {can("protocols.manage") && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/cv-risk-config" className="hover:underline">
+              Cardiovascular-risk configuration
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            The LDL/Non-HDL targets, statin-eligibility thresholds and escalation levels the lipid
+            / CV-risk engine uses. Seeded as a provisional draft — not in force until the Medical
+            Director signs it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/cv-risk-config"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Review &amp; sign CV-risk config →
+          </Link>
+        </CardContent>
+      </Card>
+      )}
+
       {can("conditions.manage") && (
       <Card>
         <CardHeader>
@@ -348,6 +374,14 @@ export default async function AdminPage() {
           >
             Manage plans &amp; add-ons →
           </Link>
+          <div className="mt-2">
+            <Link
+              href="/admin/settings/diaspora-pricing"
+              className="text-sm font-medium text-brand-green hover:underline"
+            >
+              Diaspora pricing (USD) →
+            </Link>
+          </div>
         </CardContent>
       </Card>
       )}
