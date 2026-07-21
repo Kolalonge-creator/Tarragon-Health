@@ -70,9 +70,12 @@ function SidebarNav({
   );
 }
 
-function BrandLockup() {
+function BrandLockup({ homeHref }: { homeHref: string }) {
+  // Links to the caller's role home, not "/" — on hosts without the app.
+  // subdomain (e.g. the bare Vercel domain) "/" is the marketing homepage,
+  // and the logo must never bounce a signed-in user out of the platform.
   return (
-    <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
+    <Link href={homeHref} className="flex items-center gap-2.5 px-5 py-5">
       <Image
         src="/brand/guard-leaf-mark.png"
         alt=""
@@ -113,6 +116,7 @@ export function AppShell({
   }
 
   const hasNav = navSections.some((s) => s.items.length > 0);
+  const homeHref = navSections[0]?.items[0]?.href ?? "/login";
   const initials = userName
     .split(/\s+/)
     .filter(Boolean)
@@ -154,7 +158,7 @@ export function AppShell({
       {/* Desktop sidebar */}
       {hasNav && (
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex">
-          <BrandLockup />
+          <BrandLockup homeHref={homeHref} />
           <SidebarNav sections={navSections} pathname={pathname} />
           {userBlock}
         </aside>
@@ -170,7 +174,7 @@ export function AppShell({
           />
           <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl">
             <div className="flex items-center justify-between pr-3">
-              <BrandLockup />
+              <BrandLockup homeHref={homeHref} />
               <Button
                 variant="ghost"
                 size="sm"

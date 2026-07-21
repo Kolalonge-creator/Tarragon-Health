@@ -33,6 +33,14 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   message_posted: { dot: "bg-clinical-navy", label: "Message" },
 };
 
+// Some trigger-written summaries carry raw analyte keys (e.g.
+// "total_cholesterol 300 (critical)"). Display-time humanisation only — the
+// stored summary is never rewritten. Underscored tokens are field keys, not
+// prose, so a plain replace is safe.
+function humaniseSummary(summary: string): string {
+  return summary.replace(/\b[a-z0-9]+(?:_[a-z0-9]+)+\b/g, (token) => token.replace(/_/g, " "));
+}
+
 function formatWhen(value: string): string {
   return new Date(value).toLocaleString("en-GB", {
     day: "numeric",
@@ -102,7 +110,7 @@ export function PatientTimeline({ patientId, limit }: { patientId: string; limit
                     </p>
                   </div>
                   {event.summary && (
-                    <p className="text-sm text-charcoal-ink/70">{event.summary}</p>
+                    <p className="text-sm text-charcoal-ink/70">{humaniseSummary(event.summary)}</p>
                   )}
                   <ActorAttribution actor={event.actor} />
                 </li>
