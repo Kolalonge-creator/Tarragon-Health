@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
@@ -100,8 +101,18 @@ export default function App() {
           backgroundColor: "#FFFFFF",
         }}
       >
-        <TabButton label="Home" active={tab === "platform"} onPress={() => setTab("platform")} />
-        <TabButton label="Devices" active={tab === "devices"} onPress={() => setTab("devices")} />
+        <TabButton
+          label="Home"
+          icon="home"
+          active={tab === "platform"}
+          onPress={() => setTab("platform")}
+        />
+        <TabButton
+          label="Devices"
+          icon="bluetooth"
+          active={tab === "devices"}
+          onPress={() => setTab("devices")}
+        />
       </View>
     </SafeAreaView>
   );
@@ -109,10 +120,12 @@ export default function App() {
 
 function TabButton({
   label,
+  icon,
   active,
   onPress,
 }: {
   label: string;
+  icon: "home" | "bluetooth";
   active: boolean;
   onPress: () => void;
 }) {
@@ -121,9 +134,20 @@ function TabButton({
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={{ flex: 1, alignItems: "center", paddingVertical: 12 }}
+      style={{ flex: 1, alignItems: "center", paddingVertical: 8, gap: 2 }}
     >
-      <Text style={{ fontWeight: active ? "700" : "400", color: active ? "#0E7C52" : "#6B7280" }}>
+      <Ionicons
+        name={active ? icon : (`${icon}-outline` as const)}
+        size={22}
+        color={active ? "#0E7C52" : "#6B7280"}
+      />
+      <Text
+        style={{
+          fontSize: 11,
+          fontWeight: active ? "700" : "500",
+          color: active ? "#0E7C52" : "#6B7280",
+        }}
+      >
         {label}
       </Text>
     </Pressable>

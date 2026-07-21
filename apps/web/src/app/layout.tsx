@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Sora, Inter } from "next/font/google";
 import "./globals.css";
 import { PageTracker } from "@/components/analytics/page-tracker";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -30,6 +31,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0E7C52",
+  // The platform is designed light-only. Declaring it stops Android
+  // Chrome/WebView "auto dark" from force-inverting clinical UI (status
+  // colours, charts) into unreviewed combinations.
+  colorScheme: "light",
 };
 
 export default function RootLayout({
@@ -44,6 +49,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
+        <ServiceWorkerRegistration />
         <Suspense fallback={null}>
           <PageTracker />
         </Suspense>
