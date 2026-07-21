@@ -6,15 +6,55 @@ import {
   base64ToBytes,
   parseBloodPressureMeasurement,
   parseGlucoseMeasurement,
+  parsePlxSpotCheckMeasurement,
+  parseTemperatureMeasurement,
+  parseWeightMeasurement,
   type BloodPressureReading,
   type GlucoseReading,
+  type SpO2Reading,
+  type TemperatureReading,
+  type WeightReading,
 } from "@tarragon/shared";
 
-export type SupportedDeviceType = "bp_cuff" | "glucometer";
+export type SupportedDeviceType =
+  | "bp_cuff"
+  | "glucometer"
+  | "scale"
+  | "thermometer"
+  | "pulse_oximeter";
 
 const SERVICE_TO_DEVICE_TYPE: Record<string, SupportedDeviceType> = {
   [BLE_SERVICE_UUID.bloodPressure.toLowerCase()]: "bp_cuff",
   [BLE_SERVICE_UUID.glucose.toLowerCase()]: "glucometer",
+  [BLE_SERVICE_UUID.weightScale.toLowerCase()]: "scale",
+  [BLE_SERVICE_UUID.healthThermometer.toLowerCase()]: "thermometer",
+  [BLE_SERVICE_UUID.pulseOximeter.toLowerCase()]: "pulse_oximeter",
+};
+
+const DEVICE_TYPE_TO_GATT: Record<
+  SupportedDeviceType,
+  { service: string; characteristic: string }
+> = {
+  bp_cuff: {
+    service: BLE_SERVICE_UUID.bloodPressure,
+    characteristic: BLE_CHARACTERISTIC_UUID.bloodPressureMeasurement,
+  },
+  glucometer: {
+    service: BLE_SERVICE_UUID.glucose,
+    characteristic: BLE_CHARACTERISTIC_UUID.glucoseMeasurement,
+  },
+  scale: {
+    service: BLE_SERVICE_UUID.weightScale,
+    characteristic: BLE_CHARACTERISTIC_UUID.weightMeasurement,
+  },
+  thermometer: {
+    service: BLE_SERVICE_UUID.healthThermometer,
+    characteristic: BLE_CHARACTERISTIC_UUID.temperatureMeasurement,
+  },
+  pulse_oximeter: {
+    service: BLE_SERVICE_UUID.pulseOximeter,
+    characteristic: BLE_CHARACTERISTIC_UUID.plxSpotCheckMeasurement,
+  },
 };
 
 let manager: BleManager | undefined;
@@ -37,10 +77,11 @@ export async function requestBlePermissions(): Promise<boolean> {
 }
 
 /**
- * Scan for peripherals advertising the standard Blood Pressure or Glucose
- * GATT service. Returns a stop function — callers must invoke it when the
- * pairing screen unmounts, since a BLE scan otherwise runs indefinitely and
- * drains the phone's battery.
+ * Scan for peripherals advertising any of the supported standard GATT
+ * clinical services (blood pressure, glucose, weight scale, thermometer,
+ * pulse oximeter). Returns a stop function — callers must invoke it when
+ * the pairing screen unmounts, since a BLE scan otherwise runs indefinitely
+ * and drains the phone's battery.
  */
 export function scanForClinicalDevices(
   onDeviceFound: (device: Device, deviceType: SupportedDeviceType) => void,
@@ -65,12 +106,32 @@ export function scanForClinicalDevices(
 
 export type ParsedReading =
   | ({ deviceType: "bp_cuff" } & BloodPressureReading)
-  | ({ deviceType: "glucometer" } & GlucoseReading);
+  | ({ deviceType: "glucometer" } & GlucoseReading)
+  | ({ deviceType: "scale" } & WeightReading)
+  | ({ deviceType: "thermometer" } & TemperatureReading)
+  | ({ deviceType: "pulse_oximeter" } & SpO2Reading);
+
+function parseForDeviceType(deviceType: SupportedDeviceType, bytes: Uint8Array): ParsedReading {
+  switch (deviceType) {
+    case "bp_cuff":
+      return { deviceType, ...parseBloodPressureMeasurement(bytes) };
+    case "glucometer":
+      return { deviceType, ...parseGlucoseMeasurement(bytes) };
+    case "scale":
+      return { deviceType, ...parseWeightMeasurement(bytes) };
+    case "thermometer":
+      return { deviceType, ...parseTemperatureMeasurement(bytes) };
+    case "pulse_oximeter":
+      return { deviceType, ...parsePlxSpotCheckMeasurement(bytes) };
+  }
+}
 
 /**
  * Connect to an already-discovered (or previously paired) peripheral and
- * subscribe to its measurement characteristic notifications, decoding each
- * one via the shared GATT parsers. Returns a teardown function.
+ * subscribe to its measurement characteristic, decoding each notification/
+ * indication via the shared GATT parsers (monitorCharacteristicForService
+ * handles both — weight/temperature measurements are indications per spec).
+ * Returns a teardown function.
  */
 export async function connectAndSubscribe(
   bleDeviceId: string,
@@ -81,28 +142,19 @@ export async function connectAndSubscribe(
   const device = await getManager().connectToDevice(bleDeviceId);
   await device.discoverAllServicesAndCharacteristics();
 
-  const serviceUuid = deviceType === "bp_cuff" ? BLE_SERVICE_UUID.bloodPressure : BLE_SERVICE_UUID.glucose;
-  const characteristicUuid =
-    deviceType === "bp_cuff"
-      ? BLE_CHARACTERISTIC_UUID.bloodPressureMeasurement
-      : BLE_CHARACTERISTIC_UUID.glucoseMeasurement;
+  const { service, characteristic } = DEVICE_TYPE_TO_GATT[deviceType];
 
   const subscription = device.monitorCharacteristicForService(
-    serviceUuid,
-    characteristicUuid,
-    (error, characteristic) => {
+    service,
+    characteristic,
+    (error, char) => {
       if (error) {
         onError(error);
         return;
       }
-      if (!characteristic?.value) return;
+      if (!char?.value) return;
       try {
-        const bytes = base64ToBytes(characteristic.value);
-        if (deviceType === "bp_cuff") {
-          onReading({ deviceType, ...parseBloodPressureMeasurement(bytes) });
-        } else {
-          onReading({ deviceType, ...parseGlucoseMeasurement(bytes) });
-        }
+        onReading(parseForDeviceType(deviceType, base64ToBytes(char.value)));
       } catch (parseError) {
         onError(parseError instanceof Error ? parseError : new Error(String(parseError)));
       }

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   base64ToBytes,
+  decodeFloatMed,
   decodeSFloat,
   parseBloodPressureMeasurement,
   parseGlucoseMeasurement,
+  parsePlxSpotCheckMeasurement,
+  parseTemperatureMeasurement,
+  parseWeightMeasurement,
 } from "./device-readings";
 
 /** Test-only inverse of decodeSFloat, so vectors are built from decimal
@@ -170,6 +174,129 @@ describe("parseGlucoseMeasurement", () => {
     const bytes = Uint8Array.from([0, seqLo, seqHi, yearLo, yearHi, 3, 15, 8, 30, 0]);
 
     expect(parseGlucoseMeasurement(bytes).glucoseMmolL).toBeNull();
+  });
+});
+
+describe("parseWeightMeasurement", () => {
+  it("decodes an SI reading at the spec's 0.005 kg resolution", () => {
+    // 82.5 kg = 16500 * 0.005
+    const [wLo, wHi] = le16(16500);
+    const reading = parseWeightMeasurement(Uint8Array.from([0, wLo, wHi]));
+    expect(reading.weightKg).toBe(82.5);
+    expect(reading.timestamp).toBeUndefined();
+  });
+
+  it("converts an imperial reading (0.01 lb resolution) to kg", () => {
+    // 180.00 lb = 18000 * 0.01 -> 81.65 kg
+    const [wLo, wHi] = le16(18000);
+    const reading = parseWeightMeasurement(Uint8Array.from([0b00000001, wLo, wHi]));
+    expect(reading.weightKg).toBeCloseTo(81.65, 2);
+  });
+
+  it("decodes the optional timestamp and skips trailing user-id/BMI fields", () => {
+    const [wLo, wHi] = le16(16500);
+    const [yearLo, yearHi] = le16(2026);
+    const flags = 0b00001110; // timestamp + user id + BMI/height present
+    const bytes = Uint8Array.from([
+      flags,
+      wLo, wHi,
+      yearLo, yearHi, 7, 21, 6, 45, 0,
+      3, // user id
+      0x2c, 0x01, 0xa5, 0x06, // BMI + height (ignored)
+    ]);
+    const reading = parseWeightMeasurement(bytes);
+    expect(reading.weightKg).toBe(82.5);
+    expect(reading.timestamp).toBe("2026-07-21T06:45:00.000Z");
+  });
+
+  it("rejects the spec's 0xFFFF measurement-unsuccessful sentinel", () => {
+    expect(() => parseWeightMeasurement(Uint8Array.from([0, 0xff, 0xff]))).toThrow(
+      /unsuccessful/i
+    );
+  });
+});
+
+describe("decodeFloatMed", () => {
+  it("decodes a 32-bit medical FLOAT (mantissa * 10^exponent)", () => {
+    // 36.9 C = mantissa 369, exponent -1 (0xFF)
+    expect(decodeFloatMed(Uint8Array.from([113, 1, 0, 0xff]), 0)).toBeCloseTo(36.9, 10);
+  });
+
+  it("returns NaN for the spec's NaN sentinel mantissa", () => {
+    expect(Number.isNaN(decodeFloatMed(Uint8Array.from([0xff, 0xff, 0x7f, 0]), 0))).toBe(true);
+  });
+});
+
+describe("parseTemperatureMeasurement", () => {
+  it("decodes a Celsius reading", () => {
+    // 38.2 C = mantissa 382, exponent -1
+    const bytes = Uint8Array.from([0, 382 & 0xff, (382 >> 8) & 0xff, 0, 0xff]);
+    const reading = parseTemperatureMeasurement(bytes);
+    expect(reading.temperatureC).toBe(38.2);
+    expect(reading.timestamp).toBeUndefined();
+  });
+
+  it("converts a Fahrenheit reading to Celsius and reads the timestamp", () => {
+    // 98.6 F = mantissa 986, exponent -1 -> 37.0 C
+    const [yearLo, yearHi] = le16(2026);
+    const bytes = Uint8Array.from([
+      0b00000011, // Fahrenheit + timestamp
+      986 & 0xff, (986 >> 8) & 0xff, 0, 0xff,
+      yearLo, yearHi, 7, 21, 9, 15, 30,
+    ]);
+    const reading = parseTemperatureMeasurement(bytes);
+    expect(reading.temperatureC).toBe(37);
+    expect(reading.timestamp).toBe("2026-07-21T09:15:30.000Z");
+  });
+
+  it("rejects a NaN temperature", () => {
+    expect(() =>
+      parseTemperatureMeasurement(Uint8Array.from([0, 0xff, 0xff, 0x7f, 0]))
+    ).toThrow(/invalid/i);
+  });
+});
+
+describe("parsePlxSpotCheckMeasurement", () => {
+  it("decodes SpO2 and pulse rate", () => {
+    const [spo2Lo, spo2Hi] = le16(encodeSFloat(97, 0));
+    const [prLo, prHi] = le16(encodeSFloat(72, 0));
+    const reading = parsePlxSpotCheckMeasurement(
+      Uint8Array.from([0, spo2Lo, spo2Hi, prLo, prHi])
+    );
+    expect(reading.spo2Pct).toBe(97);
+    expect(reading.pulseBpm).toBe(72);
+    expect(reading.timestamp).toBeUndefined();
+  });
+
+  it("decodes the optional timestamp", () => {
+    const [spo2Lo, spo2Hi] = le16(encodeSFloat(94, 0));
+    const [prLo, prHi] = le16(encodeSFloat(88, 0));
+    const [yearLo, yearHi] = le16(2026);
+    const reading = parsePlxSpotCheckMeasurement(
+      Uint8Array.from([
+        0b00000001,
+        spo2Lo, spo2Hi, prLo, prHi,
+        yearLo, yearHi, 7, 21, 18, 0, 0,
+      ])
+    );
+    expect(reading.spo2Pct).toBe(94);
+    expect(reading.timestamp).toBe("2026-07-21T18:00:00.000Z");
+  });
+
+  it("drops a NaN pulse but rejects a NaN SpO2", () => {
+    const nanSFloat = le16(0x07ff);
+    const [spo2Lo, spo2Hi] = le16(encodeSFloat(96, 0));
+    const okWithNanPulse = parsePlxSpotCheckMeasurement(
+      Uint8Array.from([0, spo2Lo, spo2Hi, nanSFloat[0], nanSFloat[1]])
+    );
+    expect(okWithNanPulse.spo2Pct).toBe(96);
+    expect(okWithNanPulse.pulseBpm).toBeUndefined();
+
+    expect(() =>
+      parsePlxSpotCheckMeasurement(
+        Uint8Array.from([0, nanSFloat[0], nanSFloat[1], spo2Lo, spo2Hi])
+      )
+    ).toThrow(/invalid/i);
   });
 });
 

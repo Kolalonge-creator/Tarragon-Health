@@ -7,6 +7,11 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "build:dev:ios": "eas build --profile development --platform ios",
+    "build:dev:android": "eas build --profile development --platform android",
+    "build:preview:android": "eas build --profile preview --platform android",
+    "build:prod": "eas build --profile production --platform all",
+    "update:prod": "eas update --branch production --message",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },

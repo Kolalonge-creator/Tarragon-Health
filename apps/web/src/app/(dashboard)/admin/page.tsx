@@ -436,6 +436,31 @@ export default async function AdminPage() {
       </Card>
       )}
 
+      {can("integrations.manage") && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.booking className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/integrations" className="hover:underline">
+              API keys &amp; partner integrations
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Issue API keys so device clouds and partner platforms can push data in, and
+            register outbound partner APIs this platform calls.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/integrations"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage integrations →
+          </Link>
+        </CardContent>
+      </Card>
+      )}
+
       {can("broadcasts.send") && (
       <Card>
         <CardHeader>
