@@ -9483,7 +9483,7 @@ export type Database = {
         "clinic" | "hmo" | "corporate" | "lab" | "pharmacy" | "direct_consumer";
       outcomes_contract_type: "capitation" | "fee_at_risk" | "flat";
       patient_device_status: "active" | "unpaired";
-      patient_device_type: "bp_cuff" | "glucometer" | "scale";
+      patient_device_type: "bp_cuff" | "glucometer" | "scale" | "thermometer" | "pulse_oximeter";
       payment_provider: "paystack" | "stripe";
       payment_transaction_type:
         | "charge.success"
@@ -10008,7 +10008,7 @@ export const Constants = {
       ],
       outcomes_contract_type: ["capitation", "fee_at_risk", "flat"],
       patient_device_status: ["active", "unpaired"],
-      patient_device_type: ["bp_cuff", "glucometer", "scale"],
+      patient_device_type: ["bp_cuff", "glucometer", "scale", "thermometer", "pulse_oximeter"],
       payment_provider: ["paystack", "stripe"],
       payment_transaction_type: [
         "charge.success",
