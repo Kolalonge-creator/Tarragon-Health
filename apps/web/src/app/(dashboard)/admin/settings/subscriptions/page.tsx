@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PlansManager } from "./plans-manager";
 import { AddOnsManager } from "./add-ons-manager";
+import { PriceAdjustmentManager } from "./price-adjustment-manager";
 
 export default async function SubscriptionsSettingsPage() {
   const profile = await getCurrentProfile();
@@ -22,6 +23,7 @@ export default async function SubscriptionsSettingsPage() {
           Create, price, and activate the plans and add-on services patients can subscribe to.
         </p>
       </div>
+      <PriceAdjustmentManager />
       <PlansManager />
       <AddOnsManager />
     </div>

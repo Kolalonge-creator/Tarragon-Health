@@ -48,7 +48,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
         <CardTitle>Trends</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant={mode === "blood_pressure" ? "default" : "outline"}

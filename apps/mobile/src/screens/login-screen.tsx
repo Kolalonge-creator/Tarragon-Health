@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { ActivityIndicator, Button, Text, TextInput, View } from "react-native";
+import { Image, Text, TextInput, View } from "react-native";
+import appIcon from "../../assets/icon.png";
 import { supabase } from "@/lib/supabase";
+import { colors, radius, spacing } from "@/ui/theme";
+import { ErrorText, MutedText, PrimaryButton } from "@/ui/components";
 
 /**
  * Sign-in only — account creation stays on web/app onboarding
@@ -22,28 +25,64 @@ export function LoginScreen() {
     if (signInError) setError(signInError.message);
   }
 
+  const inputStyle = {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.control,
+    padding: 14,
+    fontSize: 16,
+    color: colors.ink,
+    backgroundColor: colors.card,
+  } as const;
+
   return (
-    <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 12 }}>
-      <Text style={{ fontSize: 22, fontWeight: "600", marginBottom: 16 }}>Sign in to TarragonHealth</Text>
+    <View
+      style={{
+        flex: 1,
+        justifyContent: "center",
+        padding: spacing.screen,
+        gap: 12,
+        backgroundColor: colors.background,
+      }}
+    >
+      <View style={{ alignItems: "center", marginBottom: 20 }}>
+        <Image
+          source={appIcon}
+          style={{ width: 72, height: 72, borderRadius: 18, marginBottom: 12 }}
+          accessibilityIgnoresInvertColors
+        />
+        <Text style={{ fontSize: 26, fontWeight: "700", color: colors.brand }}>
+          TarragonHealth
+        </Text>
+        <MutedText>Care that stays with you.</MutedText>
+      </View>
+      <Text style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>
+        Sign in to sync your devices
+      </Text>
       <TextInput
         accessibilityLabel="Email"
         placeholder="Email"
+        placeholderTextColor={colors.faint}
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
-        style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12 }}
+        style={inputStyle}
       />
       <TextInput
         accessibilityLabel="Password"
         placeholder="Password"
+        placeholderTextColor={colors.faint}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
-        style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12 }}
+        style={inputStyle}
       />
-      {error ? <Text style={{ color: "#B3261E" }}>{error}</Text> : null}
-      {loading ? <ActivityIndicator /> : <Button title="Sign in" onPress={handleSignIn} />}
+      {error ? <ErrorText>{error}</ErrorText> : null}
+      <PrimaryButton title="Sign in" onPress={handleSignIn} loading={loading} />
+      <MutedText>
+        New to TarragonHealth? Create your account on the Home tab first.
+      </MutedText>
     </View>
   );
 }

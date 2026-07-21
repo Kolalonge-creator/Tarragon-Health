@@ -17,23 +17,23 @@ export function DashboardPlaceholder({
 }) {
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Icon className="h-6 w-6 text-deep-forest" strokeWidth={2} />
+      <div className="flex items-center gap-4">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-soft-sage">
+          <Icon className="h-6 w-6 text-deep-forest" strokeWidth={2} />
+        </span>
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">
             {greeting}
           </h1>
-          <p className="text-charcoal-ink/60">{roleLabel} dashboard</p>
+          <p className="text-sm text-charcoal-ink/60">{roleLabel} dashboard</p>
         </div>
       </div>
       {children}
       {comingUp.length > 0 && (
         <Card variant="soft">
           <CardHeader>
-            <CardTitle>Coming in Sprint 2</CardTitle>
-            <CardDescription>
-              This shell confirms auth + role routing are wired up. Real data lands next.
-            </CardDescription>
+            <CardTitle>On the roadmap</CardTitle>
+            <CardDescription>Planned for an upcoming release.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="list-inside list-disc space-y-1.5 text-sm text-charcoal-ink/80">
