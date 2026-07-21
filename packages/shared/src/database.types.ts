@@ -446,6 +446,60 @@ export type Database = {
           },
         ];
       };
+      api_keys: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          key_hash: string;
+          key_prefix: string;
+          last_used_at: string | null;
+          name: string;
+          organisation_id: string;
+          revoked_at: string | null;
+          scopes: string[];
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          key_hash: string;
+          key_prefix: string;
+          last_used_at?: string | null;
+          name: string;
+          organisation_id: string;
+          revoked_at?: string | null;
+          scopes?: string[];
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          key_hash?: string;
+          key_prefix?: string;
+          last_used_at?: string | null;
+          name?: string;
+          organisation_id?: string;
+          revoked_at?: string | null;
+          scopes?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "api_keys_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       appointments: {
         Row: {
           clinician_id: string | null;
@@ -5562,6 +5616,59 @@ export type Database = {
           },
           {
             foreignKeyName: "pathway_attestations_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      partner_integrations: {
+        Row: {
+          auth_header: string;
+          base_url: string;
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          last_check_ok: boolean | null;
+          last_checked_at: string | null;
+          name: string;
+          notes: string | null;
+          organisation_id: string;
+          secret: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          auth_header?: string;
+          base_url: string;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          last_check_ok?: boolean | null;
+          last_checked_at?: string | null;
+          name: string;
+          notes?: string | null;
+          organisation_id: string;
+          secret?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          auth_header?: string;
+          base_url?: string;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          last_check_ok?: boolean | null;
+          last_checked_at?: string | null;
+          name?: string;
+          notes?: string | null;
+          organisation_id?: string;
+          secret?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "partner_integrations_organisation_id_fkey";
             columns: ["organisation_id"];
             isOneToOne: false;
             referencedRelation: "organisations";
