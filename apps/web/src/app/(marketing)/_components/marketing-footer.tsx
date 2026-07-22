@@ -100,6 +100,21 @@ export function MarketingFooter() {
               Continuous monitoring for chronic disease, preventive health,
               family care, and the follow-up between visits.
             </p>
+            <p className="text-sm text-white/65">
+              <a
+                href="mailto:hello@tarragonhealth.ng"
+                className="text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+              >
+                hello@tarragonhealth.ng
+              </a>
+              <span className="text-white/40"> · </span>
+              <a
+                href="mailto:support@tarragonhealth.ng"
+                className="text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+              >
+                support@tarragonhealth.ng
+              </a>
+            </p>
           </div>
         </div>
 
