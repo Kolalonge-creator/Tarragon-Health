@@ -41,6 +41,51 @@ interface TemplateRender {
   email?: { subject: string; html: string; text: string };
 }
 
+
+// ---------------------------------------------------------------------------
+// Reminder-language overlay (profiles.language: en|pcm|yo|ha|ig). Covers the
+// highest-volume reminder templates first; anything uncovered falls back to
+// the template's English smsText. WhatsApp Meta-template language stays 'en'
+// until per-language Meta templates are approved — the localisation applies
+// to SMS and voice, which need no third-party approval. Translations are
+// deliberately simple, warm sentences — FLAGGED FOR NATIVE-SPEAKER REVIEW
+// before public launch.
+// ---------------------------------------------------------------------------
+const LOCALISED_SMS: Record<
+  string,
+  Record<string, (payload: Record<string, unknown>) => string>
+> = {
+  vaccination_due: {
+    pcm: (p) => `Tarragon: ${String(p.vaccine_name ?? "your vaccine")} don due. Abeg book am for your app or reply make we help you.`,
+    yo: (p) => `Tarragon: Ajesara ${String(p.vaccine_name ?? "yin")} ti to akoko. E boo si app yin lati se eto re.`,
+    ha: (p) => `Tarragon: Lokacin rigakafin ${String(p.vaccine_name ?? "ku")} ya yi. Da fatan za a shirya ta cikin app dinku.`,
+    ig: (p) => `Tarragon: Oge ogwu mgbochi ${String(p.vaccine_name ?? "gi")} eruola. Biko jiri app gi debe ya.`,
+  },
+  health_check_rebook_due: {
+    pcm: () => `Tarragon: E don reach one year since your last health check. Time don come to do this year own — open your app make you book am.`,
+    yo: () => `Tarragon: O ti to odun kan lati igba ayewo ilera yin. Akoko ti to fun eyi ti odun yii — e sii app yin lati se eto re.`,
+    ha: () => `Tarragon: Shekara guda ke nan tun binciken lafiyarku na karshe. Lokaci ya yi na na bana — bude app dinku don shiryawa.`,
+    ig: () => `Tarragon: O ruola otu afo kemgbe nyocha ahuike gi nke ikpeazu. Oge eruola maka nke afo a — mepee app gi ka i debe ya.`,
+  },
+  screening_due: {
+    pcm: (p) => `Tarragon: Your ${String(p.screen_name ?? "screening")} don due. Open your app make you book am.`,
+    yo: (p) => `Tarragon: Ayewo ${String(p.screen_name ?? "yin")} ti to akoko. E sii app yin lati se eto re.`,
+    ha: (p) => `Tarragon: Lokacin gwajin ${String(p.screen_name ?? "ku")} ya yi. Bude app dinku don shiryawa.`,
+    ig: (p) => `Tarragon: Oge nyocha ${String(p.screen_name ?? "gi")} eruola. Mepee app gi ka i debe ya.`,
+  },
+};
+
+function localiseSms(
+  template: string,
+  lang: string,
+  payload: Record<string, unknown>,
+  fallback: string,
+): string {
+  if (lang === "en") return fallback;
+  const t = LOCALISED_SMS[template]?.[lang];
+  return t ? t(payload) : fallback;
+}
+
 // Meta-approved WhatsApp template names must match these keys exactly once
 // submitted for approval (docs/ARCHITECTURE.md §8: ~2 week lead time).
 // Unknown template keys are never guessed at — see the caller below.
@@ -729,6 +774,39 @@ async function sendTermiiSms(
   );
 }
 
+// Voice reminder for elders (preferred_reminder_channel='voice' — the
+// notifications_remap_channel trigger rewrites their queued WhatsApp rows).
+// Uses Termii's voice channel to read the SMS text as a call. NOTE for the
+// catch-up deploy: confirm the exact Termii voice product/endpoint on the
+// live account before enabling — this is the documented sms/send shape with
+// the voice channel, and it fails closed (marked failed, retried) if the
+// account lacks the voice product.
+async function sendTermiiVoice(
+  toPhone: string,
+  text: string,
+): Promise<SendResult> {
+  const apiKey = Deno.env.get("TERMII_API_KEY");
+  if (!apiKey) {
+    return { ok: false, error: "TERMII_API_KEY not configured" };
+  }
+
+  return withExternalCall((signal) =>
+    fetch("https://api.ng.termii.com/api/sms/send", {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        to: toPhone,
+        from: "Tarragon",
+        sms: text,
+        type: "plain",
+        channel: "voice",
+      }),
+    })
+  );
+}
+
 async function sendEmail(
   toEmail: string,
   subject: string,
@@ -768,7 +846,7 @@ Deno.serve(async () => {
     .from("notifications")
     .select("id, recipient_id, channel, template, payload, attempts")
     .eq("status", "pending")
-    .in("channel", ["whatsapp", "sms", "email"])
+    .in("channel", ["whatsapp", "sms", "email", "voice"])
     .lt("attempts", MAX_ATTEMPTS)
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE)
@@ -789,10 +867,11 @@ Deno.serve(async () => {
   const recipientIds = [...new Set(rows.map((row) => row.recipient_id))];
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, phone")
+    .select("id, phone, language")
     .in("id", recipientIds)
     .returns<Array<{ id: string; phone: string | null }>>();
   const phoneById = new Map((profiles ?? []).map((p) => [p.id, p.phone]));
+  const langById = new Map((profiles ?? []).map((p) => [p.id, (p as { language?: string }).language ?? "en"]));
 
   let sent = 0;
   let retried = 0;
@@ -862,7 +941,27 @@ Deno.serve(async () => {
       result = await sendWhatsApp(toPhone, render);
       if (!result.ok) {
         // WhatsApp delivery failed — fall back to Termii SMS (§8).
-        result = await sendTermiiSms(toPhone, render.smsText);
+        result = await sendTermiiSms(
+          toPhone,
+          localiseSms(row.template, langById.get(row.recipient_id) ?? "en", row.payload, render.smsText),
+        );
+      }
+    } else if (row.channel === "voice") {
+      if (!toPhone) {
+        await markFailed("recipient has no phone number on file");
+        failed++;
+        continue;
+      }
+      result = await sendTermiiVoice(
+        toPhone,
+        localiseSms(row.template, langById.get(row.recipient_id) ?? "en", row.payload, render.smsText),
+      );
+      if (!result.ok) {
+        // Voice delivery failed — fall back to SMS so the reminder still lands.
+        result = await sendTermiiSms(
+          toPhone,
+          localiseSms(row.template, langById.get(row.recipient_id) ?? "en", row.payload, render.smsText),
+        );
       }
     } else {
       if (!toPhone) {
@@ -870,7 +969,10 @@ Deno.serve(async () => {
         failed++;
         continue;
       }
-      result = await sendTermiiSms(toPhone, render.smsText);
+      result = await sendTermiiSms(
+        toPhone,
+        localiseSms(row.template, langById.get(row.recipient_id) ?? "en", row.payload, render.smsText),
+      );
     }
 
     if (result.ok) {

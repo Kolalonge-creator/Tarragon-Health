@@ -18,6 +18,7 @@ import { VaccinationBooking } from "../vaccination-booking";
 import { LogVaccinationForm } from "../log-vaccination-form";
 import { HealthEducation } from "../health-education";
 import { AnnualReviewCard } from "../annual-review-card";
+import { WomensHealthCard } from "../womens-health-card";
 
 /**
  * The prevention hub — one destination for everything that keeps a healthy
@@ -93,6 +94,16 @@ export default async function PreventionHubPage() {
         />
         {!screeningBookingEnabled && <UpgradePrompt feature="prevention_coordination" />}
       </div>
+
+      {profile.sex === "female" && (
+        <WomensHealthCard
+          initialStage={
+            ((profile.metadata as Record<string, unknown> | null)?.womens_health_stage as
+              | string
+              | undefined) ?? null
+          }
+        />
+      )}
 
       <PreventiveProgrammes
         patientId={profile.id}

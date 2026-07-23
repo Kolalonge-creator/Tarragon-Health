@@ -42,6 +42,8 @@ import { LogVaccinationForm } from "./log-vaccination-form";
 import { VaccinationBooking } from "./vaccination-booking";
 import { FacilityDirectory } from "./facility-directory";
 import { PatientLocationForm } from "./patient-location-form";
+import { ReminderPreferencesForm } from "./reminder-preferences-form";
+import { TestimonialCard } from "./testimonial-card";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
 import { HospitalAdmissionsCard } from "./hospital-admissions-card";
@@ -377,6 +379,9 @@ export default async function PatientPage() {
           <FamilyDashboardCard />
         </RequiresEntitlement>
         {coachAccess && <AiCoachChat patientId={profile.id} />}
+        {profile.organisation_id && (
+          <TestimonialCard patientId={profile.id} organisationId={profile.organisation_id} />
+        )}
       </DashboardSection>
 
       <DashboardSection
@@ -387,6 +392,12 @@ export default async function PatientPage() {
       >
         <PatientLocationForm
           initial={{ state: profile.state, city: profile.city, area: profile.area }}
+        />
+        <ReminderPreferencesForm
+          initial={{
+            preferred_reminder_channel: profile.preferred_reminder_channel,
+            language: profile.language,
+          }}
         />
         <EmergencyContactForm
           initial={{

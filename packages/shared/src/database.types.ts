@@ -6361,6 +6361,67 @@ export type Database = {
           },
         ];
       };
+      patient_testimonials: {
+        Row: {
+          consent_to_publish: boolean;
+          created_at: string;
+          display_name: string;
+          id: string;
+          organisation_id: string;
+          patient_id: string;
+          quote: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          status: string;
+        };
+        Insert: {
+          consent_to_publish?: boolean;
+          created_at?: string;
+          display_name: string;
+          id?: string;
+          organisation_id: string;
+          patient_id: string;
+          quote: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+        };
+        Update: {
+          consent_to_publish?: boolean;
+          created_at?: string;
+          display_name?: string;
+          id?: string;
+          organisation_id?: string;
+          patient_id?: string;
+          quote?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "patient_testimonials_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "patient_testimonials_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "patient_testimonials_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       patient_timeline: {
         Row: {
           actor_clinical_staff_id: string | null;
@@ -7186,6 +7247,7 @@ export type Database = {
           emergency_contact_phone: string | null;
           emergency_contact_relationship: string | null;
           full_name: string | null;
+          language: string;
           id: string;
           identity_verified_at: string | null;
           is_active: boolean;
@@ -7198,6 +7260,7 @@ export type Database = {
           patient_number: string | null;
           pharmacy_partner_id: string | null;
           phone: string | null;
+          preferred_reminder_channel: string | null;
           role: Database["public"]["Enums"]["user_role"];
           sex: Database["public"]["Enums"]["sex"] | null;
           state: string | null;
@@ -7215,6 +7278,7 @@ export type Database = {
           emergency_contact_phone?: string | null;
           emergency_contact_relationship?: string | null;
           full_name?: string | null;
+          language?: string;
           id: string;
           identity_verified_at?: string | null;
           is_active?: boolean;
@@ -7227,6 +7291,7 @@ export type Database = {
           patient_number?: string | null;
           pharmacy_partner_id?: string | null;
           phone?: string | null;
+          preferred_reminder_channel?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
           sex?: Database["public"]["Enums"]["sex"] | null;
           state?: string | null;
@@ -7244,6 +7309,7 @@ export type Database = {
           emergency_contact_phone?: string | null;
           emergency_contact_relationship?: string | null;
           full_name?: string | null;
+          language?: string;
           id?: string;
           identity_verified_at?: string | null;
           is_active?: boolean;
@@ -7256,6 +7322,7 @@ export type Database = {
           patient_number?: string | null;
           pharmacy_partner_id?: string | null;
           phone?: string | null;
+          preferred_reminder_channel?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
           sex?: Database["public"]["Enums"]["sex"] | null;
           state?: string | null;
@@ -9889,7 +9956,7 @@ export type Database = {
       medication_log_status: "taken" | "missed" | "skipped";
       medication_review_status: "pending" | "completed" | "cancelled";
       medication_source: "clinician" | "patient" | "specialist";
-      notification_channel: "email" | "sms" | "in_app" | "whatsapp" | "push";
+      notification_channel: "email" | "sms" | "in_app" | "whatsapp" | "push" | "voice";
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read";
       obesity_bmi_category:
         | "underweight"
@@ -10415,7 +10482,7 @@ export const Constants = {
       medication_log_status: ["taken", "missed", "skipped"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist"],
-      notification_channel: ["email", "sms", "in_app", "whatsapp", "push"],
+      notification_channel: ["email", "sms", "in_app", "whatsapp", "push", "voice"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],
       obesity_bmi_category: [
         "underweight",

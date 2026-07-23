@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { User } from "lucide-react";
 import { Section, SectionHeading } from "../_components/section";
+import { getPublishedTestimonials } from "@/lib/marketing/testimonials";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { TrustPillars } from "../_components/trust-pillars";
@@ -43,7 +44,8 @@ export const metadata: Metadata = {
   alternates: { canonical: MARKETING_ROUTES.about },
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const testimonials = await getPublishedTestimonials();
   return (
     <>
       <Section className="pt-20">
@@ -190,6 +192,31 @@ export default function AboutPage() {
           .
         </p>
       </Section>
+
+      {testimonials.length > 0 && (
+        <Section variant="sage">
+          <SectionHeading
+            eyebrow="In their words"
+            title="From people using Tarragon"
+            description="Every quote below was volunteered by a real member, published with their explicit consent, and can be removed at their request."
+          />
+          <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {testimonials.map((t) => (
+              <figure
+                key={t.id}
+                className="rounded-xl border border-charcoal-ink/10 bg-white p-6"
+              >
+                <blockquote className="text-sm leading-relaxed text-charcoal-ink/80">
+                  &ldquo;{t.quote}&rdquo;
+                </blockquote>
+                <figcaption className="mt-3 text-xs font-medium text-deep-forest">
+                  {t.display_name}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </Section>
+      )}
 
       <Section>
         <CtaBand
