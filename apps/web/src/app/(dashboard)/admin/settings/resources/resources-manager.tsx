@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RESOURCE_DISCLAIMER } from "@/app/(marketing)/_content/resources";
 
 type Draft = {
   id?: string;
@@ -57,6 +58,9 @@ function Editor({
 }) {
   const upsert = useUpsertMarketingResource();
   const [error, setError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const previewSections = parseSectionsFromText(draft.body);
+  const isReviewed = Boolean(draft.reviewedByName.trim());
 
   const save = (publish: boolean) => {
     setError(null);
@@ -175,16 +179,91 @@ function Editor({
         </div>
       </div>
       <div className="space-y-1">
-        <Label htmlFor="res-body">
-          Body — start each section with &quot;## Heading&quot;, blank line between paragraphs
-        </Label>
-        <Textarea
-          id="res-body"
-          rows={14}
-          value={draft.body}
-          onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-          className="font-mono text-xs"
-        />
+        <div className="flex items-center justify-between">
+          <Label htmlFor="res-body">
+            Body — start each section with &quot;## Heading&quot;, blank line between paragraphs
+          </Label>
+          <div className="flex overflow-hidden rounded-md border border-charcoal-ink/15 text-xs">
+            <button
+              type="button"
+              onClick={() => setShowPreview(false)}
+              className={`px-2.5 py-1 font-medium ${
+                !showPreview ? "bg-brand-green text-white" : "text-charcoal-ink/60 hover:bg-charcoal-ink/5"
+              }`}
+            >
+              Write
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              className={`px-2.5 py-1 font-medium ${
+                showPreview ? "bg-brand-green text-white" : "text-charcoal-ink/60 hover:bg-charcoal-ink/5"
+              }`}
+            >
+              Preview
+            </button>
+          </div>
+        </div>
+        {showPreview ? (
+          // Mirrors resources/[slug]/page.tsx's structure exactly, so what's
+          // shown here is what will actually render on the public site —
+          // not a stylised approximation.
+          <div className="max-h-[32rem] overflow-y-auto rounded-lg border border-charcoal-ink/10 bg-white p-6">
+            <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
+              {draft.category || "Category"} · {draft.readMinutes || "4"} min read
+            </p>
+            <h1 className="mt-2 font-heading text-2xl font-bold leading-tight text-charcoal-ink">
+              {draft.title || "Untitled article"}
+            </h1>
+            <p className="mt-3 text-base text-charcoal-ink/70">
+              {draft.description || "No description yet."}
+            </p>
+            <p className="mt-3 text-xs text-charcoal-ink/50">
+              {isReviewed
+                ? `Medically reviewed by ${draft.reviewedByName.trim()} on ${
+                    draft.reviewedAt
+                      ? new Date(draft.reviewedAt).toLocaleDateString("en-NG", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "today"
+                  }`
+                : "By the TarragonHealth editorial team"}
+            </p>
+            <div className="mt-6 space-y-5">
+              {previewSections.length === 0 ? (
+                <p className="text-sm italic text-charcoal-ink/40">
+                  Nothing to preview yet — add a &quot;## Heading&quot; and a paragraph below.
+                </p>
+              ) : (
+                previewSections.map((section) => (
+                  <div key={section.heading}>
+                    <h2 className="font-heading text-base font-semibold text-charcoal-ink">
+                      {section.heading}
+                    </h2>
+                    {section.paragraphs.map((p, i) => (
+                      <p key={i} className="mt-2 text-sm leading-relaxed text-charcoal-ink/80">
+                        {p}
+                      </p>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="mt-6 rounded-lg border border-charcoal-ink/10 bg-soft-sage/50 p-3 text-xs text-charcoal-ink/70">
+              {RESOURCE_DISCLAIMER}
+            </p>
+          </div>
+        ) : (
+          <Textarea
+            id="res-body"
+            rows={14}
+            value={draft.body}
+            onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+            className="font-mono text-xs"
+          />
+        )}
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {upsert.isError && (

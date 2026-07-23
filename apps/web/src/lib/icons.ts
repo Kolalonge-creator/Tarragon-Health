@@ -35,6 +35,7 @@ import {
   LogOut,
   ChevronRight,
   ArrowRightLeft,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 
@@ -83,6 +84,7 @@ export const NAV_ICON = {
   region: MapPin,
   members: UserCog,
   referral: ArrowRightLeft,
+  bell: Bell,
   menu: Menu,
   close: X,
   signOut: LogOut,

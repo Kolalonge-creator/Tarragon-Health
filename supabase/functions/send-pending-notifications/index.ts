@@ -274,24 +274,6 @@ const TEMPLATE_MAP: Record<
         "Tarragon Health app to see what's due — booking takes a minute. — Tarragon Health",
     };
   },
-  // Sent when the per-programme education drip unlocks a new week's lesson
-  // for the patient (see private.queue_health_education_unlock_nudges).
-  // Reminder only — the lesson itself is always read in-app.
-  health_education_unlock: (payload) => {
-    const title = String(payload.lesson_title ?? "a new lesson");
-    const count = Number(payload.lesson_count ?? 1);
-    const countText = count > 1 ? `${count} new lessons` : "a new lesson";
-    return {
-      metaTemplateName: "health_education_unlock",
-      languageCode: "en",
-      components: [
-        { type: "body", parameters: [{ type: "text", text: title }] },
-      ],
-      smsText:
-        `Hi, ${countText} just unlocked in your Learning for you — starting with "${title}". ` +
-        `Open the Tarragon Health app to read it. — Tarragon Health`,
-    };
-  },
   // Sent when a doctor answers the patient's ask-a-doctor consult (see
   // answerAsyncConsult). Notification only — the answer itself lives in-app.
   async_consult_answered: () => {
