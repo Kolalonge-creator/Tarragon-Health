@@ -10,6 +10,7 @@ import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
 import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
+import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
 import { ServiceCardLink } from "./_components/service-card";
 import { PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS, WHAT_YOU_GET } from "./_content/services";
@@ -221,6 +222,15 @@ export default function MarketingHomePage() {
             </Link>
           ))}
         </div>
+      </Section>
+
+      <Section variant="navy">
+        <SectionHeading
+          eyebrow="Why people trust Tarragon"
+          title="Built to be accountable to you"
+          invert
+        />
+        <TrustBand />
       </Section>
 
       <Section>

@@ -28,6 +28,43 @@ export default function ServicesPage() {
             <ServiceCardLink key={service.key} service={service} />
           ))}
         </div>
+
+        {/* One Medical-style capability cloud: everything the record actually watches. */}
+        <div className="mx-auto mt-14 max-w-4xl text-center">
+          <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
+            One record, watching what matters
+          </h2>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {[
+              "blood pressure",
+              "blood sugar & HbA1c",
+              "weight & BMI",
+              "cholesterol",
+              "kidney function",
+              "medication adherence",
+              "refills before you run out",
+              "cervical screening",
+              "breast screening",
+              "prostate (PSA) screening",
+              "colorectal screening",
+              "HIV & Hepatitis B checks",
+              "vaccinations",
+              "symptoms you report",
+              "hospital admissions",
+              "annual health checks",
+            ].map((item) => (
+              <span
+                key={item}
+                className="rounded-full border border-charcoal-ink/10 bg-white px-4 py-1.5 text-sm text-charcoal-ink/75"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+          <p className="mt-5 text-sm text-charcoal-ink/60">
+            All on one longitudinal record your care team actually reviews.
+          </p>
+        </div>
       </Section>
 
       <Section variant="sage">
