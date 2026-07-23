@@ -172,9 +172,12 @@ export default function MarketingHomePage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               {PREVENTION_CALLOUT.body}
             </p>
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild variant="outline">
                 <Link href={MARKETING_ROUTES.prevention}>Learn about preventive health</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link href={MARKETING_ROUTES.annualHealthCheck}>The Annual Health Check →</Link>
               </Button>
             </div>
           </div>

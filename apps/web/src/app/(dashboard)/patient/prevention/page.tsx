@@ -77,13 +77,18 @@ export default async function PreventionHubPage() {
         patientLocation={location}
       />
 
-      <PreventiveScreeningCalendar
-        patientId={profile.id}
-        organisationId={profile.organisation_id}
-        bookingEnabled={screeningBookingEnabled}
-        patientLocation={location}
-      />
-      {!screeningBookingEnabled && <UpgradePrompt feature="prevention_coordination" />}
+      {/* Anchor ids are the Health Check journey's stage-link targets
+          (/patient/prevention#screenings etc.) — keep in sync with
+          health-check/page.tsx. scroll-mt clears the sticky app-shell chrome. */}
+      <div id="screenings" className="scroll-mt-24 space-y-6">
+        <PreventiveScreeningCalendar
+          patientId={profile.id}
+          organisationId={profile.organisation_id}
+          bookingEnabled={screeningBookingEnabled}
+          patientLocation={location}
+        />
+        {!screeningBookingEnabled && <UpgradePrompt feature="prevention_coordination" />}
+      </div>
 
       <PreventiveProgrammes
         patientId={profile.id}
@@ -91,15 +96,19 @@ export default async function PreventionHubPage() {
         sex={profile.sex}
       />
 
-      <RiskAssessmentForm patientId={profile.id} />
-      <RiskAssessmentDisplay patientId={profile.id} />
+      <div id="risk-assessment" className="scroll-mt-24 space-y-6">
+        <RiskAssessmentForm patientId={profile.id} />
+        <RiskAssessmentDisplay patientId={profile.id} />
+      </div>
 
-      <VaccinationRegistry
-        patientId={profile.id}
-        ageYears={ageFromDateOfBirth(profile.date_of_birth)}
-      />
-      <VaccinationBooking patientId={profile.id} patientLocation={location} />
-      <LogVaccinationForm patientId={profile.id} />
+      <div id="vaccinations" className="scroll-mt-24 space-y-6">
+        <VaccinationRegistry
+          patientId={profile.id}
+          ageYears={ageFromDateOfBirth(profile.date_of_birth)}
+        />
+        <VaccinationBooking patientId={profile.id} patientLocation={location} />
+        <LogVaccinationForm patientId={profile.id} />
+      </div>
 
       <RequiresEntitlement
         feature="annual_review"

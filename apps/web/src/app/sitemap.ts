@@ -18,6 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     pricing: 0.9,
     chronicCare: 0.8,
     prevention: 0.8,
+    annualHealthCheck: 0.7,
     careCoordination: 0.8,
     whoItsFor: 0.7,
     about: 0.7,
