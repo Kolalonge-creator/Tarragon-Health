@@ -118,6 +118,28 @@ export const NGN_TIERS: PricingTier[] = [
       "Not included on this plan, and available only if you upgrade: doctor review, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
   },
   {
+    id: "prevent",
+    name: "Tarragon Prevent",
+    whoFor: "Healthy, and planning to stay that way",
+    priceMain: "₦3,500",
+    pricePeriod: "per month",
+    priceSecondary: "or ₦35,000/year (2 months free)",
+    description:
+      "The stay-healthy plan. You don't need a diagnosis to benefit from Tarragon — Prevent builds your personal screening and vaccination calendar, books the checks when they come due, and teaches you what your numbers mean. If a result ever needs attention, a doctor steps in the same day and helps you decide what's next.",
+    items: [
+      { feature: "Everything in Tarragon Free", label: "INCLUDED" },
+      { feature: "Personal screening calendar matched to your age, sex, and history", label: "INCLUDED" },
+      { feature: "Book screenings when due, with reminders and results tracking", label: "INCLUDED" },
+      { feature: "Vaccination schedule, booking, and verified certificates", label: "INCLUDED" },
+      { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
+      { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
+      { feature: "Screening lab tests (HbA1c from ₦8,000, etc.)", label: "BOOK & PAY" },
+      { feature: "Annual Health Check (₦65,000, full-body)", label: "BOOK & PAY" },
+    ],
+    footnote:
+      "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme — that's the whole point of catching it early.",
+  },
+  {
     id: "essential",
     name: "Essential Care",
     whoFor: "One condition: hypertension or diabetes",
@@ -232,6 +254,20 @@ export const NGN_TIERS: PricingTier[] = [
 ];
 
 export const GBP_TIERS: PricingTier[] = [
+  {
+    id: "diaspora-prevent",
+    name: "Tarragon Prevent (Diaspora)",
+    whoFor: "Healthy, and planning to stay that way",
+    priceMain: "£7",
+    pricePeriod: "per month",
+    priceSecondary: "or £70/year",
+    description:
+      "The stay-healthy plan, billed in pounds: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Screenings and vaccinations are done at partner facilities in Nigeria — monitoring and education work from anywhere.",
+    items: [
+      { feature: "Everything in Tarragon Prevent (Naira plan)", label: "INCLUDED" },
+      { feature: "Screening lab tests in Nigeria", label: "BOOK & PAY" },
+    ],
+  },
   {
     id: "diaspora-essential",
     name: "Essential Care (Diaspora)",
@@ -595,6 +631,16 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
     question: "Does Tarragon Free ever expire?",
     answer:
       "No. Tarragon Free has no time limit and never converts to a paid plan on its own. You can use it for as long as you like.",
+  },
+  {
+    question: "I'm healthy — why would I join a health platform?",
+    answer:
+      "Because staying healthy is exactly what most of Tarragon does. Hypertension, diabetes, and many cancers are far cheaper and easier to deal with when they're caught early — or prevented outright. Tarragon Prevent builds your personal screening and vaccination calendar, books the right checks at the right ages, and teaches you what your numbers mean. Most members will simply get yearly confirmation that all is well; for the few where something shows up, a doctor follows up the same day and it's caught years earlier than it would have been.",
+  },
+  {
+    question: "What's the difference between Tarragon Free and Tarragon Prevent?",
+    answer:
+      "Free is self-tracking: you log your own numbers and nobody books anything for you. Prevent (₦3,500/month) adds the active prevention layer: a screening and vaccination calendar built for you, bookable when checks come due, reminders, results tracking, personalised health education, and doctor follow-up on any abnormal result.",
   },
   {
     question: "How do the free trials of Complete Care work?",

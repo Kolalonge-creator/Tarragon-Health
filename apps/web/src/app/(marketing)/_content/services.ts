@@ -42,7 +42,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
     key: "prevention",
     href: MARKETING_ROUTES.prevention,
     title: "Preventive Health",
-    description: "Find care gaps early, complete overdue checks, and act before crisis.",
+    description: "For healthy people: screenings, vaccinations, and yearly checks that keep you that way.",
     built: true,
   },
   {
@@ -99,11 +99,14 @@ export const WHAT_YOU_GET = [
   },
 ] as const;
 
-/** Preventive health is a platform wedge, not a secondary add-on (FEATURE_SPEC Cat 2→1 upgrade). */
+/** Preventive health is a platform wedge, not a secondary add-on (FEATURE_SPEC Cat 2→1 upgrade).
+ * Framed for the HEALTHY visitor first (prevention-first repositioning,
+ * 2026-07-23): staying well is the aspiration; catching things early is the
+ * safety net, not a fear pitch. */
 export const PREVENTION_CALLOUT = {
-  title: "Preventive health is core to how Tarragon works",
+  title: "Healthy? Tarragon is built for you too",
   body:
-    "Screening and care-gap closure are not extras bolted onto chronic care. They share the same patient record, and when a result needs attention, Tarragon closes the loop into follow-up and chronic management, not a forgotten lab report.",
+    "You don't need a diagnosis to belong here. Tarragon Prevent gives you a personal screening and vaccination calendar, a yearly Health Check, and education that makes sense of your numbers — so most years, you simply get confirmation that all is well. And if a check ever finds something, a doctor follows up the same day and it's caught years earlier, when it's easiest to treat.",
 } as const;
 
 export const HOW_IT_WORKS_STEPS = [
@@ -217,6 +220,11 @@ export const HOMEPAGE_FAQS = [
     question: "What is Tarragon Health?",
     answer:
       "TarragonHealth is a health monitoring platform for chronic disease, preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
+  },
+  {
+    question: "I'm healthy — is Tarragon for me?",
+    answer:
+      "Yes — prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check, and education matched to you keep healthy people healthy. Most members just get confirmation each year that all is well; if a check ever finds something, a doctor follows up the same day.",
   },
   {
     question: "What happens when readings are high?",

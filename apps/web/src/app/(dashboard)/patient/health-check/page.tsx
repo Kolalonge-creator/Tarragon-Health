@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MentalHealthScreenForm } from "../mental-health-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
+import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
 
 /**
  * The Health Check — Tarragon's guided preventive journey (AHC pathway §5:
@@ -146,6 +147,14 @@ export default async function HealthCheckPage() {
           ))}
         </CardContent>
       </Card>
+
+      {/* The one-off lab bundle that powers stage 4 — bookable here directly,
+          on any plan (the self_bookable exception, migration 20260723150205). */}
+      <AnnualHealthCheckBooking
+        patientId={profile.id}
+        organisationId={profile.organisation_id}
+        patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
+      />
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>
