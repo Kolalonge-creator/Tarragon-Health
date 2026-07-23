@@ -4,7 +4,11 @@
  * paystack-webhook and stripe-webhook — whichever provider's checkout ran,
  * this is the only way either webhook knows what a payment activates.
  */
-export type CheckoutKind = "subscription" | "add_on" | "booking";
+/** 'wallet_topup' is deliberately NOT branched on by the deployed webhooks —
+ * they record the verified charge in payment_transactions, and the DB trigger
+ * private.credit_wallet_from_payment_transaction (migration 20260723193547)
+ * does the crediting. See lib/billing/wallet-checkout.ts. */
+export type CheckoutKind = "subscription" | "add_on" | "booking" | "wallet_topup";
 
 export type BookingOrderType = "lab" | "pharmacy" | "referral";
 
@@ -19,4 +23,6 @@ export interface CheckoutMetadata {
   booking_order_id?: string;
   /** Only set for kind='booking' — which table booking_order_id belongs to. */
   booking_order_type?: BookingOrderType;
+  /** Only set for kind='wallet_topup' — the health_wallets.id being funded. */
+  wallet_id?: string;
 }

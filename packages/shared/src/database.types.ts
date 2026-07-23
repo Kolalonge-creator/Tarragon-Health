@@ -2867,6 +2867,48 @@ export type Database = {
           },
         ];
       };
+      health_wallets: {
+        Row: {
+          balance_kobo: number;
+          created_at: string;
+          id: string;
+          organisation_id: string;
+          profile_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          balance_kobo?: number;
+          created_at?: string;
+          id?: string;
+          organisation_id: string;
+          profile_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          balance_kobo?: number;
+          created_at?: string;
+          id?: string;
+          organisation_id?: string;
+          profile_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "health_wallets_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_wallets_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       hmo_contracts: {
         Row: {
           capitation_rate_kobo: number;
@@ -6783,18 +6825,24 @@ export type Database = {
           id: boolean;
           updated_at: string;
           updated_by: string | null;
+          ngn_per_gbp: number | null;
+          ngn_per_usd: number | null;
           usd_per_gbp: number;
         };
         Insert: {
           id?: boolean;
           updated_at?: string;
           updated_by?: string | null;
+          ngn_per_gbp?: number | null;
+          ngn_per_usd?: number | null;
           usd_per_gbp?: number;
         };
         Update: {
           id?: boolean;
           updated_at?: string;
           updated_by?: string | null;
+          ngn_per_gbp?: number | null;
+          ngn_per_usd?: number | null;
           usd_per_gbp?: number;
         };
         Relationships: [
@@ -7287,6 +7335,45 @@ export type Database = {
             columns: ["organisation_id"];
             isOneToOne: false;
             referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      referral_codes: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          organisation_id: string;
+          profile_id: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          organisation_id: string;
+          profile_id: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          organisation_id?: string;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "referral_codes_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referral_codes_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -8930,6 +9017,222 @@ export type Database = {
           },
         ];
       };
+      wallet_ledger: {
+        Row: {
+          actor_profile_id: string | null;
+          amount_kobo: number;
+          balance_after_kobo: number;
+          booking_order_id: string | null;
+          booking_order_type: Database["public"]["Enums"]["commission_type"] | null;
+          created_at: string;
+          entry_type: Database["public"]["Enums"]["wallet_entry_type"];
+          id: string;
+          note: string | null;
+          organisation_id: string;
+          payment_transaction_id: string | null;
+          topup_id: string | null;
+          wallet_id: string;
+        };
+        Insert: {
+          actor_profile_id?: string | null;
+          amount_kobo: number;
+          balance_after_kobo: number;
+          booking_order_id?: string | null;
+          booking_order_type?: Database["public"]["Enums"]["commission_type"] | null;
+          created_at?: string;
+          entry_type: Database["public"]["Enums"]["wallet_entry_type"];
+          id?: string;
+          note?: string | null;
+          organisation_id: string;
+          payment_transaction_id?: string | null;
+          topup_id?: string | null;
+          wallet_id: string;
+        };
+        Update: {
+          actor_profile_id?: string | null;
+          amount_kobo?: number;
+          balance_after_kobo?: number;
+          booking_order_id?: string | null;
+          booking_order_type?: Database["public"]["Enums"]["commission_type"] | null;
+          created_at?: string;
+          entry_type?: Database["public"]["Enums"]["wallet_entry_type"];
+          id?: string;
+          note?: string | null;
+          organisation_id?: string;
+          payment_transaction_id?: string | null;
+          topup_id?: string | null;
+          wallet_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wallet_ledger_actor_profile_id_fkey";
+            columns: ["actor_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_ledger_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_ledger_payment_transaction_id_fkey";
+            columns: ["payment_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_ledger_topup_id_fkey";
+            columns: ["topup_id"];
+            isOneToOne: false;
+            referencedRelation: "wallet_topups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_ledger_wallet_id_fkey";
+            columns: ["wallet_id"];
+            isOneToOne: false;
+            referencedRelation: "health_wallets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      wallet_savings_goals: {
+        Row: {
+          completed_at: string | null;
+          created_at: string;
+          id: string;
+          name: string;
+          organisation_id: string;
+          panel_bundle_id: string | null;
+          status: string;
+          target_kobo: number;
+          wallet_id: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          name: string;
+          organisation_id: string;
+          panel_bundle_id?: string | null;
+          status?: string;
+          target_kobo: number;
+          wallet_id: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          organisation_id?: string;
+          panel_bundle_id?: string | null;
+          status?: string;
+          target_kobo?: number;
+          wallet_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wallet_savings_goals_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_savings_goals_panel_bundle_id_fkey";
+            columns: ["panel_bundle_id"];
+            isOneToOne: false;
+            referencedRelation: "panel_bundles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_savings_goals_wallet_id_fkey";
+            columns: ["wallet_id"];
+            isOneToOne: false;
+            referencedRelation: "health_wallets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      wallet_topups: {
+        Row: {
+          amount_minor: number;
+          created_at: string;
+          credit_kobo: number;
+          currency: string;
+          id: string;
+          organisation_id: string;
+          payer_profile_id: string;
+          payment_transaction_id: string | null;
+          pending_provider_ref: string | null;
+          provider: Database["public"]["Enums"]["payment_provider"] | null;
+          status: string;
+          wallet_id: string;
+        };
+        Insert: {
+          amount_minor: number;
+          created_at?: string;
+          credit_kobo: number;
+          currency?: string;
+          id?: string;
+          organisation_id: string;
+          payer_profile_id: string;
+          payment_transaction_id?: string | null;
+          pending_provider_ref?: string | null;
+          provider?: Database["public"]["Enums"]["payment_provider"] | null;
+          status?: string;
+          wallet_id: string;
+        };
+        Update: {
+          amount_minor?: number;
+          created_at?: string;
+          credit_kobo?: number;
+          currency?: string;
+          id?: string;
+          organisation_id?: string;
+          payer_profile_id?: string;
+          payment_transaction_id?: string | null;
+          pending_provider_ref?: string | null;
+          provider?: Database["public"]["Enums"]["payment_provider"] | null;
+          status?: string;
+          wallet_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wallet_topups_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_topups_payer_profile_id_fkey";
+            columns: ["payer_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_topups_payment_transaction_id_fkey";
+            columns: ["payment_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wallet_topups_wallet_id_fkey";
+            columns: ["wallet_id"];
+            isOneToOne: false;
+            referencedRelation: "health_wallets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       wearable_connections: {
         Row: {
           connected_at: string;
@@ -9318,7 +9621,15 @@ export type Database = {
       };
       get_ai_coach_daily_limit: { Args: never; Returns: number };
       has_ai_coach_access: { Args: never; Returns: boolean };
+      get_or_create_my_referral_code: { Args: Record<string, never>; Returns: string };
+      get_or_create_wallet_for: { Args: { p_profile: string }; Returns: string };
+      get_or_create_my_wallet: { Args: Record<string, never>; Returns: string };
       has_feature_access: { Args: { feature: string }; Returns: boolean };
+      redeem_referral_code: { Args: { p_code: string }; Returns: Json };
+      wallet_pay_booking_order: {
+        Args: { p_order_type: string; p_order_id: string };
+        Returns: Json;
+      };
       hbpm_summary: { Args: { p_patient: string }; Returns: Json };
       health_education_feed: {
         Args: never;
@@ -9594,7 +9905,7 @@ export type Database = {
       outcomes_contract_type: "capitation" | "fee_at_risk" | "flat";
       patient_device_status: "active" | "unpaired";
       patient_device_type: "bp_cuff" | "glucometer" | "scale" | "thermometer" | "pulse_oximeter";
-      payment_provider: "paystack" | "stripe";
+      payment_provider: "paystack" | "stripe" | "wallet";
       payment_transaction_type:
         | "charge.success"
         | "charge.failed"
@@ -9727,6 +10038,14 @@ export type Database = {
         | "spo2"
         | "waist_circumference"
         | "ketones";
+      wallet_entry_type:
+        | "topup"
+        | "sponsor_topup"
+        | "referral_reward"
+        | "prevention_reward"
+        | "spend"
+        | "refund"
+        | "adjustment";
       wearable_connection_status: "active" | "disconnected" | "error";
       wearable_provider:
         "apple_health" | "oura" | "whoop" | "garmin" | "fitbit";
@@ -10119,7 +10438,7 @@ export const Constants = {
       outcomes_contract_type: ["capitation", "fee_at_risk", "flat"],
       patient_device_status: ["active", "unpaired"],
       patient_device_type: ["bp_cuff", "glucometer", "scale", "thermometer", "pulse_oximeter"],
-      payment_provider: ["paystack", "stripe"],
+      payment_provider: ["paystack", "stripe", "wallet"],
       payment_transaction_type: [
         "charge.success",
         "charge.failed",
@@ -10283,6 +10602,15 @@ export const Constants = {
         "spo2",
         "waist_circumference",
         "ketones",
+      ],
+      wallet_entry_type: [
+        "topup",
+        "sponsor_topup",
+        "referral_reward",
+        "prevention_reward",
+        "spend",
+        "refund",
+        "adjustment",
       ],
       wearable_connection_status: ["active", "disconnected", "error"],
       wearable_provider: ["apple_health", "oura", "whoop", "garmin", "fitbit"],
