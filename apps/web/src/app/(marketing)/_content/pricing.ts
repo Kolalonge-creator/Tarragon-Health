@@ -519,6 +519,9 @@ export const ADD_ONS: PricingAddOn[] = [
  * shown before booking.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
+  { item: "Health Check — Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
+  { item: "Annual Health Check (adds your cancer screening)", price: "₦65,000" },
+  { item: "Health Check — Comprehensive (adds HIV + Hepatitis B)", price: "₦75,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
   { item: "Kidney function (U&E + eGFR)", price: "from ₦8,000" },

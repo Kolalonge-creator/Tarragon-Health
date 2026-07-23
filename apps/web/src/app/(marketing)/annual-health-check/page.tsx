@@ -80,7 +80,8 @@ export default function AnnualHealthCheckPage() {
             record.
           </p>
           <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
-            ₦65,000<span className="text-base font-normal text-charcoal-ink/60"> · once a year · anyone, on any plan (even Free)</span>
+            From ₦15,000
+            <span className="text-base font-normal text-charcoal-ink/60"> · once a year · anyone, on any plan (even Free)</span>
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
@@ -116,6 +117,52 @@ export default function AnnualHealthCheckPage() {
       </Section>
 
       <Section>
+        <SectionHeading
+          eyebrow="Pick your level"
+          title="Three packages, one discipline"
+          description="Every package follows World Health Organization screening guidance for what actually matters in Nigeria — and every one ends with a doctor talking you through your results."
+        />
+        <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
+          {[
+            {
+              name: "Basic",
+              price: "₦15,000",
+              body: "The cardiometabolic essentials: HbA1c, full cholesterol panel, blood pressure, and BMI — the WHO's core adult checks.",
+            },
+            {
+              name: "Annual Health Check",
+              price: "₦65,000",
+              body: "Everything in Basic, plus the cancer screening that fits your age and sex (cervical screening or PSA).",
+              highlight: true,
+            },
+            {
+              name: "Comprehensive",
+              price: "₦75,000",
+              body: "Everything in the Annual Health Check, plus HIV and Hepatitis B screening — both WHO priorities for Nigeria.",
+            },
+          ].map((tier) => (
+            <div
+              key={tier.name}
+              className={
+                tier.highlight
+                  ? "rounded-xl border-2 border-brand-green bg-white p-6"
+                  : "rounded-xl border border-charcoal-ink/10 bg-white p-6"
+              }
+            >
+              <h3 className="font-heading text-lg font-semibold text-charcoal-ink">{tier.name}</h3>
+              <p className="mt-1 font-heading text-2xl font-bold text-brand-green">{tier.price}</p>
+              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">{tier.body}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
+          Need just one thing? The WHO-recommended screenings — cervical screening, HIV, and
+          Hepatitis B — can each be booked on their own, confidentially, from ₦6,000. Results go
+          only to you and the reviewing doctor.
+        </p>
+      </Section>
+
+      <Section variant="sage">
         <SectionHeading eyebrow="How it works" title="Booked in minutes, done in a morning" />
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {HOW_IT_WORKS.map((item) => (
@@ -130,7 +177,7 @@ export default function AnnualHealthCheckPage() {
         </div>
       </Section>
 
-      <Section variant="sage">
+      <Section>
         <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
             Honest expectations
@@ -154,7 +201,7 @@ export default function AnnualHealthCheckPage() {
         </div>
       </Section>
 
-      <Section className="pb-24">
+      <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
           title="Book this year's check."

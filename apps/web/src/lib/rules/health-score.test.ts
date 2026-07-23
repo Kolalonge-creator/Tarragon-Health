@@ -5,6 +5,7 @@ const allUnavailable: HealthScoreInputs = {
   bpControlPercent: null,
   latestHba1cPercent: null,
   screeningCompliancePercent: null,
+  vaccinationCompliancePercent: null,
   bmi: null,
   smokingStatus: null,
   cigarettesPerDay: null,
@@ -20,6 +21,7 @@ describe("computeHealthScore", () => {
       bpControlPercent: 100,
       latestHba1cPercent: 5.2,
       screeningCompliancePercent: 100,
+      vaccinationCompliancePercent: 100,
       bmi: 22,
       smokingStatus: "never",
       cigarettesPerDay: null,
@@ -34,6 +36,7 @@ describe("computeHealthScore", () => {
       bpControlPercent: 10,
       latestHba1cPercent: 9.5,
       screeningCompliancePercent: 0,
+      vaccinationCompliancePercent: 0,
       bmi: 34,
       smokingStatus: "current",
       cigarettesPerDay: "20_plus",
@@ -59,6 +62,7 @@ describe("computeHealthScore", () => {
       bpControlPercent: 100,
       latestHba1cPercent: 5.2,
       screeningCompliancePercent: 100,
+      vaccinationCompliancePercent: null,
       bmi: 22,
       smokingStatus: "never",
       cigarettesPerDay: null,
@@ -67,6 +71,7 @@ describe("computeHealthScore", () => {
       bpControlPercent: 100,
       latestHba1cPercent: null,
       screeningCompliancePercent: 100,
+      vaccinationCompliancePercent: null,
       bmi: 22,
       smokingStatus: "never",
       cigarettesPerDay: null,
@@ -86,6 +91,15 @@ describe("computeHealthScore", () => {
     expect(former.score).toBeGreaterThan(current.score);
   });
 
+  it("scores vaccination compliance only when something is due, like screening compliance", () => {
+    const withVax = computeHealthScore({ ...allUnavailable, vaccinationCompliancePercent: 50 })!;
+    expect(withVax.components).toHaveLength(1);
+    expect(withVax.components[0].key).toBe("vaccination");
+    expect(withVax.score).toBe(50);
+    // a patient with no generated vaccination schedule is never penalised
+    expect(computeHealthScore(allUnavailable)).toBeNull();
+  });
+
   it("includes the real HbA1c value with its bracket as the hba1c component's detail", () => {
     const result = computeHealthScore({ ...allUnavailable, latestHba1cPercent: 5.9 })!;
     const hba1c = result.components.find((c) => c.key === "hba1c");
@@ -99,6 +113,7 @@ describe("getHealthScoreTips", () => {
       bpControlPercent: 100,
       latestHba1cPercent: 5.2,
       screeningCompliancePercent: 100,
+      vaccinationCompliancePercent: 100,
       bmi: 22,
       smokingStatus: "never",
       cigarettesPerDay: null,
@@ -111,6 +126,7 @@ describe("getHealthScoreTips", () => {
       bpControlPercent: 40,
       latestHba1cPercent: null,
       screeningCompliancePercent: 100,
+      vaccinationCompliancePercent: null,
       bmi: 22,
       smokingStatus: "current",
       cigarettesPerDay: "20_plus",

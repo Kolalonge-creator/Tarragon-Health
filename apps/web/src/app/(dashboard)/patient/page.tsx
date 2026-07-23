@@ -19,6 +19,7 @@ import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { getPatientSummaryStats, getPatientPreventionStats } from "./summary";
 import Link from "next/link";
 import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
+import { ResultsTrendsCard } from "./results-trends-card";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
 import { SymptomLogForm } from "./symptom-log-form";
@@ -266,6 +267,7 @@ export default async function PatientPage() {
           patientId={profile.id}
           organisationId={profile.organisation_id}
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
+          sex={profile.sex}
         />
         <PreventiveScreeningCalendar
           patientId={profile.id}
@@ -326,6 +328,7 @@ export default async function PatientPage() {
           <>
             <LabCatalogue />
             <LabOrdersList patientId={profile.id} />
+            <ResultsTrendsCard patientId={profile.id} />
             <LabResults patientId={profile.id} />
             {/* FacilityDirectory/BookingRequestsList stay scoped to types with
                 no priced catalogue (hospital, radiology, optician,
@@ -339,8 +342,9 @@ export default async function PatientPage() {
             <UpgradePrompt feature="lab_coordination" />
             {/* A Free user can still have real orders to pay/track — the
                 Annual Health Check is purchasable on any plan — so the order
-                list and results stay visible below the prompt. */}
+                list, trends, and results stay visible below the prompt. */}
             <LabOrdersList patientId={profile.id} />
+            <ResultsTrendsCard patientId={profile.id} />
             <LabResults patientId={profile.id} />
           </>
         )}

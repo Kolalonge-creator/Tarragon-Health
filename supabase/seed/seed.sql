@@ -118,11 +118,26 @@ values
      6500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear'])
 on conflict (code) do nothing;
 
--- The Annual Health Check is the prevention front door — patient-bookable
--- without a due screening_schedule or clinician order (migration
--- 20260723150205_prevention_self_bookable_bundles). Deliberately the ONLY
--- self-bookable bundle; everything else stays clinician-originated.
-update public.panel_bundles set self_bookable = true where code = 'annual_health_check';
+-- Health Check tier ladder (migration 20260723164727): Basic (WHO PEN
+-- cardiometabolic) / Standard (annual_health_check) / Comprehensive (adds
+-- HIV + Hep B). PLACEHOLDER PRICES — founder to confirm.
+insert into public.panel_bundles (code, name, description, price_kobo, test_codes, self_bookable)
+values
+  ('health_check_basic', 'Health Check — Basic',
+     'Cardiometabolic essentials (WHO PEN): HbA1c and full lipid panel, plus BP and BMI at the lab. Doctor-reviewed.',
+     1500000, array['hba1c', 'lipid_panel'], true),
+  ('health_check_comprehensive', 'Health Check — Comprehensive',
+     'Everything in the Annual Health Check plus HIV and Hepatitis B screening. Doctor-reviewed.',
+     7500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b'], true)
+on conflict (code) do nothing;
+
+-- Self-bookable set (migrations 20260723150205 + 20260723164727): the three
+-- Health Check packages plus the WHO-essential confidential screenings
+-- (cervical smear per the WHO 90-70-90 elimination strategy, HIV, Hep B).
+-- Deliberately NOT a general wellness catalogue — PSA stays package-only per
+-- WHO guidance; everything else stays clinician-originated.
+update public.panel_bundles set self_bookable = true
+  where code in ('annual_health_check', 'single_cervical_smear', 'single_hiv', 'single_hep_b');
 
 -- ---------------------------------------------------------------------------
 -- pharmacy_partners

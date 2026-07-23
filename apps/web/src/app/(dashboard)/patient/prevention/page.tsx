@@ -8,6 +8,7 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
+import { ResultsTrendsCard } from "../results-trends-card";
 import { PreventiveScreeningCalendar } from "../preventive-screening-calendar";
 import { PreventiveProgrammes } from "../preventive-programmes";
 import { RiskAssessmentForm } from "../risk-assessment-form";
@@ -75,7 +76,10 @@ export default async function PreventionHubPage() {
         patientId={profile.id}
         organisationId={profile.organisation_id}
         patientLocation={location}
+        sex={profile.sex}
       />
+
+      <ResultsTrendsCard patientId={profile.id} />
 
       {/* Anchor ids are the Health Check journey's stage-link targets
           (/patient/prevention#screenings etc.) — keep in sync with

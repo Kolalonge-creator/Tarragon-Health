@@ -154,6 +154,7 @@ export default async function HealthCheckPage() {
         patientId={profile.id}
         organisationId={profile.organisation_id}
         patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
+        sex={profile.sex}
       />
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
@@ -173,6 +174,14 @@ export default async function HealthCheckPage() {
                 })}
               </p>
               {check.review_summary && <p className="text-charcoal-ink/70">{check.review_summary}</p>}
+              <p>
+                <a
+                  href="/api/patient/health-check/report"
+                  className="text-brand-green hover:underline"
+                >
+                  Download your Health Check report (PDF) →
+                </a>
+              </p>
             </>
           ) : (
             <p className="text-charcoal-ink/60">
