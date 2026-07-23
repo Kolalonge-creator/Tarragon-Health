@@ -49,6 +49,8 @@ export default function MarketingHomePage() {
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             Track blood pressure, blood sugar, medication, lab checks, and preventive health needs
             in one secure platform, with clinical review and escalation when closer care is needed.
+            And if you&apos;re healthy? Screenings, vaccinations, and yearly checks that keep you
+            that way.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
@@ -76,11 +78,55 @@ export default function MarketingHomePage() {
         </div>
       </Section>
 
+      {/* Two front doors — the same shared record, entered from either side.
+          Healthy visitors must see themselves within the first screen-and-a-
+          half, not at section six (prevention-first repositioning). */}
+      <Section>
+        <SectionHeading
+          eyebrow="Start where you are"
+          title="Two ways in, one record"
+          description="Tarragon is for people managing a condition — and just as much for people who don't have one and intend to keep it that way."
+        />
+        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
+          <Link
+            href={MARKETING_ROUTES.prevention}
+            className="group rounded-2xl border border-brand-green/25 bg-white p-8 transition-colors hover:border-brand-green/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          >
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              I&apos;m healthy
+            </p>
+            <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
+              Stay that way →
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+              A screening and vaccination calendar built for your age and history, a yearly
+              health check, and education that makes sense of your numbers. Prevention that
+              actually gets done.
+            </p>
+          </Link>
+          <Link
+            href={MARKETING_ROUTES.chronicCare}
+            className="group rounded-2xl border border-charcoal-ink/10 bg-white p-8 transition-colors hover:border-brand-green/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          >
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              I&apos;m managing a condition
+            </p>
+            <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
+              Get followed up properly →
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+              Hypertension, diabetes, weight — monitored between visits, reviewed against care
+              protocols, and escalated to a doctor when something needs attention.
+            </p>
+          </Link>
+        </div>
+      </Section>
+
       <Section variant="sage">
         <StoryPanel
           eyebrow="The problem"
           title="Chronic disease is poorly followed up between doctor visits"
-          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between."
+          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between. And for healthy people, the screenings and vaccinations that would catch problems early rarely happen at all — until something is missed."
           media={homepage.problem}
         />
       </Section>
@@ -126,9 +172,12 @@ export default function MarketingHomePage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               {PREVENTION_CALLOUT.body}
             </p>
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild variant="outline">
                 <Link href={MARKETING_ROUTES.prevention}>Learn about preventive health</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link href={MARKETING_ROUTES.annualHealthCheck}>The Annual Health Check →</Link>
               </Button>
             </div>
           </div>
@@ -158,8 +207,13 @@ export default function MarketingHomePage() {
           title="Find the care that fits you"
           description="Whether you're managing a condition, staying ahead of one, or looking after someone else, there's a place to start."
         />
-        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
+            {
+              href: MARKETING_ROUTES.prevention,
+              title: "Prevention",
+              body: "Healthy and staying that way — screenings, vaccines, yearly checks.",
+            },
             {
               href: MARKETING_ROUTES.services,
               title: "Services",

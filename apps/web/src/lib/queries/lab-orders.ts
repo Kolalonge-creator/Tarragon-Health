@@ -122,8 +122,10 @@ export function useOrgLabOrders() {
  * screeningScheduleId is a currently-due schedule this patient owns and
  * panelBundleId is that schedule's matching single-test bundle — the DB
  * trigger (private.enforce_lab_order_origin) re-checks both server-side,
- * this isn't just a client-side convention. There is no other patient-
- * initiated path left; ad hoc catalogue browsing no longer books directly.
+ * this isn't just a client-side convention. The one schedule-free patient
+ * path is a self_bookable bundle (the Annual Health Check, migration
+ * 20260723150205): omit screeningScheduleId and the trigger allows it only
+ * when panel_bundles.self_bookable is true for that bundle.
  */
 export function useCreateLabOrder() {
   const queryClient = useQueryClient();
@@ -145,7 +147,8 @@ export function useCreateLabOrder() {
       /** The physical facility the patient chose (public.facilities). Optional for back-compat. */
       facilityId?: string;
       totalKobo: number;
-      screeningScheduleId: string;
+      /** Required for the due-screening path; omitted only for self_bookable bundles. */
+      screeningScheduleId?: string;
     }) => {
       const supabase = createClient();
       const { error } = await supabase.from("lab_orders").insert({
@@ -156,7 +159,7 @@ export function useCreateLabOrder() {
         facility_id: facilityId ?? null,
         total_kobo: totalKobo,
         status: "pending_payment",
-        screening_schedule_id: screeningScheduleId,
+        screening_schedule_id: screeningScheduleId ?? null,
       });
       if (error) throw error;
     },

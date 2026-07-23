@@ -5545,6 +5545,7 @@ export type Database = {
           is_active: boolean;
           name: string;
           price_kobo: number;
+          self_bookable: boolean;
           test_codes: string[];
         };
         Insert: {
@@ -5558,6 +5559,7 @@ export type Database = {
           is_active?: boolean;
           name: string;
           price_kobo?: number;
+          self_bookable?: boolean;
           test_codes?: string[];
         };
         Update: {
@@ -5571,6 +5573,7 @@ export type Database = {
           is_active?: boolean;
           name?: string;
           price_kobo?: number;
+          self_bookable?: boolean;
           test_codes?: string[];
         };
         Relationships: [];

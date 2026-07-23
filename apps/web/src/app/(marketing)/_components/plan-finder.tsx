@@ -66,13 +66,21 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
   }
   // who === "me"
   if (health === "none") {
-    return {
-      plan: "Tarragon Free",
-      price: "₦0, forever",
-      why: "Track your own numbers and build the habit first — it never expires and never converts to a paid plan on its own.",
-      secondary:
-        "Want a one-off full check? The Annual Health Check (₦65,000) is available to anyone, on any plan.",
-    };
+    return from === "abroad"
+      ? {
+          plan: "Tarragon Prevent (Diaspora)",
+          price: "£7/month",
+          why: "The stay-healthy plan: a screening and vaccination calendar built for you, bookable when checks come due, plus personalised health education — so small things get caught before they become conditions.",
+          secondary:
+            "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000, in Nigeria) is available to anyone, on any plan.",
+        }
+      : {
+          plan: "Tarragon Prevent",
+          price: "₦3,500/month",
+          why: "The stay-healthy plan: a screening and vaccination calendar built for you, bookable when checks come due, plus personalised health education — so small things get caught before they become conditions.",
+          secondary:
+            "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000) is available to anyone, on any plan.",
+        };
   }
   if (health === "one") {
     return from === "abroad"
