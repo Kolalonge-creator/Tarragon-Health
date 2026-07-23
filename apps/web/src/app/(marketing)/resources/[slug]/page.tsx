@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Section } from "../../_components/section";
 import { CtaBand } from "../../_components/cta-band";
-import {
-  RESOURCE_ARTICLES,
-  RESOURCE_DISCLAIMER,
-  getResourceArticle,
-} from "../../_content/resources";
+import { RESOURCE_ARTICLES, RESOURCE_DISCLAIMER } from "../../_content/resources";
+import { loadResourceArticle } from "@/lib/marketing/resources-data";
+
+// Admin-published articles beyond the static seed list resolve at request
+// time; the seed slugs stay statically generated for build-time coverage.
+export const dynamicParams = true;
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return RESOURCE_ARTICLES.map((a) => ({ slug: a.slug }));
@@ -19,7 +21,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const article = getResourceArticle(slug);
+  const article = await loadResourceArticle(slug);
   if (!article) return {};
   return {
     title: article.title,
@@ -33,7 +35,7 @@ export default async function ResourceArticlePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const article = getResourceArticle(slug);
+  const article = await loadResourceArticle(slug);
   if (!article) notFound();
 
   return (

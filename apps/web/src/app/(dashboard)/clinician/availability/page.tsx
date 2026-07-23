@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { AvailabilityManager } from "./availability-manager";
+import { VideoVisitRequestQueue } from "./request-queue";
 
 export default async function ClinicianAvailabilityPage() {
   const profile = await getCurrentProfile();
@@ -16,6 +17,7 @@ export default async function ClinicianAvailabilityPage() {
           ← Back to dashboard
         </Link>
       </div>
+      <VideoVisitRequestQueue />
       <AvailabilityManager organisationId={profile.organisation_id} />
     </div>
   );

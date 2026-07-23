@@ -4603,6 +4603,65 @@ export type Database = {
           },
         ]
       }
+      marketing_resources: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          id: string
+          is_published: boolean
+          read_minutes: number
+          related_href: string | null
+          related_label: string | null
+          sections: Json
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          id?: string
+          is_published?: boolean
+          read_minutes?: number
+          related_href?: string | null
+          related_label?: string | null
+          sections?: Json
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_published?: boolean
+          read_minutes?: number
+          related_href?: string | null
+          related_label?: string | null
+          sections?: Json
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_resources_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_adherence_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -8967,6 +9026,156 @@ export type Database = {
           },
         ]
       }
+      video_visit_prices: {
+        Row: {
+          amount_minor: number
+          currency: string
+          id: string
+          is_enabled: boolean
+          organisation_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_minor: number
+          currency?: string
+          id?: string
+          is_enabled?: boolean
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_minor?: number
+          currency?: string
+          id?: string
+          is_enabled?: boolean
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_visit_prices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_visit_prices_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_visit_requests: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          amount_minor: number
+          created_at: string
+          currency: string
+          declined_reason: string | null
+          id: string
+          note: string | null
+          organisation_id: string
+          origin: string
+          patient_id: string
+          payment_provider: string | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          refund_ref: string | null
+          refund_status: string | null
+          slot_id: string | null
+          status: Database["public"]["Enums"]["video_visit_request_status"]
+          updated_at: string
+          video_consultation_id: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          amount_minor?: number
+          created_at?: string
+          currency?: string
+          declined_reason?: string | null
+          id?: string
+          note?: string | null
+          organisation_id: string
+          origin?: string
+          patient_id: string
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          refund_ref?: string | null
+          refund_status?: string | null
+          slot_id?: string | null
+          status?: Database["public"]["Enums"]["video_visit_request_status"]
+          updated_at?: string
+          video_consultation_id?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          amount_minor?: number
+          created_at?: string
+          currency?: string
+          declined_reason?: string | null
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          origin?: string
+          patient_id?: string
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          refund_ref?: string | null
+          refund_status?: string | null
+          slot_id?: string | null
+          status?: Database["public"]["Enums"]["video_visit_request_status"]
+          updated_at?: string
+          video_consultation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_visit_requests_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_visit_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_visit_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_visit_requests_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "consult_availability_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_visit_requests_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vitals_readings: {
         Row: {
           cgm_connection_id: string | null
@@ -9414,6 +9623,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_video_visit_request: {
+        Args: { p_request_id: string }
+        Returns: string
+      }
       admin_broadcast_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]
@@ -9533,11 +9746,14 @@ export type Database = {
         Returns: string
       }
       analytics_user_segments: { Args: never; Returns: Json }
-      book_video_consult_slot: { Args: { p_slot_id: string }; Returns: string }
       bp_secondary_flags: { Args: { p_patient: string }; Returns: Json }
       claim_employer_roster_member: {
         Args: { target_roster_id: string }
         Returns: boolean
+      }
+      decline_video_visit_request: {
+        Args: { p_reason: string; p_request_id: string }
+        Returns: undefined
       }
       find_profile_by_phone: {
         Args: { lookup_phone: string }
@@ -10026,6 +10242,15 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "no_show"
+      video_visit_request_status:
+        | "requested"
+        | "pending_payment"
+        | "payment_confirmed"
+        | "accepted"
+        | "declined"
+        | "expired"
+        | "cancelled"
+        | "refunded"
       vital_source: "manual" | "device" | "wearable" | "cgm"
       vital_type:
         | "blood_pressure"
@@ -10601,6 +10826,16 @@ export const Constants = {
         "completed",
         "cancelled",
         "no_show",
+      ],
+      video_visit_request_status: [
+        "requested",
+        "pending_payment",
+        "payment_confirmed",
+        "accepted",
+        "declined",
+        "expired",
+        "cancelled",
+        "refunded",
       ],
       vital_source: ["manual", "device", "wearable", "cgm"],
       vital_type: [

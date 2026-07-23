@@ -311,6 +311,22 @@ const TEMPLATE_MAP: Record<
         `The join link is in the app. — Tarragon Health`,
     };
   },
+  // Sent when a doctor declines a paid video-visit request, or no doctor
+  // accepted it within 48h (decline action / video-visit-refunds cron). The
+  // refund is automatic; this just tells the patient honestly what happened.
+  video_visit_declined: (payload) => {
+    const reason = String(payload.reason ?? "").trim();
+    return {
+      metaTemplateName: "video_visit_declined",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: reason || "No doctor was available for that time." }] },
+      ],
+      smsText:
+        `We couldn't schedule your video visit${reason ? ` (${reason})` : ""}. ` +
+        `Your payment will be refunded in full. You can request another time in the app. — Tarragon Health`,
+    };
+  },
   // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
   // subject + body chosen by an admin, fanned out to a resolved audience. Email
   // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement

@@ -267,9 +267,9 @@ export default async function PatientPage() {
         >
           <AskADoctor patientId={profile.id} organisationId={profile.organisation_id} />
         </RequiresEntitlement>
-        <RequiresEntitlement feature="doctor_checkin" fallback={null}>
-          <BookVideoVisit patientId={profile.id} />
-        </RequiresEntitlement>
+        {/* Paid per-visit service — no plan gate; the card itself carries the
+            availability + not-for-emergencies copy. */}
+        <BookVideoVisit patientId={profile.id} />
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
         <YourReferrals patientId={profile.id} />

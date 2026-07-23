@@ -1,84 +1,113 @@
 "use server";
 
 import { z } from "zod";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { createMeeting } from "@/lib/zoom/meetings";
-import { isZoomConfigured } from "@/lib/zoom/client";
+import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
+import type { Currency } from "@tarragon/shared";
 
-const bookSchema = z.object({ slotId: z.string().uuid() });
+const requestSchema = z.object({
+  slotId: z.string().uuid(),
+  note: z.string().trim().max(500).optional(),
+});
 
-export type BookVideoVisitState =
-  | { error: string }
-  | { success: true; scheduledAt: string; hasLink: boolean }
-  | undefined;
+export type RequestVideoVisitState = { error: string } | undefined;
 
 /**
- * Patient books an open video-visit slot. The atomic slot-flip + consult
- * creation happens inside public.book_video_consult_slot (security definer,
- * row-locked — no double booking); this action then attaches a scheduled Zoom
- * meeting best-effort and enqueues a confirmation reminder, exactly like
- * confirmAnnualReviewSlot. WhatsApp/SMS only reminds — the booking itself is
- * complete without any send.
+ * Patient requests a paid video visit for a published slot: a
+ * video_visit_requests row is created (amount pinned server-side by the DB
+ * trigger from the price book — nothing the client sends sets the price) and
+ * the browser is redirected to hosted checkout. The captured payment is HELD:
+ * 'payment_confirmed' only puts the request in front of a doctor — the visit
+ * is booked exclusively by a doctor accepting it, and a declined/unaccepted
+ * request is refunded in full. Capitated org members skip payment but still
+ * wait for doctor acceptance like everyone else.
  */
-export async function bookVideoVisit(slotId: string): Promise<BookVideoVisitState> {
-  const parsed = bookSchema.safeParse({ slotId });
+export async function requestVideoVisit(
+  _prev: RequestVideoVisitState,
+  formData: FormData
+): Promise<RequestVideoVisitState> {
+  const parsed = requestSchema.safeParse({
+    slotId: String(formData.get("slot_id") ?? ""),
+    note: String(formData.get("note") ?? "") || undefined,
+  });
   if (!parsed.success) {
-    return { error: "Invalid slot" };
+    return { error: "Pick a time first" };
   }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return { error: "Not signed in" };
+  if (!user) redirect("/login");
+  if (!user.email) {
+    return { error: "Your account needs an email on file to check out." };
   }
 
-  const { data: consultId, error } = await supabase.rpc("book_video_consult_slot", {
-    p_slot_id: parsed.data.slotId,
-  });
-  if (error || !consultId) {
-    return { error: error?.message ?? "Could not book that time" };
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "Your account has no organisation on file." };
   }
 
-  const { data: consult } = await supabase
-    .from("video_consultations")
-    .select("id, organisation_id, patient_id, scheduled_at")
-    .eq("id", consultId)
+  // RLS-visible check that the slot is still open before taking payment.
+  const { data: slot } = await supabase
+    .from("consult_availability_slots")
+    .select("id, slot_start")
+    .eq("id", parsed.data.slotId)
     .maybeSingle();
-  if (!consult?.scheduled_at) {
-    return { error: "Booked, but could not load the confirmation — refresh to see it." };
+  if (!slot) {
+    return { error: "That time is no longer available — pick another slot." };
   }
 
-  const service = createServiceRoleClient();
-  let hasLink = false;
-  if (isZoomConfigured()) {
-    const meeting = await createMeeting({
-      topic: "Tarragon Health — video check-in",
-      startTime: consult.scheduled_at,
-    });
-    if (meeting.ok) {
-      hasLink = true;
-      await service
-        .from("video_consultations")
-        .update({
-          zoom_meeting_id: meeting.data.meetingId,
-          join_url: meeting.data.joinUrl,
-          host_start_url: meeting.data.hostStartUrl,
-        })
-        .eq("id", consult.id);
-    }
+  const { data: request, error: insertError } = await supabase
+    .from("video_visit_requests")
+    .insert({
+      organisation_id: profile.organisation_id,
+      patient_id: user.id,
+      slot_id: parsed.data.slotId,
+      note: parsed.data.note ?? null,
+    })
+    .select("id, amount_minor, currency")
+    .single();
+  if (insertError || !request) {
+    return { error: insertError?.message ?? "Could not create the request." };
   }
 
-  await service.from("notifications").insert({
-    organisation_id: consult.organisation_id,
-    recipient_id: consult.patient_id,
-    channel: "whatsapp",
-    status: "pending",
-    template: "video_consult_booked",
-    payload: { scheduled_at: consult.scheduled_at },
+  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const result = await initiateBookingCheckout({
+    orderType: "video_visit",
+    orderId: request.id,
+    organisationId: profile.organisation_id,
+    patientId: user.id,
+    amountKobo: request.amount_minor,
+    currency: request.currency as Currency,
+    email: user.email,
+    description: "Tarragon Health — video visit with a doctor",
+    callbackUrl: `${origin}/patient`,
   });
 
-  return { success: true, scheduledAt: consult.scheduled_at, hasLink };
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  if (result.capitated) {
+    redirect("/patient");
+  }
+  redirect(result.checkoutUrl);
+}
+
+/** Patient withdraws a request that hasn't been paid yet (RLS-enforced). */
+export async function cancelVideoVisitRequest(requestId: string): Promise<void> {
+  const parsed = z.string().uuid().safeParse(requestId);
+  if (!parsed.success) return;
+  const supabase = await createClient();
+  await supabase
+    .from("video_visit_requests")
+    .delete()
+    .eq("id", parsed.data)
+    .in("status", ["requested", "pending_payment"]);
 }

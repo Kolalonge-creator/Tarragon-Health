@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
-import { RESOURCE_ARTICLES } from "../_content/resources";
+import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const metadata: Metadata = {
   title: "Health resources — plain answers to real questions",
@@ -10,8 +10,13 @@ export const metadata: Metadata = {
     "Clear, honest articles on blood pressure, diabetes, weight, cholesterol and screening — written for Nigerians, in plain language.",
 };
 
-export default function ResourcesPage() {
-  const categories = [...new Set(RESOURCE_ARTICLES.map((a) => a.category))];
+// Content is admin-managed in the DB — re-render every 5 minutes so a newly
+// published article appears without a deploy.
+export const revalidate = 300;
+
+export default async function ResourcesPage() {
+  const articles = await loadResourceArticles();
+  const categories = [...new Set(articles.map((a) => a.category))];
 
   return (
     <>
@@ -30,21 +35,23 @@ export default function ResourcesPage() {
         <Section key={category}>
           <SectionHeading title={category} />
           <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
-            {RESOURCE_ARTICLES.filter((a) => a.category === category).map((article) => (
-              <Link
-                key={article.slug}
-                href={`/resources/${article.slug}`}
-                className="group rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm transition hover:border-brand-green/40 hover:shadow-md"
-              >
-                <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
-                  {article.readMinutes} min read
-                </p>
-                <h3 className="mt-2 font-heading text-lg font-semibold text-charcoal-ink group-hover:text-brand-green">
-                  {article.title}
-                </h3>
-                <p className="mt-2 text-sm text-charcoal-ink/70">{article.description}</p>
-              </Link>
-            ))}
+            {articles
+              .filter((a) => a.category === category)
+              .map((article) => (
+                <Link
+                  key={article.slug}
+                  href={`/resources/${article.slug}`}
+                  className="group rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm transition hover:border-brand-green/40 hover:shadow-md"
+                >
+                  <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
+                    {article.readMinutes} min read
+                  </p>
+                  <h3 className="mt-2 font-heading text-lg font-semibold text-charcoal-ink group-hover:text-brand-green">
+                    {article.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-charcoal-ink/70">{article.description}</p>
+                </Link>
+              ))}
           </div>
         </Section>
       ))}

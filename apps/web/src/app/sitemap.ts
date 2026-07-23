@@ -1,14 +1,14 @@
 import type { MetadataRoute } from "next";
 import { MARKETING_ROUTES, MARKETING_ROUTES_BUILT } from "@/lib/marketing/routes";
 import { absoluteUrl } from "@/lib/marketing/site";
-import { RESOURCE_ARTICLES } from "./(marketing)/_content/resources";
+import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 /**
  * Marketing sitemap: only the public pages that are actually built. Platform
  * (app.*) routes are intentionally excluded — they live behind auth and are
  * disallowed in robots.ts.
  */
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = new Date();
 
   // Priority/frequency tuned to how the site is navigated: home + core
@@ -32,7 +32,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }));
 
   // Individual resource articles — the SEO surface the hub exists for.
-  const articles: MetadataRoute.Sitemap = RESOURCE_ARTICLES.map((article) => ({
+  // Admin-published (DB) articles included; falls back to the static seed set.
+  const resourceArticles = await loadResourceArticles();
+  const articles: MetadataRoute.Sitemap = resourceArticles.map((article) => ({
     url: absoluteUrl(`/resources/${article.slug}`),
     lastModified,
     changeFrequency: "monthly",

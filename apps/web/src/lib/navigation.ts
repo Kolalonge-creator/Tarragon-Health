@@ -129,6 +129,7 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Subscriptions", href: "/admin/settings/subscriptions", icon: "billing" },
             { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
+            { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
           ],
         },
       ];

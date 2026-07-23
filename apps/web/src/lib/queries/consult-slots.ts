@@ -8,11 +8,89 @@ export type ConsultSlotWithClinician = ConsultSlot & {
   clinician: { full_name: string | null } | null;
 };
 
+export type VideoVisitRequest = Tables<"video_visit_requests">;
+
+export type VideoVisitRequestWithPatient = VideoVisitRequest & {
+  patient: { full_name: string | null; patient_number: string | null } | null;
+  slot: { slot_start: string } | null;
+};
+
 export const consultSlotKeys = {
   open: ["consult-slots", "open"] as const,
   mine: ["consult-slots", "mine"] as const,
   upcoming: (patientId: string) => ["consult-slots", "upcoming", patientId] as const,
+  price: ["video-visit-price"] as const,
+  myRequests: (patientId: string) => ["video-visit-requests", "mine", patientId] as const,
+  orgRequests: ["video-visit-requests", "org"] as const,
 };
+
+/** The price a video visit costs the caller (org override, else platform default). */
+export function useVideoVisitPrice() {
+  return useQuery({
+    queryKey: consultSlotKeys.price,
+    queryFn: async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", user.id)
+        .single();
+      const { data, error } = await supabase
+        .from("video_visit_prices")
+        .select("organisation_id, amount_minor, currency, is_enabled")
+        .eq("is_enabled", true);
+      if (error) throw error;
+      const rows = data ?? [];
+      // Caller's own org override wins over the platform default; other orgs'
+      // overrides are ignored (the DB pin trigger applies the same rule).
+      const override = rows.find(
+        (r) => r.organisation_id !== null && r.organisation_id === profile?.organisation_id
+      );
+      return override ?? rows.find((r) => r.organisation_id === null) ?? null;
+    },
+  });
+}
+
+/** The patient's own video-visit requests, newest first. */
+export function useMyVideoVisitRequests(patientId: string) {
+  return useQuery({
+    queryKey: consultSlotKeys.myRequests(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("video_visit_requests")
+        .select("*, slot:consult_availability_slots!video_visit_requests_slot_id_fkey(slot_start)")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data as (VideoVisitRequest & { slot: { slot_start: string } | null })[];
+    },
+  });
+}
+
+/** Doctor-side: paid requests waiting for acceptance (the held-payment queue). */
+export function useOrgVideoVisitRequests() {
+  return useQuery({
+    queryKey: consultSlotKeys.orgRequests,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("video_visit_requests")
+        .select(
+          "*, patient:profiles!video_visit_requests_patient_id_fkey(full_name, patient_number), slot:consult_availability_slots!video_visit_requests_slot_id_fkey(slot_start)"
+        )
+        .eq("status", "payment_confirmed")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as VideoVisitRequestWithPatient[];
+    },
+  });
+}
 
 /**
  * Open, future slots in the caller's org — the patient-facing scheduling
