@@ -57,9 +57,12 @@ export default function MarketingHomePage() {
               <Link href="/signup">Start monitoring</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/signup">Join the 90-Day Health Reset</Link>
+              <Link href="/signup">Start preventing</Link>
             </Button>
           </div>
+          <p className="mt-3 text-sm text-charcoal-ink/55">
+            Same signup either way — we build the right calendar around you once you&apos;re in.
+          </p>
         </MarketingHero>
         <ContinuityPath />
       </Section>
