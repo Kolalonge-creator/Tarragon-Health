@@ -9,7 +9,14 @@ import { MARKETING_MEDIA } from "../_content/media";
 import type { ProductPageContent } from "../_content/products";
 import { PRICING_HREF } from "../_content/products";
 
-export function ProductPageTemplate({ content }: { content: ProductPageContent }) {
+export function ProductPageTemplate({
+  content,
+  children,
+}: {
+  content: ProductPageContent;
+  /** Optional page-specific sections, rendered after "How it works". */
+  children?: React.ReactNode;
+}) {
   const heroMedia =
     MARKETING_MEDIA.productHero[content.slug as keyof typeof MARKETING_MEDIA.productHero] ?? {
       illustration: "connected-care" as const,
@@ -90,6 +97,8 @@ export function ProductPageTemplate({ content }: { content: ProductPageContent }
           <MarketingMediaFrame media={heroMedia} className="lg:sticky lg:top-24" />
         </div>
       </Section>
+
+      {children}
 
       <Section>
         <EmergencyNotice />

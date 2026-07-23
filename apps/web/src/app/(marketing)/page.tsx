@@ -11,7 +11,8 @@ import { StoryPanel } from "./_components/story-panel";
 import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { MARKETING_MEDIA } from "./_content/media";
-import { PREVENTION_CALLOUT, PROOF_STATS, WHAT_YOU_GET } from "./_content/services";
+import { ServiceCardLink } from "./_components/service-card";
+import { PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS, WHAT_YOU_GET } from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
@@ -47,8 +48,9 @@ export default function MarketingHomePage() {
             Health monitoring for chronic disease, prevention, and care coordination.
           </p>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Track blood pressure, blood sugar, medication, lab checks, and preventive health needs
-            in one secure platform, with clinical review and escalation when closer care is needed.
+            Track blood pressure, blood sugar, weight, medication, lab checks, and preventive
+            health needs in one secure platform, with clinical review and escalation when closer
+            care is needed.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
@@ -99,6 +101,29 @@ export default function MarketingHomePage() {
             <Link href={MARKETING_ROUTES.about}>About Tarragon</Link>
           </Button>
         </div>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow="Chronic care programmes"
+          title="Hypertension, diabetes, and obesity, managed with follow-up"
+          description="Three conditions drive most preventable emergencies in Nigeria. Tarragon runs a structured, doctor-reviewed programme for each, on one shared record, so related conditions are watched together, not separately."
+        />
+        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-3">
+          {SERVICE_CARDS.filter((card) =>
+            ["hypertension", "diabetes", "obesity"].includes(card.key)
+          ).map((service) => (
+            <ServiceCardLink key={service.key} service={service} />
+          ))}
+        </div>
+        <p className="mt-8 text-center">
+          <Link
+            href={MARKETING_ROUTES.chronicCare}
+            className="text-sm font-medium text-deep-forest hover:underline"
+          >
+            How chronic care works at Tarragon →
+          </Link>
+        </p>
       </Section>
 
       <Section variant="sage">

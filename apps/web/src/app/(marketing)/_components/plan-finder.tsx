@@ -84,19 +84,19 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
       : {
           plan: "Essential Care",
           price: "₦8,000/month",
-          why: "Real clinical monitoring for one condition: a doctor reviews your readings every month and follows up on your medication.",
+          why: "Real clinical monitoring for one condition — hypertension, diabetes, or obesity: a doctor reviews your readings every month and follows up on your medication.",
         };
   }
   return from === "abroad"
     ? {
         plan: "Complete Care (Diaspora)",
         price: "£29/month",
-        why: "Weekly doctor review and support for multiple conditions on one care plan, billed in pounds.",
+        why: "Weekly doctor review, with hypertension, diabetes, and obesity managed together on one care plan, billed in pounds.",
       }
     : {
         plan: "Complete Care",
         price: "₦15,000/month",
-        why: "Weekly doctor review, multiple conditions on one care plan, and priority escalation when something needs attention.",
+        why: "Weekly doctor review, with hypertension, diabetes, and obesity managed together on one care plan, and priority escalation when something needs attention.",
       };
 }
 
@@ -119,8 +119,8 @@ const QUESTIONS: {
     label: "What best describes the health situation?",
     options: [
       { value: "none", label: "No diagnosed condition — staying ahead" },
-      { value: "one", label: "One condition (e.g. blood pressure or sugar)" },
-      { value: "multiple", label: "More than one condition, or higher risk" },
+      { value: "one", label: "One condition: hypertension, diabetes, or obesity" },
+      { value: "multiple", label: "More than one of these, or higher risk" },
     ],
   },
   {

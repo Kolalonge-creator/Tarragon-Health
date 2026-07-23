@@ -21,7 +21,7 @@ const CHRONIC_CARDS = SERVICE_CARDS.filter((card) =>
 const HOW = [
   {
     title: "Consistent monitoring",
-    body: "Log blood pressure, blood sugar, and medication through the app or web, all on one longitudinal record.",
+    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, all on one longitudinal record.",
   },
   {
     title: "Doctor review",
@@ -42,7 +42,7 @@ export default function ChronicCarePage() {
           title="Steady, followed-up care for long-term conditions"
           description="Chronic disease isn't managed in the clinic, it's managed in the days between visits. Tarragon keeps watch on your readings, medication, and labs, and acts when something changes."
         />
-        <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
+        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {CHRONIC_CARDS.map((service) => (
             <ServiceCardLink key={service.key} service={service} />
           ))}

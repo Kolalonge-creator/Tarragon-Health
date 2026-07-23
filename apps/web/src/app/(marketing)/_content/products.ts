@@ -149,7 +149,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Find care gaps early and know what checks may be due.",
     campaignLine: "The best emergency is the one you prevent.",
     intro:
-      "Preventive health is one of Tarragon's four priority programmes, not an optional extra. We track overdue screenings, remind you what checks are due, review results when they return, and connect abnormal findings into chronic care follow-up on the same health record.",
+      "Preventive health is one of Tarragon's five priority programmes, not an optional extra. We track overdue screenings, remind you what checks are due, review results when they return, and connect abnormal findings into chronic care follow-up on the same health record.",
     included: [
       "Preventive screening calendar and care-gap tracking",
       "Reminders for cancer, metabolic, infectious, and reproductive checks",

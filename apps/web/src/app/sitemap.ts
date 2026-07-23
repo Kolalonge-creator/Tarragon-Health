@@ -20,6 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     prevention: 0.8,
     careCoordination: 0.8,
     whoItsFor: 0.7,
+    forYou: 0.7,
     about: 0.7,
   };
 
