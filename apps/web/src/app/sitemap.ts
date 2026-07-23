@@ -19,8 +19,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     chronicCare: 0.8,
     prevention: 0.8,
     annualHealthCheck: 0.7,
+    vaccinations: 0.7,
+    healthEducation: 0.6,
     careCoordination: 0.8,
     whoItsFor: 0.7,
+    forYou: 0.7,
     about: 0.7,
   };
 

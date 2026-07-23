@@ -28,6 +28,8 @@ export function MarketingIllustration({
       return <HypertensionIllustration className={shared} />;
     case "diabetes":
       return <DiabetesIllustration className={shared} />;
+    case "obesity":
+      return <ObesityIllustration className={shared} />;
     case "parentcare":
       return <ParentCareIllustration className={shared} />;
     case "prevention":
@@ -230,6 +232,43 @@ function DiabetesIllustration({ className }: IllustrationProps) {
         strokeLinejoin="round"
       />
       <circle cx="300" cy="220" r="5" className="fill-brand-green" />
+    </svg>
+  );
+}
+
+function ObesityIllustration({ className }: IllustrationProps) {
+  return (
+    <svg viewBox="0 0 480 360" className={className} fill="none" aria-hidden>
+      <rect width="480" height="360" rx="24" className="fill-soft-sage" />
+      {/* Weighing scale */}
+      <rect x="120" y="200" width="130" height="80" rx="14" className="fill-white stroke-clinical-navy/20" strokeWidth="2" />
+      <rect x="152" y="218" width="66" height="28" rx="8" className="fill-clinical-navy/10" />
+      <path
+        d="M185 228 L185 240 M178 234 L185 240 L192 234"
+        className="stroke-brand-green"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Gently improving weight trend */}
+      <rect x="280" y="150" width="150" height="100" rx="12" className="fill-white stroke-brand-green/25" strokeWidth="2" />
+      <text x="298" y="180" className="fill-deep-forest text-[12px] font-semibold">
+        Weight trend
+      </text>
+      <path
+        d="M298 200 L326 208 L354 204 L382 218 L410 226"
+        className="stroke-brand-green"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="410" cy="226" r="5" className="fill-brand-green" />
+      {/* Supportive walking figure */}
+      <circle cx="90" cy="110" r="24" className="fill-brand-green/20" />
+      <path d="M60 185 Q90 148 120 185" className="stroke-brand-green" strokeWidth="3" strokeLinecap="round" />
+      <text x="140" y="316" className="fill-clinical-navy text-[14px] font-semibold">
+        Steady progress, real support
+      </text>
     </svg>
   );
 }
