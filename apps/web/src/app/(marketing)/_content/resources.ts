@@ -24,6 +24,18 @@ export type ResourceArticle = {
   relatedHref: string;
   relatedLabel: string;
   sections: { heading: string; paragraphs: string[] }[];
+  // Null until an admin genuinely records a real clinician's review of THIS
+  // article (library-level quality credit, same discipline as
+  // health_education_content.reviewed_by_name/reviewed_at — not the
+  // per-patient case-review ReviewedByDoctor component). The article page
+  // must only render the byline when both are set.
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
+  // ISO timestamps for JSON-LD + a truthful sitemap lastModified. The static
+  // seed library has no real DB row, so these stay undefined for it — the
+  // sitemap falls back to a fixed date rather than claiming "changed today".
+  publishedAt?: string;
+  updatedAt?: string;
 };
 
 export const RESOURCE_DISCLAIMER =

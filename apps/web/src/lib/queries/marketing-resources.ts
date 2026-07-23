@@ -20,6 +20,12 @@ export type ResourceUpsertInput = {
   sections: ResourceSectionInput[];
   isPublished: boolean;
   sortOrder: number;
+  // Library-level review credit (same discipline as
+  // health_education_content.reviewed_by_name/reviewed_at) — both null
+  // unless an admin genuinely records that a named clinician read this
+  // specific article. Never auto-filled from the acting admin's own name.
+  reviewedByName: string | null;
+  reviewedAt: string | null;
 };
 
 /** Admin view of the whole library, drafts included (RLS: admins see all). */
@@ -60,6 +66,8 @@ export function useUpsertMarketingResource() {
         is_published: input.isPublished,
         sort_order: input.sortOrder,
         updated_by: user?.id ?? null,
+        reviewed_by_name: input.reviewedByName,
+        reviewed_at: input.reviewedAt,
       };
       const { error } = input.id
         ? await supabase.from("marketing_resources").update(row).eq("id", input.id)

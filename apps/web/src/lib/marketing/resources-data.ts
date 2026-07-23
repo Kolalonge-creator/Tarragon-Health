@@ -23,7 +23,14 @@ type ResourceRow = {
   related_href: string | null;
   related_label: string | null;
   sections: unknown;
+  reviewed_by_name: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
+
+const RESOURCE_ROW_COLUMNS =
+  "slug, title, description, category, read_minutes, related_href, related_label, sections, reviewed_by_name, reviewed_at, created_at, updated_at" as const;
 
 function anonClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -52,6 +59,10 @@ function toArticle(row: ResourceRow): ResourceArticle {
     relatedHref: row.related_href ?? "/services",
     relatedLabel: row.related_label ?? "How Tarragon works",
     sections,
+    reviewedByName: row.reviewed_by_name,
+    reviewedAt: row.reviewed_at,
+    publishedAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -60,7 +71,7 @@ export async function loadResourceArticles(): Promise<ResourceArticle[]> {
   if (!client) return STATIC_FALLBACK;
   const { data, error } = await client
     .from("marketing_resources")
-    .select("slug, title, description, category, read_minutes, related_href, related_label, sections")
+    .select(RESOURCE_ROW_COLUMNS)
     .eq("is_published", true)
     .order("sort_order", { ascending: true });
   if (error || !data || data.length === 0) return STATIC_FALLBACK;
@@ -72,7 +83,7 @@ export async function loadResourceArticle(slug: string): Promise<ResourceArticle
   if (!client) return STATIC_FALLBACK.find((a) => a.slug === slug) ?? null;
   const { data, error } = await client
     .from("marketing_resources")
-    .select("slug, title, description, category, read_minutes, related_href, related_label, sections")
+    .select(RESOURCE_ROW_COLUMNS)
     .eq("is_published", true)
     .eq("slug", slug)
     .maybeSingle();

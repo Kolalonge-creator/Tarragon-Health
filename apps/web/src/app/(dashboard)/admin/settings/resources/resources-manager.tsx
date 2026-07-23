@@ -28,6 +28,8 @@ type Draft = {
   relatedLabel: string;
   body: string;
   sortOrder: string;
+  reviewedByName: string;
+  reviewedAt: string;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -40,6 +42,8 @@ const EMPTY_DRAFT: Draft = {
   relatedLabel: "How Tarragon works",
   body: "## First section heading\n\nFirst paragraph…",
   sortOrder: "100",
+  reviewedByName: "",
+  reviewedAt: "",
 };
 
 function Editor({
@@ -82,6 +86,11 @@ function Editor({
         sections,
         isPublished: publish,
         sortOrder: Number(draft.sortOrder) || 100,
+        reviewedByName: draft.reviewedByName.trim() || null,
+        // Setting a name without a date (or vice versa) would half-render
+        // the byline, so both travel together — checking the box stamps
+        // "now"; clearing the name clears the date too.
+        reviewedAt: draft.reviewedByName.trim() ? draft.reviewedAt || new Date().toISOString() : null,
       },
       { onSuccess: onClose }
     );
@@ -152,6 +161,18 @@ function Editor({
             placeholder="How Tarragon manages hypertension"
           />
         </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="res-reviewer">
+            Medically reviewed by (leave blank until a real clinician has actually read this
+            article — the byline and search-engine review signal only appear once this is set)
+          </Label>
+          <Input
+            id="res-reviewer"
+            value={draft.reviewedByName}
+            onChange={(e) => setDraft({ ...draft, reviewedByName: e.target.value })}
+            placeholder="e.g. Dr Jane Okafor, MDCN 12345"
+          />
+        </div>
       </div>
       <div className="space-y-1">
         <Label htmlFor="res-body">
@@ -210,6 +231,8 @@ export function ResourcesManager() {
       relatedLabel: r.related_label ?? "",
       body: sectionsToText(r.sections),
       sortOrder: String(r.sort_order),
+      reviewedByName: r.reviewed_by_name ?? "",
+      reviewedAt: r.reviewed_at ?? "",
     });
 
   return (
@@ -246,6 +269,7 @@ export function ResourcesManager() {
                   <Badge variant={r.is_published ? "green" : "grey"}>
                     {r.is_published ? "Published" : "Draft"}
                   </Badge>
+                  {r.reviewed_by_name && <Badge variant="green">Reviewed</Badge>}
                   <Button size="sm" variant="outline" onClick={() => startEdit(r)}>
                     Edit
                   </Button>

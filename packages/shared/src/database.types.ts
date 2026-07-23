@@ -4613,6 +4613,8 @@ export type Database = {
           read_minutes: number
           related_href: string | null
           related_label: string | null
+          reviewed_at: string | null
+          reviewed_by_name: string | null
           sections: Json
           slug: string
           sort_order: number
@@ -4629,6 +4631,8 @@ export type Database = {
           read_minutes?: number
           related_href?: string | null
           related_label?: string | null
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
           sections?: Json
           slug: string
           sort_order?: number
@@ -4645,6 +4649,8 @@ export type Database = {
           read_minutes?: number
           related_href?: string | null
           related_label?: string | null
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
           sections?: Json
           slug?: string
           sort_order?: number

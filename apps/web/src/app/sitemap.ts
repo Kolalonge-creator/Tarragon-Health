@@ -33,10 +33,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Individual resource articles — the SEO surface the hub exists for.
   // Admin-published (DB) articles included; falls back to the static seed set.
+  // Uses each row's real updated_at where available — claiming "changed
+  // today" on every crawl (the old `new Date()` default) trains crawlers to
+  // distrust the signal.
   const resourceArticles = await loadResourceArticles();
   const articles: MetadataRoute.Sitemap = resourceArticles.map((article) => ({
     url: absoluteUrl(`/resources/${article.slug}`),
-    lastModified,
+    lastModified: article.updatedAt ? new Date(article.updatedAt) : lastModified,
     changeFrequency: "monthly",
     priority: 0.5,
   }));
