@@ -146,35 +146,36 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
   },
   prevention: {
     slug: "prevention",
-    headline: "Find care gaps early and know what checks may be due.",
+    headline: "Healthy today? Let's keep it that way.",
     campaignLine: "The best emergency is the one you prevent.",
     intro:
-      "Preventive health is one of Tarragon's five priority programmes, not an optional extra. We track overdue screenings, remind you what checks are due, review results when they return, and connect abnormal findings into chronic care follow-up on the same health record.",
+      "You don't need a diagnosis to use Tarragon — prevention is one of our five priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up the same day — years earlier than it would otherwise have been caught.",
     included: [
-      "Preventive screening calendar and care-gap tracking",
-      "Reminders for cancer, metabolic, infectious, and reproductive checks",
-      "Lab coordination when tests are due",
-      "Doctor review when results need attention",
-      "Upgrade path into chronic disease monitoring when follow-up is needed",
+      "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
+      "Vaccination schedule, booking, and doctor-verified certificates",
+      "The Annual Health Check (₦65,000): full-body screening, bookable by anyone on any plan",
+      "Personalised health education with short knowledge checks",
+      "Doctor follow-up the same day on any result that needs attention",
+      "A seamless path into chronic care monitoring in the rare case follow-up is needed — same record, no starting over",
     ],
     howItWorks: [
       {
         title: "Know what's due",
-        body: "See which preventive checks are overdue or coming up, based on your age, history, and risk profile.",
+        body: "Two minutes on your health profile builds your personal calendar: which checks and vaccines matter for you, and when.",
       },
       {
         title: "Complete and track",
-        body: "Book labs through Tarragon's partner network and log results in one record; no more lost reports.",
+        body: "Book screenings at partner labs near you, see exact prices before you confirm, and keep every result in one record; no more lost reports.",
       },
       {
-        title: "Close the loop",
-        body: "When a result needs attention, your care team follows up immediately and connects you to chronic care if needed.",
+        title: "Stay confidently well",
+        body: "Most results confirm you're on track. When one doesn't, your care team follows up immediately — and because it's caught early, your options are better and cheaper.",
       },
     ],
     metadata: {
       title: "Preventive Health",
       description:
-        "Find care gaps early, complete overdue screenings, and get doctor follow-up when results need attention, on the same record as chronic care.",
+        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and education — with doctor follow-up the same day if a result needs attention.",
     },
   },
   medication: {

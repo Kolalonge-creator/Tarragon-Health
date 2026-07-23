@@ -1,10 +1,13 @@
-/** Signature continuity visual, echoes Guard Leaf checkmark vein (docs/MARKETING_SITE_SPEC.md §1). */
+/** Signature continuity visual, echoes Guard Leaf checkmark vein (docs/MARKETING_SITE_SPEC.md §1).
+ * Starts at "Screening" deliberately — the loop begins before anything is
+ * wrong, so healthy visitors see themselves in it (prevention-first, 2026-07-23). */
 
 const MOMENTS = [
-  { label: "Reading", cx: 32, cy: 50 },
-  { label: "Reminder", cx: 112, cy: 32 },
-  { label: "Doctor call", cx: 208, cy: 38 },
-  { label: "Follow-up", cx: 312, cy: 40 },
+  { label: "Screening", cx: 32, cy: 46 },
+  { label: "Reading", cx: 104, cy: 38 },
+  { label: "Reminder", cx: 168, cy: 48 },
+  { label: "Doctor call", cx: 244, cy: 33 },
+  { label: "Follow-up", cx: 340, cy: 36 },
 ] as const;
 
 export function ContinuityPath() {
