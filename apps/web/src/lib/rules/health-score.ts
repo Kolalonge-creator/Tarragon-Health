@@ -32,6 +32,8 @@ export interface HealthScoreInputs {
   latestHba1cPercent: number | null;
   /** % of already-due screenings completed rather than overdue. Null if none due yet. */
   screeningCompliancePercent: number | null;
+  /** % of already-due vaccinations completed rather than overdue. Null if none due yet. */
+  vaccinationCompliancePercent: number | null;
   /** Null if height or weight is missing. */
   bmi: number | null;
   smokingStatus: "never" | "former" | "current" | null;
@@ -39,7 +41,7 @@ export interface HealthScoreInputs {
 }
 
 export interface HealthScoreComponent {
-  key: "bp_control" | "hba1c" | "screening_compliance" | "bmi" | "smoking";
+  key: "bp_control" | "hba1c" | "screening_compliance" | "vaccination" | "bmi" | "smoking";
   /** 0–100 sub-score for this component alone. */
   value: number;
   /** Weight actually used (redistributed if some components are unavailable). */
@@ -54,10 +56,16 @@ export interface ComputedHealthScore {
   components: HealthScoreComponent[];
 }
 
+// Weights are relative, not a fixed 100 — the compute normalises by the
+// total of whatever components are available. Vaccination compliance added
+// as v2 (2026-07-23, prevention-first pass): same shape as screening
+// compliance, only scored once something is actually due — never penalises
+// a patient whose schedule hasn't been generated yet.
 const BASE_WEIGHTS = {
   bp_control: 25,
   hba1c: 20,
   screening_compliance: 20,
+  vaccination: 10,
   bmi: 15,
   smoking: 20,
 } as const;
@@ -125,6 +133,13 @@ export function computeHealthScore(inputs: HealthScoreInputs): ComputedHealthSco
       weight: BASE_WEIGHTS.screening_compliance,
     });
   }
+  if (inputs.vaccinationCompliancePercent !== null) {
+    available.push({
+      key: "vaccination",
+      value: inputs.vaccinationCompliancePercent,
+      weight: BASE_WEIGHTS.vaccination,
+    });
+  }
   if (inputs.bmi !== null) {
     available.push({ key: "bmi", value: bmiSubScore(inputs.bmi), weight: BASE_WEIGHTS.bmi });
   }
@@ -154,6 +169,8 @@ const COMPONENT_TIP: Record<HealthScoreComponent["key"], string> = {
     "A chat with your care team about your next HbA1c check, plus small, steady changes to diet and movement, can help bring this down over time.",
   screening_compliance:
     "You've got a screening or two waiting — booking it through your care team is the single easiest way to lift this score.",
+  vaccination:
+    "A vaccine on your schedule is still waiting — it's usually a single visit, and logging it lifts this straight to 100.",
   bmi: "Small, sustainable shifts in activity or diet tend to move this in the right direction over time — no need to rush it.",
   smoking:
     "Cutting back on smoking, even gradually, is one of the fastest ways to lift both this score and your long-term health.",

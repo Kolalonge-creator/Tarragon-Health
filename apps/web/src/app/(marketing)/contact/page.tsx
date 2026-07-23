@@ -35,7 +35,7 @@ export default async function ContactPage({
             <a href="mailto:support@tarragonhealth.ng" className="font-medium text-brand-green hover:underline">
               support@tarragonhealth.ng
             </a>{" "}
-            if you're already a patient.
+            if you&apos;re already a patient.
           </p>
         </div>
       </Section>

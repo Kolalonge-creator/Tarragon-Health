@@ -58,8 +58,9 @@ export function PreventiveScreeningCalendar({
         )}
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            No screenings scheduled yet. Your care team will schedule preventive screenings
-            based on your age, sex, and risk profile.
+            No screenings scheduled yet. Complete your health profile (the two-minute risk
+            assessment on this page) and your personal calendar builds itself from your age,
+            sex, and history — your care team can add to it from there.
           </p>
         )}
         {data && data.length > 0 && (

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MentalHealthScreenForm } from "../mental-health-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
+import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
 
 /**
  * The Health Check — Tarragon's guided preventive journey (AHC pathway §5:
@@ -76,7 +77,7 @@ export default async function HealthCheckPage() {
       done: (riskCount ?? 0) > 0,
       doneLabel: "Completed",
       toDoLabel: "Tell us your history and lifestyle",
-      href: "/patient#risk-assessment",
+      href: "/patient/prevention#risk-assessment",
     },
     {
       title: "2. Mental wellbeing",
@@ -97,14 +98,14 @@ export default async function HealthCheckPage() {
       done: (screeningsDue ?? 0) === 0,
       doneLabel: "Up to date",
       toDoLabel: `${screeningsDue ?? 0} screening${(screeningsDue ?? 0) === 1 ? "" : "s"} due — book now`,
-      href: "/patient#screenings",
+      href: "/patient/prevention#screenings",
     },
     {
       title: "5. Immunisations",
       done: false,
       doneLabel: "",
       toDoLabel: "Review the vaccines you're due",
-      href: "/patient#vaccinations",
+      href: "/patient/prevention#vaccinations",
       neutral: true as const,
     },
   ];
@@ -147,6 +148,15 @@ export default async function HealthCheckPage() {
         </CardContent>
       </Card>
 
+      {/* The one-off lab bundle that powers stage 4 — bookable here directly,
+          on any plan (the self_bookable exception, migration 20260723150205). */}
+      <AnnualHealthCheckBooking
+        patientId={profile.id}
+        organisationId={profile.organisation_id}
+        patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
+        sex={profile.sex}
+      />
+
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>
         <CardHeader>
@@ -164,6 +174,14 @@ export default async function HealthCheckPage() {
                 })}
               </p>
               {check.review_summary && <p className="text-charcoal-ink/70">{check.review_summary}</p>}
+              <p>
+                <a
+                  href="/api/patient/health-check/report"
+                  className="text-brand-green hover:underline"
+                >
+                  Download your Health Check report (PDF) →
+                </a>
+              </p>
             </>
           ) : (
             <p className="text-charcoal-ink/60">
