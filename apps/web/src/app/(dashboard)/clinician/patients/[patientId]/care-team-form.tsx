@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useOrgClinicians, useAssignCareTeam } from "@/lib/queries/clinical-staff";
+import {
+  useOrgClinicians,
+  useOrgCareCoordinators,
+  useAssignCareTeam,
+} from "@/lib/queries/clinical-staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -15,8 +19,10 @@ export function CareTeamForm({
   organisationId: string;
 }) {
   const { data: clinicians, isLoading } = useOrgClinicians();
+  const { data: coordinators } = useOrgCareCoordinators();
   const assignCareTeam = useAssignCareTeam();
   const [clinicianProfileId, setClinicianProfileId] = useState("");
+  const [careCoordinatorId, setCareCoordinatorId] = useState("");
 
   const assignable = (clinicians ?? []).filter((c) => c.profile_id !== null);
 
@@ -54,6 +60,23 @@ export function CareTeamForm({
             </Select>
           </div>
         )}
+        {(coordinators ?? []).length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="coordinator">Care coordinator (optional)</Label>
+            <Select
+              id="coordinator"
+              value={careCoordinatorId}
+              onChange={(e) => setCareCoordinatorId(e.target.value)}
+            >
+              <option value="">No coordinator</option>
+              {(coordinators ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name ?? "Coordinator"}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         {assignCareTeam.isError && (
           <p className="text-sm text-red-600">Could not save. Try again.</p>
         )}
@@ -63,7 +86,12 @@ export function CareTeamForm({
         <Button
           disabled={!clinicianProfileId || assignCareTeam.isPending}
           onClick={() =>
-            assignCareTeam.mutate({ patientId, organisationId, clinicianProfileId })
+            assignCareTeam.mutate({
+              patientId,
+              organisationId,
+              clinicianProfileId,
+              careCoordinatorId: careCoordinatorId || null,
+            })
           }
         >
           {assignCareTeam.isPending ? "Saving…" : "Assign"}

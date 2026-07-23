@@ -260,6 +260,57 @@ const TEMPLATE_MAP: Record<
         `touch — open the app to see details. — Tarragon Health`,
     };
   },
+  // Proactive-outreach nudge (see private.queue_care_outreach). One aggregated,
+  // warm check-in per patient when the nightly engine surfaces them from risk
+  // scores/care gaps. Reminder only — everything happens in the app; the
+  // coordinator worklist is the acting side of this loop.
+  care_outreach_checkin: () => {
+    return {
+      metaTemplateName: "care_outreach_checkin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText:
+        "Hi, your recent health record suggests a quick check-in would help. Open the " +
+        "Tarragon Health app to see what's due — booking takes a minute. — Tarragon Health",
+    };
+  },
+  // Sent when a doctor answers the patient's ask-a-doctor consult (see
+  // answerAsyncConsult). Notification only — the answer itself lives in-app.
+  async_consult_answered: () => {
+    return {
+      metaTemplateName: "async_consult_answered",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText:
+        "A doctor has answered your question. Open the Tarragon Health app to read it. " +
+        "— Tarragon Health",
+    };
+  },
+  // Sent after a patient self-books a video check-in slot (bookVideoVisit).
+  // Confirmation only — the join link lives in the app.
+  video_consult_booked: (payload) => {
+    const raw = String(payload.scheduled_at ?? "");
+    const when = (() => {
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime())
+        ? "the agreed time"
+        : d.toLocaleString("en-NG", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: "Africa/Lagos",
+          });
+    })();
+    return {
+      metaTemplateName: "video_consult_booked",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: when }] },
+      ],
+      smsText:
+        `Your video check-in with your Tarragon doctor is booked for ${when}. ` +
+        `The join link is in the app. — Tarragon Health`,
+    };
+  },
   // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
   // subject + body chosen by an admin, fanned out to a resolved audience. Email
   // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement

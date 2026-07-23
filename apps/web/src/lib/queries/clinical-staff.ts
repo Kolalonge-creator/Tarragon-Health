@@ -359,12 +359,36 @@ export function useOrgClinicians() {
 }
 
 /**
+ * Care Coordinator accounts in the caller's org — populates the optional
+ * coordinator select on the care-team form. Coordinators are profiles
+ * (role = care_coordinator), not clinical_staff: they're employed non-clinical
+ * staff, so they carry no tier/credential record. Staff can read these rows
+ * via profiles' is_org_staff SELECT arm.
+ */
+export function useOrgCareCoordinators() {
+  return useQuery({
+    queryKey: ["clinical-staff", "care-coordinators"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("role", "care_coordinator")
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+/**
  * Assigns (or reassigns) a patient's care team: the chosen clinician plus
  * whichever clinical_staff row is the org's active Clinical Director — the
  * caller never picks the director directly, since per
  * CLINICAL_TRUST_MODEL_SPEC.md §1 that's a single named role supervising
- * protocols org-wide, not a per-patient choice. One row per patient
- * (upsert on patient_id), assigned_at always reset to now().
+ * protocols org-wide, not a per-patient choice. The Care Coordinator is an
+ * optional third member (logistics-only, Maven "Care Advocate" surface). One
+ * row per patient (upsert on patient_id), assigned_at always reset to now().
  */
 export function useAssignCareTeam() {
   const queryClient = useQueryClient();
@@ -373,10 +397,12 @@ export function useAssignCareTeam() {
       patientId,
       organisationId,
       clinicianProfileId,
+      careCoordinatorId,
     }: {
       patientId: string;
       organisationId: string;
       clinicianProfileId: string;
+      careCoordinatorId?: string | null;
     }) => {
       const supabase = createClient();
 
@@ -395,6 +421,7 @@ export function useAssignCareTeam() {
           patient_id: patientId,
           clinician_id: clinicianProfileId,
           clinical_director_id: director?.profile_id ?? null,
+          care_coordinator_id: careCoordinatorId ?? null,
           assigned_at: new Date().toISOString(),
         },
         { onConflict: "patient_id" }

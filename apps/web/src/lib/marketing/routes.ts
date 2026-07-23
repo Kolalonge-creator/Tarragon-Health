@@ -18,6 +18,7 @@ export const MARKETING_ROUTES = {
   faq: "/faq",
   corporate: "/corporate",
   hmo: "/hmo",
+  resources: "/resources",
   contact: "/contact",
 } as const;
 
@@ -42,6 +43,7 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "faq",
   "corporate",
   "hmo",
+  "resources",
   "contact",
 ];
 

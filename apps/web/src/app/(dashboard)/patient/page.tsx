@@ -17,6 +17,9 @@ import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SectionNav } from "@/components/shell/section-nav";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { getPatientSummaryStats } from "./summary";
+import { NextBestAction } from "./next-best-action";
+import { AskADoctor } from "./ask-a-doctor";
+import { BookVideoVisit } from "./book-video-visit";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
 import { SymptomLogForm } from "./symptom-log-form";
@@ -103,6 +106,7 @@ export default async function PatientPage() {
         description="Today at a glance — your numbers, your care team, and recent activity."
         icon={NAV_ICON.dashboard}
       >
+        <NextBestAction patientId={profile.id} />
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatTile
             icon={SEMANTIC_ICON.bp}
@@ -256,6 +260,15 @@ export default async function PatientPage() {
           fallback={<UpgradePrompt feature="clinician_review" />}
         >
           <CarePlanDisplay patientId={profile.id} />
+        </RequiresEntitlement>
+        <RequiresEntitlement
+          feature="async_doctor_visit"
+          fallback={<UpgradePrompt feature="async_doctor_visit" />}
+        >
+          <AskADoctor patientId={profile.id} organisationId={profile.organisation_id} />
+        </RequiresEntitlement>
+        <RequiresEntitlement feature="doctor_checkin" fallback={null}>
+          <BookVideoVisit patientId={profile.id} />
         </RequiresEntitlement>
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />

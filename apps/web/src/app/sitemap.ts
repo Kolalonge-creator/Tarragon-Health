@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { MARKETING_ROUTES, MARKETING_ROUTES_BUILT } from "@/lib/marketing/routes";
 import { absoluteUrl } from "@/lib/marketing/site";
+import { RESOURCE_ARTICLES } from "./(marketing)/_content/resources";
 
 /**
  * Marketing sitemap: only the public pages that are actually built. Platform
@@ -23,10 +24,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     about: 0.7,
   };
 
-  return MARKETING_ROUTES_BUILT.map((key) => ({
+  const pages: MetadataRoute.Sitemap = MARKETING_ROUTES_BUILT.map((key) => ({
     url: absoluteUrl(MARKETING_ROUTES[key]),
     lastModified,
     changeFrequency: key === "home" ? "weekly" : "monthly",
     priority: priorityByKey[key] ?? 0.6,
   }));
+
+  // Individual resource articles — the SEO surface the hub exists for.
+  const articles: MetadataRoute.Sitemap = RESOURCE_ARTICLES.map((article) => ({
+    url: absoluteUrl(`/resources/${article.slug}`),
+    lastModified,
+    changeFrequency: "monthly",
+    priority: 0.5,
+  }));
+
+  return [...pages, ...articles];
 }
