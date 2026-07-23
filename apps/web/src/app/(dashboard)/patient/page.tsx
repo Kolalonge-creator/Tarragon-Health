@@ -286,6 +286,8 @@ export default async function PatientPage() {
         <VaccinationRegistry
           patientId={profile.id}
           ageYears={ageFromDateOfBirth(profile.date_of_birth)}
+          dateOfBirth={profile.date_of_birth}
+          sex={profile.sex}
         />
         <VaccinationBooking
           patientId={profile.id}

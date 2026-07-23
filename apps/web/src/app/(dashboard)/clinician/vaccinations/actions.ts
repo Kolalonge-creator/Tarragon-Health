@@ -111,7 +111,7 @@ async function issueCertificateSideEffects(
 
     const { data: patient } = await service
       .from("profiles")
-      .select("full_name, date_of_birth")
+      .select("full_name, date_of_birth, sex")
       .eq("id", patientId)
       .maybeSingle();
 
@@ -121,6 +121,8 @@ async function issueCertificateSideEffects(
       patientId,
       organisationId,
       ageYears: ageFromDateOfBirth(patient?.date_of_birth ?? null),
+      dateOfBirth: patient?.date_of_birth ?? null,
+      sex: patient?.sex ?? null,
     });
 
     const { data: record } = await service

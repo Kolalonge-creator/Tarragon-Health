@@ -32,8 +32,10 @@ export async function generateVaccinationScheduleBestEffort(params: {
   patientId: string;
   organisationId: string;
   ageYears: number | null;
+  dateOfBirth?: string | null;
+  sex?: string | null;
 }): Promise<void> {
-  const { patientId, organisationId, ageYears } = params;
+  const { patientId, organisationId, ageYears, dateOfBirth, sex } = params;
   try {
     const supabase = createServiceRoleClient();
 
@@ -57,7 +59,7 @@ export async function generateVaccinationScheduleBestEffort(params: {
     const statuses = computeVaccinationStatuses(
       catalog as VaccinationCatalogRow[],
       (records ?? []) as VaccinationRecordRow[],
-      { ageYears }
+      { ageYears, dateOfBirth: dateOfBirth ?? null, sex: sex ?? null }
     );
 
     // Active (pending/booked) schedule per vaccine — at most one per the

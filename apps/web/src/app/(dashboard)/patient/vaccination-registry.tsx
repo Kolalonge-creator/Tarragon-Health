@@ -154,9 +154,13 @@ function VaccinationRecordRow({
 export function VaccinationRegistry({
   patientId,
   ageYears,
+  dateOfBirth,
+  sex,
 }: {
   patientId: string;
   ageYears: number | null;
+  dateOfBirth?: string | null;
+  sex?: string | null;
 }) {
   const catalog = useVaccinationCatalog();
   const records = useVaccinationRecords(patientId);
@@ -169,8 +173,12 @@ export function VaccinationRegistry({
 
   const statuses = useMemo(() => {
     if (!catalog.data || !records.data) return [];
-    return computeVaccinationStatuses(catalog.data, records.data, { ageYears });
-  }, [catalog.data, records.data, ageYears]);
+    return computeVaccinationStatuses(catalog.data, records.data, {
+      ageYears,
+      dateOfBirth: dateOfBirth ?? null,
+      sex: sex ?? null,
+    });
+  }, [catalog.data, records.data, ageYears, dateOfBirth, sex]);
 
   // Newest doses first for the certificate/verification list.
   const sortedRecords = useMemo(

@@ -15,6 +15,12 @@ import type { Tables } from "@tarragon/shared";
  *   - { doses }                 a fixed dose count, no age gate (e.g. yellow fever)
  *   - { max_catch_up_age }      single dose, eligible only up to that age (e.g. HPV)
  *   - { min_age }               single dose, eligible only from that age (e.g. shingles)
+ *   - { age_schedule_weeks }    DOB-anchored series (NPHCDA childhood schedule:
+ *                               BCG at 0w, penta at 6/10/14w, measles at 39w…),
+ *                               optionally windowed by max_age_years
+ * Any shape may additionally carry { sex: 'male'|'female' } to restrict
+ * applicability (e.g. HPV for girls) — unknown/unset patient sex is treated
+ * as applicable rather than silently hiding a vaccine.
  */
 
 export type VaccinationCatalogRow = Pick<
@@ -29,6 +35,9 @@ export type VaccinationRecordRow = Pick<
 
 export interface VaccinationProfile {
   ageYears: number | null;
+  /** ISO date; required for the DOB-anchored age_schedule_weeks shape. */
+  dateOfBirth?: string | null;
+  sex?: string | null;
 }
 
 export type VaccinationStatus = "not_yet_due" | "due" | "overdue" | "up_to_date" | "not_applicable";
@@ -50,6 +59,9 @@ interface RecommendedAgeShape {
   doses?: number;
   max_catch_up_age?: number;
   min_age?: number;
+  age_schedule_weeks?: number[];
+  max_age_years?: number;
+  sex?: string;
 }
 
 function parseRecommendedAge(value: unknown): RecommendedAgeShape {
@@ -72,6 +84,12 @@ function addMonths(isoDate: string, months: number): string {
 
 function addYears(isoDate: string, years: number): string {
   return addMonths(isoDate, years * 12);
+}
+
+function addWeeks(isoDate: string, weeks: number): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + weeks * 7);
+  return date.toISOString().slice(0, 10);
 }
 
 function todayISODate(today: Date): string {
@@ -100,6 +118,41 @@ export function computeVaccinationStatuses(
 
     const recommendedAge = parseRecommendedAge(entry.recommended_age);
     const base = { catalogId: entry.id, code: entry.code, name: entry.name, dosesGiven, lastDoseDate };
+
+    // Sex restriction (e.g. HPV for girls): only excludes on a CONFIRMED
+    // mismatch — unknown sex stays applicable.
+    if (
+      recommendedAge.sex &&
+      profile.sex &&
+      recommendedAge.sex !== profile.sex
+    ) {
+      return { ...base, status: "not_applicable", nextDueDate: null };
+    }
+
+    // DOB-anchored childhood series (NPHCDA): each dose due at a fixed age.
+    if (recommendedAge.age_schedule_weeks !== undefined) {
+      const schedule = recommendedAge.age_schedule_weeks;
+      if (dosesGiven >= schedule.length) {
+        return { ...base, status: "up_to_date", nextDueDate: null };
+      }
+      // The window has passed — catch-up beyond it is a clinical decision,
+      // not an automatic "overdue" on every adult's card.
+      if (
+        recommendedAge.max_age_years !== undefined &&
+        profile.ageYears !== null &&
+        profile.ageYears > recommendedAge.max_age_years
+      ) {
+        return { ...base, status: "not_applicable", nextDueDate: null };
+      }
+      if (!profile.dateOfBirth) {
+        return { ...base, status: "not_yet_due", nextDueDate: null };
+      }
+      const nextDueDate = addWeeks(profile.dateOfBirth, schedule[dosesGiven]);
+      if (nextDueDate > todayISO) {
+        return { ...base, status: "not_yet_due", nextDueDate };
+      }
+      return { ...base, status: dueOrOverdue(nextDueDate, todayISO), nextDueDate };
+    }
 
     if (recommendedAge.interval_years !== undefined) {
       if (!lastDoseDate) {

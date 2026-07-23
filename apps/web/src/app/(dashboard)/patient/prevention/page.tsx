@@ -109,6 +109,8 @@ export default async function PreventionHubPage() {
         <VaccinationRegistry
           patientId={profile.id}
           ageYears={ageFromDateOfBirth(profile.date_of_birth)}
+          dateOfBirth={profile.date_of_birth}
+          sex={profile.sex}
         />
         <VaccinationBooking patientId={profile.id} patientLocation={location} />
         <LogVaccinationForm patientId={profile.id} />

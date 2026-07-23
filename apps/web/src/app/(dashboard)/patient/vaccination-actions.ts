@@ -19,7 +19,7 @@ export async function syncVaccinationScheduleAction(): Promise<void> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("organisation_id, date_of_birth")
+    .select("organisation_id, date_of_birth, sex")
     .eq("id", user.id)
     .single();
   if (!profile?.organisation_id) return;
@@ -28,5 +28,7 @@ export async function syncVaccinationScheduleAction(): Promise<void> {
     patientId: user.id,
     organisationId: profile.organisation_id,
     ageYears: ageFromDateOfBirth(profile.date_of_birth),
+    dateOfBirth: profile.date_of_birth,
+    sex: profile.sex,
   });
 }

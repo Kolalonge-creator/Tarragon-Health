@@ -471,6 +471,8 @@ export async function submitRiskAssessment(
     patientId: user.id,
     organisationId,
     ageYears,
+    dateOfBirth: profile.date_of_birth,
+    sex: profile.sex,
   });
 
   return { success: true };

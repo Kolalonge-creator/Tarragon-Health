@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { FamilyMembersManager } from "./family-members-manager";
+import { ChildVaccinesCard } from "./child-vaccines-card";
 
 /** Family Plan only — gated by public.has_feature_access('family_dashboard')
  * (granted on the 'family' plan's features[]). Defense-in-depth on top of
@@ -36,6 +37,7 @@ export default async function FamilyDashboardPage() {
         </p>
       </div>
       <FamilyMembersManager />
+      <ChildVaccinesCard />
     </div>
   );
 }
