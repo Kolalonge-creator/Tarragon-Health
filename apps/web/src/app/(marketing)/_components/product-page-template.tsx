@@ -5,7 +5,8 @@ import { MarketingMediaFrame } from "./marketing-media-frame";
 import { Section, SectionHeading } from "./section";
 import { CtaBand } from "./cta-band";
 import { EmergencyNotice } from "./emergency-notice";
-import { MARKETING_MEDIA } from "../_content/media";
+import { MarketingVideo } from "./marketing-video";
+import { MARKETING_MEDIA, PRODUCT_VIDEOS } from "../_content/media";
 import type { ProductPageContent } from "../_content/products";
 import { PRICING_HREF } from "../_content/products";
 
@@ -21,6 +22,10 @@ export function ProductPageTemplate({
     MARKETING_MEDIA.productHero[content.slug as keyof typeof MARKETING_MEDIA.productHero] ?? {
       illustration: "connected-care" as const,
     };
+  // Only render the video section once a real YouTube ID exists — a page with
+  // no video shows nothing rather than a placeholder block.
+  const video = PRODUCT_VIDEOS[content.slug];
+  const hasVideo = Boolean(video?.youtubeId.trim());
 
   return (
     <>
@@ -97,6 +102,17 @@ export function ProductPageTemplate({
           <MarketingMediaFrame media={heroMedia} className="lg:sticky lg:top-24" />
         </div>
       </Section>
+
+      {hasVideo ? (
+        <Section>
+          <MarketingVideo
+            youtubeId={video.youtubeId}
+            title={video.title}
+            caption={video.caption}
+            poster={heroMedia}
+          />
+        </Section>
+      ) : null}
 
       {children}
 

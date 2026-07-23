@@ -22,7 +22,20 @@ export function MarketingMediaFrame({
         className
       )}
     >
-      {media.imageSrc ? (
+      {media.videoSrc ? (
+        // Ambient footage: muted, looping, no controls — decorative texture
+        // beside real text content, never a player UI (Omada/Virta pattern).
+        <video
+          src={media.videoSrc}
+          poster={media.imageSrc}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden
+          className="aspect-[4/3] h-auto w-full object-cover"
+        />
+      ) : media.imageSrc ? (
         <Image
           src={media.imageSrc}
           alt={media.imageAlt ?? ""}

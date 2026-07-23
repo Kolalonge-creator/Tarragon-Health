@@ -37,7 +37,12 @@ export default function MarketingHomePage() {
           aria-hidden
           className="pointer-events-none absolute -right-16 top-10 -z-10 h-[320px] w-[320px] rounded-full bg-sprout-gold/15 blur-3xl"
         />
-        <MarketingHero media={homepage.hero} visual={<WhatsappHeroMockup />}>
+        {/* When hero footage exists (homepage.hero.videoSrc), the ambient video
+            frame takes over from the WhatsApp mockup automatically. */}
+        <MarketingHero
+          media={homepage.hero}
+          visual={homepage.hero.videoSrc ? undefined : <WhatsappHeroMockup />}
+        >
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
             Continuity, not just monitoring
           </p>
