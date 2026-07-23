@@ -226,6 +226,27 @@ export default async function AdminPage() {
       </Card>
       )}
 
+      {isSuperAdmin && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/testimonials" className="hover:underline">
+              Testimonials
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Review consented patient quotes before they appear on the marketing site.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/admin/testimonials" className="text-sm font-medium text-brand-green hover:underline">
+            Review testimonials →
+          </Link>
+        </CardContent>
+      </Card>
+      )}
+
       {can("clinical_staff.manage") && (
       <Card>
         <CardHeader>

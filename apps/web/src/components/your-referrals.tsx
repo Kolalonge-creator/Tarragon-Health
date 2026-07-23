@@ -4,6 +4,7 @@ import { Stepper } from "@/components/ui/stepper";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import type { ReferralStatus } from "@tarragon/shared";
 import { PayForReferralButton } from "./pay-for-referral-button";
+import { PayWithWalletButton } from "@/components/pay-with-wallet-button";
 
 // Patient-facing status copy — deliberately not the staff worklist labels
 // (REFERRAL_STATUS_BADGE in clinician/referrals/page.tsx), per CLAUDE.md's
@@ -70,10 +71,18 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
               </p>
             )}
             {referral.status === "pending_payment" && referral.referral_fee_kobo && (
-              <PayForReferralButton
-                referralId={referral.id}
-                feeKobo={referral.referral_fee_kobo}
-              />
+              <>
+                <PayForReferralButton
+                  referralId={referral.id}
+                  feeKobo={referral.referral_fee_kobo}
+                />
+                <PayWithWalletButton
+                  orderType="referral"
+                  orderId={referral.id}
+                  amountKobo={referral.referral_fee_kobo}
+                  patientId={patientId}
+                />
+              </>
             )}
           </div>
         ))}
