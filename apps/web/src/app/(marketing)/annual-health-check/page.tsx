@@ -6,7 +6,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
-  title: "Annual Health Check | TarragonHealth",
+  title: "Annual Health Check",
   description:
     "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex — reviewed by a doctor, at a partner lab near you. ₦65,000, available to anyone on any plan.",
   alternates: { canonical: MARKETING_ROUTES.annualHealthCheck },

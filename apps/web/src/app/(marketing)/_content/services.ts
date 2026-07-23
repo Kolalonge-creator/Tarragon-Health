@@ -129,7 +129,7 @@ export type AudienceStat = {
 };
 
 export type AudienceTab = {
-  key: "patient" | "family" | "corporate" | "hmo";
+  key: "patient" | "healthy" | "family" | "corporate" | "hmo";
   tabLabel: string;
   title: string;
   body: string;
@@ -156,6 +156,24 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Care gap", value: "", pill: { text: "1 overdue", tone: "amber" } },
     ],
     cta: null,
+  },
+  {
+    key: "healthy",
+    tabLabel: "For staying healthy",
+    title: "You don't need a diagnosis to belong here.",
+    body: "Tarragon Prevent builds a personal screening and vaccination calendar matched to your age, sex, and history, books the checks when they're due, and explains what your results mean. Most years, that's simply confirmation you're doing fine.",
+    points: [
+      "Screening and vaccination calendar, built for you",
+      "Yearly Health Check, booked in minutes",
+      "Doctor follow-up the same day, if a result ever needs it",
+    ],
+    stats: [
+      { label: "Next screening due", value: "Cervical · 4 mths" },
+      { label: "Vaccinations", value: "", pill: { text: "Up to date", tone: "green" } },
+      { label: "Last Health Check", value: "All clear" },
+      { label: "Education completed", value: "3 of 5 topics" },
+    ],
+    cta: { label: "Explore Tarragon Prevent", href: MARKETING_ROUTES.prevention },
   },
   {
     key: "family",
