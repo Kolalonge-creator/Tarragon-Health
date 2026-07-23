@@ -63,9 +63,9 @@ export const SERVICE_CARDS: ServiceCard[] = [
 
 export const PROOF_STATS = [
   {
-    value: "4",
+    value: "5",
     label: "priority programmes",
-    detail: "Hypertension, diabetes, ParentCare, and preventive health.",
+    detail: "Hypertension, diabetes, obesity, ParentCare, and preventive health.",
   },
   {
     value: "2",
@@ -87,7 +87,7 @@ export const PROOF_STATS = [
 export const WHAT_YOU_GET = [
   {
     title: "Monitor",
-    body: "Log BP, glucose, medication, and preventive checks through the app or web, all in one health record.",
+    body: "Log BP, glucose, weight, medication, and preventive checks through the app or web, all in one health record.",
   },
   {
     title: "Review",
@@ -143,9 +143,9 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "patient",
     tabLabel: "For you",
     title: "Track your health without carrying it alone.",
-    body: "Blood pressure, blood sugar, medication, lab checks, and preventive reminders, in one secure place, with a doctor behind it when you need one.",
+    body: "Blood pressure, blood sugar, weight, medication, lab checks, and preventive reminders, in one secure place, with a doctor behind it when you need one.",
     points: [
-      "BP and glucose logging with trend review",
+      "BP, glucose, and weight logging with trend review",
       "Medication reminders and refill alerts",
       "Monthly doctor check-in, doctor escalation when needed",
     ],
@@ -155,7 +155,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Next lab due", value: "HbA1c · 3 wks" },
       { label: "Care gap", value: "", pill: { text: "1 overdue", tone: "amber" } },
     ],
-    cta: null,
+    cta: { label: "See what Tarragon does for you", href: MARKETING_ROUTES.forYou },
   },
   {
     key: "healthy",
@@ -237,7 +237,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "What is Tarragon Health?",
     answer:
-      "TarragonHealth is a health monitoring platform for chronic disease, preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
+      "TarragonHealth is a health monitoring platform for chronic disease (hypertension, diabetes, and obesity), preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
   },
   {
     question: "I'm healthy — is Tarragon for me?",
@@ -260,7 +260,7 @@ export const HOMEPAGE_FAQS = [
       "Pricing is shown clearly with no hidden costs. Some services are included, some are book-and-pay through partners, and some are add-ons. See the pricing page for every plan and add-on in full.",
   },
   {
-    question: "How do I log my blood pressure or glucose?",
+    question: "How do I log my blood pressure, glucose, or weight?",
     answer:
       "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team on WhatsApp for support. Logging itself happens on app or web.",
   },

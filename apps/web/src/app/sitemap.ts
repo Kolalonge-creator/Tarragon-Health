@@ -23,6 +23,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     healthEducation: 0.6,
     careCoordination: 0.8,
     whoItsFor: 0.7,
+    forYou: 0.7,
     about: 0.7,
   };
 

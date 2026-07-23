@@ -10,8 +10,10 @@ import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
 import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
+import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
-import { PREVENTION_CALLOUT, PROOF_STATS, WHAT_YOU_GET } from "./_content/services";
+import { ServiceCardLink } from "./_components/service-card";
+import { PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS, WHAT_YOU_GET } from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
@@ -36,7 +38,12 @@ export default function MarketingHomePage() {
           aria-hidden
           className="pointer-events-none absolute -right-16 top-10 -z-10 h-[320px] w-[320px] rounded-full bg-sprout-gold/15 blur-3xl"
         />
-        <MarketingHero media={homepage.hero} visual={<WhatsappHeroMockup />}>
+        {/* When hero footage exists (homepage.hero.videoSrc), the ambient video
+            frame takes over from the WhatsApp mockup automatically. */}
+        <MarketingHero
+          media={homepage.hero}
+          visual={homepage.hero.videoSrc ? undefined : <WhatsappHeroMockup />}
+        >
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
             Continuity, not just monitoring
           </p>
@@ -47,10 +54,10 @@ export default function MarketingHomePage() {
             Health monitoring for chronic disease, prevention, and care coordination.
           </p>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Track blood pressure, blood sugar, medication, lab checks, and preventive health needs
-            in one secure platform, with clinical review and escalation when closer care is needed.
-            And if you&apos;re healthy? Screenings, vaccinations, and yearly checks that keep you
-            that way.
+            Track blood pressure, blood sugar, weight, medication, lab checks, and preventive
+            health needs in one secure platform, with clinical review and escalation when closer
+            care is needed. And if you&apos;re healthy? Screenings, vaccinations, and yearly checks
+            that keep you that way.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
@@ -148,6 +155,29 @@ export default function MarketingHomePage() {
             <Link href={MARKETING_ROUTES.about}>About Tarragon</Link>
           </Button>
         </div>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow="Chronic care programmes"
+          title="Hypertension, diabetes, and obesity, managed with follow-up"
+          description="Three conditions drive most preventable emergencies in Nigeria. Tarragon runs a structured, doctor-reviewed programme for each, on one shared record, so related conditions are watched together, not separately."
+        />
+        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-3">
+          {SERVICE_CARDS.filter((card) =>
+            ["hypertension", "diabetes", "obesity"].includes(card.key)
+          ).map((service) => (
+            <ServiceCardLink key={service.key} service={service} />
+          ))}
+        </div>
+        <p className="mt-8 text-center">
+          <Link
+            href={MARKETING_ROUTES.chronicCare}
+            className="text-sm font-medium text-deep-forest hover:underline"
+          >
+            How chronic care works at Tarragon →
+          </Link>
+        </p>
       </Section>
 
       <Section variant="sage">
@@ -248,6 +278,15 @@ export default function MarketingHomePage() {
             </Link>
           ))}
         </div>
+      </Section>
+
+      <Section variant="navy">
+        <SectionHeading
+          eyebrow="Why people trust Tarragon"
+          title="Built to be accountable to you"
+          invert
+        />
+        <TrustBand />
       </Section>
 
       <Section>

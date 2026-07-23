@@ -149,7 +149,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Healthy today? Let's keep it that way.",
     campaignLine: "The best emergency is the one you prevent.",
     intro:
-      "You don't need a diagnosis to use Tarragon — prevention is one of our four priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up the same day — years earlier than it would otherwise have been caught.",
+      "You don't need a diagnosis to use Tarragon — prevention is one of our five priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up the same day — years earlier than it would otherwise have been caught.",
     included: [
       "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
       "Vaccination schedule, booking, and doctor-verified certificates",
