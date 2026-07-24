@@ -49,8 +49,40 @@ export const deviceWeightSchema = z.object({
   weight_kg: z.number().min(20, "Weight must be at least 20 kg").max(300, "Weight must be at most 300 kg"),
 });
 
+export const deviceTemperatureSchema = z.object({
+  vital_type: z.literal("temperature"),
+  device_id: deviceIdField,
+  external_reading_id: externalReadingIdField,
+  taken_at: takenAtField,
+  // Wider than the manual-entry 35-42 band: a thermometer is a measuring
+  // instrument and clinically meaningful hypothermia/hyperpyrexia readings
+  // must not be rejected at the ingestion boundary.
+  temperature_c: z
+    .number()
+    .min(30, "Temperature must be at least 30°C")
+    .max(45, "Temperature must be at most 45°C"),
+});
+
+export const deviceSpo2Schema = z.object({
+  vital_type: z.literal("spo2"),
+  device_id: deviceIdField,
+  external_reading_id: externalReadingIdField,
+  taken_at: takenAtField,
+  // Wider floor than the manual form's 70: oximeters legitimately report
+  // severe hypoxaemia, which is exactly the reading that must reach the
+  // escalation pipeline rather than bounce off validation.
+  spo2_pct: z.number().int().min(50, "SpO2 must be at least 50%").max(100, "SpO2 must be at most 100%"),
+  pulse_bpm: z.number().int().min(30).max(250).optional(),
+});
+
 export const deviceReadingSchema = z
-  .discriminatedUnion("vital_type", [deviceBloodPressureSchema, deviceGlucoseSchema, deviceWeightSchema])
+  .discriminatedUnion("vital_type", [
+    deviceBloodPressureSchema,
+    deviceGlucoseSchema,
+    deviceWeightSchema,
+    deviceTemperatureSchema,
+    deviceSpo2Schema,
+  ])
   .superRefine((data, ctx) => {
     if (data.vital_type !== "glucose") return;
     const range = GLUCOSE_RANGE[data.glucose_unit];

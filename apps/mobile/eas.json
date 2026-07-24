@@ -1,0 +1,44 @@
+{
+  "cli": {
+    "version": ">= 5.9.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "base": {
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://koiplnmbgnqnbywhpjlf.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvaXBsbm1iZ25xbmJ5d2hwamxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNzUzNzYsImV4cCI6MjA5ODg1MTM3Nn0.FiFxVN9T3hSM2tkvPT57h5FJbq92nEx2eWIdNuM9kLU",
+        "EXPO_PUBLIC_API_BASE_URL": "https://tarragon-health-web.vercel.app",
+        "EXPO_PUBLIC_PLATFORM_URL": "https://tarragon-health-web.vercel.app"
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

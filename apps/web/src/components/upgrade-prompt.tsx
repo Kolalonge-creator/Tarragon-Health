@@ -29,7 +29,7 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     body: "See every family member's care in one shared view, one combined bill, on the Family Plan.",
   },
   annual_review: {
-    title: "The Annual Health Review is part of a paid plan",
+    title: "The Annual Doctor Review is part of a paid plan",
     body: "Get a once-a-year whole-body workup — general bloods, heart and other screening — plus a video consult with your Tarragon doctor to talk through your whole year. Included on Complete Care, Family and ParentCare plans.",
   },
   lifestyle_coaching: {
@@ -39,6 +39,10 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   health_education: {
     title: "Personalised health education is part of a paid plan",
     body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks. Included on Complete Care and above, or add it to Essential Care.",
+  },
+  prevention_coordination: {
+    title: "Screening booking is part of Tarragon Prevent",
+    body: "Your screening calendar is free to see. To book screenings when they come due — with reminders and results tracking — join Tarragon Prevent, the stay-healthy plan, or the Prevention Screening add-on. The one-off Annual Health Check stays available to everyone.",
   },
 };
 

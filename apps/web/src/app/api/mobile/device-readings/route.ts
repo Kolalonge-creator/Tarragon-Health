@@ -91,7 +91,11 @@ export async function POST(request: Request): Promise<NextResponse> {
             glucose_mmol_l:
               reading.glucose_unit === "mg_dl" ? mgDlToMmolL(reading.glucose_value) : reading.glucose_value,
           }
-        : { ...shared, vital_type, weight_kg: reading.weight_kg };
+        : vital_type === "weight"
+          ? { ...shared, vital_type, weight_kg: reading.weight_kg }
+          : vital_type === "temperature"
+            ? { ...shared, vital_type, temperature_c: reading.temperature_c }
+            : { ...shared, vital_type, spo2_pct: reading.spo2_pct, pulse_bpm: reading.pulse_bpm };
 
   const { error: insertError } = await supabase.from("vitals_readings").insert(row);
   if (insertError) {

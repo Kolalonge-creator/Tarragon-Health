@@ -25,6 +25,13 @@ export const SERVICE_CARDS: ServiceCard[] = [
     built: true,
   },
   {
+    key: "obesity",
+    href: MARKETING_ROUTES.obesity,
+    title: "Obesity & Weight",
+    description: "A structured, doctor-reviewed programme to manage weight and related conditions.",
+    built: true,
+  },
+  {
     key: "parentcare",
     href: MARKETING_ROUTES.parentcare,
     title: "ParentCare",
@@ -35,7 +42,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
     key: "prevention",
     href: MARKETING_ROUTES.prevention,
     title: "Preventive Health",
-    description: "Find care gaps early, complete overdue checks, and act before crisis.",
+    description: "For healthy people: screenings, vaccinations, and yearly checks that keep you that way.",
     built: true,
   },
   {
@@ -56,9 +63,9 @@ export const SERVICE_CARDS: ServiceCard[] = [
 
 export const PROOF_STATS = [
   {
-    value: "4",
+    value: "5",
     label: "priority programmes",
-    detail: "Hypertension, diabetes, ParentCare, and preventive health.",
+    detail: "Hypertension, diabetes, obesity, ParentCare, and preventive health.",
   },
   {
     value: "2",
@@ -73,14 +80,14 @@ export const PROOF_STATS = [
   {
     value: "1",
     label: "shared record",
-    detail: "Chronic care, prevention, labs, and family updates together.",
+    detail: "Chronic care, prevention, medication, and labs together, in one place.",
   },
 ] as const;
 
 export const WHAT_YOU_GET = [
   {
     title: "Monitor",
-    body: "Log BP, glucose, medication, and preventive checks through the app or web, all in one health record.",
+    body: "Log BP, glucose, weight, medication, and preventive checks through the app or web, all in one health record.",
   },
   {
     title: "Review",
@@ -88,15 +95,18 @@ export const WHAT_YOU_GET = [
   },
   {
     title: "Coordinate",
-    body: "Preventive checks, labs, medication, doctor escalation, and family updates stay connected instead of scattered.",
+    body: "Preventive checks, labs, medication, and doctor escalation stay connected instead of scattered.",
   },
 ] as const;
 
-/** Preventive health is a platform wedge, not a secondary add-on (FEATURE_SPEC Cat 2→1 upgrade). */
+/** Preventive health is a platform wedge, not a secondary add-on (FEATURE_SPEC Cat 2→1 upgrade).
+ * Framed for the HEALTHY visitor first (prevention-first repositioning,
+ * 2026-07-23): staying well is the aspiration; catching things early is the
+ * safety net, not a fear pitch. */
 export const PREVENTION_CALLOUT = {
-  title: "Preventive health is core to how Tarragon works",
+  title: "Healthy? Tarragon is built for you too",
   body:
-    "Screening and care-gap closure are not extras bolted onto chronic care. They share the same patient record, and when a result needs attention, Tarragon closes the loop into follow-up and chronic management, not a forgotten lab report.",
+    "You don't need a diagnosis to belong here. Tarragon Prevent gives you a personal screening and vaccination calendar, a yearly Health Check, and education that makes sense of your numbers — so most years, you simply get confirmation that all is well. And if a check ever finds something, a doctor follows up the same day and it's caught years earlier, when it's easiest to treat.",
 } as const;
 
 export const HOW_IT_WORKS_STEPS = [
@@ -105,7 +115,11 @@ export const HOW_IT_WORKS_STEPS = [
   { step: 3, title: "Monitor", body: "Log vitals, take medication, and complete preventive checks." },
   { step: 4, title: "Doctor review", body: "Your care team reviews your readings and follows up." },
   { step: 5, title: "Doctor escalation", body: "When closer care is needed, we escalate; you are never alone." },
-  { step: 6, title: "Family updates", body: "Keep family informed with calm, clear updates, near or far." },
+  {
+    step: 6,
+    title: "Family updates (optional)",
+    body: "On ParentCare, family can opt in to calm, clear updates about a loved one, near or far. Not on by default, and only for those who choose it.",
+  },
 ] as const;
 
 export type AudienceStat = {
@@ -115,7 +129,7 @@ export type AudienceStat = {
 };
 
 export type AudienceTab = {
-  key: "patient" | "family" | "corporate" | "hmo";
+  key: "patient" | "healthy" | "family" | "corporate" | "hmo";
   tabLabel: string;
   title: string;
   body: string;
@@ -129,9 +143,9 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "patient",
     tabLabel: "For you",
     title: "Track your health without carrying it alone.",
-    body: "Blood pressure, blood sugar, medication, lab checks, and preventive reminders, in one secure place, with a doctor behind it when you need one.",
+    body: "Blood pressure, blood sugar, weight, medication, lab checks, and preventive reminders, in one secure place, with a doctor behind it when you need one.",
     points: [
-      "BP and glucose logging with trend review",
+      "BP, glucose, and weight logging with trend review",
       "Medication reminders and refill alerts",
       "Monthly doctor check-in, doctor escalation when needed",
     ],
@@ -141,13 +155,31 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Next lab due", value: "HbA1c · 3 wks" },
       { label: "Care gap", value: "", pill: { text: "1 overdue", tone: "amber" } },
     ],
-    cta: null,
+    cta: { label: "See what Tarragon does for you", href: MARKETING_ROUTES.forYou },
+  },
+  {
+    key: "healthy",
+    tabLabel: "For staying healthy",
+    title: "You don't need a diagnosis to belong here.",
+    body: "Tarragon Prevent builds a personal screening and vaccination calendar matched to your age, sex, and history, books the checks when they're due, and explains what your results mean. Most years, that's simply confirmation you're doing fine.",
+    points: [
+      "Screening and vaccination calendar, built for you",
+      "Yearly Health Check, booked in minutes",
+      "Doctor follow-up the same day, if a result ever needs it",
+    ],
+    stats: [
+      { label: "Next screening due", value: "Cervical · 4 mths" },
+      { label: "Vaccinations", value: "", pill: { text: "Up to date", tone: "green" } },
+      { label: "Last Health Check", value: "All clear" },
+      { label: "Education completed", value: "3 of 5 topics" },
+    ],
+    cta: { label: "Explore Tarragon Prevent", href: MARKETING_ROUTES.prevention },
   },
   {
     key: "family",
     tabLabel: "For families",
     title: "Know how your parent is doing, even from far away.",
-    body: "Track Mum's blood pressure, Dad's medication, and preventive checks, with updates that feel human, not clinical.",
+    body: "With ParentCare, track Mum's blood pressure, Dad's medication, and preventive checks, with opt-in updates that feel human, not clinical. Family updates are a ParentCare feature you choose, not something every plan sends.",
     points: [
       "Is my parent okay today? Green, amber, or red.",
       "Are they taking their medication?",
@@ -159,7 +191,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "This week's readings", value: "Stable trend" },
       { label: "Overdue", value: "", pill: { text: "Nothing", tone: "green" } },
     ],
-    cta: null,
+    cta: { label: "Explore ParentCare", href: MARKETING_ROUTES.parentcare },
   },
   {
     key: "corporate",
@@ -205,7 +237,12 @@ export const HOMEPAGE_FAQS = [
   {
     question: "What is Tarragon Health?",
     answer:
-      "TarragonHealth is a health monitoring platform for chronic disease, preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
+      "TarragonHealth is a health monitoring platform for chronic disease (hypertension, diabetes, and obesity), preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
+  },
+  {
+    question: "I'm healthy — is Tarragon for me?",
+    answer:
+      "Yes — prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check, and education matched to you keep healthy people healthy. Most members just get confirmation each year that all is well; if a check ever finds something, a doctor follows up the same day.",
   },
   {
     question: "What happens when readings are high?",
@@ -223,7 +260,7 @@ export const HOMEPAGE_FAQS = [
       "Pricing is shown clearly with no hidden costs. Some services are included, some are book-and-pay through partners, and some are add-ons. See the pricing page for every plan and add-on in full.",
   },
   {
-    question: "How do I log my blood pressure or glucose?",
+    question: "How do I log my blood pressure, glucose, or weight?",
     answer:
       "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team on WhatsApp for support. Logging itself happens on app or web.",
   },

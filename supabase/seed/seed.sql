@@ -60,7 +60,17 @@ values
   ('influenza',          'Influenza',          'Annual, optional.',
      '{"interval_years": 1}'::jsonb),
   ('shingles',           'Shingles',           'From age 50.',
-     '{"min_age": 50}'::jsonb)
+     '{"min_age": 50}'::jsonb),
+  ('covid_19',           'COVID-19',           'Per current national guidance; boosters for higher-risk/older adults.',
+     '{"interval_years": 1}'::jsonb),
+  ('pneumococcal',       'Pneumococcal',       'Older adults and those with chronic disease, per guidance.',
+     '{"min_age": 65}'::jsonb),
+  ('meningococcal',      'Meningococcal',      'In outbreaks / meningitis-belt risk, per guidance.',
+     '{"doses": 1}'::jsonb),
+  ('typhoid',            'Typhoid',            'Risk- and travel-based.',
+     '{"doses": 1}'::jsonb),
+  ('hepatitis_a',        'Hepatitis A',        'Risk- and travel-based; 2-dose series.',
+     '{"dose_schedule_months": [0, 6]}'::jsonb)
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -107,6 +117,27 @@ values
      'Full metabolic panel plus gender-specific cancer screens.',
      6500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear'])
 on conflict (code) do nothing;
+
+-- Health Check tier ladder (migration 20260723164727): Basic (WHO PEN
+-- cardiometabolic) / Standard (annual_health_check) / Comprehensive (adds
+-- HIV + Hep B). PLACEHOLDER PRICES — founder to confirm.
+insert into public.panel_bundles (code, name, description, price_kobo, test_codes, self_bookable)
+values
+  ('health_check_basic', 'Health Check — Basic',
+     'Cardiometabolic essentials (WHO PEN): HbA1c and full lipid panel, plus BP and BMI at the lab. Doctor-reviewed.',
+     1500000, array['hba1c', 'lipid_panel'], true),
+  ('health_check_comprehensive', 'Health Check — Comprehensive',
+     'Everything in the Annual Health Check plus HIV and Hepatitis B screening. Doctor-reviewed.',
+     7500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b'], true)
+on conflict (code) do nothing;
+
+-- Self-bookable set (migrations 20260723150205 + 20260723164727): the three
+-- Health Check packages plus the WHO-essential confidential screenings
+-- (cervical smear per the WHO 90-70-90 elimination strategy, HIV, Hep B).
+-- Deliberately NOT a general wellness catalogue — PSA stays package-only per
+-- WHO guidance; everything else stays clinician-originated.
+update public.panel_bundles set self_bookable = true
+  where code in ('annual_health_check', 'single_cervical_smear', 'single_hiv', 'single_hep_b');
 
 -- ---------------------------------------------------------------------------
 -- pharmacy_partners
@@ -204,6 +235,14 @@ update public.specialist_providers set state = 'Lagos', city = 'Ikeja' where sta
 -- the other way around. Feature codes here are what public.has_feature_access()/
 -- RequiresEntitlement gate on. Diaspora (USD/GBP, Stripe) rows are seeded
 -- separately below, in the same tiers/features, once this NGN block lands.
+--
+-- Entitlement features granted to the comprehensive tiers by later migrations
+-- (annual_review 20260717123000, lifestyle_coaching 20260717141000,
+-- health_education 20260717151000 + gap fix 20260719213449, async_doctor_visit
+-- 20260723010040) are INLINED in these arrays: on `supabase db reset` those
+-- migrations' UPDATEs run before this seed file, so the inserts here must
+-- carry the full live-DB feature set themselves (2026-07-23 reconciliation).
+-- diaspora_premium% deliberately carries no async_doctor_visit — matches live.
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features)
 values
@@ -221,15 +260,15 @@ values
   ('complete', 'Complete Care',
      'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
      1500000, 'NGN', 'monthly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation']),
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit']),
   ('complete_yearly', 'Complete Care (yearly)',
      'Complete Care billed annually — 2 months free.',
      15000000, 'NGN', 'yearly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation']),
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit']),
   ('family', 'Family Lite',
      'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill, monthly family report.',
      15000000, 'NGN', 'yearly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'])
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'])
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -244,19 +283,56 @@ values
   ('family_plus', 'Family Plus',
      'Everything in Family Lite, plus a named family doctor coordinator, priority escalation across all members, and one free Annual Health Check a year.',
      22000000, 'NGN', 'yearly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'annual_review', 'lifestyle_coaching', 'health_education'], false),
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('family_premium', 'Family Premium',
      'Everything in Family Plus, plus a named doctor coordinator with a scheduled monthly appointment for every member, quarterly reports, expedited response, and two free Annual Health Checks a year.',
      32000000, 'NGN', 'yearly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'expedited_response', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education'], false),
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'expedited_response', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('parentcare', 'ParentCare',
      'Dedicated monitoring for up to 2 parents: named doctor coordinator, scheduled doctor review, quarterly family report, priority escalation, and lab/pharmacy coordination.',
-     2000000, 'NGN', 'monthly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
+     2500000, 'NGN', 'monthly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('parentcare_yearly', 'ParentCare (yearly)',
      'ParentCare billed annually — 2 months free.',
-     20000000, 'NGN', 'yearly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false)
+     25000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false)
+on conflict (code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Tarragon Prevent — the stay-healthy tier between Free and Essential
+-- (migration 20260723150222_prevent_plan_tier). Prevention-first features:
+-- prevention_coordination (screening-calendar booking rights) +
+-- health_education on top of the Free basics; no chronic/clinician_review —
+-- doctor involvement on this tier is the abnormal-result escalation pipeline,
+-- which is plan-independent. PRICING IS PLACEHOLDER (founder to confirm);
+-- is_active=false until synced to Paystack/Stripe, per convention.
+-- ---------------------------------------------------------------------------
+insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features, is_active)
+values
+  ('prevent', 'Tarragon Prevent',
+     'The stay-healthy plan: personal screening calendar with booking, vaccination tracking, and personalised health education. A doctor steps in the moment a result needs one.',
+     350000, 'NGN', 'monthly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_yearly', 'Tarragon Prevent (yearly)',
+     'Tarragon Prevent billed annually — 2 months free.',
+     3500000, 'NGN', 'yearly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_gbp', 'Tarragon Prevent',
+     'The stay-healthy plan: personal screening calendar with booking, vaccination tracking, and personalised health education. A doctor steps in the moment a result needs one.',
+     700, 'GBP', 'monthly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_yearly_gbp', 'Tarragon Prevent (yearly)',
+     'Tarragon Prevent billed annually — 2 months free.',
+     7000, 'GBP', 'yearly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_usd', 'Tarragon Prevent',
+     'The stay-healthy plan: personal screening calendar with booking, vaccination tracking, and personalised health education. A doctor steps in the moment a result needs one.',
+     900, 'USD', 'monthly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_yearly_usd', 'Tarragon Prevent (yearly)',
+     'Tarragon Prevent billed annually — 2 months free.',
+     9000, 'USD', 'yearly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false)
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -298,22 +374,22 @@ values
      5500000, 'NGN', 'yearly', array['extra_family_slot'], 'family_premium', false),
   ('extra-parentcare-member', 'Extra Parent (ParentCare)',
      'Adds a third parent to a ParentCare subscription at the same level of monitoring.',
-     700000, 'NGN', 'monthly', array['extra_family_slot'], 'parentcare', false),
+     800000, 'NGN', 'monthly', array['extra_family_slot'], 'parentcare', false),
   ('extra-parentcare-member-yearly', 'Extra Parent (ParentCare, yearly)',
      'Adds a third parent to a yearly ParentCare subscription at the same level of monitoring.',
-     7000000, 'NGN', 'yearly', array['extra_family_slot'], 'parentcare_yearly', false),
+     8000000, 'NGN', 'yearly', array['extra_family_slot'], 'parentcare_yearly', false),
   ('extra-parentcare-member-gbp', 'Extra Parent (ParentCare)',
      'Adds a third parent to a ParentCare subscription at the same level of monitoring.',
-     3900, 'GBP', 'monthly', array['extra_family_slot'], 'parentcare_gbp', false),
+     1900, 'GBP', 'monthly', array['extra_family_slot'], 'parentcare_gbp', false),
   ('extra-parentcare-member-yearly-gbp', 'Extra Parent (ParentCare, yearly)',
      'Adds a third parent to a yearly ParentCare subscription at the same level of monitoring.',
-     39000, 'GBP', 'yearly', array['extra_family_slot'], 'parentcare_yearly_gbp', false),
+     19000, 'GBP', 'yearly', array['extra_family_slot'], 'parentcare_yearly_gbp', false),
   ('extra-parentcare-member-usd', 'Extra Parent (ParentCare)',
      'Adds a third parent to a ParentCare subscription at the same level of monitoring.',
-     700, 'USD', 'monthly', array['extra_family_slot'], 'parentcare_usd', false),
+     2500, 'USD', 'monthly', array['extra_family_slot'], 'parentcare_usd', false),
   ('extra-parentcare-member-yearly-usd', 'Extra Parent (ParentCare, yearly)',
      'Adds a third parent to a yearly ParentCare subscription at the same level of monitoring.',
-     7000, 'USD', 'yearly', array['extra_family_slot'], 'parentcare_yearly_usd', false)
+     25000, 'USD', 'yearly', array['extra_family_slot'], 'parentcare_yearly_usd', false)
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -328,38 +404,53 @@ on conflict (code) do nothing;
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features, is_active)
 values
   ('essential_usd', 'Essential Care', 'One condition: monthly doctor review, monthly doctor check-in, WhatsApp care team access.',
-     500, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+     1900, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
   ('essential_gbp', 'Essential Care', 'One condition: monthly doctor review, monthly doctor check-in, WhatsApp care team access.',
-     2500, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+     1500, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
   ('essential_yearly_usd', 'Essential Care (yearly)', 'Essential Care billed annually — 2 months free.',
-     5000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+     19000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
   ('essential_yearly_gbp', 'Essential Care (yearly)', 'Essential Care billed annually — 2 months free.',
-     25000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
+     15000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
   ('complete_usd', 'Complete Care', 'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
-     1000, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+     3900, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('complete_gbp', 'Complete Care', 'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
-     5900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+     2900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('complete_yearly_usd', 'Complete Care (yearly)', 'Complete Care billed annually — 2 months free.',
-     10000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+     39000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('complete_yearly_gbp', 'Complete Care (yearly)', 'Complete Care billed annually — 2 months free.',
-     59000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation'], false),
+     29000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('family_usd', 'Family Lite', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
-     10000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'], false),
+     10000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('family_gbp', 'Family Lite', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
-     8000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard'], false),
+     8000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
+  -- Diaspora family tiers (2026-07-21): real self-service GBP/USD Family
+  -- plans replacing the old quote-only path. family_gbp/family_usd above are
+  -- retired legacy rows kept for code-compat, never activated.
+  ('family_lite_gbp', 'Family Lite', 'Up to 4 people back home on one plan: monitoring matched to each member, shared family dashboard, one combined bill, monthly family report. Billed yearly in GBP.',
+     29000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
+  ('family_plus_gbp', 'Family Plus', 'Everything in Family Lite, plus a named family doctor coordinator, priority escalation across all members, and one free Annual Health Check a year. Billed yearly in GBP.',
+     43000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
+  ('family_premium_gbp', 'Family Premium', 'Everything in Family Plus, plus a named doctor coordinator with a scheduled monthly appointment for every member, quarterly reports, expedited response, and two free Annual Health Checks a year. Billed yearly in GBP.',
+     62000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report', 'expedited_response', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
+  ('family_lite_usd', 'Family Lite', 'Up to 4 people back home on one plan: monitoring matched to each member, shared family dashboard, one combined bill, monthly family report. Billed yearly in USD.',
+     39000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
+  ('family_plus_usd', 'Family Plus', 'Everything in Family Lite, plus a named family doctor coordinator, priority escalation across all members, and one free Annual Health Check a year. Billed yearly in USD.',
+     57000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
+  ('family_premium_usd', 'Family Premium', 'Everything in Family Plus, plus a named doctor coordinator with a scheduled monthly appointment for every member, quarterly reports, expedited response, and two free Annual Health Checks a year. Billed yearly in USD.',
+     82000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report', 'expedited_response', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   -- Diaspora Premium (marketing GBP_TIERS diaspora-premium) + ParentCare diaspora variants.
   ('diaspora_premium_gbp', 'Premium Care (Diaspora)', 'Complete Care, plus a named doctor coordinator, a scheduled monthly doctor appointment, and a quarterly PDF report.',
-     9900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education'], false),
+     4900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education'], false),
   ('diaspora_premium_yearly_gbp', 'Premium Care (Diaspora, yearly)', 'Premium Care (Diaspora) billed annually.',
-     99000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education'], false),
+     49000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education'], false),
   ('parentcare_gbp', 'ParentCare', 'Dedicated monitoring for up to 2 parents from abroad: named doctor coordinator, scheduled doctor review, quarterly family report, priority escalation, and lab/pharmacy coordination in Nigeria.',
-     11900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
+     5900, 'GBP', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('parentcare_yearly_gbp', 'ParentCare (yearly)', 'ParentCare billed annually — 2 months free.',
-     119000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
+     59000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('parentcare_usd', 'ParentCare', 'Dedicated monitoring for up to 2 parents from abroad: named doctor coordinator, scheduled doctor review, quarterly family report, priority escalation, and lab/pharmacy coordination in Nigeria.',
-     2000, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false),
+     7900, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('parentcare_yearly_usd', 'ParentCare (yearly)', 'ParentCare billed annually — 2 months free.',
-     20000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false)
+     79000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false)
 on conflict (code) do nothing;
 
 insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code, is_active)
@@ -377,11 +468,23 @@ values
      'One named clinician coordinator, a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
      1600, 'GBP', 'monthly', array['dedicated_coordinator'], 'complete_gbp', false),
   ('extra-family-member_usd', 'Extra Family Member',
-     'Adds one more person to the Family Plan (up to 6 total) at Complete Care–level monitoring.',
-     2000, 'USD', 'yearly', array['extra_family_slot'], 'family_usd', false),
+     'Adds one more person to Family Lite (up to 6 total) at the same level of monitoring.',
+     8000, 'USD', 'yearly', array['extra_family_slot'], 'family_lite_usd', false),
   ('extra-family-member_gbp', 'Extra Family Member',
-     'Adds one more person to the Family Plan (up to 6 total) at Complete Care–level monitoring.',
-     1600, 'GBP', 'yearly', array['extra_family_slot'], 'family_gbp', false),
+     'Adds one more person to Family Lite (up to 6 total) at the same level of monitoring.',
+     6000, 'GBP', 'yearly', array['extra_family_slot'], 'family_lite_gbp', false),
+  ('extra-family-member-plus_gbp', 'Extra Family Member (Family Plus)',
+     'Adds one more person to Family Plus (up to 6 total) at the same level of monitoring.',
+     8000, 'GBP', 'yearly', array['extra_family_slot'], 'family_plus_gbp', false),
+  ('extra-family-member-premium_gbp', 'Extra Family Member (Family Premium)',
+     'Adds one more person to Family Premium (up to 6 total) at the same level of monitoring.',
+     12000, 'GBP', 'yearly', array['extra_family_slot'], 'family_premium_gbp', false),
+  ('extra-family-member-plus_usd', 'Extra Family Member (Family Plus)',
+     'Adds one more person to Family Plus (up to 6 total) at the same level of monitoring.',
+     11000, 'USD', 'yearly', array['extra_family_slot'], 'family_plus_usd', false),
+  ('extra-family-member-premium_usd', 'Extra Family Member (Family Premium)',
+     'Adds one more person to Family Premium (up to 6 total) at the same level of monitoring.',
+     16000, 'USD', 'yearly', array['extra_family_slot'], 'family_premium_usd', false),
   ('expedited-response_usd', 'Expedited Clinician Response',
      'Clinician response time for non-emergency questions moves to under 2 hours.',
      300, 'USD', 'monthly', array['expedited_response'], null, false),
@@ -391,22 +494,11 @@ values
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
--- Health Education entitlement (mirrors 20260717151000). Appended here so a
--- fresh env picks it up AFTER the plan/add-on inserts above — the migration's
--- UPDATE would otherwise run before these rows exist. Idempotent.
+-- Health Education add-on (mirrors 20260717151000 / 20260719214207). The
+-- plan-side health_education entitlement is inlined in the plan feature
+-- arrays above (see the note on the subscription_plans block), so the old
+-- post-insert array_append block is gone.
 -- ---------------------------------------------------------------------------
-update public.subscription_plans
-   set features = array_append(features, 'health_education')
- where code in (
-         'complete', 'complete_yearly',
-         'complete_usd', 'complete_gbp', 'complete_yearly_usd', 'complete_yearly_gbp',
-         'family', 'family_usd', 'family_gbp',
-         'parentcare', 'parentcare_yearly',
-         'parentcare_gbp', 'parentcare_yearly_gbp',
-         'parentcare_usd', 'parentcare_yearly_usd'
-       )
-   and not ('health_education' = any(features));
-
 insert into public.add_ons
   (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code, is_active)
 values

@@ -5,11 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
+import { MentalHealthSummary } from "@/components/mental-health-summary";
+import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
+import { ResultDocumentsSection } from "./result-documents-section";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
+import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
+import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
+import { FootAssessmentForm } from "./foot-assessment-form";
+import { ComplicationCheckForm } from "./complication-check-form";
+import { GlucoseTargetForm } from "./glucose-target-form";
+import { TreatmentLadder } from "./treatment-ladder";
+import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
+import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
+import { ObesityAttestationCard } from "./obesity-attestation-card";
+import { HealthCheckReview } from "./health-check-review";
 
 export default async function ClinicianPatientPage({
   params,
@@ -24,7 +38,7 @@ export default async function ClinicianPatientPage({
   // lookup in this app.
   const { data: patient } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, organisation_id")
+    .select("id, full_name, phone, organisation_id, sex")
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
@@ -46,10 +60,57 @@ export default async function ClinicianPatientPage({
 
   const callerStaff = await getCurrentClinicalStaff();
   const canPrescribe = hasPrescribingAuthority(callerStaff);
+  // Pregnancy context for the drug-safety advisory (§20.2).
+  const { data: pregnancy } = await supabase
+    .from("patient_pregnancy")
+    .select("is_pregnant")
+    .eq("patient_id", patientId)
+    .maybeSingle();
+  const isPregnant = pregnancy?.is_pregnant ?? false;
+
+  // Current-year Health Check status for the "Review & communicate" control.
+  const year = new Date().getFullYear();
+  const { data: healthCheck } = await supabase
+    .from("annual_health_checks")
+    .select("reviewed_at, reviewed_by")
+    .eq("patient_id", patientId)
+    .eq("year", year)
+    .maybeSingle();
+  let reviewedByName: string | null = null;
+  if (healthCheck?.reviewed_by) {
+    const { data: reviewer } = await supabase
+      .from("clinical_staff")
+      .select("full_name, credential_type, credential_number")
+      .eq("id", healthCheck.reviewed_by)
+      .maybeSingle();
+    if (reviewer) {
+      reviewedByName = [
+        `Dr. ${reviewer.full_name}`,
+        reviewer.credential_type && reviewer.credential_number
+          ? `${reviewer.credential_type} ${reviewer.credential_number}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
+  }
   // Tier 1's other half of the job (master plan §4/§8): confirm/continue an
   // existing prescription without prescribing authority. Never Tier 2+/
   // Director — they already get the unrestricted AddMedicationForm above.
   const canConfirmRefill = !canPrescribe && callerStaff?.doctor_tier === "tier_1";
+
+  // Cardiovascular-risk assessment (lipids as one input to total CV risk) +
+  // the patient's recorded CV history, for the CardiovascularRiskPanel.
+  const cvAssessment = patient.organisation_id
+    ? await loadCvRiskAssessment(supabase, patient.id, patient.organisation_id)
+    : null;
+  const { data: cvProfile } = await supabase
+    .from("patient_cardiovascular_profile")
+    .select(
+      "established_ascvd, prior_mi, prior_stroke_tia, prior_pad, prior_revascularisation, familial_hypercholesterolaemia, notes"
+    )
+    .eq("patient_id", patient.id)
+    .maybeSingle();
 
   return (
     <div className="space-y-6">
@@ -59,6 +120,7 @@ export default async function ClinicianPatientPage({
         </h1>
         {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
       </div>
+      <PreVisitSummary patientId={patient.id} />
       <PatientTimeline patientId={patient.id} />
       {/* Clinician view is never gated by the patient's own subscription
           tier — refill coordination is a staff-visible clinical detail
@@ -76,7 +138,7 @@ export default async function ClinicianPatientPage({
           (private.has_prescribing_authority), this just explains it
           instead of surfacing a raw RLS error. */}
       {canPrescribe ? (
-        <AddMedicationForm patientId={patient.id} source="clinician" />
+        <AddMedicationForm patientId={patient.id} source="clinician" pregnant={isPregnant} />
       ) : (
         <Card>
           <CardHeader>
@@ -92,14 +154,39 @@ export default async function ClinicianPatientPage({
           </CardContent>
         </Card>
       )}
+      <TreatmentLadder />
       <VitalsTrendChart patientId={patient.id} />
+      <LipidProfileCard patientId={patient.id} />
+      <CardiovascularRiskPanel
+        patientId={patient.id}
+        assessment={cvAssessment}
+        initialProfile={cvProfile ?? null}
+      />
+      {/* Foot-risk classification is a clinical act — only an active
+          clinical_staff member (not a Care Coordinator) sees the form. */}
+      {callerStaff && <GlucoseTargetForm patientId={patient.id} />}
+      {callerStaff && <FootAssessmentForm patientId={patient.id} />}
+      {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
+      <ResultDocumentsSection patientId={patient.id} />
+      <MentalHealthSummary patientId={patient.id} showScores />
       <ScreeningResultForm patientId={patient.id} />
+      <HealthCheckReview
+        patientId={patient.id}
+        reviewedAt={healthCheck?.reviewed_at ?? null}
+        reviewedByName={reviewedByName}
+      />
       {patient.organisation_id && (
         <>
           <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
           <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
         </>
       )}
+      {/* Obesity pathway (TH-CP-OB-001): attestation gate, structured
+          assessment (classification + staging + screens), and the mandatory
+          ED/mental-health screen that auto-pauses weight-loss on a positive. */}
+      <ObesityAttestationCard />
+      <ObesityAssessmentPanel patientId={patient.id} patientSex={patient.sex} />
+      <ObesityEdScreenForm patientId={patient.id} />
     </div>
   );
 }

@@ -48,6 +48,67 @@ const obesityRedFlags: RedFlagRule[] = [
     },
     safetyNetMessageKey: "safety.rapid_change",
   },
+  // ---- Medical red flags (§16.2) + AOM/GLP-1 warning symptoms (§13.3) --------
+  // These fire on a logged symptom / side-effect, NOT on a prescription — GLP-1
+  // prescribing is out of scope, but the warning-symptom safety net is not: any
+  // patient logging these must be routed to a doctor before a reassuring reply.
+  {
+    // Chest pain / stroke symptoms / breathlessness at rest — cardiovascular
+    // risk is high in obesity. Immediate emergency response.
+    key: "obesity.cardiorespiratory_emergency",
+    module: "behaviour",
+    severity: "emergency",
+    level: 4,
+    action: "page_oncall",
+    when: (input) =>
+      input.measurement.type === "symptom" &&
+      (input.measurement.valueJson?.chestPain === true ||
+        input.measurement.valueJson?.strokeSymptoms === true ||
+        input.measurement.valueJson?.breathlessAtRest === true),
+    safetyNetMessageKey: "safety.emergency_contact",
+  },
+  {
+    // GLP-1 / AOM warning symptoms (§13.3): severe abdominal pain (pancreatitis),
+    // gallstone symptoms, dehydration. Auto-flag if logged → prompt doctor review.
+    key: "obesity.aom_warning_symptom",
+    module: "behaviour",
+    severity: "red",
+    level: 3,
+    action: "same_day_review",
+    when: (input) =>
+      (input.measurement.type === "symptom" || input.measurement.type === "side_effect") &&
+      (input.measurement.valueJson?.severeAbdominalPain === true ||
+        input.measurement.valueJson?.gallstoneSymptoms === true ||
+        input.measurement.valueJson?.dehydration === true),
+    safetyNetMessageKey: "safety.aom_warning",
+  },
+  {
+    // Unintentional / unexplained weight loss is NOT a success (§16.2) —
+    // investigate for illness. Distinct from planned rapid loss above.
+    key: "obesity.unexplained_weight_loss",
+    module: "behaviour",
+    severity: "red",
+    level: 3,
+    action: "same_day_review",
+    when: (input) =>
+      input.measurement.type === "symptom" &&
+      input.measurement.valueJson?.unintentionalWeightLoss === true,
+    safetyNetMessageKey: "safety.unexplained_loss",
+  },
+  {
+    // Severe OSA signals (§16.2): witnessed apnoeas, severe daytime sleepiness,
+    // morning headaches → urgent referral for diagnosis.
+    key: "obesity.severe_osa",
+    module: "sleep",
+    severity: "amber",
+    level: 2,
+    action: "refer",
+    when: (input) =>
+      input.measurement.type === "symptom" &&
+      (input.measurement.valueJson?.witnessedApnoea === true ||
+        input.measurement.valueJson?.severeDaytimeSleepiness === true),
+    safetyNetMessageKey: "safety.osa_referral",
+  },
 ];
 
 export const obesityAdapter: ConditionAdapter = {

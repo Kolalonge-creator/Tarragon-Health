@@ -78,6 +78,39 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         "Track glucose, HbA1c, medication, and labs in one platform, with escalation when closer care is needed.",
     },
   },
+  obesity: {
+    slug: "obesity",
+    headline: "A supported, doctor-reviewed programme to manage weight and the health that comes with it.",
+    campaignLine: "Weight is a health condition, managed with real support.",
+    intro:
+      "Tarragon's obesity programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
+    included: [
+      "Weight and waist tracking on one record",
+      "A personalised lifestyle and activity plan",
+      "Monitoring for related conditions like blood pressure and blood sugar",
+      "Regular check-ins and progress reviews",
+      "Doctor review, with escalation when closer care is needed",
+    ],
+    howItWorks: [
+      {
+        title: "Set a plan together",
+        body: "Your care team reviews your history and helps set realistic goals on a structured programme.",
+      },
+      {
+        title: "Track and stay supported",
+        body: "Log weight and habits, get check-ins, and keep related conditions monitored on the same record.",
+      },
+      {
+        title: "Review and escalate",
+        body: "Progress is reviewed against care protocols, and closer care is arranged through a defined pathway when it's needed.",
+      },
+    ],
+    metadata: {
+      title: "Obesity & Weight Management",
+      description:
+        "A structured, doctor-reviewed obesity programme: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
+    },
+  },
   parentcare: {
     slug: "parentcare",
     headline: "Know how your parent is doing, even when you are not there every day.",
@@ -113,35 +146,36 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
   },
   prevention: {
     slug: "prevention",
-    headline: "Find care gaps early and know what checks may be due.",
+    headline: "Healthy today? Let's keep it that way.",
     campaignLine: "The best emergency is the one you prevent.",
     intro:
-      "Preventive health is one of Tarragon's four priority programmes, not an optional extra. We track overdue screenings, remind you what checks are due, review results when they return, and connect abnormal findings into chronic care follow-up on the same health record.",
+      "You don't need a diagnosis to use Tarragon — prevention is one of our five priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up the same day — years earlier than it would otherwise have been caught.",
     included: [
-      "Preventive screening calendar and care-gap tracking",
-      "Reminders for cancer, metabolic, infectious, and reproductive checks",
-      "Lab coordination when tests are due",
-      "Doctor review when results need attention",
-      "Upgrade path into chronic disease monitoring when follow-up is needed",
+      "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
+      "Vaccination schedule, booking, and doctor-verified certificates",
+      "The Annual Health Check (₦65,000): full-body screening, bookable by anyone on any plan",
+      "Personalised health education with short knowledge checks",
+      "Doctor follow-up the same day on any result that needs attention",
+      "A seamless path into chronic care monitoring in the rare case follow-up is needed — same record, no starting over",
     ],
     howItWorks: [
       {
         title: "Know what's due",
-        body: "See which preventive checks are overdue or coming up, based on your age, history, and risk profile.",
+        body: "Two minutes on your health profile builds your personal calendar: which checks and vaccines matter for you, and when.",
       },
       {
         title: "Complete and track",
-        body: "Book labs through Tarragon's partner network and log results in one record; no more lost reports.",
+        body: "Book screenings at partner labs near you, see exact prices before you confirm, and keep every result in one record; no more lost reports.",
       },
       {
-        title: "Close the loop",
-        body: "When a result needs attention, your care team follows up immediately and connects you to chronic care if needed.",
+        title: "Stay confidently well",
+        body: "Most results confirm you're on track. When one doesn't, your care team follows up immediately — and because it's caught early, your options are better and cheaper.",
       },
     ],
     metadata: {
       title: "Preventive Health",
       description:
-        "Find care gaps early, complete overdue screenings, and get doctor follow-up when results need attention, on the same record as chronic care.",
+        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and education — with doctor follow-up the same day if a result needs attention.",
     },
   },
   medication: {
@@ -211,7 +245,14 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
 };
 
 export function getProductPage(slug: string): ProductPageContent | undefined {
-  return PRODUCT_PAGES[slug];
+  const page = PRODUCT_PAGES[slug];
+  if (!page) return undefined;
+  // Inject the per-page canonical from the slug so every programme page
+  // self-canonicalises (the slug matches its marketing route: /hypertension …).
+  return {
+    ...page,
+    metadata: { ...page.metadata, alternates: { canonical: `/${page.slug}` } },
+  };
 }
 
 export const PRICING_HREF = MARKETING_ROUTES.pricing;

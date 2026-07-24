@@ -173,6 +173,19 @@ const TEMPLATE_MAP: Record<
         `log it. — Tarragon Health`,
     };
   },
+  // Sent to the patient when their care team replies in an in-app message
+  // thread. Notification only — the message itself is read in the app, never
+  // over WhatsApp/SMS.
+  new_care_message: () => {
+    return {
+      metaTemplateName: "new_care_message",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText:
+        "You have a new message from your care team. Open the Tarragon Health app to read and " +
+        "reply. — Tarragon Health",
+    };
+  },
   // Sent to the patient as a scheduled periodic health review comes due (see
   // private.queue_preventive_review_reminders). Reminder only — the review is
   // completed by a doctor in the clinician worklist, never over WhatsApp.
@@ -187,6 +200,64 @@ const TEMPLATE_MAP: Record<
       smsText:
         `Hi, your preventive health review is due ${dueDate}. Your care team will be in touch — ` +
         `open the app to see details. — Tarragon Health`,
+    };
+  },
+  // Sent to an entitled patient when their yearly Annual Health Review cycle
+  // opens (see private.queue_annual_reviews). Reminder only — the review runs
+  // through the in-app clinician worklist, never over WhatsApp.
+  annual_review_due: (payload) => {
+    const cycleYear = String(payload.cycle_year ?? "this year");
+    return {
+      metaTemplateName: "annual_review_due",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: cycleYear }] },
+      ],
+      smsText:
+        `Hi, your ${cycleYear} Annual Health Review has started. Your care team will guide ` +
+        `you through it — open the app to see what's next. — Tarragon Health`,
+    };
+  },
+  // Sent to the patient after they confirm a video-consult slot for their
+  // Annual Health Review (patient annual-review-actions). Confirmation only —
+  // the consult link lives in the app.
+  annual_review_consult_scheduled: (payload) => {
+    const raw = String(payload.scheduled_at ?? "");
+    const when = (() => {
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime())
+        ? "the agreed time"
+        : d.toLocaleString("en-NG", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: "Africa/Lagos",
+          });
+    })();
+    return {
+      metaTemplateName: "annual_review_consult_scheduled",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: when }] },
+      ],
+      smsText:
+        `Your Annual Health Review video consult is confirmed for ${when}. ` +
+        `The join link is in the Tarragon Health app. — Tarragon Health`,
+    };
+  },
+  // Sent to the patient as a lifestyle programme review comes due (see
+  // private.queue_lpe_review_reminders). Reminder only — the review is
+  // completed by their care team in-app, never over WhatsApp.
+  lifestyle_review_due: (payload) => {
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "lifestyle_review_due",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: dueDate }] },
+      ],
+      smsText:
+        `Hi, your lifestyle programme review is due ${dueDate}. Your care team will be in ` +
+        `touch — open the app to see details. — Tarragon Health`,
     };
   },
   // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
@@ -367,6 +438,107 @@ const TEMPLATE_MAP: Record<
           `The services you asked us to tell you about are ready to book:</p>` +
           `<p style="margin:16px 0"><strong>${servicesPretty}</strong></p>` +
           `<p>Open the Tarragon Health app to book — everything is in one place.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Sent to the patient when a clinician/specialist prescribes a medication
+  // (private.enqueue_medication_prescribed_notifications). Email is the
+  // guaranteed channel the requirement asks for; WhatsApp is attempted first on
+  // the whatsapp row, falling back to SMS until the Meta template is approved.
+  medication_prescribed_patient: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const drugName = String(payload.drug_name ?? "your medication");
+    const dose = String(payload.dose ?? "");
+    const frequency = String(payload.frequency ?? "");
+    const details =
+      String(payload.details ?? "").trim() ||
+      [drugName, dose, frequency].filter((s) => s.length > 0).join(" ");
+    const prescriberName = String(payload.prescriber_name ?? "");
+    const smsText =
+      `Hi ${patientName}, a new medication has been added to your care plan: ${details}. ` +
+      `See the full details in the Tarragon Health app. — Tarragon Health`;
+    return {
+      metaTemplateName: "medication_prescribed_patient",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: patientName },
+            { type: "text", text: details },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `A new medication has been added to your care plan`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>A new medication has been added to your care plan. Here are the details:</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Medication</td><td style="padding:4px 0"><strong>${drugName}</strong></td></tr>` +
+          (dose ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Dose</td><td style="padding:4px 0">${dose}</td></tr>` : "") +
+          (frequency ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">How to take it</td><td style="padding:4px 0">${frequency}</td></tr>` : "") +
+          (prescriberName ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Prescribed by</td><td style="padding:4px 0">${prescriberName}</td></tr>` : "") +
+          `</table>` +
+          `<p>Open the Tarragon Health app to see your full medication list, reminders, and refill dates.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Sent to the patient for every lab order
+  // (private.enqueue_lab_order_requested_notifications). A doctor/system order
+  // reads as "requested for you"; a self-booked order reads as a showable
+  // confirmation to present at the lab. Email is the guaranteed channel;
+  // WhatsApp falls back to SMS until the Meta template lands.
+  lab_order_requested_patient: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const orderNumber = String(payload.order_number ?? "your order");
+    const testName = String(payload.test_name ?? "a lab test");
+    const selfBooked = payload.self_booked === true;
+    const lead = selfBooked
+      ? `Your lab test order is confirmed. Show order ${orderNumber} at the lab so they know exactly what to run.`
+      : `Your care team has requested a lab test for you.`;
+    const smsText = selfBooked
+      ? `Hi ${patientName}, your lab order is confirmed: ${testName} (order ${orderNumber}). ` +
+        `Show order ${orderNumber} at the lab to have it done. — Tarragon Health`
+      : `Hi ${patientName}, a lab test has been requested for you: ${testName} ` +
+        `(order ${orderNumber}). See the details in the Tarragon Health app. — Tarragon Health`;
+    return {
+      metaTemplateName: "lab_order_requested_patient",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: patientName },
+            { type: "text", text: testName },
+            { type: "text", text: orderNumber },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: selfBooked
+          ? `Your lab test order ${orderNumber} is confirmed`
+          : `A lab test has been requested for you`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>${lead} Here are the details:</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Test</td><td style="padding:4px 0"><strong>${testName}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Order number</td><td style="padding:4px 0"><strong>${orderNumber}</strong></td></tr>` +
+          `</table>` +
+          `<p>Open the Tarragon Health app to see the order, choose where to have it done, and track your results.</p>` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
@@ -557,6 +729,41 @@ async function sendTermiiSms(
   );
 }
 
+/**
+ * Termii's Voice Call API — same /api/sms/send endpoint as sendTermiiSms,
+ * with channel: 'voice' instead of 'generic'. Termii converts the `sms`
+ * field to speech and places a phone call rather than sending a text.
+ * Built for private.remap_notification_channel() (2026-07-23), which
+ * transparently turns a queued 'whatsapp' row into 'voice' at insert time
+ * for a patient with profiles.preferred_reminder_channel = 'voice' — no
+ * producer function needs to know voice exists.
+ */
+async function sendTermiiVoiceCall(
+  toPhone: string,
+  text: string,
+): Promise<SendResult> {
+  const apiKey = Deno.env.get("TERMII_API_KEY");
+  if (!apiKey) {
+    return { ok: false, error: "TERMII_API_KEY not configured" };
+  }
+
+  return withExternalCall((signal) =>
+    fetch("https://api.ng.termii.com/api/sms/send", {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        to: toPhone,
+        from: "Tarragon",
+        sms: text,
+        type: "plain",
+        channel: "voice",
+      }),
+    })
+  );
+}
+
 async function sendEmail(
   toEmail: string,
   subject: string,
@@ -692,6 +899,13 @@ Deno.serve(async () => {
         // WhatsApp delivery failed — fall back to Termii SMS (§8).
         result = await sendTermiiSms(toPhone, render.smsText);
       }
+    } else if (row.channel === "voice") {
+      if (!toPhone) {
+        await markFailed("recipient has no phone number on file");
+        failed++;
+        continue;
+      }
+      result = await sendTermiiVoiceCall(toPhone, render.smsText);
     } else {
       if (!toPhone) {
         await markFailed("recipient has no phone number on file");

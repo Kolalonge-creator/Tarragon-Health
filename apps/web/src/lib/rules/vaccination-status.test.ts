@@ -128,6 +128,103 @@ describe("computeVaccinationStatuses", () => {
     expect(result.status).toBe("due");
   });
 
+  it("computes an exact due date for a DOB-anchored infant dose from date of birth", () => {
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const [result] = computeVaccinationStatuses(
+      [PENTA],
+      [],
+      { ageYears: 0, dateOfBirth: "2026-05-25" },
+      today
+    );
+    // Dose 1 due at 6 weeks (42 days) from 2026-05-25 = 2026-07-06 (today)
+    expect(result.status).toBe("due");
+    expect(result.nextDueDate).toBe("2026-07-06");
+  });
+
+  it("rolls to the next dose in a DOB-anchored series once a dose is logged", () => {
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const records = [record("penta-id", 1, "2026-06-06")];
+    const [result] = computeVaccinationStatuses(
+      [PENTA],
+      records,
+      { ageYears: 0, dateOfBirth: "2026-06-01" },
+      today
+    );
+    // Dose 2 due at 10 weeks (70 days) from birth = 2026-08-10 — in the
+    // future relative to `today` (2026-07-06), so not yet reached; still
+    // reported via dueOrOverdue with the real date populated, same
+    // convention as every other schedule shape.
+    expect(result.status).toBe("up_to_date");
+    expect(result.nextDueDate).toBe("2026-08-10");
+  });
+
+  it("marks a DOB-anchored series complete once every dose is logged", () => {
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const records = [
+      record("penta-id", 1, "2026-01-13"),
+      record("penta-id", 2, "2026-02-10"),
+      record("penta-id", 3, "2026-03-10"),
+    ];
+    const [result] = computeVaccinationStatuses([PENTA], records, { ageYears: 1 }, today);
+    expect(result.status).toBe("up_to_date");
+  });
+
+  it("marks a childhood-only dose not applicable once past its catch-up age ceiling", () => {
+    const BCG: VaccinationCatalogRow = {
+      id: "bcg-id",
+      code: "child_bcg",
+      name: "BCG",
+      recommended_age: { age_schedule_weeks: [0], max_age_years: 5 },
+    };
+    const [result] = computeVaccinationStatuses([BCG], [], { ageYears: 30 }, today);
+    expect(result.status).toBe("not_applicable");
+  });
+
+  it("marks a sex-restricted childhood vaccine not applicable for the other sex", () => {
+    const HPV_GIRLS: VaccinationCatalogRow = {
+      id: "hpvg-id",
+      code: "child_hpv_girls",
+      name: "HPV (girls 9-14)",
+      recommended_age: { age_schedule_weeks: [469], max_age_years: 14, sex: "female" },
+    };
+    const [result] = computeVaccinationStatuses(
+      [HPV_GIRLS],
+      [],
+      { ageYears: 10, sex: "male" },
+      today
+    );
+    expect(result.status).toBe("not_applicable");
+  });
+
+  it("gates a DOB-anchored dose coarsely off ageYears when date of birth is unknown", () => {
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const [tooYoung] = computeVaccinationStatuses([PENTA], [], { ageYears: 0 }, today);
+    expect(tooYoung.status).toBe("not_yet_due");
+
+    const [oldEnough] = computeVaccinationStatuses([PENTA], [], { ageYears: 1 }, today);
+    expect(oldEnough.status).toBe("due");
+  });
+
   it("clamps month arithmetic instead of rolling into the next month", () => {
     const janThirtyFirst: VaccinationCatalogRow = {
       id: "x",

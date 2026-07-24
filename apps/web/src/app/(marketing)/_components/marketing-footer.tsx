@@ -3,19 +3,30 @@ import { BrandLockup } from "./brand-logo";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 const FOOTER_LINKS = {
-  priorityProgrammes: [
+  care: [
+    { href: MARKETING_ROUTES.services, label: "Services" },
+    { href: MARKETING_ROUTES.chronicCare, label: "Chronic care" },
+    { href: MARKETING_ROUTES.prevention, label: "Prevention" },
+    { href: MARKETING_ROUTES.careCoordination, label: "Care coordination" },
+  ],
+  programmes: [
+    { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
+    { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
+    { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
+    { href: MARKETING_ROUTES.healthEducation, label: "Health Education" },
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
+    { href: MARKETING_ROUTES.obesity, label: "Obesity & Weight" },
     { href: MARKETING_ROUTES.parentcare, label: "ParentCare" },
-    { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
-  ],
-  coordination: [
     { href: MARKETING_ROUTES.medication, label: "Medication" },
     { href: MARKETING_ROUTES.labs, label: "Labs" },
   ],
   company: [
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
+    { href: MARKETING_ROUTES.whoItsFor, label: "Who it's for" },
+    { href: MARKETING_ROUTES.forYou, label: "For you" },
     { href: MARKETING_ROUTES.about, label: "About" },
+    { href: MARKETING_ROUTES.faq, label: "FAQ" },
     { href: MARKETING_ROUTES.contact, label: "Contact" },
   ],
   business: [
@@ -95,11 +106,26 @@ export function MarketingFooter() {
               Continuous monitoring for chronic disease, preventive health,
               family care, and the follow-up between visits.
             </p>
+            <p className="text-sm text-white/65">
+              <a
+                href="mailto:hello@tarragonhealth.ng"
+                className="text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+              >
+                hello@tarragonhealth.ng
+              </a>
+              <span className="text-white/40"> · </span>
+              <a
+                href="mailto:support@tarragonhealth.ng"
+                className="text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+              >
+                support@tarragonhealth.ng
+              </a>
+            </p>
           </div>
         </div>
 
-        <FooterGroup title="Priority programmes" links={FOOTER_LINKS.priorityProgrammes} />
-        <FooterGroup title="Coordination" links={FOOTER_LINKS.coordination} />
+        <FooterGroup title="Care" links={FOOTER_LINKS.care} />
+        <FooterGroup title="Programmes" links={FOOTER_LINKS.programmes} />
         <FooterGroup title="Company" links={FOOTER_LINKS.company} />
         <FooterGroup title="Business" links={FOOTER_LINKS.business} />
         <FooterGroup title="Platform" links={FOOTER_LINKS.platform} />
@@ -114,7 +140,7 @@ export function MarketingFooter() {
       </div>
 
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
-        © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerian families.
+        © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.
       </div>
     </footer>
   );

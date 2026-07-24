@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
+import { AppShell } from "@/components/shell/app-shell";
+import { getNavSections } from "@/lib/navigation";
 import { Providers } from "./providers";
 import { signOut } from "../auth/actions";
 
@@ -36,27 +37,14 @@ export default async function DashboardLayout({
 
   return (
     <Providers>
-      <div className="flex min-h-screen flex-col bg-warm-ivory">
-        <header className="flex items-center justify-between border-b border-charcoal-ink/10 bg-white px-6 py-4">
-          <span className="font-heading text-lg font-semibold text-brand-green">
-            TarragonHealth
-          </span>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-charcoal-ink/70">
-              {profile?.full_name ?? user.email ?? user.phone}
-            </span>
-            <span className="rounded-full bg-brand-green/10 px-2.5 py-1 font-medium text-brand-green">
-              {profile ? ROLE_LABEL[profile.role] : "—"}
-            </span>
-            <form action={signOut}>
-              <Button type="submit" variant="ghost" size="sm">
-                Sign out
-              </Button>
-            </form>
-          </div>
-        </header>
-        <main className="flex flex-1 flex-col px-6 py-8">{children}</main>
-      </div>
+      <AppShell
+        userName={profile?.full_name ?? user.email ?? user.phone ?? "Account"}
+        roleLabel={profile ? (ROLE_LABEL[profile.role] ?? "—") : "—"}
+        navSections={getNavSections(profile?.role)}
+        signOutAction={signOut}
+      >
+        {children}
+      </AppShell>
     </Providers>
   );
 }

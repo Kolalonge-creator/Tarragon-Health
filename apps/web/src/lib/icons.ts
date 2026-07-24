@@ -18,6 +18,24 @@ import {
   CreditCard,
   Percent,
   Truck,
+  LayoutDashboard,
+  IdCard,
+  Activity,
+  Syringe,
+  ClipboardCheck,
+  Inbox,
+  MessageSquare,
+  BarChart3,
+  Settings,
+  Megaphone,
+  MapPin,
+  UserCog,
+  Menu,
+  X,
+  LogOut,
+  ChevronRight,
+  ArrowRightLeft,
+  Phone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,4 +64,41 @@ export const SEMANTIC_ICON = {
   billing: CreditCard,
   commission: Percent,
   logistics: Truck,
+  reminderPreference: Phone,
 } as const satisfies Record<string, LucideIcon>;
+
+/** Navigation + app-shell chrome icons — same sanctioned-surface rule as
+ * SEMANTIC_ICON (never import lucide-react directly outside this file).
+ * These are structural/wayfinding icons, kept in their own map so the brand
+ * guide's semantic slots above stay a clean 1:1 with its table. */
+export const NAV_ICON = {
+  dashboard: LayoutDashboard,
+  passport: IdCard,
+  lifestyle: Activity,
+  vaccination: Syringe,
+  review: ClipboardCheck,
+  inbox: Inbox,
+  messages: MessageSquare,
+  analytics: BarChart3,
+  settings: Settings,
+  broadcast: Megaphone,
+  region: MapPin,
+  members: UserCog,
+  referral: ArrowRightLeft,
+  menu: Menu,
+  close: X,
+  signOut: LogOut,
+  chevronRight: ChevronRight,
+} as const satisfies Record<string, LucideIcon>;
+
+/** Combined lookup for places that must reference icons by NAME (a plain
+ * string) instead of by component — e.g. nav config built in a Server
+ * Component and passed across the RSC boundary to the client AppShell, where
+ * component functions are not serialisable. Key sets of the two maps are
+ * disjoint, so the spread is collision-free. */
+export const APP_ICON = {
+  ...SEMANTIC_ICON,
+  ...NAV_ICON,
+} as const;
+
+export type AppIconName = keyof typeof APP_ICON;
