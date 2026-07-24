@@ -14,10 +14,12 @@ export type WalletTopupCheckoutResult =
 /**
  * Starts a wallet top-up checkout — funding the caller's own wallet, or (with
  * an existing family_plan_members link or profile_access grant) someone
- * else's, e.g. a diaspora sponsor funding a parent's care. The credited
- * amount always lands in kobo (NGN); if the payer's currency isn't NGN, the
- * charge amount is converted at the admin-set platform_currency_settings
- * rate — an unset rate means that currency's top-up isn't offered yet.
+ * else's. This is not a diaspora-only feature: any consented relationship
+ * works today via NGN/Paystack, e.g. a Lagos-based child funding a parent's
+ * care in another state. The credited amount always lands in kobo (NGN); if
+ * the payer's own currency isn't NGN (the diaspora GBP/USD case), the charge
+ * amount is converted at the admin-set platform_currency_settings rate — an
+ * unset rate means that currency's top-up isn't offered yet.
  *
  * No Edge Function involvement: crediting happens via
  * private.credit_wallet_from_payment_transaction, an AFTER INSERT trigger on

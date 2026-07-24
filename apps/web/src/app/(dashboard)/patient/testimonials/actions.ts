@@ -24,6 +24,7 @@ export async function submitTestimonial(
 ): Promise<SubmitTestimonialState> {
   const profile = await getCurrentProfile();
   if (!profile) return { error: "Not signed in" };
+  if (!profile.organisation_id) return { error: "This account has no organisation on file" };
 
   const parsed = schema.safeParse({
     display_name: formData.get("display_name"),

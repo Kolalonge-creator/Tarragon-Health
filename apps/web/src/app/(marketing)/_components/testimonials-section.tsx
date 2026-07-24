@@ -9,13 +9,23 @@ import { Section, SectionHeading } from "./section";
  * partner rows — no placeholder or invented quotes ever stand in.
  */
 export async function TestimonialsSection() {
-  const supabase = createServiceRoleClient();
-  const { data: testimonials } = await supabase
-    .from("patient_testimonials")
-    .select("id, display_name, quote")
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
-    .limit(6);
+  // Never let a Supabase outage or a build-time-only environment (no service
+  // role key available to the static export) break the marketing homepage —
+  // same never-throw discipline as the ML client. Worst case: this section
+  // just doesn't render, same as when there are zero published quotes.
+  let testimonials: { id: string; display_name: string; quote: string }[] | null = null;
+  try {
+    const supabase = createServiceRoleClient();
+    const { data } = await supabase
+      .from("patient_testimonials")
+      .select("id, display_name, quote")
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(6);
+    testimonials = data;
+  } catch {
+    testimonials = null;
+  }
 
   if (!testimonials || testimonials.length === 0) return null;
 
