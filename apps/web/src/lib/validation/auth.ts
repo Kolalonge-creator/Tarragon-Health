@@ -29,6 +29,22 @@ export const phoneOtpVerifySchema = z.object({
 });
 export type PhoneOtpVerifyInput = z.infer<typeof phoneOtpVerifySchema>;
 
+export const passwordResetEmailSchema = z.object({
+  email: z.email(),
+});
+export type PasswordResetEmailInput = z.infer<typeof passwordResetEmailSchema>;
+
+export const newPasswordSchema = z
+  .object({
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
+
 export const signupSchema = z
   .object({
     firstName: z.string().trim().min(1, "Enter your first name"),
