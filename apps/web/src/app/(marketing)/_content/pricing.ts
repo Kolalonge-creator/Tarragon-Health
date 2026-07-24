@@ -742,6 +742,11 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
       "A balance on your account that you top up whenever suits you and spend on any lab test, health check, pharmacy order, or Tarragon fee — never cashed out. A family member can fund it directly for you, and referring a friend earns you both ₦500 in wallet credit once they complete their first paid order.",
   },
   {
+    question: "Can I track my children's vaccinations too?",
+    answer:
+      "Yes. Add a child to your family from your dashboard, even one who's too young to have their own login, and they get their own vaccination schedule, reminders, booking, and doctor-verified certificates, on the same record as the rest of your family's care. This is included on every plan, including Free.",
+  },
+  {
     question: "Can I speak to a doctor directly, not just wait for my scheduled review?",
     answer:
       "Yes, two ways. Send a written question through the app and get a doctor's reply within 24 hours — included on Complete Care, Family, and ParentCare plans. Or book a 15-minute telemedicine video visit for a set time (₦10,000, any plan) — a video call, never an in-person visit: you pay to request a slot, and the charge only goes through once a doctor accepts it, with a full refund if none can.",

@@ -47,8 +47,9 @@ const SCREENING_GROUPS = [
   },
   {
     title: "Vaccinations & reproductive health",
-    intro: "Tarragon tracks what's due, reminds you, and points you to what's already free before you pay anyone.",
+    intro: "Tarragon tracks what's due, reminds you, and points you to what's already free before you pay anyone. Add your children too, even before they're old enough to have their own login.",
     tests: [
+      "A full childhood immunisation record for each of your children, on the same recognised schedule as their paper card, but one you can't lose",
       "HPV vaccination (free at government PHC centres for girls 9–14; catch-up doses bookable for women 15–45)",
       "Hepatitis B vaccination series, with each dose tracked to completion",
       "Optional cycle tracking for women, with gentle nudges — an estimated next period (never a prediction), a nudge to book antenatal care once you're pregnant, or a nudge to talk to your care team as perimenopause or menopause begins",
@@ -115,6 +116,13 @@ export default function PreventionPage() {
           . The one-day{" "}
           <span className="font-medium text-charcoal-ink">Annual Health Check</span> bundles the
           core checks with a doctor consultation about your results.
+        </p>
+        <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
+          Looking after your children&apos;s vaccinations too? See how the{" "}
+          <Link href={MARKETING_ROUTES.vaccinations} className="font-medium text-deep-forest hover:underline">
+            schedule, reminders, and doctor-verified certificates
+          </Link>{" "}
+          work for your whole family.
         </p>
       </Section>
 
