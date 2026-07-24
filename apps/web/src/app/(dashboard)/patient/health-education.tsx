@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   useHealthEducationFeed,
+  useHealthEducationLockedCount,
   useMarkContentProgress,
   type HealthEducationFeedItem,
 } from "@/lib/queries/health-education";
@@ -216,6 +217,7 @@ export function HealthEducation({
   organisationId: string;
 }) {
   const { data, isLoading, isError } = useHealthEducationFeed(patientId);
+  const { data: lockedCount } = useHealthEducationLockedCount(patientId);
   const Icon = SEMANTIC_ICON.preventive;
 
   return (
@@ -247,6 +249,12 @@ export function HealthEducation({
               />
             ))}
           </ul>
+        )}
+        {(lockedCount ?? 0) > 0 && (
+          <p className="mt-3 text-xs text-charcoal-ink/50">
+            {lockedCount} more lesson{lockedCount === 1 ? "" : "s"} unlock over the coming
+            weeks — the pace is deliberate, so each one sticks.
+          </p>
         )}
       </CardContent>
     </Card>

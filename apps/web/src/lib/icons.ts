@@ -35,6 +35,8 @@ import {
   LogOut,
   ChevronRight,
   ArrowRightLeft,
+  Bell,
+  Phone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -63,6 +65,7 @@ export const SEMANTIC_ICON = {
   billing: CreditCard,
   commission: Percent,
   logistics: Truck,
+  reminderPreference: Phone,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Navigation + app-shell chrome icons — same sanctioned-surface rule as
@@ -83,6 +86,7 @@ export const NAV_ICON = {
   region: MapPin,
   members: UserCog,
   referral: ArrowRightLeft,
+  bell: Bell,
   menu: Menu,
   close: X,
   signOut: LogOut,

@@ -7,6 +7,7 @@ import { ConsentStep } from "./consent-step";
 import { DemographicsForm } from "./demographics-form";
 import { IdentityVerificationCard } from "./identity-verification-card";
 import { IntakeStep } from "./intake-step";
+import { PlanPreview } from "./plan-preview";
 import { PlanSelector } from "./plan-selector";
 
 function DoneRow({ label }: { label: string }) {
@@ -128,7 +129,8 @@ export function OnboardingFlow({
         <IntakeStep patientId={profile.id} onSkip={() => setIntakeCollapsed(true)} />
       )}
 
-      {/* Step 4 — Plan */}
+      {/* Step 4 — what the intake produced (honest plan preview), then plan choice */}
+      {readyForPlan && intakeCollapsed && <PlanPreview patientId={profile.id} />}
       {readyForPlan && intakeCollapsed && (
         <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
           <h2 className="font-heading text-lg font-semibold text-charcoal-ink">

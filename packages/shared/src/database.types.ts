@@ -7892,6 +7892,54 @@ export type Database = {
           },
         ]
       }
+      reproductive_health_profiles: {
+        Row: {
+          average_cycle_length_days: number | null
+          created_at: string
+          id: string
+          last_period_date: string | null
+          life_stage: Database["public"]["Enums"]["reproductive_life_stage"]
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          average_cycle_length_days?: number | null
+          created_at?: string
+          id?: string
+          last_period_date?: string | null
+          life_stage?: Database["public"]["Enums"]["reproductive_life_stage"]
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          average_cycle_length_days?: number | null
+          created_at?: string
+          id?: string
+          last_period_date?: string | null
+          life_stage?: Database["public"]["Enums"]["reproductive_life_stage"]
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reproductive_health_profiles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reproductive_health_profiles_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       risk_assessment_responses: {
         Row: {
           category: Database["public"]["Enums"]["risk_assessment_category"]
@@ -9797,6 +9845,7 @@ export type Database = {
       }
       wearable_connections: {
         Row: {
+          access_token: string | null
           connected_at: string
           created_at: string
           external_id: string | null
@@ -9805,9 +9854,12 @@ export type Database = {
           organisation_id: string
           patient_id: string
           provider: Database["public"]["Enums"]["wearable_provider"]
+          refresh_token: string | null
           status: Database["public"]["Enums"]["wearable_connection_status"]
+          token_expires_at: string | null
         }
         Insert: {
+          access_token?: string | null
           connected_at?: string
           created_at?: string
           external_id?: string | null
@@ -9816,9 +9868,12 @@ export type Database = {
           organisation_id: string
           patient_id: string
           provider: Database["public"]["Enums"]["wearable_provider"]
+          refresh_token?: string | null
           status?: Database["public"]["Enums"]["wearable_connection_status"]
+          token_expires_at?: string | null
         }
         Update: {
+          access_token?: string | null
           connected_at?: string
           created_at?: string
           external_id?: string | null
@@ -9827,7 +9882,9 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           provider?: Database["public"]["Enums"]["wearable_provider"]
+          refresh_token?: string | null
           status?: Database["public"]["Enums"]["wearable_connection_status"]
+          token_expires_at?: string | null
         }
         Relationships: [
           {
@@ -10596,6 +10653,14 @@ export type Database = {
         | "doctor_refers_patient"
         | "corporate_champion"
       referral_urgency: "routine" | "priority" | "urgent"
+      reproductive_life_stage:
+        | "menstruating"
+        | "trying_to_conceive"
+        | "pregnant"
+        | "postpartum"
+        | "perimenopausal"
+        | "menopausal"
+        | "not_applicable"
       result_status: "normal" | "borderline" | "abnormal" | "critical"
       risk_assessment_category:
         | "lifestyle"
@@ -11186,6 +11251,15 @@ export const Constants = {
         "corporate_champion",
       ],
       referral_urgency: ["routine", "priority", "urgent"],
+      reproductive_life_stage: [
+        "menstruating",
+        "trying_to_conceive",
+        "pregnant",
+        "postpartum",
+        "perimenopausal",
+        "menopausal",
+        "not_applicable",
+      ],
       result_status: ["normal", "borderline", "abnormal", "critical"],
       risk_assessment_category: [
         "lifestyle",

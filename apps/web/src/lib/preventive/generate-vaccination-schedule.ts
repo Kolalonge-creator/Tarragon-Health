@@ -37,27 +37,32 @@ export async function generateVaccinationScheduleBestEffort(params: {
   try {
     const supabase = createServiceRoleClient();
 
-    const [{ data: catalog }, { data: records }, { data: existing }] = await Promise.all([
-      supabase
-        .from("vaccination_catalog")
-        .select("id, code, name, recommended_age")
-        .eq("is_active", true),
-      supabase
-        .from("vaccination_records")
-        .select("vaccination_catalog_id, dose_number, date_administered")
-        .eq("profile_id", patientId),
-      supabase
-        .from("vaccination_schedules")
-        .select("id, vaccination_catalog_id, status, due_date")
-        .eq("patient_id", patientId),
-    ]);
+    const [{ data: catalog }, { data: records }, { data: existing }, { data: subjectProfile }] =
+      await Promise.all([
+        supabase
+          .from("vaccination_catalog")
+          .select("id, code, name, recommended_age")
+          .eq("is_active", true),
+        supabase
+          .from("vaccination_records")
+          .select("vaccination_catalog_id, dose_number, date_administered")
+          .eq("profile_id", patientId),
+        supabase
+          .from("vaccination_schedules")
+          .select("id, vaccination_catalog_id, status, due_date")
+          .eq("patient_id", patientId),
+        // date_of_birth/sex power the DOB-anchored infant schedule shape
+        // (age_schedule_weeks) — looked up here rather than added to every
+        // call site's params, since every caller already has patientId.
+        supabase.from("profiles").select("date_of_birth, sex").eq("id", patientId).maybeSingle(),
+      ]);
 
     if (!catalog) return;
 
     const statuses = computeVaccinationStatuses(
       catalog as VaccinationCatalogRow[],
       (records ?? []) as VaccinationRecordRow[],
-      { ageYears }
+      { ageYears, dateOfBirth: subjectProfile?.date_of_birth ?? null, sex: subjectProfile?.sex ?? null }
     );
 
     // Active (pending/booked) schedule per vaccine — at most one per the

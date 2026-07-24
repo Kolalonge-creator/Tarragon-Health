@@ -260,6 +260,73 @@ const TEMPLATE_MAP: Record<
         `touch — open the app to see details. — Tarragon Health`,
     };
   },
+  // Proactive-outreach nudge (see private.queue_care_outreach). One aggregated,
+  // warm check-in per patient when the nightly engine surfaces them from risk
+  // scores/care gaps. Reminder only — everything happens in the app; the
+  // coordinator worklist is the acting side of this loop.
+  care_outreach_checkin: () => {
+    return {
+      metaTemplateName: "care_outreach_checkin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText:
+        "Hi, your recent health record suggests a quick check-in would help. Open the " +
+        "Tarragon Health app to see what's due — booking takes a minute. — Tarragon Health",
+    };
+  },
+  // Sent when a doctor answers the patient's ask-a-doctor consult (see
+  // answerAsyncConsult). Notification only — the answer itself lives in-app.
+  async_consult_answered: () => {
+    return {
+      metaTemplateName: "async_consult_answered",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText:
+        "A doctor has answered your question. Open the Tarragon Health app to read it. " +
+        "— Tarragon Health",
+    };
+  },
+  // Sent after a patient self-books a video check-in slot (bookVideoVisit).
+  // Confirmation only — the join link lives in the app.
+  video_consult_booked: (payload) => {
+    const raw = String(payload.scheduled_at ?? "");
+    const when = (() => {
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime())
+        ? "the agreed time"
+        : d.toLocaleString("en-NG", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: "Africa/Lagos",
+          });
+    })();
+    return {
+      metaTemplateName: "video_consult_booked",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: when }] },
+      ],
+      smsText:
+        `Your video check-in with your Tarragon doctor is booked for ${when}. ` +
+        `The join link is in the app. — Tarragon Health`,
+    };
+  },
+  // Sent when a doctor declines a paid video-visit request, or no doctor
+  // accepted it within 48h (decline action / video-visit-refunds cron). The
+  // refund is automatic; this just tells the patient honestly what happened.
+  video_visit_declined: (payload) => {
+    const reason = String(payload.reason ?? "").trim();
+    return {
+      metaTemplateName: "video_visit_declined",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: reason || "No doctor was available for that time." }] },
+      ],
+      smsText:
+        `We couldn't schedule your video visit${reason ? ` (${reason})` : ""}. ` +
+        `Your payment will be refunded in full. You can request another time in the app. — Tarragon Health`,
+    };
+  },
   // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
   // subject + body chosen by an admin, fanned out to a resolved audience. Email
   // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement
@@ -729,6 +796,41 @@ async function sendTermiiSms(
   );
 }
 
+/**
+ * Termii's Voice Call API — same /api/sms/send endpoint as sendTermiiSms,
+ * with channel: 'voice' instead of 'generic'. Termii converts the `sms`
+ * field to speech and places a phone call rather than sending a text.
+ * Built for private.remap_notification_channel() (2026-07-23), which
+ * transparently turns a queued 'whatsapp' row into 'voice' at insert time
+ * for a patient with profiles.preferred_reminder_channel = 'voice' — no
+ * producer function needs to know voice exists.
+ */
+async function sendTermiiVoiceCall(
+  toPhone: string,
+  text: string,
+): Promise<SendResult> {
+  const apiKey = Deno.env.get("TERMII_API_KEY");
+  if (!apiKey) {
+    return { ok: false, error: "TERMII_API_KEY not configured" };
+  }
+
+  return withExternalCall((signal) =>
+    fetch("https://api.ng.termii.com/api/sms/send", {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        to: toPhone,
+        from: "Tarragon",
+        sms: text,
+        type: "plain",
+        channel: "voice",
+      }),
+    })
+  );
+}
+
 async function sendEmail(
   toEmail: string,
   subject: string,
@@ -864,6 +966,13 @@ Deno.serve(async () => {
         // WhatsApp delivery failed — fall back to Termii SMS (§8).
         result = await sendTermiiSms(toPhone, render.smsText);
       }
+    } else if (row.channel === "voice") {
+      if (!toPhone) {
+        await markFailed("recipient has no phone number on file");
+        failed++;
+        continue;
+      }
+      result = await sendTermiiVoiceCall(toPhone, render.smsText);
     } else {
       if (!toPhone) {
         await markFailed("recipient has no phone number on file");

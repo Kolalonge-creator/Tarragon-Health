@@ -50,6 +50,7 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
                   icon: "dashboard",
                   exact: true,
                 },
+                { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
               ],
@@ -66,6 +67,9 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
               label: "Worklists",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
+                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Referrals", href: "/clinician/referrals", icon: "referral" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
@@ -127,6 +131,7 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Subscriptions", href: "/admin/settings/subscriptions", icon: "billing" },
             { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
+            { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
           ],
         },
       ];
