@@ -9,6 +9,43 @@ export type FamilyPlanMember = Tables<"family_plan_members"> & {
 
 const QUERY_KEY = ["family-plan-members"];
 
+export interface ManagedDependent {
+  id: string;
+  full_name: string | null;
+  date_of_birth: string | null;
+  sex: "male" | "female" | null;
+}
+
+/**
+ * Profiles the caller holds a 'manage' profile_access grant over — today
+ * that's exclusively the children provisioned via addChildDependentAction
+ * (see (dashboard)/patient/family/add-child-actions.ts), since every other
+ * family_plan_members relationship links to an adult with their own login.
+ * Powers the "whose vaccinations?" subject selector.
+ */
+export function useManagedDependents() {
+  return useQuery({
+    queryKey: ["managed-dependents"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { data, error } = await supabase
+        .from("profile_access")
+        .select("profile:profiles!profile_access_profile_id_fkey(id, full_name, date_of_birth, sex)")
+        .eq("grantee_user_id", user.id)
+        .eq("permission_level", "manage");
+      if (error) throw error;
+      return (data ?? [])
+        .map((row) => row.profile)
+        .filter((p): p is ManagedDependent => p !== null);
+    },
+  });
+}
+
 async function getCallerProfile(): Promise<{ id: string; organisationId: string }> {
   const supabase = createClient();
   const {

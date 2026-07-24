@@ -10,6 +10,7 @@ import {
 } from "@/lib/queries/preventive-programmes";
 import { useRiskScores } from "@/lib/queries/risk-assessment";
 import { usePatientNextPreventiveReview } from "@/lib/queries/preventive-reviews";
+import { useScreeningSchedules } from "@/lib/queries/screening";
 import {
   computePreventiveProgrammeRecommendations,
   type ProgrammeRiskInput,
@@ -24,6 +25,43 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  * in three tiers — collapse very_high into high. */
 function toRiskTier(tier: Enums<"risk_level">): RiskTier {
   return tier === "very_high" ? "high" : tier;
+}
+
+const SCREENING_STATUS_LABEL: Record<Enums<"screening_status">, string> = {
+  pending: "Due",
+  booked: "Booked",
+  completed: "Up to date",
+  overdue: "Overdue",
+  cancelled: "Not applicable",
+};
+
+/**
+ * The Women's Health bridge: enrolling in the programme previously only
+ * scheduled a generic periodic review, with no link to whether cervical/
+ * breast screening was actually due — this composes the real
+ * screen_types/screening_schedules status (already computed by the
+ * age/sex-driven recommendation engine on risk-assessment submit) rather
+ * than inventing a parallel cervical-specific engine.
+ */
+function WomensHealthScreeningStatus({ patientId }: { patientId: string }) {
+  const schedules = useScreeningSchedules(patientId);
+  const relevant = (schedules.data ?? []).filter(
+    (s) => s.screen_type?.code === "cervical_smear" || s.screen_type?.code === "mammography"
+  );
+
+  if (schedules.isLoading || relevant.length === 0) return null;
+
+  return (
+    <ul className="mt-1 space-y-0.5 rounded-md bg-brand-green/5 p-2">
+      {relevant.map((schedule) => (
+        <li key={schedule.id} className="text-xs text-charcoal-ink/70">
+          <span className="font-medium">{schedule.screen_type?.name}</span>:{" "}
+          {SCREENING_STATUS_LABEL[schedule.status]}
+          {schedule.due_date && ` — ${new Date(schedule.due_date).toLocaleDateString()}`}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function PreventiveProgrammes({
@@ -103,6 +141,9 @@ export function PreventiveProgrammes({
                   )}
                   {!enrolment && rationale && (
                     <p className="text-xs text-charcoal-ink/50">{rationale}</p>
+                  )}
+                  {enrolment && programme.code === "womens_health" && (
+                    <WomensHealthScreeningStatus patientId={patientId} />
                   )}
                   <div>
                     {enrolment ? (
