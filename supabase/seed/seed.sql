@@ -74,16 +74,37 @@ values
      '{"dose_schedule_months": [0, 6]}'::jsonb)
 on conflict (code) do nothing;
 
--- Anchor the adult tetanus/Td booster off the childhood Pentavalent series
--- (child_penta, seeded by the child_immunisation_nphcda migration, not this
--- file) via computeVaccinationStatuses' anchor_fallback_code -- migration
--- 20260724022928. A plain UPDATE (not part of the ON CONFLICT insert above)
--- since the column already has a value on an existing environment; the
--- `not (... ? 'anchor_fallback_code')` guard keeps it idempotent.
+-- WHO's full lifetime tetanus toxoid-containing-vaccine (TTCV) schedule: the
+-- infant Pentavalent series (child_penta, seeded by the
+-- child_immunisation_nphcda migration, not this file) plus 3 further
+-- childhood boosters (~18 months / 4-7 years / 9-15 years) before the adult
+-- 10-year cadence begins -- migrations 20260724022928 + 20260724024110.
+-- Not part of the ON CONFLICT insert above since child_* rows live only in
+-- that migration; INSERT here is its own idempotent ON CONFLICT DO NOTHING.
+insert into public.vaccination_catalog (code, name, description, recommended_age)
+values
+  ('child_tetanus_booster_1', 'Tetanus Booster — 18 Months',
+     'WHO-recommended childhood tetanus booster, typically given between 12 and 23 months.',
+     '{"age_schedule_weeks": [78], "max_age_years": 3}'::jsonb),
+  ('child_tetanus_booster_2', 'Tetanus Booster — 4 to 7 Years',
+     'WHO-recommended childhood tetanus booster, typically given between 4 and 7 years.',
+     '{"age_schedule_weeks": [208], "max_age_years": 8}'::jsonb),
+  ('child_tetanus_booster_3', 'Tetanus Booster — 9 to 15 Years',
+     'WHO-recommended childhood tetanus booster, typically given between 9 and 15 years -- the last dose before the adult 10-year booster cycle begins.',
+     '{"age_schedule_weeks": [469], "max_age_years": 16}'::jsonb)
+on conflict (code) do nothing;
+
+-- Anchor the adult tetanus/Td booster off child_tetanus_booster_3 (the LAST
+-- stage of the WHO series above), via computeVaccinationStatuses'
+-- anchor_fallback_code. Always sets the same final value rather than
+-- guarding on "not already set" -- this key's value changed once already
+-- (from child_penta to child_tetanus_booster_3, see migration
+-- 20260724024110), so a presence-only guard would have skipped
+-- backfilling the corrected value on an environment seeded before that
+-- change; setting the same key/value repeatedly is already idempotent.
 update public.vaccination_catalog
-  set recommended_age = recommended_age || '{"anchor_fallback_code": "child_penta"}'::jsonb
-  where code = 'tetanus_td_booster'
-    and not (recommended_age ? 'anchor_fallback_code');
+  set recommended_age = recommended_age || '{"anchor_fallback_code": "child_tetanus_booster_3"}'::jsonb
+  where code = 'tetanus_td_booster';
 
 -- ---------------------------------------------------------------------------
 -- lab_providers

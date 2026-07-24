@@ -302,6 +302,90 @@ describe("computeVaccinationStatuses", () => {
     expect(result.lastDoseDate).toBeNull();
   });
 
+  describe("the full WHO tetanus (TTCV) series wired into production data", () => {
+    // Mirrors the real vaccination_catalog rows (migration
+    // 20260724024110_who_tetanus_childhood_booster_series): infant Penta
+    // (6/10/14wk) -> booster 1 (18mo/78wk) -> booster 2 (4yr/208wk) ->
+    // booster 3 (9yr/469wk) -> adult tetanus_td_booster, anchored off
+    // booster 3 specifically, not an earlier stage.
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const BOOSTER_1: VaccinationCatalogRow = {
+      id: "booster1-id",
+      code: "child_tetanus_booster_1",
+      name: "Tetanus Booster — 18 Months",
+      recommended_age: { age_schedule_weeks: [78], max_age_years: 3 },
+    };
+    const BOOSTER_2: VaccinationCatalogRow = {
+      id: "booster2-id",
+      code: "child_tetanus_booster_2",
+      name: "Tetanus Booster — 4 to 7 Years",
+      recommended_age: { age_schedule_weeks: [208], max_age_years: 8 },
+    };
+    const BOOSTER_3: VaccinationCatalogRow = {
+      id: "booster3-id",
+      code: "child_tetanus_booster_3",
+      name: "Tetanus Booster — 9 to 15 Years",
+      recommended_age: { age_schedule_weeks: [469], max_age_years: 16 },
+    };
+    const ADULT_BOOSTER: VaccinationCatalogRow = {
+      id: "tetanus-id",
+      code: "tetanus_td_booster",
+      name: "Tetanus/Td Booster",
+      recommended_age: { interval_years: 10, anchor_fallback_code: "child_tetanus_booster_3" },
+    };
+    const CATALOG = [PENTA, BOOSTER_1, BOOSTER_2, BOOSTER_3, ADULT_BOOSTER];
+
+    it("does NOT anchor the adult booster off an earlier partial stage while a later childhood booster is still outstanding", () => {
+      // A 5-year-old who's had Penta + the 18-month booster, but isn't old
+      // enough yet for booster 2 (due at 4yr) or booster 3 (due at 9yr) —
+      // wait, 5yr IS past booster 2's 4yr due age, so booster 2 should show
+      // due/overdue on its own row; the point under test is that the ADULT
+      // booster must NOT compute a next-due-date off booster 1's 18-month
+      // dose (which would wrongly suggest no tetanus shot is needed until
+      // age ~11.5, silently deprioritising the still-outstanding booster 2).
+      const records = [
+        record("penta-id", 1, "2021-01-13"),
+        record("penta-id", 2, "2021-02-10"),
+        record("penta-id", 3, "2021-03-10"),
+        record("booster1-id", 1, "2022-08-01"),
+      ];
+      const results = computeVaccinationStatuses(CATALOG, records, { ageYears: 5, dateOfBirth: "2021-01-01" }, today);
+      const byCode = Object.fromEntries(results.map((r) => [r.code, r]));
+
+      // Booster 2 correctly shows as due on its own row — the childhood
+      // series is not silently skipped.
+      expect(["due", "overdue"]).toContain(byCode.child_tetanus_booster_2.status);
+      // The adult booster has no dose of its own AND its fallback
+      // (booster 3) has none either — it falls through to the plain
+      // "due today" default, never to booster 1's 2022-08-01 + 10 years.
+      expect(byCode.tetanus_td_booster.status).toBe("due");
+      expect(byCode.tetanus_td_booster.nextDueDate).toBe("2026-07-06");
+      expect(byCode.tetanus_td_booster.lastDoseDate).toBeNull();
+    });
+
+    it("anchors the adult booster's 10-year clock off booster 3 once the full childhood series is complete", () => {
+      const records = [
+        record("penta-id", 1, "2011-01-13"),
+        record("penta-id", 2, "2011-02-10"),
+        record("penta-id", 3, "2011-03-10"),
+        record("booster1-id", 1, "2012-08-01"),
+        record("booster2-id", 1, "2015-01-15"),
+        record("booster3-id", 1, "2020-06-15"), // the real last childhood dose
+      ];
+      const results = computeVaccinationStatuses(CATALOG, records, { ageYears: 15, dateOfBirth: "2011-01-01" }, today);
+      const byCode = Object.fromEntries(results.map((r) => [r.code, r]));
+
+      expect(byCode.tetanus_td_booster.lastDoseDate).toBe("2020-06-15");
+      expect(byCode.tetanus_td_booster.nextDueDate).toBe("2030-06-15");
+      expect(byCode.tetanus_td_booster.status).toBe("up_to_date");
+    });
+  });
+
   it("clamps month arithmetic instead of rolling into the next month", () => {
     const janThirtyFirst: VaccinationCatalogRow = {
       id: "x",

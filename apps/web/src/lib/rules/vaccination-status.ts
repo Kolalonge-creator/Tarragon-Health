@@ -28,11 +28,19 @@ import type { Tables } from "@tarragon/shared";
  * interval_years also accepts an optional anchor_fallback_code, so a
  * recurring booster can start counting from a dose logged under a DIFFERENT
  * catalog entry when it has none of its own. The tetanus/Td booster uses
- * this: most people's last tetanus-toxoid-containing dose was their
- * childhood Pentavalent series (child_penta), not something ever logged
- * under the tetanus_td_booster code — this is how "boost every 10 years
- * from your last childhood dose" is expressed without merging two
- * differently-named, differently-composed vaccines into one catalog row.
+ * this: WHO's full lifetime tetanus-toxoid-containing-vaccine (TTCV)
+ * schedule is 6 doses — the infant Pentavalent series (child_penta, 6/10/14
+ * weeks) plus three further childhood boosters (child_tetanus_booster_1/2/3,
+ * ~18 months / 4-7 years / 9-15 years) — before the adult 10-year cadence
+ * begins. tetanus_td_booster's anchor_fallback_code points at
+ * child_tetanus_booster_3, the LAST stage in that series, deliberately not
+ * an earlier stage: anchoring off a partial-series dose (e.g. only the
+ * 18-month booster) would compute a next-due date years before the
+ * still-outstanding 4-7yr/9-15yr boosters are due, which would wrongly read
+ * as "you don't need another tetanus shot for a decade" while a childhood
+ * dose is still owed. Each earlier stage still shows its own due/overdue
+ * status on its own catalog row regardless — this fallback ONLY governs
+ * when the ongoing ADULT booster's clock starts.
  */
 
 export type VaccinationCatalogRow = Pick<
