@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
-export function SignupForm() {
+export function SignupForm({ refCode }: { refCode?: string }) {
   const [state, formAction, pending] = useActionState(signUp, undefined);
 
   if (state?.success) {
@@ -22,6 +22,15 @@ export function SignupForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      {refCode && (
+        <>
+          <input type="hidden" name="refCode" value={refCode} />
+          <p className="rounded-lg bg-soft-sage p-3 text-xs text-charcoal-ink/70">
+            Referral code <span className="font-semibold">{refCode}</span> will be applied once
+            your account is confirmed.
+          </p>
+        </>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="firstName">First name</Label>

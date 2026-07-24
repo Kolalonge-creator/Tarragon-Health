@@ -421,7 +421,7 @@ export const HEALTH_WALLET_POINTS: { title: string; body: string }[] = [
   },
   {
     title: "Refer a friend",
-    body: "Share your referral code from your dashboard. Once your friend completes their first paid order, you both get ₦500 wallet credit.",
+    body: "Share your referral link from your dashboard. Once your friend completes their first paid order, you both get ₦500 wallet credit.",
   },
 ];
 
@@ -740,6 +740,11 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
     question: "What is the Health Wallet?",
     answer:
       "A balance on your account that you top up whenever suits you and spend on any lab test, health check, pharmacy order, or Tarragon fee — never cashed out. A family member can fund it directly for you, and referring a friend earns you both ₦500 in wallet credit once they complete their first paid order.",
+  },
+  {
+    question: "Can I track my children's vaccinations too?",
+    answer:
+      "Yes. Add a child to your family from your dashboard, even one who's too young to have their own login, and they get their own vaccination schedule, reminders, booking, and doctor-verified certificates, on the same record as the rest of your family's care. This is included on every plan, including Free.",
   },
   {
     question: "Can I speak to a doctor directly, not just wait for my scheduled review?",

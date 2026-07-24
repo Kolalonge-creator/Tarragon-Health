@@ -105,7 +105,7 @@ export const WHAT_YOU_GET = [
 export const PLATFORM_EXTRAS = [
   {
     title: "The Health Wallet",
-    body: "Top up a little at a time toward your Annual Health Check or care plan, or let a family member — in Nigeria or abroad — fund it for you directly. Refer a friend and you both get ₦500 wallet credit once they complete their first paid order.",
+    body: "Top up a little at a time toward your Annual Health Check or care plan, or let a family member — in Nigeria or abroad — fund it for you directly. Refer a friend with your personal link and you both get ₦500 wallet credit once they complete their first paid order.",
   },
   {
     title: "Talk to a doctor, your way",
@@ -124,7 +124,7 @@ export const PLATFORM_EXTRAS = [
 export const PREVENTION_CALLOUT = {
   title: "Healthy? Tarragon is built for you too",
   body:
-    "You don't need a diagnosis to belong here. Tarragon Prevent gives you a personal screening and vaccination calendar, a yearly Health Check, and education that makes sense of your numbers, so most years, you simply get confirmation that all is well. And if a check ever finds something, a doctor follows up the same day and it's caught years earlier, when it's easiest to treat.",
+    "You don't need a diagnosis to belong here. Tarragon Prevent gives you and your children a personal screening and vaccination calendar, a yearly Health Check, and education that makes sense of your numbers, so most years, you simply get confirmation that all is well. And if a check ever finds something, a doctor follows up the same day and it's caught years earlier, when it's easiest to treat.",
 } as const;
 
 export const HOW_IT_WORKS_STEPS = [

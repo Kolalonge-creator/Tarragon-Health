@@ -24,6 +24,7 @@ export async function signUp(
     countryCode: formData.get("countryCode"),
     phone: formData.get("phone"),
     state: formData.get("state"),
+    refCode: formData.get("refCode"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
@@ -39,13 +40,14 @@ export async function signUp(
     options: {
       emailRedirectTo: `${origin}/auth/callback`,
       // auth.users.phone is only set by phone-identity signup; carrying the
-      // phone (and optional state) here lets /auth/callback backfill
-      // profiles.phone/state once the user confirms and we have a session to
-      // update it under RLS.
+      // phone (and optional state/ref_code) here lets /auth/callback backfill
+      // profiles.phone/state and auto-redeem a referral code once the user
+      // confirms and we have a session to act under RLS.
       data: {
         full_name: parsed.data.fullName,
         phone: parsed.data.phone,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
+        ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
       },
     },
   });
