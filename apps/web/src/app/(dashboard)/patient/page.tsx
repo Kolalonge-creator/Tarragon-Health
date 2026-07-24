@@ -22,6 +22,7 @@ import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
 import { ResultsTrendsCard } from "./results-trends-card";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
+import { HbpmSummaryCard } from "./hbpm-summary-card";
 import { SymptomLogForm } from "./symptom-log-form";
 import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -211,6 +212,7 @@ export default async function PatientPage() {
         icon={SEMANTIC_ICON.bp}
       >
         <VitalsForm patientId={profile.id} />
+        <HbpmSummaryCard patientId={profile.id} />
         <VitalsHistory patientId={profile.id} />
         <VitalsTrendChart patientId={profile.id} />
         <SymptomLogForm patientId={profile.id} />

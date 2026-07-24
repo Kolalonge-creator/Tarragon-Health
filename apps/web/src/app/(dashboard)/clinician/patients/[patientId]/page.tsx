@@ -13,6 +13,7 @@ import { ScreeningResultForm } from "./screening-result-form";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
+import { BpLadderPanel } from "./bp-ladder-panel";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
 import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
@@ -130,6 +131,7 @@ export default async function ClinicianPatientPage({
         refillCoordinationEnabled
         canConfirmRefill={canConfirmRefill}
       />
+      <BpLadderPanel patientId={patient.id} />
       {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
           continues existing prescriptions but has no new-prescribing
           authority — the DB RLS policy is the real gate
