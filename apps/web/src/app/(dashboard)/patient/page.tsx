@@ -50,6 +50,8 @@ import { WearableConnectSection } from "./wearable-connect-section";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
 import { HospitalAdmissionsCard } from "./hospital-admissions-card";
+import { WalletCard } from "@/components/wallet-card";
+import { TestimonialForm } from "@/components/testimonial-form";
 import { EmergencyAlert } from "./emergency-alert";
 import { LabCatalogue } from "./lab-catalogue";
 import { LabOrdersList } from "./lab-orders-list";
@@ -388,6 +390,7 @@ export default async function PatientPage() {
         <BookVideoVisit patientId={profile.id} />
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
+        <WalletCard patientId={profile.id} />
         <YourReferrals patientId={profile.id} />
         <RequiresEntitlement
           feature="doctor_checkin"
@@ -399,6 +402,7 @@ export default async function PatientPage() {
           <FamilyDashboardCard />
         </RequiresEntitlement>
         {coachAccess && <AiCoachChat patientId={profile.id} />}
+        <TestimonialForm />
       </DashboardSection>
 
       <DashboardSection

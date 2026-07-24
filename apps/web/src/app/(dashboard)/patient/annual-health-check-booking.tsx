@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
+import { PayWithWalletButton } from "@/components/pay-with-wallet-button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
 import { cn } from "@/lib/utils";
@@ -180,7 +181,15 @@ export function AnnualHealthCheckBooking({
                   — ₦{koboToNaira(order.total_kobo).toLocaleString()}
                 </p>
                 {order.status === "pending_payment" && (
-                  <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                  <>
+                    <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                    <PayWithWalletButton
+                      orderType="lab"
+                      orderId={order.id}
+                      amountKobo={order.total_kobo}
+                      patientId={patientId}
+                    />
+                  </>
                 )}
               </div>
             ))}

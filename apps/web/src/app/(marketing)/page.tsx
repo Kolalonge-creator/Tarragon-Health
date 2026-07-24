@@ -8,6 +8,7 @@ import { MarketingMediaFrame } from "./_components/marketing-media-frame";
 import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
+import { TestimonialsSection } from "./_components/testimonials-section";
 import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
@@ -288,6 +289,8 @@ export default function MarketingHomePage() {
         />
         <TrustBand />
       </Section>
+
+      <TestimonialsSection />
 
       <Section>
         <CtaBand
