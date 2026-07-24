@@ -453,6 +453,179 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Sent to the patient on the lab_orders payment_confirmed transition (see
+  // enqueue_lab_order_lab_notifications) — the lab_orders equivalent of
+  // pharmacy_order_patient_confirmation. lab_name prefers the chosen physical
+  // facility, falling back to the umbrella lab_providers name.
+  lab_order_patient_confirmation: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const labName = String(payload.lab_name ?? "the lab");
+    const patientName = String(payload.patient_name ?? "there");
+    const patientNumber = String(payload.patient_number ?? "");
+    const testName = String(payload.test_name ?? "your test");
+    const smsText =
+      `Hi ${patientName}, your Tarragon Health order ${orderNumber} (${testName}) is confirmed at ${labName}. ` +
+      `Show order ${orderNumber} and your patient ID ${patientNumber} when you arrive. ` +
+      `— Tarragon Health`;
+    return {
+      metaTemplateName: "lab_order_patient_confirmation",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: testName },
+            { type: "text", text: labName },
+            { type: "text", text: patientNumber },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber} is confirmed`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>Your order is confirmed. Show the details below at <strong>${labName}</strong> when you arrive.</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Order number</td><td style="padding:4px 0"><strong>${orderNumber}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Patient ID</td><td style="padding:4px 0"><strong>${patientNumber}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Test</td><td style="padding:4px 0">${testName}</td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Lab</td><td style="padding:4px 0">${labName}</td></tr>` +
+          `</table>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Sent to the lab_providers contact (SMS + email) on the same transition —
+  // no WhatsApp leg, mirrors pharmacy_order_pharmacy_alert.
+  lab_order_lab_alert: (payload) => {
+    const orderNumber = String(payload.order_number ?? "");
+    const labName = String(payload.lab_name ?? "");
+    const facilityName = String(payload.facility_name ?? "");
+    const patientName = String(payload.patient_name ?? "a patient");
+    const patientNumber = String(payload.patient_number ?? "");
+    const testName = String(payload.test_name ?? "");
+    const smsText =
+      `New Tarragon Health order ${orderNumber}: ${patientName} (patient ID ${patientNumber}) — ` +
+      `${testName}. Please prepare to receive this patient. — Tarragon Health`;
+    return {
+      metaTemplateName: "lab_order_lab_alert",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: orderNumber }] },
+      ],
+      smsText,
+      email: {
+        subject: `New Tarragon Health order ${orderNumber} — ${patientName}`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hello ${labName},</p>` +
+          `<p>A patient has a confirmed, paid booking${facilityName ? ` at ${facilityName}` : ""}. Please prepare for:</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Order number</td><td style="padding:4px 0"><strong>${orderNumber}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Patient</td><td style="padding:4px 0">${patientName}</td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Patient ID</td><td style="padding:4px 0"><strong>${patientNumber}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Test</td><td style="padding:4px 0">${testName}</td></tr>` +
+          `</table>` +
+          `<p>The patient will present order ${orderNumber} and their patient ID on arrival.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health — Care that stays with you.</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Sent to the patient on the specialist_referrals payment_confirmed
+  // transition (see enqueue_referral_notifications) — the referrals
+  // equivalent of pharmacy_order_patient_confirmation.
+  referral_patient_confirmation: (payload) => {
+    const referralNumber = String(payload.referral_number ?? "your referral");
+    const specialistName = String(payload.specialist_name ?? "your specialist");
+    const patientName = String(payload.patient_name ?? "there");
+    const patientNumber = String(payload.patient_number ?? "");
+    const smsText =
+      `Hi ${patientName}, your Tarragon Health referral ${referralNumber} to ${specialistName} is confirmed. ` +
+      `Your care team will follow up on booking your appointment. — Tarragon Health`;
+    return {
+      metaTemplateName: "referral_patient_confirmation",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: referralNumber },
+            { type: "text", text: specialistName },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health referral ${referralNumber} is confirmed`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>Your referral is confirmed and on its way to <strong>${specialistName}</strong>. Your care team will follow up ` +
+          `to help book your appointment.</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Referral number</td><td style="padding:4px 0"><strong>${referralNumber}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Patient ID</td><td style="padding:4px 0"><strong>${patientNumber}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Specialist</td><td style="padding:4px 0">${specialistName}</td></tr>` +
+          `</table>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Sent to the specialist_providers contact (SMS + email) on the same
+  // transition — no WhatsApp leg, mirrors pharmacy_order_pharmacy_alert /
+  // lab_order_lab_alert. referral_reason is short clinical context a
+  // receiving specialist needs, same category of operational detail as
+  // lab_order_lab_alert's test_name or pharmacy's items_summary.
+  referral_specialist_alert: (payload) => {
+    const referralNumber = String(payload.referral_number ?? "");
+    const specialistName = String(payload.specialist_name ?? "");
+    const patientName = String(payload.patient_name ?? "a patient");
+    const patientNumber = String(payload.patient_number ?? "");
+    const specialistType = String(payload.specialist_type ?? "");
+    const referralReason = String(payload.referral_reason ?? "");
+    const smsText =
+      `New Tarragon Health referral ${referralNumber}: ${patientName} (patient ID ${patientNumber}) — ` +
+      `${specialistType}. Please expect contact to arrange this patient's appointment. — Tarragon Health`;
+    return {
+      metaTemplateName: "referral_specialist_alert",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: referralNumber }] },
+      ],
+      smsText,
+      email: {
+        subject: `New Tarragon Health referral ${referralNumber} — ${patientName}`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hello ${specialistName},</p>` +
+          `<p>A patient has a confirmed referral to your practice. Please expect our care team to reach out to arrange ` +
+          `the appointment:</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Referral number</td><td style="padding:4px 0"><strong>${referralNumber}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Patient</td><td style="padding:4px 0">${patientName}</td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Patient ID</td><td style="padding:4px 0"><strong>${patientNumber}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Referral type</td><td style="padding:4px 0">${specialistType}</td></tr>` +
+          (referralReason
+            ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Reason</td><td style="padding:4px 0">${referralReason}</td></tr>`
+            : "") +
+          `</table>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health — Care that stays with you.</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
   // Sent to a waitlisted patient when their state is switched live
   // (private.notify_region_waitlist). A "now available" nudge only — nothing is
   // auto-booked; they open the app to act. Falls back to SMS until the Meta

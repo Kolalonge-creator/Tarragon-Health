@@ -3546,6 +3546,8 @@ export type Database = {
       }
       lab_providers: {
         Row: {
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
           home_collection: boolean
           id: string
@@ -3554,6 +3556,8 @@ export type Database = {
           regions: string[]
         }
         Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           home_collection?: boolean
           id?: string
@@ -3562,6 +3566,8 @@ export type Database = {
           regions?: string[]
         }
         Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           home_collection?: boolean
           id?: string
@@ -10323,9 +10329,84 @@ export type Database = {
         Args: { p_service: string; p_state: string }
         Returns: boolean
       }
+      set_lab_order_facility: {
+        Args: { p_facility_id: string; p_order_id: string }
+        Returns: {
+          courier_reference: string | null
+          created_at: string
+          facility_id: string | null
+          home_visit_provider_id: string | null
+          home_visit_scheduled_at: string | null
+          id: string
+          investigation_tier: number
+          order_number: string | null
+          ordered_at: string
+          ordered_by: string | null
+          organisation_id: string
+          origin: Database["public"]["Enums"]["booking_origin"]
+          panel_bundle_id: string | null
+          patient_id: string
+          payment_provider:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          provider_id: string | null
+          resulted_at: string | null
+          screening_schedule_id: string | null
+          status: Database["public"]["Enums"]["lab_order_status"]
+          total_kobo: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lab_orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
+      }
+      set_referral_specialist_provider: {
+        Args: { p_referral_id: string; p_specialist_provider_id: string }
+        Returns: {
+          appointment_date: string | null
+          booking_confirmed_at: string | null
+          clinical_summary: Json | null
+          created_at: string
+          id: string
+          interim_management_plan: string | null
+          organisation_id: string
+          origin: Database["public"]["Enums"]["booking_origin"]
+          patient_id: string
+          payment_provider:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          referral_fee_kobo: number
+          referral_number: string | null
+          referral_reason: string | null
+          screening_upgrade_id: string | null
+          set_by: string | null
+          shared_care_handback_at: string | null
+          specialist_provider_id: string | null
+          specialist_type: Database["public"]["Enums"]["specialist_type"]
+          status: Database["public"]["Enums"]["referral_status"]
+          treatment_plan_note: string | null
+          treatment_plan_received_at: string | null
+          updated_at: string
+          urgency: Database["public"]["Enums"]["referral_urgency"] | null
+          waitlisted_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "specialist_referrals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       start_care_thread: {

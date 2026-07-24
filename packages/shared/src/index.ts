@@ -152,6 +152,9 @@ export type ReferralStatus = Enums<"referral_status">;
 /** specialist_referrals.urgency — set by the assigning doctor, never inferred. */
 export type ReferralUrgency = Enums<"referral_urgency">;
 
+/** specialist_referrals.specialist_type / specialist_providers.specialist_type. */
+export type SpecialistType = Enums<"specialist_type">;
+
 /** lab_orders.status — payment/collection/processing lifecycle. */
 export type LabOrderStatus = Enums<"lab_order_status">;
 

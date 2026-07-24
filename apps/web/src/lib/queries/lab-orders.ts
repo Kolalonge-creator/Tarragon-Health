@@ -55,6 +55,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
   panel_bundle: { name: string } | null;
   provider: { name: string; regions: string[] } | null;
   home_visit_provider: { name: string } | null;
+  facility: { name: string } | null;
 };
 
 /**
@@ -68,7 +69,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
  * patient-facing availability hint.
  */
 const LAB_ORDER_SELECT =
-  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name)";
+  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name)";
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
 export function usePatientLabOrders(patientId: string) {
@@ -223,6 +224,39 @@ export function useOrderLabTest() {
         status: "pending_payment",
         origin: "clinically_triggered",
         ordered_by: staff.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
+    },
+  });
+}
+
+/**
+ * Fills in facility_id (and server-derives provider_id from it) on a lab
+ * order that doesn't have one yet — closes the clinician-ordered gap where
+ * useOrderLabTest never asks which physical lab to use. RPC-backed
+ * (public.set_lab_order_facility) because lab_orders_update RLS is
+ * staff-only; the function re-derives ownership + status server-side, so
+ * this can't be used to redirect an already-paid order.
+ */
+export function useSetLabOrderFacility() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      facilityId,
+    }: {
+      orderId: string;
+      facilityId: string;
+      /** Only used to invalidate the right query cache on success. */
+      patientId: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("set_lab_order_facility", {
+        p_order_id: orderId,
+        p_facility_id: facilityId,
       });
       if (error) throw error;
     },

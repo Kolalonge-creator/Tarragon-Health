@@ -7,6 +7,8 @@ import { koboToNaira, type LabOrderStatus } from "@tarragon/shared";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { PayWithWalletButton } from "@/components/pay-with-wallet-button";
 import { HomeCollectionAvailability } from "@/components/home-collection-availability";
+import { ChooseLabFacility } from "./choose-lab-facility";
+import type { PatientLocation } from "./facility-selector";
 
 const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending_payment: { variant: "amber", label: "Awaiting payment" },
@@ -18,7 +20,13 @@ const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["vari
   cancelled: { variant: "grey", label: "Cancelled" },
 };
 
-export function LabOrdersList({ patientId }: { patientId: string }) {
+export function LabOrdersList({
+  patientId,
+  patientLocation,
+}: {
+  patientId: string;
+  patientLocation?: PatientLocation | null;
+}) {
   const { data: orders, isLoading, isError } = usePatientLabOrders(patientId);
 
   if (isLoading || isError || !orders || orders.length === 0) {
@@ -42,20 +50,27 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                 </div>
                 <p className="text-sm font-medium text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Lab test"}
-                  {order.provider && <span className="text-charcoal-ink/60"> · {order.provider.name}</span>}
+                  {order.facility ? (
+                    <span className="text-charcoal-ink/60"> · {order.facility.name}</span>
+                  ) : (
+                    order.provider && <span className="text-charcoal-ink/60"> · {order.provider.name}</span>
+                  )}
                 </p>
                 <p className="text-xs text-charcoal-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
-                {order.status === "pending_payment" && (
-                  <>
-                    <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
-                    <PayWithWalletButton
-                      orderType="lab"
-                      orderId={order.id}
-                      amountKobo={order.total_kobo}
-                      patientId={patientId}
-                    />
-                  </>
-                )}
+                {order.status === "pending_payment" &&
+                  (order.facility_id ? (
+                    <>
+                      <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                      <PayWithWalletButton
+                        orderType="lab"
+                        orderId={order.id}
+                        amountKobo={order.total_kobo}
+                        patientId={patientId}
+                      />
+                    </>
+                  ) : (
+                    <ChooseLabFacility orderId={order.id} patientId={patientId} patientLocation={patientLocation} />
+                  ))}
                 {(order.status === "payment_confirmed" || order.status === "ordered") && (
                   <HomeCollectionAvailability
                     region={order.provider?.regions?.[0] ?? null}
