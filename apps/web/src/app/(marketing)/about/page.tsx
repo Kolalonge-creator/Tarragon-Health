@@ -6,6 +6,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { TrustPillars } from "../_components/trust-pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { cn } from "@/lib/utils";
 
 function LinkedInGlyph({ className }: { className?: string }) {
   return (
@@ -15,13 +16,43 @@ function LinkedInGlyph({ className }: { className?: string }) {
   );
 }
 
+function LinkedInButton({ href, compact = false }: { href: string; compact?: boolean }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full bg-[#0A66C2] font-semibold text-white shadow-sm transition-transform hover:scale-105 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A66C2] focus-visible:ring-offset-2",
+        compact ? "mt-4 px-4 py-2 text-xs" : "mt-6 px-5 py-2.5 text-sm"
+      )}
+    >
+      <LinkedInGlyph className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
+      Connect on LinkedIn
+    </a>
+  );
+}
+
 /**
  * Key seats TarragonHealth needs beyond the founder as it scales past one
  * doctor, mapped to the five business categories in CLAUDE.md (chronic
  * disease + prevention, care coordination, B2B & institutional, platform
- * infrastructure, clinical delivery). All open, no names yet.
+ * infrastructure, clinical delivery). All open, no names yet — `person` stays
+ * unset until someone is actually hired, at which point the card upgrades
+ * itself to the founder-card treatment (photo + name + LinkedIn button).
  */
-const OPEN_ROLES: { title: string; scope: string }[] = [
+type OpenRole = {
+  title: string;
+  scope: string;
+  person?: {
+    name: string;
+    photoSrc: string;
+    photoAlt?: string;
+    linkedinUrl: string;
+  };
+};
+
+const OPEN_ROLES: OpenRole[] = [
   {
     title: "Chief Medical Officer",
     scope: "Owns clinical protocols and the four-level escalation pathway, and leads the doctor network as chronic disease and preventive screening scale together.",
@@ -96,15 +127,7 @@ export default function AboutPage() {
               strategy and product direction so every patient&rsquo;s care
               stays protocol-driven, continuous, and never left to chance.
             </p>
-            <a
-              href="https://www.linkedin.com/in/dr-kola-longe-408b15121/"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#0A66C2] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-105 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A66C2] focus-visible:ring-offset-2"
-            >
-              <LinkedInGlyph className="h-4 w-4" />
-              Connect on LinkedIn
-            </a>
+            <LinkedInButton href="https://www.linkedin.com/in/dr-kola-longe-408b15121/" />
           </div>
         </div>
       </Section>
@@ -165,20 +188,36 @@ export default function AboutPage() {
               key={role.title}
               className="flex flex-col items-center rounded-2xl border border-charcoal-ink/10 bg-white p-6 text-center"
             >
-              <div
-                className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-charcoal-ink/20 text-charcoal-ink/40"
-                role="img"
-                aria-label={`Placeholder for ${role.title}`}
-              >
-                <User className="h-7 w-7" strokeWidth={1.25} />
-              </div>
+              {role.person ? (
+                <div className="h-20 w-20 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30">
+                  <Image
+                    src={role.person.photoSrc}
+                    alt={role.person.photoAlt ?? `${role.person.name}, ${role.title} at TarragonHealth`}
+                    width={160}
+                    height={160}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-charcoal-ink/20 text-charcoal-ink/40"
+                  role="img"
+                  aria-label={`Placeholder for ${role.title}`}
+                >
+                  <User className="h-7 w-7" strokeWidth={1.25} />
+                </div>
+              )}
               <span className="mt-3 inline-flex rounded-full bg-brand-green/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deep-forest">
-                Open role
+                {role.person ? role.title : "Open role"}
               </span>
               <h3 className="mt-3 font-heading text-lg font-semibold text-charcoal-ink">
-                {role.title}
+                {role.person ? role.person.name : role.title}
               </h3>
+              {role.person ? (
+                <p className="mt-1 text-sm font-medium text-charcoal-ink/60">{role.title}</p>
+              ) : null}
               <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{role.scope}</p>
+              {role.person ? <LinkedInButton href={role.person.linkedinUrl} compact /> : null}
             </div>
           ))}
         </div>
