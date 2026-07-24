@@ -4,6 +4,29 @@ import { useVitalsReadings } from "@/lib/queries/vitals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { mmolLToMgDl, type Tables } from "@tarragon/shared";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
+
+// Clinical dashboard status colours (a separate system from brand colour, per
+// the brand guide). Non-diagnostic label; the actual escalation is raised
+// server-side by the BP red-flag trigger.
+const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = {
+  green: "bg-emerald-100 text-emerald-800",
+  amber: "bg-amber-100 text-amber-800",
+  red: "bg-red-100 text-red-800",
+  emergency: "bg-red-600 text-white",
+};
+
+function BpLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
+  const level = classifyBpLevel(reading.systolic, reading.diastolic);
+  if (level === "unknown") return null;
+  return (
+    <span
+      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${BP_LEVEL_STYLE[level]}`}
+    >
+      {BP_LEVEL_LABEL[level]}
+    </span>
+  );
+}
 
 function formatReading(reading: Tables<"vitals_readings">): string {
   switch (reading.vital_type) {
@@ -59,6 +82,9 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">
                     {formatReading(reading)}
+                    {reading.vital_type === "blood_pressure" && (
+                      <BpLevelBadge reading={reading} />
+                    )}
                   </p>
                   {reading.note && (
                     <p className="text-xs text-charcoal-ink/60">{reading.note}</p>

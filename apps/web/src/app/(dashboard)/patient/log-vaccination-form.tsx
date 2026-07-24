@@ -3,11 +3,13 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import {
   useVaccinationCatalog,
+  useVaccinationRecords,
   useLogVaccination,
   useAttachVaccinationCertificate,
 } from "@/lib/queries/vaccination";
 import { useBookingRequests } from "@/lib/queries/facilities";
 import { syncVaccinationScheduleAction } from "./vaccination-actions";
+import { computeVaccinationStatuses } from "@/lib/rules/vaccination-status";
 import {
   logVaccinationSchema,
   validateCertificateFile,
@@ -19,11 +21,40 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function LogVaccinationForm({ patientId }: { patientId: string }) {
+export function LogVaccinationForm({
+  patientId,
+  ageYears = null,
+  dateOfBirth = null,
+  sex = null,
+}: {
+  patientId: string;
+  ageYears?: number | null;
+  dateOfBirth?: string | null;
+  sex?: "male" | "female" | null;
+}) {
   const catalog = useVaccinationCatalog();
+  const records = useVaccinationRecords(patientId);
   const bookings = useBookingRequests(patientId);
   const logVaccination = useLogVaccination();
   const attachCertificate = useAttachVaccinationCertificate();
+
+  // The catalogue is shared across every age (adult + NPHCDA child
+  // schedule) — hide vaccines that aren't applicable to this subject (e.g.
+  // shingles for a toddler, BCG for a 40-year-old) rather than list all of
+  // them for every patient.
+  const selectableCatalog = useMemo(() => {
+    if (!catalog.data) return [];
+    if (!records.data) return catalog.data;
+    const statuses = computeVaccinationStatuses(catalog.data, records.data, {
+      ageYears,
+      dateOfBirth,
+      sex,
+    });
+    const notApplicable = new Set(
+      statuses.filter((s) => s.status === "not_applicable").map((s) => s.catalogId)
+    );
+    return catalog.data.filter((entry) => !notApplicable.has(entry.id));
+  }, [catalog.data, records.data, ageYears, dateOfBirth, sex]);
 
   const [catalogId, setCatalogId] = useState("");
   const [doseNumber, setDoseNumber] = useState("1");
@@ -127,7 +158,7 @@ export function LogVaccinationForm({ patientId }: { patientId: string }) {
               <option value="" disabled>
                 Select
               </option>
-              {catalog.data?.map((entry) => (
+              {selectableCatalog.map((entry) => (
                 <option key={entry.id} value={entry.id}>
                   {entry.name}
                 </option>

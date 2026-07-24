@@ -2,10 +2,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { BookingOrderType } from "@/lib/billing/checkout-metadata";
 
-const BOOKING_TABLE: Record<BookingOrderType, "lab_orders" | "pharmacy_orders" | "specialist_referrals"> = {
+const BOOKING_TABLE: Record<
+  BookingOrderType,
+  "lab_orders" | "pharmacy_orders" | "specialist_referrals" | "video_visit_requests"
+> = {
   lab: "lab_orders",
   pharmacy: "pharmacy_orders",
   referral: "specialist_referrals",
+  video_visit: "video_visit_requests",
 };
 
 export function bookingTableFor(orderType: BookingOrderType) {

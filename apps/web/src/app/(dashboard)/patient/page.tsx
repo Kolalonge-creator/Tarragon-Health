@@ -18,10 +18,14 @@ import { SectionNav } from "@/components/shell/section-nav";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { getPatientSummaryStats, getPatientPreventionStats } from "./summary";
 import Link from "next/link";
+import { NextBestAction } from "./next-best-action";
+import { AskADoctor } from "./ask-a-doctor";
+import { BookVideoVisit } from "./book-video-visit";
 import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
 import { ResultsTrendsCard } from "./results-trends-card";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
+import { HbpmSummaryCard } from "./hbpm-summary-card";
 import { SymptomLogForm } from "./symptom-log-form";
 import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -35,13 +39,14 @@ import { PreventiveScreeningCalendar } from "./preventive-screening-calendar";
 import { RiskAssessmentForm } from "./risk-assessment-form";
 import { CareProgrammeRecommendations } from "./care-programme-recommendations";
 import { PreventiveProgrammes } from "./preventive-programmes";
+import { ReproductiveHealthCard } from "./reproductive-health-card";
 import { HealthEducation } from "./health-education";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
-import { VaccinationRegistry } from "./vaccination-registry";
-import { LogVaccinationForm } from "./log-vaccination-form";
-import { VaccinationBooking } from "./vaccination-booking";
+import { VaccinationForFamily } from "./vaccination-for-family";
 import { FacilityDirectory } from "./facility-directory";
 import { PatientLocationForm } from "./patient-location-form";
+import { ReminderPreferenceForm } from "./reminder-preference-form";
+import { WearableConnectSection } from "./wearable-connect-section";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
 import { HospitalAdmissionsCard } from "./hospital-admissions-card";
@@ -119,6 +124,7 @@ export default async function PatientPage() {
         }
         icon={NAV_ICON.dashboard}
       >
+        <NextBestAction patientId={profile.id} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both
             states read the same shared record — nothing is hidden, only led
@@ -210,10 +216,12 @@ export default async function PatientPage() {
         icon={SEMANTIC_ICON.bp}
       >
         <VitalsForm patientId={profile.id} />
+        <HbpmSummaryCard patientId={profile.id} />
         <VitalsHistory patientId={profile.id} />
         <VitalsTrendChart patientId={profile.id} />
         <SymptomLogForm patientId={profile.id} />
         <SymptomLogHistory patientId={profile.id} />
+        <WearableConnectSection patientId={profile.id} />
       </DashboardSection>
 
       <DashboardSection
@@ -282,16 +290,23 @@ export default async function PatientPage() {
           ageYears={ageFromDateOfBirth(profile.date_of_birth)}
           sex={profile.sex}
         />
+        {profile.sex === "female" && profile.organisation_id && (
+          <ReproductiveHealthCard
+            patientId={profile.id}
+            organisationId={profile.organisation_id}
+          />
+        )}
         <RiskAssessmentDisplay patientId={profile.id} />
-        <VaccinationRegistry
-          patientId={profile.id}
-          ageYears={ageFromDateOfBirth(profile.date_of_birth)}
-        />
-        <VaccinationBooking
-          patientId={profile.id}
+        <VaccinationForFamily
+          self={{
+            id: profile.id,
+            label: "Me",
+            ageYears: ageFromDateOfBirth(profile.date_of_birth),
+            dateOfBirth: profile.date_of_birth,
+            sex: profile.sex,
+          }}
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
-        <LogVaccinationForm patientId={profile.id} />
         {/* Annual Doctor Review lives with prevention (it's the yearly
             whole-body review), not buried under Care — the gate is unchanged. */}
         <RequiresEntitlement
@@ -362,6 +377,15 @@ export default async function PatientPage() {
         >
           <CarePlanDisplay patientId={profile.id} />
         </RequiresEntitlement>
+        <RequiresEntitlement
+          feature="async_doctor_visit"
+          fallback={<UpgradePrompt feature="async_doctor_visit" />}
+        >
+          <AskADoctor patientId={profile.id} organisationId={profile.organisation_id} />
+        </RequiresEntitlement>
+        {/* Paid per-visit service — no plan gate; the card itself carries the
+            availability + not-for-emergencies copy. */}
+        <BookVideoVisit patientId={profile.id} />
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
         <YourReferrals patientId={profile.id} />
@@ -385,6 +409,9 @@ export default async function PatientPage() {
       >
         <PatientLocationForm
           initial={{ state: profile.state, city: profile.city, area: profile.area }}
+        />
+        <ReminderPreferenceForm
+          initial={{ preferred_reminder_channel: profile.preferred_reminder_channel }}
         />
         <EmergencyContactForm
           initial={{
