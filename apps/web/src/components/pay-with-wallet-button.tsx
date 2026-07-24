@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { usePayBookingOrderWithWallet, useWalletBalance } from "@/lib/queries/wallet";
+import {
+  usePayBookingOrderWithWallet,
+  useWalletBalance,
+  type WalletPayableOrderType,
+} from "@/lib/queries/wallet";
 import { Button } from "@/components/ui/button";
-import type { BookingOrderType } from "@/lib/billing/checkout-metadata";
 import { koboToNaira } from "@tarragon/shared";
 
 /**
@@ -20,7 +23,7 @@ export function PayWithWalletButton({
   amountKobo,
   patientId,
 }: {
-  orderType: BookingOrderType;
+  orderType: WalletPayableOrderType;
   orderId: string;
   amountKobo: number;
   patientId: string;

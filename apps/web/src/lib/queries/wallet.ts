@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
-import type { BookingOrderType } from "@/lib/billing/checkout-metadata";
 
 export type WalletLedgerEntry = Tables<"wallet_ledger">;
 export type WalletSavingsGoal = Tables<"wallet_savings_goals">;
@@ -117,7 +116,12 @@ export function useRedeemReferralCode() {
   });
 }
 
-const ORDER_TABLE: Record<BookingOrderType, "lab-orders" | "pharmacy-orders" | "specialist-referrals"> = {
+/** Order types wallet_pay_booking_order actually accepts — a subset of
+ * BookingOrderType (video_visit is request→pay→hold→accept, never
+ * wallet-payable). */
+export type WalletPayableOrderType = "lab" | "pharmacy" | "referral";
+
+const ORDER_TABLE: Record<WalletPayableOrderType, "lab-orders" | "pharmacy-orders" | "specialist-referrals"> = {
   lab: "lab-orders",
   pharmacy: "pharmacy-orders",
   referral: "specialist-referrals",
@@ -131,7 +135,7 @@ const ORDER_TABLE: Record<BookingOrderType, "lab-orders" | "pharmacy-orders" | "
 export function usePayBookingOrderWithWallet() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { orderType: BookingOrderType; orderId: string; patientId: string }) => {
+    mutationFn: async (input: { orderType: WalletPayableOrderType; orderId: string; patientId: string }) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("wallet_pay_booking_order", {
         p_order_type: input.orderType,
