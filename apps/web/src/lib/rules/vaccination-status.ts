@@ -25,6 +25,13 @@ import type { Tables } from "@tarragon/shared";
  *     decision, not an automatic one. Optional sex restricts to one sex
  *     (e.g. HPV girls-only).
  *
+ * dose_schedule_months also accepts an optional min_age, gating the whole
+ * series off until that age (not_yet_due below it) — e.g. the shingles
+ * vaccine (Shingrix/RZV) is a real 2-dose series, 2-6 months apart, only
+ * recommended from age 50; modelling it as dose_schedule_months alone would
+ * offer it to a 20-year-old, and min_age alone (the shape below) only knows
+ * "one dose marks it done", which is medically wrong for a 2-dose vaccine.
+ *
  * interval_years also accepts an optional anchor_fallback_code, so a
  * recurring booster can start counting from a dose logged under a DIFFERENT
  * catalog entry when it has none of its own. The tetanus/Td booster uses
@@ -188,6 +195,13 @@ export function computeVaccinationStatuses(
 
     if (recommendedAge.dose_schedule_months !== undefined) {
       const schedule = recommendedAge.dose_schedule_months;
+      if (
+        dosesGiven === 0 &&
+        recommendedAge.min_age !== undefined &&
+        (profile.ageYears === null || profile.ageYears < recommendedAge.min_age)
+      ) {
+        return { ...base, status: "not_yet_due", nextDueDate: null };
+      }
       if (dosesGiven === 0) {
         return { ...base, status: "due", nextDueDate: todayISO };
       }

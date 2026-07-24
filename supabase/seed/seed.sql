@@ -106,6 +106,15 @@ update public.vaccination_catalog
   set recommended_age = recommended_age || '{"anchor_fallback_code": "child_tetanus_booster_3"}'::jsonb
   where code = 'tetanus_td_booster';
 
+-- Shingles (Shingrix/RZV) is a real 2-dose series 2-6 months apart, not a
+-- single dose -- migration 20260724025012. Overwrites the base insert's
+-- {"min_age": 50} above (which alone marks any single dose "complete") with
+-- the compound min_age + dose_schedule_months shape.
+update public.vaccination_catalog
+  set recommended_age = '{"min_age": 50, "dose_schedule_months": [0, 2]}'::jsonb,
+      description = '2-dose series from age 50, 2 to 6 months apart.'
+  where code = 'shingles';
+
 -- ---------------------------------------------------------------------------
 -- lab_providers
 -- ---------------------------------------------------------------------------

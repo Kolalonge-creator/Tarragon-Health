@@ -92,6 +92,49 @@ describe("computeVaccinationStatuses", () => {
     expect(result.nextDueDate).toBeNull();
   });
 
+  describe("a min_age-gated dose series (e.g. shingles/Shingrix, a real 2-dose vaccine from age 50)", () => {
+    const SHINGLES_RZV: VaccinationCatalogRow = {
+      id: "shingles-id",
+      code: "shingles",
+      name: "Shingles",
+      recommended_age: { min_age: 50, dose_schedule_months: [0, 2] },
+    };
+
+    it("is not yet due below the minimum age, even with zero doses logged", () => {
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], [], { ageYears: 45 }, today);
+      expect(result.status).toBe("not_yet_due");
+    });
+
+    it("is not yet due when age is unknown", () => {
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], [], { ageYears: null }, today);
+      expect(result.status).toBe("not_yet_due");
+    });
+
+    it("becomes due for dose 1 once the minimum age is reached", () => {
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], [], { ageYears: 52 }, today);
+      expect(result.status).toBe("due");
+      expect(result.dosesGiven).toBe(0);
+    });
+
+    it("schedules dose 2 from dose 1's date, not the minimum age gate, once started", () => {
+      const records = [record("shingles-id", 1, "2026-05-06")];
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], records, { ageYears: 52 }, today);
+      // dose 2 due 2 months after dose 1 = 2026-07-06, which is today
+      expect(result.status).toBe("due");
+      expect(result.nextDueDate).toBe("2026-07-06");
+    });
+
+    it("marks the full 2-dose series complete with no further due date", () => {
+      const records = [
+        record("shingles-id", 1, "2024-01-01"),
+        record("shingles-id", 2, "2024-03-01"),
+      ];
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], records, { ageYears: 52 }, today);
+      expect(result.status).toBe("up_to_date");
+      expect(result.nextDueDate).toBeNull();
+    });
+  });
+
   it("treats a fixed-dose-count vaccine as due with no age gate", () => {
     const [result] = computeVaccinationStatuses([YELLOW_FEVER], [], { ageYears: null }, today);
     expect(result.status).toBe("due");
