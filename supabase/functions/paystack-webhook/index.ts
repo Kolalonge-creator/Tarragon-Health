@@ -74,9 +74,13 @@ interface PaystackEvent {
     plan?: { plan_code?: string } | string | null;
     subscription_code?: string;
     email_token?: string;
-    subscription?: { subscription_code?: string } | null;
+    // On invoice.* events the subscription sub-object carries the code +
+    // the next billing date; on subscription.* events those live at the top.
+    subscription?: { subscription_code?: string; next_payment_date?: string } | null;
     customer?: { email?: string } | null;
     next_payment_date?: string;
+    paid?: boolean;
+    status?: string;
     id?: number | string;
   };
 }
@@ -345,6 +349,66 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "invoice.update": {
+        // Paystack's canonical "a subscription was billed" signal for a
+        // RENEWAL. The first charge is handled by charge.success above (keyed
+        // on pending_provider_ref); every subsequent auto-renewal arrives here
+        // with paid=true and the subscription_code that provider_ref was
+        // enriched to by subscription.create — advance current_period_end so
+        // the "renews on {date}" line stays accurate and a past_due row that
+        // just recovered flips back to active. A failed renewal comes through
+        // invoice.payment_failed instead, so only act on the paid case.
+        if (event.data.paid !== true && event.data.status !== "success") {
+          await markProcessed({});
+          break;
+        }
+        const renewalCode = event.data.subscription?.subscription_code ?? event.data.subscription_code;
+        if (!renewalCode) {
+          await markFailed("invoice.update missing subscription_code");
+          break;
+        }
+        const nextPaymentDate =
+          event.data.subscription?.next_payment_date ?? event.data.next_payment_date ?? null;
+
+        const { data: subRow } = await supabase
+          .from("subscriptions")
+          .select("id, interval, cancel_at_period_end")
+          .eq("provider_ref", renewalCode)
+          .maybeSingle();
+        if (subRow) {
+          // A row already scheduled to cancel must not be revived by a stray
+          // paid invoice — leave its status/flag alone, just refresh the date.
+          const patch: Record<string, unknown> = {
+            current_period_end: nextPaymentDate
+              ? new Date(nextPaymentDate).toISOString()
+              : new Date(Date.now() + intervalToMs(subRow.interval)).toISOString(),
+          };
+          if (!subRow.cancel_at_period_end) patch.status = "active";
+          await supabase.from("subscriptions").update(patch).eq("id", subRow.id);
+          await markProcessed({ subscription_id: subRow.id });
+          break;
+        }
+
+        const { data: addRow } = await supabase
+          .from("subscription_add_ons")
+          .select("id, interval, cancel_at_period_end")
+          .eq("provider_ref", renewalCode)
+          .maybeSingle();
+        if (addRow) {
+          const patch: Record<string, unknown> = {
+            current_period_end: nextPaymentDate
+              ? new Date(nextPaymentDate).toISOString()
+              : new Date(Date.now() + intervalToMs(addRow.interval)).toISOString(),
+          };
+          if (!addRow.cancel_at_period_end) patch.status = "active";
+          await supabase.from("subscription_add_ons").update(patch).eq("id", addRow.id);
+          await markProcessed({ subscription_add_on_id: addRow.id });
+          break;
+        }
+        await markFailed(`invoice.update: no row with provider_ref=${renewalCode}`);
+        break;
+      }
+
       case "invoice.payment_failed": {
         const subscriptionCode = event.data.subscription?.subscription_code ?? event.data.subscription_code;
         if (!subscriptionCode) {
@@ -377,34 +441,44 @@ Deno.serve(async (req) => {
 
       case "subscription.disable":
       case "subscription.not_renew": {
+        // Auto-renewal has been turned off (by the patient via
+        // cancelSubscription, or by Paystack after repeated payment failure).
+        // We do NOT flip status to 'cancelled' here: the paid period is
+        // non-refundable and must run to its end. Instead flag
+        // cancel_at_period_end and leave the row active — has_feature_access
+        // keeps access alive until current_period_end, and the daily
+        // expire-cancelled-subscriptions sweeper settles the status once the
+        // period elapses. (Paystack can fire subscription.disable immediately
+        // on the disable API call, well before period end, so cancelling on
+        // this event would wrongly cut access short.)
         const subscriptionCode = event.data.subscription_code;
         if (!subscriptionCode) {
           await markFailed(`${event.event} missing subscription_code`);
           break;
         }
-        const cancelledAt = new Date().toISOString();
+        const requestedAt = new Date().toISOString();
         const { data: subRow } = await supabase
           .from("subscriptions")
-          .select("id")
+          .select("id, cancelled_at")
           .eq("provider_ref", subscriptionCode)
           .maybeSingle();
         if (subRow) {
           await supabase
             .from("subscriptions")
-            .update({ status: "cancelled", cancelled_at: cancelledAt })
+            .update({ cancel_at_period_end: true, cancelled_at: subRow.cancelled_at ?? requestedAt })
             .eq("id", subRow.id);
           await markProcessed({ subscription_id: subRow.id });
           break;
         }
         const { data: addOnRow } = await supabase
           .from("subscription_add_ons")
-          .select("id")
+          .select("id, cancelled_at")
           .eq("provider_ref", subscriptionCode)
           .maybeSingle();
         if (addOnRow) {
           await supabase
             .from("subscription_add_ons")
-            .update({ status: "cancelled", cancelled_at: cancelledAt })
+            .update({ cancel_at_period_end: true, cancelled_at: addOnRow.cancelled_at ?? requestedAt })
             .eq("id", addOnRow.id);
           await markProcessed({ subscription_add_on_id: addOnRow.id });
           break;
@@ -414,8 +488,8 @@ Deno.serve(async (req) => {
       }
 
       default:
-        // Every other event type (invoice.create, invoice.update, etc.) is
-        // still recorded above for audit but requires no state change.
+        // Every other event type (invoice.create, etc.) is still recorded
+        // above for audit but requires no state change.
         await markProcessed();
         break;
     }

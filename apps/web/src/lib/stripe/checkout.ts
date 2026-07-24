@@ -144,3 +144,19 @@ export async function cancelStripeSubscription(
   if (!result.ok) return result;
   return { ok: true, data: { cancelAtPeriodEnd: result.data.cancel_at_period_end } };
 }
+
+/**
+ * Turns auto-renewal back on for a Stripe subscription that was scheduled to
+ * cancel at period end — the inverse of cancelStripeSubscription(). Only
+ * works while the subscription is still active (before the period-end
+ * deletion); once it's actually deleted the patient must re-subscribe.
+ */
+export async function resumeStripeSubscription(
+  subscriptionId: string,
+): Promise<StripeResult<{ cancelAtPeriodEnd: boolean }>> {
+  const result = await stripeCall((stripe) =>
+    stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: false }),
+  );
+  if (!result.ok) return result;
+  return { ok: true, data: { cancelAtPeriodEnd: result.data.cancel_at_period_end } };
+}

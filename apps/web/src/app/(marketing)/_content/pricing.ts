@@ -665,7 +665,12 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Can I cancel anytime?",
     answer:
-      "Yes. Monthly plans can be cancelled anytime and simply end at the close of your current billing period. Annual plans are prepaid for the year, but you can turn off auto-renewal at any time; you just won't be billed again next year.",
+      "Yes. Paid plans renew automatically at the end of each month or year so your care never lapses, and you can turn off auto-renewal any time from your subscription page. When you do, your plan stays active until the end of the period you've already paid for and simply doesn't renew after that — you won't be charged again.",
+  },
+  {
+    question: "Are subscriptions refundable?",
+    answer:
+      "Subscriptions are non-refundable. The month or year you've paid for runs to the end, and turning off auto-renewal stops the next charge rather than refunding the current period. You keep full access until that period ends.",
   },
   {
     question: "I already have an HMO. Do I still need Tarragon?",

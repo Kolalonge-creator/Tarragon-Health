@@ -7,7 +7,7 @@ import {
   useAvailableAddOns,
 } from "@/lib/queries/subscriptions";
 import { useActivePatientPlans, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
-import { changePlan, attachAddOn, detachAddOn, cancelSubscription } from "./actions";
+import { changePlan, attachAddOn, detachAddOn, cancelSubscription, resumeSubscription } from "./actions";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 import { CurrencyTabs } from "@/components/currency-tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,6 +17,13 @@ import { Button } from "@/components/ui/button";
 function formatPrice(priceMinor: number, currency: Currency, interval: string): string {
   if (priceMinor === 0) return "Free";
   return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(priceMinor, currency).toLocaleString()}/${interval === "yearly" ? "year" : "month"}`;
+}
+
+function formatDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
 const STATUS_BADGE: Record<string, { label: string; variant: "green" | "amber" | "red" | "grey" }> = {
@@ -80,6 +87,10 @@ export function SubscriptionManager() {
       (a.restricted_to_plan_code === null || a.restricted_to_plan_code === currentPlanCode),
   );
 
+  const isPaid = !!subscription.plan && subscription.plan.price_minor > 0;
+  const scheduledToCancel = subscription.cancel_at_period_end && subscription.status !== "cancelled";
+  const periodEndLabel = formatDate(subscription.current_period_end);
+
   function handleDetach(id: string) {
     startTransition(async () => {
       const result = await detachAddOn(id);
@@ -98,6 +109,15 @@ export function SubscriptionManager() {
     });
   }
 
+  function handleResume() {
+    if (!subscription) return;
+    startTransition(async () => {
+      const result = await resumeSubscription(subscription.id);
+      setRowMessage(result?.message ?? result?.error ?? null);
+      refetchSubscription();
+    });
+  }
+
   return (
     <div className="space-y-6">
       {rowMessage && <p className="text-sm text-charcoal-ink/70">{rowMessage}</p>}
@@ -106,7 +126,9 @@ export function SubscriptionManager() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>{subscription.plan?.name ?? "Unknown plan"}</CardTitle>
-            <Badge variant={status.variant}>{status.label}</Badge>
+            <Badge variant={scheduledToCancel ? "amber" : status.variant}>
+              {scheduledToCancel ? "Auto-renewal off" : status.label}
+            </Badge>
           </div>
           <CardDescription>
             {subscription.plan
@@ -116,52 +138,65 @@ export function SubscriptionManager() {
                   subscription.plan.interval,
                 )
               : null}
-            {subscription.current_period_end &&
-              (subscription.status === "cancelled"
-                ? ` · access until ${new Date(subscription.current_period_end).toLocaleDateString()}`
-                : ` · renews automatically on ${new Date(subscription.current_period_end).toLocaleDateString()}`)}
+            {isPaid && periodEndLabel && (
+              <>
+                {" · "}
+                {scheduledToCancel
+                  ? `Ends ${periodEndLabel} — you keep access until then`
+                  : `Auto-renews ${periodEndLabel}`}
+              </>
+            )}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {subscription.status !== "cancelled" && subscription.plan && subscription.plan.price_minor > 0 && (
-            <div className="space-y-3">
-              <p className="text-xs text-charcoal-ink/60">
-                {`This plan renews automatically every ${
-                  subscription.plan.interval === "yearly" ? "year" : "month"
-                } until you cancel. Payments already made aren’t refundable — if you cancel, your plan stays active until the end of the ${
-                  subscription.plan.interval === "yearly" ? "year" : "month"
-                } you’ve paid for, then won’t renew.`}
+        <CardContent className="space-y-4">
+          {isPaid && (
+            <p className="text-xs text-charcoal-ink/60">
+              Your plan renews automatically at the end of each {subscription.plan?.interval === "yearly" ? "year" : "month"} so
+              your care never lapses. You can turn off auto-renewal any time. Subscriptions are
+              non-refundable — the {subscription.plan?.interval === "yearly" ? "year" : "month"} you&apos;ve
+              paid for runs to the end, and turning off auto-renewal simply stops the next charge.
+            </p>
+          )}
+
+          {isPaid && !scheduledToCancel && subscription.status !== "cancelled" && !confirmingCancel && (
+            <Button size="sm" variant="outline" disabled={pendingId} onClick={() => setConfirmingCancel(true)}>
+              Turn off auto-renewal
+            </Button>
+          )}
+
+          {isPaid && confirmingCancel && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 space-y-3">
+              <p className="text-sm font-medium text-charcoal-ink">Turn off auto-renewal?</p>
+              <p className="text-sm text-charcoal-ink/70">
+                {periodEndLabel
+                  ? `You'll keep ${subscription.plan?.name ?? "your plan"} until ${periodEndLabel}, then it ends and won't renew.`
+                  : `You'll keep ${subscription.plan?.name ?? "your plan"} until the end of the period you've paid for, then it ends and won't renew.`}{" "}
+                Subscriptions are non-refundable, so you won&apos;t be charged again but the current
+                period is not refunded.
               </p>
-              {confirmingCancel ? (
-                <div className="space-y-3 rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/5 p-3">
-                  <p className="text-sm text-charcoal-ink/80">
-                    Stop future renewals?{" "}
-                    {subscription.current_period_end
-                      ? `You'll keep full access until ${new Date(
-                          subscription.current_period_end,
-                        ).toLocaleDateString()}, then your plan won't renew.`
-                      : "You'll keep access until the end of the period you've already paid for, then your plan won't renew."}{" "}
-                    Payments already made aren&apos;t refundable.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" disabled={pendingId} onClick={handleCancel}>
-                      Yes, cancel renewal
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={pendingId}
-                      onClick={() => setConfirmingCancel(false)}
-                    >
-                      Keep my plan
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => setConfirmingCancel(true)}>
-                  Cancel plan
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" disabled={pendingId} onClick={handleCancel}>
+                  Yes, turn off auto-renewal
                 </Button>
-              )}
+                <Button size="sm" disabled={pendingId} onClick={() => setConfirmingCancel(false)}>
+                  Keep my plan
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {scheduledToCancel && (
+            <div className="rounded-md border border-charcoal-ink/15 bg-mist-grey/40 p-4 space-y-3">
+              <p className="text-sm text-charcoal-ink/70">
+                Auto-renewal is off.{" "}
+                {periodEndLabel
+                  ? `Your plan stays active until ${periodEndLabel} and won't renew.`
+                  : "Your plan runs to the end of the period you've paid for and won't renew."}{" "}
+                Changed your mind?
+              </p>
+              <Button size="sm" disabled={pendingId} onClick={handleResume}>
+                Turn auto-renewal back on
+              </Button>
             </div>
           )}
         </CardContent>
@@ -204,30 +239,39 @@ export function SubscriptionManager() {
         <CardContent className="space-y-4">
           {addOns && addOns.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
-              {addOns.map((row) => (
-                <li key={row.id} className="flex items-center justify-between gap-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-charcoal-ink">
-                      {row.add_on?.name ?? "Unknown add-on"}
-                    </p>
-                    <p className="text-xs text-charcoal-ink/60">
-                      {row.add_on &&
-                        formatPrice(row.add_on.price_minor, row.add_on.currency as Currency, row.add_on.interval)}{" "}
-                      · {STATUS_BADGE[row.status]?.label ?? row.status}
-                    </p>
-                  </div>
-                  {row.status !== "cancelled" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pendingId}
-                      onClick={() => handleDetach(row.id)}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </li>
-              ))}
+              {addOns.map((row) => {
+                const addOnScheduledToCancel = row.cancel_at_period_end && row.status !== "cancelled";
+                const addOnEndLabel = formatDate(row.current_period_end);
+                return (
+                  <li key={row.id} className="flex items-center justify-between gap-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-charcoal-ink">
+                        {row.add_on?.name ?? "Unknown add-on"}
+                      </p>
+                      <p className="text-xs text-charcoal-ink/60">
+                        {row.add_on &&
+                          formatPrice(row.add_on.price_minor, row.add_on.currency as Currency, row.add_on.interval)}{" "}
+                        ·{" "}
+                        {addOnScheduledToCancel
+                          ? addOnEndLabel
+                            ? `Ends ${addOnEndLabel}`
+                            : "Ends at period end"
+                          : STATUS_BADGE[row.status]?.label ?? row.status}
+                      </p>
+                    </div>
+                    {row.status !== "cancelled" && !addOnScheduledToCancel && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pendingId}
+                        onClick={() => handleDetach(row.id)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
 

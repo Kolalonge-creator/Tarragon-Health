@@ -5,9 +5,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
-import { initializeTransaction, disableSubscription } from "@/lib/paystack/transactions";
+import { initializeTransaction, disableSubscription, enableSubscription } from "@/lib/paystack/transactions";
 import { isStripeConfigured } from "@/lib/stripe/client";
-import { createCheckoutSession, cancelStripeSubscription } from "@/lib/stripe/checkout";
+import {
+  createCheckoutSession,
+  cancelStripeSubscription,
+  resumeStripeSubscription,
+} from "@/lib/stripe/checkout";
 import { resolveProvider } from "@/lib/billing/provider";
 
 export type SubscriptionActionState = { error?: string; message?: string } | undefined;
@@ -25,7 +29,9 @@ async function requireOwnedSubscription(subscriptionId: string) {
 
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("id, organisation_id, subscriber_id, provider, provider_ref, provider_email_token, plan_id")
+    .select(
+      "id, organisation_id, subscriber_id, provider, provider_ref, provider_email_token, plan_id, status, current_period_end, cancel_at_period_end",
+    )
     .eq("id", subscriptionId)
     .eq("subscriber_id", user.id)
     .maybeSingle();
@@ -82,6 +88,36 @@ async function disableProviderRenewal(subscription: {
 
   if (subscription.provider === "stripe") {
     const result = await cancelStripeSubscription(subscription.provider_ref);
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Inverse of disableProviderRenewal — turns auto-renewal back on at the
+ * provider for a subscription still within its paid period. Same
+ * canDisableRemotely() precondition applies (need provider_ref, plus the
+ * email token for Paystack).
+ */
+async function enableProviderRenewal(subscription: {
+  provider: string | null;
+  provider_ref: string | null;
+  provider_email_token: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!subscription.provider_ref) return { ok: true };
+
+  if (subscription.provider === "paystack") {
+    if (!subscription.provider_email_token) return { ok: true };
+    const result = await enableSubscription({
+      subscriptionCode: subscription.provider_ref,
+      emailToken: subscription.provider_email_token,
+    });
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+  }
+
+  if (subscription.provider === "stripe") {
+    const result = await resumeStripeSubscription(subscription.provider_ref);
     return result.ok ? { ok: true } : { ok: false, error: result.error };
   }
 
@@ -327,20 +363,39 @@ export async function detachAddOn(subscriptionAddOnId: string): Promise<Subscrip
   const { data: row } = await supabase
     .from("subscription_add_ons")
     .select(
-      "id, provider, provider_ref, provider_email_token, subscription:subscriptions!subscription_add_ons_subscription_id_fkey(subscriber_id)",
+      "id, provider, provider_ref, provider_email_token, current_period_end, cancel_at_period_end, subscription:subscriptions!subscription_add_ons_subscription_id_fkey(subscriber_id)",
     )
     .eq("id", subscriptionAddOnId)
     .maybeSingle();
   if (!row || row.subscription?.subscriber_id !== user.id) {
     return { error: "Add-on not found" };
   }
+  if (row.cancel_at_period_end) {
+    return { message: "This add-on is already set to end at the close of the current period." };
+  }
+
+  const endLabel = formatPeriodEnd(row.current_period_end);
+  const hasLivePeriod = !!row.current_period_end && new Date(row.current_period_end).getTime() > Date.now();
 
   if (canDisableRemotely(row)) {
     const disableResult = await disableProviderRenewal(row);
     if (!disableResult.ok) {
-      return { error: `Couldn't cancel this add-on (${disableResult.error}) — try again.` };
+      return { error: `Couldn't remove this add-on (${disableResult.error}) — try again.` };
     }
-    return { message: "Cancelling — this stays active until the end of the current period." };
+  }
+
+  // subscription_add_ons' UPDATE RLS grants the subscriber (unlike
+  // subscriptions), so the user client is enough here.
+  if (canDisableRemotely(row) || hasLivePeriod) {
+    await supabase
+      .from("subscription_add_ons")
+      .update({ cancel_at_period_end: true, cancelled_at: new Date().toISOString() })
+      .eq("id", row.id);
+    return {
+      message: endLabel
+        ? `This add-on stays active until ${endLabel} (non-refundable) and won't renew after that.`
+        : "This add-on runs to the end of the period you've paid for (non-refundable) and won't renew after that.",
+    };
   }
 
   await supabase
@@ -350,25 +405,95 @@ export async function detachAddOn(subscriptionAddOnId: string): Promise<Subscrip
   return { message: "Add-on removed." };
 }
 
+/** "5 August 2026" for the end-of-period messaging, or null if unknown. */
+function formatPeriodEnd(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/**
+ * Turns off auto-renewal. The subscription is NON-REFUNDABLE: the month or
+ * year already paid for runs to the end, so we never revoke access here —
+ * we flag cancel_at_period_end and leave the row active. has_feature_access
+ * keeps entitlement alive until current_period_end; the daily sweeper (and
+ * the provider's own end-of-period webhook) settle the status to 'cancelled'
+ * once the period elapses. Cancelling only stops the NEXT charge.
+ */
 export async function cancelSubscription(subscriptionId: string): Promise<SubscriptionActionState> {
   const { subscription } = await requireOwnedSubscription(subscriptionId);
 
+  if (subscription.cancel_at_period_end) {
+    return { message: "Auto-renewal is already off — your plan won't renew." };
+  }
+
+  // Stop the provider from charging the next cycle first — if this fails we
+  // must not tell the patient it's cancelled while the card still gets billed.
   if (canDisableRemotely(subscription)) {
     const disableResult = await disableProviderRenewal(subscription);
     if (!disableResult.ok) {
-      return { error: `Couldn't cancel (${disableResult.error}) — try again.` };
+      return { error: `Couldn't turn off auto-renewal (${disableResult.error}) — try again.` };
     }
+  }
+
+  const endLabel = formatPeriodEnd(subscription.current_period_end);
+  const hasLivePeriod =
+    !!subscription.current_period_end && new Date(subscription.current_period_end).getTime() > Date.now();
+
+  // subscriptions' UPDATE RLS policy grants org staff only, not the
+  // subscriber — ownership was already verified above via the RLS-scoped
+  // SELECT, so this trusted write uses the service-role client (same pattern
+  // as changePlan).
+  const service = createServiceRoleClient();
+
+  if (canDisableRemotely(subscription) || hasLivePeriod) {
+    // Keep access to the paid period; flag it to expire at period end.
+    await service
+      .from("subscriptions")
+      .update({ cancel_at_period_end: true, cancelled_at: new Date().toISOString() })
+      .eq("id", subscription.id);
     return {
-      message:
-        "Renewal cancelled — you'll keep access until the end of the period you've already paid for, which isn't refundable, then your plan won't renew.",
+      message: endLabel
+        ? `Auto-renewal is off. Your plan stays active until ${endLabel} and won't renew after that. Subscriptions are non-refundable, so the period you've paid for runs to the end.`
+        : "Auto-renewal is off. Your plan runs to the end of the period you've paid for (non-refundable) and won't renew after that.",
     };
   }
 
-  // See the matching comment in changePlan above — subscriptions' UPDATE
-  // RLS policy doesn't grant the subscriber, only org staff.
-  await createServiceRoleClient()
+  // No live provider subscription and no remaining paid period to preserve —
+  // nothing to keep active, so end it now.
+  await service
     .from("subscriptions")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
     .eq("id", subscription.id);
   return { message: "Plan cancelled." };
+}
+
+/**
+ * Re-enables auto-renewal for a subscription still inside its paid period
+ * (cancel_at_period_end was set but the period hasn't ended yet). The inverse
+ * of cancelSubscription.
+ */
+export async function resumeSubscription(subscriptionId: string): Promise<SubscriptionActionState> {
+  const { subscription } = await requireOwnedSubscription(subscriptionId);
+
+  if (!subscription.cancel_at_period_end) {
+    return { message: "Auto-renewal is already on." };
+  }
+  if (subscription.status === "cancelled") {
+    return { error: "This plan has already ended — pick a plan to subscribe again." };
+  }
+
+  if (canDisableRemotely(subscription)) {
+    const enableResult = await enableProviderRenewal(subscription);
+    if (!enableResult.ok) {
+      return { error: `Couldn't turn auto-renewal back on (${enableResult.error}) — try again.` };
+    }
+  }
+
+  await createServiceRoleClient()
+    .from("subscriptions")
+    .update({ cancel_at_period_end: false, cancelled_at: null })
+    .eq("id", subscription.id);
+  return { message: "Auto-renewal is back on — your plan will renew as usual." };
 }
