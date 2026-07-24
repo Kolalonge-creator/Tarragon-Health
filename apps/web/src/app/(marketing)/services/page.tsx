@@ -53,6 +53,9 @@ export default function ServicesPage() {
               "symptoms you report",
               "hospital admissions",
               "annual health checks",
+              "cardiovascular risk",
+              "doctor video visits",
+              "ask-a-doctor messages",
             ].map((item) => (
               <span
                 key={item}

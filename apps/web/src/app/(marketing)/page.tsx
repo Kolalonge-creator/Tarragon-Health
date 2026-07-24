@@ -14,7 +14,13 @@ import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
 import { ServiceCardLink } from "./_components/service-card";
-import { PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS, WHAT_YOU_GET } from "./_content/services";
+import {
+  PLATFORM_EXTRAS,
+  PREVENTION_CALLOUT,
+  PROOF_STATS,
+  SERVICE_CARDS,
+  WHAT_YOU_GET,
+} from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
@@ -230,6 +236,27 @@ export default function MarketingHomePage() {
                 {pillar.title}
               </h3>
               <p className="mt-3 text-charcoal-ink/70">{pillar.body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow="Beyond monitoring"
+          title="More than a dashboard"
+          description="A few things people are often surprised to find already built in."
+        />
+        <div className="grid gap-6 md:grid-cols-3">
+          {PLATFORM_EXTRAS.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 transition duration-200 hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-md"
+            >
+              <h3 className="font-heading text-xl font-semibold text-charcoal-ink">
+                {item.title}
+              </h3>
+              <p className="mt-3 text-charcoal-ink/70">{item.body}</p>
             </div>
           ))}
         </div>

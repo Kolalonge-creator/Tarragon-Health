@@ -75,6 +75,12 @@ export default function ChronicCarePage() {
           </Link>{" "}
           brings the same monitoring together for a loved one, with opt-in family updates.
         </p>
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
+          Cholesterol and overall cardiovascular risk are watched alongside these conditions on the
+          same record, not as a separate programme: your doctor factors your cholesterol readings
+          into the same review that watches your blood pressure and blood sugar, because they
+          drive the same underlying risk.
+        </p>
       </Section>
 
       <Section className="pb-24">

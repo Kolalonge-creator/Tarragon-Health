@@ -31,6 +31,10 @@ const CONNECTS = [
     title: "Specialist referrals that carry your record",
     body: "When your care team refers you to a specialist, the referral travels with your health record — your readings, medications, and results — not a paper slip that gets lost. Afterwards, follow-up comes back onto the same record.",
   },
+  {
+    title: "A doctor, when you need one directly",
+    body: "Send a written question and get a doctor's reply within 24 hours, or book a paid video visit for a set time — your payment is only taken once a doctor accepts the slot, refunded in full if none can.",
+  },
 ];
 
 const JOURNEY = [
@@ -74,7 +78,7 @@ export default function CareCoordinationPage() {
           title="One record, less chasing"
           description="Coordination isn't an abstract promise. Here is exactly what it does for you."
         />
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {CONNECTS.map((item) => (
             <div
               key={item.title}

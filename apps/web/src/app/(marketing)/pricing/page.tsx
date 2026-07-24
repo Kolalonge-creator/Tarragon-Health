@@ -13,6 +13,8 @@ import {
   ALWAYS_FREE_NOTE,
   BOOKING_STEPS,
   EMPLOYER_HMO_NOTE,
+  HEALTH_WALLET_INTRO,
+  HEALTH_WALLET_POINTS,
   HMO_COMPARE_INTRO,
   HMO_COMPARE_NOTE,
   HMO_COMPARE_ROWS,
@@ -109,6 +111,27 @@ export default function PricingPage() {
             <li key={term}>{term}</li>
           ))}
         </ul>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow="Flexible payment"
+          title="The Health Wallet"
+          description={HEALTH_WALLET_INTRO}
+        />
+        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
+          {HEALTH_WALLET_POINTS.map((point) => (
+            <div
+              key={point.title}
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-5"
+            >
+              <h3 className="font-heading text-base font-semibold text-charcoal-ink">
+                {point.title}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{point.body}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section>
