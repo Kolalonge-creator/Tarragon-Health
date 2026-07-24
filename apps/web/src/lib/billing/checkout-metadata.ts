@@ -4,14 +4,24 @@
  * paystack-webhook and stripe-webhook — whichever provider's checkout ran,
  * this is the only way either webhook knows what a payment activates.
  */
-export type CheckoutKind = "subscription" | "add_on" | "booking";
+/**
+ * 'wallet_topup' is read only by private.credit_wallet_from_payment_transaction
+ * (an AFTER INSERT trigger on payment_transactions, see
+ * supabase/migrations/20260723193547_health_wallet_core.sql) — NOT by the
+ * deployed paystack-webhook/stripe-webhook Edge Functions, which don't
+ * recognise it and cosmetically no-op on it (their unknown-kind branch just
+ * marks the payment_transactions row with an error string; the row is
+ * already inserted by then, which is all the trigger needs). Deliberate: it
+ * lets wallet top-ups ship without redeploying either webhook.
+ */
+export type CheckoutKind = "subscription" | "add_on" | "booking" | "wallet_topup";
 
 export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit";
 
 export interface CheckoutMetadata {
   kind: CheckoutKind;
   profile_id: string;
-  /** subscription_plans.code (kind='subscription') or add_ons.code (kind='add_on'). Unused for kind='booking'. */
+  /** subscription_plans.code (kind='subscription') or add_ons.code (kind='add_on'). Unused for kind='booking'/'wallet_topup'. */
   item_code: string;
   /** Only set for kind='add_on' — the base subscriptions.id it attaches to. */
   subscription_id?: string;
