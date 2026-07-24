@@ -105,7 +105,7 @@ export const WHAT_YOU_GET = [
 export const PLATFORM_EXTRAS = [
   {
     title: "The Health Wallet",
-    body: "Top up a little at a time toward your Annual Health Check or care plan, or let a family member — in Nigeria or abroad — fund it for you directly. Refer a friend and you both get ₦500 wallet credit once they complete their first paid order.",
+    body: "Top up a little at a time toward your Annual Health Check or care plan, or let a family member — in Nigeria or abroad — fund it for you directly. Refer a friend with your personal link and you both get ₦500 wallet credit once they complete their first paid order.",
   },
   {
     title: "Talk to a doctor, your way",

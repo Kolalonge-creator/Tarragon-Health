@@ -421,7 +421,7 @@ export const HEALTH_WALLET_POINTS: { title: string; body: string }[] = [
   },
   {
     title: "Refer a friend",
-    body: "Share your referral code from your dashboard. Once your friend completes their first paid order, you both get ₦500 wallet credit.",
+    body: "Share your referral link from your dashboard. Once your friend completes their first paid order, you both get ₦500 wallet credit.",
   },
 ];
 
