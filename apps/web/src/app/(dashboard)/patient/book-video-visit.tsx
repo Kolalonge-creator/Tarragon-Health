@@ -90,7 +90,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Video visit with a doctor</CardTitle>
+        <CardTitle>15-minute telemedicine visit with a doctor</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
@@ -101,11 +101,12 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
           </p>
         </div>
         <p className="text-sm text-charcoal-ink/70">
-          A paid, self-serve video call with a Tarragon doctor. Pick a time and pay — your
-          payment is <span className="font-medium">held by Tarragon</span> and only goes
-          through when a doctor accepts your request; that&apos;s also when your time is
-          confirmed. Visits depend on doctor availability and are not guaranteed until
-          accepted. If no doctor can take your request, you get a full refund.
+          A paid, self-serve 15-minute telemedicine consultation with a Tarragon doctor — a
+          video call, not an in-person visit. Pick a time and pay — your payment is{" "}
+          <span className="font-medium">held by Tarragon</span> and only goes through when a
+          doctor accepts your request; that&apos;s also when your time is confirmed. Visits
+          depend on doctor availability and are not guaranteed until accepted. If no doctor can
+          take your request, you get a full refund.
         </p>
 
         {hasUpcoming && (
