@@ -13,12 +13,12 @@ export function generateMetadata() {
 /**
  * The screening categories mirror what the platform actually tracks
  * (FEATURE_SPEC Cat 2: cancer / metabolic / infectious / reproductive).
- * Examples only — the personal calendar is built from age, sex, and history.
+ * Examples only; the personal calendar is built from age, sex, and history.
  */
 const SCREENING_GROUPS = [
   {
     title: "Heart & metabolic checks",
-    intro: "The numbers behind hypertension, diabetes, and heart disease — the conditions that cause most preventable emergencies.",
+    intro: "The numbers behind hypertension, diabetes, and heart disease: the conditions that cause most preventable emergencies.",
     tests: [
       "Blood pressure, weight, and BMI",
       "Fasting blood sugar and HbA1c (3-month sugar average)",
@@ -56,7 +56,7 @@ const SCREENING_GROUPS = [
   },
   {
     title: "Know your basics",
-    intro: "Don't know your blood group and genotype yet? Book it directly — useful for marriage counselling, pregnancy planning, and emergencies.",
+    intro: "Don't know your blood group and genotype yet? Book it directly: useful for marriage counselling, pregnancy planning, and emergencies.",
     tests: ["Blood group & rhesus factor", "Sickle cell genotype (AA/AS/SS)"],
   },
 ];
@@ -64,15 +64,15 @@ const SCREENING_GROUPS = [
 const ABNORMAL_STEPS = [
   {
     title: "A doctor is alerted immediately",
-    body: "An abnormal result is never just filed away. It triggers an immediate alert to a doctor, who reviews it against your history — not in next month's batch, but as a priority.",
+    body: "An abnormal result is never just filed away. It triggers an immediate alert to a doctor, who reviews it against your history, not in next month's batch, but as a priority.",
   },
   {
     title: "You hear from your care team fast",
-    body: "Your care team contacts you within hours, not weeks, and explains what the result means in plain language — calmly, without fear tactics.",
+    body: "Your care team contacts you within hours, not weeks, and explains what the result means in plain language, calmly, without fear tactics.",
   },
   {
     title: "Follow-up until the loop is closed",
-    body: "If the result needs ongoing attention, your record upgrades into chronic care monitoring on the same platform — same record, same care team, no starting over. There is never an automatic extra charge for follow-up on a result.",
+    body: "If the result needs ongoing attention, your record upgrades into chronic care monitoring on the same platform: same record, same care team, no starting over. There is never an automatic extra charge for follow-up on a result.",
   },
 ];
 
@@ -85,7 +85,7 @@ export default function PreventionPage() {
         <SectionHeading
           eyebrow="What we screen for"
           title="The checks your calendar is built from"
-          description="Your personal screening calendar is built from your age, sex, family history, and risk profile — so you only see what's relevant to you. These are the kinds of checks it tracks, reminds you about, and flags when results need attention."
+          description="Your personal screening calendar is built from your age, sex, family history, and risk profile, so you only see what's relevant to you. These are the kinds of checks it tracks, reminds you about, and flags when results need attention."
         />
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2">
           {SCREENING_GROUPS.map((group) => (
@@ -108,7 +108,7 @@ export default function PreventionPage() {
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Every test is booked through a vetted partner lab, and you always see the exact price and
-          confirm before anything is booked — typical prices are listed openly on the{" "}
+          confirm before anything is booked; typical prices are listed openly on the{" "}
           <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
             pricing page
           </Link>
@@ -122,7 +122,7 @@ export default function PreventionPage() {
         <SectionHeading
           eyebrow="When something is flagged"
           title="What happens if a result comes back abnormal"
-          description="This is the moment prevention exists for — and the moment most health systems drop. At Tarragon it is the highest-priority event on the platform."
+          description="This is the moment prevention exists for, and the moment most health systems drop. At Tarragon it is the highest-priority event on the platform."
         />
         <ol className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
           {ABNORMAL_STEPS.map((step, index) => (

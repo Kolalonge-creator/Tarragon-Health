@@ -1,6 +1,6 @@
 /**
  * Pricing content, sourced from Tarragon_Health_Pricing_Guide_v3.docx (the
- * authoritative plans & pricing doc, regenerated 2026-07-21 — it absorbs the
+ * authoritative plans & pricing doc, regenerated 2026-07-21; it absorbs the
  * decisions below and drops v2's "nurse" wording for "doctor" platform-wide,
  * so the old nurse->doctor translation exception is retired). Keep this file
  * in sync with that guide; every price and label here should be traceable
@@ -13,13 +13,13 @@
  * - "Annual Health Review" renamed "Annual Doctor Review" to stop the
  *   near-collision with the "Annual Health Check" screening product.
  * - Annual Health Check aligned to the live partner-lab bundle price
- *   (₦65,000 — the DB `panel_bundles.annual_health_check` row is the source
+ *   (₦65,000; the DB `panel_bundles.annual_health_check` row is the source
  *   of truth; marketing previously said ₦60,000).
  * - Family Lite's "every member gets Complete Care–level monitoring" promise
  *   reworded to needs-matched monitoring (the old wording contractually
  *   over-promised the loss-making case).
  * - Typical partner-lab prices (TYPICAL_PRICES) mirror the live `lab_tests`/
- *   `panel_bundles` catalogue — re-derive from the DB when partners reprice.
+ *   `panel_bundles` catalogue; re-derive from the DB when partners reprice.
  * - Diaspora Family plans are now real, self-service tiers (were
  *   quote-only), and the ENTIRE diaspora price book was rebased ~50% lower
  *   the same day (founder decision): the care is delivered to the person in
@@ -29,7 +29,7 @@
  *   Family Lite £290 / Plus £430 / Premium £620 per year (USD ~1.3x GBP:
  *   $19/$39/$79/mo, family $390/$570/$820/yr). Extra member +£60/£80/£120
  *   ($80/$110/$160); extra parent +£19/mo ($25). Still ~80-85% gross margin
- *   — diaspora remains the margin engine, at a price that converts.
+ *   diaspora remains the margin engine, at a price that converts.
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
@@ -125,7 +125,7 @@ export const NGN_TIERS: PricingTier[] = [
     pricePeriod: "per month",
     priceSecondary: "or ₦35,000/year (2 months free)",
     description:
-      "The stay-healthy plan. You don't need a diagnosis to benefit from Tarragon — Prevent builds your personal screening and vaccination calendar, books the checks when they come due, and teaches you what your numbers mean. If a result ever needs attention, a doctor steps in the same day and helps you decide what's next.",
+      "The stay-healthy plan. You don't need a diagnosis to benefit from Tarragon: Prevent builds your personal screening and vaccination calendar, books the checks when they come due, and teaches you what your numbers mean. If a result ever needs attention, a doctor steps in the same day and helps you decide what's next.",
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
       { feature: "Personal screening calendar matched to your age, sex, and history", label: "INCLUDED" },
@@ -137,7 +137,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Annual Health Check (₦65,000, full-body)", label: "BOOK & PAY" },
     ],
     footnote:
-      "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme — that's the whole point of catching it early.",
+      "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme; that's the whole point of catching it early.",
   },
   {
     id: "essential",
@@ -243,7 +243,7 @@ export const NGN_TIERS: PricingTier[] = [
     whoFor: "Keeping close watch over your parent's health, even from a distance",
     priceMain: "₦25,000",
     pricePeriod: "per month",
-    priceSecondary: "or ₦250,000/year (2 months free) — covers up to 2 parents",
+    priceSecondary: "or ₦250,000/year (2 months free); covers up to 2 parents",
     description:
       "A dedicated plan for monitoring a parent's health: a named doctor coordinator, scheduled doctor review, and a quarterly report, built specifically for this relationship rather than a general family group.",
     items: [
@@ -267,7 +267,7 @@ export const GBP_TIERS: PricingTier[] = [
     pricePeriod: "per month",
     priceSecondary: "or £70/year",
     description:
-      "The stay-healthy plan, billed in pounds: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Screenings and vaccinations are done at partner facilities in Nigeria — monitoring and education work from anywhere.",
+      "The stay-healthy plan, billed in pounds: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Screenings and vaccinations are done at partner facilities in Nigeria; monitoring and education work from anywhere.",
     items: [
       { feature: "Everything in Tarragon Prevent (Naira plan)", label: "INCLUDED" },
       { feature: "Screening lab tests in Nigeria", label: "BOOK & PAY" },
@@ -378,7 +378,7 @@ export const GBP_TIERS: PricingTier[] = [
     whoFor: "Both your parents, watched over from abroad",
     priceMain: "£59",
     pricePeriod: "per month",
-    priceSecondary: "or £590/year — covers up to 2 parents",
+    priceSecondary: "or £590/year; covers up to 2 parents",
     description:
       "Built specifically for monitoring a parent's health rather than a general family group: a named doctor coordinator, scheduled doctor review, and a quarterly report, covering up to 2 parents on one subscription.",
     items: [
@@ -393,16 +393,16 @@ export const GBP_TIERS: PricingTier[] = [
 ];
 
 export const DIASPORA_FAMILY_NOTE =
-  "All diaspora plans are also available in US dollars inside the app. Family bigger than 6 people, or something unusual? Message our team and we'll build you a custom quote — same no-hidden-cost approach.";
+  "All diaspora plans are also available in US dollars inside the app. Family bigger than 6 people, or something unusual? Message our team and we'll build you a custom quote, with the same no-hidden-cost approach.";
 
 /**
  * Honesty note for diaspora buyers subscribing for THEMSELVES: monitoring
  * and doctor review work anywhere, but the partner network (labs, pharmacies,
  * home visits) is physically in Nigeria. Saying so up front costs a few
- * conversions and buys the thing a new platform needs most — trust.
+ * conversions and buys the thing a new platform needs most: trust.
  */
 export const DIASPORA_SELF_USE_NOTE =
-  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, WhatsApp access, and health record all work wherever you are — but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
+  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, WhatsApp access, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
 /** The Health Wallet: one balance, topped up by yourself, a family member, or
  * a referral reward, spent on any Tarragon lab test, health check, pharmacy
@@ -554,9 +554,9 @@ export const ADD_ONS: PricingAddOn[] = [
  * shown before booking.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
-  { item: "Health Check — Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
+  { item: "Health Check: Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
   { item: "Annual Health Check (adds your cancer screening)", price: "₦65,000" },
-  { item: "Health Check — Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
+  { item: "Health Check: Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
   { item: "Kidney function (U&E + eGFR)", price: "from ₦8,000" },
@@ -572,15 +572,15 @@ export const TYPICAL_PRICES: { item: string; price: string }[] = [
 ];
 
 export const TYPICAL_PRICES_NOTE =
-  "These are the current prices at our partner labs, so you can budget before you ever book. Your exact price (including your chosen lab and location) is always shown before you confirm — and if it ever differs from what you see here, the price at booking is the one that counts, and you can simply decline.";
+  "These are the current prices at our partner labs, so you can budget before you ever book. Your exact price (including your chosen lab and location) is always shown before you confirm. If it ever differs from what you see here, the price at booking is the one that counts, and you can simply decline.";
 
 /**
- * "Tarragon vs your HMO" — complementary positioning, never disparaging. HMOs
+ * "Tarragon vs your HMO": complementary positioning, never disparaging. HMOs
  * (including our partners) pay for treatment; Tarragon is the monitoring layer
  * that works alongside them.
  */
 export const HMO_COMPARE_INTRO =
-  "A common question: “Why pay ₦8,000/month for Tarragon when a basic HMO plan costs ₦3,500?” Because they do different jobs — and they work best together.";
+  "A common question: “Why pay ₦8,000/month for Tarragon when a basic HMO plan costs ₦3,500?” Because they do different jobs, and they work best together.";
 
 export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }[] = [
   { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },
@@ -591,7 +591,7 @@ export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }
 ];
 
 export const HMO_COMPARE_NOTE =
-  "Keep your HMO — you'll still need it the day you're admitted. Tarragon is the layer that watches your numbers between hospital visits so that day comes later, or not at all. We already work alongside Nigerian HMOs, and if your employer or HMO wants Tarragon for its members, they can talk to us directly.";
+  "Keep your HMO: you'll still need it the day you're admitted. Tarragon is the layer that watches your numbers between hospital visits so that day comes later, or not at all. We already work alongside Nigerian HMOs, and if your employer or HMO wants Tarragon for its members, they can talk to us directly.";
 
 export const ALWAYS_FREE: PricingLineItem & { description: string } = {
   feature: "HPV vaccine for girls aged 9–14",
@@ -660,7 +660,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Which conditions does Tarragon manage, and where does obesity fit?",
     answer:
-      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and obesity. Obesity is a full condition on any plan, not an extra: with only obesity to manage, Essential Care (₦8,000/month) covers it — doctor review of your weight trend, a structured lifestyle plan, and follow-up. Managing obesity alongside blood pressure or diabetes is exactly what Complete Care (₦15,000/month) is for, and Lifestyle Coaching is already included there at no extra charge. Preventive screening is separate and available to everyone, whatever your conditions.",
+      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and obesity. Obesity is a full condition on any plan, not an extra: with only obesity to manage, Essential Care (₦8,000/month) covers it, including doctor review of your weight trend, a structured lifestyle plan, and follow-up. Managing obesity alongside blood pressure or diabetes is exactly what Complete Care (₦15,000/month) is for, and Lifestyle Coaching is already included there at no extra charge. Preventive screening is separate and available to everyone, whatever your conditions.",
   },
   {
     question: "Will my card ever be charged automatically for a test I didn't ask for?",
@@ -678,9 +678,9 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
       "No. Tarragon Free has no time limit and never converts to a paid plan on its own. You can use it for as long as you like.",
   },
   {
-    question: "I'm healthy — why would I join a health platform?",
+    question: "I'm healthy, why would I join a health platform?",
     answer:
-      "Because staying healthy is exactly what most of Tarragon does. Hypertension, diabetes, and many cancers are far cheaper and easier to deal with when they're caught early — or prevented outright. Tarragon Prevent builds your personal screening and vaccination calendar, books the right checks at the right ages, and teaches you what your numbers mean. Most members will simply get yearly confirmation that all is well; for the few where something shows up, a doctor follows up the same day and it's caught years earlier than it would have been.",
+      "Because staying healthy is exactly what most of Tarragon does. Hypertension, diabetes, and many cancers are far cheaper and easier to deal with when they're caught early, or prevented outright. Tarragon Prevent builds your personal screening and vaccination calendar, books the right checks at the right ages, and teaches you what your numbers mean. Most members will simply get yearly confirmation that all is well; for the few where something shows up, a doctor follows up the same day and it's caught years earlier than it would have been.",
   },
   {
     question: "What's the difference between Tarragon Free and Tarragon Prevent?",
@@ -700,7 +700,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Can I cancel anytime?",
     answer:
-      "Yes. Paid plans renew automatically at the end of each month or year so your care never lapses, and you can turn off auto-renewal any time from your subscription page. When you do, your plan stays active until the end of the period you've already paid for and simply doesn't renew after that — you won't be charged again.",
+      "Yes. Paid plans renew automatically at the end of each month or year so your care never lapses, and you can turn off auto-renewal any time from your subscription page. When you do, your plan stays active until the end of the period you've already paid for and simply doesn't renew after that. You won't be charged again.",
   },
   {
     question: "Are subscriptions refundable?",
@@ -710,7 +710,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "I already have an HMO. Do I still need Tarragon?",
     answer:
-      "They do different jobs. Your HMO pays your treatment bills when you're ill; Tarragon watches your numbers between hospital visits — a doctor reviews your readings, escalates worrying patterns early, and coordinates your labs and refills. Keep your HMO; Tarragon works alongside it.",
+      "They do different jobs. Your HMO pays your treatment bills when you're ill; Tarragon watches your numbers between hospital visits, where a doctor reviews your readings, escalates worrying patterns early, and coordinates your labs and refills. Keep your HMO; Tarragon works alongside it.",
   },
   {
     question: "What do lab tests actually cost?",
@@ -734,7 +734,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "How do I place an order for a test, refill, or add-on?",
     answer:
-      "Tap the relevant button in the app (“Book a Test,” “Request Refill,” “Add a Service”). You'll always see the price before confirming — if your clinician flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
+      "Tap the relevant button in the app (“Book a Test,” “Request Refill,” “Add a Service”). You'll always see the price before confirming; if your clinician flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
   },
   {
     question: "What is the Health Wallet?",

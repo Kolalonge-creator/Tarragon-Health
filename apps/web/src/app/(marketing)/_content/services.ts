@@ -124,7 +124,7 @@ export const PLATFORM_EXTRAS = [
 export const PREVENTION_CALLOUT = {
   title: "Healthy? Tarragon is built for you too",
   body:
-    "You don't need a diagnosis to belong here. Tarragon Prevent gives you a personal screening and vaccination calendar, a yearly Health Check, and education that makes sense of your numbers — so most years, you simply get confirmation that all is well. And if a check ever finds something, a doctor follows up the same day and it's caught years earlier, when it's easiest to treat.",
+    "You don't need a diagnosis to belong here. Tarragon Prevent gives you a personal screening and vaccination calendar, a yearly Health Check, and education that makes sense of your numbers, so most years, you simply get confirmation that all is well. And if a check ever finds something, a doctor follows up the same day and it's caught years earlier, when it's easiest to treat.",
 } as const;
 
 export const HOW_IT_WORKS_STEPS = [
@@ -258,9 +258,9 @@ export const HOMEPAGE_FAQS = [
       "TarragonHealth is a health monitoring platform for chronic disease (hypertension, diabetes, and obesity), preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
   },
   {
-    question: "I'm healthy — is Tarragon for me?",
+    question: "I'm healthy, is Tarragon for me?",
     answer:
-      "Yes — prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check, and education matched to you keep healthy people healthy. Most members just get confirmation each year that all is well; if a check ever finds something, a doctor follows up the same day.",
+      "Yes: prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check, and education matched to you keep healthy people healthy. Most members just get confirmation each year that all is well; if a check ever finds something, a doctor follows up the same day.",
   },
   {
     question: "What happens when readings are high?",

@@ -75,7 +75,7 @@ export default function MarketingHomePage() {
             </Button>
           </div>
           <p className="mt-3 text-sm text-charcoal-ink/55">
-            Same signup either way — we build the right calendar around you once you&apos;re in.
+            Same signup either way; we build the right calendar around you once you&apos;re in.
           </p>
         </MarketingHero>
         <ContinuityPath />
@@ -95,14 +95,14 @@ export default function MarketingHomePage() {
         </div>
       </Section>
 
-      {/* Two front doors — the same shared record, entered from either side.
+      {/* Two front doors, the same shared record, entered from either side.
           Healthy visitors must see themselves within the first screen-and-a-
           half, not at section six (prevention-first repositioning). */}
       <Section>
         <SectionHeading
           eyebrow="Start where you are"
           title="Two ways in, one record"
-          description="Tarragon is for people managing a condition — and just as much for people who don't have one and intend to keep it that way."
+          description="Tarragon is for people managing a condition, and just as much for people who don't have one and intend to keep it that way."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
           <Link
@@ -132,7 +132,7 @@ export default function MarketingHomePage() {
               Get followed up properly →
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-              Hypertension, diabetes, weight — monitored between visits, reviewed against care
+              Hypertension, diabetes, weight: monitored between visits, reviewed against care
               protocols, and escalated to a doctor when something needs attention.
             </p>
           </Link>
@@ -143,7 +143,7 @@ export default function MarketingHomePage() {
         <StoryPanel
           eyebrow="The problem"
           title="Chronic disease is poorly followed up between doctor visits"
-          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between. And for healthy people, the screenings and vaccinations that would catch problems early rarely happen at all — until something is missed."
+          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between. And for healthy people, the screenings and vaccinations that would catch problems early rarely happen at all, until something is missed."
           media={homepage.problem}
         />
       </Section>
@@ -273,7 +273,7 @@ export default function MarketingHomePage() {
             {
               href: MARKETING_ROUTES.prevention,
               title: "Prevention",
-              body: "Healthy and staying that way — screenings, vaccines, yearly checks.",
+              body: "Healthy and staying that way: screenings, vaccines, yearly checks.",
             },
             {
               href: MARKETING_ROUTES.services,

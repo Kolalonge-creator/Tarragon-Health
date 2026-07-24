@@ -37,7 +37,7 @@ function LinkedInButton({ href, compact = false }: { href: string; compact?: boo
  * Key seats TarragonHealth needs beyond the founder as it scales past one
  * doctor, mapped to the five business categories in CLAUDE.md (chronic
  * disease + prevention, care coordination, B2B & institutional, platform
- * infrastructure, clinical delivery). All open, no names yet — `person` stays
+ * infrastructure, clinical delivery). All open, no names yet; `person` stays
  * unset until someone is actually hired, at which point the card upgrades
  * itself to the founder-card treatment (photo + name + LinkedIn button).
  */
@@ -113,7 +113,7 @@ export default function AboutPage() {
               Dr Kola Longe
             </h3>
             <p className="mt-1 text-sm font-medium text-charcoal-ink/60">
-              Emergency Physician &amp; Health Innovator
+              Emergency Physician &amp; Healthcare Innovator
             </p>
             <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/40">
               MBChB · FEBEM · FRCEM · MSt (University of Cambridge)

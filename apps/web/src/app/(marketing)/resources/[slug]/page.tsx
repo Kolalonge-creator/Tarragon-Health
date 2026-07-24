@@ -52,7 +52,7 @@ export default async function ResourceArticlePage({
   const url = absoluteUrl(`/resources/${article.slug}`);
 
   // MedicalWebPage carries the E-E-A-T signals search engines look for on
-  // health content (reviewedBy/lastReviewed) — only emitted when a real
+  // health content (reviewedBy/lastReviewed); only emitted when a real
   // review record exists, same honesty rule as the visible byline below.
   const jsonLd = {
     "@context": "https://schema.org",
@@ -85,7 +85,7 @@ export default async function ResourceArticlePage({
     <>
       <script
         type="application/ld+json"
-        // Server-rendered from admin-authored copy + our own fixed fields —
+        // Server-rendered from admin-authored copy + our own fixed fields;
         // no user input reaches this string, safe to inline.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />

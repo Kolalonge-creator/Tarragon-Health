@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 
 export const revalidate = 3600;
 
-/** FAQPage structured data for the pricing questions — eligible for rich results. */
+/** FAQPage structured data for the pricing questions; eligible for rich results. */
 const pricingFaqJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",

@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   },
 };
 
-/** schema.org Organization — grounds brand identity for search + AI answers. */
+/** schema.org Organization; grounds brand identity for search + AI answers. */
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "MedicalOrganization",
@@ -60,7 +60,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-col bg-warm-ivory text-charcoal-ink">
       <script
         type="application/ld+json"
-        // Static, first-party JSON — safe to inline for rich results.
+        // Static, first-party JSON; safe to inline for rich results.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
       <MarketingNav />

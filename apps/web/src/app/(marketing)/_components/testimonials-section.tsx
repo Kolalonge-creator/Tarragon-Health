@@ -2,15 +2,15 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { Section, SectionHeading } from "./section";
 
 /**
- * Consented, doctor-reviewed-free patient quotes — never invented, never
+ * Consented, doctor-reviewed-free patient quotes; never invented, never
  * scraped (see patient_testimonials RLS: patients submit with explicit
  * consent, an admin publishes). Renders nothing until at least one quote is
  * published, same "dormant until real" pattern as the home-visit/logistics
- * partner rows — no placeholder or invented quotes ever stand in.
+ * partner rows: no placeholder or invented quotes ever stand in.
  */
 export async function TestimonialsSection() {
   // Never let a Supabase outage or a build-time-only environment (no service
-  // role key available to the static export) break the marketing homepage —
+  // role key available to the static export) break the marketing homepage;
   // same never-throw discipline as the ML client. Worst case: this section
   // just doesn't render, same as when there are zero published quotes.
   let testimonials: { id: string; display_name: string; quote: string }[] | null = null;
