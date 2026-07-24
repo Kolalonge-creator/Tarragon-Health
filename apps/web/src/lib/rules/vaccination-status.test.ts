@@ -92,6 +92,49 @@ describe("computeVaccinationStatuses", () => {
     expect(result.nextDueDate).toBeNull();
   });
 
+  describe("a min_age-gated dose series (e.g. shingles/Shingrix, a real 2-dose vaccine from age 50)", () => {
+    const SHINGLES_RZV: VaccinationCatalogRow = {
+      id: "shingles-id",
+      code: "shingles",
+      name: "Shingles",
+      recommended_age: { min_age: 50, dose_schedule_months: [0, 2] },
+    };
+
+    it("is not yet due below the minimum age, even with zero doses logged", () => {
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], [], { ageYears: 45 }, today);
+      expect(result.status).toBe("not_yet_due");
+    });
+
+    it("is not yet due when age is unknown", () => {
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], [], { ageYears: null }, today);
+      expect(result.status).toBe("not_yet_due");
+    });
+
+    it("becomes due for dose 1 once the minimum age is reached", () => {
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], [], { ageYears: 52 }, today);
+      expect(result.status).toBe("due");
+      expect(result.dosesGiven).toBe(0);
+    });
+
+    it("schedules dose 2 from dose 1's date, not the minimum age gate, once started", () => {
+      const records = [record("shingles-id", 1, "2026-05-06")];
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], records, { ageYears: 52 }, today);
+      // dose 2 due 2 months after dose 1 = 2026-07-06, which is today
+      expect(result.status).toBe("due");
+      expect(result.nextDueDate).toBe("2026-07-06");
+    });
+
+    it("marks the full 2-dose series complete with no further due date", () => {
+      const records = [
+        record("shingles-id", 1, "2024-01-01"),
+        record("shingles-id", 2, "2024-03-01"),
+      ];
+      const [result] = computeVaccinationStatuses([SHINGLES_RZV], records, { ageYears: 52 }, today);
+      expect(result.status).toBe("up_to_date");
+      expect(result.nextDueDate).toBeNull();
+    });
+  });
+
   it("treats a fixed-dose-count vaccine as due with no age gate", () => {
     const [result] = computeVaccinationStatuses([YELLOW_FEVER], [], { ageYears: null }, today);
     expect(result.status).toBe("due");
@@ -223,6 +266,167 @@ describe("computeVaccinationStatuses", () => {
 
     const [oldEnough] = computeVaccinationStatuses([PENTA], [], { ageYears: 1 }, today);
     expect(oldEnough.status).toBe("due");
+  });
+
+  it("anchors a booster's first due date off a fallback vaccine's last dose when it has none of its own", () => {
+    const TETANUS_WITH_FALLBACK: VaccinationCatalogRow = {
+      id: "tetanus-id",
+      code: "tetanus_td_booster",
+      name: "Tetanus/Td Booster",
+      recommended_age: { interval_years: 10, anchor_fallback_code: "child_penta" },
+    };
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const records = [
+      record("penta-id", 1, "2016-01-13"),
+      record("penta-id", 2, "2016-02-10"),
+      record("penta-id", 3, "2016-03-10"), // the child's last routine tetanus-containing dose
+    ];
+    const [result] = computeVaccinationStatuses(
+      [TETANUS_WITH_FALLBACK, PENTA],
+      records,
+      { ageYears: 10 },
+      today
+    );
+    expect(result.status).toBe("overdue");
+    expect(result.nextDueDate).toBe("2026-03-10"); // 10 years after the last Penta dose
+    expect(result.lastDoseDate).toBe("2016-03-10");
+    expect(result.dosesGiven).toBe(0); // no dose logged under tetanus_td_booster's own code
+  });
+
+  it("prefers a booster's own logged dose over the fallback once one exists", () => {
+    const TETANUS_WITH_FALLBACK: VaccinationCatalogRow = {
+      id: "tetanus-id",
+      code: "tetanus_td_booster",
+      name: "Tetanus/Td Booster",
+      recommended_age: { interval_years: 10, anchor_fallback_code: "child_penta" },
+    };
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const records = [
+      record("penta-id", 3, "2016-03-10"),
+      record("tetanus-id", 1, "2026-01-06"), // a real adult booster, logged more recently
+    ];
+    const [result] = computeVaccinationStatuses(
+      [TETANUS_WITH_FALLBACK, PENTA],
+      records,
+      { ageYears: 10 },
+      today
+    );
+    expect(result.status).toBe("up_to_date");
+    expect(result.nextDueDate).toBe("2036-01-06");
+    expect(result.lastDoseDate).toBe("2026-01-06");
+  });
+
+  it("falls back to plain never-had-a-dose handling when the fallback code has no doses either", () => {
+    const TETANUS_WITH_FALLBACK: VaccinationCatalogRow = {
+      id: "tetanus-id",
+      code: "tetanus_td_booster",
+      name: "Tetanus/Td Booster",
+      recommended_age: { interval_years: 10, anchor_fallback_code: "child_penta" },
+    };
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const [result] = computeVaccinationStatuses([TETANUS_WITH_FALLBACK, PENTA], [], { ageYears: 40 }, today);
+    expect(result.status).toBe("due");
+    expect(result.nextDueDate).toBe("2026-07-06");
+    expect(result.lastDoseDate).toBeNull();
+  });
+
+  describe("the full WHO tetanus (TTCV) series wired into production data", () => {
+    // Mirrors the real vaccination_catalog rows (migration
+    // 20260724024110_who_tetanus_childhood_booster_series): infant Penta
+    // (6/10/14wk) -> booster 1 (18mo/78wk) -> booster 2 (4yr/208wk) ->
+    // booster 3 (9yr/469wk) -> adult tetanus_td_booster, anchored off
+    // booster 3 specifically, not an earlier stage.
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const BOOSTER_1: VaccinationCatalogRow = {
+      id: "booster1-id",
+      code: "child_tetanus_booster_1",
+      name: "Tetanus Booster — 18 Months",
+      recommended_age: { age_schedule_weeks: [78], max_age_years: 3 },
+    };
+    const BOOSTER_2: VaccinationCatalogRow = {
+      id: "booster2-id",
+      code: "child_tetanus_booster_2",
+      name: "Tetanus Booster — 4 to 7 Years",
+      recommended_age: { age_schedule_weeks: [208], max_age_years: 8 },
+    };
+    const BOOSTER_3: VaccinationCatalogRow = {
+      id: "booster3-id",
+      code: "child_tetanus_booster_3",
+      name: "Tetanus Booster — 9 to 15 Years",
+      recommended_age: { age_schedule_weeks: [469], max_age_years: 16 },
+    };
+    const ADULT_BOOSTER: VaccinationCatalogRow = {
+      id: "tetanus-id",
+      code: "tetanus_td_booster",
+      name: "Tetanus/Td Booster",
+      recommended_age: { interval_years: 10, anchor_fallback_code: "child_tetanus_booster_3" },
+    };
+    const CATALOG = [PENTA, BOOSTER_1, BOOSTER_2, BOOSTER_3, ADULT_BOOSTER];
+
+    it("does NOT anchor the adult booster off an earlier partial stage while a later childhood booster is still outstanding", () => {
+      // A 5-year-old who's had Penta + the 18-month booster, but isn't old
+      // enough yet for booster 2 (due at 4yr) or booster 3 (due at 9yr) —
+      // wait, 5yr IS past booster 2's 4yr due age, so booster 2 should show
+      // due/overdue on its own row; the point under test is that the ADULT
+      // booster must NOT compute a next-due-date off booster 1's 18-month
+      // dose (which would wrongly suggest no tetanus shot is needed until
+      // age ~11.5, silently deprioritising the still-outstanding booster 2).
+      const records = [
+        record("penta-id", 1, "2021-01-13"),
+        record("penta-id", 2, "2021-02-10"),
+        record("penta-id", 3, "2021-03-10"),
+        record("booster1-id", 1, "2022-08-01"),
+      ];
+      const results = computeVaccinationStatuses(CATALOG, records, { ageYears: 5, dateOfBirth: "2021-01-01" }, today);
+      const byCode = Object.fromEntries(results.map((r) => [r.code, r]));
+
+      // Booster 2 correctly shows as due on its own row — the childhood
+      // series is not silently skipped.
+      expect(["due", "overdue"]).toContain(byCode.child_tetanus_booster_2.status);
+      // The adult booster has no dose of its own AND its fallback
+      // (booster 3) has none either — it falls through to the plain
+      // "due today" default, never to booster 1's 2022-08-01 + 10 years.
+      expect(byCode.tetanus_td_booster.status).toBe("due");
+      expect(byCode.tetanus_td_booster.nextDueDate).toBe("2026-07-06");
+      expect(byCode.tetanus_td_booster.lastDoseDate).toBeNull();
+    });
+
+    it("anchors the adult booster's 10-year clock off booster 3 once the full childhood series is complete", () => {
+      const records = [
+        record("penta-id", 1, "2011-01-13"),
+        record("penta-id", 2, "2011-02-10"),
+        record("penta-id", 3, "2011-03-10"),
+        record("booster1-id", 1, "2012-08-01"),
+        record("booster2-id", 1, "2015-01-15"),
+        record("booster3-id", 1, "2020-06-15"), // the real last childhood dose
+      ];
+      const results = computeVaccinationStatuses(CATALOG, records, { ageYears: 15, dateOfBirth: "2011-01-01" }, today);
+      const byCode = Object.fromEntries(results.map((r) => [r.code, r]));
+
+      expect(byCode.tetanus_td_booster.lastDoseDate).toBe("2020-06-15");
+      expect(byCode.tetanus_td_booster.nextDueDate).toBe("2030-06-15");
+      expect(byCode.tetanus_td_booster.status).toBe("up_to_date");
+    });
   });
 
   it("clamps month arithmetic instead of rolling into the next month", () => {

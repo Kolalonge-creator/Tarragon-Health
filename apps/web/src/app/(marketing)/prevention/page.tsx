@@ -42,6 +42,7 @@ const SCREENING_GROUPS = [
     tests: [
       "HIV screening",
       "Hepatitis B screening",
+      "Hepatitis C screening",
     ],
   },
   {
@@ -51,6 +52,11 @@ const SCREENING_GROUPS = [
       "HPV vaccination (free at government PHC centres for girls 9–14; catch-up doses bookable for women 15–45)",
       "Hepatitis B vaccination series, with each dose tracked to completion",
     ],
+  },
+  {
+    title: "Know your basics",
+    intro: "Don't know your blood group and genotype yet? Book it directly — useful for marriage counselling, pregnancy planning, and emergencies.",
+    tests: ["Blood group & rhesus factor", "Sickle cell genotype (AA/AS/SS)"],
   },
 ];
 

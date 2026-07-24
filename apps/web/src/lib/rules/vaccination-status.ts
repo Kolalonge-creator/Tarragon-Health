@@ -24,6 +24,30 @@ import type { Tables } from "@tarragon/shared";
  *     off every adult's card; catch-up beyond that window is a clinical
  *     decision, not an automatic one. Optional sex restricts to one sex
  *     (e.g. HPV girls-only).
+ *
+ * dose_schedule_months also accepts an optional min_age, gating the whole
+ * series off until that age (not_yet_due below it) — e.g. the shingles
+ * vaccine (Shingrix/RZV) is a real 2-dose series, 2-6 months apart, only
+ * recommended from age 50; modelling it as dose_schedule_months alone would
+ * offer it to a 20-year-old, and min_age alone (the shape below) only knows
+ * "one dose marks it done", which is medically wrong for a 2-dose vaccine.
+ *
+ * interval_years also accepts an optional anchor_fallback_code, so a
+ * recurring booster can start counting from a dose logged under a DIFFERENT
+ * catalog entry when it has none of its own. The tetanus/Td booster uses
+ * this: WHO's full lifetime tetanus-toxoid-containing-vaccine (TTCV)
+ * schedule is 6 doses — the infant Pentavalent series (child_penta, 6/10/14
+ * weeks) plus three further childhood boosters (child_tetanus_booster_1/2/3,
+ * ~18 months / 4-7 years / 9-15 years) — before the adult 10-year cadence
+ * begins. tetanus_td_booster's anchor_fallback_code points at
+ * child_tetanus_booster_3, the LAST stage in that series, deliberately not
+ * an earlier stage: anchoring off a partial-series dose (e.g. only the
+ * 18-month booster) would compute a next-due date years before the
+ * still-outstanding 4-7yr/9-15yr boosters are due, which would wrongly read
+ * as "you don't need another tetanus shot for a decade" while a childhood
+ * dose is still owed. Each earlier stage still shows its own due/overdue
+ * status on its own catalog row regardless — this fallback ONLY governs
+ * when the ongoing ADULT booster's clock starts.
  */
 
 export type VaccinationCatalogRow = Pick<
@@ -62,6 +86,10 @@ export interface VaccinationStatusResult {
 
 interface RecommendedAgeShape {
   interval_years?: number;
+  /** Only consulted by the interval_years branch, and only when this entry
+   * has no dose of its own on file — names another vaccination_catalog code
+   * whose last logged dose should anchor this booster's first due date. */
+  anchor_fallback_code?: string;
   dose_schedule_months?: number[];
   doses?: number;
   max_catch_up_age?: number;
@@ -109,6 +137,29 @@ function dueOrOverdue(dueDate: string, today: string): VaccinationStatus {
   return dueDate <= today ? (dueDate < today ? "overdue" : "due") : "up_to_date";
 }
 
+/**
+ * Resolves anchor_fallback_code to the last dose date logged under that
+ * OTHER catalog entry — e.g. lets the tetanus/Td booster start its 10-year
+ * clock from a patient's last childhood Pentavalent dose instead of
+ * requiring a dose logged under the tetanus_td_booster code itself. Returns
+ * null if the code is unset, doesn't match any catalog entry, or has no
+ * doses logged (all of which fall through to the caller's own "never had a
+ * dose" handling).
+ */
+function resolveAnchorFallbackDate(
+  fallbackCode: string | undefined,
+  catalog: VaccinationCatalogRow[],
+  records: VaccinationRecordRow[]
+): string | null {
+  if (!fallbackCode) return null;
+  const fallbackEntry = catalog.find((c) => c.code === fallbackCode);
+  if (!fallbackEntry) return null;
+  const fallbackRecords = records
+    .filter((r) => r.vaccination_catalog_id === fallbackEntry.id)
+    .sort((a, b) => a.date_administered.localeCompare(b.date_administered));
+  return fallbackRecords.at(-1)?.date_administered ?? null;
+}
+
 export function computeVaccinationStatuses(
   catalog: VaccinationCatalogRow[],
   records: VaccinationRecordRow[],
@@ -129,15 +180,28 @@ export function computeVaccinationStatuses(
     const base = { catalogId: entry.id, code: entry.code, name: entry.name, dosesGiven, lastDoseDate };
 
     if (recommendedAge.interval_years !== undefined) {
-      if (!lastDoseDate) {
+      const anchorDate =
+        lastDoseDate ?? resolveAnchorFallbackDate(recommendedAge.anchor_fallback_code, catalog, records);
+      if (!anchorDate) {
         return { ...base, status: "due", nextDueDate: todayISO };
       }
-      const nextDueDate = addYears(lastDoseDate, recommendedAge.interval_years);
-      return { ...base, status: dueOrOverdue(nextDueDate, todayISO), nextDueDate };
+      const nextDueDate = addYears(anchorDate, recommendedAge.interval_years);
+      // lastDoseDate is overridden (not just base's own dosesGiven-derived
+      // value) when the fallback supplied it, so a patient who's never had a
+      // dose logged under THIS code still sees the real date their clock is
+      // counting from, not "never".
+      return { ...base, lastDoseDate: anchorDate, status: dueOrOverdue(nextDueDate, todayISO), nextDueDate };
     }
 
     if (recommendedAge.dose_schedule_months !== undefined) {
       const schedule = recommendedAge.dose_schedule_months;
+      if (
+        dosesGiven === 0 &&
+        recommendedAge.min_age !== undefined &&
+        (profile.ageYears === null || profile.ageYears < recommendedAge.min_age)
+      ) {
+        return { ...base, status: "not_yet_due", nextDueDate: null };
+      }
       if (dosesGiven === 0) {
         return { ...base, status: "due", nextDueDate: todayISO };
       }
