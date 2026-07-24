@@ -21,7 +21,7 @@ const EXTERNAL_TIMEOUT_MS = 5_000;
 interface NotificationRow {
   id: string;
   recipient_id: string;
-  channel: "whatsapp" | "sms" | "in_app" | "email" | "push";
+  channel: "whatsapp" | "sms" | "in_app" | "email" | "push" | "voice";
   template: string | null;
   payload: Record<string, unknown>;
   attempts: number;
@@ -1043,7 +1043,7 @@ Deno.serve(async () => {
     .from("notifications")
     .select("id, recipient_id, channel, template, payload, attempts")
     .eq("status", "pending")
-    .in("channel", ["whatsapp", "sms", "email"])
+    .in("channel", ["whatsapp", "sms", "email", "voice"])
     .lt("attempts", MAX_ATTEMPTS)
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE)
