@@ -138,7 +138,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Comprehensive",
               price: "₦75,000",
-              body: "Everything in the Annual Health Check, plus HIV and Hepatitis B screening — both WHO priorities for Nigeria.",
+              body: "Everything in the Annual Health Check, plus HIV, Hepatitis B, and Hepatitis C screening — all WHO priorities for Nigeria.",
             },
           ].map((tier) => (
             <div
@@ -156,9 +156,10 @@ export default function AnnualHealthCheckPage() {
           ))}
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
-          Need just one thing? The WHO-recommended screenings — cervical screening, HIV, and
-          Hepatitis B — can each be booked on their own, confidentially, from ₦6,000. Results go
-          only to you and the reviewing doctor.
+          Need just one thing? The WHO-recommended screenings — cervical screening, HIV,
+          Hepatitis B, and Hepatitis C — can each be booked on their own, confidentially, from
+          ₦6,000. Results go only to you and the reviewing doctor. Don&apos;t know your blood
+          group and genotype yet? You can book that directly too — from ₦6,500.
         </p>
       </Section>
 

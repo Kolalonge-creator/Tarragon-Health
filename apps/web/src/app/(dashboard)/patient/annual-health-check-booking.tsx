@@ -32,6 +32,12 @@ const OPEN_STATUSES = [
 const isPackage = (b: PanelBundle) =>
   b.code === "annual_health_check" || b.code.startsWith("health_check");
 
+/** The WHO-essential confidential screenings (cervical smear, HIV, Hep B,
+ * Hep C) vs. other self-bookable single tests (e.g. blood group & genotype,
+ * migration 20260724020715) that don't carry the same privacy framing. */
+const CONFIDENTIAL_CODES = ["single_cervical_smear", "single_hiv", "single_hep_b", "single_hep_c"];
+const isConfidential = (b: PanelBundle) => CONFIDENTIAL_CODES.includes(b.code);
+
 const REBOOK_AFTER_MONTHS = 11;
 
 /**
@@ -74,7 +80,8 @@ export function AnnualHealthCheckBooking({
     [bundles, sex]
   );
   const packages = selfBookable.filter(isPackage);
-  const confidential = selfBookable.filter((b) => !isPackage(b));
+  const confidential = selfBookable.filter((b) => !isPackage(b) && isConfidential(b));
+  const otherTests = selfBookable.filter((b) => !isPackage(b) && !isConfidential(b));
 
   const selfBookableIds = useMemo(
     () => new Set((bundles ?? []).filter((b) => b.self_bookable).map((b) => b.id)),
@@ -218,6 +225,18 @@ export function AnnualHealthCheckBooking({
                 results shared only with you and the reviewing doctor.
               </p>
               {confidential.map(bundleRow)}
+            </div>
+          )}
+
+          {otherTests.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+                Other self-service tests
+              </p>
+              <p className="text-xs text-charcoal-ink/60">
+                Book directly — no due screening or doctor referral needed.
+              </p>
+              {otherTests.map(bundleRow)}
             </div>
           )}
 

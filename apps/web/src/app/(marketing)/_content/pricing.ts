@@ -521,7 +521,7 @@ export const ADD_ONS: PricingAddOn[] = [
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
   { item: "Health Check — Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
   { item: "Annual Health Check (adds your cancer screening)", price: "₦65,000" },
-  { item: "Health Check — Comprehensive (adds HIV + Hepatitis B)", price: "₦75,000" },
+  { item: "Health Check — Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
   { item: "Kidney function (U&E + eGFR)", price: "from ₦8,000" },
@@ -532,6 +532,8 @@ export const TYPICAL_PRICES: { item: string; price: string }[] = [
   { item: "Cervical smear", price: "from ₦18,000" },
   { item: "HIV screening", price: "from ₦6,000" },
   { item: "Hepatitis B screening", price: "from ₦7,000" },
+  { item: "Hepatitis C screening", price: "from ₦7,000" },
+  { item: "Blood group & genotype", price: "from ₦6,500" },
 ];
 
 export const TYPICAL_PRICES_NOTE =

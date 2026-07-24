@@ -34,6 +34,7 @@ insert into public.screen_types
 values
   ('hep_c',                'Hepatitis C Test',       'all',    18, null, null, 0.2000, 'lab'),
   ('sickle_cell_genotype', 'Sickle Cell Genotype',   'all',    18, null, null, 0.2000, 'lab'),
+  ('blood_group',          'Blood Group & Rhesus Factor', 'all', 0, null, null, 0.2000, 'lab'),
   ('vision_check',         'Vision Check',           'all',    40, null, 24,   0.1500, 'clinic'),
   ('clinical_breast_exam', 'Clinical Breast Exam',   'female', 25, null, 12,   0.1500, 'clinic'),
   ('bone_density',         'Bone Density Scan',      'female', 65, null, null, 0.1800, 'clinic'),
@@ -84,6 +85,16 @@ values
   ('Afriglobal Medicare',true,  array['Lagos'])
 on conflict (name) do nothing;
 
+-- Lab-facing notification contacts (migration 20260724020744) — .example
+-- addresses, same convention as pharmacy_partners above, so seeding never
+-- sends to a real inbox/handset. Plain UPDATE (not part of the INSERT ...
+-- ON CONFLICT above) since these columns didn't exist when the insert ran
+-- on an already-seeded environment; the null guard keeps it idempotent.
+update public.lab_providers set contact_email = 'labs@synlab.example', contact_phone = '+2348030000101' where name = 'Synlab Nigeria' and contact_email is null;
+update public.lab_providers set contact_email = 'labs@cerbalancet.example', contact_phone = '+2348030000102' where name = 'Cerba Lancet' and contact_email is null;
+update public.lab_providers set contact_email = 'labs@healthtracka.example', contact_phone = '+2348030000103' where name = 'Healthtracka' and contact_email is null;
+update public.lab_providers set contact_email = 'labs@afriglobalmedicare.example', contact_phone = '+2348030000104' where name = 'Afriglobal Medicare' and contact_email is null;
+
 -- lab_tests — starter menu keyed to screen_types codes (price in kobo)
 insert into public.lab_tests (provider_id, code, name, price_kobo, commission_rate, turnaround_hours)
 select p.id, t.code, t.name, t.price_kobo, t.commission_rate, t.turnaround_hours
@@ -97,7 +108,13 @@ join (values
   ('Healthtracka',        'hba1c',        'HbA1c (home collection)',  900000::bigint, 0.2200, 48),
   ('Healthtracka',        'hiv',          'HIV Screening',            600000::bigint, 0.1500, 24),
   ('Afriglobal Medicare', 'lipid_panel',  'Lipid Panel',              900000::bigint, 0.2000, 48),
-  ('Afriglobal Medicare', 'hep_b',        'Hepatitis B Surface Antigen',700000::bigint, 0.2000, 48)
+  ('Afriglobal Medicare', 'hep_b',        'Hepatitis B Surface Antigen',700000::bigint, 0.2000, 48),
+  ('Synlab Nigeria',      'blood_group',           'Blood Group & Rhesus Factor', 350000::bigint, 0.2000, 24),
+  ('Synlab Nigeria',      'sickle_cell_genotype',  'Sickle Cell Genotype',        400000::bigint, 0.2000, 24),
+  ('Healthtracka',        'blood_group',           'Blood Group & Rhesus Factor', 300000::bigint, 0.2200, 24),
+  ('Healthtracka',        'sickle_cell_genotype',  'Sickle Cell Genotype',        350000::bigint, 0.2200, 24),
+  ('Cerba Lancet',        'hep_c',                 'Hepatitis C Antibody Test',   750000::bigint, 0.2000, 48),
+  ('Afriglobal Medicare', 'hep_c',                 'Hepatitis C Antibody Test',   700000::bigint, 0.2000, 48)
 ) as t(provider_name, code, name, price_kobo, commission_rate, turnaround_hours)
   on t.provider_name = p.name
 on conflict (provider_id, code) do nothing;
@@ -120,24 +137,48 @@ on conflict (code) do nothing;
 
 -- Health Check tier ladder (migration 20260723164727): Basic (WHO PEN
 -- cardiometabolic) / Standard (annual_health_check) / Comprehensive (adds
--- HIV + Hep B). PLACEHOLDER PRICES — founder to confirm.
+-- HIV + Hep B + Hep C). PLACEHOLDER PRICES — founder to confirm.
 insert into public.panel_bundles (code, name, description, price_kobo, test_codes, self_bookable)
 values
   ('health_check_basic', 'Health Check — Basic',
      'Cardiometabolic essentials (WHO PEN): HbA1c and full lipid panel, plus BP and BMI at the lab. Doctor-reviewed.',
      1500000, array['hba1c', 'lipid_panel'], true),
   ('health_check_comprehensive', 'Health Check — Comprehensive',
-     'Everything in the Annual Health Check plus HIV and Hepatitis B screening. Doctor-reviewed.',
-     7500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b'], true)
+     'Everything in the Annual Health Check plus HIV, Hepatitis B, and Hepatitis C screening. Doctor-reviewed.',
+     7500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b', 'hep_c'], true)
 on conflict (code) do nothing;
 
--- Self-bookable set (migrations 20260723150205 + 20260723164727): the three
--- Health Check packages plus the WHO-essential confidential screenings
--- (cervical smear per the WHO 90-70-90 elimination strategy, HIV, Hep B).
--- Deliberately NOT a general wellness catalogue — PSA stays package-only per
--- WHO guidance; everything else stays clinician-originated.
+-- Blood group & genotype combo, and standalone Hepatitis C — migration
+-- 20260724020715. Bundled together (patients almost always want both, same
+-- as how Nigerian labs package it) rather than two separate bookable items.
+-- Prices are PLACEHOLDER — founder to confirm, same convention as every
+-- other self-bookable bundle price above.
+insert into public.panel_bundles (code, name, description, price_kobo, test_codes, self_bookable)
+values
+  ('single_blood_group_genotype', 'Blood Group & Genotype',
+     'Know your blood group, rhesus factor, and sickle cell genotype (AA/AS/SS) — useful for marriage counselling, pregnancy planning, and emergencies.',
+     650000, array['blood_group', 'sickle_cell_genotype'], true),
+  ('single_hep_c', 'Hepatitis C Screening',
+     'Confidential Hepatitis C antibody test.',
+     700000, array['hep_c'], true)
+on conflict (code) do nothing;
+
+-- Existing comprehensive bundles may already be seeded from an older
+-- environment without hep_c in test_codes — backfill idempotently.
+update public.panel_bundles
+  set test_codes = array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b', 'hep_c'],
+      description = 'Everything in the Annual Health Check plus HIV, Hepatitis B, and Hepatitis C screening. Doctor-reviewed.'
+  where code = 'health_check_comprehensive'
+    and not ('hep_c' = any(test_codes));
+
+-- Self-bookable set (migrations 20260723150205 + 20260723164727 +
+-- 20260724020715): the three Health Check packages plus the WHO-essential
+-- confidential screenings (cervical smear per the WHO 90-70-90 elimination
+-- strategy, HIV, Hep B, Hep C) plus blood group & genotype. Deliberately NOT
+-- a general wellness catalogue — PSA stays package-only per WHO guidance;
+-- everything else stays clinician-originated.
 update public.panel_bundles set self_bookable = true
-  where code in ('annual_health_check', 'single_cervical_smear', 'single_hiv', 'single_hep_b');
+  where code in ('annual_health_check', 'single_cervical_smear', 'single_hiv', 'single_hep_b', 'single_hep_c', 'single_blood_group_genotype');
 
 -- ---------------------------------------------------------------------------
 -- pharmacy_partners

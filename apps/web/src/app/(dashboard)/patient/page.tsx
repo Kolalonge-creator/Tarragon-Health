@@ -344,7 +344,10 @@ export default async function PatientPage() {
         {screeningBookingEnabled ? (
           <>
             <LabCatalogue />
-            <LabOrdersList patientId={profile.id} />
+            <LabOrdersList
+              patientId={profile.id}
+              patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
+            />
             <ResultsTrendsCard patientId={profile.id} />
             <LabResults patientId={profile.id} />
             {/* FacilityDirectory/BookingRequestsList stay scoped to types with
@@ -360,7 +363,10 @@ export default async function PatientPage() {
             {/* A Free user can still have real orders to pay/track — the
                 Annual Health Check is purchasable on any plan — so the order
                 list, trends, and results stay visible below the prompt. */}
-            <LabOrdersList patientId={profile.id} />
+            <LabOrdersList
+              patientId={profile.id}
+              patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
+            />
             <ResultsTrendsCard patientId={profile.id} />
             <LabResults patientId={profile.id} />
           </>
@@ -391,7 +397,10 @@ export default async function PatientPage() {
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
         <WalletCard patientId={profile.id} />
-        <YourReferrals patientId={profile.id} />
+        <YourReferrals
+          patientId={profile.id}
+          patientLocation={{ state: profile.state, city: profile.city }}
+        />
         <RequiresEntitlement
           feature="doctor_checkin"
           fallback={<UpgradePrompt feature="doctor_checkin" />}
