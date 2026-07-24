@@ -1,16 +1,15 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import Link from "next/link";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
-import { signInWithEmail, requestPhoneOtp, verifyPhoneOtp } from "./actions";
+import { requestPasswordResetEmail, requestPhoneReset, verifyPhoneReset } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-export function LoginForm({ redirectTo }: { redirectTo?: string }) {
+export function ForgotPasswordForm() {
   const [tab, setTab] = useState<"email" | "phone">("email");
 
   return (
@@ -31,60 +30,43 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         ))}
       </div>
 
-      {tab === "email" ? (
-        <EmailLoginForm redirectTo={redirectTo} />
-      ) : (
-        <PhoneLoginForm redirectTo={redirectTo} />
-      )}
+      {tab === "email" ? <EmailResetForm /> : <PhoneResetForm />}
     </div>
   );
 }
 
-function EmailLoginForm({ redirectTo }: { redirectTo?: string }) {
-  const [state, formAction, pending] = useActionState(signInWithEmail, undefined);
+function EmailResetForm() {
+  const [state, formAction, pending] = useActionState(requestPasswordResetEmail, undefined);
+
+  if (state?.success) {
+    return (
+      <p className="text-sm text-charcoal-ink/70">
+        If an account exists for that email, we&apos;ve sent a link to reset your password.
+        Check your inbox (and spam folder) — the link works for a limited time.
+      </p>
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-4">
-      <input type="hidden" name="redirectTo" value={redirectTo ?? ""} />
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </div>
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="password">Password</Label>
-          <Link
-            href="/forgot-password"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
-      </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? "Sending…" : "Send reset link"}
       </Button>
     </form>
   );
 }
 
-function PhoneLoginForm({ redirectTo }: { redirectTo?: string }) {
+function PhoneResetForm() {
   const [requestState, requestAction, requestPending] = useActionState(
-    requestPhoneOtp,
+    requestPhoneReset,
     undefined
   );
-  const [verifyState, verifyAction, verifyPending] = useActionState(
-    verifyPhoneOtp,
-    undefined
-  );
+  const [verifyState, verifyAction, verifyPending] = useActionState(verifyPhoneReset, undefined);
 
   const phone = verifyState?.phone ?? requestState?.phone;
   const showVerify = requestState?.step === "verify" || verifyState?.step === "verify";
@@ -93,7 +75,6 @@ function PhoneLoginForm({ redirectTo }: { redirectTo?: string }) {
     return (
       <form action={verifyAction} className="space-y-4">
         <input type="hidden" name="phone" value={phone} />
-        <input type="hidden" name="redirectTo" value={redirectTo ?? ""} />
         <p className="text-sm text-charcoal-ink/60">
           Enter the 6-digit code sent to <span className="font-medium">{phone}</span>.
         </p>
@@ -110,7 +91,7 @@ function PhoneLoginForm({ redirectTo }: { redirectTo?: string }) {
         </div>
         {verifyState?.error && <p className="text-sm text-red-600">{verifyState.error}</p>}
         <Button type="submit" className="w-full" disabled={verifyPending}>
-          {verifyPending ? "Verifying…" : "Verify & sign in"}
+          {verifyPending ? "Verifying…" : "Verify code"}
         </Button>
       </form>
     );

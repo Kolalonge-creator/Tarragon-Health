@@ -26,7 +26,7 @@ export function pathMatchesRole(pathname: string, role: UserRole): boolean {
 }
 
 /** Paths reachable without a session. */
-export const PUBLIC_PATHS = ["/", "/login", "/signup"];
+export const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password"];
 
 export function isPublicPath(pathname: string): boolean {
   return (
