@@ -50,6 +50,16 @@ export const signupSchema = z
       .trim()
       .optional()
       .transform((v) => (v && v.length > 0 ? v : undefined)),
+    // Carried from a shareable referral link (?ref=CODE on /signup) so
+    // /auth/callback can auto-redeem it once a session exists — see
+    // redeem_referral_code's own validation (self-referral, 30-day window,
+    // already-applied) for what actually happens with it.
+    refCode: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : undefined)),
     password: z.string().min(8, "Password must be at least 8 characters"),
   })
   .transform((data) => ({

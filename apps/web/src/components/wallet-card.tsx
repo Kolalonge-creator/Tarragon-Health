@@ -186,7 +186,7 @@ export function WalletCard({ patientId }: { patientId: string }) {
             Refer a friend
           </p>
           <p className="text-xs text-charcoal-ink/70">
-            Share your code — you both get ₦500 wallet credit once they complete their first paid
+            Share your link — you both get ₦500 wallet credit once they complete their first paid
             order.
           </p>
           {referralCode && (
@@ -199,12 +199,13 @@ export function WalletCard({ patientId }: { patientId: string }) {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  navigator.clipboard.writeText(referralCode);
+                  const link = `${window.location.origin}/signup?ref=${referralCode}`;
+                  navigator.clipboard.writeText(link);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
               >
-                {copied ? "Copied" : "Copy"}
+                {copied ? "Link copied" : "Copy link"}
               </Button>
             </div>
           )}

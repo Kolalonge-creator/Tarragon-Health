@@ -36,6 +36,17 @@ export async function GET(request: NextRequest) {
     await supabase.from("profiles").update(backfill).eq("id", data.user.id);
   }
 
+  // Auto-redeem a referral code carried from a shareable ?ref=CODE signup
+  // link, now that a session exists (redeem_referral_code reads auth.uid()).
+  // redeem_referral_code enforces its own rules (self-referral, 30-day
+  // window, one code per account) and returns { ok:false, error } rather
+  // than throwing for those — either way this must never block the redirect
+  // below, so failures are silently ignored here.
+  const metadataRefCode = data.user.user_metadata?.ref_code;
+  if (typeof metadataRefCode === "string" && metadataRefCode.length > 0) {
+    await supabase.rpc("redeem_referral_code", { p_code: metadataRefCode });
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
