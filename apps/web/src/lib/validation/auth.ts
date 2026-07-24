@@ -69,12 +69,16 @@ export const signupSchema = z
     // Carried from a shareable referral link (?ref=CODE on /signup) so
     // /auth/callback can auto-redeem it once a session exists — see
     // redeem_referral_code's own validation (self-referral, 30-day window,
-    // already-applied) for what actually happens with it.
+    // already-applied) for what actually happens with it. The hidden field
+    // that carries this only renders when a ?ref= param is present (see
+    // signup-form.tsx), so formData.get("refCode") is `null` — not merely
+    // absent — on every plain /signup visit; .nullish() (not .optional(),
+    // which rejects an explicit null) is required to accept that.
     refCode: z
       .string()
       .trim()
       .toUpperCase()
-      .optional()
+      .nullish()
       .transform((v) => (v && v.length > 0 ? v : undefined)),
     password: z.string().min(8, "Password must be at least 8 characters"),
   })
