@@ -94,7 +94,6 @@ export default function AboutPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="Founder" title="Built and led by a practising doctor" />
         <div className="mx-auto max-w-xl">
           <div className="flex flex-col items-center rounded-2xl border border-charcoal-ink/10 bg-white p-8 text-center sm:p-10">
             <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30 sm:h-36 sm:w-36">
@@ -120,8 +119,8 @@ export default function AboutPage() {
               MBChB · FEBEM · FRCEM · MSt (University of Cambridge)
             </p>
             <p className="mt-4 leading-relaxed text-charcoal-ink/70">
-              Over a decade in frontline emergency medicine across Nigeria and
-              the UK, paired with PMP and PgMP certification from the Project
+              Over a decade of medical practice across Nigeria and the UK,
+              paired with PMP and PgMP certification from the Project
               Management Institute. Kola founded TarragonHealth to bring that
               same rigour to the gap between doctor visits, leading clinical
               strategy and product direction so every patient&rsquo;s care
