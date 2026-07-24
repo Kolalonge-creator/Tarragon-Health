@@ -122,3 +122,22 @@ export async function disableSubscription(args: {
   if (!result.ok) return result;
   return { ok: true, data: { status: result.data.status } };
 }
+
+/**
+ * Turns auto-renewal back on for a previously-disabled Paystack subscription
+ * — the inverse of disableSubscription(). Used when a patient changes their
+ * mind before the current period ends and wants to keep being billed. Same
+ * (code, token) pair; Paystack re-enables recurring charges from the next
+ * billing date.
+ */
+export async function enableSubscription(args: {
+  subscriptionCode: string;
+  emailToken: string;
+}): Promise<PaystackResult<{ status: string }>> {
+  const result = await paystackFetch<DisableSubscriptionData>("/subscription/enable", {
+    method: "POST",
+    body: { code: args.subscriptionCode, token: args.emailToken },
+  });
+  if (!result.ok) return result;
+  return { ok: true, data: { status: result.data.status } };
+}
