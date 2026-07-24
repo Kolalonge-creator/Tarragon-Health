@@ -99,6 +99,24 @@ export const WHAT_YOU_GET = [
   },
 ] as const;
 
+/** Platform capabilities that sit alongside the 5 core programmes rather than
+ * being a programme themselves — surfaced on the homepage as "More than
+ * monitoring" so they're not buried inside a single product page. */
+export const PLATFORM_EXTRAS = [
+  {
+    title: "The Health Wallet",
+    body: "Top up a little at a time toward your Annual Health Check or care plan, or let a family member — in Nigeria or abroad — fund it for you directly. Refer a friend and you both get ₦500 wallet credit once they complete their first paid order.",
+  },
+  {
+    title: "Talk to a doctor, your way",
+    body: "Send a written question and get a doctor's reply within 24 hours, or book a 15-minute telemedicine video visit for a set time (₦10,000) — a video call, never an in-person visit. Your payment is only taken once a doctor accepts your slot, and refunded in full if none can.",
+  },
+  {
+    title: "Take it with you",
+    body: "Add Tarragon to your phone's home screen straight from your browser, so your dashboard opens like an app — no app store required.",
+  },
+] as const;
+
 /** Preventive health is a platform wedge, not a secondary add-on (FEATURE_SPEC Cat 2→1 upgrade).
  * Framed for the HEALTHY visitor first (prevention-first repositioning,
  * 2026-07-23): staying well is the aspiration; catching things early is the
@@ -273,5 +291,10 @@ export const HOMEPAGE_FAQS = [
     question: "Do I need a smartphone?",
     answer:
       "You need a smartphone or computer to use the app or web dashboard, where your health record and care actions live. WhatsApp and SMS still bring you reminders, alerts, and a way to message your care team for support.",
+  },
+  {
+    question: "Is there a Tarragon app?",
+    answer:
+      "Yes — open Tarragon in your phone's browser and add it to your home screen (Safari's Share menu on iPhone, Chrome's Install option on Android). It opens like a regular app, with no app-store download needed.",
   },
 ] as const;

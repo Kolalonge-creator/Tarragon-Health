@@ -51,6 +51,7 @@ const SCREENING_GROUPS = [
     tests: [
       "HPV vaccination (free at government PHC centres for girls 9–14; catch-up doses bookable for women 15–45)",
       "Hepatitis B vaccination series, with each dose tracked to completion",
+      "Optional cycle tracking for women, with gentle nudges — an estimated next period (never a prediction), a nudge to book antenatal care once you're pregnant, or a nudge to talk to your care team as perimenopause or menopause begins",
     ],
   },
   {

@@ -174,6 +174,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Weekly doctor review (instead of monthly)", label: "INCLUDED" },
       { feature: "Hypertension, diabetes, and obesity managed together on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
+      { feature: "Ask a doctor a one-off written question, answered within 24 hours", label: "INCLUDED" },
       { feature: "Lab tests", label: "BOOK & PAY" },
       { feature: "Medication refills", label: "BOOK & PAY" },
     ],
@@ -193,6 +194,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Shared family dashboard", label: "INCLUDED" },
       { feature: "One combined bill instead of separate subscriptions", label: "INCLUDED" },
       { feature: "Monthly family report", label: "INCLUDED" },
+      { feature: "Ask a doctor a one-off written question, answered within 24 hours", label: "INCLUDED" },
       { feature: "Lab tests and medication refills per member", label: "BOOK & PAY" },
     ],
     footnote:
@@ -211,6 +213,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "A named family doctor coordinator, not a rotating team", label: "INCLUDED" },
       { feature: "Priority escalation across all members, every time, not only for abnormal readings", label: "INCLUDED" },
       { feature: "One Annual Health Check included free each year, for one member of your choice (a ₦65,000 value)", label: "INCLUDED" },
+      { feature: "Ask a doctor a one-off written question for any member, answered within 24 hours", label: "INCLUDED" },
       { feature: "Lab tests and medication refills for each additional member", label: "BOOK & PAY" },
     ],
     footnote: "Extra members: +₦40,000/year each, up to 6 people total.",
@@ -229,6 +232,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Quarterly PDF health report, in addition to the monthly summary", label: "INCLUDED" },
       { feature: "Expedited doctor response (under 2 hours) for every member, on any non-emergency question", label: "INCLUDED" },
       { feature: "Two Annual Health Checks included free each year, for members of your choice (up to ₦130,000 value)", label: "INCLUDED" },
+      { feature: "Ask a doctor a one-off written question for any member, answered within 24 hours", label: "INCLUDED" },
       { feature: "Lab tests and medication refills beyond what's included", label: "BOOK & PAY" },
     ],
     footnote: "Extra members: +₦55,000/year each, up to 6 people total.",
@@ -247,6 +251,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Scheduled doctor review of their readings", label: "INCLUDED" },
       { feature: "Priority escalation if something needs closer attention", label: "INCLUDED" },
       { feature: "Quarterly PDF family report", label: "INCLUDED" },
+      { feature: "Ask a doctor a one-off written question, answered within 24 hours", label: "INCLUDED" },
       { feature: "Lab tests and medication refills", label: "BOOK & PAY" },
     ],
     footnote: "Extra parent: +₦80,000/year, or +₦8,000/month.",
@@ -399,6 +404,27 @@ export const DIASPORA_FAMILY_NOTE =
 export const DIASPORA_SELF_USE_NOTE =
   "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, WhatsApp access, and health record all work wherever you are — but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
+/** The Health Wallet: one balance, topped up by yourself, a family member, or
+ * a referral reward, spent on any Tarragon lab test, health check, pharmacy
+ * order, or fee. Never cashed out. */
+export const HEALTH_WALLET_INTRO =
+  "Every Tarragon account has a Health Wallet: one balance you top up whenever suits you and spend on any lab test, health check, pharmacy order, or Tarragon fee. It's never cashed out, and it works alongside every plan above.";
+
+export const HEALTH_WALLET_POINTS: { title: string; body: string }[] = [
+  {
+    title: "Pay a little at a time",
+    body: "Top up in whatever amounts work for you and save toward something specific, like your Annual Health Check, instead of paying the full price in one go.",
+  },
+  {
+    title: "Let someone else fund it",
+    body: "A family member, in Nigeria or abroad, can top up your wallet directly, so a parent's care can be funded by whoever's able to, without sharing a card.",
+  },
+  {
+    title: "Refer a friend",
+    body: "Share your referral code from your dashboard. Once your friend completes their first paid order, you both get ₦500 wallet credit.",
+  },
+];
+
 export type PricingAddOn = {
   id: string;
   name: string;
@@ -501,6 +527,15 @@ export const ADD_ONS: PricingAddOn[] = [
     description:
       "Once a year, your doctor sits down with your whole year of care: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short video consultation to talk through the year behind you and the plan ahead. Different from the Annual Health Check above: the Check is a day of screening tests; the Doctor Review is your whole year of care, reviewed with your doctor.",
     availability: "Included on the comprehensive plans (Complete Care, Family, and ParentCare). Available as an add-on on lower plans.",
+  },
+  {
+    id: "video-visit",
+    name: "Video Doctor Visit",
+    price: "₦10,000/visit",
+    label: "BOOK & PAY",
+    description:
+      "A 15-minute telemedicine consultation — a video call, never an in-person visit. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a doctor accepts your specific slot, which is also when your time is confirmed. If no doctor can take it within 48 hours, you're refunded in full. Not a substitute for emergency care.",
+    availability: "Available on any plan, priced per visit rather than as a subscription.",
   },
   {
     id: "hpv-catchup",
@@ -700,6 +735,16 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
     question: "How do I place an order for a test, refill, or add-on?",
     answer:
       "Tap the relevant button in the app (“Book a Test,” “Request Refill,” “Add a Service”). You'll always see the price before confirming — if your clinician flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
+  },
+  {
+    question: "What is the Health Wallet?",
+    answer:
+      "A balance on your account that you top up whenever suits you and spend on any lab test, health check, pharmacy order, or Tarragon fee — never cashed out. A family member can fund it directly for you, and referring a friend earns you both ₦500 in wallet credit once they complete their first paid order.",
+  },
+  {
+    question: "Can I speak to a doctor directly, not just wait for my scheduled review?",
+    answer:
+      "Yes, two ways. Send a written question through the app and get a doctor's reply within 24 hours — included on Complete Care, Family, and ParentCare plans. Or book a 15-minute telemedicine video visit for a set time (₦10,000, any plan) — a video call, never an in-person visit: you pay to request a slot, and the charge only goes through once a doctor accepts it, with a full refund if none can.",
   },
 ];
 
