@@ -8,6 +8,7 @@ import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
+import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { CareTeamForm } from "./care-team-form";
@@ -118,6 +119,7 @@ export default async function ClinicianPatientPage({
         </h1>
         {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
       </div>
+      <PreVisitSummary patientId={patient.id} />
       <PatientTimeline patientId={patient.id} />
       {/* Clinician view is never gated by the patient's own subscription
           tier — refill coordination is a staff-visible clinical detail

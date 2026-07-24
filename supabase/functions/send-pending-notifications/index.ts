@@ -729,6 +729,41 @@ async function sendTermiiSms(
   );
 }
 
+/**
+ * Termii's Voice Call API — same /api/sms/send endpoint as sendTermiiSms,
+ * with channel: 'voice' instead of 'generic'. Termii converts the `sms`
+ * field to speech and places a phone call rather than sending a text.
+ * Built for private.remap_notification_channel() (2026-07-23), which
+ * transparently turns a queued 'whatsapp' row into 'voice' at insert time
+ * for a patient with profiles.preferred_reminder_channel = 'voice' — no
+ * producer function needs to know voice exists.
+ */
+async function sendTermiiVoiceCall(
+  toPhone: string,
+  text: string,
+): Promise<SendResult> {
+  const apiKey = Deno.env.get("TERMII_API_KEY");
+  if (!apiKey) {
+    return { ok: false, error: "TERMII_API_KEY not configured" };
+  }
+
+  return withExternalCall((signal) =>
+    fetch("https://api.ng.termii.com/api/sms/send", {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        to: toPhone,
+        from: "Tarragon",
+        sms: text,
+        type: "plain",
+        channel: "voice",
+      }),
+    })
+  );
+}
+
 async function sendEmail(
   toEmail: string,
   subject: string,
@@ -864,6 +899,13 @@ Deno.serve(async () => {
         // WhatsApp delivery failed — fall back to Termii SMS (§8).
         result = await sendTermiiSms(toPhone, render.smsText);
       }
+    } else if (row.channel === "voice") {
+      if (!toPhone) {
+        await markFailed("recipient has no phone number on file");
+        failed++;
+        continue;
+      }
+      result = await sendTermiiVoiceCall(toPhone, render.smsText);
     } else {
       if (!toPhone) {
         await markFailed("recipient has no phone number on file");
