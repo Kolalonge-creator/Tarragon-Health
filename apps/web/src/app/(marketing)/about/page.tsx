@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { User } from "lucide-react";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
-import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { TrustPillars } from "../_components/trust-pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+
+function LinkedInGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+      <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.63-1.85 3.36-1.85 3.59 0 4.25 2.36 4.25 5.44v6.3zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z" />
+    </svg>
+  );
+}
 
 /**
  * Key seats TarragonHealth needs beyond the founder as it scales past one
@@ -55,54 +63,49 @@ export default function AboutPage() {
       </Section>
 
       <Section variant="sage">
-        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              Founder
-            </p>
-            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+        <SectionHeading eyebrow="Founder" title="Built and led by a practising doctor" />
+        <div className="mx-auto max-w-xl">
+          <div className="flex flex-col items-center rounded-2xl border border-charcoal-ink/10 bg-white p-8 text-center sm:p-10">
+            <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30 sm:h-36 sm:w-36">
+              <Image
+                src="/marketing/founder-kola-longe.jpg"
+                alt="Dr Kola Longe, Founder & CEO of TarragonHealth"
+                width={288}
+                height={288}
+                className="h-full w-full object-cover"
+                priority
+              />
+            </div>
+            <span className="mt-4 inline-flex rounded-full bg-brand-green/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deep-forest">
+              Founder &amp; CEO
+            </span>
+            <h3 className="mt-3 font-heading text-2xl font-semibold text-charcoal-ink">
               Dr Kola Longe
-            </h2>
-            <p className="mt-1 text-sm text-charcoal-ink/70">
-              Founder &amp; CEO ·{" "}
-              <a
-                href="https://www.linkedin.com/in/dr-kola-longe-408b15121/"
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium text-deep-forest hover:underline"
-              >
-                LinkedIn
-              </a>
+            </h3>
+            <p className="mt-1 text-sm font-medium text-charcoal-ink/60">
+              Emergency Physician &amp; Health Innovator
             </p>
-            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Kola is an Emergency Medicine physician (FRCEM, FEBEM) and health
-              systems leader who trained in Nigeria before practising in the
-              UK, where he now works as a Specialty Doctor in Emergency
-              Medicine, sits on the Regional Board of the Royal College of
-              Emergency Medicine, and is completing postgraduate study in
-              clinical medicine and healthcare leadership at the University of
-              Cambridge and Alliance Manchester Business School.
+            <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/40">
+              MBChB · FEBEM · FRCEM · MSt (University of Cambridge)
             </p>
             <p className="mt-4 leading-relaxed text-charcoal-ink/70">
-              Working across both systems, he kept seeing the same pattern:
-              the difference between a good outcome and a bad one was rarely
-              the diagnosis. It was whether the system around the patient
-              responded in time. A condition caught and followed up within
-              days looks nothing like the same condition missed for months.
-              TarragonHealth grew out of that observation, applied to chronic
-              disease and preventive care in Nigeria: most complications
-              aren&rsquo;t a failure of medicine, they&rsquo;re a failure of
-              follow-up. Kola founded TarragonHealth to build the system that
-              closes that gap: protocol-driven, clinically grounded, and never
-              losing track of a patient between visits.
+              Over a decade in frontline emergency medicine across Nigeria and
+              the UK, paired with PMP and PgMP certification from the Project
+              Management Institute. Kola founded TarragonHealth to bring that
+              same rigour to the gap between doctor visits, leading clinical
+              strategy and product direction so every patient&rsquo;s care
+              stays protocol-driven, continuous, and never left to chance.
             </p>
+            <a
+              href="https://www.linkedin.com/in/dr-kola-longe-408b15121/"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#0A66C2] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-105 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A66C2] focus-visible:ring-offset-2"
+            >
+              <LinkedInGlyph className="h-4 w-4" />
+              Connect on LinkedIn
+            </a>
           </div>
-          <MarketingMediaFrame
-            media={{
-              imageSrc: "/marketing/founder-kola-longe.jpg",
-              imageAlt: "Dr Kola Longe, Founder & CEO of TarragonHealth",
-            }}
-          />
         </div>
       </Section>
 
