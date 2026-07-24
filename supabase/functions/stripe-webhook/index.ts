@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
               profile_id?: string;
               item_code?: string;
               booking_order_id?: string;
-              booking_order_type?: "lab" | "pharmacy" | "referral";
+              booking_order_type?: "lab" | "pharmacy" | "referral" | "video_visit";
             }
           | null;
 
@@ -155,7 +155,9 @@ Deno.serve(async (req) => {
               ? "lab_orders"
               : bookingOrderType === "pharmacy"
                 ? "pharmacy_orders"
-                : "specialist_referrals";
+                : bookingOrderType === "video_visit"
+                  ? "video_visit_requests"
+                  : "specialist_referrals";
 
           const { data: bookingRow } = await supabase
             .from(bookingTable)

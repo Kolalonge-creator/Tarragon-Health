@@ -12,6 +12,8 @@ import { OutcomeEvidenceSummary } from "./outcome-evidence-summary";
 import { loadAgeBandDistribution } from "@/lib/corporate/load-age-band-distribution";
 import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { LifestyleOutcomesCard } from "@/components/lifestyle-outcomes-card";
+import { MedicationOutcomesCard } from "@/components/medication-outcomes-card";
+import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 
 export default async function CorporatePage() {
   const profile = await getCurrentProfile();
@@ -51,9 +53,10 @@ export default async function CorporatePage() {
     );
   }
 
-  const [ageBands, costAvoided] = await Promise.all([
+  const [ageBands, costAvoided, medicationOutcomes] = await Promise.all([
     loadAgeBandDistribution(supabase, profile.organisation_id),
     estimateCostAvoided(supabase, profile.organisation_id, analytics.abnormal_findings_count),
+    loadMedicationOutcomes(supabase, profile.organisation_id),
   ]);
 
   return (
@@ -67,6 +70,7 @@ export default async function CorporatePage() {
       <CohortSummary analytics={analytics} />
       <AgeBandSummary distribution={ageBands} />
       <OutcomeEvidenceSummary organisationId={profile.organisation_id} costAvoided={costAvoided} />
+      <MedicationOutcomesCard outcomes={medicationOutcomes} />
       <LifestyleOutcomesCard organisationId={profile.organisation_id} />
       <OutcomeReportsPanel organisationId={profile.organisation_id} />
     </div>

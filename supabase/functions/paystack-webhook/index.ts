@@ -40,7 +40,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 type CheckoutKind = "subscription" | "add_on" | "booking";
-type BookingOrderType = "lab" | "pharmacy" | "referral";
+type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit";
 
 interface CheckoutMetadata {
   kind?: CheckoutKind;
@@ -51,10 +51,17 @@ interface CheckoutMetadata {
   booking_order_type?: BookingOrderType;
 }
 
-const BOOKING_TABLE: Record<BookingOrderType, "lab_orders" | "pharmacy_orders" | "specialist_referrals"> = {
+const BOOKING_TABLE: Record<
+  BookingOrderType,
+  "lab_orders" | "pharmacy_orders" | "specialist_referrals" | "video_visit_requests"
+> = {
   lab: "lab_orders",
   pharmacy: "pharmacy_orders",
   referral: "specialist_referrals",
+  // 'payment_confirmed' on a video_visit_request means the payment is HELD —
+  // the visit only books when a doctor accepts (accept_video_visit_request);
+  // decline/expiry refunds it. Same column contract as the order tables.
+  video_visit: "video_visit_requests",
 };
 
 interface PaystackEvent {

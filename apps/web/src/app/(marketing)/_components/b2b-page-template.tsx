@@ -6,6 +6,8 @@ import { Section, SectionHeading } from "./section";
 import { CtaBand } from "./cta-band";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { cn } from "@/lib/utils";
+import { EligibilityChecker } from "./eligibility-checker";
+import { RoiCalculator } from "./roi-calculator";
 import type { B2bPageContent } from "../_content/b2b";
 
 const PILL_TONE = {
@@ -133,6 +135,18 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
           <MarketingMediaFrame media={content.hero} className="lg:sticky lg:top-24" />
         </div>
       </Section>
+
+      {(content.slug === "corporate" || content.slug === "hmo") && (
+        <Section>
+          <SectionHeading
+            title={content.slug === "hmo" ? "Check your coverage" : "Coverage & the numbers"}
+          />
+          <div className="grid items-start gap-10 lg:grid-cols-2">
+            <EligibilityChecker source={content.slug === "hmo" ? "hmo" : "corporate"} />
+            <RoiCalculator />
+          </div>
+        </Section>
+      )}
 
       <Section variant="sage">
         <CtaBand

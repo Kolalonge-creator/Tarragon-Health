@@ -31,6 +31,25 @@ export function useHealthEducationFeed(patientId: string) {
 }
 
 /**
+ * How many otherwise-eligible items are still locked by the weekly drip
+ * (drip_week > the caller's current curriculum week). Lets the card say
+ * "N more unlock over the coming weeks" instead of content silently not
+ * existing.
+ */
+export function useHealthEducationLockedCount(patientId: string) {
+  return useQuery({
+    queryKey: ["health-education-locked", patientId] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_locked_count");
+      if (error) throw error;
+      return data ?? 0;
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
  * Record that the patient has seen / understood / needs to revisit an item.
  * Upsert on the (patient_id, content_id) unique key. check_score/check_total
  * are engagement telemetry only — never clinical.
@@ -104,6 +123,24 @@ export function useSetContentActive() {
       const { error } = await supabase
         .from("health_education_content")
         .update({ is_active: isActive })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
+    },
+  });
+}
+
+/** Admin: set (or clear) an item's curriculum week for the weekly drip. */
+export function useSetContentDripWeek() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, dripWeek }: { id: string; dripWeek: number | null }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("health_education_content")
+        .update({ drip_week: dripWeek })
         .eq("id", id);
       if (error) throw error;
     },

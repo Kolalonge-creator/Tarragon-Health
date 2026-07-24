@@ -18,6 +18,9 @@ import { SectionNav } from "@/components/shell/section-nav";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { getPatientSummaryStats, getPatientPreventionStats } from "./summary";
 import Link from "next/link";
+import { NextBestAction } from "./next-best-action";
+import { AskADoctor } from "./ask-a-doctor";
+import { BookVideoVisit } from "./book-video-visit";
 import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
 import { ResultsTrendsCard } from "./results-trends-card";
 import { VitalsForm } from "./vitals-form";
@@ -121,6 +124,7 @@ export default async function PatientPage() {
         }
         icon={NAV_ICON.dashboard}
       >
+        <NextBestAction patientId={profile.id} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both
             states read the same shared record — nothing is hidden, only led
@@ -373,6 +377,15 @@ export default async function PatientPage() {
         >
           <CarePlanDisplay patientId={profile.id} />
         </RequiresEntitlement>
+        <RequiresEntitlement
+          feature="async_doctor_visit"
+          fallback={<UpgradePrompt feature="async_doctor_visit" />}
+        >
+          <AskADoctor patientId={profile.id} organisationId={profile.organisation_id} />
+        </RequiresEntitlement>
+        {/* Paid per-visit service — no plan gate; the card itself carries the
+            availability + not-for-emergencies copy. */}
+        <BookVideoVisit patientId={profile.id} />
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
         <YourReferrals patientId={profile.id} />

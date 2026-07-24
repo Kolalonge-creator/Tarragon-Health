@@ -1,5 +1,6 @@
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { OutreachWorklist } from "@/components/clinical/outreach-worklist";
 
 export default async function CareCoordinatorPage() {
   const profile = await getCurrentProfile();
@@ -10,10 +11,11 @@ export default async function CareCoordinatorPage() {
       greeting={greeting}
       roleLabel="Care Coordinator"
       comingUp={[
-        "Adherence and missed-reading worklist",
         "Lab and pharmacy refill booking",
         "Patient check-in call/WhatsApp threads",
       ]}
-    />
+    >
+      <OutreachWorklist />
+    </DashboardPlaceholder>
   );
 }
