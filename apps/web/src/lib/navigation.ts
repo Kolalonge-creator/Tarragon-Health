@@ -25,6 +25,8 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
         {
           items: [
             { label: "Dashboard", href: "/patient", icon: "dashboard", exact: true },
+            { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
+            { label: "Health Check", href: "/patient/health-check", icon: "review" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
             { label: "Family plan", href: "/patient/family", icon: "family" },

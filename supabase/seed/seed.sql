@@ -118,6 +118,27 @@ values
      6500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear'])
 on conflict (code) do nothing;
 
+-- Health Check tier ladder (migration 20260723164727): Basic (WHO PEN
+-- cardiometabolic) / Standard (annual_health_check) / Comprehensive (adds
+-- HIV + Hep B). PLACEHOLDER PRICES — founder to confirm.
+insert into public.panel_bundles (code, name, description, price_kobo, test_codes, self_bookable)
+values
+  ('health_check_basic', 'Health Check — Basic',
+     'Cardiometabolic essentials (WHO PEN): HbA1c and full lipid panel, plus BP and BMI at the lab. Doctor-reviewed.',
+     1500000, array['hba1c', 'lipid_panel'], true),
+  ('health_check_comprehensive', 'Health Check — Comprehensive',
+     'Everything in the Annual Health Check plus HIV and Hepatitis B screening. Doctor-reviewed.',
+     7500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b'], true)
+on conflict (code) do nothing;
+
+-- Self-bookable set (migrations 20260723150205 + 20260723164727): the three
+-- Health Check packages plus the WHO-essential confidential screenings
+-- (cervical smear per the WHO 90-70-90 elimination strategy, HIV, Hep B).
+-- Deliberately NOT a general wellness catalogue — PSA stays package-only per
+-- WHO guidance; everything else stays clinician-originated.
+update public.panel_bundles set self_bookable = true
+  where code in ('annual_health_check', 'single_cervical_smear', 'single_hiv', 'single_hep_b');
+
 -- ---------------------------------------------------------------------------
 -- pharmacy_partners
 -- ---------------------------------------------------------------------------
@@ -267,6 +288,43 @@ values
      'ParentCare billed annually — 2 months free.',
      25000000, 'NGN', 'yearly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'dedicated_coordinator', 'quarterly_report'], false)
+on conflict (code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Tarragon Prevent — the stay-healthy tier between Free and Essential
+-- (migration 20260723150222_prevent_plan_tier). Prevention-first features:
+-- prevention_coordination (screening-calendar booking rights) +
+-- health_education on top of the Free basics; no chronic/clinician_review —
+-- doctor involvement on this tier is the abnormal-result escalation pipeline,
+-- which is plan-independent. PRICING IS PLACEHOLDER (founder to confirm);
+-- is_active=false until synced to Paystack/Stripe, per convention.
+-- ---------------------------------------------------------------------------
+insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features, is_active)
+values
+  ('prevent', 'Tarragon Prevent',
+     'The stay-healthy plan: personal screening calendar with booking, vaccination tracking, and personalised health education. A doctor steps in the moment a result needs one.',
+     350000, 'NGN', 'monthly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_yearly', 'Tarragon Prevent (yearly)',
+     'Tarragon Prevent billed annually — 2 months free.',
+     3500000, 'NGN', 'yearly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_gbp', 'Tarragon Prevent',
+     'The stay-healthy plan: personal screening calendar with booking, vaccination tracking, and personalised health education. A doctor steps in the moment a result needs one.',
+     700, 'GBP', 'monthly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_yearly_gbp', 'Tarragon Prevent (yearly)',
+     'Tarragon Prevent billed annually — 2 months free.',
+     7000, 'GBP', 'yearly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_usd', 'Tarragon Prevent',
+     'The stay-healthy plan: personal screening calendar with booking, vaccination tracking, and personalised health education. A doctor steps in the moment a result needs one.',
+     900, 'USD', 'monthly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
+  ('prevent_yearly_usd', 'Tarragon Prevent (yearly)',
+     'Tarragon Prevent billed annually — 2 months free.',
+     9000, 'USD', 'yearly',
+     array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false)
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------

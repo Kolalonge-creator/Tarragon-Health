@@ -16,10 +16,13 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SectionNav } from "@/components/shell/section-nav";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
-import { getPatientSummaryStats } from "./summary";
+import { getPatientSummaryStats, getPatientPreventionStats } from "./summary";
+import Link from "next/link";
 import { NextBestAction } from "./next-best-action";
 import { AskADoctor } from "./ask-a-doctor";
 import { BookVideoVisit } from "./book-video-visit";
+import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
+import { ResultsTrendsCard } from "./results-trends-card";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
 import { SymptomLogForm } from "./symptom-log-form";
@@ -35,13 +38,14 @@ import { PreventiveScreeningCalendar } from "./preventive-screening-calendar";
 import { RiskAssessmentForm } from "./risk-assessment-form";
 import { CareProgrammeRecommendations } from "./care-programme-recommendations";
 import { PreventiveProgrammes } from "./preventive-programmes";
+import { ReproductiveHealthCard } from "./reproductive-health-card";
 import { HealthEducation } from "./health-education";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
-import { VaccinationRegistry } from "./vaccination-registry";
-import { LogVaccinationForm } from "./log-vaccination-form";
-import { VaccinationBooking } from "./vaccination-booking";
+import { VaccinationForFamily } from "./vaccination-for-family";
 import { FacilityDirectory } from "./facility-directory";
 import { PatientLocationForm } from "./patient-location-form";
+import { ReminderPreferenceForm } from "./reminder-preference-form";
+import { WearableConnectSection } from "./wearable-connect-section";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
 import { HospitalAdmissionsCard } from "./hospital-admissions-card";
@@ -78,12 +82,21 @@ export default async function PatientPage() {
   const supabase = await createClient();
   const coachAccess = await hasCoachAccess(supabase);
   const stats = await getPatientSummaryStats(profile.id);
+  const prevention = await getPatientPreventionStats(profile.id);
   const { data: refillCoordinationEnabled } = await supabase.rpc("has_feature_access", {
     feature: "medication_refills",
   });
   const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
     feature: "lab_coordination",
   });
+  // prevention_coordination is the Prevent-tier / prevention-screening-add-on
+  // key: booking rights on the screening calendar and the labs surfaces,
+  // without the chronic plans' full lab_coordination promise.
+  const { data: preventionCoordinationEnabled } = await supabase.rpc("has_feature_access", {
+    feature: "prevention_coordination",
+  });
+  const screeningBookingEnabled =
+    (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
 
   return (
     <DashboardPlaceholder
@@ -103,34 +116,93 @@ export default async function PatientPage() {
       <DashboardSection
         id="overview"
         title="Overview"
-        description="Today at a glance — your numbers, your care team, and recent activity."
+        description={
+          prevention.hasActiveCarePlan
+            ? "Today at a glance — your numbers, your care team, and recent activity."
+            : "Staying well at a glance — your prevention plan, your care team, and recent activity."
+        }
         icon={NAV_ICON.dashboard}
       >
         <NextBestAction patientId={profile.id} />
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <StatTile
-            icon={SEMANTIC_ICON.bp}
-            label="Latest BP"
-            value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"}
-            unit="mmHg"
-          />
-          <StatTile
-            icon={SEMANTIC_ICON.diabetes}
-            label="Latest glucose"
-            value={stats.latestGlucoseMmolL !== null ? String(stats.latestGlucoseMmolL) : "—"}
-            unit="mmol/L"
-          />
-          <StatTile
-            icon={SEMANTIC_ICON.medication}
-            label="Active meds"
-            value={String(stats.activeMedicationCount)}
-          />
-          <StatTile
-            icon={SEMANTIC_ICON.preventive}
-            label="Doses today"
-            value={`${stats.dosesTaken}/${stats.dosesTotal}`}
-          />
-        </div>
+        {/* Dual-state overview: a patient in a chronic programme leads with
+            monitoring numbers; a healthy patient leads with prevention. Both
+            states read the same shared record — nothing is hidden, only led
+            with differently. */}
+        {prevention.hasActiveCarePlan ? (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatTile
+              icon={SEMANTIC_ICON.bp}
+              label="Latest BP"
+              value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"}
+              unit="mmHg"
+            />
+            <StatTile
+              icon={SEMANTIC_ICON.diabetes}
+              label="Latest glucose"
+              value={stats.latestGlucoseMmolL !== null ? String(stats.latestGlucoseMmolL) : "—"}
+              unit="mmol/L"
+            />
+            <StatTile
+              icon={SEMANTIC_ICON.medication}
+              label="Active meds"
+              value={String(stats.activeMedicationCount)}
+            />
+            <StatTile
+              icon={SEMANTIC_ICON.preventive}
+              label="Doses today"
+              value={`${stats.dosesTaken}/${stats.dosesTotal}`}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <StatTile
+                icon={SEMANTIC_ICON.preventive}
+                label="Screenings due"
+                value={
+                  prevention.hasRiskAssessment ? String(prevention.screeningsDueCount) : "—"
+                }
+              />
+              <StatTile
+                icon={SEMANTIC_ICON.labs}
+                label="Next screening"
+                value={
+                  prevention.nextScreening
+                    ? new Date(prevention.nextScreening.dueDate).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                      })
+                    : "—"
+                }
+              />
+              <StatTile
+                icon={NAV_ICON.vaccination}
+                label="Vaccines due"
+                value={
+                  prevention.hasRiskAssessment ? String(prevention.vaccinationsDueCount) : "—"
+                }
+              />
+              <StatTile
+                icon={SEMANTIC_ICON.bp}
+                label="Latest BP"
+                value={
+                  stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"
+                }
+                unit="mmHg"
+              />
+            </div>
+            {!prevention.hasRiskAssessment && (
+              <p className="text-sm text-charcoal-ink/70">
+                Two minutes on your{" "}
+                <Link href="/patient/prevention" className="text-brand-green hover:underline">
+                  health profile
+                </Link>{" "}
+                builds your personal screening and vaccination calendar — the checks that keep
+                healthy people healthy.
+              </p>
+            )}
+          </>
+        )}
         <HealthScoreCard patientId={profile.id} />
         <YourCareTeam patientId={profile.id} />
         <PatientTimeline patientId={profile.id} />
@@ -147,6 +219,7 @@ export default async function PatientPage() {
         <VitalsTrendChart patientId={profile.id} />
         <SymptomLogForm patientId={profile.id} />
         <SymptomLogHistory patientId={profile.id} />
+        <WearableConnectSection patientId={profile.id} />
       </DashboardSection>
 
       <DashboardSection
@@ -185,10 +258,27 @@ export default async function PatientPage() {
         description="Screenings, risk checks, vaccinations, and learning picked for you."
         icon={SEMANTIC_ICON.preventive}
       >
+        <p className="text-sm text-charcoal-ink/70">
+          Everything prevention in one place:{" "}
+          <Link href="/patient/prevention" className="text-brand-green hover:underline">
+            open your prevention hub
+          </Link>{" "}
+          or start{" "}
+          <Link href="/patient/health-check" className="text-brand-green hover:underline">
+            this year&apos;s Health Check
+          </Link>
+          .
+        </p>
+        <AnnualHealthCheckBooking
+          patientId={profile.id}
+          organisationId={profile.organisation_id}
+          patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
+          sex={profile.sex}
+        />
         <PreventiveScreeningCalendar
           patientId={profile.id}
           organisationId={profile.organisation_id}
-          bookingEnabled={labCoordinationEnabled ?? false}
+          bookingEnabled={screeningBookingEnabled}
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
         <RiskAssessmentForm patientId={profile.id} />
@@ -198,16 +288,31 @@ export default async function PatientPage() {
           ageYears={ageFromDateOfBirth(profile.date_of_birth)}
           sex={profile.sex}
         />
+        {profile.sex === "female" && profile.organisation_id && (
+          <ReproductiveHealthCard
+            patientId={profile.id}
+            organisationId={profile.organisation_id}
+          />
+        )}
         <RiskAssessmentDisplay patientId={profile.id} />
-        <VaccinationRegistry
-          patientId={profile.id}
-          ageYears={ageFromDateOfBirth(profile.date_of_birth)}
-        />
-        <VaccinationBooking
-          patientId={profile.id}
+        <VaccinationForFamily
+          self={{
+            id: profile.id,
+            label: "Me",
+            ageYears: ageFromDateOfBirth(profile.date_of_birth),
+            dateOfBirth: profile.date_of_birth,
+            sex: profile.sex,
+          }}
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
-        <LogVaccinationForm patientId={profile.id} />
+        {/* Annual Doctor Review lives with prevention (it's the yearly
+            whole-body review), not buried under Care — the gate is unchanged. */}
+        <RequiresEntitlement
+          feature="annual_review"
+          fallback={<UpgradePrompt feature="annual_review" />}
+        >
+          <AnnualReviewCard patientId={profile.id} />
+        </RequiresEntitlement>
         {profile.organisation_id && (
           <RequiresEntitlement
             feature="health_education"
@@ -227,20 +332,35 @@ export default async function PatientPage() {
         description="Book lab tests, track orders and results, and find facilities near you."
         icon={SEMANTIC_ICON.labs}
       >
-        <RequiresEntitlement
-          feature="lab_coordination"
-          fallback={<UpgradePrompt feature="lab_coordination" />}
-        >
-          <LabCatalogue />
-          <LabOrdersList patientId={profile.id} />
-          <LabResults patientId={profile.id} />
-          {/* FacilityDirectory/BookingRequestsList stay scoped to types with
-              no priced catalogue (hospital, radiology, optician,
-              vaccination_centre) — lab now books through the catalogue above,
-              per the "sole transactional path" decision (see facility-directory.tsx). */}
-          <FacilityDirectory patientId={profile.id} />
-          <BookingRequestsList patientId={profile.id} />
-        </RequiresEntitlement>
+        {/* lab_coordination (chronic plans) OR prevention_coordination
+            (Prevent tier / prevention-screening add-on) both open this
+            section — a Prevent subscriber who books screenings needs to see
+            and pay for their own orders. Plain conditional rather than
+            RequiresEntitlement because the gate is an OR of two keys. */}
+        {screeningBookingEnabled ? (
+          <>
+            <LabCatalogue />
+            <LabOrdersList patientId={profile.id} />
+            <ResultsTrendsCard patientId={profile.id} />
+            <LabResults patientId={profile.id} />
+            {/* FacilityDirectory/BookingRequestsList stay scoped to types with
+                no priced catalogue (hospital, radiology, optician,
+                vaccination_centre) — lab now books through the catalogue above,
+                per the "sole transactional path" decision (see facility-directory.tsx). */}
+            <FacilityDirectory patientId={profile.id} />
+            <BookingRequestsList patientId={profile.id} />
+          </>
+        ) : (
+          <>
+            <UpgradePrompt feature="lab_coordination" />
+            {/* A Free user can still have real orders to pay/track — the
+                Annual Health Check is purchasable on any plan — so the order
+                list, trends, and results stay visible below the prompt. */}
+            <LabOrdersList patientId={profile.id} />
+            <ResultsTrendsCard patientId={profile.id} />
+            <LabResults patientId={profile.id} />
+          </>
+        )}
       </DashboardSection>
 
       <DashboardSection
@@ -249,12 +369,6 @@ export default async function PatientPage() {
         description="Your care plan, reviews, referrals, and ways to reach your care team."
         icon={SEMANTIC_ICON.clinicianFollowUp}
       >
-        <RequiresEntitlement
-          feature="annual_review"
-          fallback={<UpgradePrompt feature="annual_review" />}
-        >
-          <AnnualReviewCard patientId={profile.id} />
-        </RequiresEntitlement>
         <RequiresEntitlement
           feature="clinician_review"
           fallback={<UpgradePrompt feature="clinician_review" />}
@@ -293,6 +407,9 @@ export default async function PatientPage() {
       >
         <PatientLocationForm
           initial={{ state: profile.state, city: profile.city, area: profile.area }}
+        />
+        <ReminderPreferenceForm
+          initial={{ preferred_reminder_channel: profile.preferred_reminder_channel }}
         />
         <EmergencyContactForm
           initial={{

@@ -6,7 +6,7 @@
 
 /** Public marketing origin, no trailing slash. Overridable per-environment. */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://tarragonhealth.com"
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://tarragonhealth.ng"
 ).replace(/\/$/, "");
 
 /** Build an absolute URL for a marketing path. */

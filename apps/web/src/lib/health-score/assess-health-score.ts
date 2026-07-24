@@ -61,6 +61,22 @@ async function fetchScreeningCompliancePercent(
 }
 
 
+async function fetchVaccinationCompliancePercent(
+  supabase: SupabaseClient<Database>,
+  patientId: string
+): Promise<number | null> {
+  const { data } = await supabase
+    .from("vaccination_schedules")
+    .select("status")
+    .eq("patient_id", patientId)
+    .in("status", ["completed", "overdue"]);
+
+  const rows = data ?? [];
+  if (rows.length === 0) return null;
+  const completed = rows.filter((r) => r.status === "completed").length;
+  return Math.round((completed / rows.length) * 100);
+}
+
 async function fetchSmoking(
   supabase: SupabaseClient<Database>,
   patientId: string
@@ -103,19 +119,27 @@ export async function assessHealthScoreBestEffort(
   patientId: string,
   organisationId: string
 ): Promise<void> {
-  const [bpControlPercent, latestHba1cPercent, screeningCompliancePercent, bmi, smoking] =
-    await Promise.all([
-      fetchBpControlPercent(supabase, patientId),
-      fetchLatestHba1c(supabase, patientId),
-      fetchScreeningCompliancePercent(supabase, patientId),
-      fetchLatestBmi(supabase, patientId),
-      fetchSmoking(supabase, patientId),
-    ]);
+  const [
+    bpControlPercent,
+    latestHba1cPercent,
+    screeningCompliancePercent,
+    vaccinationCompliancePercent,
+    bmi,
+    smoking,
+  ] = await Promise.all([
+    fetchBpControlPercent(supabase, patientId),
+    fetchLatestHba1c(supabase, patientId),
+    fetchScreeningCompliancePercent(supabase, patientId),
+    fetchVaccinationCompliancePercent(supabase, patientId),
+    fetchLatestBmi(supabase, patientId),
+    fetchSmoking(supabase, patientId),
+  ]);
 
   const result = computeHealthScore({
     bpControlPercent,
     latestHba1cPercent,
     screeningCompliancePercent,
+    vaccinationCompliancePercent,
     bmi,
     ...smoking,
   });
@@ -129,7 +153,7 @@ export async function assessHealthScoreBestEffort(
       score_type: "health_score",
       score: result.score,
       risk_level: result.riskLevel,
-      model_version: "health_score_rule_based_v1",
+      model_version: "health_score_rule_based_v2",
       inputs: { components: result.components } as unknown as Json,
     });
 }

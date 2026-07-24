@@ -154,9 +154,16 @@ function VaccinationRecordRow({
 export function VaccinationRegistry({
   patientId,
   ageYears,
+  dateOfBirth = null,
+  sex = null,
 }: {
   patientId: string;
   ageYears: number | null;
+  /** Powers the DOB-anchored infant/child schedule (age_schedule_weeks) —
+   * omit for an adult patient viewing their own card, where ageYears alone
+   * is already sufficient for every existing shape. */
+  dateOfBirth?: string | null;
+  sex?: "male" | "female" | null;
 }) {
   const catalog = useVaccinationCatalog();
   const records = useVaccinationRecords(patientId);
@@ -169,8 +176,8 @@ export function VaccinationRegistry({
 
   const statuses = useMemo(() => {
     if (!catalog.data || !records.data) return [];
-    return computeVaccinationStatuses(catalog.data, records.data, { ageYears });
-  }, [catalog.data, records.data, ageYears]);
+    return computeVaccinationStatuses(catalog.data, records.data, { ageYears, dateOfBirth, sex });
+  }, [catalog.data, records.data, ageYears, dateOfBirth, sex]);
 
   // Newest doses first for the certificate/verification list.
   const sortedRecords = useMemo(
@@ -184,6 +191,15 @@ export function VaccinationRegistry({
   // Visible "what's next" prompt (Priority #4) — vaccines due or overdue now.
   const dueNext = useMemo(
     () => statuses.filter((s) => s.status === "due" || s.status === "overdue"),
+    [statuses],
+  );
+
+  // The catalogue is shared across every age (adult + NPHCDA child schedule),
+  // so "not applicable" is expected and frequent (e.g. an adult's card
+  // against 11 childhood-only vaccines) — hide it from the main list rather
+  // than clutter every profile with irrelevant grey badges.
+  const visibleStatuses = useMemo(
+    () => statuses.filter((s) => s.status !== "not_applicable"),
     [statuses],
   );
 
@@ -224,17 +240,17 @@ export function VaccinationRegistry({
           </div>
         )}
 
-        {!isLoading && !isError && statuses.length === 0 && (
+        {!isLoading && !isError && visibleStatuses.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">No vaccinations in the catalogue yet.</p>
         )}
 
-        {statuses.length > 0 && (
+        {visibleStatuses.length > 0 && (
           <div>
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
               Schedule
             </p>
             <ul className="divide-y divide-charcoal-ink/10">
-              {statuses.map((entry) => {
+              {visibleStatuses.map((entry) => {
                 const badge = STATUS_BADGE[entry.status];
                 return (
                   <li key={entry.catalogId} className="space-y-1 py-3">

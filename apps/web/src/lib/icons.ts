@@ -36,6 +36,7 @@ import {
   ChevronRight,
   ArrowRightLeft,
   Bell,
+  Phone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,6 +65,7 @@ export const SEMANTIC_ICON = {
   billing: CreditCard,
   commission: Percent,
   logistics: Truck,
+  reminderPreference: Phone,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Navigation + app-shell chrome icons — same sanctioned-surface rule as

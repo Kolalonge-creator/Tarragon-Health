@@ -8,13 +8,22 @@ import type { Tables } from "@tarragon/shared";
  *
  * recommended_age is deliberately data, not code (docs/FEATURE_SPEC.md §10 —
  * "Adding test #41 later is a database insert, not a re-architecture"), so
- * this reads whichever of the four shapes seed data uses rather than
+ * this reads whichever of the five shapes seed data uses rather than
  * switching on a hardcoded vaccine code:
  *   - { interval_years }        recurring (e.g. tetanus/Td, influenza)
  *   - { dose_schedule_months }  a dated series from the first dose (e.g. hep B)
  *   - { doses }                 a fixed dose count, no age gate (e.g. yellow fever)
  *   - { max_catch_up_age }      single dose, eligible only up to that age (e.g. HPV)
  *   - { min_age }               single dose, eligible only from that age (e.g. shingles)
+ *   - { age_schedule_weeks, max_age_years?, sex? }  a DOB-anchored infant/child
+ *     series (NPHCDA routine schedule) — each entry is the age in weeks at
+ *     which that dose becomes due, anchored to the child's actual date of
+ *     birth (not first-dose-date, unlike dose_schedule_months, since the NPI
+ *     schedule is fixed to age, e.g. Penta at 6/10/14 weeks regardless of
+ *     when a sibling dose happened). max_age_years keeps a childhood vaccine
+ *     off every adult's card; catch-up beyond that window is a clinical
+ *     decision, not an automatic one. Optional sex restricts to one sex
+ *     (e.g. HPV girls-only).
  */
 
 export type VaccinationCatalogRow = Pick<
@@ -29,6 +38,13 @@ export type VaccinationRecordRow = Pick<
 
 export interface VaccinationProfile {
   ageYears: number | null;
+  /** ISO date of birth, when known — needed for the DOB-anchored infant
+   * schedule shape (age_schedule_weeks) to compute an exact due date;
+   * ageYears alone can't distinguish week 6 from week 10. Falls back to a
+   * coarse ageYears-derived gate when omitted, so existing adult-only
+   * callers need no change. */
+  dateOfBirth?: string | null;
+  sex?: "male" | "female" | null;
 }
 
 export type VaccinationStatus = "not_yet_due" | "due" | "overdue" | "up_to_date" | "not_applicable";
@@ -50,10 +66,21 @@ interface RecommendedAgeShape {
   doses?: number;
   max_catch_up_age?: number;
   min_age?: number;
+  age_schedule_weeks?: number[];
+  max_age_years?: number;
+  sex?: "male" | "female";
 }
 
 function parseRecommendedAge(value: unknown): RecommendedAgeShape {
   return value && typeof value === "object" ? (value as RecommendedAgeShape) : {};
+}
+
+/** Adds days to an ISO date. Used for the DOB-anchored infant schedule,
+ * where a due date is an exact calendar day, not a month/year clamp. */
+function addDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 /** Adds months to an ISO date, clamping to the target month's last day
@@ -149,6 +176,41 @@ export function computeVaccinationStatuses(
         return { ...base, status: "not_yet_due", nextDueDate: null };
       }
       return { ...base, status: "due", nextDueDate: todayISO };
+    }
+
+    if (recommendedAge.age_schedule_weeks !== undefined) {
+      const schedule = recommendedAge.age_schedule_weeks;
+
+      if (recommendedAge.sex && profile.sex && profile.sex !== recommendedAge.sex) {
+        return { ...base, status: "not_applicable", nextDueDate: null };
+      }
+      if (dosesGiven >= schedule.length) {
+        return { ...base, status: "up_to_date", nextDueDate: null };
+      }
+      // A still-due dose beyond the catch-up window is a clinical decision,
+      // not an automatic one — same precedent as max_catch_up_age.
+      if (
+        recommendedAge.max_age_years !== undefined &&
+        profile.ageYears !== null &&
+        profile.ageYears > recommendedAge.max_age_years
+      ) {
+        return { ...base, status: "not_applicable", nextDueDate: null };
+      }
+
+      const dueWeek = schedule[dosesGiven];
+      if (profile.dateOfBirth) {
+        const nextDueDate = addDays(profile.dateOfBirth, dueWeek * 7);
+        return { ...base, status: dueOrOverdue(nextDueDate, todayISO), nextDueDate };
+      }
+      // No DOB on file — can't compute an exact date, but still gate
+      // coarsely off ageYears (1 year ≈ 52 weeks) rather than showing every
+      // childhood dose as immediately "due".
+      if (profile.ageYears === null) {
+        return { ...base, status: "not_yet_due", nextDueDate: null };
+      }
+      return profile.ageYears * 52 >= dueWeek
+        ? { ...base, status: "due", nextDueDate: todayISO }
+        : { ...base, status: "not_yet_due", nextDueDate: null };
     }
 
     // Unrecognised/empty recommended_age shape — degrade gracefully rather

@@ -44,6 +44,10 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: "Personalised health education is part of a paid plan",
     body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks. Included on Complete Care and above, or add it to Essential Care.",
   },
+  prevention_coordination: {
+    title: "Screening booking is part of Tarragon Prevent",
+    body: "Your screening calendar is free to see. To book screenings when they come due — with reminders and results tracking — join Tarragon Prevent, the stay-healthy plan, or the Prevention Screening add-on. The one-off Annual Health Check stays available to everyone.",
+  },
 };
 
 const DEFAULT_COPY = {
