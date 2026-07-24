@@ -74,6 +74,47 @@ values
      '{"dose_schedule_months": [0, 6]}'::jsonb)
 on conflict (code) do nothing;
 
+-- WHO's full lifetime tetanus toxoid-containing-vaccine (TTCV) schedule: the
+-- infant Pentavalent series (child_penta, seeded by the
+-- child_immunisation_nphcda migration, not this file) plus 3 further
+-- childhood boosters (~18 months / 4-7 years / 9-15 years) before the adult
+-- 10-year cadence begins -- migrations 20260724022928 + 20260724024110.
+-- Not part of the ON CONFLICT insert above since child_* rows live only in
+-- that migration; INSERT here is its own idempotent ON CONFLICT DO NOTHING.
+insert into public.vaccination_catalog (code, name, description, recommended_age)
+values
+  ('child_tetanus_booster_1', 'Tetanus Booster — 18 Months',
+     'WHO-recommended childhood tetanus booster, typically given between 12 and 23 months.',
+     '{"age_schedule_weeks": [78], "max_age_years": 3}'::jsonb),
+  ('child_tetanus_booster_2', 'Tetanus Booster — 4 to 7 Years',
+     'WHO-recommended childhood tetanus booster, typically given between 4 and 7 years.',
+     '{"age_schedule_weeks": [208], "max_age_years": 8}'::jsonb),
+  ('child_tetanus_booster_3', 'Tetanus Booster — 9 to 15 Years',
+     'WHO-recommended childhood tetanus booster, typically given between 9 and 15 years -- the last dose before the adult 10-year booster cycle begins.',
+     '{"age_schedule_weeks": [469], "max_age_years": 16}'::jsonb)
+on conflict (code) do nothing;
+
+-- Anchor the adult tetanus/Td booster off child_tetanus_booster_3 (the LAST
+-- stage of the WHO series above), via computeVaccinationStatuses'
+-- anchor_fallback_code. Always sets the same final value rather than
+-- guarding on "not already set" -- this key's value changed once already
+-- (from child_penta to child_tetanus_booster_3, see migration
+-- 20260724024110), so a presence-only guard would have skipped
+-- backfilling the corrected value on an environment seeded before that
+-- change; setting the same key/value repeatedly is already idempotent.
+update public.vaccination_catalog
+  set recommended_age = recommended_age || '{"anchor_fallback_code": "child_tetanus_booster_3"}'::jsonb
+  where code = 'tetanus_td_booster';
+
+-- Shingles (Shingrix/RZV) is a real 2-dose series 2-6 months apart, not a
+-- single dose -- migration 20260724025012. Overwrites the base insert's
+-- {"min_age": 50} above (which alone marks any single dose "complete") with
+-- the compound min_age + dose_schedule_months shape.
+update public.vaccination_catalog
+  set recommended_age = '{"min_age": 50, "dose_schedule_months": [0, 2]}'::jsonb,
+      description = '2-dose series from age 50, 2 to 6 months apart.'
+  where code = 'shingles';
+
 -- ---------------------------------------------------------------------------
 -- lab_providers
 -- ---------------------------------------------------------------------------
