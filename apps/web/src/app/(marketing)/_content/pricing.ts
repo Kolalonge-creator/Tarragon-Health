@@ -421,7 +421,7 @@ export const HEALTH_WALLET_POINTS: { title: string; body: string }[] = [
   },
   {
     title: "Refer a friend",
-    body: "Share your referral code from your dashboard. Once your friend completes their first paid order, you both get ₦2,000 wallet credit.",
+    body: "Share your referral code from your dashboard. Once your friend completes their first paid order, you both get ₦500 wallet credit.",
   },
 ];
 
@@ -531,10 +531,10 @@ export const ADD_ONS: PricingAddOn[] = [
   {
     id: "video-visit",
     name: "Video Doctor Visit",
-    price: "From ₦5,000/visit",
+    price: "₦10,000/visit",
     label: "BOOK & PAY",
     description:
-      "Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a doctor accepts your specific slot, which is also when your time is confirmed. If no doctor can take it within 48 hours, you're refunded in full. Video only, and not a substitute for emergency care.",
+      "A 15-minute telemedicine consultation — a video call, never an in-person visit. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a doctor accepts your specific slot, which is also when your time is confirmed. If no doctor can take it within 48 hours, you're refunded in full. Not a substitute for emergency care.",
     availability: "Available on any plan, priced per visit rather than as a subscription.",
   },
   {
@@ -739,12 +739,12 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What is the Health Wallet?",
     answer:
-      "A balance on your account that you top up whenever suits you and spend on any lab test, health check, pharmacy order, or Tarragon fee — never cashed out. A family member can fund it directly for you, and referring a friend earns you both ₦2,000 in wallet credit once they complete their first paid order.",
+      "A balance on your account that you top up whenever suits you and spend on any lab test, health check, pharmacy order, or Tarragon fee — never cashed out. A family member can fund it directly for you, and referring a friend earns you both ₦500 in wallet credit once they complete their first paid order.",
   },
   {
     question: "Can I speak to a doctor directly, not just wait for my scheduled review?",
     answer:
-      "Yes, two ways. Send a written question through the app and get a doctor's reply within 24 hours — included on Complete Care, Family, and ParentCare plans. Or book a paid video visit for a set time (from ₦5,000, any plan): you pay to request a slot, and the charge only goes through once a doctor accepts it, with a full refund if none can.",
+      "Yes, two ways. Send a written question through the app and get a doctor's reply within 24 hours — included on Complete Care, Family, and ParentCare plans. Or book a 15-minute telemedicine video visit for a set time (₦10,000, any plan) — a video call, never an in-person visit: you pay to request a slot, and the charge only goes through once a doctor accepts it, with a full refund if none can.",
   },
 ];
 

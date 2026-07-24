@@ -33,7 +33,7 @@ const CONNECTS = [
   },
   {
     title: "A doctor, when you need one directly",
-    body: "Send a written question and get a doctor's reply within 24 hours, or book a paid video visit for a set time — your payment is only taken once a doctor accepts the slot, refunded in full if none can.",
+    body: "Send a written question and get a doctor's reply within 24 hours, or book a 15-minute telemedicine video visit for a set time — a video call, never an in-person visit. Your payment is only taken once a doctor accepts the slot, refunded in full if none can.",
   },
 ];
 

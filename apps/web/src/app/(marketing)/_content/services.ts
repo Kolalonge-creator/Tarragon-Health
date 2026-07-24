@@ -105,11 +105,11 @@ export const WHAT_YOU_GET = [
 export const PLATFORM_EXTRAS = [
   {
     title: "The Health Wallet",
-    body: "Top up a little at a time toward your Annual Health Check or care plan, or let a family member — in Nigeria or abroad — fund it for you directly. Refer a friend and you both get ₦2,000 wallet credit once they complete their first paid order.",
+    body: "Top up a little at a time toward your Annual Health Check or care plan, or let a family member — in Nigeria or abroad — fund it for you directly. Refer a friend and you both get ₦500 wallet credit once they complete their first paid order.",
   },
   {
     title: "Talk to a doctor, your way",
-    body: "Send a written question and get a doctor's reply within 24 hours, or book a paid video visit for a set time. Your payment is only taken once a doctor accepts your slot, and refunded in full if none can.",
+    body: "Send a written question and get a doctor's reply within 24 hours, or book a 15-minute telemedicine video visit for a set time (₦10,000) — a video call, never an in-person visit. Your payment is only taken once a doctor accepts your slot, and refunded in full if none can.",
   },
   {
     title: "Take it with you",
