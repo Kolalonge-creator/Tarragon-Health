@@ -3,7 +3,7 @@ import { OG_CONTENT_TYPE, OG_SIZE, renderOgImage } from "../_components/og-card"
 
 const card = SERVICE_CARDS.find((c) => c.key === "diabetes");
 
-export const alt = card ? `${card.title} — TarragonHealth` : "TarragonHealth";
+export const alt = card ? `${card.title} | TarragonHealth` : "TarragonHealth";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 

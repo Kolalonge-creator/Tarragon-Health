@@ -32,9 +32,9 @@ function normalizePhone(raw: string): string {
 }
 
 /**
- * "Is my company covered?" — the Omada/One Medical eligibility checker.
+ * "Is my company covered?": the Omada/One Medical eligibility checker.
  * Same service-role carve-out as the contact form (the marketing site's only
- * other Supabase touchpoint): reads are minimal and privacy-shaped — the
+ * other Supabase touchpoint): reads are minimal and privacy-shaped; the
  * caller must supply BOTH the organisation name (so we only ever echo back a
  * name they typed) AND their own phone number (exact roster match, never a
  * listing). A miss quietly becomes a lead so the B2B pipeline still learns
@@ -55,7 +55,7 @@ export async function checkEligibility(
   }
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return { error: "The checker is not available right now — contact us instead." };
+    return { error: "The checker is not available right now; contact us instead." };
   }
 
   const supabase = createServiceRoleClient();
@@ -85,7 +85,7 @@ export async function checkEligibility(
     return { status: "partner_no_match", orgName: org.name };
   }
 
-  // No partner match — capture the demand as a lead (same table the contact
+  // No partner match: capture the demand as a lead (same table the contact
   // page writes; this is the marketing site's sanctioned write path).
   await supabase.from("leads").insert({
     name: parsed.data.company,

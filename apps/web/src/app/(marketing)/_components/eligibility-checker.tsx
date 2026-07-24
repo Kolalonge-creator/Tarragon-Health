@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { checkEligibility, type EligibilityState } from "./eligibility-actions";
 
 /**
- * "Is your organisation covered?" — instant answer or lead capture, the
+ * "Is your organisation covered?": instant answer or lead capture, the
  * Omada/One Medical pattern. Requires the visitor's own phone number plus the
  * organisation name, so the answer only ever confirms a combination the
- * visitor already knows — never a directory lookup.
+ * visitor already knows; never a directory lookup.
  */
 export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) {
   const [state, formAction, isPending] = useActionState<EligibilityState, FormData>(
@@ -25,7 +25,7 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
         Is your {noun} already covered?
       </h3>
       <p className="mt-2 text-charcoal-ink/70">
-        Enter your {noun}&apos;s name and the phone number they have on file for you —
+        Enter your {noun}&apos;s name and the phone number they have on file for you;
         we&apos;ll tell you instantly.
       </p>
       <form action={formAction} className="mt-6 space-y-4">
@@ -65,7 +65,7 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
       {state && "status" in state && state.status === "covered" && (
         <div className="mt-4 rounded-lg border border-brand-green/25 bg-brand-green/[0.06] p-4">
           <p className="text-sm font-medium text-charcoal-ink">
-            Good news — {state.orgName} covers you on Tarragon.
+            Good news: {state.orgName} covers you on Tarragon.
           </p>
           <p className="mt-1 text-sm text-charcoal-ink/70">
             Sign up with this same phone number and your coverage attaches automatically.
@@ -77,7 +77,7 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
       )}
       {state && "status" in state && state.status === "partner_no_match" && (
         <p className="mt-4 text-sm text-charcoal-ink/70">
-          {state.orgName} works with Tarragon, but this number isn&apos;t on their list yet —
+          {state.orgName} works with Tarragon, but this number isn&apos;t on their list yet;
           ask your HR or plan administrator to add you, or{" "}
           <Link href="/contact" className="text-brand-green hover:underline">
             contact us
@@ -87,11 +87,11 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
       )}
       {state && "status" in state && state.status === "no_partner" && (
         <p className="mt-4 text-sm text-charcoal-ink/70">
-          We don&apos;t work with them yet — we&apos;ve noted the interest. Want it sooner?{" "}
+          We don&apos;t work with them yet; we&apos;ve noted the interest. Want it sooner?{" "}
           <Link href="/contact" className="text-brand-green hover:underline">
             Introduce us to your {noun}
-          </Link>{" "}
-          — most partnerships start exactly this way.
+          </Link>
+          . Most partnerships start exactly this way.
         </p>
       )}
     </div>

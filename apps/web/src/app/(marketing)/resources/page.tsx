@@ -5,12 +5,12 @@ import { CtaBand } from "../_components/cta-band";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const metadata: Metadata = {
-  title: "Health resources — plain answers to real questions",
+  title: "Health resources: plain answers to real questions",
   description:
-    "Clear, honest articles on blood pressure, diabetes, weight, cholesterol and screening — written for Nigerians, in plain language.",
+    "Clear, honest articles on blood pressure, diabetes, weight, cholesterol and screening, written for Nigerians, in plain language.",
 };
 
-// Content is admin-managed in the DB — re-render every 5 minutes so a newly
+// Content is admin-managed in the DB; re-render every 5 minutes so a newly
 // published article appears without a deploy.
 export const revalidate = 300;
 
@@ -26,7 +26,7 @@ export default async function ResourcesPage() {
             Health, in plain language
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Straight answers to the questions people actually ask — no jargon, no fear, no
+            Straight answers to the questions people actually ask: no jargon, no fear, no
             miracle cures. Just what the evidence supports and what to do next.
           </p>
         </div>
@@ -58,7 +58,7 @@ export default async function ResourcesPage() {
       <Section variant="sage">
         <CtaBand
           variant="gradient"
-          title="Reading is a start — monitoring is the difference"
+          title="Reading is a start; monitoring is the difference"
           description="Tarragon turns knowing into doing: your readings tracked, your screenings scheduled, a care team watching the trend."
           primaryHref="/signup"
           primaryLabel="Start free"

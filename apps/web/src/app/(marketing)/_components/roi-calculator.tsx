@@ -5,10 +5,10 @@ import { useState } from "react";
 /**
  * Interactive, honest ROI sketch for the B2B pages (the Sword pattern).
  * Every number is an editable assumption and the output carries a persistent
- * "modeled estimate" disclaimer — no footnoted magic. The default cost-per-
+ * "modeled estimate" disclaimer; no footnoted magic. The default cost-per-
  * catch mirrors the platform's own modeled constant (₦150,000/abnormal
  * catch, the same admin-tunable figure behind the B2B dashboards) and the
- * catch rate reflects a conservative screening yield assumption — both are
+ * catch rate reflects a conservative screening yield assumption; both are
  * inputs the visitor can change, not claims.
  */
 export function RoiCalculator() {
@@ -29,7 +29,7 @@ export function RoiCalculator() {
         Sketch the numbers for your workforce
       </h3>
       <p className="mt-2 text-charcoal-ink/70">
-        Move the sliders — every figure is an assumption you control, not a promise.
+        Move the sliders: every figure is an assumption you control, not a promise.
       </p>
       <div className="mt-6 space-y-5">
         <div>
@@ -107,7 +107,7 @@ export function RoiCalculator() {
         </p>
       </div>
       <p className="mt-3 text-xs text-charcoal-ink/50">
-        A modeled estimate from your own assumptions — not a claims analysis, a guarantee,
+        A modeled estimate from your own assumptions, not a claims analysis, a guarantee,
         or a quote. We&apos;ll build the real business case with your data.
       </p>
     </div>

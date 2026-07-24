@@ -31,14 +31,14 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "A doctor verifies it",
-    body: "A Tarragon doctor checks the uploaded record and issues a verified Tarragon certificate with its own serial number — proof that holds up, not just a photo in your camera roll.",
+    body: "A Tarragon doctor checks the uploaded record and issues a verified Tarragon certificate with its own serial number: proof that holds up, not just a photo in your camera roll.",
   },
 ];
 
 const WHATS_INCLUDED = [
   {
     title: "One record per family member",
-    body: "Every child and adult in your family has their own schedule, in the same record as the rest of their care — nothing to track separately.",
+    body: "Every child and adult in your family has their own schedule, in the same record as the rest of their care, nothing to track separately.",
   },
   {
     title: "Reminders, not memory",
@@ -54,11 +54,11 @@ const WHATS_INCLUDED = [
   },
   {
     title: "The next dose, scheduled automatically",
-    body: "Multi-dose series roll forward on their own once a dose is verified — no manual re-entry, no missed follow-up shots.",
+    body: "Multi-dose series roll forward on their own once a dose is verified: no manual re-entry, no missed follow-up shots.",
   },
   {
     title: "Available on every Tarragon plan",
-    body: "Vaccination tracking, booking, and verification are available on every plan, including Free — this is prevention we think everyone should have.",
+    body: "Vaccination tracking, booking, and verification are available on every plan, including Free; this is prevention we think everyone should have.",
   },
 ];
 
@@ -76,7 +76,7 @@ export default function VaccinationsPage() {
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             A personal vaccination schedule for you and your children, a reminder before a dose is
             due, easy booking at a partner facility near you, and a doctor-verified certificate
-            you&apos;ll never lose — even if the paper one is.
+            you&apos;ll never lose, even if the paper one is.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
@@ -134,7 +134,7 @@ export default function VaccinationsPage() {
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Add your children to your Tarragon family and their routine immunisation schedule is
-            tracked the same way as your own — including the doses that are easy to lose track of
+            tracked the same way as your own, including the doses that are easy to lose track of
             between school-age boosters and travel. If you&apos;re following your family&apos;s
             care from outside Nigeria, the schedule and verified certificates are visible to you
             from anywhere; booking and the visit itself happen at a partner facility in Nigeria.
@@ -144,7 +144,7 @@ export default function VaccinationsPage() {
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
               Tarragon Prevent
             </Link>
-            , which also builds your screening calendar and yearly Health Check — or explore{" "}
+            , which also builds your screening calendar and yearly Health Check, or explore{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">
               ParentCare
             </Link>{" "}

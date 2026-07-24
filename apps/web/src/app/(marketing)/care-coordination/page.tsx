@@ -21,7 +21,7 @@ const COORDINATION_CARDS = SERVICE_CARDS.filter((card) =>
 const CONNECTS = [
   {
     title: "Hassle-free lab tests",
-    body: "No more guessing which lab to trust or queuing to ask for prices. Tarragon tells you which tests are due, shows you the exact price up front, books you into a vetted partner lab, and makes sure a doctor reviews every result — never a report that sits unread.",
+    body: "No more guessing which lab to trust or queuing to ask for prices. Tarragon tells you which tests are due, shows you the exact price up front, books you into a vetted partner lab, and makes sure a doctor reviews every result: never a report that sits unread.",
   },
   {
     title: "Genuine medication, refilled on time",
@@ -29,7 +29,7 @@ const CONNECTS = [
   },
   {
     title: "Specialist referrals that carry your record",
-    body: "When your care team refers you to a specialist, the referral travels with your health record — your readings, medications, and results — not a paper slip that gets lost. Afterwards, follow-up comes back onto the same record.",
+    body: "When your care team refers you to a specialist, the referral travels with your health record (your readings, medications, and results), not a paper slip that gets lost. Afterwards, follow-up comes back onto the same record.",
   },
 ];
 
@@ -59,7 +59,7 @@ export default function CareCoordinationPage() {
         <SectionHeading
           eyebrow="Care coordination"
           title="The pieces of your care, kept connected"
-          description="In most of Nigeria, you are your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication, carrying paper records between hospitals. Tarragon takes that job off you — one care team coordinating labs, pharmacies, and specialists from one shared record."
+          description="In most of Nigeria, you are your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication, carrying paper records between hospitals. Tarragon takes that job off you: one care team coordinating labs, pharmacies, and specialists from one shared record."
         />
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
           {COORDINATION_CARDS.map((service) => (
@@ -136,7 +136,7 @@ export default function CareCoordinationPage() {
         <div className="mx-auto max-w-3xl space-y-4 text-lg leading-relaxed text-charcoal-ink/75">
           <p>
             A blood pressure reading at one clinic, a lab result from another, medication bought
-            wherever it was available that day — when no one holds the full picture, warning signs
+            wherever it was available that day: when no one holds the full picture, warning signs
             get missed and money gets wasted repeating tests.
           </p>
           <p>
