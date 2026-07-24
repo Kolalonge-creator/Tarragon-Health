@@ -118,9 +118,31 @@ export const NGN_TIERS: PricingTier[] = [
       "Not included on this plan, and available only if you upgrade: doctor review, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
   },
   {
+    id: "prevent",
+    name: "Tarragon Prevent",
+    whoFor: "Healthy, and planning to stay that way",
+    priceMain: "₦3,500",
+    pricePeriod: "per month",
+    priceSecondary: "or ₦35,000/year (2 months free)",
+    description:
+      "The stay-healthy plan. You don't need a diagnosis to benefit from Tarragon — Prevent builds your personal screening and vaccination calendar, books the checks when they come due, and teaches you what your numbers mean. If a result ever needs attention, a doctor steps in the same day and helps you decide what's next.",
+    items: [
+      { feature: "Everything in Tarragon Free", label: "INCLUDED" },
+      { feature: "Personal screening calendar matched to your age, sex, and history", label: "INCLUDED" },
+      { feature: "Book screenings when due, with reminders and results tracking", label: "INCLUDED" },
+      { feature: "Vaccination schedule, booking, and verified certificates", label: "INCLUDED" },
+      { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
+      { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
+      { feature: "Screening lab tests (HbA1c from ₦8,000, etc.)", label: "BOOK & PAY" },
+      { feature: "Annual Health Check (₦65,000, full-body)", label: "BOOK & PAY" },
+    ],
+    footnote:
+      "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme — that's the whole point of catching it early.",
+  },
+  {
     id: "essential",
     name: "Essential Care",
-    whoFor: "One condition: hypertension or diabetes",
+    whoFor: "One condition: hypertension, diabetes, or obesity",
     priceMain: "₦8,000",
     pricePeriod: "per month",
     priceSecondary: "or ₦80,000/year (2 months free)",
@@ -128,7 +150,7 @@ export const NGN_TIERS: PricingTier[] = [
     highlight: true,
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
-      { feature: "Monthly doctor review of your BP or glucose readings", label: "INCLUDED" },
+      { feature: "Monthly doctor review of your BP, glucose, or weight readings", label: "INCLUDED" },
       { feature: "Monthly doctor check-in over WhatsApp", label: "INCLUDED" },
       { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
       { feature: "Direct WhatsApp access to your care team", label: "INCLUDED" },
@@ -141,16 +163,16 @@ export const NGN_TIERS: PricingTier[] = [
   {
     id: "complete",
     name: "Complete Care",
-    whoFor: "Multiple conditions or higher risk",
+    whoFor: "More than one of the conditions we manage, or higher risk",
     priceMain: "₦15,000",
     pricePeriod: "per month",
     priceSecondary: "or ₦150,000/year (2 months free)",
     description:
-      "For patients managing more than one condition together, or anyone whose doctor recommends closer monitoring.",
+      "Tarragon currently manages three chronic conditions: hypertension, diabetes, and obesity. Complete Care is for anyone managing more than one of them together (for example, blood pressure and blood sugar, or diabetes and weight), or anyone whose doctor recommends closer monitoring.",
     items: [
       { feature: "Everything in Essential Care", label: "INCLUDED" },
       { feature: "Weekly doctor review (instead of monthly)", label: "INCLUDED" },
-      { feature: "Support for multiple conditions on one care plan", label: "INCLUDED" },
+      { feature: "Hypertension, diabetes, and obesity managed together on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
       { feature: "Lab tests", label: "BOOK & PAY" },
       { feature: "Medication refills", label: "BOOK & PAY" },
@@ -232,6 +254,20 @@ export const NGN_TIERS: PricingTier[] = [
 ];
 
 export const GBP_TIERS: PricingTier[] = [
+  {
+    id: "diaspora-prevent",
+    name: "Tarragon Prevent (Diaspora)",
+    whoFor: "Healthy, and planning to stay that way",
+    priceMain: "£7",
+    pricePeriod: "per month",
+    priceSecondary: "or £70/year",
+    description:
+      "The stay-healthy plan, billed in pounds: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Screenings and vaccinations are done at partner facilities in Nigeria — monitoring and education work from anywhere.",
+    items: [
+      { feature: "Everything in Tarragon Prevent (Naira plan)", label: "INCLUDED" },
+      { feature: "Screening lab tests in Nigeria", label: "BOOK & PAY" },
+    ],
+  },
   {
     id: "diaspora-essential",
     name: "Essential Care (Diaspora)",
@@ -454,7 +490,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦25,000/month",
     label: "ADD-ON",
     description:
-      "A guided programme for diet, activity, and weight: a personal assessment, goals you set with support, structured diet and exercise tracks, and in-app check-ins, with a progress review every three months.",
+      "A guided programme for diet, activity, and weight: a personal assessment, goals you set with support, structured diet and exercise tracks, and in-app check-ins, with a progress review every three months. It's also the engine behind Tarragon's obesity programme.",
     availability: "Included on Complete Care and above. Available as an add-on on Essential Care or Tarragon Free.",
   },
   {
@@ -483,6 +519,9 @@ export const ADD_ONS: PricingAddOn[] = [
  * shown before booking.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
+  { item: "Health Check — Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
+  { item: "Annual Health Check (adds your cancer screening)", price: "₦65,000" },
+  { item: "Health Check — Comprehensive (adds HIV + Hepatitis B)", price: "₦75,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
   { item: "Kidney function (U&E + eGFR)", price: "from ₦8,000" },
@@ -555,7 +594,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "You see the exact price",
-    body: "On the app or on WhatsApp. No estimates, no “roughly.”",
+    body: "In the app, before anything is booked. No estimates, no “roughly.”",
   },
   {
     title: "You confirm and pay",
@@ -566,8 +605,8 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
     body: "A lab, pharmacy, or clinic, and send you everything you need: where to go, what to bring, and any preparation required.",
   },
   {
-    title: "Your result or delivery comes back on WhatsApp",
-    body: "Explained in plain language. If anything needs attention, your doctor calls you; this does not create any new charge.",
+    title: "Your result or delivery comes back in the app",
+    body: "Explained in plain language, with a WhatsApp alert so you don't miss it. If anything needs attention, your doctor calls you; this does not create any new charge.",
   },
 ];
 
@@ -582,6 +621,11 @@ export const NEVER_DO: string[] = [
 
 export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
+    question: "Which conditions does Tarragon manage, and where does obesity fit?",
+    answer:
+      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and obesity. Obesity is a full condition on any plan, not an extra: with only obesity to manage, Essential Care (₦8,000/month) covers it — doctor review of your weight trend, a structured lifestyle plan, and follow-up. Managing obesity alongside blood pressure or diabetes is exactly what Complete Care (₦15,000/month) is for, and Lifestyle Coaching is already included there at no extra charge. Preventive screening is separate and available to everyone, whatever your conditions.",
+  },
+  {
     question: "Will my card ever be charged automatically for a test I didn't ask for?",
     answer:
       "No. Every single lab test, refill, or vaccine requires you to see the price and confirm before anything is booked or charged.",
@@ -595,6 +639,16 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
     question: "Does Tarragon Free ever expire?",
     answer:
       "No. Tarragon Free has no time limit and never converts to a paid plan on its own. You can use it for as long as you like.",
+  },
+  {
+    question: "I'm healthy — why would I join a health platform?",
+    answer:
+      "Because staying healthy is exactly what most of Tarragon does. Hypertension, diabetes, and many cancers are far cheaper and easier to deal with when they're caught early — or prevented outright. Tarragon Prevent builds your personal screening and vaccination calendar, books the right checks at the right ages, and teaches you what your numbers mean. Most members will simply get yearly confirmation that all is well; for the few where something shows up, a doctor follows up the same day and it's caught years earlier than it would have been.",
+  },
+  {
+    question: "What's the difference between Tarragon Free and Tarragon Prevent?",
+    answer:
+      "Free is self-tracking: you log your own numbers and nobody books anything for you. Prevent (₦3,500/month) adds the active prevention layer: a screening and vaccination calendar built for you, bookable when checks come due, reminders, results tracking, personalised health education, and doctor follow-up on any abnormal result.",
   },
   {
     question: "How do the free trials of Complete Care work?",

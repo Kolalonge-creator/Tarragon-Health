@@ -59,3 +59,61 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
     dosesTotal: checklist.length,
   };
 }
+
+export interface PatientPreventionStats {
+  /** Any active care plan means the patient is in a chronic programme — the
+   * dashboard overview leads with chronic tiles. No plan → prevention-first. */
+  hasActiveCarePlan: boolean;
+  screeningsDueCount: number;
+  nextScreening: { name: string; dueDate: string } | null;
+  vaccinationsDueCount: number;
+  hasRiskAssessment: boolean;
+}
+
+/** Prevention-side counterpart of getPatientSummaryStats — powers the
+ * healthy-patient (dual-state) overview. All reads are RLS-scoped. */
+export async function getPatientPreventionStats(
+  patientId: string
+): Promise<PatientPreventionStats> {
+  const supabase = await createClient();
+
+  const [
+    { count: activePlans },
+    { data: dueScreenings },
+    { count: dueVaccinations },
+    { count: riskScores },
+  ] = await Promise.all([
+    supabase
+      .from("care_plans")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patientId)
+      .eq("status", "active"),
+    supabase
+      .from("screening_schedules")
+      .select("due_date, screen_type:screen_types(name)")
+      .eq("patient_id", patientId)
+      .in("status", ["pending", "overdue"])
+      .order("due_date", { ascending: true }),
+    supabase
+      .from("vaccination_schedules")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patientId)
+      .in("status", ["pending", "overdue"]),
+    supabase
+      .from("prevention_risk_scores")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", patientId),
+  ]);
+
+  const next = dueScreenings?.[0] ?? null;
+
+  return {
+    hasActiveCarePlan: (activePlans ?? 0) > 0,
+    screeningsDueCount: dueScreenings?.length ?? 0,
+    nextScreening: next
+      ? { name: next.screen_type?.name ?? "Screening", dueDate: next.due_date }
+      : null,
+    vaccinationsDueCount: dueVaccinations ?? 0,
+    hasRiskAssessment: (riskScores ?? 0) > 0,
+  };
+}

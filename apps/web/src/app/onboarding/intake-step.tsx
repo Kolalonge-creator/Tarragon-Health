@@ -29,7 +29,9 @@ export function IntakeStep({
           Your health profile
         </h2>
         <p className="mt-1 text-sm text-charcoal-ink/60">
-          A few questions help your care team start on the right foot. You can do this now or
+          Two minutes here builds your personal prevention plan: a screening and vaccination
+          calendar matched to your age, sex, and history — whether you&apos;re managing a
+          condition or perfectly healthy and want to stay that way. You can also do this
           later from your dashboard.
         </p>
       </div>
@@ -61,6 +63,9 @@ export function IntakeStep({
         <Button type="button" variant="ghost" onClick={onSkip}>
           Continue to choose your plan →
         </Button>
+        <p className="mt-1 text-xs text-charcoal-ink/50">
+          Skipping is fine — but your screening calendar stays empty until this is done.
+        </p>
       </div>
     </div>
   );

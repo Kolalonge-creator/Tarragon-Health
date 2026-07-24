@@ -5011,6 +5011,54 @@ export type Database = {
           },
         ];
       };
+      reproductive_health_profiles: {
+        Row: {
+          average_cycle_length_days: number | null;
+          created_at: string;
+          id: string;
+          last_period_date: string | null;
+          life_stage: Database["public"]["Enums"]["reproductive_life_stage"];
+          organisation_id: string;
+          patient_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          average_cycle_length_days?: number | null;
+          created_at?: string;
+          id?: string;
+          last_period_date?: string | null;
+          life_stage?: Database["public"]["Enums"]["reproductive_life_stage"];
+          organisation_id: string;
+          patient_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          average_cycle_length_days?: number | null;
+          created_at?: string;
+          id?: string;
+          last_period_date?: string | null;
+          life_stage?: Database["public"]["Enums"]["reproductive_life_stage"];
+          organisation_id?: string;
+          patient_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reproductive_health_profiles_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reproductive_health_profiles_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       mrr_snapshots: {
         Row: {
           created_at: string;
@@ -5545,6 +5593,7 @@ export type Database = {
           is_active: boolean;
           name: string;
           price_kobo: number;
+          self_bookable: boolean;
           test_codes: string[];
         };
         Insert: {
@@ -5558,6 +5607,7 @@ export type Database = {
           is_active?: boolean;
           name: string;
           price_kobo?: number;
+          self_bookable?: boolean;
           test_codes?: string[];
         };
         Update: {
@@ -5571,6 +5621,7 @@ export type Database = {
           is_active?: boolean;
           name?: string;
           price_kobo?: number;
+          self_bookable?: boolean;
           test_codes?: string[];
         };
         Relationships: [];
@@ -7147,6 +7198,8 @@ export type Database = {
           patient_number: string | null;
           pharmacy_partner_id: string | null;
           phone: string | null;
+          preferred_reminder_channel: string | null;
+          language: string;
           role: Database["public"]["Enums"]["user_role"];
           sex: Database["public"]["Enums"]["sex"] | null;
           state: string | null;
@@ -7176,6 +7229,8 @@ export type Database = {
           patient_number?: string | null;
           pharmacy_partner_id?: string | null;
           phone?: string | null;
+          preferred_reminder_channel?: string | null;
+          language?: string;
           role?: Database["public"]["Enums"]["user_role"];
           sex?: Database["public"]["Enums"]["sex"] | null;
           state?: string | null;
@@ -7205,6 +7260,8 @@ export type Database = {
           patient_number?: string | null;
           pharmacy_partner_id?: string | null;
           phone?: string | null;
+          preferred_reminder_channel?: string | null;
+          language?: string;
           role?: Database["public"]["Enums"]["user_role"];
           sex?: Database["public"]["Enums"]["sex"] | null;
           state?: string | null;
@@ -8929,6 +8986,7 @@ export type Database = {
       };
       wearable_connections: {
         Row: {
+          access_token: string | null;
           connected_at: string;
           created_at: string;
           external_id: string | null;
@@ -8937,9 +8995,12 @@ export type Database = {
           organisation_id: string;
           patient_id: string;
           provider: Database["public"]["Enums"]["wearable_provider"];
+          refresh_token: string | null;
           status: Database["public"]["Enums"]["wearable_connection_status"];
+          token_expires_at: string | null;
         };
         Insert: {
+          access_token?: string | null;
           connected_at?: string;
           created_at?: string;
           external_id?: string | null;
@@ -8948,9 +9009,12 @@ export type Database = {
           organisation_id: string;
           patient_id: string;
           provider: Database["public"]["Enums"]["wearable_provider"];
+          refresh_token?: string | null;
           status?: Database["public"]["Enums"]["wearable_connection_status"];
+          token_expires_at?: string | null;
         };
         Update: {
+          access_token?: string | null;
           connected_at?: string;
           created_at?: string;
           external_id?: string | null;
@@ -8959,7 +9023,9 @@ export type Database = {
           organisation_id?: string;
           patient_id?: string;
           provider?: Database["public"]["Enums"]["wearable_provider"];
+          refresh_token?: string | null;
           status?: Database["public"]["Enums"]["wearable_connection_status"];
+          token_expires_at?: string | null;
         };
         Relationships: [
           {
@@ -9653,6 +9719,14 @@ export type Database = {
         | "vaccination"
         | "screening_history";
       risk_level: "low" | "moderate" | "high" | "very_high";
+      reproductive_life_stage:
+        | "menstruating"
+        | "trying_to_conceive"
+        | "pregnant"
+        | "postpartum"
+        | "perimenopausal"
+        | "menopausal"
+        | "not_applicable";
       screen_applicability: "all" | "male" | "female";
       screening_status:
         "pending" | "booked" | "completed" | "overdue" | "cancelled";
@@ -10184,6 +10258,15 @@ export const Constants = {
         "screening_history",
       ],
       risk_level: ["low", "moderate", "high", "very_high"],
+      reproductive_life_stage: [
+        "menstruating",
+        "trying_to_conceive",
+        "pregnant",
+        "postpartum",
+        "perimenopausal",
+        "menopausal",
+        "not_applicable",
+      ],
       screen_applicability: ["all", "male", "female"],
       screening_status: [
         "pending",

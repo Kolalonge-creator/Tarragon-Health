@@ -24,6 +24,7 @@ const COMPONENT_LABEL: Record<HealthScoreComponent["key"], string> = {
   bp_control: "Blood pressure control",
   hba1c: "HbA1c",
   screening_compliance: "Screening compliance",
+  vaccination: "Vaccinations",
   bmi: "Weight (BMI)",
   smoking: "Smoking",
 };

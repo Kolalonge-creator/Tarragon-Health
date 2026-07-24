@@ -10,8 +10,10 @@ import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
 import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
+import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
-import { PREVENTION_CALLOUT, PROOF_STATS, WHAT_YOU_GET } from "./_content/services";
+import { ServiceCardLink } from "./_components/service-card";
+import { PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS, WHAT_YOU_GET } from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
@@ -36,7 +38,12 @@ export default function MarketingHomePage() {
           aria-hidden
           className="pointer-events-none absolute -right-16 top-10 -z-10 h-[320px] w-[320px] rounded-full bg-sprout-gold/15 blur-3xl"
         />
-        <MarketingHero media={homepage.hero} visual={<WhatsappHeroMockup />}>
+        {/* When hero footage exists (homepage.hero.videoSrc), the ambient video
+            frame takes over from the WhatsApp mockup automatically. */}
+        <MarketingHero
+          media={homepage.hero}
+          visual={homepage.hero.videoSrc ? undefined : <WhatsappHeroMockup />}
+        >
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
             Continuity, not just monitoring
           </p>
@@ -47,17 +54,22 @@ export default function MarketingHomePage() {
             Health monitoring for chronic disease, prevention, and care coordination.
           </p>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Track blood pressure, blood sugar, medication, lab checks, and preventive health needs
-            in one secure platform, with clinical review and escalation when closer care is needed.
+            Track blood pressure, blood sugar, weight, medication, lab checks, and preventive
+            health needs in one secure platform, with clinical review and escalation when closer
+            care is needed. And if you&apos;re healthy? Screenings, vaccinations, and yearly checks
+            that keep you that way.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
               <Link href="/signup">Start monitoring</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/signup">Join the 90-Day Health Reset</Link>
+              <Link href="/signup">Start preventing</Link>
             </Button>
           </div>
+          <p className="mt-3 text-sm text-charcoal-ink/55">
+            Same signup either way — we build the right calendar around you once you&apos;re in.
+          </p>
         </MarketingHero>
         <ContinuityPath />
       </Section>
@@ -76,11 +88,55 @@ export default function MarketingHomePage() {
         </div>
       </Section>
 
+      {/* Two front doors — the same shared record, entered from either side.
+          Healthy visitors must see themselves within the first screen-and-a-
+          half, not at section six (prevention-first repositioning). */}
+      <Section>
+        <SectionHeading
+          eyebrow="Start where you are"
+          title="Two ways in, one record"
+          description="Tarragon is for people managing a condition — and just as much for people who don't have one and intend to keep it that way."
+        />
+        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
+          <Link
+            href={MARKETING_ROUTES.prevention}
+            className="group rounded-2xl border border-brand-green/25 bg-white p-8 transition-colors hover:border-brand-green/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          >
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              I&apos;m healthy
+            </p>
+            <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
+              Stay that way →
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+              A screening and vaccination calendar built for your age and history, a yearly
+              health check, and education that makes sense of your numbers. Prevention that
+              actually gets done.
+            </p>
+          </Link>
+          <Link
+            href={MARKETING_ROUTES.chronicCare}
+            className="group rounded-2xl border border-charcoal-ink/10 bg-white p-8 transition-colors hover:border-brand-green/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          >
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              I&apos;m managing a condition
+            </p>
+            <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
+              Get followed up properly →
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+              Hypertension, diabetes, weight — monitored between visits, reviewed against care
+              protocols, and escalated to a doctor when something needs attention.
+            </p>
+          </Link>
+        </div>
+      </Section>
+
       <Section variant="sage">
         <StoryPanel
           eyebrow="The problem"
           title="Chronic disease is poorly followed up between doctor visits"
-          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between."
+          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between. And for healthy people, the screenings and vaccinations that would catch problems early rarely happen at all — until something is missed."
           media={homepage.problem}
         />
       </Section>
@@ -99,6 +155,29 @@ export default function MarketingHomePage() {
             <Link href={MARKETING_ROUTES.about}>About Tarragon</Link>
           </Button>
         </div>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow="Chronic care programmes"
+          title="Hypertension, diabetes, and obesity, managed with follow-up"
+          description="Three conditions drive most preventable emergencies in Nigeria. Tarragon runs a structured, doctor-reviewed programme for each, on one shared record, so related conditions are watched together, not separately."
+        />
+        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-3">
+          {SERVICE_CARDS.filter((card) =>
+            ["hypertension", "diabetes", "obesity"].includes(card.key)
+          ).map((service) => (
+            <ServiceCardLink key={service.key} service={service} />
+          ))}
+        </div>
+        <p className="mt-8 text-center">
+          <Link
+            href={MARKETING_ROUTES.chronicCare}
+            className="text-sm font-medium text-deep-forest hover:underline"
+          >
+            How chronic care works at Tarragon →
+          </Link>
+        </p>
       </Section>
 
       <Section variant="sage">
@@ -126,9 +205,12 @@ export default function MarketingHomePage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               {PREVENTION_CALLOUT.body}
             </p>
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild variant="outline">
                 <Link href={MARKETING_ROUTES.prevention}>Learn about preventive health</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link href={MARKETING_ROUTES.annualHealthCheck}>The Annual Health Check →</Link>
               </Button>
             </div>
           </div>
@@ -158,8 +240,13 @@ export default function MarketingHomePage() {
           title="Find the care that fits you"
           description="Whether you're managing a condition, staying ahead of one, or looking after someone else, there's a place to start."
         />
-        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
+            {
+              href: MARKETING_ROUTES.prevention,
+              title: "Prevention",
+              body: "Healthy and staying that way — screenings, vaccines, yearly checks.",
+            },
             {
               href: MARKETING_ROUTES.services,
               title: "Services",
@@ -191,6 +278,15 @@ export default function MarketingHomePage() {
             </Link>
           ))}
         </div>
+      </Section>
+
+      <Section variant="navy">
+        <SectionHeading
+          eyebrow="Why people trust Tarragon"
+          title="Built to be accountable to you"
+          invert
+        />
+        <TrustBand />
       </Section>
 
       <Section>

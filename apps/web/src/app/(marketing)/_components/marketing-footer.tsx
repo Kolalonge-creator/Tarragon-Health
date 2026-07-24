@@ -10,8 +10,13 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.careCoordination, label: "Care coordination" },
   ],
   programmes: [
+    { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
+    { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
+    { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
+    { href: MARKETING_ROUTES.healthEducation, label: "Health Education" },
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
+    { href: MARKETING_ROUTES.obesity, label: "Obesity & Weight" },
     { href: MARKETING_ROUTES.parentcare, label: "ParentCare" },
     { href: MARKETING_ROUTES.medication, label: "Medication" },
     { href: MARKETING_ROUTES.labs, label: "Labs" },
@@ -19,6 +24,7 @@ const FOOTER_LINKS = {
   company: [
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
     { href: MARKETING_ROUTES.whoItsFor, label: "Who it's for" },
+    { href: MARKETING_ROUTES.forYou, label: "For you" },
     { href: MARKETING_ROUTES.about, label: "About" },
     { href: MARKETING_ROUTES.faq, label: "FAQ" },
     { href: MARKETING_ROUTES.contact, label: "Contact" },
