@@ -23,7 +23,7 @@ export function MarketingMediaFrame({
       )}
     >
       {media.videoSrc ? (
-        // Ambient footage: muted, looping, no controls — decorative texture
+        // Ambient footage: muted, looping, no controls: decorative texture
         // beside real text content, never a player UI (Omada/Virta pattern).
         <video
           src={media.videoSrc}

@@ -8,22 +8,22 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "Annual Health Check",
   description:
-    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex — reviewed by a doctor, at a partner lab near you. ₦65,000, available to anyone on any plan.",
+    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex, reviewed by a doctor, at a partner lab near you. ₦65,000, available to anyone on any plan.",
   alternates: { canonical: MARKETING_ROUTES.annualHealthCheck },
 };
 
 const WHATS_INCLUDED = [
   {
     title: "Blood sugar (HbA1c)",
-    body: "Your three-month blood sugar average — the earliest reliable warning sign for diabetes, years before symptoms.",
+    body: "Your three-month blood sugar average: the earliest reliable warning sign for diabetes, years before symptoms.",
   },
   {
     title: "Cholesterol (lipid panel)",
-    body: "Total, LDL, HDL, and triglycerides — the numbers behind heart-attack and stroke risk.",
+    body: "Total, LDL, HDL, and triglycerides: the numbers behind heart-attack and stroke risk.",
   },
   {
     title: "Your cancer screening",
-    body: "The one that fits you: cervical screening for women, prostate (PSA) for men over 40 — chosen by age and sex, not one-size-fits-all.",
+    body: "The one that fits you: cervical screening for women, prostate (PSA) for men over 40, chosen by age and sex, not one-size-fits-all.",
   },
   {
     title: "Blood pressure & BMI",
@@ -31,7 +31,7 @@ const WHATS_INCLUDED = [
   },
   {
     title: "Doctor review of everything",
-    body: "A doctor reads every result against your history and tells you plainly what's fine, what to watch, and what — if anything — to do next.",
+    body: "A doctor reads every result against your history and tells you plainly what's fine, what to watch, and what, if anything, to do next.",
   },
   {
     title: "One record, year after year",
@@ -43,7 +43,7 @@ const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Book in the app",
-    body: "Pick a partner lab near you and confirm — the price is shown before you pay, and it's the price you pay.",
+    body: "Pick a partner lab near you and confirm: the price is shown before you pay, and it's the price you pay.",
   },
   {
     step: 2,
@@ -58,7 +58,7 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "A plan, if you need one",
-    body: "If something needs attention, your doctor follows up the same day and helps you decide what's next — on the same record, with no starting over.",
+    body: "If something needs attention, your doctor follows up the same day and helps you decide what's next, on the same record, with no starting over.",
   },
 ];
 
@@ -76,7 +76,7 @@ export default function AnnualHealthCheckPage() {
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             You service your car every year. Your health deserves the same discipline. One lab
             visit covers your blood sugar, cholesterol, blood pressure, BMI, and the cancer
-            screening that fits your age and sex — all reviewed by a doctor, all kept on one
+            screening that fits your age and sex, all reviewed by a doctor, all kept on one
             record.
           </p>
           <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
@@ -120,14 +120,14 @@ export default function AnnualHealthCheckPage() {
         <SectionHeading
           eyebrow="Pick your level"
           title="Three packages, one discipline"
-          description="Every package follows World Health Organization screening guidance for what actually matters in Nigeria — and every one ends with a doctor talking you through your results."
+          description="Every package follows World Health Organization screening guidance for what actually matters in Nigeria, and every one ends with a doctor talking you through your results."
         />
         <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
           {[
             {
               name: "Basic",
               price: "₦15,000",
-              body: "The cardiometabolic essentials: HbA1c, full cholesterol panel, blood pressure, and BMI — the WHO's core adult checks.",
+              body: "The cardiometabolic essentials: HbA1c, full cholesterol panel, blood pressure, and BMI. These are the WHO's core adult checks.",
             },
             {
               name: "Annual Health Check",
@@ -138,7 +138,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Comprehensive",
               price: "₦75,000",
-              body: "Everything in the Annual Health Check, plus HIV, Hepatitis B, and Hepatitis C screening — all WHO priorities for Nigeria.",
+              body: "Everything in the Annual Health Check, plus HIV, Hepatitis B, and Hepatitis C screening, all WHO priorities for Nigeria.",
             },
           ].map((tier) => (
             <div
@@ -156,10 +156,10 @@ export default function AnnualHealthCheckPage() {
           ))}
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
-          Need just one thing? The WHO-recommended screenings — cervical screening, HIV,
-          Hepatitis B, and Hepatitis C — can each be booked on their own, confidentially, from
+          Need just one thing? The WHO-recommended screenings (cervical screening, HIV,
+          Hepatitis B, and Hepatitis C) can each be booked on their own, confidentially, from
           ₦6,000. Results go only to you and the reviewing doctor. Don&apos;t know your blood
-          group and genotype yet? You can book that directly too — from ₦6,500.
+          group and genotype yet? You can book that directly too, from ₦6,500.
         </p>
       </Section>
 
@@ -184,7 +184,7 @@ export default function AnnualHealthCheckPage() {
             Honest expectations
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Most years, your check will confirm you&apos;re well — that&apos;s the point, and
+            Most years, your check will confirm you&apos;re well; that&apos;s the point, and
             it&apos;s worth paying for. For the few people whose results show something, catching
             it at an annual check typically means simpler, cheaper, more successful treatment
             than waiting for symptoms. The Annual Health Check is a screening day, not a
@@ -206,7 +206,7 @@ export default function AnnualHealthCheckPage() {
         <CtaBand
           variant="gradient"
           title="Book this year's check."
-          description="One morning, once a year — and a doctor who tells you where you stand."
+          description="One morning, once a year, and a doctor who tells you where you stand."
           primaryHref="/signup"
           primaryLabel="Book your check"
         />

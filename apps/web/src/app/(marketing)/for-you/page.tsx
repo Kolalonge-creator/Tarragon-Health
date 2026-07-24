@@ -16,13 +16,13 @@ export const metadata: Metadata = {
   alternates: { canonical: MARKETING_ROUTES.forYou },
 };
 
-/** Everything an individual patient uses — ParentCare has its own page. */
+/** Everything an individual patient uses. ParentCare has its own page. */
 const FOR_YOU_CARDS = SERVICE_CARDS.filter((card) => card.key !== "parentcare");
 
 const MONTH_WITH_TARRAGON = [
   {
     title: "You log, in seconds",
-    body: "A blood pressure reading after breakfast, a glucose check, your weight once a week — each takes under a minute in the app, and lands on one secure record instead of a paper notebook.",
+    body: "A blood pressure reading after breakfast, a glucose check, your weight once a week: each takes under a minute in the app, and lands on one secure record instead of a paper notebook.",
   },
   {
     title: "Reminders keep you consistent",
@@ -30,7 +30,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "A doctor actually reviews your numbers",
-    body: "On paid plans, a doctor reviews your trends every month (weekly on Complete Care) — even when you feel fine. That's the difference between owning a BP monitor and being monitored.",
+    body: "On paid plans, a doctor reviews your trends every month (weekly on Complete Care), even when you feel fine. That's the difference between owning a BP monitor and being monitored.",
   },
   {
     title: "Labs and refills are arranged for you",
@@ -38,7 +38,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "Escalation only when it's needed",
-    body: "Steady numbers get calm follow-up. A worrying pattern gets escalated through a defined clinical pathway, quickly and without drama — you are never left wondering whether anyone noticed.",
+    body: "Steady numbers get calm follow-up. A worrying pattern gets escalated through a defined clinical pathway, quickly and without drama; you are never left wondering whether anyone noticed.",
   },
 ];
 
@@ -49,7 +49,7 @@ export default function ForYouPage() {
         <SectionHeading
           eyebrow="For you"
           title="Track your health without carrying it alone"
-          description="Most people only discover a problem when it becomes an emergency. Tarragon gives you what a well-run clinic gives its best-followed patients — someone watching your numbers between visits — through your phone, at a fraction of the cost of a single hospital admission."
+          description="Most people only discover a problem when it becomes an emergency. Tarragon gives you what a well-run clinic gives its best-followed patients: someone watching your numbers between visits, through your phone, at a fraction of the cost of a single hospital admission."
         />
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
@@ -65,7 +65,7 @@ export default function ForYouPage() {
         <SectionHeading
           eyebrow="What it's like"
           title="A month on Tarragon"
-          description="No jargon, no hospital queues — here is what actually happens once you join."
+          description="No jargon, no hospital queues: here is what actually happens once you join."
         />
         <ol className="mx-auto grid max-w-3xl gap-6">
           {MONTH_WITH_TARRAGON.map((step, index) => (
@@ -92,7 +92,7 @@ export default function ForYouPage() {
         <SectionHeading
           eyebrow="What we help you manage"
           title="Programmes built around your health, not one symptom"
-          description="Chronic care for hypertension, diabetes, and obesity; preventive screening to stay ahead; medication and lab support to keep everything on track — all on one shared record."
+          description="Chronic care for hypertension, diabetes, and obesity; preventive screening to stay ahead; medication and lab support to keep everything on track, all on one shared record."
         />
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FOR_YOU_CARDS.map((service) => (
@@ -112,7 +112,7 @@ export default function ForYouPage() {
         />
         <div className="mx-auto max-w-3xl space-y-4 text-lg leading-relaxed text-charcoal-ink/75">
           <p>
-            Tarragon Free lets you track your own numbers forever, at no cost — it never expires and
+            Tarragon Free lets you track your own numbers forever, at no cost; it never expires and
             never converts to a paid plan on its own. When you want a doctor actually reviewing your
             readings, Essential Care starts at ₦8,000/month for one condition, and Complete Care
             covers hypertension, diabetes, and obesity together with weekly review.
@@ -122,7 +122,7 @@ export default function ForYouPage() {
             <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
               pricing page
             </Link>{" "}
-            points you to the right one — and looking after a parent instead?{" "}
+            points you to the right one. And looking after a parent instead?{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
               ParentCare
             </Link>{" "}
@@ -139,7 +139,7 @@ export default function ForYouPage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Start monitoring today — it takes minutes to set up."
+          description="Start monitoring today; it takes minutes to set up."
           primaryHref="/signup"
           primaryLabel="Start monitoring"
           secondaryHref={MARKETING_ROUTES.pricing}

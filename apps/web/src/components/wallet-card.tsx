@@ -186,7 +186,7 @@ export function WalletCard({ patientId }: { patientId: string }) {
             Refer a friend
           </p>
           <p className="text-xs text-charcoal-ink/70">
-            Share your code — you both get ₦2,000 wallet credit once they complete their first paid
+            Share your code — you both get ₦500 wallet credit once they complete their first paid
             order.
           </p>
           {referralCode && (

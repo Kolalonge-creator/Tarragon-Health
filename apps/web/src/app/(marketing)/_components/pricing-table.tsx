@@ -69,7 +69,7 @@ function isParentcareTier(tier: PricingTier): boolean {
 }
 
 /**
- * The three family tiers collapsed into one card with a level toggle — a
+ * The three family tiers collapsed into one card with a level toggle: a
  * buyer choosing "a family plan" first, then a level, faces 5 visual choices
  * on the NGN tab instead of 7 stacked cards.
  */

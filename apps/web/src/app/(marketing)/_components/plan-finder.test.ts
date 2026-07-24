@@ -1,7 +1,7 @@
 import { recommendPlan } from "./plan-finder";
 
 /**
- * The PlanFinder mapping is a pure function and a real conversion surface —
+ * The PlanFinder mapping is a pure function and a real conversion surface;
  * these tests pin the deliberate routing decisions, especially the
  * prevention-first ones: a healthy visitor must land on Tarragon Prevent
  * (the stay-healthy plan), never dead-end at Free (the pre-2026-07-23

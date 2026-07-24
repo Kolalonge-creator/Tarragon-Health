@@ -149,14 +149,14 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Healthy today? Let's keep it that way.",
     campaignLine: "The best emergency is the one you prevent.",
     intro:
-      "You don't need a diagnosis to use Tarragon — prevention is one of our five priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up the same day — years earlier than it would otherwise have been caught.",
+      "You don't need a diagnosis to use Tarragon: prevention is one of our five priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up the same day, years earlier than it would otherwise have been caught.",
     included: [
       "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
       "Vaccination schedule, booking, and doctor-verified certificates",
       "The Annual Health Check (₦65,000): full-body screening, bookable by anyone on any plan",
       "Personalised health education with short knowledge checks",
       "Doctor follow-up the same day on any result that needs attention",
-      "A seamless path into chronic care monitoring in the rare case follow-up is needed — same record, no starting over",
+      "A seamless path into chronic care monitoring in the rare case follow-up is needed: same record, no starting over",
     ],
     howItWorks: [
       {
@@ -169,13 +169,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Stay confidently well",
-        body: "Most results confirm you're on track. When one doesn't, your care team follows up immediately — and because it's caught early, your options are better and cheaper.",
+        body: "Most results confirm you're on track. When one doesn't, your care team follows up immediately, and because it's caught early, your options are better and cheaper.",
       },
     ],
     metadata: {
       title: "Preventive Health",
       description:
-        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and education — with doctor follow-up the same day if a result needs attention.",
+        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and education, with doctor follow-up the same day if a result needs attention.",
     },
   },
   medication: {

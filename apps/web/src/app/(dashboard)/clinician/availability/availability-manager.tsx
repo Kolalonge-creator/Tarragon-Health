@@ -11,7 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+
+/** Every video visit is a fixed 15-minute telemedicine consultation — not a
+ * clinician-selectable length (founder decision, 2026-07-24). */
+const SLOT_DURATION_MINUTES = 15;
 
 /**
  * Clinician publishes open video check-in slots that any patient in the org
@@ -24,7 +27,6 @@ export function AvailabilityManager({ organisationId }: { organisationId: string
   const publish = usePublishConsultSlot();
   const remove = useDeleteConsultSlot();
   const [slotStart, setSlotStart] = useState("");
-  const [duration, setDuration] = useState("20");
 
   return (
     <Card>
@@ -33,8 +35,8 @@ export function AvailabilityManager({ organisationId }: { organisationId: string
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-xs text-charcoal-ink/60">
-          Openings you publish here appear on every patient&apos;s dashboard as bookable
-          video check-in times.
+          Openings you publish here appear on every patient&apos;s dashboard as bookable,
+          15-minute telemedicine video consultations.
         </p>
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
@@ -46,18 +48,6 @@ export function AvailabilityManager({ organisationId }: { organisationId: string
               onChange={(e) => setSlotStart(e.target.value)}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="slot-duration">Length</Label>
-            <Select
-              id="slot-duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-            >
-              <option value="10">10 minutes</option>
-              <option value="20">20 minutes</option>
-              <option value="30">30 minutes</option>
-            </Select>
-          </div>
           <Button
             disabled={!slotStart || publish.isPending}
             onClick={() =>
@@ -65,13 +55,13 @@ export function AvailabilityManager({ organisationId }: { organisationId: string
                 {
                   organisationId,
                   slotStart,
-                  durationMinutes: Number(duration),
+                  durationMinutes: SLOT_DURATION_MINUTES,
                 },
                 { onSuccess: () => setSlotStart("") }
               )
             }
           >
-            {publish.isPending ? "Publishing…" : "Publish slot"}
+            {publish.isPending ? "Publishing…" : "Publish 15-minute slot"}
           </Button>
         </div>
         {publish.isError && (

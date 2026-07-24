@@ -22,7 +22,7 @@ export function ProductPageTemplate({
     MARKETING_MEDIA.productHero[content.slug as keyof typeof MARKETING_MEDIA.productHero] ?? {
       illustration: "connected-care" as const,
     };
-  // Only render the video section once a real YouTube ID exists — a page with
+  // Only render the video section once a real YouTube ID exists; a page with
   // no video shows nothing rather than a placeholder block.
   const video = PRODUCT_VIDEOS[content.slug];
   const hasVideo = Boolean(video?.youtubeId.trim());

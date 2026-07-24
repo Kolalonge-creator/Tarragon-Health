@@ -14,7 +14,13 @@ import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
 import { ServiceCardLink } from "./_components/service-card";
-import { PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS, WHAT_YOU_GET } from "./_content/services";
+import {
+  PLATFORM_EXTRAS,
+  PREVENTION_CALLOUT,
+  PROOF_STATS,
+  SERVICE_CARDS,
+  WHAT_YOU_GET,
+} from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
@@ -69,7 +75,7 @@ export default function MarketingHomePage() {
             </Button>
           </div>
           <p className="mt-3 text-sm text-charcoal-ink/55">
-            Same signup either way — we build the right calendar around you once you&apos;re in.
+            Same signup either way; we build the right calendar around you once you&apos;re in.
           </p>
         </MarketingHero>
         <ContinuityPath />
@@ -89,14 +95,14 @@ export default function MarketingHomePage() {
         </div>
       </Section>
 
-      {/* Two front doors — the same shared record, entered from either side.
+      {/* Two front doors, the same shared record, entered from either side.
           Healthy visitors must see themselves within the first screen-and-a-
           half, not at section six (prevention-first repositioning). */}
       <Section>
         <SectionHeading
           eyebrow="Start where you are"
           title="Two ways in, one record"
-          description="Tarragon is for people managing a condition — and just as much for people who don't have one and intend to keep it that way."
+          description="Tarragon is for people managing a condition, and just as much for people who don't have one and intend to keep it that way."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
           <Link
@@ -126,7 +132,7 @@ export default function MarketingHomePage() {
               Get followed up properly →
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-              Hypertension, diabetes, weight — monitored between visits, reviewed against care
+              Hypertension, diabetes, weight: monitored between visits, reviewed against care
               protocols, and escalated to a doctor when something needs attention.
             </p>
           </Link>
@@ -137,7 +143,7 @@ export default function MarketingHomePage() {
         <StoryPanel
           eyebrow="The problem"
           title="Chronic disease is poorly followed up between doctor visits"
-          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between. And for healthy people, the screenings and vaccinations that would catch problems early rarely happen at all — until something is missed."
+          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between. And for healthy people, the screenings and vaccinations that would catch problems early rarely happen at all, until something is missed."
           media={homepage.problem}
         />
       </Section>
@@ -237,6 +243,27 @@ export default function MarketingHomePage() {
 
       <Section>
         <SectionHeading
+          eyebrow="Beyond monitoring"
+          title="More than a dashboard"
+          description="A few things people are often surprised to find already built in."
+        />
+        <div className="grid gap-6 md:grid-cols-3">
+          {PLATFORM_EXTRAS.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 transition duration-200 hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-md"
+            >
+              <h3 className="font-heading text-xl font-semibold text-charcoal-ink">
+                {item.title}
+              </h3>
+              <p className="mt-3 text-charcoal-ink/70">{item.body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section>
+        <SectionHeading
           eyebrow="Explore"
           title="Find the care that fits you"
           description="Whether you're managing a condition, staying ahead of one, or looking after someone else, there's a place to start."
@@ -246,7 +273,7 @@ export default function MarketingHomePage() {
             {
               href: MARKETING_ROUTES.prevention,
               title: "Prevention",
-              body: "Healthy and staying that way — screenings, vaccines, yearly checks.",
+              body: "Healthy and staying that way: screenings, vaccines, yearly checks.",
             },
             {
               href: MARKETING_ROUTES.services,

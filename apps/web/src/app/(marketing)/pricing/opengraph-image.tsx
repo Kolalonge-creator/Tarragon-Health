@@ -1,6 +1,6 @@
 import { OG_CONTENT_TYPE, OG_SIZE, renderOgImage } from "../_components/og-card";
 
-export const alt = "TarragonHealth pricing — simple, transparent plans";
+export const alt = "TarragonHealth pricing: simple, transparent plans";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 

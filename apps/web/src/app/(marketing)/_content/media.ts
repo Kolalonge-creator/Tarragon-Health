@@ -6,10 +6,10 @@
  * `illustration` unset. To add a walkthrough video, set `youtubeId` to the
  * ID from a YouTube URL (https://youtube.com/watch?v=THIS_PART).
  *
- * Video strategy (Omada/Virta pattern — never a raw YouTube player in a hero):
+ * Video strategy (Omada/Virta pattern; never a raw YouTube player in a hero):
  * - `PRODUCT_VIDEOS` below: one click-to-play explainer per programme page,
  *   hosted on the Tarragon YouTube channel. A page's video section renders
- *   ONLY once its `youtubeId` is filled in — no "coming soon" placeholders —
+ *   ONLY once its `youtubeId` is filled in (no "coming soon" placeholders),
  *   so lighting a page up is a one-line edit here when the channel is live.
  * - `videoSrc` on a media slot: a muted, looping, self-hosted ambient clip
  *   (file under `public/marketing/`, MP4, no sound, a few seconds) for the
@@ -114,13 +114,13 @@ export const PRODUCT_VIDEOS: Record<string, ProductVideo> = {
     youtubeId: "",
     title: "See how Tarragon manages diabetes",
     caption:
-      "Glucose logs, HbA1c, labs, and medication on one record — and what happens when your numbers need a closer look.",
+      "Glucose logs, HbA1c, labs, and medication on one record, and what happens when your numbers need a closer look.",
   },
   obesity: {
     youtubeId: "",
     title: "See how the obesity programme works",
     caption:
-      "A structured, doctor-reviewed programme — weight tracking, a lifestyle plan, and related conditions watched on the same record.",
+      "A structured, doctor-reviewed programme: weight tracking, a lifestyle plan, and related conditions watched on the same record.",
   },
   parentcare: {
     youtubeId: "",

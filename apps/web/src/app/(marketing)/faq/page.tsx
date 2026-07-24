@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   alternates: { canonical: MARKETING_ROUTES.faq },
 };
 
-/** FAQPage structured data — eligible for the FAQ rich result in search. */
+/** FAQPage structured data; eligible for the FAQ rich result in search. */
 const faqJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",

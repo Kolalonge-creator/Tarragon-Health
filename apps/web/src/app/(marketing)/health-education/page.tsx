@@ -15,19 +15,19 @@ export const metadata: Metadata = {
 const WHATS_INCLUDED = [
   {
     title: "Built around you, not a general library",
-    body: "What you see is matched to your own conditions and risk level — a person managing hypertension and a healthy person preparing for a screening see different things.",
+    body: "What you see is matched to your own conditions and risk level: a person managing hypertension and a healthy person preparing for a screening see different things.",
   },
   {
     title: "Reviewed by our clinical team",
-    body: "Every piece is checked for accuracy before it's published — no generic internet health advice, and nothing that contradicts what your own doctor tells you.",
+    body: "Every piece is checked for accuracy before it's published: no generic internet health advice, and nothing that contradicts what your own doctor tells you.",
   },
   {
     title: "Short knowledge checks",
-    body: "A quick check after each topic shows you, honestly, whether it landed — not a quiz to pass, just a mirror.",
+    body: "A quick check after each topic shows you, honestly, whether it landed; not a quiz to pass, just a mirror.",
   },
   {
     title: "Marks what still needs another look",
-    body: "Understand something? It moves aside. Not sure? It stays near the top until it clicks — your own pace, not a fixed course.",
+    body: "Understand something? It moves aside. Not sure? It stays near the top until it clicks: your own pace, not a fixed course.",
   },
 ];
 
@@ -40,7 +40,7 @@ const HOW_IT_WORKS = [
   {
     step: 2,
     title: "You get a short, focused list",
-    body: "A handful of topics, not a library to get lost in — ranked so what needs your attention most comes first.",
+    body: "A handful of topics, not a library to get lost in, ranked so what needs your attention most comes first.",
   },
   {
     step: 3,
@@ -50,7 +50,7 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "It keeps up as your care changes",
-    body: "New condition, new result, new risk level — your list updates with it, so it's never stale advice from months ago.",
+    body: "New condition, new result, new risk level: your list updates with it, so it's never stale advice from months ago.",
   },
 ];
 
@@ -121,11 +121,11 @@ export default function HealthEducationPage() {
       <Section variant="sage">
         <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-            For anyone in your record — condition or none
+            For anyone in your record, condition or none
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Managing hypertension, diabetes, or your weight? You&apos;ll see the practical detail
-            that turns a reading into an understanding — why a target matters, what a trend means,
+            that turns a reading into an understanding: why a target matters, what a trend means,
             what to watch for. Healthy and using{" "}
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
               Tarragon Prevent

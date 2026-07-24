@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 /**
- * Factual trust signals only — every claim here maps to something the
+ * Factual trust signals only; every claim here maps to something the
  * platform actually enforces (MDCN verification gates on clinical_staff,
  * consent-gated family sharing, hosted Paystack/Stripe checkout, the
  * pricing page's no-hidden-cost promise). Never add a claim that isn't
@@ -11,7 +11,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 const TRUST_ITEMS = [
   {
     title: "Named, registered doctors",
-    body: "Care is delivered by MDCN-registered doctors, and a doctor review always carries the doctor's name — never an anonymous system.",
+    body: "Care is delivered by MDCN-registered doctors, and a doctor review always carries the doctor's name, never an anonymous system.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
@@ -41,7 +41,7 @@ const TRUST_ITEMS = [
   },
   {
     title: "No hidden costs, ever",
-    body: "You see the exact price and confirm before anything is booked or charged — spelled out in full on the pricing page.",
+    body: "You see the exact price and confirm before anything is booked or charged, spelled out in full on the pricing page.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <path d="M4 7h16M4 12h16M4 17h10" />

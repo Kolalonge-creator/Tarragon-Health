@@ -16,7 +16,7 @@ type Recommendation = {
 
 /**
  * Maps the three answers to a single recommended plan. Pure and exhaustive so
- * the mapping is testable and every combination has a deliberate answer —
+ * the mapping is testable and every combination has a deliberate answer;
  * pricing decisions live in _content/pricing.ts; this only routes to them.
  */
 export function recommendPlan(who: Who, health: Health, from: From): Recommendation {
@@ -41,7 +41,7 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
         ? {
             plan: "Family Plus (Diaspora)",
             price: "£430/year for up to 4 people",
-            why: "A named family doctor coordinator and priority escalation for every member back home — billed in pounds, visible from anywhere.",
+            why: "A named family doctor coordinator and priority escalation for every member back home, billed in pounds, visible from anywhere.",
             secondary: "Family Lite (£290/year) works too if you mainly want everyone monitored on one bill.",
           }
         : {
@@ -55,7 +55,7 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
       ? {
           plan: "Family Plus",
           price: "₦220,000/year for up to 4 people",
-          why: "A named family doctor coordinator and priority escalation for every member — the closer coordination a household managing real conditions needs.",
+          why: "A named family doctor coordinator and priority escalation for every member: the closer coordination a household managing real conditions needs.",
           secondary: "Family Lite (₦150,000/year) works too if you mainly want everyone monitored on one bill.",
         }
       : {
@@ -70,14 +70,14 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
       ? {
           plan: "Tarragon Prevent (Diaspora)",
           price: "£7/month",
-          why: "The stay-healthy plan: a screening and vaccination calendar built for you, bookable when checks come due, plus personalised health education — so small things get caught before they become conditions.",
+          why: "The stay-healthy plan: a screening and vaccination calendar built for you, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
           secondary:
             "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000, in Nigeria) is available to anyone, on any plan.",
         }
       : {
           plan: "Tarragon Prevent",
           price: "₦3,500/month",
-          why: "The stay-healthy plan: a screening and vaccination calendar built for you, bookable when checks come due, plus personalised health education — so small things get caught before they become conditions.",
+          why: "The stay-healthy plan: a screening and vaccination calendar built for you, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
           secondary:
             "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000) is available to anyone, on any plan.",
         };
@@ -92,7 +92,7 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
       : {
           plan: "Essential Care",
           price: "₦8,000/month",
-          why: "Real clinical monitoring for one condition — hypertension, diabetes, or obesity: a doctor reviews your readings every month and follows up on your medication.",
+          why: "Real clinical monitoring for one condition, hypertension, diabetes, or obesity: a doctor reviews your readings every month and follows up on your medication.",
         };
   }
   return from === "abroad"
@@ -126,7 +126,7 @@ const QUESTIONS: {
     key: "health",
     label: "What best describes the health situation?",
     options: [
-      { value: "none", label: "No diagnosed condition — staying ahead" },
+      { value: "none", label: "No diagnosed condition, staying ahead" },
       { value: "one", label: "One condition: hypertension, diabetes, or obesity" },
       { value: "multiple", label: "More than one of these, or higher risk" },
     ],
@@ -141,7 +141,7 @@ const QUESTIONS: {
   },
 ];
 
-/** Three questions, one recommendation — cuts the tier-choice overload. */
+/** Three questions, one recommendation; cuts the tier-choice overload. */
 export function PlanFinder() {
   const [answers, setAnswers] = useState<{ who?: Who; health?: Health; from?: From }>({});
   const done = answers.who && answers.health && answers.from;
@@ -193,7 +193,7 @@ export function PlanFinder() {
             <p className="mt-2 text-xs leading-relaxed text-charcoal-ink/60">{rec.secondary}</p>
           ) : null}
           <p className="mt-3 text-xs text-charcoal-ink/60">
-            This is a suggestion, not a commitment — every plan is listed in full below, and you can
+            This is a suggestion, not a commitment; every plan is listed in full below, and you can
             change or cancel at any time.
           </p>
         </div>

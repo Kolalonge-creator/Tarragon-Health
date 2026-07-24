@@ -4,7 +4,7 @@ import { SITE } from "@/lib/marketing/site";
 /**
  * Shared renderer for every marketing OpenGraph card, so each page can ship a
  * tailored 1200x630 share image (title + subtitle) over one consistent brand
- * treatment. Drawn entirely in-code — no external asset or font fetch.
+ * treatment. Drawn entirely in-code; no external asset or font fetch.
  */
 
 export const OG_SIZE = { width: 1200, height: 630 } as const;
