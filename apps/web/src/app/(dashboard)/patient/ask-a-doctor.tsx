@@ -115,7 +115,7 @@ export function AskADoctor({
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
           Send a written question and a doctor on your care team answers here, usually
-          within 24 hours. Not for emergencies — if something feels urgent, use the
+          within 24 hours. Not for emergencies: if something feels urgent, use the
           symptom check at the top of this page or go to a hospital.
         </p>
         <div className="space-y-2">
@@ -139,7 +139,7 @@ export function AskADoctor({
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             rows={3}
-            placeholder="e.g. I've felt dizzy in the mornings since my dose changed — is that expected?"
+            placeholder="e.g. I've felt dizzy in the mornings since my dose changed. Is that expected?"
           />
         </div>
         <div className="space-y-2">
@@ -162,7 +162,7 @@ export function AskADoctor({
         )}
         {submit.isSuccess && (
           <p className="text-sm text-brand-green">
-            Sent — a doctor will answer here within 24 hours.
+            Sent. A doctor will answer here within 24 hours.
           </p>
         )}
         <Button onClick={onSubmit} disabled={submit.isPending}>

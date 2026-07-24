@@ -40,7 +40,7 @@ const REQUEST_STATUS: Record<
   requested: { label: "Awaiting payment", tone: "grey" },
   pending_payment: { label: "Awaiting payment", tone: "grey" },
   payment_confirmed: {
-    label: "Paid — waiting for a doctor to accept",
+    label: "Paid, waiting for a doctor to accept",
     tone: "amber",
     note: "Your payment is held by Tarragon and only goes through when a doctor accepts. If no doctor can take it within 48 hours, you're refunded in full.",
   },
@@ -48,12 +48,12 @@ const REQUEST_STATUS: Record<
   declined: {
     label: "Not available",
     tone: "red",
-    note: "A doctor couldn't take this visit — your payment will be refunded in full.",
+    note: "A doctor couldn't take this visit. Your payment will be refunded in full.",
   },
   expired: {
     label: "Not accepted in time",
     tone: "red",
-    note: "No doctor could take this within 48 hours — your payment will be refunded in full.",
+    note: "No doctor could take this within 48 hours. Your payment will be refunded in full.",
   },
   cancelled: { label: "Cancelled", tone: "grey" },
   refunded: { label: "Refunded", tone: "grey" },
@@ -95,14 +95,14 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
       <CardContent className="space-y-4">
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
           <p className="text-sm font-medium text-red-700">
-            Not for emergencies. If this is an emergency — severe chest pain, trouble
-            breathing, sudden weakness, heavy bleeding — go to the nearest emergency
+            Not for emergencies. If this is an emergency (severe chest pain, trouble
+            breathing, sudden weakness, heavy bleeding), go to the nearest emergency
             department now.
           </p>
         </div>
         <p className="text-sm text-charcoal-ink/70">
-          A paid, self-serve 15-minute telemedicine consultation with a Tarragon doctor — a
-          video call, not an in-person visit. Pick a time and pay — your payment is{" "}
+          A paid, self-serve 15-minute video consultation with a Tarragon doctor, not an
+          in-person visit. Pick a time and pay: your payment is{" "}
           <span className="font-medium">held by Tarragon</span> and only goes through when a
           doctor accepts your request; that&apos;s also when your time is confirmed. Visits
           depend on doctor availability and are not guaranteed until accepted. If no doctor can
@@ -139,7 +139,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
         {hasSlots && (
           <form action={formAction} className="space-y-3">
             <p className="text-sm font-medium text-charcoal-ink">
-              Request a time — {formatPrice(price!.amount_minor, price!.currency)} per visit
+              Request a time: {formatPrice(price!.amount_minor, price!.currency)} per visit
             </p>
             <div className="flex flex-wrap gap-2">
               {(slots ?? []).map((slot) => (
