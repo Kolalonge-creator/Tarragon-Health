@@ -75,8 +75,8 @@ export function WalletCard({ patientId }: { patientId: string }) {
             ₦{koboToNaira(balanceKobo).toLocaleString()}
           </p>
           <p className="text-xs text-charcoal-ink/60">
-            Spend it on any Tarragon lab test, health check, pharmacy order, or referral fee —
-            never cashed out.
+            Spend it on any Tarragon lab test, health check, pharmacy order, or referral fee.
+            It&apos;s never cashed out.
           </p>
         </div>
 
@@ -186,8 +186,8 @@ export function WalletCard({ patientId }: { patientId: string }) {
             Refer a friend
           </p>
           <p className="text-xs text-charcoal-ink/70">
-            Share your link — you both get ₦500 wallet credit once they complete their first paid
-            order.
+            Share your link and you both get ₦500 wallet credit once they complete their first
+            paid order.
           </p>
           {referralCode && (
             <div className="flex items-center gap-2">
@@ -233,7 +233,7 @@ export function WalletCard({ patientId }: { patientId: string }) {
           </div>
           {redeemResult && (
             <p className={`text-xs ${redeemResult.ok ? "text-brand-green" : "text-red-600"}`}>
-              {redeemResult.ok ? "Code applied — welcome reward on the way." : redeemResult.error}
+              {redeemResult.ok ? "Code applied. Welcome reward on the way." : redeemResult.error}
             </p>
           )}
         </div>

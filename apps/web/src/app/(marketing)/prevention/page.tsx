@@ -52,7 +52,7 @@ const SCREENING_GROUPS = [
       "A full childhood immunisation record for each of your children, on the same recognised schedule as their paper card, but one you can't lose",
       "HPV vaccination (free at government PHC centres for girls 9–14; catch-up doses bookable for women 15–45)",
       "Hepatitis B vaccination series, with each dose tracked to completion",
-      "Optional cycle tracking for women, with gentle nudges — an estimated next period (never a prediction), a nudge to book antenatal care once you're pregnant, or a nudge to talk to your care team as perimenopause or menopause begins",
+      "Optional cycle tracking for women, with gentle nudges: an estimated next period (never a prediction), a nudge to book antenatal care once you're pregnant, or a nudge to talk to your care team as perimenopause or menopause begins",
     ],
   },
   {
