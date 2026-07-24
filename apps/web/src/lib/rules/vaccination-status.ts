@@ -24,6 +24,15 @@ import type { Tables } from "@tarragon/shared";
  *     off every adult's card; catch-up beyond that window is a clinical
  *     decision, not an automatic one. Optional sex restricts to one sex
  *     (e.g. HPV girls-only).
+ *
+ * interval_years also accepts an optional anchor_fallback_code, so a
+ * recurring booster can start counting from a dose logged under a DIFFERENT
+ * catalog entry when it has none of its own. The tetanus/Td booster uses
+ * this: most people's last tetanus-toxoid-containing dose was their
+ * childhood Pentavalent series (child_penta), not something ever logged
+ * under the tetanus_td_booster code — this is how "boost every 10 years
+ * from your last childhood dose" is expressed without merging two
+ * differently-named, differently-composed vaccines into one catalog row.
  */
 
 export type VaccinationCatalogRow = Pick<
@@ -62,6 +71,10 @@ export interface VaccinationStatusResult {
 
 interface RecommendedAgeShape {
   interval_years?: number;
+  /** Only consulted by the interval_years branch, and only when this entry
+   * has no dose of its own on file — names another vaccination_catalog code
+   * whose last logged dose should anchor this booster's first due date. */
+  anchor_fallback_code?: string;
   dose_schedule_months?: number[];
   doses?: number;
   max_catch_up_age?: number;
@@ -109,6 +122,29 @@ function dueOrOverdue(dueDate: string, today: string): VaccinationStatus {
   return dueDate <= today ? (dueDate < today ? "overdue" : "due") : "up_to_date";
 }
 
+/**
+ * Resolves anchor_fallback_code to the last dose date logged under that
+ * OTHER catalog entry — e.g. lets the tetanus/Td booster start its 10-year
+ * clock from a patient's last childhood Pentavalent dose instead of
+ * requiring a dose logged under the tetanus_td_booster code itself. Returns
+ * null if the code is unset, doesn't match any catalog entry, or has no
+ * doses logged (all of which fall through to the caller's own "never had a
+ * dose" handling).
+ */
+function resolveAnchorFallbackDate(
+  fallbackCode: string | undefined,
+  catalog: VaccinationCatalogRow[],
+  records: VaccinationRecordRow[]
+): string | null {
+  if (!fallbackCode) return null;
+  const fallbackEntry = catalog.find((c) => c.code === fallbackCode);
+  if (!fallbackEntry) return null;
+  const fallbackRecords = records
+    .filter((r) => r.vaccination_catalog_id === fallbackEntry.id)
+    .sort((a, b) => a.date_administered.localeCompare(b.date_administered));
+  return fallbackRecords.at(-1)?.date_administered ?? null;
+}
+
 export function computeVaccinationStatuses(
   catalog: VaccinationCatalogRow[],
   records: VaccinationRecordRow[],
@@ -129,11 +165,17 @@ export function computeVaccinationStatuses(
     const base = { catalogId: entry.id, code: entry.code, name: entry.name, dosesGiven, lastDoseDate };
 
     if (recommendedAge.interval_years !== undefined) {
-      if (!lastDoseDate) {
+      const anchorDate =
+        lastDoseDate ?? resolveAnchorFallbackDate(recommendedAge.anchor_fallback_code, catalog, records);
+      if (!anchorDate) {
         return { ...base, status: "due", nextDueDate: todayISO };
       }
-      const nextDueDate = addYears(lastDoseDate, recommendedAge.interval_years);
-      return { ...base, status: dueOrOverdue(nextDueDate, todayISO), nextDueDate };
+      const nextDueDate = addYears(anchorDate, recommendedAge.interval_years);
+      // lastDoseDate is overridden (not just base's own dosesGiven-derived
+      // value) when the fallback supplied it, so a patient who's never had a
+      // dose logged under THIS code still sees the real date their clock is
+      // counting from, not "never".
+      return { ...base, lastDoseDate: anchorDate, status: dueOrOverdue(nextDueDate, todayISO), nextDueDate };
     }
 
     if (recommendedAge.dose_schedule_months !== undefined) {

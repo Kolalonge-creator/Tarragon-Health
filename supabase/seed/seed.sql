@@ -74,6 +74,17 @@ values
      '{"dose_schedule_months": [0, 6]}'::jsonb)
 on conflict (code) do nothing;
 
+-- Anchor the adult tetanus/Td booster off the childhood Pentavalent series
+-- (child_penta, seeded by the child_immunisation_nphcda migration, not this
+-- file) via computeVaccinationStatuses' anchor_fallback_code -- migration
+-- 20260724022928. A plain UPDATE (not part of the ON CONFLICT insert above)
+-- since the column already has a value on an existing environment; the
+-- `not (... ? 'anchor_fallback_code')` guard keeps it idempotent.
+update public.vaccination_catalog
+  set recommended_age = recommended_age || '{"anchor_fallback_code": "child_penta"}'::jsonb
+  where code = 'tetanus_td_booster'
+    and not (recommended_age ? 'anchor_fallback_code');
+
 -- ---------------------------------------------------------------------------
 -- lab_providers
 -- ---------------------------------------------------------------------------

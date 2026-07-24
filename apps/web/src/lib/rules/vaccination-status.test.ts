@@ -225,6 +225,83 @@ describe("computeVaccinationStatuses", () => {
     expect(oldEnough.status).toBe("due");
   });
 
+  it("anchors a booster's first due date off a fallback vaccine's last dose when it has none of its own", () => {
+    const TETANUS_WITH_FALLBACK: VaccinationCatalogRow = {
+      id: "tetanus-id",
+      code: "tetanus_td_booster",
+      name: "Tetanus/Td Booster",
+      recommended_age: { interval_years: 10, anchor_fallback_code: "child_penta" },
+    };
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const records = [
+      record("penta-id", 1, "2016-01-13"),
+      record("penta-id", 2, "2016-02-10"),
+      record("penta-id", 3, "2016-03-10"), // the child's last routine tetanus-containing dose
+    ];
+    const [result] = computeVaccinationStatuses(
+      [TETANUS_WITH_FALLBACK, PENTA],
+      records,
+      { ageYears: 10 },
+      today
+    );
+    expect(result.status).toBe("overdue");
+    expect(result.nextDueDate).toBe("2026-03-10"); // 10 years after the last Penta dose
+    expect(result.lastDoseDate).toBe("2016-03-10");
+    expect(result.dosesGiven).toBe(0); // no dose logged under tetanus_td_booster's own code
+  });
+
+  it("prefers a booster's own logged dose over the fallback once one exists", () => {
+    const TETANUS_WITH_FALLBACK: VaccinationCatalogRow = {
+      id: "tetanus-id",
+      code: "tetanus_td_booster",
+      name: "Tetanus/Td Booster",
+      recommended_age: { interval_years: 10, anchor_fallback_code: "child_penta" },
+    };
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const records = [
+      record("penta-id", 3, "2016-03-10"),
+      record("tetanus-id", 1, "2026-01-06"), // a real adult booster, logged more recently
+    ];
+    const [result] = computeVaccinationStatuses(
+      [TETANUS_WITH_FALLBACK, PENTA],
+      records,
+      { ageYears: 10 },
+      today
+    );
+    expect(result.status).toBe("up_to_date");
+    expect(result.nextDueDate).toBe("2036-01-06");
+    expect(result.lastDoseDate).toBe("2026-01-06");
+  });
+
+  it("falls back to plain never-had-a-dose handling when the fallback code has no doses either", () => {
+    const TETANUS_WITH_FALLBACK: VaccinationCatalogRow = {
+      id: "tetanus-id",
+      code: "tetanus_td_booster",
+      name: "Tetanus/Td Booster",
+      recommended_age: { interval_years: 10, anchor_fallback_code: "child_penta" },
+    };
+    const PENTA: VaccinationCatalogRow = {
+      id: "penta-id",
+      code: "child_penta",
+      name: "Pentavalent (DTP-HepB-Hib)",
+      recommended_age: { age_schedule_weeks: [6, 10, 14], max_age_years: 5 },
+    };
+    const [result] = computeVaccinationStatuses([TETANUS_WITH_FALLBACK, PENTA], [], { ageYears: 40 }, today);
+    expect(result.status).toBe("due");
+    expect(result.nextDueDate).toBe("2026-07-06");
+    expect(result.lastDoseDate).toBeNull();
+  });
+
   it("clamps month arithmetic instead of rolling into the next month", () => {
     const janThirtyFirst: VaccinationCatalogRow = {
       id: "x",
