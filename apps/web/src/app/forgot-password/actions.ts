@@ -29,8 +29,12 @@ export async function requestPasswordResetEmail(
   // "succeeds" client-side even for an unknown address, which is the
   // intended anti-enumeration behaviour, so a generic success message is
   // shown regardless (errors here are transport/rate-limit failures only).
+  // redirectTo only needs to satisfy the project's redirect-URL allow-list —
+  // the actual post-verify destination is hardcoded in the "Reset Password"
+  // email template's link to /auth/confirm (see that route for why: the
+  // hosted recovery link can't go through /auth/callback's `?code=` flow).
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${origin}/auth/callback?redirect=${encodeURIComponent("/reset-password")}`,
+    redirectTo: `${origin}/reset-password`,
   });
   if (error) {
     return { error: "Could not send reset email. Please try again." };
