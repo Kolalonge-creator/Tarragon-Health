@@ -151,6 +151,25 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
           ],
         },
       ];
+    case "finance":
+      return [
+        {
+          items: [
+            { label: "Overview", href: "/finance", icon: "dashboard", exact: true },
+            { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
+            { label: "Financial statements", href: "/finance/statements", icon: "statements" },
+            { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
+            { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
+            { label: "Tax", href: "/finance/tax", icon: "tax" },
+          ],
+        },
+        {
+          label: "Setup",
+          items: [
+            { label: "Periods & accounts", href: "/finance/settings", icon: "settings" },
+          ],
+        },
+      ];
     case "corporate_admin":
       return [
         {

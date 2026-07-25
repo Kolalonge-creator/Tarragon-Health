@@ -39,6 +39,12 @@ export const PERMISSION_KEYS = [
   "analytics.view",
   "members.activity.view",
   "integrations.manage",
+  "finance.view",
+  "finance.gl.post",
+  "finance.periods.manage",
+  "finance.reconcile",
+  "finance.tax.manage",
+  "finance.export",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];

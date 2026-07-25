@@ -10258,6 +10258,86 @@ export type Database = {
           id: string
         }[]
       }
+      finance_accounts_list: { Args: never; Returns: Json }
+      finance_balance_sheet: { Args: { p_as_of?: string; p_currency?: string }; Returns: Json }
+      finance_dashboard_summary: { Args: never; Returns: Json }
+      finance_import_settlement: {
+        Args: {
+          p_provider: string
+          p_external_ref: string
+          p_settlement_date: string
+          p_currency: string
+          p_gross: number
+          p_fees: number
+          p_net: number
+          p_bank_account: string
+          p_notes: string
+        }
+        Returns: string
+      }
+      finance_income_statement: {
+        Args: { p_from: string; p_to: string; p_currency?: string }
+        Returns: Json
+      }
+      finance_ledger_entries: {
+        Args: {
+          p_from?: string
+          p_to?: string
+          p_account?: string
+          p_source?: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
+      finance_match_payment: {
+        Args: { p_settlement_id: string; p_payment_transaction_id: string; p_amount: number }
+        Returns: string
+      }
+      finance_periods_list: { Args: never; Returns: Json }
+      finance_post_manual_journal: {
+        Args: { p_entry_date: string; p_currency: string; p_memo: string; p_lines: Json }
+        Returns: string
+      }
+      finance_post_settlement: { Args: { p_settlement_id: string }; Returns: string }
+      finance_reconciliation_summary: { Args: never; Returns: Json }
+      finance_reverse_journal: { Args: { p_entry: string; p_reason: string }; Returns: string }
+      finance_revrec_summary: { Args: never; Returns: Json }
+      finance_run_revenue_recognition: { Args: never; Returns: number }
+      finance_set_period_status: { Args: { p_month: string; p_status: string }; Returns: undefined }
+      finance_tax_rates_list: { Args: never; Returns: Json }
+      finance_tax_summary: {
+        Args: { p_from: string; p_to: string; p_currency?: string }
+        Returns: Json
+      }
+      finance_trial_balance: { Args: { p_as_of?: string; p_currency?: string }; Returns: Json }
+      finance_unmatch_payment: { Args: { p_payment_transaction_id: string }; Returns: undefined }
+      finance_upsert_account: {
+        Args: {
+          p_code: string
+          p_name: string
+          p_type: string
+          p_normal_balance: string
+          p_vat_treatment: string
+          p_is_active: boolean
+          p_sort_order: number
+          p_description: string
+        }
+        Returns: string
+      }
+      finance_upsert_tax_rate: {
+        Args: {
+          p_id: string | null
+          p_jurisdiction: string
+          p_tax_type: string
+          p_name: string
+          p_rate_pct: number
+          p_applies_to: string
+          p_effective_from: string
+          p_is_active: boolean
+          p_notes: string
+        }
+        Returns: string
+      }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       get_or_create_my_referral_code: { Args: never; Returns: string }
       get_or_create_my_wallet: { Args: never; Returns: string }
@@ -10819,6 +10899,7 @@ export type Database = {
         | "pharmacist"
         | "analyst"
         | "lab_liaison"
+        | "finance"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -11424,6 +11505,7 @@ export const Constants = {
         "pharmacist",
         "analyst",
         "lab_liaison",
+        "finance",
       ],
       vaccination_verification_status: [
         "self_reported",
