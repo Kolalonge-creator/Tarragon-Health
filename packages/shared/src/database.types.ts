@@ -11342,6 +11342,10 @@ export type Database = {
         Args: { p_months_ahead?: number }
         Returns: Json
       }
+      finance_compliance_suggested_amount: {
+        Args: { p_obligation_code: string; p_period_label: string }
+        Returns: Json
+      }
       finance_cost_centers_list: { Args: never; Returns: Json }
       finance_create_bill: {
         Args: {

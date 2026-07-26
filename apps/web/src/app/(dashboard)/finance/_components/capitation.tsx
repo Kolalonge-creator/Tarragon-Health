@@ -173,7 +173,19 @@ export function CapitationRegister() {
                     </div>
                   ) : (
                     <div className="mb-3 flex justify-end">
-                      <Button size="sm" variant="outline" onClick={() => setReceiptFor(c.id)}>Record a receipt</Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setReceiptFor(c.id);
+                          setRf((p) => ({
+                            ...p,
+                            enrolled_members: c.roster_active_members > 0 ? String(c.roster_active_members) : "",
+                          }));
+                        }}
+                      >
+                        Record a receipt
+                      </Button>
                     </div>
                   )}
 

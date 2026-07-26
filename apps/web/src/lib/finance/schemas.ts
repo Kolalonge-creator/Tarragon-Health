@@ -476,3 +476,10 @@ export const financeAuditLogSchema = z.array(
 export type FinanceAuditLogEntry = z.infer<typeof financeAuditLogSchema>[number];
 
 export const auditActionsListSchema = z.array(z.string());
+
+export const complianceSuggestedAmountSchema = z.object({
+  suggested_amount_minor: num.optional(),
+  currency: z.string().optional(),
+  basis: z.string().optional(),
+});
+export type ComplianceSuggestedAmount = z.infer<typeof complianceSuggestedAmountSchema>;

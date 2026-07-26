@@ -30,6 +30,7 @@ import {
   riskFlagsSchema,
   financeAuditLogSchema,
   auditActionsListSchema,
+  complianceSuggestedAmountSchema,
 } from "./schemas";
 
 /**
@@ -414,4 +415,14 @@ export function useFinanceAuditActions() {
       return auditActionsListSchema.parse(data);
     },
   });
+}
+
+/** On-demand only (not a background query) — fetched right before showing the mark-filed form. */
+export async function fetchComplianceSuggestedAmount(obligationCode: string, periodLabel: string) {
+  const { data, error } = await createClient().rpc("finance_compliance_suggested_amount", {
+    p_obligation_code: obligationCode,
+    p_period_label: periodLabel,
+  });
+  if (error) throw error;
+  return complianceSuggestedAmountSchema.parse(data);
 }
