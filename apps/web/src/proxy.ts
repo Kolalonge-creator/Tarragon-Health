@@ -71,11 +71,16 @@ export async function proxy(request: NextRequest) {
     profile.role !== "admin"
   ) {
     // A member the super admin has delegated a capability to (a direct grant or
-    // an assigned custom role) may enter the /admin area to reach the specific
-    // surface they were granted — each admin page independently self-gates on
-    // its own permission (hasPermission), so this only opens the door.
-    const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
-    if (isAdminArea) {
+    // an assigned custom role) may enter the /admin or /finance area to reach
+    // the specific surface they were granted — each page independently self-gates
+    // on its own permission (hasPermission / is_finance), so this only opens the
+    // door.
+    const isDelegatableArea =
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/") ||
+      pathname === "/finance" ||
+      pathname.startsWith("/finance/");
+    if (isDelegatableArea) {
       let hasDelegatedAccess = profile.custom_role_id != null;
       if (!hasDelegatedAccess) {
         const { data: grant } = await supabase
