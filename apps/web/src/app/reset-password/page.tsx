@@ -1,17 +1,16 @@
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { ResetPasswordForm } from "./reset-password-form";
+import { ResetPasswordGate } from "./reset-password-gate";
 
 /**
- * Reachable only with an active session — either from the recovery-link
- * exchange in /auth/callback (email path) or the OTP-verify step in
- * /forgot-password (phone path). No session means the link/code is stale.
+ * Reachable with an active session — either the OTP-verify step in
+ * /forgot-password (phone path, session already cookie-backed server-side)
+ * or Supabase's hosted recovery-link redirect (email path, session only
+ * lands in a URL fragment the server can't see). ResetPasswordGate handles
+ * the fragment case client-side and bounces to /forgot-password only once
+ * neither a server session nor a fragment session is found.
  */
 export default async function ResetPasswordPage() {
   const user = await getCurrentUser();
-  if (!user) {
-    redirect("/forgot-password");
-  }
 
   return (
     <div className="flex flex-1 items-center justify-center bg-charcoal-ink/[0.02] px-4 py-16">
@@ -24,7 +23,7 @@ export default async function ResetPasswordPage() {
             Choose a new password for your account.
           </p>
         </div>
-        <ResetPasswordForm />
+        <ResetPasswordGate hasServerSession={!!user} />
       </div>
     </div>
   );
