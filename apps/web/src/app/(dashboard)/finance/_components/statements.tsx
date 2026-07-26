@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useTrialBalance, useIncomeStatement, useBalanceSheet } from "@/lib/finance/queries";
+import { useTrialBalance, useIncomeStatement, useBalanceSheet, useCashFlowStatement } from "@/lib/finance/queries";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
 
 const CURRENCIES = ["NGN", "GBP", "USD"];
@@ -30,6 +30,7 @@ export function FinanceStatements() {
   const tb = useTrialBalance(asOf, currency);
   const pnl = useIncomeStatement(from, to, currency);
   const bs = useBalanceSheet(asOf, currency);
+  const cf = useCashFlowStatement(from, to, currency);
 
   return (
     <div className="space-y-6">
@@ -84,6 +85,23 @@ export function FinanceStatements() {
         )}
       </SectionCard>
 
+      <SectionCard title="Cash flow statement (indirect method)" description={`${from} to ${to} · ${currency}`}>
+        {cf.isLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : (
+          <div className="space-y-4">
+            <CashFlowSection title="Operating activities" section={cf.data?.operating} netLabel="Net cash from operating" currency={currency} />
+            <CashFlowSection title="Investing activities" section={cf.data?.investing} netLabel="Net cash from investing" currency={currency} />
+            <CashFlowSection title="Financing activities" section={cf.data?.financing} netLabel="Net cash from financing" currency={currency} />
+            <dl className="space-y-1.5 border-t border-charcoal-ink/10 pt-3 text-sm">
+              <Row label="Net change in cash" value={formatMinor(cf.data?.net_change_in_cash_minor ?? 0, currency)} />
+              <Row label="Cash, beginning of period" value={formatMinor(cf.data?.cash_beginning_minor ?? 0, currency)} />
+              <Row label="Cash, end of period" value={formatMinor(cf.data?.cash_ending_minor ?? 0, currency)} strong />
+            </dl>
+          </div>
+        )}
+      </SectionCard>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
           title="Balance sheet"
@@ -134,6 +152,54 @@ export function FinanceStatements() {
             </TableShell>
           )}
         </SectionCard>
+      </div>
+    </div>
+  );
+}
+
+interface CashFlowSectionData {
+  adjustments: { code: string; name: string; delta_minor: number }[];
+  net_cash_from_operating_minor?: number;
+  net_cash_from_investing_minor?: number;
+  net_cash_from_financing_minor?: number;
+}
+
+function CashFlowSection({
+  title,
+  section,
+  netLabel,
+  currency,
+}: {
+  title: string;
+  section: CashFlowSectionData | undefined;
+  netLabel: string;
+  currency: string;
+}) {
+  const net =
+    section?.net_cash_from_operating_minor ?? section?.net_cash_from_investing_minor ?? section?.net_cash_from_financing_minor ?? 0;
+  const adjustments = section?.adjustments ?? [];
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-charcoal-ink/40">{title}</p>
+      {adjustments.length === 0 ? (
+        <p className="text-sm text-charcoal-ink/40">No activity in this period.</p>
+      ) : (
+        <TableShell>
+          <tbody>
+            {adjustments.map((a) => (
+              <tr key={a.code} className="border-b border-charcoal-ink/5">
+                <td className="py-1 pr-4 text-charcoal-ink/70">
+                  <span className="font-mono text-xs text-charcoal-ink/40">{a.code}</span> {a.name}
+                </td>
+                <td className="py-1 text-right tabular-nums text-charcoal-ink">{formatMinor(a.delta_minor, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </TableShell>
+      )}
+      <div className="mt-1 flex items-center justify-between text-sm">
+        <span className="text-charcoal-ink/60">{netLabel}</span>
+        <b className="tabular-nums">{formatMinor(net, currency)}</b>
       </div>
     </div>
   );

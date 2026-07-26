@@ -19,6 +19,7 @@ export interface JournalLineInput {
   credit_minor: number;
   memo?: string;
   counterparty?: string;
+  cost_center_code?: string;
 }
 
 function revalidateFinance() {
@@ -193,4 +194,266 @@ export async function runRevenueRecognitionAction(): Promise<FinanceActionResult
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
   return { ok: true, data };
+}
+
+/**
+ * Additions from the 2026-07-26 audit/tracking/functionality pass: maker-
+ * checker approvals, cost centers, budgets, accounts payable, HMO capitation
+ * register, statutory compliance calendar.
+ */
+
+export async function approveRequestAction(id: string, note: string): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_approve_request", { p_id: id, p_note: note || null });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function rejectRequestAction(id: string, note: string): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_reject_request", { p_id: id, p_note: note });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
+export async function upsertApprovalThresholdAction(
+  currency: string,
+  thresholdMinor: number,
+): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_upsert_approval_threshold", {
+    p_currency: currency,
+    p_threshold_minor: thresholdMinor,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
+export async function upsertCostCenterAction(input: {
+  code: string;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+}): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_upsert_cost_center", {
+    p_code: input.code,
+    p_name: input.name,
+    p_is_active: input.is_active,
+    p_sort_order: input.sort_order,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
+export async function upsertBudgetAction(input: {
+  account_code: string;
+  cost_center_code?: string;
+  period_month: string;
+  currency: string;
+  amount_minor: number;
+  notes?: string;
+}): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_upsert_budget", {
+    p_account_code: input.account_code,
+    p_cost_center_code: input.cost_center_code ?? null,
+    p_period_month: input.period_month,
+    p_currency: input.currency,
+    p_amount_minor: input.amount_minor,
+    p_notes: input.notes ?? null,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function deleteBudgetAction(id: string): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_delete_budget", { p_id: id });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
+export async function upsertVendorAction(input: {
+  id: string | null;
+  name: string;
+  vendor_type: string;
+  contact_email: string;
+  contact_phone: string;
+  tin: string;
+  wht_applicable: boolean;
+  wht_rate_pct: number | null;
+  is_active: boolean;
+}): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_upsert_vendor", {
+    p_id: input.id,
+    p_name: input.name,
+    p_vendor_type: input.vendor_type,
+    p_contact_email: input.contact_email,
+    p_contact_phone: input.contact_phone,
+    p_tin: input.tin,
+    p_wht_applicable: input.wht_applicable,
+    p_wht_rate_pct: input.wht_rate_pct,
+    p_is_active: input.is_active,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function createBillAction(input: {
+  vendor_id: string;
+  bill_date: string;
+  due_date?: string;
+  currency: string;
+  amount_minor: number;
+  expense_account_code: string;
+  cost_center_code?: string;
+  description?: string;
+}): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_create_bill", {
+    p_vendor_id: input.vendor_id,
+    p_bill_date: input.bill_date,
+    p_due_date: input.due_date ?? null,
+    p_currency: input.currency,
+    p_amount_minor: input.amount_minor,
+    p_expense_account_code: input.expense_account_code,
+    p_cost_center_code: input.cost_center_code ?? null,
+    p_description: input.description ?? null,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function approveBillAction(id: string): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_approve_bill", { p_id: id });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function payBillAction(
+  id: string,
+  bankAccountCode: string,
+  paidDate: string,
+): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_pay_bill", {
+    p_id: id,
+    p_bank_account_code: bankAccountCode,
+    p_paid_date: paidDate,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function voidBillAction(id: string, reason: string): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_void_bill", { p_id: id, p_reason: reason });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
+export async function upsertCapitationContractAction(input: {
+  id: string | null;
+  organisation_id: string;
+  contract_name: string;
+  pmpm_rate_minor: number;
+  currency: string;
+  effective_from: string;
+  effective_to?: string;
+  is_active: boolean;
+  notes?: string;
+}): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_upsert_capitation_contract", {
+    p_id: input.id,
+    p_organisation_id: input.organisation_id,
+    p_contract_name: input.contract_name,
+    p_pmpm_rate_minor: input.pmpm_rate_minor,
+    p_currency: input.currency,
+    p_effective_from: input.effective_from,
+    p_effective_to: input.effective_to ?? null,
+    p_is_active: input.is_active,
+    p_notes: input.notes ?? null,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function recordCapitationReceiptAction(input: {
+  contract_id: string;
+  period_month: string;
+  enrolled_members: number;
+  amount_minor: number;
+  received_date: string;
+  bank_account_code: string;
+  estimated_cost_of_care_minor?: number;
+  notes?: string;
+}): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_record_capitation_receipt", {
+    p_contract_id: input.contract_id,
+    p_period_month: input.period_month,
+    p_enrolled_members: input.enrolled_members,
+    p_amount_minor: input.amount_minor,
+    p_received_date: input.received_date,
+    p_bank_account_code: input.bank_account_code,
+    p_estimated_cost_of_care_minor: input.estimated_cost_of_care_minor ?? null,
+    p_notes: input.notes ?? null,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function markFiledAction(input: {
+  obligation_code: string;
+  period_label: string;
+  due_date: string;
+  remittance_reference: string;
+  amount_minor?: number;
+  currency: string;
+  notes?: string;
+}): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_mark_filed", {
+    p_obligation_code: input.obligation_code,
+    p_period_label: input.period_label,
+    p_due_date: input.due_date,
+    p_remittance_reference: input.remittance_reference,
+    p_amount_minor: input.amount_minor ?? null,
+    p_currency: input.currency,
+    p_notes: input.notes ?? null,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function unmarkFiledAction(
+  obligationCode: string,
+  periodLabel: string,
+): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_unmark_filed", {
+    p_obligation_code: obligationCode,
+    p_period_label: periodLabel,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
 }

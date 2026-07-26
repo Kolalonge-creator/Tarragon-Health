@@ -1,17 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { Banknote, Scale, Receipt, TrendingUp, Wallet, FileText, Landmark, AlertCircle } from "lucide-react";
+import {
+  Banknote, Scale, Receipt, TrendingUp, Wallet, FileText, Landmark, AlertCircle,
+  Percent, Gauge, Clock, PiggyBank,
+} from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
-import { useFinanceDashboard } from "@/lib/finance/queries";
+import { Badge } from "@/components/ui/badge";
+import { useFinanceDashboard, useKpiSummary, useRiskFlags } from "@/lib/finance/queries";
 import { SectionCard, CenterNote, formatMinor, formatNumber } from "./primitives";
+
+function pct(v: number | null | undefined): string {
+  return v == null ? "—" : `${v > 0 ? "+" : ""}${v}%`;
+}
 
 export function FinanceOverview() {
   const { data, isLoading, isError } = useFinanceDashboard();
+  const kpis = useKpiSummary("NGN");
+  const flags = useRiskFlags();
 
   if (isError) {
     return <CenterNote>Could not load finance data. You may not have finance access.</CenterNote>;
   }
+
+  const flagCount =
+    (flags.data?.pending_approvals_count ?? 0) +
+    (flags.data?.aged_unreconciled_count ?? 0) +
+    (flags.data?.ap_overdue_count ?? 0) +
+    (flags.data?.compliance_overdue_count ?? 0);
 
   return (
     <div className="space-y-6">
@@ -20,6 +36,38 @@ export function FinanceOverview() {
         top-ups and commissions post automatically; subscription revenue is deferred and recognised
         over each billing period. Figures below are NGN; diaspora currencies are shown per statement.
       </p>
+
+      {flagCount > 0 && (
+        <SectionCard title="Needs attention" description="Bookkeeping health flags across the finance console.">
+          <div className="flex flex-wrap gap-2">
+            {(flags.data?.pending_approvals_count ?? 0) > 0 && (
+              <Link href="/finance/approvals">
+                <Badge variant="amber">{flags.data?.pending_approvals_count} pending approval{flags.data?.pending_approvals_count === 1 ? "" : "s"}</Badge>
+              </Link>
+            )}
+            {(flags.data?.aged_unreconciled_count ?? 0) > 0 && (
+              <Link href="/finance/reconciliation">
+                <Badge variant="red">{flags.data?.aged_unreconciled_count} unreconciled payment{flags.data?.aged_unreconciled_count === 1 ? "" : "s"} &gt;7 days old</Badge>
+              </Link>
+            )}
+            {(flags.data?.ap_overdue_count ?? 0) > 0 && (
+              <Link href="/finance/payables">
+                <Badge variant="red">{flags.data?.ap_overdue_count} overdue bill{flags.data?.ap_overdue_count === 1 ? "" : "s"}</Badge>
+              </Link>
+            )}
+            {(flags.data?.ap_due_soon_count ?? 0) > 0 && (
+              <Link href="/finance/payables">
+                <Badge variant="amber">{flags.data?.ap_due_soon_count} bill{flags.data?.ap_due_soon_count === 1 ? "" : "s"} due within 7 days</Badge>
+              </Link>
+            )}
+            {(flags.data?.compliance_overdue_count ?? 0) > 0 && (
+              <Link href="/finance/compliance">
+                <Badge variant="red">{flags.data?.compliance_overdue_count} overdue statutory filing{flags.data?.compliance_overdue_count === 1 ? "" : "s"}</Badge>
+              </Link>
+            )}
+          </div>
+        </SectionCard>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={Banknote} label="Cash & clearing (NGN)" value={formatMinor(data?.cash_ngn ?? 0, "NGN")} />
@@ -35,6 +83,21 @@ export function FinanceOverview() {
           value={formatNumber(data?.unreconciled.count ?? 0)}
         />
       </div>
+
+      <SectionCard title="Key ratios (NGN, month to date)" description="Margin, growth and cash-health at a glance.">
+        {kpis.isLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatTile icon={Percent} label="Gross margin" value={kpis.data?.gross_margin_pct != null ? `${kpis.data.gross_margin_pct}%` : "—"} />
+            <StatTile icon={Gauge} label="Net margin" value={kpis.data?.net_margin_pct != null ? `${kpis.data.net_margin_pct}%` : "—"} />
+            <StatTile icon={TrendingUp} label="MoM revenue growth" value={pct(kpis.data?.mom_revenue_growth_pct)} />
+            <StatTile icon={TrendingUp} label="YoY revenue growth" value={pct(kpis.data?.yoy_revenue_growth_pct)} />
+            <StatTile icon={Clock} label="Days sales outstanding" value={kpis.data?.dso_days != null ? `${kpis.data.dso_days}d` : "—"} />
+            <StatTile icon={PiggyBank} label="Cash runway" value={kpis.data?.cash_runway_months != null ? `${kpis.data.cash_runway_months} mo` : "—"} />
+          </div>
+        )}
+      </SectionCard>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard title="Revenue by currency" description="Net recognised + point-of-sale revenue booked to date.">
@@ -79,6 +142,11 @@ export function FinanceOverview() {
             <Link href="/finance/ledger" className="text-xs font-medium text-brand-green hover:underline">General ledger →</Link>
             <Link href="/finance/statements" className="text-xs font-medium text-brand-green hover:underline">Statements →</Link>
             <Link href="/finance/reconciliation" className="text-xs font-medium text-brand-green hover:underline">Reconciliation →</Link>
+            <Link href="/finance/payables" className="text-xs font-medium text-brand-green hover:underline">Payables →</Link>
+            <Link href="/finance/capitation" className="text-xs font-medium text-brand-green hover:underline">HMO capitation →</Link>
+            <Link href="/finance/compliance" className="text-xs font-medium text-brand-green hover:underline">Compliance calendar →</Link>
+            <Link href="/finance/approvals" className="text-xs font-medium text-brand-green hover:underline">Approvals →</Link>
+            <Link href="/finance/audit" className="text-xs font-medium text-brand-green hover:underline">Audit log →</Link>
           </div>
         </SectionCard>
       </div>
