@@ -6,6 +6,7 @@ import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { signInWithEmail, requestPhoneOtp, verifyPhoneOtp } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -60,10 +61,9 @@ function EmailLoginForm({ redirectTo }: { redirectTo?: string }) {
             Forgot password?
           </Link>
         </div>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="current-password"
           required
         />
