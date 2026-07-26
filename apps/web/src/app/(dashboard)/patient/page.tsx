@@ -62,6 +62,7 @@ import { BookingRequestsList } from "./booking-requests-list";
 import { AiCoachChat } from "./ai-coach-chat";
 import { FamilyDashboardCard } from "./family-dashboard-card";
 import { AnnualReviewCard } from "./annual-review-card";
+import { ObesitySummary } from "./obesity-summary";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -384,6 +385,7 @@ export default async function PatientPage() {
           fallback={<UpgradePrompt feature="clinician_review" />}
         >
           <CarePlanDisplay patientId={profile.id} />
+          <ObesitySummary patientId={profile.id} />
         </RequiresEntitlement>
         <RequiresEntitlement
           feature="async_doctor_visit"

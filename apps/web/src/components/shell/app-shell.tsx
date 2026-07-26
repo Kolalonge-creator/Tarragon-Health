@@ -126,7 +126,7 @@ export function AppShell({
     .join("");
 
   const userBlock = (
-    <div className="border-t border-charcoal-ink/10 px-4 py-4">
+    <div className="space-y-3 border-t border-charcoal-ink/10 px-4 py-4">
       <div className="flex items-center gap-3">
         <div
           aria-hidden
@@ -138,19 +138,18 @@ export function AppShell({
           <p className="truncate text-sm font-medium text-charcoal-ink">{userName}</p>
           <p className="truncate text-xs text-charcoal-ink/50">{roleLabel}</p>
         </div>
-        <form action={signOutAction}>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-charcoal-ink/50 hover:text-charcoal-ink"
-            title="Sign out"
-            aria-label="Sign out"
-          >
-            <NAV_ICON.signOut className="h-4 w-4" strokeWidth={2} />
-          </Button>
-        </form>
       </div>
+      <form action={signOutAction}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          className="w-full justify-center gap-2 text-charcoal-ink/70 hover:text-charcoal-ink"
+        >
+          <NAV_ICON.signOut className="h-4 w-4" strokeWidth={2} />
+          Sign out
+        </Button>
+      </form>
     </div>
   );
 
