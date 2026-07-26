@@ -37,6 +37,11 @@ import {
   ArrowRightLeft,
   Bell,
   Phone,
+  Landmark,
+  BookOpen,
+  FileSpreadsheet,
+  Receipt,
+  Scale,
   type LucideIcon,
 } from "lucide-react";
 
@@ -86,6 +91,11 @@ export const NAV_ICON = {
   region: MapPin,
   members: UserCog,
   referral: ArrowRightLeft,
+  finance: Landmark,
+  ledger: BookOpen,
+  statements: FileSpreadsheet,
+  tax: Receipt,
+  reconcile: Scale,
   bell: Bell,
   menu: Menu,
   close: X,
