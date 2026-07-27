@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useLedgerEntries, useFinanceAccounts, financeKeys } from "@/lib/finance/queries";
+import { useLedgerEntries, useFinanceAccounts, useCostCenters, financeKeys } from "@/lib/finance/queries";
 import {
   postManualJournalAction,
   reverseJournalAction,
@@ -25,8 +25,9 @@ interface DraftLine {
   debit: string;
   credit: string;
   memo: string;
+  cost_center_code: string;
 }
-const emptyLine = (): DraftLine => ({ account_code: "", debit: "", credit: "", memo: "" });
+const emptyLine = (): DraftLine => ({ account_code: "", debit: "", credit: "", memo: "", cost_center_code: "" });
 
 export function LedgerBrowser() {
   const qc = useQueryClient();
@@ -37,6 +38,7 @@ export function LedgerBrowser() {
 
   const entries = useLedgerEntries({ from, to, source: source || undefined });
   const accounts = useFinanceAccounts();
+  const costCenters = useCostCenters();
 
   // manual-entry draft
   const [entryDate, setEntryDate] = useState(today());
@@ -69,6 +71,7 @@ export function LedgerBrowser() {
         debit_minor: majorToMinor(l.debit),
         credit_minor: majorToMinor(l.credit),
         memo: l.memo || undefined,
+        cost_center_code: l.cost_center_code || undefined,
       }));
     if (payload.length < 2) {
       setMessage({ ok: false, text: "A journal entry needs at least two lines." });
@@ -81,7 +84,12 @@ export function LedgerBrowser() {
       setMessage({ ok: false, text: res.error ?? "Could not post entry." });
       return;
     }
-    setMessage({ ok: true, text: "Journal entry posted." });
+    const status = (res.data as { status?: string } | undefined)?.status;
+    setMessage(
+      status === "pending_approval"
+        ? { ok: true, text: "This entry is above the approval threshold — sent to Approvals for a second finance officer to review before it posts." }
+        : { ok: true, text: "Journal entry posted." },
+    );
     setLines([emptyLine(), emptyLine()]);
     setMemo("");
     qc.invalidateQueries({ queryKey: financeKeys.all });
@@ -137,6 +145,7 @@ export function LedgerBrowser() {
                   <Th>Account</Th>
                   <Th right>Debit</Th>
                   <Th right>Credit</Th>
+                  <Th>Cost center</Th>
                   <Th>Line memo</Th>
                   <Th> </Th>
                 </tr>
@@ -159,6 +168,14 @@ export function LedgerBrowser() {
                     <td className="py-2 pr-2">
                       <Input inputMode="decimal" className="text-right" value={l.credit}
                         onChange={(e) => updateLine(i, { credit: e.target.value, debit: "" })} placeholder="0" />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <Select value={l.cost_center_code} onChange={(e) => updateLine(i, { cost_center_code: e.target.value })}>
+                        <option value="">Unassigned</option>
+                        {(costCenters.data ?? []).map((c) => (
+                          <option key={c.code} value={c.code}>{c.name}</option>
+                        ))}
+                      </Select>
                     </td>
                     <td className="py-2 pr-2">
                       <Input value={l.memo} onChange={(e) => updateLine(i, { memo: e.target.value })} />
@@ -247,6 +264,7 @@ export function LedgerBrowser() {
                         <td className="py-1.5 pl-3 pr-4 text-charcoal-ink/70">
                           <span className="font-mono text-xs text-charcoal-ink/40">{l.account_code}</span> {l.name}
                           {l.counterparty && <span className="text-charcoal-ink/40"> · {l.counterparty}</span>}
+                          {l.cost_center_code && <span className="text-charcoal-ink/40"> · {l.cost_center_code}</span>}
                         </td>
                         <td className="py-1.5 pr-4 text-right tabular-nums text-charcoal-ink">
                           {l.debit_minor ? formatMinor(l.debit_minor, e.currency) : ""}
