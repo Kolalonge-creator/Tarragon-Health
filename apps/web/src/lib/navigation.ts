@@ -143,6 +143,14 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
           ],
         },
       ];
+    case "lab_partner":
+      return [
+        {
+          items: [
+            { label: "Dashboard", href: "/lab-partner", icon: "dashboard", exact: true },
+          ],
+        },
+      ];
     case "analyst":
       return [
         {
