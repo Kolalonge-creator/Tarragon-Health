@@ -2889,6 +2889,976 @@ export type Database = {
           },
         ]
       }
+      finance_accounts: {
+        Row: {
+          account_type: string
+          cash_flow_category: string | null
+          code: string
+          created_at: string
+          description: string | null
+          is_active: boolean
+          name: string
+          normal_balance: string
+          sort_order: number
+          updated_at: string
+          vat_treatment: string
+        }
+        Insert: {
+          account_type: string
+          cash_flow_category?: string | null
+          code: string
+          created_at?: string
+          description?: string | null
+          is_active?: boolean
+          name: string
+          normal_balance: string
+          sort_order?: number
+          updated_at?: string
+          vat_treatment?: string
+        }
+        Update: {
+          account_type?: string
+          cash_flow_category?: string | null
+          code?: string
+          created_at?: string
+          description?: string | null
+          is_active?: boolean
+          name?: string
+          normal_balance?: string
+          sort_order?: number
+          updated_at?: string
+          vat_treatment?: string
+        }
+        Relationships: []
+      }
+      finance_approval_requests: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json
+          reason: string | null
+          request_type: string
+          requested_at: string
+          requested_by: string | null
+          result_entry_id: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload: Json
+          reason?: string | null
+          request_type: string
+          requested_at?: string
+          requested_by?: string | null
+          result_entry_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          reason?: string | null
+          request_type?: string
+          requested_at?: string
+          requested_by?: string | null
+          result_entry_id?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_approval_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_approval_requests_result_entry_id_fkey"
+            columns: ["result_entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_approval_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_approval_settings: {
+        Row: {
+          currency: Database["public"]["Enums"]["currency"]
+          threshold_minor: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          currency: Database["public"]["Enums"]["currency"]
+          threshold_minor: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          currency?: Database["public"]["Enums"]["currency"]
+          threshold_minor?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_approval_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_bills: {
+        Row: {
+          amount_minor: number
+          approve_journal_entry_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_code: string | null
+          bill_date: string
+          bill_no: number
+          cost_center_code: string | null
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency"]
+          description: string | null
+          due_date: string | null
+          expense_account_code: string
+          id: string
+          paid_at: string | null
+          pay_journal_entry_id: string | null
+          status: string
+          updated_at: string
+          vendor_id: string
+          wht_minor: number
+          wht_rate_pct: number
+        }
+        Insert: {
+          amount_minor: number
+          approve_journal_entry_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_code?: string | null
+          bill_date: string
+          bill_no?: number
+          cost_center_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          description?: string | null
+          due_date?: string | null
+          expense_account_code: string
+          id?: string
+          paid_at?: string | null
+          pay_journal_entry_id?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id: string
+          wht_minor?: number
+          wht_rate_pct?: number
+        }
+        Update: {
+          amount_minor?: number
+          approve_journal_entry_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_code?: string | null
+          bill_date?: string
+          bill_no?: number
+          cost_center_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          description?: string | null
+          due_date?: string | null
+          expense_account_code?: string
+          id?: string
+          paid_at?: string | null
+          pay_journal_entry_id?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id?: string
+          wht_minor?: number
+          wht_rate_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_bills_approve_journal_entry_id_fkey"
+            columns: ["approve_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_bills_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_bills_bank_account_code_fkey"
+            columns: ["bank_account_code"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_bills_cost_center_code_fkey"
+            columns: ["cost_center_code"]
+            isOneToOne: false
+            referencedRelation: "finance_cost_centers"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_bills_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_bills_expense_account_code_fkey"
+            columns: ["expense_account_code"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_bills_pay_journal_entry_id_fkey"
+            columns: ["pay_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_bills_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "finance_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_budgets: {
+        Row: {
+          account_code: string
+          amount_minor: number
+          cost_center_code: string | null
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          notes: string | null
+          period_month: string
+          updated_at: string
+        }
+        Insert: {
+          account_code: string
+          amount_minor: number
+          cost_center_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          notes?: string | null
+          period_month: string
+          updated_at?: string
+        }
+        Update: {
+          account_code?: string
+          amount_minor?: number
+          cost_center_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          notes?: string | null
+          period_month?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_budgets_account_code_fkey"
+            columns: ["account_code"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_budgets_cost_center_code_fkey"
+            columns: ["cost_center_code"]
+            isOneToOne: false
+            referencedRelation: "finance_cost_centers"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_budgets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_capitation_contracts: {
+        Row: {
+          contract_name: string
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency"]
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          organisation_id: string
+          pmpm_rate_minor: number
+          updated_at: string
+        }
+        Insert: {
+          contract_name: string
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id: string
+          pmpm_rate_minor: number
+          updated_at?: string
+        }
+        Update: {
+          contract_name?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id?: string
+          pmpm_rate_minor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_capitation_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_capitation_contracts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_capitation_receipts: {
+        Row: {
+          amount_minor: number
+          bank_account_code: string | null
+          contract_id: string
+          created_at: string
+          created_by: string | null
+          enrolled_members: number
+          estimated_cost_of_care_minor: number | null
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          period_month: string
+          received_date: string
+        }
+        Insert: {
+          amount_minor: number
+          bank_account_code?: string | null
+          contract_id: string
+          created_at?: string
+          created_by?: string | null
+          enrolled_members: number
+          estimated_cost_of_care_minor?: number | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          period_month: string
+          received_date: string
+        }
+        Update: {
+          amount_minor?: number
+          bank_account_code?: string | null
+          contract_id?: string
+          created_at?: string
+          created_by?: string | null
+          enrolled_members?: number
+          estimated_cost_of_care_minor?: number | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          period_month?: string
+          received_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_capitation_receipts_bank_account_code_fkey"
+            columns: ["bank_account_code"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_capitation_receipts_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "finance_capitation_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_capitation_receipts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_capitation_receipts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_compliance_obligation_types: {
+        Row: {
+          agency: string
+          code: string
+          description: string | null
+          due_day_of_month: number | null
+          due_months_after_period_end: number | null
+          frequency: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          agency: string
+          code: string
+          description?: string | null
+          due_day_of_month?: number | null
+          due_months_after_period_end?: number | null
+          frequency: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          agency?: string
+          code?: string
+          description?: string | null
+          due_day_of_month?: number | null
+          due_months_after_period_end?: number | null
+          frequency?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      finance_cost_centers: {
+        Row: {
+          code: string
+          created_at: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      finance_filings: {
+        Row: {
+          amount_minor: number | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          due_date: string
+          filed_at: string | null
+          filed_by: string | null
+          id: string
+          notes: string | null
+          obligation_code: string
+          period_label: string
+          remittance_reference: string | null
+        }
+        Insert: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          due_date: string
+          filed_at?: string | null
+          filed_by?: string | null
+          id?: string
+          notes?: string | null
+          obligation_code: string
+          period_label: string
+          remittance_reference?: string | null
+        }
+        Update: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          due_date?: string
+          filed_at?: string | null
+          filed_by?: string | null
+          id?: string
+          notes?: string | null
+          obligation_code?: string
+          period_label?: string
+          remittance_reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_filings_filed_by_fkey"
+            columns: ["filed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_filings_obligation_code_fkey"
+            columns: ["obligation_code"]
+            isOneToOne: false
+            referencedRelation: "finance_compliance_obligation_types"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      finance_journal_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency"]
+          entry_date: string
+          entry_no: number
+          id: string
+          is_reversed: boolean
+          memo: string | null
+          period_month: string
+          reversal_of: string | null
+          source: string
+          source_ref: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          entry_date: string
+          entry_no?: number
+          id?: string
+          is_reversed?: boolean
+          memo?: string | null
+          period_month: string
+          reversal_of?: string | null
+          source: string
+          source_ref?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          entry_date?: string
+          entry_no?: number
+          id?: string
+          is_reversed?: boolean
+          memo?: string | null
+          period_month?: string
+          reversal_of?: string | null
+          source?: string
+          source_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_journal_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_journal_entries_reversal_of_fkey"
+            columns: ["reversal_of"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_journal_lines: {
+        Row: {
+          account_code: string
+          cost_center_code: string | null
+          counterparty: string | null
+          created_at: string
+          credit_minor: number
+          currency: Database["public"]["Enums"]["currency"]
+          debit_minor: number
+          entry_id: string
+          id: string
+          line_no: number
+          memo: string | null
+          organisation_id: string | null
+        }
+        Insert: {
+          account_code: string
+          cost_center_code?: string | null
+          counterparty?: string | null
+          created_at?: string
+          credit_minor?: number
+          currency?: Database["public"]["Enums"]["currency"]
+          debit_minor?: number
+          entry_id: string
+          id?: string
+          line_no?: number
+          memo?: string | null
+          organisation_id?: string | null
+        }
+        Update: {
+          account_code?: string
+          cost_center_code?: string | null
+          counterparty?: string | null
+          created_at?: string
+          credit_minor?: number
+          currency?: Database["public"]["Enums"]["currency"]
+          debit_minor?: number
+          entry_id?: string
+          id?: string
+          line_no?: number
+          memo?: string | null
+          organisation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_journal_lines_account_code_fkey"
+            columns: ["account_code"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_journal_lines_cost_center_code_fkey"
+            columns: ["cost_center_code"]
+            isOneToOne: false
+            referencedRelation: "finance_cost_centers"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_journal_lines_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_journal_lines_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_periods: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          locked_at: string | null
+          locked_by: string | null
+          period_month: string
+          status: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          period_month: string
+          status?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          period_month?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_periods_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_periods_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_settlement_matches: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          id: string
+          matched_by: string | null
+          payment_transaction_id: string
+          settlement_id: string
+        }
+        Insert: {
+          amount_minor: number
+          created_at?: string
+          id?: string
+          matched_by?: string | null
+          payment_transaction_id: string
+          settlement_id: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          id?: string
+          matched_by?: string | null
+          payment_transaction_id?: string
+          settlement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_settlement_matches_matched_by_fkey"
+            columns: ["matched_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_settlement_matches_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_settlement_matches_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "finance_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_settlements: {
+        Row: {
+          bank_account_code: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          external_ref: string | null
+          fees_minor: number
+          gross_minor: number
+          id: string
+          imported_by: string | null
+          journal_entry_id: string | null
+          net_minor: number
+          notes: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          settlement_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bank_account_code?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          external_ref?: string | null
+          fees_minor?: number
+          gross_minor?: number
+          id?: string
+          imported_by?: string | null
+          journal_entry_id?: string | null
+          net_minor?: number
+          notes?: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          settlement_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bank_account_code?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          external_ref?: string | null
+          fees_minor?: number
+          gross_minor?: number
+          id?: string
+          imported_by?: string | null
+          journal_entry_id?: string | null
+          net_minor?: number
+          notes?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
+          settlement_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_settlements_bank_account_code_fkey"
+            columns: ["bank_account_code"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "finance_settlements_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_settlements_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_tax_rates: {
+        Row: {
+          applies_to: string | null
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          jurisdiction: string
+          name: string
+          notes: string | null
+          rate_pct: number
+          tax_type: string
+          updated_at: string
+        }
+        Insert: {
+          applies_to?: string | null
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          jurisdiction?: string
+          name: string
+          notes?: string | null
+          rate_pct: number
+          tax_type: string
+          updated_at?: string
+        }
+        Update: {
+          applies_to?: string | null
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          jurisdiction?: string
+          name?: string
+          notes?: string | null
+          rate_pct?: number
+          tax_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      finance_vendors: {
+        Row: {
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          tin: string | null
+          updated_at: string
+          vendor_type: string | null
+          wht_applicable: boolean
+          wht_rate_pct: number | null
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          tin?: string | null
+          updated_at?: string
+          vendor_type?: string | null
+          wht_applicable?: boolean
+          wht_rate_pct?: number | null
+        }
+        Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          tin?: string | null
+          updated_at?: string
+          vendor_type?: string | null
+          wht_applicable?: boolean
+          wht_rate_pct?: number | null
+        }
+        Relationships: []
+      }
       foot_self_checks: {
         Row: {
           any_problem: boolean
@@ -7946,6 +8916,89 @@ export type Database = {
           },
         ]
       }
+      revenue_recognition_schedules: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          deferred_account_code: string
+          id: string
+          organisation_id: string | null
+          payment_transaction_id: string | null
+          period_end: string
+          period_start: string
+          recognized_minor: number
+          revenue_account_code: string
+          source_id: string | null
+          source_kind: string
+          status: string
+          total_minor: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          deferred_account_code?: string
+          id?: string
+          organisation_id?: string | null
+          payment_transaction_id?: string | null
+          period_end: string
+          period_start: string
+          recognized_minor?: number
+          revenue_account_code: string
+          source_id?: string | null
+          source_kind: string
+          status?: string
+          total_minor: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          deferred_account_code?: string
+          id?: string
+          organisation_id?: string | null
+          payment_transaction_id?: string | null
+          period_end?: string
+          period_start?: string
+          recognized_minor?: number
+          revenue_account_code?: string
+          source_id?: string | null
+          source_kind?: string
+          status?: string
+          total_minor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_recognition_schedules_deferred_account_code_fkey"
+            columns: ["deferred_account_code"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "revenue_recognition_schedules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_recognition_schedules_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_recognition_schedules_revenue_account_code_fkey"
+            columns: ["revenue_account_code"]
+            isOneToOne: false
+            referencedRelation: "finance_accounts"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       risk_assessment_responses: {
         Row: {
           category: Database["public"]["Enums"]["risk_assessment_category"]
@@ -10251,92 +11304,273 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      finance_accounts_list: { Args: never; Returns: Json }
+      finance_ap_aging: { Args: never; Returns: Json }
+      finance_approval_history: { Args: { p_limit?: number }; Returns: Json }
+      finance_approval_settings_list: { Args: never; Returns: Json }
+      finance_approve_bill: { Args: { p_id: string }; Returns: string }
+      finance_approve_request: {
+        Args: { p_id: string; p_note?: string | null }
+        Returns: Json
+      }
+      finance_audit_actions_list: { Args: never; Returns: Json }
+      finance_audit_log: {
+        Args: {
+          p_action?: string
+          p_from?: string
+          p_limit?: number
+          p_to?: string
+        }
+        Returns: Json
+      }
+      finance_balance_sheet: {
+        Args: { p_as_of?: string; p_currency?: string }
+        Returns: Json
+      }
+      finance_bills_list: { Args: { p_status?: string }; Returns: Json }
+      finance_budget_variance: {
+        Args: { p_currency?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      finance_budgets_list: { Args: { p_period_month?: string }; Returns: Json }
+      finance_capitation_register: { Args: never; Returns: Json }
+      finance_cash_flow_statement: {
+        Args: { p_currency?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      finance_compliance_calendar: {
+        Args: { p_months_ahead?: number }
+        Returns: Json
+      }
+      finance_compliance_suggested_amount: {
+        Args: { p_obligation_code: string; p_period_label: string }
+        Returns: Json
+      }
+      finance_cost_centers_list: { Args: never; Returns: Json }
+      finance_create_bill: {
+        Args: {
+          p_amount_minor: number
+          p_bill_date: string
+          p_cost_center_code: string | null
+          p_currency: string
+          p_description: string | null
+          p_due_date: string | null
+          p_expense_account_code: string
+          p_vendor_id: string
+        }
+        Returns: string
+      }
+      finance_dashboard_summary: { Args: never; Returns: Json }
+      finance_delete_budget: { Args: { p_id: string }; Returns: undefined }
+      finance_hmo_organisations_list: { Args: never; Returns: Json }
+      finance_import_settlement: {
+        Args: {
+          p_bank_account: string
+          p_currency: string
+          p_external_ref: string
+          p_fees: number
+          p_gross: number
+          p_net: number
+          p_notes: string
+          p_provider: string
+          p_settlement_date: string
+        }
+        Returns: string
+      }
+      finance_income_statement: {
+        Args: { p_currency?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      finance_kpi_summary: { Args: { p_currency?: string }; Returns: Json }
+      finance_ledger_entries: {
+        Args: {
+          p_account?: string
+          p_from?: string
+          p_limit?: number
+          p_source?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      finance_mark_filed: {
+        Args: {
+          p_amount_minor: number | null
+          p_currency: string
+          p_due_date: string
+          p_notes: string | null
+          p_obligation_code: string
+          p_period_label: string
+          p_remittance_reference: string
+        }
+        Returns: string
+      }
+      finance_match_payment: {
+        Args: {
+          p_amount: number
+          p_payment_transaction_id: string
+          p_settlement_id: string
+        }
+        Returns: string
+      }
+      finance_pay_bill: {
+        Args: { p_bank_account_code: string; p_id: string; p_paid_date: string }
+        Returns: string
+      }
+      finance_pending_approvals: { Args: never; Returns: Json }
+      finance_periods_list: { Args: never; Returns: Json }
+      finance_pnl_by_cost_center: {
+        Args: { p_currency?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      finance_post_manual_journal: {
+        Args: {
+          p_currency: string
+          p_entry_date: string
+          p_lines: Json
+          p_memo: string
+        }
+        Returns: Json
+      }
+      finance_post_settlement: {
+        Args: { p_settlement_id: string }
+        Returns: string
+      }
+      finance_reconciliation_summary: { Args: never; Returns: Json }
+      finance_record_capitation_receipt: {
+        Args: {
+          p_amount_minor: number
+          p_bank_account_code: string
+          p_contract_id: string
+          p_enrolled_members: number
+          p_estimated_cost_of_care_minor: number | null
+          p_notes: string | null
+          p_period_month: string
+          p_received_date: string
+        }
+        Returns: string
+      }
+      finance_reject_request: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      finance_reverse_journal: {
+        Args: { p_entry: string; p_reason: string }
+        Returns: string
+      }
+      finance_revrec_summary: { Args: never; Returns: Json }
+      finance_risk_flags: { Args: never; Returns: Json }
+      finance_run_revenue_recognition: { Args: never; Returns: number }
+      finance_set_period_status: {
+        Args: { p_month: string; p_status: string }
+        Returns: Json
+      }
+      finance_tax_rates_list: { Args: never; Returns: Json }
+      finance_tax_summary: {
+        Args: { p_currency?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      finance_trial_balance: {
+        Args: { p_as_of?: string; p_currency?: string }
+        Returns: Json
+      }
+      finance_unmark_filed: {
+        Args: { p_obligation_code: string; p_period_label: string }
+        Returns: undefined
+      }
+      finance_unmatch_payment: {
+        Args: { p_payment_transaction_id: string }
+        Returns: undefined
+      }
+      finance_upsert_account: {
+        Args: {
+          p_code: string
+          p_description: string
+          p_is_active: boolean
+          p_name: string
+          p_normal_balance: string
+          p_sort_order: number
+          p_type: string
+          p_vat_treatment: string
+        }
+        Returns: string
+      }
+      finance_upsert_approval_threshold: {
+        Args: { p_currency: string; p_threshold_minor: number }
+        Returns: undefined
+      }
+      finance_upsert_budget: {
+        Args: {
+          p_account_code: string
+          p_amount_minor: number
+          p_cost_center_code: string | null
+          p_currency: string
+          p_notes: string | null
+          p_period_month: string
+        }
+        Returns: string
+      }
+      finance_upsert_capitation_contract: {
+        Args: {
+          p_contract_name: string
+          p_currency: string
+          p_effective_from: string
+          p_effective_to: string | null
+          p_id: string | null
+          p_is_active: boolean
+          p_notes: string | null
+          p_organisation_id: string
+          p_pmpm_rate_minor: number
+        }
+        Returns: string
+      }
+      finance_upsert_cost_center: {
+        Args: {
+          p_code: string
+          p_is_active: boolean
+          p_name: string
+          p_sort_order: number
+        }
+        Returns: string
+      }
+      finance_upsert_tax_rate: {
+        Args: {
+          p_applies_to: string
+          p_effective_from: string
+          p_id: string | null
+          p_is_active: boolean
+          p_jurisdiction: string
+          p_name: string
+          p_notes: string
+          p_rate_pct: number
+          p_tax_type: string
+        }
+        Returns: string
+      }
+      finance_upsert_vendor: {
+        Args: {
+          p_contact_email: string
+          p_contact_phone: string
+          p_id: string | null
+          p_is_active: boolean
+          p_name: string
+          p_tin: string
+          p_vendor_type: string
+          p_wht_applicable: boolean
+          p_wht_rate_pct: number | null
+        }
+        Returns: string
+      }
+      finance_vendors_list: { Args: never; Returns: Json }
+      finance_void_bill: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       find_profile_by_phone: {
         Args: { lookup_phone: string }
         Returns: {
           full_name: string
           id: string
         }[]
-      }
-      finance_accounts_list: { Args: never; Returns: Json }
-      finance_balance_sheet: { Args: { p_as_of?: string; p_currency?: string }; Returns: Json }
-      finance_dashboard_summary: { Args: never; Returns: Json }
-      finance_import_settlement: {
-        Args: {
-          p_provider: string
-          p_external_ref: string
-          p_settlement_date: string
-          p_currency: string
-          p_gross: number
-          p_fees: number
-          p_net: number
-          p_bank_account: string
-          p_notes: string
-        }
-        Returns: string
-      }
-      finance_income_statement: {
-        Args: { p_from: string; p_to: string; p_currency?: string }
-        Returns: Json
-      }
-      finance_ledger_entries: {
-        Args: {
-          p_from?: string
-          p_to?: string
-          p_account?: string
-          p_source?: string
-          p_limit?: number
-        }
-        Returns: Json
-      }
-      finance_match_payment: {
-        Args: { p_settlement_id: string; p_payment_transaction_id: string; p_amount: number }
-        Returns: string
-      }
-      finance_periods_list: { Args: never; Returns: Json }
-      finance_post_manual_journal: {
-        Args: { p_entry_date: string; p_currency: string; p_memo: string; p_lines: Json }
-        Returns: string
-      }
-      finance_post_settlement: { Args: { p_settlement_id: string }; Returns: string }
-      finance_reconciliation_summary: { Args: never; Returns: Json }
-      finance_reverse_journal: { Args: { p_entry: string; p_reason: string }; Returns: string }
-      finance_revrec_summary: { Args: never; Returns: Json }
-      finance_run_revenue_recognition: { Args: never; Returns: number }
-      finance_set_period_status: { Args: { p_month: string; p_status: string }; Returns: undefined }
-      finance_tax_rates_list: { Args: never; Returns: Json }
-      finance_tax_summary: {
-        Args: { p_from: string; p_to: string; p_currency?: string }
-        Returns: Json
-      }
-      finance_trial_balance: { Args: { p_as_of?: string; p_currency?: string }; Returns: Json }
-      finance_unmatch_payment: { Args: { p_payment_transaction_id: string }; Returns: undefined }
-      finance_upsert_account: {
-        Args: {
-          p_code: string
-          p_name: string
-          p_type: string
-          p_normal_balance: string
-          p_vat_treatment: string
-          p_is_active: boolean
-          p_sort_order: number
-          p_description: string
-        }
-        Returns: string
-      }
-      finance_upsert_tax_rate: {
-        Args: {
-          p_id: string | null
-          p_jurisdiction: string
-          p_tax_type: string
-          p_name: string
-          p_rate_pct: number
-          p_applies_to: string
-          p_effective_from: string
-          p_is_active: boolean
-          p_notes: string
-        }
-        Returns: string
       }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       get_or_create_my_referral_code: { Args: never; Returns: string }

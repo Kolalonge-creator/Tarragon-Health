@@ -12,6 +12,25 @@ import {
   taxRatesListSchema,
   taxSummarySchema,
   trialBalanceSchema,
+  pendingApprovalsSchema,
+  approvalHistorySchema,
+  approvalSettingsSchema,
+  costCentersListSchema,
+  pnlByCostCenterSchema,
+  budgetsListSchema,
+  budgetVarianceSchema,
+  cashFlowStatementSchema,
+  vendorsListSchema,
+  billsListSchema,
+  apAgingSchema,
+  capitationRegisterSchema,
+  hmoOrganisationsListSchema,
+  complianceCalendarSchema,
+  kpiSummarySchema,
+  riskFlagsSchema,
+  financeAuditLogSchema,
+  auditActionsListSchema,
+  complianceSuggestedAmountSchema,
 } from "./schemas";
 
 /**
@@ -170,3 +189,240 @@ export function useTaxRates() {
 export const financeKeys = {
   all: ["finance"] as const,
 };
+
+/**
+ * Additions from the 2026-07-26 audit/tracking/functionality pass: maker-
+ * checker approvals, cost centers, budgets, cash flow statement, accounts
+ * payable, HMO capitation register, statutory compliance calendar, KPIs and
+ * the finance-specific audit log viewer.
+ */
+
+export function usePendingApprovals() {
+  return useQuery({
+    queryKey: ["finance", "approvals", "pending"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_pending_approvals");
+      if (error) throw error;
+      return pendingApprovalsSchema.parse(data);
+    },
+  });
+}
+
+export function useApprovalHistory() {
+  return useQuery({
+    queryKey: ["finance", "approvals", "history"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_approval_history", { p_limit: 100 });
+      if (error) throw error;
+      return approvalHistorySchema.parse(data);
+    },
+  });
+}
+
+export function useApprovalSettings() {
+  return useQuery({
+    queryKey: ["finance", "approvals", "settings"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_approval_settings_list");
+      if (error) throw error;
+      return approvalSettingsSchema.parse(data);
+    },
+  });
+}
+
+export function useCostCenters() {
+  return useQuery({
+    queryKey: ["finance", "cost-centers"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_cost_centers_list");
+      if (error) throw error;
+      return costCentersListSchema.parse(data);
+    },
+  });
+}
+
+export function usePnlByCostCenter(from: string, to: string, currency: string) {
+  return useQuery({
+    queryKey: ["finance", "pnl-by-cost-center", from, to, currency],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_pnl_by_cost_center", {
+        p_from: from,
+        p_to: to,
+        p_currency: currency,
+      });
+      if (error) throw error;
+      return pnlByCostCenterSchema.parse(data);
+    },
+  });
+}
+
+export function useBudgets(periodMonth?: string) {
+  return useQuery({
+    queryKey: ["finance", "budgets", periodMonth ?? "all"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_budgets_list", {
+        p_period_month: periodMonth ?? undefined,
+      });
+      if (error) throw error;
+      return budgetsListSchema.parse(data);
+    },
+  });
+}
+
+export function useBudgetVariance(from: string, to: string, currency: string) {
+  return useQuery({
+    queryKey: ["finance", "budget-variance", from, to, currency],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_budget_variance", {
+        p_from: from,
+        p_to: to,
+        p_currency: currency,
+      });
+      if (error) throw error;
+      return budgetVarianceSchema.parse(data);
+    },
+  });
+}
+
+export function useCashFlowStatement(from: string, to: string, currency: string) {
+  return useQuery({
+    queryKey: ["finance", "cash-flow", from, to, currency],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_cash_flow_statement", {
+        p_from: from,
+        p_to: to,
+        p_currency: currency,
+      });
+      if (error) throw error;
+      return cashFlowStatementSchema.parse(data);
+    },
+  });
+}
+
+export function useVendors() {
+  return useQuery({
+    queryKey: ["finance", "vendors"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_vendors_list");
+      if (error) throw error;
+      return vendorsListSchema.parse(data);
+    },
+  });
+}
+
+export function useBills(status?: string) {
+  return useQuery({
+    queryKey: ["finance", "bills", status ?? "all"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_bills_list", {
+        p_status: status ?? undefined,
+      });
+      if (error) throw error;
+      return billsListSchema.parse(data);
+    },
+  });
+}
+
+export function useApAging() {
+  return useQuery({
+    queryKey: ["finance", "ap-aging"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_ap_aging");
+      if (error) throw error;
+      return apAgingSchema.parse(data);
+    },
+  });
+}
+
+export function useCapitationRegister() {
+  return useQuery({
+    queryKey: ["finance", "capitation", "register"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_capitation_register");
+      if (error) throw error;
+      return capitationRegisterSchema.parse(data);
+    },
+  });
+}
+
+export function useHmoOrganisations() {
+  return useQuery({
+    queryKey: ["finance", "capitation", "hmo-orgs"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_hmo_organisations_list");
+      if (error) throw error;
+      return hmoOrganisationsListSchema.parse(data);
+    },
+  });
+}
+
+export function useComplianceCalendar(monthsAhead = 3) {
+  return useQuery({
+    queryKey: ["finance", "compliance", monthsAhead],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_compliance_calendar", {
+        p_months_ahead: monthsAhead,
+      });
+      if (error) throw error;
+      return complianceCalendarSchema.parse(data);
+    },
+  });
+}
+
+export function useKpiSummary(currency: string) {
+  return useQuery({
+    queryKey: ["finance", "kpis", currency],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_kpi_summary", { p_currency: currency });
+      if (error) throw error;
+      return kpiSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useRiskFlags() {
+  return useQuery({
+    queryKey: ["finance", "risk-flags"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_risk_flags");
+      if (error) throw error;
+      return riskFlagsSchema.parse(data);
+    },
+  });
+}
+
+export function useFinanceAuditLog(args: { from: string; to: string; action?: string }) {
+  return useQuery({
+    queryKey: ["finance", "audit-log", args],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_audit_log", {
+        p_from: args.from,
+        p_to: args.to,
+        p_action: args.action ?? undefined,
+      });
+      if (error) throw error;
+      return financeAuditLogSchema.parse(data);
+    },
+  });
+}
+
+export function useFinanceAuditActions() {
+  return useQuery({
+    queryKey: ["finance", "audit-log", "actions"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_audit_actions_list");
+      if (error) throw error;
+      return auditActionsListSchema.parse(data);
+    },
+  });
+}
+
+/** On-demand only (not a background query) — fetched right before showing the mark-filed form. */
+export async function fetchComplianceSuggestedAmount(obligationCode: string, periodLabel: string) {
+  const { data, error } = await createClient().rpc("finance_compliance_suggested_amount", {
+    p_obligation_code: obligationCode,
+    p_period_label: periodLabel,
+  });
+  if (error) throw error;
+  return complianceSuggestedAmountSchema.parse(data);
+}

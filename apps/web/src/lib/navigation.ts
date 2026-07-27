@@ -158,9 +158,20 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Overview", href: "/finance", icon: "dashboard", exact: true },
             { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
+            { label: "Budgets", href: "/finance/budgets", icon: "budget" },
+            { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
+            { label: "HMO capitation", href: "/finance/capitation", icon: "capitation" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
+            { label: "Compliance calendar", href: "/finance/compliance", icon: "compliance" },
+          ],
+        },
+        {
+          label: "Controls",
+          items: [
+            { label: "Approvals", href: "/finance/approvals", icon: "approvals" },
+            { label: "Audit log", href: "/finance/audit", icon: "audit" },
           ],
         },
         {
