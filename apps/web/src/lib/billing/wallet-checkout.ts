@@ -12,14 +12,14 @@ export type WalletTopupCheckoutResult =
   | { ok: false; error: string };
 
 /**
- * Starts a wallet top-up checkout — funding the caller's own wallet, or (with
- * an existing family_plan_members link or profile_access grant) someone
- * else's. This is not a diaspora-only feature: any consented relationship
- * works today via NGN/Paystack, e.g. a Lagos-based child funding a parent's
- * care in another state. The credited amount always lands in kobo (NGN); if
- * the payer's own currency isn't NGN (the diaspora GBP/USD case), the charge
- * amount is converted at the admin-set platform_currency_settings rate — an
- * unset rate means that currency's top-up isn't offered yet.
+ * Starts a wallet top-up checkout — funding the caller's own wallet, or, with
+ * a profile_access grant from its owner, someone else's. This is not a
+ * diaspora-only feature: any consented relationship works today via
+ * NGN/Paystack, e.g. a Lagos-based child funding a parent's care in another
+ * state. The credited amount always lands in kobo (NGN); if the payer's own
+ * currency isn't NGN (the diaspora dollar case), the charge amount is
+ * converted at the admin-set platform_currency_settings rate — an unset rate
+ * means dollar top-ups aren't offered yet.
  *
  * No Edge Function involvement: crediting happens via
  * private.credit_wallet_from_payment_transaction, an AFTER INSERT trigger on
@@ -67,10 +67,10 @@ export async function initiateWalletTopupCheckout(args: {
   if (args.payerCurrency !== "NGN") {
     const { data: fx } = await supabase
       .from("platform_currency_settings")
-      .select("ngn_per_gbp, ngn_per_usd")
+      .select("ngn_per_usd")
       .eq("id", true)
       .single();
-    const rate = args.payerCurrency === "GBP" ? fx?.ngn_per_gbp : fx?.ngn_per_usd;
+    const rate = fx?.ngn_per_usd;
     if (!rate) {
       return {
         ok: false,

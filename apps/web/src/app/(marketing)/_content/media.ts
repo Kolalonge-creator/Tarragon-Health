@@ -124,7 +124,7 @@ export const PRODUCT_VIDEOS: Record<string, ProductVideo> = {
   },
   parentcare: {
     youtubeId: "",
-    title: "See how ParentCare keeps you close",
+    title: "See how next of kin access keeps you close",
     caption:
       "How monitoring, doctor follow-up, and calm opt-in family updates work for a parent in Nigeria, wherever you live.",
   },

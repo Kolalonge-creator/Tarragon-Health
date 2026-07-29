@@ -11,8 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 /**
- * Adds a child family member — the one relationship in family_plan_members
- * that has never signed up and never will (see add-child-actions.ts). Once
+ * Adds a child whose record the caller keeps (see add-child-actions.ts). Once
  * added, the child shows up in the "whose vaccinations?" selector
  * (vaccination-for-family.tsx) with their own real vaccination card.
  */
@@ -51,7 +50,7 @@ export function AddChildForm() {
         setDateOfBirth("");
         setSex("");
         await queryClient.invalidateQueries({ queryKey: ["managed-dependents"] });
-        await queryClient.invalidateQueries({ queryKey: ["family-plan-members"] });
+        await queryClient.invalidateQueries({ queryKey: ["sponsorable-profiles"] });
       }
     } finally {
       setIsPending(false);

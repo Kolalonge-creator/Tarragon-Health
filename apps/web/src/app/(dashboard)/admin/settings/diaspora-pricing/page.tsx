@@ -23,7 +23,7 @@ export default async function DiasporaPricingPage() {
 
   const { data: settings } = await supabase
     .from("platform_currency_settings")
-    .select("ngn_per_gbp, ngn_per_usd, updated_at")
+    .select("ngn_per_usd, updated_at")
     .eq("id", true)
     .maybeSingle();
 
@@ -51,7 +51,7 @@ export default async function DiasporaPricingPage() {
           code: r.code,
           name: r.name,
           interval: r.interval,
-          currency: r.currency as "GBP" | "USD",
+          currency: r.currency as "USD",
           nairaMinor: base,
           currentMinor: r.price_minor,
           needsSync: r.stripe_price_id === null,
@@ -76,13 +76,12 @@ export default async function DiasporaPricingPage() {
         </h1>
         <p className="max-w-3xl text-charcoal-ink/60">
           One price list. Every plan and add-on is priced once, in naira; the
-          pound and dollar amounts are that same price converted at the rates
-          below. Nobody pays more for the same thing because of where they are.
-          The currency is only how they pay.
+          dollar amounts are that same price converted at the rate below.
+          Nobody pays more for the same thing because of where they are. The
+          currency is only how they pay.
         </p>
       </div>
       <CurrencyRateManager
-        initialGbp={settings?.ngn_per_gbp == null ? null : Number(settings.ngn_per_gbp)}
         initialUsd={settings?.ngn_per_usd == null ? null : Number(settings.ngn_per_usd)}
         updatedAt={settings?.updated_at ?? null}
         rows={rows}

@@ -12,7 +12,7 @@ export type DerivedRow = {
   code: string;
   name: string;
   interval: string;
-  currency: "GBP" | "USD";
+  currency: "USD";
   /** The naira price this row is converted from, in kobo. */
   nairaMinor: number;
   /** What it is stored at right now, in pence/cents. */
@@ -21,7 +21,7 @@ export type DerivedRow = {
   isActive: boolean;
 };
 
-const SYMBOL: Record<"GBP" | "USD", string> = { GBP: "£", USD: "$" };
+const SYMBOL: Record<"USD", string> = { USD: "$" };
 
 /** Same arithmetic as private.expected_derived_price_minor, for the preview. */
 function derive(nairaMinor: number, rate: number): number | null {
@@ -37,83 +37,65 @@ function money(minor: number, symbol: string) {
 }
 
 export function CurrencyRateManager({
-  initialGbp,
   initialUsd,
   updatedAt,
   rows,
   unlinked,
 }: {
-  initialGbp: number | null;
   initialUsd: number | null;
   updatedAt: string | null;
   rows: DerivedRow[];
   unlinked: { code: string; name: string; isActive: boolean }[];
 }) {
-  const [gbp, setGbp] = useState(initialGbp === null ? "" : String(initialGbp));
   const [usd, setUsd] = useState(initialUsd === null ? "" : String(initialUsd));
   const [state, formAction, pending] = useActionState<DiasporaPricingState, FormData>(
     saveCurrencyRates,
     undefined
   );
 
-  const gbpRate = Number(gbp);
   const usdRate = Number(usd);
 
   const preview = useMemo(
     () =>
       rows.map((r) => {
-        const next = derive(r.nairaMinor, r.currency === "GBP" ? gbpRate : usdRate);
+        const next = derive(r.nairaMinor, usdRate);
         return { ...r, nextMinor: next, changes: next !== null && next !== r.currentMinor };
       }),
-    [rows, gbpRate, usdRate]
+    [rows, usdRate]
   );
 
   const changing = preview.filter((r) => r.changes).length;
-  const ratesSet = initialGbp !== null && initialUsd !== null;
+  const rateSet = initialUsd !== null;
 
   return (
     <div className="space-y-6">
       <form action={formAction}>
         <Card>
           <CardHeader>
-            <CardTitle>Reference rates</CardTitle>
+            <CardTitle>Reference rate</CardTitle>
             <CardDescription>
-              How much naira one pound and one dollar are worth for pricing. These are yours to
-              set and change whenever you like; they are not a live market feed, so a price only
-              moves when you move it.
+              How much naira one dollar is worth for pricing. Dollars are the only currency
+              Tarragon prices in besides naira. This is yours to set and change whenever you like;
+              it is not a live market feed, so a price only moves when you move it.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label htmlFor="ngn_per_gbp">Naira per £1</Label>
-                <Input
-                  id="ngn_per_gbp"
-                  name="ngn_per_gbp"
-                  inputMode="decimal"
-                  value={gbp}
-                  onChange={(e) => setGbp(e.target.value)}
-                  placeholder="e.g. 2000"
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ngn_per_usd">Naira per $1</Label>
-                <Input
-                  id="ngn_per_usd"
-                  name="ngn_per_usd"
-                  inputMode="decimal"
-                  value={usd}
-                  onChange={(e) => setUsd(e.target.value)}
-                  placeholder="e.g. 1600"
-                  required
-                />
-              </div>
+            <div className="max-w-xs space-y-1">
+              <Label htmlFor="ngn_per_usd">Naira per $1</Label>
+              <Input
+                id="ngn_per_usd"
+                name="ngn_per_usd"
+                inputMode="decimal"
+                value={usd}
+                onChange={(e) => setUsd(e.target.value)}
+                placeholder="e.g. 1365"
+                required
+              />
             </div>
 
-            {!ratesSet && (
+            {!rateSet && (
               <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">
-                No rates are set yet, so the pound and dollar prices below are still the old
+                No rate is set yet, so the dollar prices below are still the old
                 independently-set ones. Saving a rate replaces every one of them with the
                 converted naira price.
               </p>
@@ -121,7 +103,7 @@ export function CurrencyRateManager({
 
             <p className="text-sm text-charcoal-ink/70">
               {changing === 0
-                ? "Nothing would change at these rates."
+                ? "Nothing would change at this rate."
                 : `Saving changes ${changing} price${changing === 1 ? "" : "s"}. Each one gets a brand-new Stripe price, because a Stripe price can never be edited after it is created — the old one is retired and the plan switches back on only once its replacement exists.`}
             </p>
 

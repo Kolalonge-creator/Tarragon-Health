@@ -149,7 +149,7 @@ export default function AboutPage() {
             },
             {
               title: "Family included, if you choose",
-              body: "On ParentCare, the people looking after a parent can opt in to updates, so they stay informed rather than left guessing. It is a choice, not a default.",
+              body: "Someone looking after a parent can be named as their next of kin, so they stay informed rather than left guessing. It is the parent's choice, not a default, and they can withdraw it.",
             },
           ].map((item) => (
             <div

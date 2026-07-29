@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     "diabetes management",
     "preventive health",
     "care coordination",
-    "ParentCare",
+    "caring for a parent",
     "health monitoring",
     "HMO",
     "corporate wellness Nigeria",

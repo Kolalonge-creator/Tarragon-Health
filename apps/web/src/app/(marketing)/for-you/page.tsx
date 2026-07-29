@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: MARKETING_ROUTES.forYou },
 };
 
-/** Everything an individual patient uses. ParentCare has its own page. */
+/** Everything an individual patient uses. Caring for a parent has its own page. */
 const FOR_YOU_CARDS = SERVICE_CARDS.filter((card) => card.key !== "parentcare");
 
 const MONTH_WITH_TARRAGON = [
@@ -124,7 +124,7 @@ export default function ForYouPage() {
             </Link>{" "}
             points you to the right one. And looking after a parent instead?{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
-              ParentCare
+              Caring for a parent
             </Link>{" "}
             is built exactly for that.
           </p>

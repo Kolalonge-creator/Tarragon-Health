@@ -61,7 +61,7 @@ export async function getHealthPassportData(
   supabase: SupabaseClient<Database>,
   patientId: string,
   organisationId: string,
-  /** Reused by the ParentCare/Family Premium quarterly report, which wants
+  /** Reused by the quarterly report, which wants
    * a 3-month window instead of Health Passport's 12-month one — same
    * assembly logic, shorter lookback, no separate query builder. */
   periodMonths: number = PERIOD_MONTHS
