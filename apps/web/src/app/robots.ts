@@ -17,6 +17,7 @@ export default function robots(): MetadataRoute.Robots {
         "/doctor",
         "/admin",
         "/pharmacist",
+        "/lab-partner",
         "/analytics",
         "/dashboard",
         "/onboarding",

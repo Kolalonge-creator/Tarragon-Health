@@ -8318,6 +8318,7 @@ export type Database = {
           identity_verified_at: string | null
           is_active: boolean
           is_pregnant: boolean
+          lab_provider_id: string | null
           language: string
           metadata: Json
           next_of_kin_name: string | null
@@ -8349,6 +8350,7 @@ export type Database = {
           identity_verified_at?: string | null
           is_active?: boolean
           is_pregnant?: boolean
+          lab_provider_id?: string | null
           language?: string
           metadata?: Json
           next_of_kin_name?: string | null
@@ -8380,6 +8382,7 @@ export type Database = {
           identity_verified_at?: string | null
           is_active?: boolean
           is_pregnant?: boolean
+          lab_provider_id?: string | null
           language?: string
           metadata?: Json
           next_of_kin_name?: string | null
@@ -8401,6 +8404,13 @@ export type Database = {
             columns: ["custom_role_id"]
             isOneToOne: false
             referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_lab_provider_id_fkey"
+            columns: ["lab_provider_id"]
+            isOneToOne: false
+            referencedRelation: "lab_providers"
             referencedColumns: ["id"]
           },
           {
@@ -11343,6 +11353,34 @@ export type Database = {
       }
       health_education_locked_count: { Args: never; Returns: number }
       htn_quality_metrics: { Args: { p_org: string }; Returns: Json }
+      lab_partner_order_patient: {
+        Args: { p_order_id: string }
+        Returns: string
+      }
+      lab_partner_orders: {
+        Args: never
+        Returns: {
+          order_id: string
+          order_number: string | null
+          ordered_at: string
+          panel_name: string | null
+          patient_name: string | null
+          patient_number: string | null
+          resulted_at: string | null
+          status: string
+        }[]
+      }
+      lab_partner_upload_result: {
+        Args: {
+          p_file_path: string
+          p_file_size_bytes: number
+          p_mime_type: string
+          p_note?: string | null
+          p_order_id: string
+          p_original_filename: string
+        }
+        Returns: string
+      }
       open_health_check: { Args: never; Returns: string }
       pharmacist_order_allergies: {
         Args: { p_order_id: string }
@@ -11650,6 +11688,7 @@ export type Database = {
         | "lab_liaison"
         | "clinician"
         | "admin"
+        | "lab_partner"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other"
       lpe_enrollment_status:
         | "draft"
@@ -11884,6 +11923,7 @@ export type Database = {
         | "analyst"
         | "lab_liaison"
         | "finance"
+        | "lab_partner"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -12227,6 +12267,7 @@ export const Constants = {
         "lab_liaison",
         "clinician",
         "admin",
+        "lab_partner",
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other"],
       lpe_enrollment_status: [
@@ -12485,6 +12526,7 @@ export const Constants = {
         "analyst",
         "lab_liaison",
         "finance",
+        "lab_partner",
       ],
       vaccination_verification_status: [
         "self_reported",
