@@ -71,10 +71,47 @@ and Meta.
    migration connection's search_path (`config.toml`'s `extra_search_path` governs PostgREST, not
    psql). Always write `extensions.vector(...)`.
 
-**Open, not yet fixed:** 7 SECURITY DEFINER functions are `anon`-executable — `admin_send_broadcast`,
-`admin_broadcast_audience_count`, `region_service_available`, and the four `pharmacist_*` PHI
-functions. They gate internally on `auth.uid()` so there is likely no live leak, but `revoke ...
-from public` does **not** strip `anon`'s EXECUTE — you must revoke from `anon` by name.
+**Anon-execute finding: CLOSED** by `20260729183412_revoke_anon_execute_on_security_definer_rpcs.sql`.
+`public` now has **zero** anon-executable SECURITY DEFINER functions. Note the mechanism, because
+this codebase got it wrong four times: `anon` holds no direct grant — it inherits EXECUTE from the
+**PUBLIC pseudo-role** (the leading `=X/postgres` entry in `pg_proc.proacl`). So
+`revoke ... from anon` is a **no-op**; `revoke ... from public` is the fix. Always end such a
+migration with an assertion block that raises if `has_function_privilege('anon', ...)` is still
+true — that assertion is what caught the wrong form being applied here.
+
+### ▶ NEXT ACTIONS — start here
+
+**State: the platform is restored, verified, and unblocked.** 277/277 migrations on
+`koiplnmbgnqnbywhpjlf`, `pnpm --filter web typecheck` clean, 30 profiles backfilled with correct
+roles, Edge Functions intact. Nothing is half-finished.
+
+**The four founder-approved removals are the work. None are started.** Do them one at a time, each
+as its own branch + migration + typecheck, smallest first. Sizing measured 2026-07-29:
+
+| # | Removal | Migrations | App files | Notes |
+|---|---|---:|---:|---|
+| 1 | **No capitation (I8)** | 6 | 13 | **Start here.** Isolated finance module, no patient-facing surface. Proves the pattern. |
+| 2 | **Institutions aggregate-only (I9)** | — | 9 | Also add `min_cohort_size` suppression to `load-cohort-analytics.ts`, which currently has **none** — closes a live re-identification gap, not just a removal. |
+| 3 | **One naira price list** | 13 | 33 | ⚠️ The GBP/USD plans have **real synced Stripe Prices**. Deleting rows is not enough — deactivate on Stripe or a diaspora buyer can still reach checkout. |
+| 4 | **Individual enrolment only** | 16 | 41 | ⚠️ Decide the *replacement* first. v3's answer is dependants on one adult account; the platform's family features are far richer. Do not delete before that decision. |
+
+**Also worth doing, not yet done:**
+- **Write `rls_auto_enable` properly** as a real migration — see bug 1 above. The rebuilt database
+  has no auto-enable-RLS-on-new-table safety net, and never did in migration history.
+- **Port the I1–I10 invariant suite** from `reference/tarragon-control/supabase/tests/invariants_test.sql`
+  into `packages/db/tests/`. This is the single highest-value item from the v3 port and it already
+  exists — it just needs adapting to the platform schema.
+- **`supabase/config.toml`** still says `project_id = "tarragon-health"` and carries a stale comment
+  claiming production must be `af-south-1`. Real region is `eu-west-1`.
+
+**Owner-side (cannot be done by an agent):**
+- Delete the **Tarragon Platform** (`rjsxbhgqdudowlvarmzq`) and **tarragon-control-staging**
+  (`jpdwbnvrgvpntcmfefeu`) projects in the dashboard — MCP can only pause, not delete. Everything
+  from both is preserved in this repo. Keeping Tarragon Platform briefly as a fallback is fine.
+- **Rename** `koiplnmbgnqnbywhpjlf` if desired — it is correctly named "Tarragon Health" already,
+  but nothing else should be named "Tarragon Platform" going forward.
+- **Push `main-dev` to GitHub.** `reference/tarragon-control/` is currently the only copy of that
+  repo's history and it lives on one disk.
 
 ## Current Sprint — v3 (UPDATE THIS EVERY SPRINT GOING FORWARD)
 
