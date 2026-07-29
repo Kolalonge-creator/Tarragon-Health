@@ -71,7 +71,7 @@ const OPEN_ROLES: OpenRole[] = [
   },
   {
     title: "Head of Growth & Commercial",
-    scope: "Leads corporate wellness and HMO capitation partnerships, turning the B2B & Institutional pipeline into revenue.",
+    scope: "Leads corporate wellness and HMO partnerships, turning the B2B & Institutional pipeline into revenue.",
   },
 ];
 

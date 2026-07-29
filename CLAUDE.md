@@ -85,15 +85,31 @@ true — that assertion is what caught the wrong form being applied here.
 `koiplnmbgnqnbywhpjlf`, `pnpm --filter web typecheck` clean, 30 profiles backfilled with correct
 roles, Edge Functions intact. Nothing is half-finished.
 
-**The four founder-approved removals are the work. None are started.** Do them one at a time, each
-as its own branch + migration + typecheck, smallest first. Sizing measured 2026-07-29:
+**The four founder-approved removals are the work. One of four is done.** Do them one at a time,
+each as its own branch + migration + typecheck, smallest first. Sizing measured 2026-07-29:
 
 | # | Removal | Migrations | App files | Notes |
 |---|---|---:|---:|---|
-| 1 | **No capitation (I8)** | 6 | 13 | **Start here.** Isolated finance module, no patient-facing surface. Proves the pattern. |
+| 1 | ~~**No capitation (I8)**~~ | ✅ | ✅ | **DONE** — `20260729122912_remove_hmo_capitation_i8.sql`, branch `claude/remove-capitation-i8`. See below for the pattern it set. |
 | 2 | **Institutions aggregate-only (I9)** | — | 9 | Also add `min_cohort_size` suppression to `load-cohort-analytics.ts`, which currently has **none** — closes a live re-identification gap, not just a removal. |
 | 3 | **One naira price list** | 13 | 33 | ⚠️ The GBP/USD plans have **real synced Stripe Prices**. Deleting rows is not enough — deactivate on Stripe or a diaspora buyer can still reach checkout. |
 | 4 | **Individual enrolment only** | 16 | 41 | ⚠️ Decide the *replacement* first. v3's answer is dependants on one adult account; the platform's family features are far richer. Do not delete before that decision. |
+
+**The pattern removal 1 set — follow it for 2, 3 and 4:**
+1. **Count the rows first.** Capitation had zero everywhere, which turned a feared data migration
+   into a pure structural change. Say the counts in the migration header so a reader can see why
+   no conversion step exists.
+2. **Delete the enum VALUE, not just the feature.** `outcomes_contract_type` lost `capitation` and
+   `booking_origin` lost `capitated`. An unreachable enum member is the loophole the feature grows
+   back through; removing it means re-adding capitation now requires a visible migration.
+3. **Watch for RLS policies on the column you are retyping.** `alter column ... type` fails with
+   `cannot alter type of a column used in a policy definition`. `lab_orders_insert` and
+   `pharmacy_orders_insert` had to be dropped and recreated **verbatim** around the swap — with an
+   assertion afterwards proving both came back, so a removal can never quietly leave a booking
+   table wide open. Same applies to defaults.
+4. **End with a DO block of assertions.** The migration is the test: it raises if any capitation
+   enum value, table, function body or ledger account survives. That is what makes "removed" a
+   provable claim rather than a hopeful one.
 
 **Also worth doing, not yet done:**
 - **Write `rls_auto_enable` properly** as a real migration — see bug 1 above. The rebuilt database

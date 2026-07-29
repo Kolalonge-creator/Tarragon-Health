@@ -18,8 +18,7 @@ export interface ReferralPatientLocation {
  * overrides an assignment a clinician already made. Reuses the same matched
  * catalogue clinicians already use (useMatchedSpecialistProviders), so
  * "same state/city first" sorting is identical on both sides. Picking here
- * is what moves the referral to pending_payment (or straight to
- * payment_confirmed for a capitated org), which is what fires the
+ * is what moves the referral to pending_payment; payment is what fires the
  * specialist-facing notification (private.enqueue_referral_notifications).
  */
 export function ChooseReferralSpecialist({

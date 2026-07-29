@@ -9,9 +9,7 @@ export type PayForPharmacyOrderState = { error?: string } | undefined;
 
 /**
  * Patient-initiated payment for a booked pharmacy order (status='pending_payment').
- * Identical shape to payForLabOrder (apps/web/src/app/(dashboard)/patient/lab-tests/actions.ts)
- * — a capitated order never reaches this state (Build 1's capitated bypass
- * applies uniformly to every orderType).
+ * Identical shape to payForLabOrder (apps/web/src/app/(dashboard)/patient/lab-tests/actions.ts).
  */
 export async function payForPharmacyOrder(
   _prevState: PayForPharmacyOrderState,
@@ -54,9 +52,6 @@ export async function payForPharmacyOrder(
 
   if (!result.ok) {
     return { error: result.error };
-  }
-  if (result.capitated) {
-    redirect("/patient");
   }
   redirect(result.checkoutUrl);
 }

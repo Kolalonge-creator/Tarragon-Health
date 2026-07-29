@@ -3220,140 +3220,6 @@ export type Database = {
           },
         ]
       }
-      finance_capitation_contracts: {
-        Row: {
-          contract_name: string
-          created_at: string
-          created_by: string | null
-          currency: Database["public"]["Enums"]["currency"]
-          effective_from: string
-          effective_to: string | null
-          id: string
-          is_active: boolean
-          notes: string | null
-          organisation_id: string
-          pmpm_rate_minor: number
-          updated_at: string
-        }
-        Insert: {
-          contract_name: string
-          created_at?: string
-          created_by?: string | null
-          currency?: Database["public"]["Enums"]["currency"]
-          effective_from: string
-          effective_to?: string | null
-          id?: string
-          is_active?: boolean
-          notes?: string | null
-          organisation_id: string
-          pmpm_rate_minor: number
-          updated_at?: string
-        }
-        Update: {
-          contract_name?: string
-          created_at?: string
-          created_by?: string | null
-          currency?: Database["public"]["Enums"]["currency"]
-          effective_from?: string
-          effective_to?: string | null
-          id?: string
-          is_active?: boolean
-          notes?: string | null
-          organisation_id?: string
-          pmpm_rate_minor?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "finance_capitation_contracts_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "finance_capitation_contracts_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      finance_capitation_receipts: {
-        Row: {
-          amount_minor: number
-          bank_account_code: string | null
-          contract_id: string
-          created_at: string
-          created_by: string | null
-          enrolled_members: number
-          estimated_cost_of_care_minor: number | null
-          id: string
-          journal_entry_id: string | null
-          notes: string | null
-          period_month: string
-          received_date: string
-        }
-        Insert: {
-          amount_minor: number
-          bank_account_code?: string | null
-          contract_id: string
-          created_at?: string
-          created_by?: string | null
-          enrolled_members: number
-          estimated_cost_of_care_minor?: number | null
-          id?: string
-          journal_entry_id?: string | null
-          notes?: string | null
-          period_month: string
-          received_date: string
-        }
-        Update: {
-          amount_minor?: number
-          bank_account_code?: string | null
-          contract_id?: string
-          created_at?: string
-          created_by?: string | null
-          enrolled_members?: number
-          estimated_cost_of_care_minor?: number | null
-          id?: string
-          journal_entry_id?: string | null
-          notes?: string | null
-          period_month?: string
-          received_date?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "finance_capitation_receipts_bank_account_code_fkey"
-            columns: ["bank_account_code"]
-            isOneToOne: false
-            referencedRelation: "finance_accounts"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "finance_capitation_receipts_contract_id_fkey"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "finance_capitation_contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "finance_capitation_receipts_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "finance_capitation_receipts_journal_entry_id_fkey"
-            columns: ["journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "finance_journal_entries"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       finance_compliance_obligation_types: {
         Row: {
           agency: string
@@ -4130,56 +3996,6 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: true
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      hmo_contracts: {
-        Row: {
-          capitation_rate_kobo: number
-          created_at: string
-          effective_from: string | null
-          effective_to: string | null
-          id: string
-          latest_claim: Json
-          member_count: number
-          name: string
-          organisation_id: string
-          status: Database["public"]["Enums"]["contract_status"]
-          updated_at: string
-        }
-        Insert: {
-          capitation_rate_kobo?: number
-          created_at?: string
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string
-          latest_claim?: Json
-          member_count?: number
-          name: string
-          organisation_id: string
-          status?: Database["public"]["Enums"]["contract_status"]
-          updated_at?: string
-        }
-        Update: {
-          capitation_rate_kobo?: number
-          created_at?: string
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string
-          latest_claim?: Json
-          member_count?: number
-          name?: string
-          organisation_id?: string
-          status?: Database["public"]["Enums"]["contract_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "hmo_contracts_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -11333,7 +11149,6 @@ export type Database = {
         Returns: Json
       }
       finance_budgets_list: { Args: { p_period_month?: string }; Returns: Json }
-      finance_capitation_register: { Args: never; Returns: Json }
       finance_cash_flow_statement: {
         Args: { p_currency?: string; p_from: string; p_to: string }
         Returns: Json
@@ -11362,7 +11177,6 @@ export type Database = {
       }
       finance_dashboard_summary: { Args: never; Returns: Json }
       finance_delete_budget: { Args: { p_id: string }; Returns: undefined }
-      finance_hmo_organisations_list: { Args: never; Returns: Json }
       finance_import_settlement: {
         Args: {
           p_bank_account: string
@@ -11436,19 +11250,6 @@ export type Database = {
         Returns: string
       }
       finance_reconciliation_summary: { Args: never; Returns: Json }
-      finance_record_capitation_receipt: {
-        Args: {
-          p_amount_minor: number
-          p_bank_account_code: string
-          p_contract_id: string
-          p_enrolled_members: number
-          p_estimated_cost_of_care_minor: number | null
-          p_notes: string | null
-          p_period_month: string
-          p_received_date: string
-        }
-        Returns: string
-      }
       finance_reject_request: {
         Args: { p_id: string; p_note: string }
         Returns: undefined
@@ -11506,20 +11307,6 @@ export type Database = {
           p_currency: string
           p_notes: string | null
           p_period_month: string
-        }
-        Returns: string
-      }
-      finance_upsert_capitation_contract: {
-        Args: {
-          p_contract_name: string
-          p_currency: string
-          p_effective_from: string
-          p_effective_to: string | null
-          p_id: string | null
-          p_is_active: boolean
-          p_notes: string | null
-          p_organisation_id: string
-          p_pmpm_rate_minor: number
         }
         Returns: string
       }
@@ -11785,7 +11572,7 @@ export type Database = {
         | "declined"
         | "not_eligible"
       billing_interval: "monthly" | "yearly"
-      booking_origin: "patient_initiated" | "clinically_triggered" | "capitated"
+      booking_origin: "patient_initiated" | "clinically_triggered"
       booking_request_status:
         | "requested"
         | "confirmed"
@@ -11982,7 +11769,7 @@ export type Database = {
         | "lab"
         | "pharmacy"
         | "direct_consumer"
-      outcomes_contract_type: "capitation" | "fee_at_risk" | "flat"
+      outcomes_contract_type: "fee_at_risk" | "flat"
       outreach_task_status:
         | "open"
         | "in_progress"
@@ -12354,7 +12141,6 @@ export const Constants = {
       booking_origin: [
         "patient_initiated",
         "clinically_triggered",
-        "capitated",
       ],
       booking_request_status: [
         "requested",
@@ -12573,7 +12359,7 @@ export const Constants = {
         "pharmacy",
         "direct_consumer",
       ],
-      outcomes_contract_type: ["capitation", "fee_at_risk", "flat"],
+      outcomes_contract_type: ["fee_at_risk", "flat"],
       outreach_task_status: [
         "open",
         "in_progress",

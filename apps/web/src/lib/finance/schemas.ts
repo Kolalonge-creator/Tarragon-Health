@@ -220,7 +220,7 @@ export type TaxRate = z.infer<typeof taxRatesListSchema>[number];
 /**
  * Additions from the 2026-07-26 audit/tracking/functionality pass: maker-
  * checker approvals, cost centers, budgets, cash flow statement, accounts
- * payable, HMO capitation register, statutory compliance calendar, KPIs and
+ * payable, statutory compliance calendar, KPIs and
  * the finance-specific audit log viewer.
  */
 
@@ -385,38 +385,6 @@ export const apAgingSchema = z.array(
 );
 export type ApAgingRow = z.infer<typeof apAgingSchema>[number];
 
-// --- HMO capitation register ------------------------------------------------
-export const capitationRegisterSchema = z.array(
-  z.object({
-    id: z.string(),
-    organisation_id: z.string(),
-    organisation_name: z.string(),
-    contract_name: z.string(),
-    pmpm_rate_minor: num,
-    currency: z.string(),
-    effective_from: z.string(),
-    effective_to: z.string().nullable(),
-    is_active: z.boolean(),
-    roster_active_members: int,
-    receipts: z.array(
-      z.object({
-        id: z.string(),
-        period_month: z.string(),
-        enrolled_members: int,
-        amount_minor: num,
-        received_date: z.string(),
-        implied_pmpm_minor: num.nullable(),
-        rate_variance_minor: num.nullable(),
-        estimated_cost_of_care_minor: num.nullable(),
-        estimated_loss_ratio_pct: num.nullable(),
-      }),
-    ).default([]),
-  }),
-);
-export type CapitationContractRow = z.infer<typeof capitationRegisterSchema>[number];
-
-export const hmoOrganisationsListSchema = z.array(z.object({ id: z.string(), name: z.string() }));
-export type HmoOrganisation = z.infer<typeof hmoOrganisationsListSchema>[number];
 
 // --- Statutory compliance calendar -----------------------------------------
 export const complianceCalendarSchema = z.array(

@@ -9,11 +9,7 @@ export type PayForReferralState = { error?: string } | undefined;
 
 /**
  * Patient-initiated payment for a specialist referral that's been assigned a
- * provider (status='pending_payment'). A capitated referral never reaches
- * this state — useAssignSpecialistProvider() confirms it straight to
- * payment_confirmed at assignment time — so this action's own call into
- * initiateBookingCheckout only ever exercises the non-capitated branch in
- * practice.
+ * provider (status='pending_payment').
  */
 export async function payForReferral(
   _prevState: PayForReferralState,
@@ -56,9 +52,6 @@ export async function payForReferral(
 
   if (!result.ok) {
     return { error: result.error };
-  }
-  if (result.capitated) {
-    redirect("/patient");
   }
   redirect(result.checkoutUrl);
 }
