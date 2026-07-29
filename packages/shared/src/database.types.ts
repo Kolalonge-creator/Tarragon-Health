@@ -19,8 +19,8 @@ export type Database = {
           code: string
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
-          description: string | null
           derived_from_code: string | null
+          description: string | null
           features: string[]
           id: string
           interval: Database["public"]["Enums"]["billing_interval"]
@@ -38,8 +38,8 @@ export type Database = {
           code: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
-          description?: string | null
           derived_from_code?: string | null
+          description?: string | null
           features?: string[]
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
@@ -57,8 +57,8 @@ export type Database = {
           code?: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
-          description?: string | null
           derived_from_code?: string | null
+          description?: string | null
           features?: string[]
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
@@ -72,7 +72,15 @@ export type Database = {
           stripe_product_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "add_ons_derived_from_code_fkey"
+            columns: ["derived_from_code"]
+            isOneToOne: false
+            referencedRelation: "add_ons"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       ai_coach_access_rules: {
         Row: {
@@ -2823,71 +2831,6 @@ export type Database = {
             columns: ["facility_id"]
             isOneToOne: false
             referencedRelation: "facilities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      family_plan_members: {
-        Row: {
-          conditions: string[]
-          created_at: string
-          id: string
-          member_id: string
-          onboarded_at: string
-          organisation_id: string
-          plan_id: string | null
-          plan_owner_id: string
-          relationship: Database["public"]["Enums"]["family_relationship"]
-        }
-        Insert: {
-          conditions?: string[]
-          created_at?: string
-          id?: string
-          member_id: string
-          onboarded_at?: string
-          organisation_id: string
-          plan_id?: string | null
-          plan_owner_id: string
-          relationship?: Database["public"]["Enums"]["family_relationship"]
-        }
-        Update: {
-          conditions?: string[]
-          created_at?: string
-          id?: string
-          member_id?: string
-          onboarded_at?: string
-          organisation_id?: string
-          plan_id?: string | null
-          plan_owner_id?: string
-          relationship?: Database["public"]["Enums"]["family_relationship"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "family_plan_members_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "family_plan_members_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "family_plan_members_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "subscriptions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "family_plan_members_plan_owner_id_fkey"
-            columns: ["plan_owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -6585,8 +6528,8 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
-          min_cohort_size: number
           metadata: Json
+          min_cohort_size: number
           name: string
           type: Database["public"]["Enums"]["organisation_type"]
           updated_at: string
@@ -6595,8 +6538,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
-          min_cohort_size?: number
           metadata?: Json
+          min_cohort_size?: number
           name: string
           type: Database["public"]["Enums"]["organisation_type"]
           updated_at?: string
@@ -6605,8 +6548,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
-          min_cohort_size?: number
           metadata?: Json
+          min_cohort_size?: number
           name?: string
           type?: Database["public"]["Enums"]["organisation_type"]
           updated_at?: string
@@ -8014,27 +7957,21 @@ export type Database = {
       platform_currency_settings: {
         Row: {
           id: boolean
-          ngn_per_gbp: number | null
           ngn_per_usd: number | null
           updated_at: string
           updated_by: string | null
-          usd_per_gbp: number
         }
         Insert: {
           id?: boolean
-          ngn_per_gbp?: number | null
           ngn_per_usd?: number | null
           updated_at?: string
           updated_by?: string | null
-          usd_per_gbp?: number
         }
         Update: {
           id?: boolean
-          ngn_per_gbp?: number | null
           ngn_per_usd?: number | null
           updated_at?: string
           updated_by?: string | null
-          usd_per_gbp?: number
         }
         Relationships: [
           {
@@ -9554,8 +9491,8 @@ export type Database = {
           code: string
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
-          description: string | null
           derived_from_code: string | null
+          description: string | null
           features: string[]
           id: string
           interval: Database["public"]["Enums"]["billing_interval"]
@@ -9572,8 +9509,8 @@ export type Database = {
           code: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
-          description?: string | null
           derived_from_code?: string | null
+          description?: string | null
           features?: string[]
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
@@ -9590,8 +9527,8 @@ export type Database = {
           code?: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
-          description?: string | null
           derived_from_code?: string | null
+          description?: string | null
           features?: string[]
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
@@ -9603,7 +9540,15 @@ export type Database = {
           stripe_price_id?: string | null
           stripe_product_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subscription_plans_derived_from_code_fkey"
+            columns: ["derived_from_code"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -11440,6 +11385,15 @@ export type Database = {
         Args: { p_body: string; p_thread_id: string }
         Returns: string
       }
+      public_price_list: {
+        Args: never
+        Returns: {
+          billing_interval: Database["public"]["Enums"]["billing_interval"]
+          code: string
+          currency: Database["public"]["Enums"]["currency"]
+          price_minor: number
+        }[]
+      }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
       region_service_available: {
         Args: { p_service: string; p_state: string }
@@ -11480,10 +11434,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      set_currency_reference_rates: {
-        Args: { p_ngn_per_gbp: number; p_ngn_per_usd: number }
-        Returns: Json
       }
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
@@ -11528,6 +11478,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       start_care_thread: {
         Args: {
@@ -11653,8 +11604,8 @@ export type Database = {
         | "symptom_log"
         | "ai_coach"
         | "intake_screen"
-        | "glucose_red_flag"
         | "bp_reading"
+        | "glucose_red_flag"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       facility_type:
@@ -11664,7 +11615,6 @@ export type Database = {
         | "radiology"
         | "optician"
         | "vaccination_centre"
-      family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
       foot_risk_class: "low" | "increased" | "high" | "active"
       foot_sensation: "normal" | "reduced" | "absent"
       glucose_context:
@@ -12151,10 +12101,7 @@ export const Constants = {
         "not_eligible",
       ],
       billing_interval: ["monthly", "yearly"],
-      booking_origin: [
-        "patient_initiated",
-        "clinically_triggered",
-      ],
+      booking_origin: ["patient_initiated", "clinically_triggered"],
       booking_request_status: [
         "requested",
         "confirmed",
@@ -12229,8 +12176,8 @@ export const Constants = {
         "symptom_log",
         "ai_coach",
         "intake_screen",
-        "glucose_red_flag",
         "bp_reading",
+        "glucose_red_flag",
       ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
@@ -12242,7 +12189,6 @@ export const Constants = {
         "optician",
         "vaccination_centre",
       ],
-      family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       foot_risk_class: ["low", "increased", "high", "active"],
       foot_sensation: ["normal", "reduced", "absent"],
       glucose_context: [

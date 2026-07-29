@@ -3,8 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * Live prices for the public pricing page.
  *
- * One price list (v3 §15): the pound and dollar amounts are the naira price
- * converted at the admin-set reference rate. When the founder changes that
+ * One price list (v3 §15): the dollar amount is the naira price converted at
+ * the admin-set reference rate. When the founder changes that
  * rate the derived prices move, so the marketing page cannot keep shipping
  * hardcoded strings — it would advertise one number while checkout charged
  * another.
@@ -50,8 +50,8 @@ export async function fetchPlanPrices(): Promise<PlanPriceMap> {
  * Formats a minor-unit amount the way the pricing page writes prices: no
  * decimals when the amount is whole, which it almost always is.
  */
-export function formatPrice(minor: number, currency: "NGN" | "GBP" | "USD"): string {
-  const symbol = currency === "NGN" ? "₦" : currency === "GBP" ? "£" : "$";
+export function formatPrice(minor: number, currency: "NGN" | "USD"): string {
+  const symbol = currency === "NGN" ? "₦" : "$";
   const major = minor / 100;
   const hasPence = Math.round(major * 100) % 100 !== 0;
   return `${symbol}${major.toLocaleString(undefined, {
@@ -64,29 +64,20 @@ export function formatPrice(minor: number, currency: "NGN" | "GBP" | "USD"): str
  * Which subscription_plans rows back each pricing-page tier.
  *
  * The marketing tier ids and the plan codes were named independently and do
- * not line up (`family-lite` is backed by a plan called `family`,
- * `diaspora-complete` by `complete_gbp`), so the mapping is written out rather
- * than derived. A tier missing from here simply keeps its static price.
+ * not line up (`diaspora-complete` is backed by `complete_usd`), so the mapping
+ * is written out rather than derived. A tier missing from here simply keeps its
+ * static price.
  */
-const TIER_PLAN_CODES: Record<string, { monthly?: string; yearly?: string; currency: "NGN" | "GBP" }> = {
+const TIER_PLAN_CODES: Record<string, { monthly?: string; yearly?: string; currency: "NGN" | "USD" }> = {
   // Naira
   free: { monthly: "free", currency: "NGN" },
   prevent: { monthly: "prevent", yearly: "prevent_yearly", currency: "NGN" },
   essential: { monthly: "essential", yearly: "essential_yearly", currency: "NGN" },
   complete: { monthly: "complete", yearly: "complete_yearly", currency: "NGN" },
-  "family-lite": { yearly: "family", currency: "NGN" },
-  "family-plus": { yearly: "family_plus", currency: "NGN" },
-  "family-premium": { yearly: "family_premium", currency: "NGN" },
-  parentcare: { monthly: "parentcare", yearly: "parentcare_yearly", currency: "NGN" },
-  // Pounds — every one of these is its naira row above, converted.
-  "diaspora-prevent": { monthly: "prevent_gbp", yearly: "prevent_yearly_gbp", currency: "GBP" },
-  "diaspora-essential": { monthly: "essential_gbp", yearly: "essential_yearly_gbp", currency: "GBP" },
-  "diaspora-complete": { monthly: "complete_gbp", yearly: "complete_yearly_gbp", currency: "GBP" },
-  "diaspora-premium": { monthly: "diaspora_premium_gbp", yearly: "diaspora_premium_yearly_gbp", currency: "GBP" },
-  "family-lite-gbp": { yearly: "family_lite_gbp", currency: "GBP" },
-  "family-plus-gbp": { yearly: "family_plus_gbp", currency: "GBP" },
-  "family-premium-gbp": { yearly: "family_premium_gbp", currency: "GBP" },
-  "parentcare-gbp": { monthly: "parentcare_gbp", yearly: "parentcare_yearly_gbp", currency: "GBP" },
+  // Dollars — every one of these is its naira row above, converted.
+  "diaspora-prevent": { monthly: "prevent_usd", yearly: "prevent_yearly_usd", currency: "USD" },
+  "diaspora-essential": { monthly: "essential_usd", yearly: "essential_yearly_usd", currency: "USD" },
+  "diaspora-complete": { monthly: "complete_usd", yearly: "complete_yearly_usd", currency: "USD" },
 };
 
 export type TierPriceOverride = { priceMain?: string; priceSecondary?: string };

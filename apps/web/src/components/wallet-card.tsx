@@ -10,7 +10,7 @@ import {
   useMyReferralCode,
   useRedeemReferralCode,
 } from "@/lib/queries/wallet";
-import { useFamilyPlanMembers } from "@/lib/queries/family-plan-members";
+import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { koboToNaira } from "@tarragon/shared";
 
 const ENTRY_LABEL: Record<string, string> = {
   topup: "Top-up",
-  sponsor_topup: "Funded by a family member",
+  sponsor_topup: "Funded by someone close to you",
   referral_reward: "Referral reward",
   prevention_reward: "Prevention reward",
   spend: "Spent on care",
@@ -31,7 +31,7 @@ const ENTRY_LABEL: Record<string, string> = {
 
 /**
  * The Health Wallet: one NGN balance that four things feed (self top-up,
- * a family member funding your care, referral credit, prevention rewards)
+ * someone close to you funding your care, referral credit, prevention rewards)
  * and one thing spends it (Tarragon care — never cashed out). Savings goals
  * are just a named target displayed against the same balance, so "pay small
  * small" toward a health check and prevention rewards naturally add up
@@ -42,7 +42,7 @@ export function WalletCard({ patientId }: { patientId: string }) {
   const walletId = balance?.id ?? null;
   const { data: ledger } = useWalletLedger(walletId);
   const { data: savingsGoal } = useWalletSavingsGoal(walletId);
-  const { data: familyMembers } = useFamilyPlanMembers();
+  const { data: sponsorable } = useSponsorableProfiles();
   const { data: bundles } = useLabCatalogue();
   const { data: referralCode } = useMyReferralCode();
 
@@ -130,16 +130,21 @@ export function WalletCard({ patientId }: { patientId: string }) {
               </label>
               <Input id="amountNaira" name="amountNaira" type="number" min={100} step={100} required />
 
-              {familyMembers && familyMembers.length > 0 && (
+              {/* Anyone who has consented to this caller seeing their record can
+                  also be funded by them — the same set private.can_fund_wallet
+                  authorises. Money only ever flows in: spending stays with the
+                  account holder, since wallet_pay_booking_order refuses any
+                  wallet but the caller's own. */}
+              {sponsorable && sponsorable.length > 0 && (
                 <>
                   <label className="block text-xs font-medium text-charcoal-ink" htmlFor="beneficiaryProfileId">
                     Fund
                   </label>
                   <Select id="beneficiaryProfileId" name="beneficiaryProfileId" defaultValue={patientId}>
                     <option value={patientId}>Myself</option>
-                    {familyMembers.map((m) => (
-                      <option key={m.member_id} value={m.member_id}>
-                        {m.member?.full_name ?? "Family member"}
+                    {sponsorable.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.full_name ?? "Someone you look after"}
                       </option>
                     ))}
                   </Select>

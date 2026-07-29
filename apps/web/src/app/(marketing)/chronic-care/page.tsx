@@ -71,7 +71,7 @@ export default function ChronicCarePage() {
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Looking after a parent with a long-term condition?{" "}
           <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
-            ParentCare
+            Caring for a parent
           </Link>{" "}
           brings the same monitoring together for a loved one, with opt-in family updates.
         </p>

@@ -146,7 +146,7 @@ export default function VaccinationsPage() {
             </Link>
             , which also builds your screening calendar and yearly Health Check, or explore{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">
-              ParentCare
+              Caring for a parent
             </Link>{" "}
             for coordinated family monitoring.
           </p>

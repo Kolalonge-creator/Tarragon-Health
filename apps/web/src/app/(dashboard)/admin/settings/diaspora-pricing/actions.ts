@@ -12,9 +12,8 @@ export type DiasporaPricingState =
   | undefined;
 
 const rateSchema = z.object({
-  // Naira per unit of foreign currency. The bounds are deliberately wide — a
-  // sanity check against a missing or extra zero, not a forecast.
-  ngn_per_gbp: z.coerce.number().gt(0).lt(100_000),
+  // Naira per dollar. The bounds are deliberately wide — a sanity check
+  // against a missing or extra zero, not a forecast.
   ngn_per_usd: z.coerce.number().gt(0).lt(100_000),
 });
 
@@ -25,11 +24,11 @@ async function requireAdmin() {
 }
 
 /**
- * Sets the two reference rates and carries the consequences all the way
- * through to the payment providers.
+ * Sets the reference rate and carries the consequences all the way through to
+ * the payment providers.
  *
- * One price list (v3 §15): a GBP or USD row has no price of its own, it is its
- * naira parent converted at these rates. The database enforces that — see
+ * One price list (v3 §15): a dollar row has no price of its own, it is its
+ * naira parent converted at this rate. The database enforces that — see
  * private.enforce_derived_price — so this action computes no prices itself. It
  * moves the rate; the rate's own trigger recomputes every derived row, clears
  * the provider reference of anything whose amount moved, and deactivates it.
@@ -51,17 +50,15 @@ export async function saveCurrencyRates(
   await requireAdmin();
 
   const parsed = rateSchema.safeParse({
-    ngn_per_gbp: formData.get("ngn_per_gbp"),
     ngn_per_usd: formData.get("ngn_per_usd"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Both rates must be a positive number" };
+    return { error: parsed.error.issues[0]?.message ?? "The rate must be a positive number" };
   }
 
   const supabase = createServiceRoleClient();
 
-  const { error: rpcError } = await supabase.rpc("set_currency_reference_rates", {
-    p_ngn_per_gbp: parsed.data.ngn_per_gbp,
+  const { error: rpcError } = await supabase.rpc("set_usd_reference_rate", {
     p_ngn_per_usd: parsed.data.ngn_per_usd,
   });
   if (rpcError) return { error: rpcError.message };
@@ -75,7 +72,7 @@ export async function saveCurrencyRates(
   if (synced.failed.length > 0) {
     return {
       error:
-        `Rates saved and ${synced.ok} price${synced.ok === 1 ? "" : "s"} updated at the provider, but ` +
+        `Rate saved and ${synced.ok} price${synced.ok === 1 ? "" : "s"} updated at the provider, but ` +
         `${synced.failed.length} could not be created and stay switched off: ` +
         `${synced.failed.slice(0, 3).join(", ")}${synced.failed.length > 3 ? "…" : ""}. ` +
         `Nothing is being sold at a stale price. Save again to retry just those.`,
@@ -84,12 +81,12 @@ export async function saveCurrencyRates(
   return {
     message:
       synced.ok === 0
-        ? "Rates saved. No prices changed."
-        : `Rates saved. ${synced.ok} price${synced.ok === 1 ? "" : "s"} rebuilt at Paystack/Stripe and switched back on.`,
+        ? "Rate saved. No prices changed."
+        : `Rate saved. ${synced.ok} price${synced.ok === 1 ? "" : "s"} rebuilt at Paystack/Stripe and switched back on.`,
   };
 }
 
-/** Retries the provider sync without touching the rates. */
+/** Retries the provider sync without touching the rate. */
 export async function resyncNow(): Promise<DiasporaPricingState> {
   await requireAdmin();
   const supabase = createServiceRoleClient();
@@ -135,7 +132,7 @@ async function resyncDerivedRows(
 
   for (const { table, rows } of batches) {
     for (const row of rows) {
-      // A derived row is always GBP or USD, so Stripe. The Paystack branch
+      // A derived row is always USD, so Stripe. The Paystack branch
       // exists only so a future naira-derived row cannot silently skip a sync.
       const result =
         row.currency === "NGN"

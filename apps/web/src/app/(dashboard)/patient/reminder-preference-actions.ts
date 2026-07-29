@@ -10,7 +10,7 @@ export type UpdateReminderPreferenceState = { success?: boolean; error?: string 
  * reminders (private.remap_notification_channel transparently remaps a
  * queued 'whatsapp' row to 'voice' at insert time, so nothing else on the
  * platform needs to know this preference exists). Built for patients who
- * don't read WhatsApp, e.g. an elder on a ParentCare plan.
+ * don't read WhatsApp, e.g. an elderly patient.
  */
 export async function updateReminderPreference(
   _prevState: UpdateReminderPreferenceState,

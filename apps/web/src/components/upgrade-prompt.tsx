@@ -24,21 +24,17 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     title: "Medication refill coordination is part of a paid plan",
     body: "Upgrade to have your doctor coordinate refills through partner pharmacies for you.",
   },
-  family_dashboard: {
-    title: "The family dashboard is part of the Family Plan",
-    body: "See every family member's care in one shared view, one combined bill, on the Family Plan.",
-  },
   annual_review: {
     title: "The Annual Doctor Review is part of a paid plan",
-    body: "Get a once-a-year whole-body workup — general bloods, heart and other screening — plus a video consult with your Tarragon doctor to talk through your whole year. Included on Complete Care, Family and ParentCare plans.",
+    body: "Get a once-a-year whole-body workup — general bloods, heart and other screening — plus a video consult with your Tarragon doctor to talk through your whole year. Included on Complete Care.",
   },
   lifestyle_coaching: {
     title: "Lifestyle coaching is part of a paid plan",
-    body: "Get guided diet, exercise, weight, sleep and stress coaching with progress reviews from your care team — included in Complete, Family and ParentCare, or add it on to Essential.",
+    body: "Get guided diet, exercise, weight, sleep and stress coaching with progress reviews from your care team — included in Complete Care, or add it on to Essential.",
   },
   async_doctor_visit: {
     title: "Ask a doctor is part of a paid plan",
-    body: "Send a written question and get a doctor's answer in the app within 24 hours. Included on Complete Care, Family and ParentCare plans.",
+    body: "Send a written question and get a doctor's answer in the app within 24 hours. Included on Complete Care.",
   },
   health_education: {
     title: "Personalised health education is part of a paid plan",

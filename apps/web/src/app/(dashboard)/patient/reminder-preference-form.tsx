@@ -8,7 +8,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 
 /**
  * Lets a patient opt in to a phone call instead of WhatsApp for reminders —
- * built for someone who doesn't read WhatsApp (e.g. a ParentCare elder).
+ * built for someone who doesn't read WhatsApp (e.g. an elderly patient).
  * Reminders remain notification-layer only either way; this never becomes a
  * required interface for any core action.
  */

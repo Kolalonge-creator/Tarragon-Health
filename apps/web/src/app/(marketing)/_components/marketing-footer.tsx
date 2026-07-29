@@ -17,7 +17,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
     { href: MARKETING_ROUTES.obesity, label: "Obesity & Weight" },
-    { href: MARKETING_ROUTES.parentcare, label: "ParentCare" },
+    { href: MARKETING_ROUTES.parentcare, label: "Caring for a parent" },
     { href: MARKETING_ROUTES.medication, label: "Medication" },
     { href: MARKETING_ROUTES.labs, label: "Labs" },
   ],

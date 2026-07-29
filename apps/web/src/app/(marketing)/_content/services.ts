@@ -34,7 +34,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
   {
     key: "parentcare",
     href: MARKETING_ROUTES.parentcare,
-    title: "ParentCare",
+    title: "Caring for a parent",
     description: "Know how your parent is doing, even when you are not there every day.",
     built: true,
   },
@@ -65,7 +65,7 @@ export const PROOF_STATS = [
   {
     value: "5",
     label: "priority programmes",
-    detail: "Hypertension, diabetes, obesity, ParentCare, and preventive health.",
+    detail: "Hypertension, diabetes, obesity, and preventive health.",
   },
   {
     value: "2",
@@ -118,7 +118,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     step: 6,
     title: "Family updates (optional)",
-    body: "On ParentCare, family can opt in to calm, clear updates about a loved one, near or far. Not on by default, and only for those who choose it.",
+    body: "Name someone as your next of kin and they can follow your care and be called first if something urgent comes up. You choose, and you can withdraw it at any time.",
   },
 ] as const;
 
@@ -179,7 +179,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "family",
     tabLabel: "For families",
     title: "Know how your parent is doing, even from far away.",
-    body: "With ParentCare, track Mum's blood pressure, Dad's medication, and preventive checks, with opt-in updates that feel human, not clinical. Family updates are a ParentCare feature you choose, not something every plan sends.",
+    body: "Follow Mum's blood pressure, Dad's medication and their preventive checks without taking over their record. They keep their own account and name you as next of kin, so what you can see is something they chose to share.",
     points: [
       "Is my parent okay today? Green, amber, or red.",
       "Are they taking their medication?",
@@ -191,7 +191,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "This week's readings", value: "Stable trend" },
       { label: "Overdue", value: "", pill: { text: "Nothing", tone: "green" } },
     ],
-    cta: { label: "Explore ParentCare", href: MARKETING_ROUTES.parentcare },
+    cta: { label: "Caring for a parent", href: MARKETING_ROUTES.parentcare },
   },
   {
     key: "corporate",
@@ -252,7 +252,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "Can I use Tarragon for my parent while I live abroad?",
     answer:
-      "Yes. ParentCare is built for families who want calm updates and care coordination for loved ones in Nigeria.",
+      "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for it by topping up their Health Wallet from anywhere.",
   },
   {
     question: "How much does it cost?",

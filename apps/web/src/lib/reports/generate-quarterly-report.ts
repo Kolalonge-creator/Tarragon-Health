@@ -9,7 +9,7 @@ export type QuarterlyReportSnapshot = {
 };
 
 /**
- * Data assembly for the ParentCare/Family Premium quarterly PDF report —
+ * Data assembly for the quarterly PDF report —
  * reuses getHealthPassportData's vitals/screenings/labs/escalations query
  * (parametrized to a 3-month window instead of Health Passport's 12) rather
  * than a bespoke assembler, since the underlying sources and shape are

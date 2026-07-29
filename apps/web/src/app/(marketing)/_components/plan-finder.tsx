@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-type Who = "me" | "family" | "parents";
+type Who = "me" | "someone-else";
 type Health = "none" | "one" | "multiple";
 type From = "nigeria" | "abroad";
 
@@ -17,95 +17,65 @@ type Recommendation = {
 /**
  * Maps the three answers to a single recommended plan. Pure and exhaustive so
  * the mapping is testable and every combination has a deliberate answer;
- * pricing decisions live in _content/pricing.ts; this only routes to them.
+ * pricing decisions live in _content/pricing.ts, this only routes to them.
+ *
+ * Since removal 4 (2026-07-29) there is no household plan to route to, so
+ * "who" no longer changes which plan is recommended — it changes whose plan it
+ * is. Everyone enrols individually, so the answer for someone looking after a
+ * parent is the plan that suits that parent, on that parent's own account,
+ * paid for by funding their Health Wallet. The question is kept because it is
+ * the one people arrive with, and answering it plainly is more useful than
+ * hiding it.
  */
 export function recommendPlan(who: Who, health: Health, from: From): Recommendation {
-  if (who === "parents") {
-    return from === "abroad"
-      ? {
-          plan: "ParentCare (Diaspora)",
-          price: "£59/month for up to 2 parents",
-          why: "A named doctor coordinator, scheduled reviews of their readings, and a quarterly report you can read from anywhere.",
-          secondary:
-            "Watching over one parent only? Premium Care (Diaspora) at £49/month is the single-person version.",
-        }
-      : {
-          plan: "ParentCare",
-          price: "₦25,000/month for up to 2 parents",
-          why: "Built specifically for keeping close watch over a parent's health: named doctor coordinator, scheduled reviews, quarterly family report.",
-        };
-  }
-  if (who === "family") {
-    if (from === "abroad") {
-      return health === "multiple"
+  const forSomeoneElse =
+    "They hold their own Tarragon account and their own subscription. Name each other as next of kin and you can follow their care and top up their Health Wallet to pay for it.";
+
+  const rec: Recommendation =
+    health === "none"
+      ? from === "abroad"
         ? {
-            plan: "Family Plus (Diaspora)",
-            price: "£430/year for up to 4 people",
-            why: "A named family doctor coordinator and priority escalation for every member back home, billed in pounds, visible from anywhere.",
-            secondary: "Family Lite (£290/year) works too if you mainly want everyone monitored on one bill.",
+            plan: "Tarragon Prevent (Diaspora)",
+            price: "$2.56/month",
+            why: "The stay-healthy plan: a screening and vaccination calendar built around them, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
+            secondary:
+              "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000, in Nigeria) is available to anyone, on any plan.",
           }
         : {
-            plan: "Family Lite (Diaspora)",
-            price: "£290/year for up to 4 people",
-            why: "One plan and one bill in pounds for your family in Nigeria, with monitoring matched to each member's needs.",
-            secondary: "Covering just your parents? ParentCare (Diaspora) at £59/month covers up to 2 parents.",
-          };
-    }
-    return health === "multiple"
-      ? {
-          plan: "Family Plus",
-          price: "₦220,000/year for up to 4 people",
-          why: "A named family doctor coordinator and priority escalation for every member: the closer coordination a household managing real conditions needs.",
-          secondary: "Family Lite (₦150,000/year) works too if you mainly want everyone monitored on one bill.",
-        }
-      : {
-          plan: "Family Lite",
-          price: "₦150,000/year for up to 4 people",
-          why: "One plan and one bill for the whole household, with monitoring matched to each member's needs.",
-        };
+            plan: "Tarragon Prevent",
+            price: "₦3,500/month",
+            why: "The stay-healthy plan: a screening and vaccination calendar built around them, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
+            secondary:
+              "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000) is available to anyone, on any plan.",
+          }
+      : health === "one"
+        ? from === "abroad"
+          ? {
+              plan: "Essential Care (Diaspora)",
+              price: "$5.86/month",
+              why: "The same Essential Care monitoring, billed in dollars. The dollar price is the naira price converted, not a diaspora premium.",
+            }
+          : {
+              plan: "Essential Care",
+              price: "₦8,000/month",
+              why: "Real clinical monitoring for one condition, hypertension, diabetes, or obesity: a doctor reviews the readings every month and follows up on medication.",
+            }
+        : from === "abroad"
+          ? {
+              plan: "Complete Care (Diaspora)",
+              price: "$10.99/month",
+              why: "Weekly doctor review, with hypertension, diabetes, and obesity managed together on one care plan, billed in dollars.",
+            }
+          : {
+              plan: "Complete Care",
+              price: "₦15,000/month",
+              why: "Weekly doctor review, with hypertension, diabetes, and obesity managed together on one care plan, and priority escalation when something needs attention.",
+            };
+
+  if (who === "someone-else") {
+    return { ...rec, secondary: forSomeoneElse };
   }
-  // who === "me"
-  if (health === "none") {
-    return from === "abroad"
-      ? {
-          plan: "Tarragon Prevent (Diaspora)",
-          price: "£7/month",
-          why: "The stay-healthy plan: a screening and vaccination calendar built for you, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
-          secondary:
-            "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000, in Nigeria) is available to anyone, on any plan.",
-        }
-      : {
-          plan: "Tarragon Prevent",
-          price: "₦3,500/month",
-          why: "The stay-healthy plan: a screening and vaccination calendar built for you, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
-          secondary:
-            "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000) is available to anyone, on any plan.",
-        };
-  }
-  if (health === "one") {
-    return from === "abroad"
-      ? {
-          plan: "Essential Care (Diaspora)",
-          price: "£15/month",
-          why: "The same Essential Care monitoring, billed in pounds.",
-        }
-      : {
-          plan: "Essential Care",
-          price: "₦8,000/month",
-          why: "Real clinical monitoring for one condition, hypertension, diabetes, or obesity: a doctor reviews your readings every month and follows up on your medication.",
-        };
-  }
-  return from === "abroad"
-    ? {
-        plan: "Complete Care (Diaspora)",
-        price: "£29/month",
-        why: "Weekly doctor review, with hypertension, diabetes, and obesity managed together on one care plan, billed in pounds.",
-      }
-    : {
-        plan: "Complete Care",
-        price: "₦15,000/month",
-        why: "Weekly doctor review, with hypertension, diabetes, and obesity managed together on one care plan, and priority escalation when something needs attention.",
-      };
+  return rec;
 }
 
 const QUESTIONS: {
@@ -118,13 +88,12 @@ const QUESTIONS: {
     label: "Who needs care?",
     options: [
       { value: "me", label: "Just me" },
-      { value: "family", label: "My household or family" },
-      { value: "parents", label: "My parent(s)" },
+      { value: "someone-else", label: "Someone I look after" },
     ],
   },
   {
     key: "health",
-    label: "What best describes the health situation?",
+    label: "What best describes their health situation?",
     options: [
       { value: "none", label: "No diagnosed condition, staying ahead" },
       { value: "one", label: "One condition: hypertension, diabetes, or obesity" },
@@ -136,7 +105,7 @@ const QUESTIONS: {
     label: "Where are you paying from?",
     options: [
       { value: "nigeria", label: "Nigeria (₦)" },
-      { value: "abroad", label: "Abroad (£ / $)" },
+      { value: "abroad", label: "Abroad ($)" },
     ],
   },
 ];
