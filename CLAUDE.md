@@ -81,19 +81,83 @@ true — that assertion is what caught the wrong form being applied here.
 
 ### ▶ NEXT ACTIONS — start here
 
-**State: the platform is restored, verified, and unblocked.** 277/277 migrations on
-`koiplnmbgnqnbywhpjlf`, `pnpm --filter web typecheck` clean, 30 profiles backfilled with correct
-roles, Edge Functions intact. Nothing is half-finished.
+**State: three of the four founder-approved removals are done. Removal 4 is the remaining work.**
+277/277 migrations on `koiplnmbgnqnbywhpjlf`, plus the six listed below and
+`20260729194127_scoped_access_roles_out_of_org_staff` from a parallel session; typecheck, lint,
+443 tests and the production build all green. Nothing is half-finished.
 
-**The four founder-approved removals are the work. Two of four are done.** Do them one at a time,
-each as its own branch + migration + typecheck, smallest first. Sizing measured 2026-07-29:
+⚠️ **All three finished removals are on unmerged branches off `main-dev`.** They were applied to
+the shared database in order, so the database is ahead of `main-dev`. Merge them before starting
+anything that touches the same files, or work off the last branch.
 
-| # | Removal | Migrations | App files | Notes |
-|---|---|---:|---:|---|
-| 1 | ~~**No capitation (I8)**~~ | ✅ | ✅ | **DONE** — `20260729122912_remove_hmo_capitation_i8.sql`, branch `claude/remove-capitation-i8`. See below for the pattern it set. |
-| 2 | ~~**Institutions aggregate-only (I9)**~~ | ✅ | ✅ | **DONE** — `20260729124330_institutions_aggregate_only_i9.sql`, branch `claude/institutions-aggregate-only-i9`. **This turned out to be a live PHI exposure, not just a UI removal** — see the note directly below. |
-| 3 | **One naira price list** | 13 | 33 | ⚠️ The GBP/USD plans have **real synced Stripe Prices**. Deleting rows is not enough — deactivate on Stripe or a diaspora buyer can still reach checkout. |
-| 4 | **Individual enrolment only** | 16 | 41 | ⚠️ Decide the *replacement* first. v3's answer is dependants on one adult account; the platform's family features are far richer. Do not delete before that decision. |
+| # | Removal | Branch | Migration(s) |
+|---|---|---|---|
+| 1 | ~~**No capitation (I8)**~~ ✅ | `claude/remove-capitation-i8` | `20260729122912` |
+| 2 | ~~**Institutions aggregate-only (I9)**~~ ✅ | `claude/institutions-aggregate-only-i9` | `20260729124330` |
+| 3 | ~~**One price list**~~ ✅ | `claude/restore-price-book` | `20260729130000`, `131500`, `140916`, `141426` |
+| 4 | **Individual enrolment only** | not started | — |
+
+**Removal 3 changed meaning mid-flight — do not re-read the old wording.** "One naira price list"
+does NOT mean naira only. Founder clarified: **one price, payable in naira, GBP or USD.** The naira
+price is the only stored price; GBP/USD are derived from it at an admin-set reference rate
+(`/admin/settings/diaspora-pricing`), enforced by `private.enforce_derived_price`. Changing the
+rate recomputes every derived row, clears provider references (Paystack Plans and Stripe Prices are
+amount-immutable) and mints replacement Stripe Prices. It also surfaced that the restore had lost
+**Essential and Complete entirely** — the platform could not sell its two core tiers — because
+pricing lived in `seed.sql` and direct edits, never in migrations. It lives in migrations now.
+
+### ▶ Removal 4 — individual enrolment only. Start here in a new session.
+
+**Do not delete anything until the founder answers the one question below.** This removal is the
+only one of the four where the replacement is a genuine product decision rather than a mechanical
+narrowing, and where deleting first would strip a shipped, working capability.
+
+**What "individual enrolment only" removes:** family plans as a *billing* construct — Family Lite
+(`family`), Family Plus, Family Premium, ParentCare, their GBP/USD counterparts, and the
+`extra-family-member*` / `extra-parentcare-member*` add-ons. One person, one subscription.
+
+**The question for the founder — this is the blocker:**
+> When family plans go, how does a daughter in Lagos still manage her mother's care, and how does
+> a parent still manage a child's immunisations? v3's answer is *dependants on one adult account*.
+> Is a dependant (a) still a full patient with their own record and their own subscription, just
+> billed separately, or (b) a record that exists only under the adult's account with no
+> subscription of its own?
+
+**Most of the answer already exists — check before building.** The platform has two orthogonal
+models here, and only one of them is the thing being removed:
+
+| Table | What it is | Rows | Fate |
+|---|---|---:|---|
+| `family_plan_members` | Who is **on the bill** — `plan_id`, `plan_owner_id`, `member_id`, `relationship` | 0 | This is the billing construct being removed |
+| `profile_access` | Who may **see and act on a record** — `profile_id`, `grantee_user_id`, `permission_level` | 0 | **Keep.** This is already the dependant model |
+
+`profile_access` is consent-based record access and is entirely independent of billing. It already
+powers consent-gated lipid visibility, child immunisation logging, and the reproductive-health
+surfaces. **`addChildDependentAction`** (`apps/web/src/app/(dashboard)/patient/family/add-child-actions.ts`,
+built 2026-07-24) already creates a child profile with no login and auto-grants `profile_access`
+'manage' to the parent — that is v3's dependant model, shipped. It currently also writes a
+`family_plan_members` row, which is the coupling to unpick.
+
+So the likely shape is: **delete the plan tier and the membership table, keep `profile_access`,
+and re-point `addChildDependentAction` at it alone.** Confirm with the founder before assuming it.
+
+**Both tables are empty (checked 2026-07-29), so like removals 1–3 this needs no data migration.**
+
+**Surfaces to touch** (`grep -rl "family_plan_members\|FamilyMembers\|family_dashboard"`):
+`patient/family/` (page, `family-members-manager.tsx`, `add-child-form.tsx`, `add-child-actions.ts`),
+`patient/parentcare/page.tsx`, `family-dashboard-card.tsx`, `lib/queries/family-plan-members{,-server}.ts`,
+`lib/billing/wallet-checkout.ts` (family-member beneficiary picker), `upgrade-prompt.tsx`,
+`api/cron/generate-quarterly-reports`, plus `private.validate_family_plan_member_count` and the
+`family_dashboard` / `dedicated_coordinator` / `quarterly_report` feature flags.
+
+⚠️ **Marketing carries family pricing in several places** — `_content/pricing.ts` (`NGN_TIERS`,
+`GBP_TIERS`, the Lite/Plus/Premium toggle card, `PlanFinder`'s family path, FAQs) and
+`docs/Tarragon_Health_Pricing_Guide_v3.docx`. A removal that leaves those live advertises plans
+that cannot be bought.
+
+⚠️ **The plan rows now have real Paystack/Stripe objects again after removal 3.** Deleting a row is
+not enough — deactivate at the provider too, or a buyer with a saved link can still reach checkout.
+This is the same trap flagged for removal 3 and it is now live again.
 
 **⚠️ What removal 2 found — read before touching `private.is_org_staff`:**
 `is_org_staff(org)` admitted **every non-patient role**, so `corporate_admin` and `hmo_admin`
@@ -111,7 +175,7 @@ change to it is a change to 110 tables at once.** Note `pharmacist`, `lab_liaiso
 `analyst` still pass it; that is the same bug class for partner/back-office roles and is NOT yet
 fixed — worth its own pass.
 
-**The pattern removal 1 set — follow it for 2, 3 and 4:**
+**The pattern removals 1–3 set — follow it for 4:**
 1. **Count the rows first.** Capitation had zero everywhere, which turned a feared data migration
    into a pure structural change. Say the counts in the migration header so a reader can see why
    no conversion step exists.
@@ -126,6 +190,13 @@ fixed — worth its own pass.
 4. **End with a DO block of assertions.** The migration is the test: it raises if any capitation
    enum value, table, function body or ledger account survives. That is what makes "removed" a
    provable claim rather than a hopeful one.
+5. **Prove it with a simulated session, not a code read.** Removals 2 and 3 were both verified by
+   `set_config('request.jwt.claims', …)` + `set local role authenticated` inside a rolled-back
+   transaction, **with a control** — an institution seeing 0 patient rows only means something
+   once a clinician in the same probe sees 15. A test that cannot fail proves nothing.
+6. **Anything data-only dies in a rebuild.** Removal 3 existed because the price book lived in
+   `seed.sql` and direct edits. `seed.sql` runs on a local `db reset` and is never applied to a
+   remote project. If it must survive, it goes in a migration.
 
 **Also worth doing, not yet done:**
 - **Write `rls_auto_enable` properly** as a real migration — see bug 1 above. The rebuilt database
@@ -135,6 +206,16 @@ fixed — worth its own pass.
   exists — it just needs adapting to the platform schema.
 - **`supabase/config.toml`** still says `project_id = "tarragon-health"` and carries a stale comment
   claiming production must be `af-south-1`. Real region is `eu-west-1`.
+
+**Founder decisions blocking work (all cheap to answer, each unblocks something):**
+1. **The two FX reference rates** — naira per £1 and naira per $1, entered at
+   `/admin/settings/diaspora-pricing`. Until they are set, every GBP/USD plan keeps its old
+   independently-set price and stays off sale. Saving them recomputes all 44 derived rows, mints
+   fresh Stripe Prices and switches them back on.
+2. **Diaspora Premium** (`diaspora_premium_gbp` / `_yearly_gbp`, £49/mo) has **no naira
+   counterpart**, so it cannot be on a single price list. It is held off sale and flagged in the
+   admin page. Give it a naira price, or retire it.
+3. **Removal 4's replacement model** — the question at the top of this block.
 
 **Owner-side (cannot be done by an agent):**
 - Delete the **Tarragon Platform** (`rjsxbhgqdudowlvarmzq`) and **tarragon-control-staging**
