@@ -501,13 +501,12 @@ values
      39000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('complete_yearly_gbp', 'Complete Care (yearly)', 'Complete Care billed annually — 2 months free.',
      29000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
-  ('family_usd', 'Family Lite', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
-     10000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
-  ('family_gbp', 'Family Lite', 'Up to 4 people at Complete Care–level monitoring, shared family dashboard, one combined bill.',
-     8000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   -- Diaspora family tiers (2026-07-21): real self-service GBP/USD Family
-  -- plans replacing the old quote-only path. family_gbp/family_usd above are
-  -- retired legacy rows kept for code-compat, never activated.
+  -- plans. The old family_gbp (£80/yr) and family_usd ($100/yr) rows that
+  -- used to sit here were removed on 2026-07-29 and are NOT recreated by
+  -- migration 20260729130000 either: they were found live and purchasable
+  -- during the 2026-07-21 pricing audit, which was a real revenue leak.
+  -- Seeding them dormant only invites someone to reactivate them.
   ('family_lite_gbp', 'Family Lite', 'Up to 4 people back home on one plan: monitoring matched to each member, shared family dashboard, one combined bill, monthly family report. Billed yearly in GBP.',
      29000, 'GBP', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'family_dashboard', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
   ('family_plus_gbp', 'Family Plus', 'Everything in Family Lite, plus a named family doctor coordinator, priority escalation across all members, and one free Annual Health Check a year. Billed yearly in GBP.',
