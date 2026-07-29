@@ -13,6 +13,7 @@ import {
   type PricingTier,
 } from "../_content/pricing";
 import { PricingLabelBadge } from "./pricing-label";
+import type { TierPriceOverride } from "@/lib/marketing/plan-prices";
 
 function TierCard({ tier }: { tier: PricingTier }) {
   return (
@@ -134,9 +135,25 @@ function FamilyPlansCard({ tiers }: { tiers: PricingTier[] }) {
   );
 }
 
-export function PricingTable() {
+/**
+ * `priceOverrides` carries the live prices read from the database by the page.
+ * The pound and dollar amounts are the naira price converted at the founder's
+ * reference rate, so they change whenever that rate changes and cannot be
+ * shipped as constants — the page would advertise one number while checkout
+ * charged another. A tier with no override keeps its static price, so a
+ * database blip degrades to slightly stale copy rather than a blank card.
+ */
+export function PricingTable({
+  priceOverrides = {},
+}: {
+  priceOverrides?: Record<string, TierPriceOverride>;
+}) {
   const [currency, setCurrency] = useState<"NGN" | "GBP">("NGN");
-  const tiers = currency === "NGN" ? NGN_TIERS : GBP_TIERS;
+  const baseTiers = currency === "NGN" ? NGN_TIERS : GBP_TIERS;
+  const tiers = baseTiers.map((t) => {
+    const o = priceOverrides[t.id];
+    return o ? { ...t, ...o } : t;
+  });
   const individualTiers = tiers.filter((t) => !isFamilyTier(t) && !isParentcareTier(t));
   const familyTiers = tiers.filter(isFamilyTier);
   const parentcareTier = tiers.find(isParentcareTier);

@@ -1,65 +1,92 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
-import { DiasporaPricingManager, type UsdPlanRow } from "./diaspora-pricing-manager";
+import { CurrencyRateManager, type DerivedRow } from "./diaspora-pricing-manager";
+
+type PriceRow = {
+  code: string;
+  name: string;
+  interval: string;
+  price_minor: number;
+  currency: string;
+  derived_from_code: string | null;
+  stripe_price_id: string | null;
+  is_active: boolean;
+};
 
 export default async function DiasporaPricingPage() {
   const profile = await getCurrentProfile();
-  // proxy.ts already blocks non-admins from /admin/**; defense in depth.
+  // proxy.ts already blocks non-admins from /admin/**; defence in depth.
   if (profile?.role !== "admin") redirect("/admin");
 
   const supabase = await createClient();
 
   const { data: settings } = await supabase
     .from("platform_currency_settings")
-    .select("usd_per_gbp")
+    .select("ngn_per_gbp, ngn_per_usd, updated_at")
     .eq("id", true)
     .maybeSingle();
 
-  const { data: plans } = await supabase
-    .from("subscription_plans")
-    .select("code, name, interval, price_minor, currency, stripe_price_id")
-    .in("currency", ["GBP", "USD"]);
+  const [{ data: plans }, { data: addOns }] = await Promise.all([
+    supabase
+      .from("subscription_plans")
+      .select("code, name, interval, price_minor, currency, derived_from_code, stripe_price_id, is_active"),
+    supabase
+      .from("add_ons")
+      .select("code, name, interval, price_minor, currency, derived_from_code, stripe_price_id, is_active"),
+  ]);
 
-  const gbpByCode = new Map(
-    (plans ?? [])
-      .filter((p) => p.currency === "GBP")
-      .map((p) => [p.code, p.price_minor])
-  );
+  const all: PriceRow[] = [...(plans ?? []), ...(addOns ?? [])];
 
-  const rows: UsdPlanRow[] = (plans ?? [])
-    .filter((p) => p.currency === "USD")
-    .map((p) => {
-      const gbpMinor = gbpByCode.get(p.code.replace(/_usd$/, "_gbp")) ?? null;
-      return {
-        code: p.code,
-        name: p.name,
-        interval: p.interval,
-        currentUsdMajor: p.price_minor / 100,
-        gbpMajor: gbpMinor === null ? null : gbpMinor / 100,
-        needsStripeSync: p.stripe_price_id === null,
-      };
+  const nairaPrice = new Map<string, number>();
+  for (const r of all) if (r.currency === "NGN") nairaPrice.set(r.code, r.price_minor);
+
+  const rows: DerivedRow[] = all
+    .flatMap((r) => {
+      if (!r.derived_from_code) return [];
+      const base = nairaPrice.get(r.derived_from_code);
+      if (base === undefined) return [];
+      return [
+        {
+          code: r.code,
+          name: r.name,
+          interval: r.interval,
+          currency: r.currency as "GBP" | "USD",
+          nairaMinor: base,
+          currentMinor: r.price_minor,
+          needsSync: r.stripe_price_id === null,
+          isActive: r.is_active,
+        },
+      ];
     })
-    .sort((a, b) => a.code.localeCompare(b.code));
+    .sort((a, b) => a.currency.localeCompare(b.currency) || a.nairaMinor - b.nairaMinor);
+
+  // Diaspora-only tiers have no naira parent, so they sit outside the single
+  // price list. Surfaced rather than hidden — an unpriced tier is a decision
+  // waiting to be made, not a detail.
+  const unlinked = all
+    .filter((r) => r.currency !== "NGN" && !r.derived_from_code)
+    .map((r) => ({ code: r.code, name: r.name, isActive: r.is_active }));
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Diaspora pricing (USD)
+          Currency &amp; diaspora pricing
         </h1>
-        <p className="max-w-2xl text-charcoal-ink/60">
-          Keep the USD diaspora prices in step with the GBP prices. Set the
-          GBP&nbsp;→&nbsp;USD reference rate, apply it to fill suggested USD
-          prices, adjust any individually, and save. This never charges anyone
-          automatically — after saving, re-run &ldquo;Sync to Stripe&rdquo; on
-          the Subscriptions page so the new amounts are the ones actually
-          charged.
+        <p className="max-w-3xl text-charcoal-ink/60">
+          One price list. Every plan and add-on is priced once, in naira; the
+          pound and dollar amounts are that same price converted at the rates
+          below. Nobody pays more for the same thing because of where they are.
+          The currency is only how they pay.
         </p>
       </div>
-      <DiasporaPricingManager
-        initialRate={Number(settings?.usd_per_gbp ?? 1.34)}
+      <CurrencyRateManager
+        initialGbp={settings?.ngn_per_gbp == null ? null : Number(settings.ngn_per_gbp)}
+        initialUsd={settings?.ngn_per_usd == null ? null : Number(settings.ngn_per_usd)}
+        updatedAt={settings?.updated_at ?? null}
         rows={rows}
+        unlinked={unlinked}
       />
     </div>
   );

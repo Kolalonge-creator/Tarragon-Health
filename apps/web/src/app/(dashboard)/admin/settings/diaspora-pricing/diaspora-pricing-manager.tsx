@@ -2,163 +2,229 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { saveDiasporaPricing, type DiasporaPricingState } from "./actions";
+import { Badge } from "@/components/ui/badge";
+import { saveCurrencyRates, type DiasporaPricingState } from "./actions";
 
-export type UsdPlanRow = {
+export type DerivedRow = {
   code: string;
   name: string;
   interval: string;
-  currentUsdMajor: number;
-  gbpMajor: number | null;
-  needsStripeSync: boolean;
+  currency: "GBP" | "USD";
+  /** The naira price this row is converted from, in kobo. */
+  nairaMinor: number;
+  /** What it is stored at right now, in pence/cents. */
+  currentMinor: number;
+  needsSync: boolean;
+  isActive: boolean;
 };
 
-export function DiasporaPricingManager({
-  initialRate,
+const SYMBOL: Record<"GBP" | "USD", string> = { GBP: "£", USD: "$" };
+
+/** Same arithmetic as private.expected_derived_price_minor, for the preview. */
+function derive(nairaMinor: number, rate: number): number | null {
+  if (!Number.isFinite(rate) || rate <= 0) return null;
+  return Math.round(nairaMinor / rate);
+}
+
+function money(minor: number, symbol: string) {
+  return `${symbol}${(minor / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+export function CurrencyRateManager({
+  initialGbp,
+  initialUsd,
+  updatedAt,
   rows,
+  unlinked,
 }: {
-  initialRate: number;
-  rows: UsdPlanRow[];
+  initialGbp: number | null;
+  initialUsd: number | null;
+  updatedAt: string | null;
+  rows: DerivedRow[];
+  unlinked: { code: string; name: string; isActive: boolean }[];
 }) {
-  const [rate, setRate] = useState(String(initialRate));
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(rows.map((r) => [r.code, String(r.currentUsdMajor)]))
+  const [gbp, setGbp] = useState(initialGbp === null ? "" : String(initialGbp));
+  const [usd, setUsd] = useState(initialUsd === null ? "" : String(initialUsd));
+  const [state, formAction, pending] = useActionState<DiasporaPricingState, FormData>(
+    saveCurrencyRates,
+    undefined
   );
-  const [state, formAction, pending] = useActionState<
-    DiasporaPricingState,
-    FormData
-  >(saveDiasporaPricing, undefined);
 
-  const rateNum = Number(rate);
+  const gbpRate = Number(gbp);
+  const usdRate = Number(usd);
 
-  const fillFromRate = () => {
-    if (!Number.isFinite(rateNum) || rateNum <= 0) return;
-    setValues((prev) => {
-      const next = { ...prev };
-      for (const r of rows) {
-        if (r.gbpMajor !== null) {
-          next[r.code] = String(Math.round(r.gbpMajor * rateNum));
-        }
-      }
-      return next;
-    });
-  };
-
-  const rowsPayload = useMemo(
+  const preview = useMemo(
     () =>
-      JSON.stringify(
-        rows.map((r) => ({
-          code: r.code,
-          price_minor: Math.round((Number(values[r.code]) || 0) * 100),
-        }))
-      ),
-    [rows, values]
+      rows.map((r) => {
+        const next = derive(r.nairaMinor, r.currency === "GBP" ? gbpRate : usdRate);
+        return { ...r, nextMinor: next, changes: next !== null && next !== r.currentMinor };
+      }),
+    [rows, gbpRate, usdRate]
   );
+
+  const changing = preview.filter((r) => r.changes).length;
+  const ratesSet = initialGbp !== null && initialUsd !== null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>USD plans</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form action={formAction} className="space-y-6">
-          <input type="hidden" name="rows" value={rowsPayload} />
-
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="w-40">
-              <Label htmlFor="usd_per_gbp">GBP → USD rate</Label>
-              <Input
-                id="usd_per_gbp"
-                name="usd_per_gbp"
-                type="number"
-                step="0.0001"
-                min="0"
-                value={rate}
-                onChange={(e) => setRate(e.target.value)}
-              />
+    <div className="space-y-6">
+      <form action={formAction}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Reference rates</CardTitle>
+            <CardDescription>
+              How much naira one pound and one dollar are worth for pricing. These are yours to
+              set and change whenever you like; they are not a live market feed, so a price only
+              moves when you move it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="ngn_per_gbp">Naira per £1</Label>
+                <Input
+                  id="ngn_per_gbp"
+                  name="ngn_per_gbp"
+                  inputMode="decimal"
+                  value={gbp}
+                  onChange={(e) => setGbp(e.target.value)}
+                  placeholder="e.g. 2000"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ngn_per_usd">Naira per $1</Label>
+                <Input
+                  id="ngn_per_usd"
+                  name="ngn_per_usd"
+                  inputMode="decimal"
+                  value={usd}
+                  onChange={(e) => setUsd(e.target.value)}
+                  placeholder="e.g. 1600"
+                  required
+                />
+              </div>
             </div>
-            <Button type="button" variant="outline" onClick={fillFromRate}>
-              Fill USD from rate
-            </Button>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
-              <thead>
-                <tr className="border-b border-charcoal-ink/10 text-left text-charcoal-ink/60">
-                  <th className="py-2 pr-4 font-medium">Plan</th>
-                  <th className="py-2 pr-4 font-medium">Interval</th>
-                  <th className="py-2 pr-4 font-medium">GBP</th>
-                  <th className="py-2 pr-4 font-medium">Suggested</th>
-                  <th className="py-2 pr-4 font-medium">USD price ($)</th>
+            {!ratesSet && (
+              <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+                No rates are set yet, so the pound and dollar prices below are still the old
+                independently-set ones. Saving a rate replaces every one of them with the
+                converted naira price.
+              </p>
+            )}
+
+            <p className="text-sm text-charcoal-ink/70">
+              {changing === 0
+                ? "Nothing would change at these rates."
+                : `Saving changes ${changing} price${changing === 1 ? "" : "s"}. Each one gets a brand-new Stripe price, because a Stripe price can never be edited after it is created — the old one is retired and the plan switches back on only once its replacement exists.`}
+            </p>
+
+            {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+            {state?.message && <p className="text-sm text-deep-forest">{state.message}</p>}
+
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={pending}>
+                {pending ? "Saving and rebuilding prices…" : "Save rates and update everywhere"}
+              </Button>
+              {updatedAt && (
+                <span className="text-xs text-charcoal-ink/50">
+                  Last changed {new Date(updatedAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>What these rates produce</CardTitle>
+          <CardDescription>
+            Every row is its naira price converted. There is no way to set one of these
+            individually — the database rejects it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-charcoal-ink/10 text-left text-charcoal-ink/60">
+                <th className="py-2 pr-3 font-medium">Plan or add-on</th>
+                <th className="py-2 pr-3 font-medium">Naira price</th>
+                <th className="py-2 pr-3 font-medium">Now</th>
+                <th className="py-2 pr-3 font-medium">After saving</th>
+                <th className="py-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.map((r) => (
+                <tr key={r.code} className="border-b border-charcoal-ink/5">
+                  <td className="py-2 pr-3">
+                    <span className="font-medium text-charcoal-ink">{r.name}</span>{" "}
+                    <span className="text-charcoal-ink/50">
+                      · {r.currency} · {r.interval}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-charcoal-ink/70">
+                    ₦{(r.nairaMinor / 100).toLocaleString()}
+                  </td>
+                  <td className="py-2 pr-3 text-charcoal-ink/70">
+                    {money(r.currentMinor, SYMBOL[r.currency])}
+                  </td>
+                  <td className="py-2 pr-3">
+                    {r.nextMinor === null ? (
+                      <span className="text-charcoal-ink/40">set a rate</span>
+                    ) : r.changes ? (
+                      <span className="font-medium text-deep-forest">
+                        {money(r.nextMinor, SYMBOL[r.currency])}
+                      </span>
+                    ) : (
+                      <span className="text-charcoal-ink/40">unchanged</span>
+                    )}
+                  </td>
+                  <td className="py-2">
+                    {r.isActive ? (
+                      <Badge variant="green">On sale</Badge>
+                    ) : r.needsSync ? (
+                      <Badge variant="amber">Awaiting Stripe price</Badge>
+                    ) : (
+                      <Badge variant="grey">Off</Badge>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => {
-                  const suggested =
-                    r.gbpMajor !== null && Number.isFinite(rateNum) && rateNum > 0
-                      ? Math.round(r.gbpMajor * rateNum)
-                      : null;
-                  return (
-                    <tr
-                      key={r.code}
-                      className="border-b border-charcoal-ink/5 align-middle"
-                    >
-                      <td className="py-2 pr-4">
-                        <div className="font-medium text-charcoal-ink">
-                          {r.name}
-                        </div>
-                        <div className="text-xs text-charcoal-ink/50">
-                          {r.code}
-                          {r.needsStripeSync ? " · needs Stripe sync" : ""}
-                        </div>
-                      </td>
-                      <td className="py-2 pr-4 text-charcoal-ink/70">
-                        {r.interval}
-                      </td>
-                      <td className="py-2 pr-4 text-charcoal-ink/70">
-                        {r.gbpMajor === null ? "—" : `£${r.gbpMajor}`}
-                      </td>
-                      <td className="py-2 pr-4 text-charcoal-ink/50">
-                        {suggested === null ? "—" : `$${suggested}`}
-                      </td>
-                      <td className="py-2 pr-4">
-                        <Input
-                          className="w-28"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={values[r.code] ?? ""}
-                          onChange={(e) =>
-                            setValues((prev) => ({
-                              ...prev,
-                              [r.code]: e.target.value,
-                            }))
-                          }
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
-          {state?.error ? (
-            <p className="text-sm text-status-red">{state.error}</p>
-          ) : null}
-          {state?.message ? (
-            <p className="text-sm text-brand-green">{state.message}</p>
-          ) : null}
-
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save diaspora pricing"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      {unlinked.length > 0 && (
+        <Card className="border-amber-300/60">
+          <CardHeader>
+            <CardTitle className="text-base">Not on the single price list</CardTitle>
+            <CardDescription>
+              These have no naira equivalent, so there is nothing to convert from. They are held
+              off sale until you either give them a naira price or retire them.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm">
+              {unlinked.map((u) => (
+                <li key={u.code} className="flex items-center gap-2">
+                  <span className="text-charcoal-ink">{u.name}</span>
+                  <code className="text-xs text-charcoal-ink/50">{u.code}</code>
+                  {u.isActive && <Badge variant="red">still on sale</Badge>}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

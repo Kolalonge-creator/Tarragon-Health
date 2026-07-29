@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
           description: string | null
+          derived_from_code: string | null
           features: string[]
           id: string
           interval: Database["public"]["Enums"]["billing_interval"]
@@ -38,6 +39,7 @@ export type Database = {
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
           description?: string | null
+          derived_from_code?: string | null
           features?: string[]
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
@@ -56,6 +58,7 @@ export type Database = {
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
           description?: string | null
+          derived_from_code?: string | null
           features?: string[]
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
@@ -9552,6 +9555,7 @@ export type Database = {
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
           description: string | null
+          derived_from_code: string | null
           features: string[]
           id: string
           interval: Database["public"]["Enums"]["billing_interval"]
@@ -9569,6 +9573,7 @@ export type Database = {
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
           description?: string | null
+          derived_from_code?: string | null
           features?: string[]
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
@@ -9586,6 +9591,7 @@ export type Database = {
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
           description?: string | null
+          derived_from_code?: string | null
           features?: string[]
           id?: string
           interval?: Database["public"]["Enums"]["billing_interval"]
@@ -11474,6 +11480,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_currency_reference_rates: {
+        Args: { p_ngn_per_gbp: number; p_ngn_per_usd: number }
+        Returns: Json
       }
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
