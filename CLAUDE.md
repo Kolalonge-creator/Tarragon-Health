@@ -85,15 +85,31 @@ true — that assertion is what caught the wrong form being applied here.
 `koiplnmbgnqnbywhpjlf`, `pnpm --filter web typecheck` clean, 30 profiles backfilled with correct
 roles, Edge Functions intact. Nothing is half-finished.
 
-**The four founder-approved removals are the work. One of four is done.** Do them one at a time,
+**The four founder-approved removals are the work. Two of four are done.** Do them one at a time,
 each as its own branch + migration + typecheck, smallest first. Sizing measured 2026-07-29:
 
 | # | Removal | Migrations | App files | Notes |
 |---|---|---:|---:|---|
 | 1 | ~~**No capitation (I8)**~~ | ✅ | ✅ | **DONE** — `20260729122912_remove_hmo_capitation_i8.sql`, branch `claude/remove-capitation-i8`. See below for the pattern it set. |
-| 2 | **Institutions aggregate-only (I9)** | — | 9 | Also add `min_cohort_size` suppression to `load-cohort-analytics.ts`, which currently has **none** — closes a live re-identification gap, not just a removal. |
+| 2 | ~~**Institutions aggregate-only (I9)**~~ | ✅ | ✅ | **DONE** — `20260729124330_institutions_aggregate_only_i9.sql`, branch `claude/institutions-aggregate-only-i9`. **This turned out to be a live PHI exposure, not just a UI removal** — see the note directly below. |
 | 3 | **One naira price list** | 13 | 33 | ⚠️ The GBP/USD plans have **real synced Stripe Prices**. Deleting rows is not enough — deactivate on Stripe or a diaspora buyer can still reach checkout. |
 | 4 | **Individual enrolment only** | 16 | 41 | ⚠️ Decide the *replacement* first. v3's answer is dependants on one adult account; the platform's family features are far richer. Do not delete before that decision. |
+
+**⚠️ What removal 2 found — read before touching `private.is_org_staff`:**
+`is_org_staff(org)` admitted **every non-patient role**, so `corporate_admin` and `hmo_admin`
+satisfied **314 policies across 110 patient-scoped tables**. An employer or HMO administrator had
+direct RLS read access to vitals, medications, screening results and risk scores for every patient
+in their organisation. Two such accounts exist. The 2026-07-16 build note justified showing the
+per-member care-gap list on the grounds that "org-staff already have RLS access to the underlying
+tables" — that was true, and it was the bug. Fixed by excluding the two institution roles in
+`is_org_staff` itself rather than in 314 policies, then re-granting by name the three non-health
+surfaces an employer genuinely owns (`employer_roster_members`, `outcome_reports`,
+`cohort_cost_model_constants`). Proven with a JWT-simulated session: institution sees 0 patient
+rows where a clinician control sees 15, while roster administration still works.
+**`is_org_staff` remains the single highest-leverage security function in this codebase — any
+change to it is a change to 110 tables at once.** Note `pharmacist`, `lab_liaison`, `finance` and
+`analyst` still pass it; that is the same bug class for partner/back-office roles and is NOT yet
+fixed — worth its own pass.
 
 **The pattern removal 1 set — follow it for 2, 3 and 4:**
 1. **Count the rows first.** Capitation had zero everywhere, which turned a feared data migration

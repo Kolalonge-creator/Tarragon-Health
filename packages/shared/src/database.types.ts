@@ -6582,6 +6582,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          min_cohort_size: number
           metadata: Json
           name: string
           type: Database["public"]["Enums"]["organisation_type"]
@@ -6591,6 +6592,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          min_cohort_size?: number
           metadata?: Json
           name: string
           type: Database["public"]["Enums"]["organisation_type"]
@@ -6600,6 +6602,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          min_cohort_size?: number
           metadata?: Json
           name?: string
           type?: Database["public"]["Enums"]["organisation_type"]

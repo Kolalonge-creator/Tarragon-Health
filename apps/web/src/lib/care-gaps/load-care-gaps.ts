@@ -1,22 +1,25 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { isCohortSuppressed } from "@/lib/institutions/suppression";
 
 export type CareGapType = "overdue_screening" | "stale_monitoring" | "unactioned_abnormal";
 
-export type CareGapRow = {
-  gapType: CareGapType;
-  patientId: string;
-  patientNumber: string | null;
-  conditionOrType: string;
-  openedAt: string;
-  detail: unknown;
-};
-
+/**
+ * Counts only. There is deliberately no per-member row type here.
+ *
+ * Until 2026-07-29 this returned a `rows: CareGapRow[]` carrying each member's
+ * patient number, gap type and condition, which the employer/HMO dashboard
+ * rendered as an expandable list — so an employer could read "PT-000123 ·
+ * Unactioned abnormal result — diabetes". I9 forbids an institution reaching
+ * an individual, and the row type is removed rather than merely unrendered so
+ * the drill-down cannot be reinstated by uncommenting a component.
+ */
 export type CareGapSummary = {
   totalOpen: number;
   byType: Record<CareGapType, number>;
   closedLast90Days: number;
-  rows: CareGapRow[];
+  /** Denominator for the suppression decision, never the members themselves. */
+  cohortSize: number;
 };
 
 const LOOKBACK_DAYS = 90;
@@ -39,44 +42,44 @@ const LOOKBACK_DAYS = 90;
  */
 export async function loadCareGaps(
   supabase: SupabaseClient<Database>,
-  organisationId: string
+  organisationId: string,
+  minCohortSize: number
 ): Promise<CareGapSummary | null> {
   const { data: patients } = await supabase
     .from("profiles")
-    .select("id, patient_number")
+    .select("id")
     .eq("organisation_id", organisationId)
     .eq("role", "patient");
   if (!patients || patients.length === 0) return null;
+  // I9 small-cell suppression — a gap count over a handful of people names
+  // them by implication. Same gate as loadCohortAnalytics.
+  if (isCohortSuppressed(patients.length, minCohortSize)) return null;
+
   const patientIds = patients.map((p) => p.id);
-  const patientNumberById = new Map(patients.map((p) => [p.id, p.patient_number]));
 
   const { data: openGaps, error } = await supabase
     .from("patient_care_gaps")
-    .select("*")
+    .select("gap_type, patient_id, opened_at")
     .in("patient_id", patientIds);
   if (error) throw error;
-
-  const rows: CareGapRow[] = (openGaps ?? [])
-    .filter((r) => r.gap_type && r.patient_id && r.opened_at)
-    .map((r) => ({
-      gapType: r.gap_type as CareGapType,
-      patientId: r.patient_id as string,
-      patientNumber: patientNumberById.get(r.patient_id as string) ?? null,
-      conditionOrType: r.condition_or_type ?? "unknown",
-      openedAt: r.opened_at as string,
-      detail: r.detail,
-    }));
 
   const byType: Record<CareGapType, number> = {
     overdue_screening: 0,
     stale_monitoring: 0,
     unactioned_abnormal: 0,
   };
-  for (const row of rows) byType[row.gapType] += 1;
+  let totalOpen = 0;
+  for (const row of openGaps ?? []) {
+    if (!row.gap_type || !row.patient_id || !row.opened_at) continue;
+    const gapType = row.gap_type as CareGapType;
+    if (!(gapType in byType)) continue;
+    byType[gapType] += 1;
+    totalOpen += 1;
+  }
 
   const closedLast90Days = await countClosedInWindow(supabase, patientIds);
 
-  return { totalOpen: rows.length, byType, closedLast90Days, rows };
+  return { totalOpen, byType, closedLast90Days, cohortSize: patients.length };
 }
 
 async function countClosedInWindow(

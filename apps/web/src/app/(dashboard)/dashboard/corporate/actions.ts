@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadCohortAnalytics } from "@/lib/corporate/load-cohort-analytics";
 import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 import { loadCareGaps } from "@/lib/care-gaps/load-care-gaps";
+import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-access";
 import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 import type { Json } from "@tarragon/shared";
@@ -42,19 +43,41 @@ export async function generateOutcomeReport(
   }
 
   const supabase = await createClient();
+
+  // I9: an institution admin reads zero rows from the patient-scoped tables
+  // these loaders touch, so they assemble the snapshot through the verified
+  // aggregate doorway. Care-team staff generating the same report keep using
+  // their own session. Either way the suppression threshold is the same — the
+  // report is an institution-facing artifact regardless of who pressed the
+  // button, so it must not contain a figure the dashboard would withhold.
+  const access = await requireInstitutionAggregateAccess(organisationId);
+  const reader = access?.client ?? supabase;
+
+  let minCohortSize = access?.minCohortSize;
+  if (minCohortSize === undefined) {
+    const { data: org } = await supabase
+      .from("organisations")
+      .select("min_cohort_size")
+      .eq("id", organisationId)
+      .single();
+    minCohortSize = org?.min_cohort_size ?? 10;
+  }
+
   const [analytics, contractPerformance] = await Promise.all([
-    loadCohortAnalytics(supabase, organisationId),
-    getContractPerformance(supabase, organisationId),
+    loadCohortAnalytics(reader, organisationId, minCohortSize),
+    getContractPerformance(reader, organisationId),
   ]);
 
   if (!analytics) {
-    return { error: "Not enough workforce data yet to generate a report (or the analytics service is unavailable)." };
+    return {
+      error: `Not enough enrolled people yet to report safely (at least ${minCohortSize} are needed), or the analytics service is unavailable.`,
+    };
   }
 
   const [careGaps, costAvoided, medicationOutcomes] = await Promise.all([
-    loadCareGaps(supabase, organisationId),
-    estimateCostAvoided(supabase, organisationId, analytics.abnormal_findings_count),
-    loadMedicationOutcomes(supabase, organisationId),
+    loadCareGaps(reader, organisationId, minCohortSize),
+    estimateCostAvoided(reader, organisationId, analytics.abnormal_findings_count),
+    loadMedicationOutcomes(reader, organisationId),
   ]);
 
   const { error } = await supabase.from("outcome_reports").insert({
