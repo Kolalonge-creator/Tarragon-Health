@@ -38,6 +38,11 @@ const FOOTER_LINKS = {
     { href: "/login", label: "Sign in" },
     { href: "/signup", label: "Start monitoring" },
   ],
+  legal: [
+    { href: MARKETING_ROUTES.privacy, label: "Privacy" },
+    { href: MARKETING_ROUTES.telehealthConsent, label: "Telehealth consent" },
+    { href: MARKETING_ROUTES.terms, label: "Terms of service" },
+  ],
 };
 
 function FooterLink({
@@ -141,7 +146,20 @@ export function MarketingFooter() {
       </div>
 
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
-        © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.
+        <p>© {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.</p>
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          {FOOTER_LINKS.legal.map((link, i) => (
+            <span key={link.href} className="flex items-center gap-x-3">
+              {i > 0 ? <span className="text-white/30">·</span> : null}
+              <Link
+                href={link.href}
+                className="text-white/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+              >
+                {link.label}
+              </Link>
+            </span>
+          ))}
+        </p>
       </div>
     </footer>
   );

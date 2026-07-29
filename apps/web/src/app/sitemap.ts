@@ -26,6 +26,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     whoItsFor: 0.7,
     forYou: 0.7,
     about: 0.7,
+    privacy: 0.3,
+    telehealthConsent: 0.3,
+    terms: 0.3,
   };
 
   const pages: MetadataRoute.Sitemap = MARKETING_ROUTES_BUILT.map((key) => ({

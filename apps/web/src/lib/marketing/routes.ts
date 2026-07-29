@@ -24,6 +24,9 @@ export const MARKETING_ROUTES = {
   hmo: "/hmo",
   resources: "/resources",
   contact: "/contact",
+  privacy: "/privacy",
+  telehealthConsent: "/telehealth-consent",
+  terms: "/terms",
 } as const;
 
 export type MarketingRouteKey = keyof typeof MARKETING_ROUTES;
@@ -53,6 +56,9 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "hmo",
   "resources",
   "contact",
+  "privacy",
+  "telehealthConsent",
+  "terms",
 ];
 
 export const MARKETING_PATH_PREFIXES = Object.values(MARKETING_ROUTES).filter(

@@ -1,9 +1,18 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import Link from "next/link";
 import { useCurrentConsentVersions } from "@/lib/queries/consent";
 import { acceptConsents } from "./actions";
 import { Button } from "@/components/ui/button";
+import { parseLegalSections } from "@/lib/legal/parse-sections";
+
+/** The full text of each consent type is also published publicly, unauthenticated. */
+const PUBLIC_LEGAL_PATH: Record<string, string> = {
+  data_processing: "/privacy",
+  telehealth: "/telehealth-consent",
+  terms_of_service: "/terms",
+};
 
 /**
  * Step 1 of onboarding. Renders the actual consent text (data processing,
@@ -33,17 +42,43 @@ export function ConsentStep({ onComplete }: { onComplete: () => void }) {
       {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
 
       <div className="space-y-3">
-        {versions?.map((version) => (
-          <details
-            key={version.id}
-            className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3"
-          >
-            <summary className="cursor-pointer text-sm font-semibold text-charcoal-ink">
-              {version.title}
-            </summary>
-            <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/80">{version.body}</p>
-          </details>
-        ))}
+        {versions?.map((version) => {
+          const sections = parseLegalSections(version.body);
+          const publicPath = PUBLIC_LEGAL_PATH[version.consent_type];
+          return (
+            <details
+              key={version.id}
+              className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3"
+            >
+              <summary className="cursor-pointer text-sm font-semibold text-charcoal-ink">
+                {version.title}
+              </summary>
+              <div className="mt-2 max-h-64 space-y-4 overflow-y-auto pr-1">
+                {sections.map((section) => (
+                  <div key={section.heading}>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50">
+                      {section.heading}
+                    </p>
+                    {section.paragraphs.map((p, i) => (
+                      <p key={i} className="mt-1 text-sm leading-relaxed text-charcoal-ink/80">
+                        {p}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              {publicPath ? (
+                <Link
+                  href={publicPath}
+                  target="_blank"
+                  className="mt-3 inline-block text-xs text-brand-green underline hover:no-underline"
+                >
+                  Open in a new tab →
+                </Link>
+              ) : null}
+            </details>
+          );
+        })}
       </div>
 
       <form action={formAction} className="space-y-3">
