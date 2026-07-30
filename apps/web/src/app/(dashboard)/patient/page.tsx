@@ -63,6 +63,7 @@ import { AiCoachChat } from "./ai-coach-chat";
 import { CareCircleCard } from "./care-circle-card";
 import { AnnualReviewCard } from "./annual-review-card";
 import { ObesitySummary } from "./obesity-summary";
+import { WellnessPointsSummary } from "./wellness-points-summary";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -399,6 +400,7 @@ export default async function PatientPage() {
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
         <WalletCard patientId={profile.id} />
+        <WellnessPointsSummary patientId={profile.id} />
         <YourReferrals
           patientId={profile.id}
           patientLocation={{ state: profile.state, city: profile.city }}

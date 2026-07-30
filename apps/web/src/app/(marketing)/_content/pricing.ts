@@ -107,6 +107,7 @@ export const NGN_TIERS: PricingTier[] = [
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
+      { feature: "Wellness points, badges & challenges", label: "INCLUDED" },
       { feature: "The Tarragon 90-Day Health Reset", label: "INCLUDED" },
       { feature: "Full education library", label: "INCLUDED" },
       { feature: "Downloadable Health Passport PDF", label: "INCLUDED" },
@@ -495,6 +496,11 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
     question: "My test came back abnormal. Will I be billed extra automatically?",
     answer:
       "No. Your doctor will call you. If your doctor recommends moving to a higher level of care, that is entirely your choice, and you'll see the price clearly before you decide anything.",
+  },
+  {
+    question: "What are wellness points, and are they real money?",
+    answer:
+      "You earn points for everyday habits, logging a reading, finishing a lesson, or completing a challenge, free on every plan including Free. Collect badges as you go, and redeem points any time for real Health Wallet balance you can spend on labs, refills, and other Tarragon care. Points aren't a separate voucher scheme; the wallet credit they become is real.",
   },
   {
     question: "Does Tarragon Free ever expire?",
