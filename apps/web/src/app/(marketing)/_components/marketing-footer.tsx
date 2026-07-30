@@ -134,6 +134,14 @@ export function MarketingFooter() {
                 support@tarragonhealth.ng
               </a>
             </p>
+            <p className="text-sm text-white/65">
+              <a
+                href="tel:+2348061197940"
+                className="text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+              >
+                +234 806 119 7940
+              </a>
+            </p>
           </div>
         </div>
 
@@ -153,7 +161,11 @@ export function MarketingFooter() {
       </div>
 
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
-        <p>© {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.</p>
+        <p>
+          © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.
+          <span className="text-white/40"> · </span>
+          RC 9702108
+        </p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
           {FOOTER_LINKS.legal.map((link, i) => (
             <span key={link.href} className="flex items-center gap-x-3">
