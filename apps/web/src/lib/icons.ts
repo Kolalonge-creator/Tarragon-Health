@@ -53,6 +53,7 @@ import {
   Dumbbell,
   Utensils,
   Trophy,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 
@@ -119,6 +120,7 @@ export const NAV_ICON = {
   audit: History,
   bell: Bell,
   wellness: Trophy,
+  caseload: Gauge,
   menu: Menu,
   close: X,
   signOut: LogOut,
