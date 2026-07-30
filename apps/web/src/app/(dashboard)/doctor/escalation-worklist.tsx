@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useDoctorEscalations, useClaimEscalation } from "@/lib/queries/escalations";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
 import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
 import { SEVERITY_TILE_TINT } from "@/lib/worklist/severity-tile-tint";
+import { effectiveAlertLevel } from "@/lib/worklist/priority";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationStatus } from "@tarragon/shared";
 
@@ -47,6 +48,10 @@ export function EscalationWorklist() {
       <Card>
         <CardHeader>
           <CardTitle>Escalation worklist</CardTitle>
+          <CardDescription>
+            Ranked by severity, then by how close each case is to breaching its SLA — not by
+            when it was raised.
+          </CardDescription>
         </CardHeader>
         <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
@@ -60,8 +65,12 @@ export function EscalationWorklist() {
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((escalation) => {
               const levelBadge = escalation.clinician_alert
-                ? LEVEL_BADGE[escalation.clinician_alert.level]
+                ? LEVEL_BADGE[effectiveAlertLevel(escalation.clinician_alert)]
                 : null;
+              const isOverridden = !!escalation.clinician_alert?.override_level;
+              const isOverdue =
+                !!escalation.clinician_alert?.sla_due_at &&
+                new Date(escalation.clinician_alert.sla_due_at) < new Date();
               const resultBadge = escalation.clinician_alert?.screening_result
                 ? RESULT_STATUS_BADGE[escalation.clinician_alert.screening_result.result_status]
                 : null;
@@ -77,6 +86,10 @@ export function EscalationWorklist() {
                       {levelBadge && (
                         <Badge variant={levelBadge.variant}>{levelBadge.label}</Badge>
                       )}
+                      {isOverridden && (
+                        <Badge variant="grey">Overridden</Badge>
+                      )}
+                      {isOverdue && <Badge variant="red">Overdue</Badge>}
                       <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
                     </div>
                     <p className="text-sm font-medium text-charcoal-ink">

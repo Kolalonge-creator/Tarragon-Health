@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import {
   useBroadcastHistory,
   useBroadcastAudienceCount,
+  useBroadcastContentCheck,
   useSendBroadcast,
   type BroadcastAudience,
   type BroadcastAudienceFilter,
@@ -40,12 +41,14 @@ export function BroadcastComposer() {
   const [planCode, setPlanCode] = useState("");
   const [partnerType, setPartnerType] = useState<"pharmacy" | "specialist">("pharmacy");
   const [channels, setChannels] = useState<NotificationChannel[]>(["email"]);
+  const [attested, setAttested] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [sentCount, setSentCount] = useState<number | null>(null);
 
   const plans = useAllSubscriptionPlansAdmin();
   const send = useSendBroadcast();
   const history = useBroadcastHistory();
+  const contentCheck = useBroadcastContentCheck();
 
   const filter = useMemo<BroadcastAudienceFilter>(() => {
     const f: BroadcastAudienceFilter = {};
@@ -69,7 +72,7 @@ export function BroadcastComposer() {
     );
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSentCount(null);
     if (!title.trim() || !body.trim()) {
@@ -80,7 +83,30 @@ export function BroadcastComposer() {
       setValidationError("Choose at least one channel.");
       return;
     }
+    if (!attested) {
+      setValidationError(
+        "Confirm the message contains no clinical detail specific to a patient before sending."
+      );
+      return;
+    }
     setValidationError(null);
+
+    // Best-effort server-side check up front — admin_send_broadcast enforces
+    // this itself too, but checking here avoids creating a blocked draft row
+    // and gives specific, immediate feedback instead of a failed-send state.
+    try {
+      const flags = await contentCheck.mutateAsync(`${title.trim()} ${body.trim()}`);
+      if (flags.length > 0) {
+        setValidationError(
+          "This reads like a personal clinical result or diagnosis. Broadcasts must stay general — remove any result/diagnosis language specific to a person."
+        );
+        return;
+      }
+    } catch {
+      // If the check itself fails, fall through — admin_send_broadcast still
+      // enforces the same rule server-side as a backstop.
+    }
+
     send.mutate(
       { title: title.trim(), body: body.trim(), audience, filter, channels },
       {
@@ -88,6 +114,7 @@ export function BroadcastComposer() {
           setSentCount(recipients);
           setTitle("");
           setBody("");
+          setAttested(false);
         },
       }
     );
@@ -232,6 +259,17 @@ export function BroadcastComposer() {
                   : `This will reach ${count.data ?? 0} recipient${count.data === 1 ? "" : "s"}.`}
             </p>
 
+            <label className="flex items-start gap-2 text-xs text-charcoal-ink/70">
+              <input
+                type="checkbox"
+                checked={attested}
+                onChange={(e) => setAttested(e.target.checked)}
+                className="mt-0.5"
+              />
+              I confirm this message contains no diagnosis, test result, or other clinical
+              detail specific to an individual patient.
+            </label>
+
             {validationError && <p className="text-sm text-red-600">{validationError}</p>}
             {sendError && <p className="text-sm text-red-600">{sendError}</p>}
             {sentCount !== null && (
@@ -240,8 +278,13 @@ export function BroadcastComposer() {
               </p>
             )}
 
-            <Button type="submit" disabled={send.isPending || (count.data ?? 0) === 0}>
-              {send.isPending ? "Sending…" : "Send broadcast"}
+            <Button
+              type="submit"
+              disabled={
+                send.isPending || contentCheck.isPending || !attested || (count.data ?? 0) === 0
+              }
+            >
+              {send.isPending || contentCheck.isPending ? "Sending…" : "Send broadcast"}
             </Button>
           </form>
         </CardContent>

@@ -47,6 +47,13 @@ import {
   CalendarClock,
   CheckCircle2,
   History,
+  Award,
+  Star,
+  Target,
+  Dumbbell,
+  Utensils,
+  Trophy,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 
@@ -76,6 +83,11 @@ export const SEMANTIC_ICON = {
   commission: Percent,
   logistics: Truck,
   reminderPreference: Phone,
+  badge: Award,
+  points: Star,
+  challenge: Target,
+  wellnessClass: Dumbbell,
+  nutrition: Utensils,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Navigation + app-shell chrome icons — same sanctioned-surface rule as
@@ -107,6 +119,8 @@ export const NAV_ICON = {
   approvals: CheckCircle2,
   audit: History,
   bell: Bell,
+  wellness: Trophy,
+  caseload: Gauge,
   menu: Menu,
   close: X,
   signOut: LogOut,

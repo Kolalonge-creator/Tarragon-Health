@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MarketingHero } from "./marketing-hero";
-import { MarketingMediaFrame } from "./marketing-media-frame";
 import { Section, SectionHeading } from "./section";
 import { CtaBand } from "./cta-band";
 import { EmergencyNotice } from "./emergency-notice";
 import { MarketingVideo } from "./marketing-video";
+import { StepsExplorer } from "./steps-explorer";
 import { MARKETING_MEDIA, PRODUCT_VIDEOS } from "../_content/media";
 import type { ProductPageContent } from "../_content/products";
 import { PRICING_HREF } from "../_content/products";
@@ -69,37 +69,16 @@ export function ProductPageTemplate({
       </Section>
 
       <Section variant="sage">
-        <div className="grid items-start gap-10 lg:grid-cols-[1fr_1fr]">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              Your path
-            </p>
-            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              How it works for you
-            </h2>
-            <ol className="mt-8 grid gap-6">
-              {content.howItWorks.map((item, index) => (
-                <li
-                  key={item.title}
-                  className="flex gap-4 rounded-xl border border-charcoal-ink/10 bg-white p-6"
-                >
-                  <span
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-green text-sm font-semibold text-white"
-                    aria-hidden
-                  >
-                    {index + 1}
-                  </span>
-                  <div>
-                    <h3 className="font-heading text-lg font-semibold text-charcoal-ink">
-                      {item.title}
-                    </h3>
-                    <p className="mt-1 text-charcoal-ink/70">{item.body}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+        <div className="mx-auto max-w-3xl">
+          <p className="text-center text-sm font-medium uppercase tracking-wide text-deep-forest">
+            Your path
+          </p>
+          <h2 className="mt-2 text-center font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+            How it works for you
+          </h2>
+          <div className="mt-8">
+            <StepsExplorer steps={content.howItWorks} tone="green" />
           </div>
-          <MarketingMediaFrame media={heroMedia} className="lg:sticky lg:top-24" />
         </div>
       </Section>
 

@@ -6,6 +6,7 @@ import { getProductPage } from "../_content/products";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { PlanPreviewSample } from "../_components/plan-preview-sample";
+import { StepsExplorer } from "../_components/steps-explorer";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const revalidate = 300;
@@ -170,23 +171,9 @@ export default async function PreventionPage() {
           title="What happens if a result comes back abnormal"
           description="This is the moment prevention exists for, and the moment most health systems drop. At Tarragon it is the highest-priority event on the platform."
         />
-        <ol className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
-          {ABNORMAL_STEPS.map((step, index) => (
-            <li
-              key={step.title}
-              className="rounded-xl border border-charcoal-ink/10 bg-white p-6"
-            >
-              <span
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-clinical-navy font-heading text-sm font-semibold text-white"
-                aria-hidden
-              >
-                {index + 1}
-              </span>
-              <h3 className="mt-4 font-heading text-lg font-semibold text-charcoal-ink">{step.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{step.body}</p>
-            </li>
-          ))}
-        </ol>
+        <div className="mx-auto max-w-4xl">
+          <StepsExplorer steps={ABNORMAL_STEPS} tone="navy" />
+        </div>
       </Section>
 
       {screeningArticles.length > 0 ? (

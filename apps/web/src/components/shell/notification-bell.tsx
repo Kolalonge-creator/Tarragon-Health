@@ -29,6 +29,12 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient#prevention",
     };
   }
+  if (n.template === "health_reset_complete") {
+    return {
+      text: "Your 90-Day Health Reset is complete — claim your free trial",
+      href: "/patient#overview",
+    };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 

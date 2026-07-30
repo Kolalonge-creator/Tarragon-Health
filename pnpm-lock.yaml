@@ -266,53 +266,7 @@ importers:
         specifier: ^5
         version: 5.9.3
 
-  packages/protocol:
-    devDependencies:
-      '@jest/globals':
-        specifier: ^30.4.1
-        version: 30.4.1
-      '@types/jest':
-        specifier: ^30.0.0
-        version: 30.0.0
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      jest:
-        specifier: ^30.4.2
-        version: 30.4.2(@types/node@20.19.43)
-      ts-jest:
-        specifier: ^29.4.11
-        version: 29.4.11(@babel/core@7.29.7)(@jest/transform@30.4.1)(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.7))(jest-util@30.4.1)(jest@30.4.2(@types/node@20.19.43))(typescript@5.9.3)
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-
   packages/shared:
-    devDependencies:
-      '@jest/globals':
-        specifier: ^30.4.1
-        version: 30.4.1
-      '@types/jest':
-        specifier: ^30.0.0
-        version: 30.0.0
-      '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
-      jest:
-        specifier: ^30.4.2
-        version: 30.4.2(@types/node@20.19.43)
-      ts-jest:
-        specifier: ^29.4.11
-        version: 29.4.11(@babel/core@7.29.7)(@jest/transform@30.4.1)(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.7))(jest-util@30.4.1)(jest@30.4.2(@types/node@20.19.43))(typescript@5.9.3)
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-
-  packages/triage:
-    dependencies:
-      '@tarragon/protocol':
-        specifier: workspace:*
-        version: link:../protocol
     devDependencies:
       '@jest/globals':
         specifier: ^30.4.1

@@ -78,7 +78,7 @@ function FamilyCareIllustration({ className }: IllustrationProps) {
       />
       <rect x="330" y="240" width="36" height="6" rx="3" className="fill-charcoal-ink/10" />
       <rect x="330" y="254" width="48" height="6" rx="3" className="fill-charcoal-ink/10" />
-      {/* WhatsApp bubble */}
+      {/* Confirmation chip */}
       <rect x="290" y="248" width="88" height="36" rx="10" className="fill-brand-green/15" />
       <text x="304" y="270" className="fill-deep-forest text-[11px] font-medium">
         BP logged ✓

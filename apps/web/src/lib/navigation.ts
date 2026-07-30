@@ -29,6 +29,7 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
+            { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
             { label: "Your people", href: "/patient/family", icon: "family" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
           ],
@@ -131,11 +132,13 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
+            { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
           ],
         },
         {
           label: "Clinical",
           items: [
+            { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
