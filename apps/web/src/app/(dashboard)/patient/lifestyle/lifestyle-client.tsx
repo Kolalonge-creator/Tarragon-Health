@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   enrollAction,
@@ -14,6 +15,36 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalsDialog } from "./goals-dialog";
+import { SEMANTIC_ICON } from "@/lib/icons";
+
+const TRACKERS = [
+  { href: "/patient/nutrition", label: "Meals", description: "Log what you eat, with a photo if you like", icon: SEMANTIC_ICON.aiCoach },
+  { href: "/patient/weight", label: "Weight", description: "Track progress against a goal you set", icon: SEMANTIC_ICON.weight },
+  { href: "/patient/activity", label: "Activity", description: "Log steps and workouts", icon: SEMANTIC_ICON.steps },
+] as const;
+
+function TrackerLinks() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Track your progress</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-3">
+        {TRACKERS.map(({ href, label, description, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex flex-col gap-2 rounded-lg border border-charcoal-ink/10 p-4 transition-colors hover:border-brand-green hover:bg-soft-sage"
+          >
+            <Icon className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <span className="text-sm font-medium text-charcoal-ink">{label}</span>
+            <span className="text-xs text-charcoal-ink/60">{description}</span>
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
 const ENROLLABLE: { key: "obesity" | "htn" | "diabetes"; label: string }[] = [
   { key: "obesity", label: "Weight & lifestyle" },
@@ -53,6 +84,8 @@ export function LifestyleClient({
         </div>
         <GoalsDialog enrollments={enrollments} pastGoals={pastGoals} />
       </div>
+
+      <TrackerLinks />
 
       {enrollments.map((e) => (
         <Card key={e.id}>

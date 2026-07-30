@@ -507,6 +507,31 @@ export default async function AdminPage() {
       </Card>
       )}
 
+      {can("impact_metrics.manage") && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.impact className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/impact-metrics" className="hover:underline">
+              Public impact dashboard
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            Show/hide what appears on the public /impact page, and recompute the nightly
+            aggregate counts on demand.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/impact-metrics"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage impact metrics →
+          </Link>
+        </CardContent>
+      </Card>
+      )}
+
       {can("service_regions.manage") && (
       <Card>
         <CardHeader>

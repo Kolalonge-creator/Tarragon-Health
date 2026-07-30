@@ -6,6 +6,7 @@ export interface AccessibleProfile {
   full_name: string | null;
   date_of_birth: string | null;
   sex: "male" | "female" | null;
+  is_dependent_account: boolean;
 }
 
 async function profilesGrantedTo(level: "manage" | null): Promise<AccessibleProfile[]> {
@@ -17,7 +18,9 @@ async function profilesGrantedTo(level: "manage" | null): Promise<AccessibleProf
 
   let query = supabase
     .from("profile_access")
-    .select("profile:profiles!profile_access_profile_id_fkey(id, full_name, date_of_birth, sex)")
+    .select(
+      "profile:profiles!profile_access_profile_id_fkey(id, full_name, date_of_birth, sex, is_dependent_account)"
+    )
     .eq("grantee_user_id", user.id);
   if (level) query = query.eq("permission_level", level);
 
@@ -29,9 +32,12 @@ async function profilesGrantedTo(level: "manage" | null): Promise<AccessibleProf
 }
 
 /**
- * Profiles the caller may act on, not merely read — a 'manage' grant. Today
- * that is exclusively children provisioned through addChildDependentAction,
- * who have no login of their own and need somebody to log doses for them.
+ * Profiles the caller may act on, not merely read — a 'manage' grant, AND a
+ * child with no login of their own, provisioned through addChildDependentAction.
+ * Filters on is_dependent_account rather than on permission_level alone,
+ * because an eldercare care_access_requests 'manage' grant (two adults, each
+ * with their own account) produces an identical profile_access row and must
+ * NOT appear here — see useAdultsIManage below for that surface.
  *
  * Powers the "whose vaccinations?" subject selector. A next of kin holds
  * 'view' and deliberately does not appear here: they can follow the record,
@@ -40,7 +46,21 @@ async function profilesGrantedTo(level: "manage" | null): Promise<AccessibleProf
 export function useManagedDependents() {
   return useQuery({
     queryKey: ["managed-dependents"],
-    queryFn: () => profilesGrantedTo("manage"),
+    queryFn: async () => (await profilesGrantedTo("manage")).filter((p) => p.is_dependent_account),
+  });
+}
+
+/**
+ * Adults the caller may act on under the eldercare flow — a 'manage' grant
+ * accepted through care_access_requests between two people who each hold
+ * their own account, as opposed to a child dependant who has none. See
+ * useManagedDependents for the is_dependent_account split this relies on.
+ */
+export function useAdultsIManage() {
+  return useQuery({
+    queryKey: ["adults-i-manage"],
+    queryFn: async () =>
+      (await profilesGrantedTo("manage")).filter((p) => !p.is_dependent_account),
   });
 }
 

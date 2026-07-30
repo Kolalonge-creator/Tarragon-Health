@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { nominateNextOfKinAction, revokeCareAccessAction } from "./care-access-actions";
+import { useRouter } from "next/navigation";
+import {
+  nominateNextOfKinAction,
+  revokeCareAccessAction,
+  cancelCareAccessRequestAction,
+} from "./care-access-actions";
 import {
   NEXT_OF_KIN_RELATIONSHIPS,
   nominateNextOfKinSchema,
@@ -24,11 +29,14 @@ export interface NextOfKinState {
   name: string | null;
   phone: string | null;
   relationship: string | null;
-  /** id of the profile_access grant, when the next of kin has an account. */
+  /** id of the profile_access grant, once the next of kin has accepted. */
   grantId: string | null;
+  /** id of the pending care_access_requests row, while waiting on them. */
+  pendingRequestId: string | null;
 }
 
 export function NextOfKinForm({ current }: { current: NextOfKinState }) {
+  const router = useRouter();
   const [fullName, setFullName] = useState(current.name ?? "");
   const [phone, setPhone] = useState(current.phone ?? "");
   const [relationship, setRelationship] = useState(current.relationship ?? "child");
@@ -55,7 +63,10 @@ export function NextOfKinForm({ current }: { current: NextOfKinState }) {
     try {
       const result = await nominateNextOfKinAction(parsed.data);
       if ("error" in result) setError(result.error);
-      else setSuccess(result.message);
+      else {
+        setSuccess(result.message);
+        router.refresh();
+      }
     } finally {
       setIsPending(false);
     }
@@ -69,7 +80,27 @@ export function NextOfKinForm({ current }: { current: NextOfKinState }) {
     try {
       const result = await revokeCareAccessAction(current.grantId);
       if ("error" in result) setError(result.error);
-      else setSuccess(result.message);
+      else {
+        setSuccess(result.message);
+        router.refresh();
+      }
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  async function handleCancelRequest() {
+    if (!current.pendingRequestId) return;
+    setError(null);
+    setSuccess(null);
+    setIsPending(true);
+    try {
+      const result = await cancelCareAccessRequestAction(current.pendingRequestId);
+      if ("error" in result) setError(result.error);
+      else {
+        setSuccess(result.message);
+        router.refresh();
+      }
     } finally {
       setIsPending(false);
     }
@@ -81,9 +112,9 @@ export function NextOfKinForm({ current }: { current: NextOfKinState }) {
         <CardTitle>Your next of kin</CardTitle>
         <CardDescription>
           One person we contact if something urgent comes up. If they have a Tarragon account of
-          their own, they can also follow your care — see your readings, appointments and results.
-          They can never change anything on your record, and you can withdraw their access at any
-          time.
+          their own, we&apos;ll ask them to confirm before they can also follow your care — see
+          your readings, appointments and results. They can never change anything on your record,
+          and either of you can withdraw access at any time.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -99,12 +130,19 @@ export function NextOfKinForm({ current }: { current: NextOfKinState }) {
                 {current.phone}
                 {current.grantId
                   ? " · can view your care"
-                  : " · contact only, no Tarragon account on this number"}
+                  : current.pendingRequestId
+                    ? " · waiting for them to accept"
+                    : " · contact only, no Tarragon account on this number"}
               </p>
             </div>
             {current.grantId && (
               <Button size="sm" variant="outline" disabled={isPending} onClick={handleRevoke}>
                 Withdraw access
+              </Button>
+            )}
+            {current.pendingRequestId && (
+              <Button size="sm" variant="outline" disabled={isPending} onClick={handleCancelRequest}>
+                Withdraw request
               </Button>
             )}
           </div>

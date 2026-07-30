@@ -56,6 +56,12 @@ import {
   Dumbbell,
   Trophy,
   Gauge,
+  TrendingDown,
+  Footprints,
+  Coffee,
+  Soup,
+  UtensilsCrossed,
+  Apple,
   type LucideIcon,
 } from "lucide-react";
 
@@ -93,6 +99,21 @@ export const SEMANTIC_ICON = {
   challenge: Target,
   wellnessClass: Dumbbell,
   nutrition: Utensils,
+  impact: BarChart3,
+  weight: Scale,
+  weightTrend: TrendingDown,
+  steps: Footprints,
+  workout: Dumbbell,
+} as const satisfies Record<string, LucideIcon>;
+
+/** Meal-type tab icons for the "Log a meal" picker — a page-local visual set,
+ * kept separate from SEMANTIC_ICON (whole-feature dashboard icons) and
+ * NAV_ICON (chrome/wayfinding). Same sanctioned-import-surface rule applies. */
+export const MEAL_TYPE_ICON = {
+  breakfast: Coffee,
+  lunch: Soup,
+  dinner: UtensilsCrossed,
+  snack: Apple,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Navigation + app-shell chrome icons — same sanctioned-surface rule as

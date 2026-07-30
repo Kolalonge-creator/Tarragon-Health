@@ -35,6 +35,34 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient#overview",
     };
   }
+  if (n.template === "care_access_view_request" || n.template === "care_access_manage_request") {
+    const name = String(payload.initiator_name ?? "Someone");
+    const level = payload.permission_level === "manage" ? "manage" : "view";
+    return {
+      text: `${name} sent a request to ${level} care — respond in Your people`,
+      href: "/patient/family",
+    };
+  }
+  if (n.template === "care_access_request_accepted" || n.template === "care_access_request_declined") {
+    const name = String(payload.responder_name ?? "They");
+    const accepted = n.template === "care_access_request_accepted";
+    return {
+      text: `${name} ${accepted ? "accepted" : "declined"} your care access request`,
+      href: "/patient/family",
+    };
+  }
+  if (n.template === "critical_notification_escalation_exhausted") {
+    // From private.escalate_unconfirmed_critical_notifications() —
+    // every channel in a critical alert's ladder (push -> whatsapp -> sms)
+    // ran out with nobody confirming it. Admin-only visibility surface;
+    // the underlying clinical SLA/worklist safety net is unaffected either
+    // way, this is purely "a notification chain needs a human look."
+    const sourceTable = String(payload.source_table ?? "");
+    return {
+      text: "A critical alert went unconfirmed on every channel — needs a look",
+      href: sourceTable === "clinician_alerts" ? "/doctor/escalations" : "/admin",
+    };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 
