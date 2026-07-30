@@ -5,18 +5,41 @@
 // queue_booking_reminders). Invoked every
 // 5 minutes by pg_cron + pg_net (see the schedule_notification_sender
 // migration) — not the abnormal-result path, which needs its own
-// trigger-invoked, 60-second-SLA handler (docs/ARCHITECTURE.md §7).
+// trigger-invoked, 60-second-SLA handler (docs/ARCHITECTURE.md §7). Also
+// nudged immediately (fire-and-forget net.http_post) by
+// private.enqueue_critical_notification() and
+// private.escalate_unconfirmed_critical_notifications()
+// (critical_notification_engine.sql) so a critical row's first attempt and
+// every escalation hop don't wait out the 5-minute cron tick.
 //
 // Mirrors packages/shared/src/ml-client.ts: every external call has a
 // timeout and never throws past its boundary. Missing credentials degrade
 // each affected row to `failed` with a clear `last_error`, never a crash
 // and never a silently-stuck `pending` row forever.
+//
+// Channel priority (2026-07-30): push is the default first channel
+// platform-wide — private.remap_notification_channel() rewrites a queued
+// 'whatsapp' row to 'push' at insert time whenever the recipient has an
+// active push_subscriptions row. WhatsApp/SMS are fallback only, never the
+// default, for both routine and critical rows. The difference between the
+// two priorities is what happens when push fails to SEND (not "goes
+// unopened" — that's the escalation engine's job, not this function's):
+// routine rows fall back inline to whatsapp -> sms within this same pass
+// (simple best-effort delivery, no confirmation tracking needed); critical
+// rows do NOT — a critical row's failed send is picked up by
+// private.escalate_unconfirmed_critical_notifications() and turned into a
+// new, separately-tracked notification on the next ladder channel, so every
+// hop stays its own auditable, delivery-tracked row.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
 const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
 const EXTERNAL_TIMEOUT_MS = 5_000;
+// Push notification bodies are shown in a compact OS tray — trim the
+// (often multi-sentence) smsText down to something that reads cleanly there.
+const PUSH_BODY_MAX_CHARS = 160;
 
 interface NotificationRow {
   id: string;
@@ -25,6 +48,14 @@ interface NotificationRow {
   template: string | null;
   payload: Record<string, unknown>;
   attempts: number;
+  priority: "routine" | "critical";
+}
+
+interface PushSubscriptionRow {
+  id: string;
+  endpoint: string;
+  p256dh_key: string;
+  auth_key: string;
 }
 
 interface TemplateRender {
@@ -865,6 +896,34 @@ const TEMPLATE_MAP: Record<
       smsText,
     };
   },
+  // Sent to org clinicians when an abnormal/critical screening result lands
+  // (private.handle_abnormal_screening_result -> abnormal-result-handler,
+  // via private.enqueue_critical_notification — 2026-07-30). Was previously
+  // a raw, untracked Meta API call outside this table entirely; now a
+  // tracked, critical-priority row that starts on push and force-escalates
+  // through the channel ladder if nobody confirms it (see
+  // critical_notification_engine.sql). Meta template name unchanged from
+  // the prior direct-call implementation, so no new Meta approval needed.
+  abnormal_result_clinician_alert: (payload) => {
+    const patientName = String(payload.patient_name ?? "A patient");
+    const conditionLabel = String(payload.condition_label ?? "an abnormal result");
+    return {
+      metaTemplateName: "abnormal_result_clinician_alert",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: patientName },
+            { type: "text", text: conditionLabel },
+          ],
+        },
+      ],
+      smsText:
+        `New Priority 1 alert: ${patientName}'s screening result needs review (${conditionLabel}). ` +
+        `See your Tarragon Health worklist. — Tarragon Health`,
+    };
+  },
   // Sent to the patient after the follow-up window on an emergency event
   // (private.notify_emergency_followups). Gentle check-in nudging them to update
   // their care team in the app — the follow-up itself happens in-app, never over
@@ -889,12 +948,17 @@ const TEMPLATE_MAP: Record<
 interface SendResult {
   ok: boolean;
   error?: string;
+  // Meta's wamid (WhatsApp only) — captured so the whatsapp-webhook
+  // extension can correlate a later delivery/read status callback back to
+  // this row. Nothing else currently produces a provider-side message id
+  // worth storing (web push has no per-message receipt to correlate).
+  messageId?: string;
 }
 
 /** Never throws — resolves { ok: false } on timeout, network error, or non-2xx. */
 async function withExternalCall(
   fn: (signal: AbortSignal) => Promise<Response>,
-): Promise<SendResult> {
+): Promise<SendResult & { response?: Response }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), EXTERNAL_TIMEOUT_MS);
   try {
@@ -902,7 +966,7 @@ async function withExternalCall(
     if (!res.ok) {
       return { ok: false, error: `HTTP ${res.status}` };
     }
-    return { ok: true };
+    return { ok: true, response: res };
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return { ok: false, error: message };
@@ -921,7 +985,7 @@ async function sendWhatsApp(
     return { ok: false, error: "WHATSAPP_TOKEN/WHATSAPP_PHONE_ID not configured" };
   }
 
-  return withExternalCall((signal) =>
+  const result = await withExternalCall((signal) =>
     fetch(`https://graph.facebook.com/v20.0/${phoneId}/messages`, {
       method: "POST",
       signal,
@@ -941,6 +1005,17 @@ async function sendWhatsApp(
       }),
     })
   );
+
+  if (!result.ok || !result.response) return result;
+  try {
+    const body = await result.response.json() as { messages?: Array<{ id?: string }> };
+    const messageId = body.messages?.[0]?.id;
+    return { ok: true, messageId };
+  } catch {
+    // Meta's own contract guarantees this shape on 2xx — a parse failure
+    // here is not worth failing the send over, just leaves messageId unset.
+    return { ok: true };
+  }
 }
 
 async function sendTermiiSms(
@@ -1004,6 +1079,69 @@ async function sendTermiiVoiceCall(
   );
 }
 
+/**
+ * Web Push (RFC 8030/8291/8292 — VAPID). VAPID keys are a self-signed
+ * application identity, not a third-party account credential, so unlike
+ * WHATSAPP_TOKEN/TERMII_API_KEY/RESEND_API_KEY there is no provider account
+ * to wait on — these were generated directly for this build.
+ *
+ * Fans out to every active subscription the recipient has (phone + desktop,
+ * etc.) and treats the notification as sent if ANY of them accepts it.
+ * Reports back which subscriptions the push service says are gone (404/410
+ * — the browser revoked or expired them) so the caller can disable those
+ * rows rather than retrying them forever.
+ */
+async function sendWebPush(
+  subscriptions: PushSubscriptionRow[],
+  payload: { title: string; body: string; url: string; notificationId: string },
+): Promise<SendResult & { goneSubscriptionIds: string[] }> {
+  if (subscriptions.length === 0) {
+    return { ok: false, error: "no active push subscription", goneSubscriptionIds: [] };
+  }
+
+  const publicKey = Deno.env.get("VAPID_PUBLIC_KEY");
+  const privateKey = Deno.env.get("VAPID_PRIVATE_KEY");
+  const subject = Deno.env.get("VAPID_SUBJECT");
+  if (!publicKey || !privateKey || !subject) {
+    return { ok: false, error: "VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY/VAPID_SUBJECT not configured", goneSubscriptionIds: [] };
+  }
+  webpush.setVapidDetails(subject, publicKey, privateKey);
+
+  const body = JSON.stringify(payload);
+  const goneSubscriptionIds: string[] = [];
+  let anyOk = false;
+  let lastError: string | undefined;
+
+  for (const sub of subscriptions) {
+    const timeout = new Promise<{ timedOut: true }>((resolve) =>
+      setTimeout(() => resolve({ timedOut: true }), EXTERNAL_TIMEOUT_MS)
+    );
+    try {
+      const send = webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh_key, auth: sub.auth_key } },
+        body,
+        { TTL: 300 },
+      ).then(() => ({ timedOut: false as const }));
+      const outcome = await Promise.race([send, timeout]);
+      if (outcome.timedOut) {
+        lastError = "timeout";
+        continue;
+      }
+      anyOk = true;
+    } catch (err) {
+      const statusCode = (err as { statusCode?: number })?.statusCode;
+      if (statusCode === 404 || statusCode === 410) {
+        goneSubscriptionIds.push(sub.id);
+      }
+      lastError = err instanceof Error ? err.message : "unknown error";
+    }
+  }
+
+  return anyOk
+    ? { ok: true, goneSubscriptionIds }
+    : { ok: false, error: lastError ?? "push send failed", goneSubscriptionIds };
+}
+
 async function sendEmail(
   toEmail: string,
   subject: string,
@@ -1041,9 +1179,9 @@ Deno.serve(async () => {
 
   const { data: pending, error: fetchError } = await supabase
     .from("notifications")
-    .select("id, recipient_id, channel, template, payload, attempts")
+    .select("id, recipient_id, channel, template, payload, attempts, priority")
     .eq("status", "pending")
-    .in("channel", ["whatsapp", "sms", "email", "voice"])
+    .in("channel", ["whatsapp", "sms", "email", "voice", "push"])
     .lt("attempts", MAX_ATTEMPTS)
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE)
@@ -1069,21 +1207,50 @@ Deno.serve(async () => {
     .returns<Array<{ id: string; phone: string | null }>>();
   const phoneById = new Map((profiles ?? []).map((p) => [p.id, p.phone]));
 
+  const { data: subscriptions } = await supabase
+    .from("push_subscriptions")
+    .select("id, profile_id, endpoint, p256dh_key, auth_key")
+    .in("profile_id", recipientIds)
+    .is("disabled_at", null)
+    .returns<Array<PushSubscriptionRow & { profile_id: string }>>();
+  const subscriptionsByProfile = new Map<string, PushSubscriptionRow[]>();
+  for (const sub of subscriptions ?? []) {
+    const list = subscriptionsByProfile.get(sub.profile_id) ?? [];
+    list.push(sub);
+    subscriptionsByProfile.set(sub.profile_id, list);
+  }
+
   let sent = 0;
   let retried = 0;
   let failed = 0;
 
   for (const row of rows) {
-    const markSent = () =>
+    // Critical rows fail fast, never sit through the normal 3-attempt/
+    // ~15-minute retry ladder — private.escalate_unconfirmed_critical_notifications()
+    // (checked every 2 minutes) is what turns a failed critical send into
+    // the next channel's tracked row, so a quick, definite `failed` here
+    // matters more than a slow retry that just delays the real fallback.
+    const isCritical = row.priority === "critical";
+
+    const markSent = (providerMessageId?: string) =>
       supabase
         .from("notifications")
-        .update({ status: "sent", sent_at: new Date().toISOString() })
+        .update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          ...(providerMessageId ? { provider_message_id: providerMessageId } : {}),
+        })
         .eq("id", row.id);
 
     const markFailed = (lastError: string) =>
       supabase
         .from("notifications")
-        .update({ status: "failed", attempts: row.attempts + 1, last_error: lastError })
+        .update({
+          status: "failed",
+          attempts: row.attempts + 1,
+          last_error: lastError,
+          failed_at: new Date().toISOString(),
+        })
         .eq("id", row.id);
 
     const markRetry = (lastError: string) =>
@@ -1091,6 +1258,21 @@ Deno.serve(async () => {
         .from("notifications")
         .update({ attempts: row.attempts + 1, last_error: lastError })
         .eq("id", row.id);
+
+    const settle = async (result: SendResult) => {
+      if (result.ok) {
+        await markSent(result.messageId);
+        sent++;
+        return;
+      }
+      if (isCritical || row.attempts + 1 >= MAX_ATTEMPTS) {
+        await markFailed(result.error ?? "unknown error");
+        failed++;
+      } else {
+        await markRetry(result.error ?? "unknown error");
+        retried++;
+      }
+    };
 
     const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
     if (!renderFn) {
@@ -1110,7 +1292,6 @@ Deno.serve(async () => {
       ? payload.to_phone
       : phoneById.get(row.recipient_id) ?? undefined;
 
-    let result: SendResult;
     if (row.channel === "email") {
       if (!render.email) {
         await markFailed("template has no email rendering");
@@ -1122,48 +1303,75 @@ Deno.serve(async () => {
         failed++;
         continue;
       }
-      result = await sendEmail(
-        toEmail,
-        render.email.subject,
-        render.email.html,
-        render.email.text,
-      );
+      await settle(await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text));
+    } else if (row.channel === "push") {
+      const subs = subscriptionsByProfile.get(row.recipient_id) ?? [];
+      const pushBody = render.smsText.length > PUSH_BODY_MAX_CHARS
+        ? `${render.smsText.slice(0, PUSH_BODY_MAX_CHARS - 1)}…`
+        : render.smsText;
+      const pushResult = await sendWebPush(subs, {
+        title: "Tarragon Health",
+        body: pushBody,
+        url: "/",
+        notificationId: row.id,
+      });
+
+      if (pushResult.goneSubscriptionIds.length > 0) {
+        // Best-effort cleanup — never lets a push-service-side error affect
+        // whether this notification itself is treated as sent/failed.
+        await supabase
+          .from("push_subscriptions")
+          .update({ disabled_at: new Date().toISOString() })
+          .in("id", pushResult.goneSubscriptionIds);
+      }
+
+      if (!pushResult.ok && !isCritical) {
+        // Routine rows: push is the default channel, but a routine reminder
+        // doesn't need confirmation-gated escalation — fall back inline to
+        // whatsapp -> sms, same simple best-effort delivery this codebase
+        // already used for whatsapp -> sms.
+        if (!toPhone) {
+          await markFailed("recipient has no phone number on file");
+          failed++;
+          continue;
+        }
+        let fallback = await sendWhatsApp(toPhone, render);
+        if (!fallback.ok) fallback = await sendTermiiSms(toPhone, render.smsText);
+        await settle(fallback);
+      } else {
+        // Critical rows: no inline fallback — a failed push here becomes its
+        // own `failed` row that the escalation engine turns into a fresh,
+        // separately-tracked whatsapp hop within the next 2 minutes.
+        await settle(pushResult);
+      }
     } else if (row.channel === "whatsapp") {
       if (!toPhone) {
         await markFailed("recipient has no phone number on file");
         failed++;
         continue;
       }
-      result = await sendWhatsApp(toPhone, render);
-      if (!result.ok) {
-        // WhatsApp delivery failed — fall back to Termii SMS (§8).
+      let result = await sendWhatsApp(toPhone, render);
+      if (!result.ok && !isCritical) {
+        // WhatsApp delivery failed — fall back to Termii SMS (§8). Critical
+        // rows skip this (see the push branch's comment above) so the
+        // engine's next hop is its own tracked row, not silently absorbed.
         result = await sendTermiiSms(toPhone, render.smsText);
       }
+      await settle(result);
     } else if (row.channel === "voice") {
       if (!toPhone) {
         await markFailed("recipient has no phone number on file");
         failed++;
         continue;
       }
-      result = await sendTermiiVoiceCall(toPhone, render.smsText);
+      await settle(await sendTermiiVoiceCall(toPhone, render.smsText));
     } else {
       if (!toPhone) {
         await markFailed("recipient has no phone number on file");
         failed++;
         continue;
       }
-      result = await sendTermiiSms(toPhone, render.smsText);
-    }
-
-    if (result.ok) {
-      await markSent();
-      sent++;
-    } else if (row.attempts + 1 >= MAX_ATTEMPTS) {
-      await markFailed(result.error ?? "unknown error");
-      failed++;
-    } else {
-      await markRetry(result.error ?? "unknown error");
-      retried++;
+      await settle(await sendTermiiSms(toPhone, render.smsText));
     }
   }
 

@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { NAV_ICON, APP_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "./notification-bell";
+import { PushSubscribePrompt } from "./push-subscribe-prompt";
+import { DeviceHeartbeat } from "./device-heartbeat";
 import type { NavSection } from "@/lib/navigation";
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -220,6 +222,8 @@ export function AppShell({
               </span>
             </div>
             <div className="flex items-center gap-3 text-sm">
+              <DeviceHeartbeat />
+              <PushSubscribePrompt />
               <NotificationBell />
               <span className="hidden max-w-48 truncate text-charcoal-ink/70 sm:inline">
                 {userName}

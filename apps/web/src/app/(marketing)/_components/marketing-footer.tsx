@@ -34,6 +34,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.forYou, label: "For you" },
     { href: MARKETING_ROUTES.about, label: "About" },
     { href: MARKETING_ROUTES.resources, label: "Resources" },
+    { href: MARKETING_ROUTES.impact, label: "Our impact" },
     { href: MARKETING_ROUTES.faq, label: "FAQ" },
     { href: MARKETING_ROUTES.contact, label: "Contact" },
   ],

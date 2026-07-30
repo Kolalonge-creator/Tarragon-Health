@@ -1,9 +1,14 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { AddChildForm } from "./add-child-form";
 import { NextOfKinForm, type NextOfKinState } from "./next-of-kin-form";
 import { DependantsList } from "./dependants-list";
+import { AdultsYouManageList } from "./adults-you-manage-list";
+import { CareAccessRequestsList, type CareAccessRequestRow } from "./care-access-requests-list";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 /**
  * The people around one person's care.
@@ -16,10 +21,16 @@ import { DependantsList } from "./dependants-list";
  * a person should have to buy.
  *
  * What remains is the consent model that was always underneath it —
- * profile_access — in its two levels:
+ * profile_access — in its two levels, and, since 20260730025553,
+ * care_access_requests as the two-sided accept that now sits in front of
+ * both:
  *
  *   view    a next of kin follows the record and cannot change it
- *   manage  a parent acts for a child who has no login of their own
+ *   manage  either a parent acting for a child who has no login of their own
+ *           (unconditional — see AddChildForm), or, between two adults who
+ *           each hold their own account, an eldercare grant that only exists
+ *           once the other party has accepted a request (see the caregiver
+ *           wizard linked below).
  */
 export default async function CareCirclePage() {
   const profile = await getCurrentProfile();
@@ -47,11 +58,48 @@ export default async function CareCirclePage() {
 
   const viewGrant = (grants ?? []).find((grant) => grant.permission_level === "view") ?? null;
 
+  // Every still-open proposal involving the caller, either side. RLS already
+  // scopes this to rows where profile_id or counterparty_user_id = the
+  // caller, so the .or() below is belt-and-braces, not the only guard.
+  const { data: rawRequests } = await supabase
+    .from("care_access_requests")
+    .select(
+      `id, profile_id, counterparty_user_id, initiated_by, permission_level, relationship, created_at,
+       owner:profiles!care_access_requests_profile_id_fkey(full_name),
+       counterparty:profiles!care_access_requests_counterparty_user_id_fkey(full_name)`
+    )
+    .or(`profile_id.eq.${profile.id},counterparty_user_id.eq.${profile.id}`)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+
+  const requests: CareAccessRequestRow[] = (rawRequests ?? []).map((r) => ({
+    id: r.id,
+    profile_id: r.profile_id,
+    counterparty_user_id: r.counterparty_user_id,
+    initiated_by: r.initiated_by,
+    permission_level: r.permission_level,
+    relationship: r.relationship,
+    created_at: r.created_at,
+    owner_name: r.owner?.full_name ?? null,
+    counterparty_name: r.counterparty?.full_name ?? null,
+  }));
+
+  // The next-of-kin card wants to know if it's already waiting on someone,
+  // not just whether they've accepted — same requests already fetched above.
+  const pendingNextOfKinRequest =
+    requests.find(
+      (r) =>
+        r.profile_id === profile.id &&
+        r.initiated_by === profile.id &&
+        r.permission_level === "view"
+    ) ?? null;
+
   const nextOfKin: NextOfKinState = {
     name: me?.emergency_contact_name ?? null,
     phone: me?.emergency_contact_phone ?? null,
     relationship: me?.emergency_contact_relationship ?? null,
     grantId: viewGrant?.id ?? null,
+    pendingRequestId: pendingNextOfKinRequest?.id ?? null,
   };
 
   return (
@@ -64,7 +112,26 @@ export default async function CareCirclePage() {
         </p>
       </div>
 
+      <CareAccessRequestsList requests={requests} currentUserId={profile.id} />
+
       <NextOfKinForm current={nextOfKin} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Managing care together</CardTitle>
+          <CardDescription>
+            For an adult who should be able to act on a record, not just follow it — bookings,
+            prescriptions, vaccinations — set that up with its own step-by-step request.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link href="/patient/family/caregiver">Set up manage access</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <AdultsYouManageList />
       <DependantsList />
       <AddChildForm />
     </div>

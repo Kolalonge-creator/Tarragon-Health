@@ -1,7 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { hasPrescribingAuthority } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MaskedCallButton } from "@/components/masked-call-button";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -60,6 +61,7 @@ export default async function ClinicianPatientPage({
 
   const callerStaff = await getCurrentClinicalStaff();
   const canPrescribe = hasPrescribingAuthority(callerStaff);
+  const currentUser = await getCurrentUser();
   // Pregnancy context for the drug-safety advisory (§20.2).
   const { data: pregnancy } = await supabase
     .from("patient_pregnancy")
@@ -119,6 +121,16 @@ export default async function ClinicianPatientPage({
           {patient.full_name ?? "Unnamed patient"}
         </h1>
         {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
+        {currentUser && (
+          <div className="mt-2">
+            <MaskedCallButton
+              patientId={patient.id}
+              staffProfileId={currentUser.id}
+              otherPartyLabel="this patient"
+              context="clinical_follow_up"
+            />
+          </div>
+        )}
       </div>
       <PreVisitSummary patientId={patient.id} />
       <PatientTimeline patientId={patient.id} />

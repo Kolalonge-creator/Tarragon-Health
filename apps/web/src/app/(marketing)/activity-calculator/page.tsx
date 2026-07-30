@@ -72,8 +72,8 @@ export default function ActivityCalculatorPage() {
               <Link href={MARKETING_ROUTES.obesity} className="font-medium text-deep-forest hover:underline">
                 Weight Health programme
               </Link>{" "}
-              pairs doctor-led guidance with lifestyle coaching, so activity is part of a real plan,
-              not a guess.
+              pairs doctor-reviewed guidance with lifestyle coaching, so activity is part of a real
+              plan, not a guess.
             </p>
           </div>
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">

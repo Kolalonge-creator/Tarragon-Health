@@ -12,6 +12,16 @@
 //      WhatsApp is a human-routed support channel, not a transactional
 //      interface (see CLAUDE.md "What Claude Must Never Do").
 //
+// `statuses[]` (Meta's delivery/read receipts) used to be counted only —
+// nothing correlated a status callback back to the row that generated it.
+// 2026-07-30: send-pending-notifications now captures Meta's `wamid` as
+// `notifications.provider_message_id` on every WhatsApp send, so a status
+// callback here can update that exact row's delivered_at/opened_at/status —
+// the delivery-state half of the forced-channel escalation engine
+// (critical_notification_engine.sql). This still never parses message
+// *content* or turns anything into a platform action — only the delivery
+// receipt of a message TarragonHealth itself already sent.
+//
 // Mirrors abnormal-result-handler/index.ts and send-pending-notifications/
 // index.ts: never throws past its boundary, always responds 200 so Meta
 // doesn't retry-storm a transient failure, and every outcome is recorded to
@@ -38,6 +48,7 @@ interface WhatsAppStatus {
   id: string;
   status: string;
   recipient_id: string;
+  errors?: Array<{ title?: string; message?: string }>;
 }
 
 interface WebhookValue {
@@ -152,7 +163,38 @@ Deno.serve(async (req) => {
       if (!error) messagesStored++;
     }
 
-    statusesReceived += value.statuses?.length ?? 0;
+    for (const status of value.statuses ?? []) {
+      statusesReceived++;
+      const nowIso = new Date().toISOString();
+
+      if (status.status === "delivered") {
+        // Never downgrade a row Meta (or a later, out-of-order callback)
+        // already reported as read.
+        await supabase
+          .from("notifications")
+          .update({ status: "delivered", delivered_at: nowIso })
+          .eq("provider_message_id", status.id)
+          .neq("status", "read");
+      } else if (status.status === "read") {
+        await supabase
+          .from("notifications")
+          .update({ status: "read", opened_at: nowIso, delivered_at: nowIso })
+          .eq("provider_message_id", status.id)
+          .is("opened_at", null);
+      } else if (status.status === "failed") {
+        // A send that succeeded at the API-call level (send-pending-
+        // notifications marked it `sent`) can still fail at the carrier —
+        // flip it to `failed` so a critical row's escalation engine picks
+        // it up on its next tick instead of waiting out the full SLA window
+        // for a message that was never going to be opened.
+        const reason = status.errors?.[0]?.title ?? status.errors?.[0]?.message ?? "WhatsApp delivery failed";
+        await supabase
+          .from("notifications")
+          .update({ status: "failed", failed_at: nowIso, last_error: reason })
+          .eq("provider_message_id", status.id)
+          .is("opened_at", null);
+      }
+    }
   }
 
   if (messagesStored > 0 || statusesReceived > 0) {

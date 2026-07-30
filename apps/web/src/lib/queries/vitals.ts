@@ -24,13 +24,19 @@ const TREND_WINDOW_DAYS = 90;
 export type VitalsTrendType = "blood_pressure" | "glucose" | "weight" | "pulse";
 
 /** Ascending-order readings for charting (opposite of useVitalsReadings's
- * newest-first list order — a trend chart reads left to right). */
-export function useVitalsTrend(patientId: string, vitalType: VitalsTrendType) {
+ * newest-first list order — a trend chart reads left to right). `windowDays`
+ * overrides the default 90-day cutoff — used by the weight-goal card's
+ * Week/Month/All-time toggle; every other caller keeps the default. */
+export function useVitalsTrend(
+  patientId: string,
+  vitalType: VitalsTrendType,
+  windowDays: number = TREND_WINDOW_DAYS,
+) {
   return useQuery({
-    queryKey: ["vitals-trend", patientId, vitalType],
+    queryKey: ["vitals-trend", patientId, vitalType, windowDays],
     queryFn: async () => {
       const supabase = createClient();
-      const since = new Date(Date.now() - TREND_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("vitals_readings")
         .select("taken_at, systolic, diastolic, glucose_mmol_l, glucose_context, weight_kg, pulse_bpm")
@@ -38,6 +44,28 @@ export function useVitalsTrend(patientId: string, vitalType: VitalsTrendType) {
         .eq("vital_type", vitalType)
         .gte("taken_at", since)
         .order("taken_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
+}
+
+/** Most recent logged weight, for the weight-goal card's "current weight"
+ * figure — cheaper than pulling the whole trend just for the last point. */
+export function useLatestWeightKg(patientId: string) {
+  return useQuery({
+    queryKey: ["latest-weight-kg", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vitals_readings")
+        .select("weight_kg, taken_at")
+        .eq("patient_id", patientId)
+        .eq("vital_type", "weight")
+        .order("taken_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },

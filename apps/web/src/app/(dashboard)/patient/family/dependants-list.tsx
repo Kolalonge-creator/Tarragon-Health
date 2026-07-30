@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 
 /**
- * Children whose records this caller keeps — a 'manage' profile_access grant.
- * Adults never appear here: an adult holds their own account and their own
- * subscription, and shares their record by naming somebody as next of kin,
- * which grants 'view' rather than 'manage'.
+ * Children whose records this caller keeps — a 'manage' profile_access grant
+ * to a child with no login of their own. Adults never appear here even when
+ * this caller holds 'manage' over an adult's record too (the eldercare case,
+ * see adults-you-manage-list.tsx): useManagedDependents() filters on
+ * is_dependent_account so the two surfaces, and the copy each was written
+ * for, never mix.
  */
 export function DependantsList() {
   const { data: dependants, isLoading, isError } = useManagedDependents();
