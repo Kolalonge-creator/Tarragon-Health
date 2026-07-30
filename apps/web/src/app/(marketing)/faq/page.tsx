@@ -68,9 +68,9 @@ export default function FaqPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           title="Ready when you are"
-          description="Start monitoring today, for yourself or someone you love."
+          description="Get started today, for yourself or someone you love."
           primaryHref="/signup"
-          primaryLabel="Start monitoring"
+          primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}
           secondaryLabel="View pricing"
         />

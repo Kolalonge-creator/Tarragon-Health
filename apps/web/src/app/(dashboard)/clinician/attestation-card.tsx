@@ -33,7 +33,7 @@ export function AttestationCard({ expiresAt }: { expiresAt: string | null }) {
       <CardContent className="space-y-3 text-sm">
         {current ? (
           <p className="text-charcoal-ink/70">
-            Signed and current — valid until {expiryLabel}.
+            Signed and current, valid until {expiryLabel}.
           </p>
         ) : (
           <p className="text-charcoal-ink/70">
@@ -53,7 +53,7 @@ export function AttestationCard({ expiresAt }: { expiresAt: string | null }) {
           </Button>
         </form>
         {state?.error && <p className="text-red-600">{state.error}</p>}
-        {state?.success && <p className="text-brand-green">Attestation recorded — thank you.</p>}
+        {state?.success && <p className="text-brand-green">Attestation recorded, thank you.</p>}
       </CardContent>
     </Card>
   );

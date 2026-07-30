@@ -86,7 +86,7 @@ export function MedicationsList({
                     )}
                   </div>
                   <p className="text-xs text-charcoal-ink/60">
-                    {[medication.dose, medication.frequency].filter(Boolean).join(" — ") ||
+                    {[medication.dose, medication.frequency].filter(Boolean).join(", ") ||
                       "No dose/frequency set"}
                   </p>
                   {medication.source === "specialist" && medication.prescriber_name && (
@@ -115,7 +115,7 @@ export function MedicationsList({
                   )}
                   {medication.refill_date && !refillCoordinationEnabled && (
                     <p className="text-xs text-charcoal-ink/60">
-                      Refill coordination is part of a paid plan —{" "}
+                      Refill coordination is part of a paid plan;{" "}
                       <a href="/patient/subscription" className="underline">
                         see plans
                       </a>
@@ -277,7 +277,7 @@ function StopMedicationForm({
     <div className="mt-1 flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 p-2">
       <div className="min-w-48 flex-1 space-y-1">
         <Label htmlFor={`stop_reason_${medication.id}`} className="text-xs">
-          Reason (optional) — e.g. switched, side effects
+          Reason (optional): e.g. switched, side effects
         </Label>
         <Input
           id={`stop_reason_${medication.id}`}
@@ -337,7 +337,7 @@ function PastMedications({ patientId }: { patientId: string }) {
             <li key={medication.id} className="py-2">
               <p className="text-sm text-charcoal-ink/70 line-through decoration-charcoal-ink/30">
                 {medication.drug_name}
-                {medication.dose ? ` — ${medication.dose}` : ""}
+                {medication.dose ? `, ${medication.dose}` : ""}
               </p>
               <p className="text-xs text-charcoal-ink/50">
                 Stopped

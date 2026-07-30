@@ -74,7 +74,7 @@ export default function AboutPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link href="/signup">Start monitoring</Link>
+                <Link href="/signup">Get started</Link>
               </Button>
               <Button asChild variant="outline" size="lg">
                 <Link href="#team">Meet our team</Link>
@@ -172,7 +172,7 @@ export default function AboutPage() {
           variant="gradient"
           title="Come build continuity of care with us"
           description="Whether you're a patient, a family member, an employer, or an HMO, we'd like to hear from you."
-          primaryLabel="Start monitoring"
+          primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.contact + "?source=about"}
           secondaryLabel="Get in touch"
         />

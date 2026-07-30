@@ -38,7 +38,7 @@ export default async function AnalyticsLayout({ children }: { children: React.Re
         </h1>
         <p className="text-sm text-charcoal-ink/60">
           Company-wide business, financial, and population-health intelligence across every
-          organisation — aggregate, visualise, and export.
+          organisation: aggregate, visualise, and export.
         </p>
       </div>
       <AnalyticsNav />

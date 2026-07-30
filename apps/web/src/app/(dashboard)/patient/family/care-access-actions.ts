@@ -80,7 +80,7 @@ export async function nominateNextOfKinAction(
 
   if (!found || found.id === profile.id) {
     return {
-      message: `${full_name} is now your next of kin. We'll contact them if something urgent comes up. They don't have a Tarragon account on that number yet, so there's nothing for them to view — add them again once they sign up and they'll be able to follow your care.`,
+      message: `${full_name} is now your next of kin. We'll contact them if something urgent comes up. They don't have a Tarragon account on that number yet, so there's nothing for them to view yet: add them again once they sign up and they'll be able to follow your care.`,
     };
   }
 
@@ -105,7 +105,7 @@ export async function nominateNextOfKinAction(
     .maybeSingle();
   if (existingRequest) {
     return {
-      message: `${full_name} is now your next of kin. We already asked them to confirm before they can see your care activity — waiting on them.`,
+      message: `${full_name} is now your next of kin. We already asked them to confirm before they can see your care activity, waiting on them.`,
     };
   }
 
@@ -124,7 +124,7 @@ export async function nominateNextOfKinAction(
   revalidatePath("/patient/family");
   revalidatePath("/patient");
   return {
-    message: `${full_name} is now your next of kin. We've asked them to confirm before they can see your care activity — they'll get a notification and can accept any time.`,
+    message: `${full_name} is now your next of kin. We've asked them to confirm before they can see your care activity; they'll get a notification and can accept any time.`,
   };
 }
 
@@ -177,7 +177,7 @@ export async function createEldercareAccessRequestAction(
   if (!found || found.id === profile.id) {
     return {
       error:
-        "We couldn't find a Tarragon account on that number in your organisation. They need their own account first — ask them to sign up, then try again.",
+        "We couldn't find a Tarragon account on that number in your organisation. They need their own account first: ask them to sign up, then try again.",
     };
   }
 

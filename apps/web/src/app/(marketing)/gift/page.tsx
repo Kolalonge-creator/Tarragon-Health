@@ -85,7 +85,7 @@ export default function GiftPage() {
               <Link href="/login">Fund a loved one&apos;s wallet</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/signup">New here? Start monitoring</Link>
+              <Link href="/signup">New here? Get started</Link>
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
@@ -166,7 +166,7 @@ export default function GiftPage() {
           primaryHref="/login"
           primaryLabel="Fund a loved one's wallet"
           secondaryHref="/signup"
-          secondaryLabel="Start monitoring"
+          secondaryLabel="Get started"
         />
       </Section>
     </>

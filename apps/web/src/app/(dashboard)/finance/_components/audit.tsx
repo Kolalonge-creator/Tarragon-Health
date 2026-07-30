@@ -28,9 +28,9 @@ export function FinanceAuditLog() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Every human-triggered finance action — posting or reversing a journal entry, opening/closing/
+        Every human-triggered finance action (posting or reversing a journal entry, opening/closing/
         locking a period, editing an account or tax rate, importing/matching/posting a settlement,
-        running revenue recognition, and every approval decision — is logged here with who did it and
+        running revenue recognition, and every approval decision) is logged here with who did it and
         when. Automated postings from real payments/commissions are not repeated here; they are already
         fully visible as ledger entries.
       </p>

@@ -4,9 +4,9 @@ import { CtaBand } from "../_components/cta-band";
 import { loadImpactMetrics } from "@/lib/marketing/impact-data";
 
 export const metadata: Metadata = {
-  title: "Our impact — TarragonHealth",
+  title: "Our impact: TarragonHealth",
   description:
-    "Platform-wide numbers on what TarragonHealth's monitoring and doctor review actually catches — updated daily, with small numbers held back to protect patient privacy.",
+    "Platform-wide numbers on what TarragonHealth's monitoring and doctor review actually catches, updated daily, with small numbers held back to protect patient privacy.",
 };
 
 // The underlying table refreshes on a nightly cron; re-render at the same cadence.
@@ -28,7 +28,7 @@ export default async function ImpactPage() {
         <div className="mx-auto max-w-3xl text-center">
           <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">Our impact</h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Real, platform-wide counts of what monitoring and doctor review actually catch — not a
+            Real, platform-wide counts of what monitoring and doctor review actually catch: not a
             claims feed, not a sales pitch. Refreshed daily.
           </p>
         </div>
@@ -40,8 +40,8 @@ export default async function ImpactPage() {
           title={anyVisible ? "What the numbers show" : "We're just getting started"}
           description={
             anyVisible
-              ? "Every figure below is a real count from the platform, aggregated across every patient, institution and city — never broken down by organisation or individual."
-              : "TarragonHealth is early. We hold back any number small enough that showing it could identify a real person, so most figures here will fill in as more patients join — that's a privacy choice, not a bug."
+              ? "Every figure below is a real count from the platform, aggregated across every patient, institution and city, never broken down by organisation or individual."
+              : "TarragonHealth is early. We hold back any number small enough that showing it could identify a real person, so most figures here will fill in as more patients join. That's a privacy choice, not a bug."
           }
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -84,7 +84,7 @@ export default async function ImpactPage() {
           </h2>
           <p className="mt-4 text-charcoal-ink/70">
             Nothing here is broken down by employer, HMO, hospital or any other group smaller than
-            the whole platform — that&apos;s a stricter rule than we apply even to an institution
+            the whole platform. That&apos;s a stricter rule than we apply even to an institution
             looking at its own aggregate data. Any count below 25 is held back entirely rather than
             shown as a small, potentially identifying number.
           </p>

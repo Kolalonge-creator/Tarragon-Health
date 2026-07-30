@@ -36,6 +36,6 @@ export async function postDeviceReading(payload: Record<string, unknown>): Promi
     }
     return { success: true };
   } catch {
-    return { success: false, error: "Couldn't reach the server — check your connection and try again." };
+    return { success: false, error: "Couldn't reach the server. Check your connection and try again." };
   }
 }

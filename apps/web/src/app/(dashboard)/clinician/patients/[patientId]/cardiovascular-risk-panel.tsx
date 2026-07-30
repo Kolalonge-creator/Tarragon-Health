@@ -30,11 +30,11 @@ const FLAG_FIELDS: { name: keyof CvProfileFlags; label: string }[] = [
 
 const STATIN_LABEL: Record<CvRiskAssessment["statinRecommendation"], string> = {
   secondary_prevention_recommended:
-    "Lipid-lowering therapy near-automatic (secondary / high risk) — review & decide.",
+    "Lipid-lowering therapy near-automatic (secondary / high risk); review & decide.",
   primary_risk_based_recommended:
-    "Statin is a lifestyle-first conversation (risk above threshold) — not automatic.",
-  primary_lifestyle_first: "Lifestyle first — statin not routinely indicated.",
-  insufficient_data: "Not enough data to stratify — gather a lipid panel + risk factors.",
+    "Statin is a lifestyle-first conversation (risk above threshold), not automatic.",
+  primary_lifestyle_first: "Lifestyle first: statin not routinely indicated.",
+  insufficient_data: "Not enough data to stratify: gather a lipid panel + risk factors.",
 };
 
 const RISK_VARIANT: Record<string, "red" | "amber" | "blue" | "grey" | "green"> = {
@@ -83,7 +83,7 @@ export function CardiovascularRiskPanel({
                 </Badge>
               )}
               {!assessment.configSigned && (
-                <Badge variant="grey">Provisional — awaiting Medical-Director sign-off</Badge>
+                <Badge variant="grey">Provisional: awaiting Medical-Director sign-off</Badge>
               )}
             </div>
 
@@ -107,7 +107,7 @@ export function CardiovascularRiskPanel({
                   ))}
                 </ul>
                 <p className="mt-2 text-xs text-amber-800/80">
-                  These are prompts for your clinical judgement — no medication is started
+                  These are prompts for your clinical judgement; no medication is started
                   automatically.
                 </p>
               </div>

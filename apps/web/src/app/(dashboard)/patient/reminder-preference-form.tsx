@@ -27,7 +27,7 @@ export function ReminderPreferenceForm({
           Reminder preference
         </CardTitle>
         <CardDescription>
-          Choose how you&apos;d like reminders delivered — a WhatsApp message (with SMS as a
+          Choose how you&apos;d like reminders delivered: a WhatsApp message (with SMS as a
           fallback) or a phone call that reads the reminder aloud.
         </CardDescription>
       </CardHeader>

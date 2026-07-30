@@ -56,7 +56,7 @@ export async function submitScreeningResult(
     return { error: "Patient not found or has no organisation on file" };
   }
   if (!patient.sex || !patient.date_of_birth) {
-    return { error: "Patient is missing sex or date of birth — set these before recording a result" };
+    return { error: "Patient is missing sex or date of birth, set these before recording a result" };
   }
   const organisationId = patient.organisation_id;
   const sex = patient.sex;
@@ -86,7 +86,7 @@ export async function submitScreeningResult(
 
   const mlClient = createMlClientFromEnv();
   if (!mlClient) {
-    return { error: "ML service is not configured — cannot interpret this result" };
+    return { error: "ML service is not configured, cannot interpret this result" };
   }
 
   const interpretation = await mlClient.interpretLabs({
@@ -99,7 +99,7 @@ export async function submitScreeningResult(
     procedural_status: input.procedural_status,
   });
   if (!interpretation) {
-    return { error: "ML service is unavailable — try again shortly" };
+    return { error: "ML service is unavailable, try again shortly" };
   }
 
   const { error: insertError } = await supabase.from("screening_results").insert({

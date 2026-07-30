@@ -77,7 +77,7 @@ export function PlansManager() {
           <CardTitle>Plans</CardTitle>
           <CardDescription>
             Price/currency/interval become read-only once a plan has an active or trialing
-            subscriber — clone it as a new plan to change those.
+            subscriber; clone it as a new plan to change those.
           </CardDescription>
         </CardHeader>
         <CardContent>

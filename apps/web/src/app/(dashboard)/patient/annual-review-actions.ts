@@ -80,7 +80,7 @@ export async function confirmAnnualReviewSlot(
   let hasLink = false;
   if (isZoomConfigured()) {
     const meeting = await createMeeting({
-      topic: "Tarragon Health — annual review consult",
+      topic: "Tarragon Health: annual review consult",
       startTime: parsed.data.slot,
     });
     if (meeting.ok) {

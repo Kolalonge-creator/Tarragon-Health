@@ -117,7 +117,7 @@ export function FindriscCheck() {
         {result && band && (
           <div className="mt-4 space-y-1 rounded-md border border-charcoal-ink/10 p-3 text-sm">
             <p>
-              Your score: <span className="font-medium">{result.score}</span> —{" "}
+              Your score: <span className="font-medium">{result.score}</span>,{" "}
               <span className={`font-medium ${band.tone}`}>{band.label}</span>
             </p>
             <p className="text-charcoal-ink/60">
@@ -130,7 +130,7 @@ export function FindriscCheck() {
               </p>
             ) : (
               <p className="text-charcoal-ink/80">
-                Keep up the healthy habits — recheck yearly, or sooner if things change.
+                Keep up the healthy habits, recheck yearly, or sooner if things change.
               </p>
             )}
           </div>

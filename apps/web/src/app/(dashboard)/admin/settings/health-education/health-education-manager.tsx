@@ -45,7 +45,7 @@ export function HealthEducationManager() {
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load the library.</p>}
         {setActive.isError && (
-          <p className="text-sm text-red-600">Could not update that item — please try again.</p>
+          <p className="text-sm text-red-600">Could not update that item. Please try again.</p>
         )}
         {content && content.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

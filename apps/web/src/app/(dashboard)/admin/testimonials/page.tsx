@@ -24,7 +24,7 @@ export default async function AdminTestimonialsPage() {
       <div>
         <h1 className="text-xl font-semibold text-charcoal-ink">Testimonials</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Consented patient quotes — publishing makes a quote visible on the marketing site.
+          Consented patient quotes; publishing makes a quote visible on the marketing site.
         </p>
       </div>
 

@@ -35,7 +35,7 @@ export function BookingRequestsList({ patientId }: { patientId: string }) {
           !bookingRequests.isError &&
           bookingRequests.data?.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">
-              No booking requests yet — find a facility above to get started.
+              No booking requests yet, find a facility above to get started.
             </p>
           )}
         {bookingRequests.data && bookingRequests.data.length > 0 && (
@@ -51,7 +51,7 @@ export function BookingRequestsList({ patientId }: { patientId: string }) {
                     <Badge variant={badge.variant}>{badge.label}</Badge>
                   </div>
                   <p className="text-xs text-charcoal-ink/60">
-                    {request.service_type} — requested for{" "}
+                    {request.service_type}, requested for{" "}
                     {new Date(request.requested_date).toLocaleDateString()}
                   </p>
                   {request.notes && (

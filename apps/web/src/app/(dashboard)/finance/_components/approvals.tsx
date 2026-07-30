@@ -14,7 +14,7 @@ function requestSummary(payload: Record<string, unknown>, type: string): string 
   }
   const lines = Array.isArray(payload.lines) ? (payload.lines as { debit_minor?: number; credit_minor?: number }[]) : [];
   const max = lines.reduce((m, l) => Math.max(m, l.debit_minor ?? 0, l.credit_minor ?? 0), 0);
-  return `Journal entry — ${formatMinor(max, String(payload.currency ?? "NGN"))} · ${String(payload.memo ?? "")}`;
+  return `Journal entry: ${formatMinor(max, String(payload.currency ?? "NGN"))} · ${String(payload.memo ?? "")}`;
 }
 
 export function ApprovalsQueue() {
@@ -53,7 +53,7 @@ export function ApprovalsQueue() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         A four-eyes control: a manual journal entry at or above the configured threshold, and locking
-        an accounting period, wait here for a <b>different</b> finance officer to review — the person
+        an accounting period, wait here for a <b>different</b> finance officer to review: the person
         who requested it can never approve their own request (enforced at the database level, not just
         in this UI).
       </p>
@@ -84,7 +84,7 @@ export function ApprovalsQueue() {
                 {r.reason && <p className="mt-1 text-xs text-charcoal-ink/60">Reason: {r.reason}</p>}
                 {r.is_own_request ? (
                   <p className="mt-2 text-xs text-charcoal-ink/50">
-                    You requested this — a different finance officer must review it.
+                    You requested this: a different finance officer must review it.
                   </p>
                 ) : (
                   <div className="mt-2 flex flex-wrap items-center gap-2">

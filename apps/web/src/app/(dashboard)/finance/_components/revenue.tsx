@@ -26,7 +26,7 @@ export function RevenueRecognition() {
       return;
     }
     const posted = typeof res.data === "number" ? res.data : 0;
-    setMessage({ ok: true, text: `Recognition run complete — ${posted} monthly entr${posted === 1 ? "y" : "ies"} posted.` });
+    setMessage({ ok: true, text: `Recognition run complete: ${posted} monthly entr${posted === 1 ? "y" : "ies"} posted.` });
     qc.invalidateQueries({ queryKey: financeKeys.all });
   }
 
@@ -34,7 +34,7 @@ export function RevenueRecognition() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         Subscription and add-on payments are held in Deferred revenue and recognised straight-line
-        over the billing period (ASC 606 / IFRS 15) — one journal entry per elapsed month. Recognition
+        over the billing period (ASC 606 / IFRS 15), one journal entry per elapsed month. Recognition
         runs automatically on the 1st of each month; you can also run it on demand.
       </p>
 

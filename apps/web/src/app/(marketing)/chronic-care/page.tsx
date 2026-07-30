@@ -29,7 +29,7 @@ const HOW = [
     body: "Log blood pressure, blood sugar, weight, and medication through the app or web, all on one longitudinal record.",
   },
   {
-    title: "Doctor review",
+    title: "Reviewed between visits",
     body: "Your care team reviews your trends against care protocols and follows up when something needs attention.",
   },
   {

@@ -168,7 +168,7 @@ function Editor({
         <div className="space-y-1 sm:col-span-2">
           <Label htmlFor="res-reviewer">
             Medically reviewed by (leave blank until a real clinician has actually read this
-            article — the byline and search-engine review signal only appear once this is set)
+            article; the byline and search-engine review signal only appear once this is set)
           </Label>
           <Input
             id="res-reviewer"
@@ -181,7 +181,7 @@ function Editor({
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <Label htmlFor="res-body">
-            Body — start each section with &quot;## Heading&quot;, blank line between paragraphs
+            Body: start each section with &quot;## Heading&quot;, blank line between paragraphs
           </Label>
           <div className="flex overflow-hidden rounded-md border border-charcoal-ink/15 text-xs">
             <button
@@ -234,7 +234,7 @@ function Editor({
             <div className="mt-6 space-y-5">
               {previewSections.length === 0 ? (
                 <p className="text-sm italic text-charcoal-ink/40">
-                  Nothing to preview yet — add a &quot;## Heading&quot; and a paragraph below.
+                  Nothing to preview yet. Add a &quot;## Heading&quot; and a paragraph below.
                 </p>
               ) : (
                 previewSections.map((section) => (
@@ -320,7 +320,7 @@ export function ResourcesManager() {
         <CardTitle>Resources library</CardTitle>
         <CardDescription>
           Articles on the public /resources hub. Published changes go live within ~5
-          minutes — no deploy needed. Keep the voice: plain language, no fear, no
+          minutes; no deploy needed. Keep the voice: plain language, no fear, no
           miracle cures, no medical advice claims.
         </CardDescription>
       </CardHeader>

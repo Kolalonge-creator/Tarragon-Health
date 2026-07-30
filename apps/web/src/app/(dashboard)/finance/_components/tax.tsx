@@ -56,7 +56,7 @@ export function TaxConsole() {
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         VAT and WHT are read straight from the ledger&apos;s tax accounts. Most Tarragon health services
         are VAT-exempt, so output VAT stays zero until a revenue account is marked standard-rated in
-        Settings. Rates below are the statutory Nigerian starting points — confirm with your tax adviser
+        Settings. Rates below are the statutory Nigerian starting points; confirm with your tax adviser
         before filing.
       </p>
 
@@ -96,7 +96,7 @@ export function TaxConsole() {
         )}
       </SectionCard>
 
-      <SectionCard title="Tax rates" description="Editable configuration — never hard-coded. Effective-dated.">
+      <SectionCard title="Tax rates" description="Editable configuration, never hard-coded. Effective-dated.">
         {rates.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (

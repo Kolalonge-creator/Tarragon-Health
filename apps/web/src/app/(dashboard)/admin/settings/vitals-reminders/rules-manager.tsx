@@ -189,7 +189,7 @@ export function RulesManager() {
         <CardHeader>
           <CardTitle>Patient-specific overrides</CardTitle>
           <CardDescription>
-            Highest priority — beats both the condition and global cadence.
+            Highest priority; beats both the condition and global cadence.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -246,7 +246,7 @@ export function RulesManager() {
                       {rule.patient?.full_name ?? "Unknown patient"}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
-                      {rule.patient?.phone} — every {rule.frequency_days} days
+                      {rule.patient?.phone}, every {rule.frequency_days} days
                     </p>
                   </div>
                   <Button

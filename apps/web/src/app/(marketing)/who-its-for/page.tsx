@@ -31,7 +31,7 @@ export default function WhoItsForPage() {
           primaryHref={MARKETING_ROUTES.pricing}
           primaryLabel="View pricing"
           secondaryHref="/signup"
-          secondaryLabel="Start monitoring"
+          secondaryLabel="Get started"
         />
       </Section>
     </>

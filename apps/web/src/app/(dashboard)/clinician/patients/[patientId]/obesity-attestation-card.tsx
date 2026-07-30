@@ -45,7 +45,7 @@ export async function ObesityAttestationCard() {
           <div className="space-y-3">
             <p className="text-sm text-charcoal-ink/70">
               You have not yet signed the obesity pathway attestation. By signing, you confirm you will
-              practise non-stigmatising, person-first care and act on the §16 red flags — pausing
+              practise non-stigmatising, person-first care and act on the §16 red flags, pausing
               weight-loss treatment and referring on any eating-disorder or mental-health flag.
             </p>
             <ObesityAttestButton />

@@ -73,7 +73,7 @@ export function WeightClient({ patientId }: { patientId: string }) {
           )}
           {!trend.isLoading && !trend.isError && points.length < 2 && (
             <p className="text-sm text-charcoal-ink/60">
-              Not enough readings in this range yet — log weight from your vitals or lifestyle
+              Not enough readings in this range yet; log weight from your vitals or lifestyle
               check-in to build the chart.
             </p>
           )}

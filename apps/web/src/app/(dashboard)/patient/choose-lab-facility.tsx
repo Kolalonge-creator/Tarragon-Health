@@ -38,10 +38,10 @@ export function ChooseLabFacility({
         selectedFacilityId={selectedFacility?.id ?? null}
         onSelect={setSelectedFacility}
         idPrefix={`order-${orderId}`}
-        emptyText="No labs listed for that location yet — try a nearby city, or message your care team to arrange it."
+        emptyText="No labs listed for that location yet; try a nearby city, or message your care team to arrange it."
       />
       {selectedFacility && !selectedFacility.lab_provider_id && (
-        <p className="text-xs text-amber-700">This location can&apos;t take an online booking yet — pick another lab.</p>
+        <p className="text-xs text-amber-700">This location can&apos;t take an online booking yet, pick another lab.</p>
       )}
       <div className="flex flex-wrap items-center gap-2">
         <Button

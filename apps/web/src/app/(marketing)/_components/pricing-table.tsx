@@ -53,7 +53,7 @@ function TierCard({ tier }: { tier: PricingTier }) {
       ) : null}
       <div className="mt-6 pt-2">
         <Button asChild className="w-full">
-          <Link href="/signup">Start monitoring</Link>
+          <Link href="/signup">Get started</Link>
         </Button>
       </div>
     </div>

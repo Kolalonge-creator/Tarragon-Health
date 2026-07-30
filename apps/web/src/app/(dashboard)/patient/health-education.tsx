@@ -100,8 +100,8 @@ function KnowledgeCheck({
         <p className="text-sm text-charcoal-ink">
           You got <strong>{result.score}</strong> of {result.total}.{" "}
           {result.allCorrect
-            ? "Nicely done — marked as understood."
-            : "Worth another read — we'll keep this handy for you."}
+            ? "Nicely done, marked as understood."
+            : "Worth another read, we'll keep this handy for you."}
         </p>
       )}
     </div>
@@ -235,7 +235,7 @@ export function HealthEducation({
         )}
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            Nothing new to read just yet — check back as your care progresses.
+            Nothing new to read just yet, check back as your care progresses.
           </p>
         )}
         {data && data.length > 0 && (
@@ -253,7 +253,7 @@ export function HealthEducation({
         {(lockedCount ?? 0) > 0 && (
           <p className="mt-3 text-xs text-charcoal-ink/50">
             {lockedCount} more lesson{lockedCount === 1 ? "" : "s"} unlock over the coming
-            weeks — the pace is deliberate, so each one sticks.
+            weeks; the pace is deliberate, so each one sticks.
           </p>
         )}
       </CardContent>

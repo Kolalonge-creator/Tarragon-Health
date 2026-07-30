@@ -49,7 +49,7 @@ export function EscalationWorklist() {
         <CardHeader>
           <CardTitle>Escalation worklist</CardTitle>
           <CardDescription>
-            Ranked by severity, then by how close each case is to breaching its SLA — not by
+            Ranked by severity, then by how close each case is to breaching its SLA, not by
             when it was raised.
           </CardDescription>
         </CardHeader>
@@ -98,8 +98,8 @@ export function EscalationWorklist() {
                         className="hover:underline"
                       >
                         {escalation.patient?.full_name ?? "Unknown patient"}
-                      </Link>{" "}
-                      — {escalation.reason}
+                      </Link>{": "}
+                      {escalation.reason}
                     </p>
                   </div>
                   {escalation.assigned_doctor_id === null ? (

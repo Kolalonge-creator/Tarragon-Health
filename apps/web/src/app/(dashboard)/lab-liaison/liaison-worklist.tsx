@@ -76,7 +76,7 @@ function UploadPanel({ patients }: { patients: LiaisonPatient[] }) {
       if (result.error) throw new Error(result.error);
     },
     onSuccess: () => {
-      setSuccess("Result uploaded — the patient can see it and it's flagged for a clinician.");
+      setSuccess("Result uploaded. The patient can see it and it's flagged for a clinician.");
       setFile(null);
       setNote("");
       if (fileInputRef.current) fileInputRef.current.value = "";

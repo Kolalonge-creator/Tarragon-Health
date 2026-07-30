@@ -40,7 +40,7 @@ function PointsConfigCard() {
         <CardDescription>
           What one wellness point is worth when a patient redeems it for Health Wallet balance.
           Current rate: {currentNaira !== null ? `₦${currentNaira} per point` : "…"}
-          {exampleValue !== null ? ` — 100 points = ₦${exampleValue}.` : ""}
+          {exampleValue !== null ? `; 100 points = ₦${exampleValue}.` : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex items-end gap-2">
@@ -68,10 +68,10 @@ function PointsConfigCard() {
             const kobo = Math.round(naira * 100);
             setRate.mutate(kobo, {
               onSuccess: () => {
-                setMessage(`Saved — 1 point is now worth ₦${naira}.`);
+                setMessage(`Saved. 1 point is now worth ₦${naira}.`);
                 setNairaInput("");
               },
-              onError: () => setMessage("Could not save — please try again."),
+              onError: () => setMessage("Could not save. Please try again."),
             });
           }}
         >
@@ -188,7 +188,7 @@ function ClassProvidersCard() {
       <CardHeader>
         <CardTitle>Class &amp; workshop partners</CardTitle>
         <CardDescription>
-          Flip a partner to active once a real contract exists — the patient-facing class list is
+          Flip a partner to active once a real contract exists. The patient-facing class list is
           dormant until then. New partners are added via seed/migration for now.
         </CardDescription>
       </CardHeader>

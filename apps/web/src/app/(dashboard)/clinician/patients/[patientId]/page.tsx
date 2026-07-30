@@ -158,7 +158,7 @@ export default async function ClinicianPatientPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm text-charcoal-ink/60">
-              Tier 1 doctors confirm and continue existing stable prescriptions under protocol —
+              Tier 1 doctors confirm and continue existing stable prescriptions under protocol;
               starting a new medication needs a Tier 2+ doctor or the Clinical Director. Use
               &quot;Confirm &amp; continue&quot; on a prescribed medication above to extend its refill
               date.

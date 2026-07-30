@@ -112,7 +112,7 @@ export function NextOfKinForm({ current }: { current: NextOfKinState }) {
         <CardTitle>Your next of kin</CardTitle>
         <CardDescription>
           One person we contact if something urgent comes up. If they have a Tarragon account of
-          their own, we&apos;ll ask them to confirm before they can also follow your care — see
+          their own, we&apos;ll ask them to confirm before they can also follow your care: see
           your readings, appointments and results. They can never change anything on your record,
           and either of you can withdraw access at any time.
         </CardDescription>

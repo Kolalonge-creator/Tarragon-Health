@@ -19,7 +19,7 @@ export default function SupportInboxPage() {
           Support inbox
         </h1>
         <p className="text-charcoal-ink/60">
-          Inbound WhatsApp messages, human-routed — no bot, no automation. Read like a helpdesk
+          Inbound WhatsApp messages, human-routed: no bot, no automation. Read like a helpdesk
           ticket and reply from here.
         </p>
       </div>

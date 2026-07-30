@@ -172,7 +172,7 @@ function CreateLoginCard({
           <div className="space-y-1">
             <Label htmlFor="organisationId">Organisation (optional)</Label>
             <Select id="organisationId" name="organisationId" defaultValue="">
-              <option value="">— none —</option>
+              <option value="">None</option>
               {organisations.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name} ({o.type})
@@ -258,7 +258,7 @@ function MemberItem({
             <div className="space-y-1">
               <Label>Custom role</Label>
               <Select name="customRoleId" defaultValue={member.custom_role_id ?? ""}>
-                <option value="">— none —</option>
+                <option value="">None</option>
                 {customRoles.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
@@ -276,7 +276,7 @@ function MemberItem({
           <p className="mb-2 text-sm font-medium text-charcoal-ink">Delegated capabilities</p>
           {isSuperAdmin ? (
             <p className="text-sm text-charcoal-ink/60">
-              Super Admin holds every capability — individual grants aren&apos;t needed.
+              Super Admin holds every capability; individual grants aren&apos;t needed.
             </p>
           ) : !canGrant ? (
             <p className="text-sm text-charcoal-ink/60">You don&apos;t have permission to change grants.</p>

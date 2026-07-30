@@ -124,8 +124,8 @@ export default async function PatientPage() {
         title="Overview"
         description={
           prevention.hasActiveCarePlan
-            ? "Today at a glance — your numbers, your care team, and recent activity."
-            : "Staying well at a glance — your prevention plan, your care team, and recent activity."
+            ? "Today at a glance: your numbers, your care team, and recent activity."
+            : "Staying well at a glance: your prevention plan, your care team, and recent activity."
         }
         icon={NAV_ICON.dashboard}
       >
@@ -204,7 +204,7 @@ export default async function PatientPage() {
                 <Link href="/patient/prevention" className="text-brand-green hover:underline">
                   health profile
                 </Link>{" "}
-                builds your personal screening and vaccination calendar — the checks that keep
+                builds your personal screening and vaccination calendar: the checks that keep
                 healthy people healthy.
               </p>
             )}

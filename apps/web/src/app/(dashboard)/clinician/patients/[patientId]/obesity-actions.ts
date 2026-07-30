@@ -73,7 +73,7 @@ export async function submitObesityAssessment(
 
   const patient = await loadPatient(patientId);
   if (!patient?.organisation_id) return { error: "Patient not found or has no organisation on file" };
-  if (!patient.sex) return { error: "Patient is missing sex on file — set it before assessing" };
+  if (!patient.sex) return { error: "Patient is missing sex on file, set it before assessing" };
 
   const cls = classifyObesity({
     weightKg: input.weight_kg,
@@ -194,7 +194,7 @@ export async function createBariatricReferral(
     .limit(1)
     .maybeSingle();
   if (!latest?.bmi) {
-    return { error: "Record an obesity assessment first — a referral needs a current BMI" };
+    return { error: "Record an obesity assessment first, a referral needs a current BMI" };
   }
 
   const hasComplication =
@@ -234,7 +234,7 @@ export async function createBariatricReferral(
  * no active clinical_staff row is rejected by the trigger.
  */
 const OBESITY_ATTESTATION_STATEMENT =
-  "I will practise non-stigmatising, person-first obesity care; I know and will act on the red flags in Section 16 — especially the eating-disorder and mental-health flags, where the correct action is to PAUSE weight-loss treatment and refer; and I understand a red flag overrides routine plans.";
+  "I will practise non-stigmatising, person-first obesity care; I know and will act on the red flags in Section 16, especially the eating-disorder and mental-health flags, where the correct action is to PAUSE weight-loss treatment and refer; and I understand a red flag overrides routine plans.";
 
 export async function signObesityAttestation(): Promise<ObesityActionState> {
   const supabase = await createClient();
