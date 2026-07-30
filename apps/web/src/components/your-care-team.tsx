@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MaskedCallButton } from "@/components/masked-call-button";
 
 /**
  * Patient/family-facing care team card — docs/CLINICAL_TRUST_MODEL_SPEC.md
@@ -78,17 +79,33 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
             <span className="text-charcoal-ink/60"> · {clinicianCredential}</span>
           )}
         </p>
+        <MaskedCallButton
+          patientId={patientId}
+          staffProfileId={assignment.clinician_id}
+          otherPartyLabel="your doctor"
+          context="clinical_follow_up"
+        />
         {coordinatorName && (
-          <p className="text-sm text-charcoal-ink">
-            Your care coordinator: <span className="font-medium">{coordinatorName}</span>
-            <span className="text-charcoal-ink/60">
-              {" "}
-              — they help with bookings, refills and check-ins.{" "}
-              <Link href="/patient/messages" className="text-brand-green hover:underline">
-                Send a message
-              </Link>
-            </span>
-          </p>
+          <>
+            <p className="text-sm text-charcoal-ink">
+              Your care coordinator: <span className="font-medium">{coordinatorName}</span>
+              <span className="text-charcoal-ink/60">
+                {" "}
+                — they help with bookings, refills and check-ins.{" "}
+                <Link href="/patient/messages" className="text-brand-green hover:underline">
+                  Send a message
+                </Link>
+              </span>
+            </p>
+            {assignment.care_coordinator_id && (
+              <MaskedCallButton
+                patientId={patientId}
+                staffProfileId={assignment.care_coordinator_id}
+                otherPartyLabel="your care coordinator"
+                context="care_coordination"
+              />
+            )}
+          </>
         )}
         {director && (
           <p className="text-sm text-charcoal-ink/60">

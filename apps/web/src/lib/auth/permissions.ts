@@ -39,6 +39,7 @@ export const PERMISSION_KEYS = [
   "analytics.view",
   "members.activity.view",
   "integrations.manage",
+  "impact_metrics.manage",
   "finance.view",
   "finance.gl.post",
   "finance.periods.manage",
