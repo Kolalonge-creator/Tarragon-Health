@@ -1,9 +1,14 @@
 # Tarragon Health — Supabase project configuration.
 #
-# NOTE: The production project must be created in the af-south-1 (Cape Town)
-# region for NDPR data residency (CLAUDE.md / ARCHITECTURE.md). Region is a
-# cloud/dashboard setting, not expressed here. This file configures local
-# development (`supabase start`) and is the source of truth for auth settings.
+# NOTE: the live project ("Tarragon Health", ref koiplnmbgnqnbywhpjlf) is
+# actually in eu-west-1 (Ireland) — Supabase has no Africa region, so
+# eu-west-1 was picked as the closest available to Nigeria; the NDPR data-
+# residency gap this leaves is accepted for now (see CLAUDE.md "Architecture:
+# Two-Layer" and ARCHITECTURE.md). This comment previously and incorrectly
+# claimed af-south-1 was required — corrected 2026-07-29. Region is a cloud/
+# dashboard setting either way, not expressed here. This file configures
+# local development (`supabase start`) and is the source of truth for auth
+# settings.
 project_id = "tarragon-health"
 
 [api]
