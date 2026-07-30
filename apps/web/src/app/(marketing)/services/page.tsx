@@ -83,9 +83,9 @@ export default function ServicesPage() {
         <CtaBand
           variant="gradient"
           title="One calm view for the care between visits"
-          description="Start monitoring today, for yourself or someone you love."
+          description="Get started today, for yourself or someone you love."
           primaryHref="/signup"
-          primaryLabel="Start monitoring"
+          primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}
           secondaryLabel="View pricing"
         />

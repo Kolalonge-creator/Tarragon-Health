@@ -39,7 +39,7 @@ export default function NotFound() {
           <Link href={MARKETING_ROUTES.home}>Back to home</Link>
         </Button>
         <Button asChild variant="outline" size="lg">
-          <Link href="/signup">Start monitoring</Link>
+          <Link href="/signup">Get started</Link>
         </Button>
       </div>
 

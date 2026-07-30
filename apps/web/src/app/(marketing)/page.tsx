@@ -275,7 +275,7 @@ export default function MarketingHomePage() {
             </ul>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link href="/signup">Start monitoring</Link>
+                <Link href="/signup">Get started</Link>
               </Button>
             </div>
             <p className="mt-3 text-sm text-charcoal-ink/55">
@@ -350,7 +350,7 @@ export default function MarketingHomePage() {
           primaryHref={MARKETING_ROUTES.pricing}
           primaryLabel="View pricing"
           secondaryHref="/signup"
-          secondaryLabel="Start monitoring"
+          secondaryLabel="Get started"
         />
       </Section>
 
@@ -362,9 +362,9 @@ export default function MarketingHomePage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Start monitoring today, for yourself or someone you love."
+          description="Get started today, for yourself or someone you love."
           primaryHref="/signup"
-          primaryLabel="Start monitoring"
+          primaryLabel="Get started"
         />
       </Section>
     </>

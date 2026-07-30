@@ -157,7 +157,7 @@ export default function CareCoordinationPage() {
           title="Keep your care coordinated"
           description="Labs, medication, and referrals working from one record."
           primaryHref="/signup"
-          primaryLabel="Start monitoring"
+          primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}
           secondaryLabel="View pricing"
         />

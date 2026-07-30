@@ -26,6 +26,10 @@ export function ProductPageTemplate({
   // no video shows nothing rather than a placeholder block.
   const video = PRODUCT_VIDEOS[content.slug];
   const hasVideo = Boolean(video?.youtubeId.trim());
+  // "Start monitoring" fits an ongoing chronic-condition page; it reads oddly
+  // on prevention/neutral pages sharing this template, which use "Get started".
+  const isChronicCondition = ["hypertension", "diabetes", "obesity"].includes(content.slug);
+  const ctaLabel = isChronicCondition ? "Start monitoring" : "Get started";
 
   return (
     <>
@@ -44,7 +48,7 @@ export function ProductPageTemplate({
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">{content.intro}</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
-              <Link href="/signup">Start monitoring</Link>
+              <Link href="/signup">{ctaLabel}</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={PRICING_HREF}>View pricing</Link>
@@ -103,6 +107,7 @@ export function ProductPageTemplate({
         <CtaBand
           title="Ready to get started?"
           description="Join TarragonHealth and bring continuity to your care."
+          primaryLabel={ctaLabel}
           secondaryHref={PRICING_HREF}
           secondaryLabel="View pricing"
         />
