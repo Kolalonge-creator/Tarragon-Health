@@ -885,6 +885,77 @@ export type Database = {
         }
         Relationships: []
       }
+      care_access_requests: {
+        Row: {
+          counterparty_user_id: string
+          created_at: string
+          id: string
+          initiated_by: string
+          permission_level: Database["public"]["Enums"]["profile_access_level"]
+          profile_id: string
+          relationship: string | null
+          responded_at: string | null
+          responded_by: string | null
+          status: Database["public"]["Enums"]["care_access_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          counterparty_user_id: string
+          created_at?: string
+          id?: string
+          initiated_by: string
+          permission_level: Database["public"]["Enums"]["profile_access_level"]
+          profile_id: string
+          relationship?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: Database["public"]["Enums"]["care_access_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          counterparty_user_id?: string
+          created_at?: string
+          id?: string
+          initiated_by?: string
+          permission_level?: Database["public"]["Enums"]["profile_access_level"]
+          profile_id?: string
+          relationship?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: Database["public"]["Enums"]["care_access_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_access_requests_counterparty_user_id_fkey"
+            columns: ["counterparty_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_access_requests_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_access_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_access_requests_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_message_threads: {
         Row: {
           care_plan_id: string | null
@@ -8499,6 +8570,7 @@ export type Database = {
           id: string
           identity_verified_at: string | null
           is_active: boolean
+          is_dependent_account: boolean
           is_pregnant: boolean
           lab_provider_id: string | null
           language: string
@@ -8531,6 +8603,7 @@ export type Database = {
           id: string
           identity_verified_at?: string | null
           is_active?: boolean
+          is_dependent_account?: boolean
           is_pregnant?: boolean
           lab_provider_id?: string | null
           language?: string
@@ -8563,6 +8636,7 @@ export type Database = {
           id?: string
           identity_verified_at?: string | null
           is_active?: boolean
+          is_dependent_account?: boolean
           is_pregnant?: boolean
           lab_provider_id?: string | null
           language?: string
@@ -12209,6 +12283,22 @@ export type Database = {
           updated_at: string
         }
       }
+      respond_to_care_access_request: {
+        Args: { p_accept: boolean; p_request_id: string }
+        Returns: {
+          counterparty_user_id: string
+          created_at: string
+          id: string
+          initiated_by: string
+          permission_level: Database["public"]["Enums"]["profile_access_level"]
+          profile_id: string
+          relationship: string | null
+          responded_at: string | null
+          responded_by: string | null
+          status: Database["public"]["Enums"]["care_access_request_status"]
+          updated_at: string
+        }
+      }
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }
         Returns: {
@@ -12373,6 +12463,11 @@ export type Database = {
         | "all_partners"
         | "partners_by_type"
       broadcast_status: "draft" | "sent"
+      care_access_request_status:
+        | "pending"
+        | "accepted"
+        | "declined"
+        | "cancelled"
       care_message_author: "patient" | "care_team"
       care_message_thread_status: "open" | "closed"
       care_plan_condition:
@@ -12958,6 +13053,12 @@ export const Constants = {
         "partners_by_type",
       ],
       broadcast_status: ["draft", "sent"],
+      care_access_request_status: [
+        "pending",
+        "accepted",
+        "declined",
+        "cancelled",
+      ],
       care_message_author: ["patient", "care_team"],
       care_message_thread_status: ["open", "closed"],
       care_plan_condition: [

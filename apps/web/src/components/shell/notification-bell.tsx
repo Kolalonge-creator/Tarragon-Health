@@ -35,6 +35,22 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient#overview",
     };
   }
+  if (n.template === "care_access_view_request" || n.template === "care_access_manage_request") {
+    const name = String(payload.initiator_name ?? "Someone");
+    const level = payload.permission_level === "manage" ? "manage" : "view";
+    return {
+      text: `${name} sent a request to ${level} care — respond in Your people`,
+      href: "/patient/family",
+    };
+  }
+  if (n.template === "care_access_request_accepted" || n.template === "care_access_request_declined") {
+    const name = String(payload.responder_name ?? "They");
+    const accepted = n.template === "care_access_request_accepted";
+    return {
+      text: `${name} ${accepted ? "accepted" : "declined"} your care access request`,
+      href: "/patient/family",
+    };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 
