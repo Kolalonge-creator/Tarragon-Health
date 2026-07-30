@@ -109,6 +109,32 @@ export const PREVENTION_CALLOUT = {
     "You don't need a diagnosis to belong here. Tarragon Prevent gives you and your children a personal screening and vaccination calendar, a yearly Health Check, and education that makes sense of your numbers, so most years, you simply get confirmation that all is well. And if a check ever finds something, a doctor follows up the same day and it's caught years earlier, when it's easiest to treat.",
 } as const;
 
+/** Everything the shared record actually watches (services page capability
+ * cloud + homepage marquee). Real capabilities only, matching what's built
+ * per CLAUDE.md; never add an item that isn't actually tracked. */
+export const WHAT_WE_TRACK = [
+  "blood pressure",
+  "blood sugar & HbA1c",
+  "weight & BMI",
+  "cholesterol",
+  "kidney function",
+  "medication adherence",
+  "refills before you run out",
+  "cervical screening",
+  "breast screening",
+  "prostate (PSA) screening",
+  "colorectal screening",
+  "HIV, Hepatitis B & Hepatitis C checks",
+  "blood group & genotype",
+  "vaccinations",
+  "symptoms you report",
+  "hospital admissions",
+  "annual health checks",
+  "cardiovascular risk",
+  "doctor video visits",
+  "ask-a-doctor messages",
+] as const;
+
 export const HOW_IT_WORKS_STEPS = [
   { step: 1, title: "Sign up", body: "Create your account in minutes, for yourself or a loved one." },
   { step: 2, title: "Onboard", body: "Share your health history and what you want Tarragon to watch." },

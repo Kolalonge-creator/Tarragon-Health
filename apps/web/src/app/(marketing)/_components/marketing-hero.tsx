@@ -10,7 +10,7 @@ export function MarketingHero({
   className,
 }: {
   media: MarketingMediaSlot;
-  /** Overrides the default illustration frame with a custom hero visual (e.g. WhatsappHeroMockup). */
+  /** Overrides the default illustration frame with a custom hero visual (e.g. a product mockup). */
   visual?: ReactNode;
   children: ReactNode;
   className?: string;

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { AnimatedNumber } from "./animated-number";
 import type { AudienceTab } from "../_content/services";
 
 const PILL_TONE = {
@@ -38,7 +39,7 @@ export function AudienceTabs({ tabs }: { tabs: AudienceTab[] }) {
       </div>
 
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
-        <div>
+        <div key={`${tab.key}-content`} className="motion-safe:opacity-0 motion-safe:[animation:marketing-fade-in_0.45s_ease-out_forwards]">
           <h3 className="font-heading text-2xl font-semibold leading-snug text-charcoal-ink sm:text-3xl">
             {tab.title}
           </h3>
@@ -71,7 +72,10 @@ export function AudienceTabs({ tabs }: { tabs: AudienceTab[] }) {
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
+        <div
+          key={`${tab.key}-stats`}
+          className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm motion-safe:opacity-0 motion-safe:[animation:marketing-fade-in_0.45s_ease-out_0.05s_forwards]"
+        >
           {tab.stats.map((stat, index) => (
             <div
               key={stat.label}
@@ -82,10 +86,10 @@ export function AudienceTabs({ tabs }: { tabs: AudienceTab[] }) {
             >
               <span className="text-sm font-medium text-charcoal-ink/70">{stat.label}</span>
               <span className="flex items-center gap-2 font-heading text-sm font-semibold text-charcoal-ink">
-                {stat.value}
+                <AnimatedNumber value={stat.value} />
                 {stat.pill ? (
                   <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", PILL_TONE[stat.pill.tone])}>
-                    {stat.pill.text}
+                    <AnimatedNumber value={stat.pill.text} />
                   </span>
                 ) : null}
               </span>

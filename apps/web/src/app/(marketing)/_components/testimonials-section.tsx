@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { Section, SectionHeading } from "./section";
+import { TestimonialsCarousel } from "./testimonials-carousel";
 
 /**
  * Consented, doctor-reviewed-free patient quotes; never invented, never
@@ -32,16 +33,7 @@ export async function TestimonialsSection() {
   return (
     <Section variant="sage">
       <SectionHeading eyebrow="In their words" title="What patients say" />
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {testimonials.map((t) => (
-          <figure key={t.id} className="rounded-xl bg-warm-ivory p-6 shadow-sm">
-            <blockquote className="text-sm text-charcoal-ink/80">&ldquo;{t.quote}&rdquo;</blockquote>
-            <figcaption className="mt-4 text-sm font-medium text-charcoal-ink">
-              {t.display_name}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
+      <TestimonialsCarousel items={testimonials} />
     </Section>
   );
 }
