@@ -54,7 +54,6 @@ import {
   Star,
   Target,
   Dumbbell,
-  Utensils,
   Trophy,
   Gauge,
   type LucideIcon,
