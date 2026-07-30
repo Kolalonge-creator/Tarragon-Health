@@ -271,6 +271,24 @@ export async function startCheckout(
     return { error: "This account has no organisation on file" };
   }
 
+  // Hard safeguard, independent of whatever the UI shows: never create a
+  // second subscription (and never initiate a second charge) for an account
+  // that already has one active or trialing. This is the actual
+  // money-charging code path, so it has to be safe on its own even if
+  // onboarding's reconciliation screen (existing-plan-notice.tsx) is ever
+  // reached in a state where a plan somehow got resubmitted anyway.
+  const { data: existing } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("subscriber_id", user.id)
+    .in("status", ["active", "trialing"])
+    .limit(1)
+    .maybeSingle();
+  if (existing) {
+    await completeOnboarding();
+    return;
+  }
+
   const { data: plan } = await supabase
     .from("subscription_plans")
     .select("id, code, price_minor, currency, interval, paystack_plan_code, stripe_price_id")

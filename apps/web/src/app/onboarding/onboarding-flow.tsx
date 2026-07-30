@@ -9,6 +9,7 @@ import { IdentityVerificationCard } from "./identity-verification-card";
 import { IntakeStep } from "./intake-step";
 import { PlanPreview } from "./plan-preview";
 import { PlanSelector } from "./plan-selector";
+import { ExistingPlanNotice } from "./existing-plan-notice";
 
 function DoneRow({ label }: { label: string }) {
   return (
@@ -36,11 +37,17 @@ function DoneRow({ label }: { label: string }) {
 export function OnboardingFlow({
   profile,
   careTeamSlot,
+  existingPlan,
   initial,
 }: {
   profile: { id: string; fullName: string | null };
   /** Server-rendered <YourCareTeam/> passed in — it's an async server component. */
   careTeamSlot: ReactNode;
+  /** Set when the caller already has an active/trialing subscription — see
+   * onboarding/page.tsx. Skips "choose your plan" entirely in favour of a
+   * reconciliation notice, so a returning paying patient is never asked to
+   * pick and pay for a plan a second time. */
+  existingPlan: { name: string; status: string } | null;
   initial: {
     consentDone: boolean;
     demographicsDone: boolean;
@@ -78,9 +85,9 @@ export function OnboardingFlow({
           How your care works here
         </h2>
         <p className="text-sm text-charcoal-ink">
-          A named doctor on our care team follows your readings, checks in with you, and
-          documents your care as it happens — they&apos;re the person you&apos;ll actually hear
-          from.
+          Doctors on our care team follow your readings and check in with you. Coverage is
+          shared across the team so you&apos;re never waiting on one person&apos;s availability,
+          and you can message the team any time in the app.
         </p>
         <p className="text-sm text-charcoal-ink">
           Your care protocols — the thresholds and rules your doctor follows — are designed and
@@ -129,9 +136,14 @@ export function OnboardingFlow({
         <IntakeStep patientId={profile.id} onSkip={() => setIntakeCollapsed(true)} />
       )}
 
-      {/* Step 4 — what the intake produced (honest plan preview), then plan choice */}
-      {readyForPlan && intakeCollapsed && <PlanPreview patientId={profile.id} />}
-      {readyForPlan && intakeCollapsed && (
+      {/* Step 4 — already-subscribed patients skip choosing/paying for a
+          plan entirely; everyone else sees the honest intake-driven preview
+          then chooses a plan. */}
+      {readyForPlan && intakeCollapsed && existingPlan && (
+        <ExistingPlanNotice planName={existingPlan.name} status={existingPlan.status} />
+      )}
+      {readyForPlan && intakeCollapsed && !existingPlan && <PlanPreview patientId={profile.id} />}
+      {readyForPlan && intakeCollapsed && !existingPlan && (
         <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
           <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
             Choose your plan

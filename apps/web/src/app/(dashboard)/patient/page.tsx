@@ -212,6 +212,16 @@ export default async function PatientPage() {
         )}
         <HealthScoreCard patientId={profile.id} />
         <YourCareTeam patientId={profile.id} />
+        {/* Messaging your care team sits right here, not buried in Care &
+            support — it's the primary way to reach someone, so it needs to
+            be visible without scrolling (see 2026-07-30 patient-experience
+            pass in CLAUDE.md). */}
+        <RequiresEntitlement
+          feature="doctor_checkin"
+          fallback={<UpgradePrompt feature="doctor_checkin" />}
+        >
+          <CareTeamContact patientId={profile.id} />
+        </RequiresEntitlement>
         <PatientTimeline patientId={profile.id} />
       </DashboardSection>
 
@@ -380,9 +390,15 @@ export default async function PatientPage() {
       <DashboardSection
         id="care"
         title="Care & support"
-        description="Your care plan, reviews, referrals, and ways to reach your care team."
+        description="Your care plan, reviews, and referrals."
         icon={SEMANTIC_ICON.clinicianFollowUp}
       >
+        {/* Clinical and functional cards first — this is where a patient
+            checking in on their care actually needs to land. Messaging
+            itself now lives in Overview (see above); wellness/wallet/
+            testimonial cards, being discretionary rather than clinical, sit
+            below everything here so they never compete with care content
+            (2026-07-30 patient-experience pass). */}
         <RequiresEntitlement
           feature="clinician_review"
           fallback={<UpgradePrompt feature="clinician_review" />}
@@ -401,20 +417,17 @@ export default async function PatientPage() {
         <BookVideoVisit patientId={profile.id} />
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
-        <WalletCard patientId={profile.id} />
-        <WellnessPointsSummary patientId={profile.id} />
         <YourReferrals
           patientId={profile.id}
           patientLocation={{ state: profile.state, city: profile.city }}
         />
-        <RequiresEntitlement
-          feature="doctor_checkin"
-          fallback={<UpgradePrompt feature="doctor_checkin" />}
-        >
-          <CareTeamContact />
-        </RequiresEntitlement>
-        <CareCircleCard />
         {coachAccess && <AiCoachChat patientId={profile.id} />}
+        <CareCircleCard />
+
+        {/* Discretionary / engagement surfaces — real features, deliberately
+            lower priority than anything above. */}
+        <WalletCard patientId={profile.id} />
+        <WellnessPointsSummary patientId={profile.id} />
         <TestimonialForm />
       </DashboardSection>
 
