@@ -54,6 +54,25 @@ export function useBroadcastAudienceCount(
   });
 }
 
+/**
+ * Best-effort server-side check for personal-result/diagnosis phrasing in a
+ * draft broadcast (title + body). admin_send_broadcast enforces this itself
+ * regardless of the UI, but calling it up front avoids leaving a blocked
+ * draft row behind and gives the admin immediate, specific feedback.
+ */
+export function useBroadcastContentCheck() {
+  return useMutation({
+    mutationFn: async (text: string) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("admin_broadcast_content_check", {
+        p_text: text,
+      });
+      if (error) throw error;
+      return (data ?? []) as string[];
+    },
+  });
+}
+
 export interface SendBroadcastInput {
   title: string;
   body: string;
