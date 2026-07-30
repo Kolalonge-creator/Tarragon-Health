@@ -31,12 +31,15 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   care_plan_updated: { dot: "bg-clinical-navy", label: "Care plan" },
   admission_recorded: { dot: "bg-clinical-navy", label: "Admission" },
   message_posted: { dot: "bg-clinical-navy", label: "Message" },
+  medication_dispensed: { dot: "bg-clinical-navy", label: "Medication" },
 };
 
-// Some trigger-written summaries carry raw analyte keys (e.g.
-// "total_cholesterol 300 (critical)"). Display-time humanisation only — the
-// stored summary is never rewritten. Underscored tokens are field keys, not
-// prose, so a plain replace is safe.
+// Belt-and-braces only — private.record_timeline_event() now strips
+// underscores from summary at write time (2026-07-30 v3 port, proof_log gap
+// closure), so every current and future writer gets this for free at the DB
+// layer, not just this one component. Kept here as a second pass in case a
+// row was written before that guarantee existed, or by some future path
+// that bypasses the shared writer.
 function humaniseSummary(summary: string): string {
   return summary.replace(/\b[a-z0-9]+(?:_[a-z0-9]+)+\b/g, (token) => token.replace(/_/g, " "));
 }

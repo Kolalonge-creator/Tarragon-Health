@@ -2650,6 +2650,47 @@ export type Database = {
           },
         ]
       }
+      escalation_slas: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_slas_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       escalations: {
         Row: {
           assigned_doctor_id: string | null
@@ -11581,6 +11622,7 @@ export type Database = {
       }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
+      sign_escalation_slas: { Args: { p_id: string }; Returns: string }
       sign_vaccination_schedule: { Args: { p_signoff_id: string }; Returns: string }
       start_care_thread: {
         Args: {
@@ -11970,6 +12012,7 @@ export type Database = {
         | "admission_recorded"
         | "discharge_recorded"
         | "message_posted"
+        | "medication_dispensed"
       upgrade_condition:
         | "hypertension"
         | "diabetes"
@@ -12571,6 +12614,7 @@ export const Constants = {
         "admission_recorded",
         "discharge_recorded",
         "message_posted",
+        "medication_dispensed",
       ],
       upgrade_condition: [
         "hypertension",

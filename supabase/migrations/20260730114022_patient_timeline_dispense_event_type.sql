@@ -1,0 +1,11 @@
+-- Tarragon Health — proof_log-vs-patient_timeline gap closure (1 of 3)
+--
+-- Gap found while investigating whether v3's proof_log spec is satisfied by
+-- the existing patient_timeline: medication_dispenses is one of only 4
+-- explicitly-named required trigger sources in the v3 I10 test, and this
+-- platform's real analog (pharmacy_order_dispenses) has zero patient_timeline
+-- coverage today. Adding the enum value first, alone — Postgres forbids using
+-- a freshly-added enum value in the same transaction/migration that adds it
+-- (same gotcha this codebase has hit before, e.g. the annual_review video
+-- context split).
+alter type public.timeline_event_type add value 'medication_dispensed';
