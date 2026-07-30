@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { compareByAlert } from "@/lib/worklist/priority";
+import { generateCaseBriefAction } from "@/lib/case-briefs/actions";
 import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
@@ -122,8 +123,14 @@ export function useClaimEscalation() {
         .eq("status", "open");
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, escalationId) => {
       queryClient.invalidateQueries({ queryKey: ["escalations"] });
+      // Fire-and-forget: the case brief is a nice-to-have read the doctor
+      // will see once they open the case, not something the claim itself
+      // should wait on or fail over. generateCaseBriefAction never throws
+      // (fail-open, see lib/case-briefs/generate.ts) but this is claimed
+      // from a client mutation, so guard here too rather than trust that.
+      void generateCaseBriefAction(escalationId).catch(() => {});
     },
   });
 }

@@ -1390,6 +1390,70 @@ export type Database = {
           },
         ]
       }
+      case_briefs: {
+        Row: {
+          error_message: string | null
+          escalation_id: string
+          generated_at: string
+          id: string
+          input_snapshot: Json
+          model_id: string
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["case_brief_status"]
+          suggested_action_text: string | null
+          summary_text: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          escalation_id: string
+          generated_at?: string
+          id?: string
+          input_snapshot: Json
+          model_id: string
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["case_brief_status"]
+          suggested_action_text?: string | null
+          summary_text?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          escalation_id?: string
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          model_id?: string
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["case_brief_status"]
+          suggested_action_text?: string | null
+          summary_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_briefs_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: true
+            referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_briefs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_briefs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cgm_connections: {
         Row: {
           cgm_partner_id: string
@@ -12214,6 +12278,7 @@ export type Database = {
         | "risk_tier_change"
         | "hospital_discharge"
       care_plan_status: "draft" | "active" | "completed" | "cancelled"
+      case_brief_status: "generated" | "failed"
       chronic_enrolment_source: "recommended" | "staff" | "clinician"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
       commission_rate_type: "percentage" | "flat"
@@ -12800,6 +12865,7 @@ export const Constants = {
         "hospital_discharge",
       ],
       care_plan_status: ["draft", "active", "completed", "cancelled"],
+      case_brief_status: ["generated", "failed"],
       chronic_enrolment_source: ["recommended", "staff", "clinician"],
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
       commission_rate_type: ["percentage", "flat"],
