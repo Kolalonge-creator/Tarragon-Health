@@ -23,8 +23,6 @@ import {
   vendorsListSchema,
   billsListSchema,
   apAgingSchema,
-  capitationRegisterSchema,
-  hmoOrganisationsListSchema,
   complianceCalendarSchema,
   kpiSummarySchema,
   riskFlagsSchema,
@@ -193,7 +191,7 @@ export const financeKeys = {
 /**
  * Additions from the 2026-07-26 audit/tracking/functionality pass: maker-
  * checker approvals, cost centers, budgets, cash flow statement, accounts
- * payable, HMO capitation register, statutory compliance calendar, KPIs and
+ * payable, statutory compliance calendar, KPIs and
  * the finance-specific audit log viewer.
  */
 
@@ -330,28 +328,6 @@ export function useApAging() {
       const { data, error } = await createClient().rpc("finance_ap_aging");
       if (error) throw error;
       return apAgingSchema.parse(data);
-    },
-  });
-}
-
-export function useCapitationRegister() {
-  return useQuery({
-    queryKey: ["finance", "capitation", "register"],
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("finance_capitation_register");
-      if (error) throw error;
-      return capitationRegisterSchema.parse(data);
-    },
-  });
-}
-
-export function useHmoOrganisations() {
-  return useQuery({
-    queryKey: ["finance", "capitation", "hmo-orgs"],
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("finance_hmo_organisations_list");
-      if (error) throw error;
-      return hmoOrganisationsListSchema.parse(data);
     },
   });
 }

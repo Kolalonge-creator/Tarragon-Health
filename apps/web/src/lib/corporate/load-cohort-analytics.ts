@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { isCohortSuppressed } from "@/lib/institutions/suppression";
 import {
   ageFromDateOfBirth,
   createMlClientFromEnv,
@@ -15,10 +16,20 @@ const COHORT_CHRONIC_CONDITIONS: readonly CohortChronicCondition[] = ["hypertens
  * outcome-report snapshot generator (apps/web/src/app/(dashboard)/dashboard/corporate/actions.ts)
  * without duplicating the anonymised-cohort-assembly logic. Returns null if
  * the org has no enrolled patients (or the ML service is unavailable).
+ *
+ * I9 small-cell suppression (2026-07-29): `minCohortSize` is the org's
+ * organisations.min_cohort_size. Below it this returns null and the caller
+ * shows "not enough people yet" rather than a number — a control rate over
+ * four people identifies those people. The gate lives here, in the function
+ * that assembles the cohort, rather than in each dashboard, so a new caller
+ * cannot forget it. Passing 0 is not an escape hatch anyone should add; if a
+ * genuinely unsuppressed internal view is ever needed it should be a separate,
+ * named function so the exception is visible in review.
  */
 export async function loadCohortAnalytics(
   supabase: SupabaseClient<Database>,
-  organisationId: string
+  organisationId: string,
+  minCohortSize: number
 ): Promise<CohortAnalyticsResponse | null> {
   const { data: patients } = await supabase
     .from("profiles")
@@ -26,6 +37,8 @@ export async function loadCohortAnalytics(
     .eq("organisation_id", organisationId)
     .eq("role", "patient");
   if (!patients || patients.length === 0) return null;
+  // Suppress before any per-patient row is read, not after aggregating them.
+  if (isCohortSuppressed(patients.length, minCohortSize)) return null;
 
   const patientIds = patients.map((p) => p.id);
   const today = new Date().toISOString().slice(0, 10);
@@ -104,7 +117,10 @@ export async function loadCohortAnalytics(
       screening_overdue_count: overdueCountByPatient.get(p.id) ?? 0,
       abnormal_flags: [...(flagsByPatient.get(p.id) ?? [])],
     }));
-  if (members.length === 0) return null;
+  // The analysable cohort is smaller than the enrolled one (members missing
+  // sex or date of birth are dropped above), so the threshold has to be
+  // re-applied to what actually reaches the model.
+  if (isCohortSuppressed(members.length, minCohortSize)) return null;
 
   const mlClient = createMlClientFromEnv();
   if (!mlClient) return null;

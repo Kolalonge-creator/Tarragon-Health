@@ -12,17 +12,24 @@ const FOOTER_LINKS = {
   programmes: [
     { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
     { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
+    { href: MARKETING_ROUTES.screeningJourney, label: "Screening Journey" },
     { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
     { href: MARKETING_ROUTES.healthEducation, label: "Health Education" },
+    { href: MARKETING_ROUTES.mentalWellbeingCheck, label: "Mental Well-being Check" },
+    { href: MARKETING_ROUTES.parentcare, label: "Caring for a parent" },
+  ],
+  conditions: [
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
-    { href: MARKETING_ROUTES.obesity, label: "Obesity & Weight" },
-    { href: MARKETING_ROUTES.parentcare, label: "ParentCare" },
+    { href: MARKETING_ROUTES.obesity, label: "Weight Health" },
     { href: MARKETING_ROUTES.medication, label: "Medication" },
     { href: MARKETING_ROUTES.labs, label: "Labs" },
+    { href: MARKETING_ROUTES.bmiCalculator, label: "BMI & Calorie Calculator" },
+    { href: MARKETING_ROUTES.activityCalculator, label: "Activity Calculator" },
   ],
   company: [
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
+    { href: MARKETING_ROUTES.gift, label: "Gift Tarragon" },
     { href: MARKETING_ROUTES.whoItsFor, label: "Who it's for" },
     { href: MARKETING_ROUTES.forYou, label: "For you" },
     { href: MARKETING_ROUTES.about, label: "About" },
@@ -33,10 +40,15 @@ const FOOTER_LINKS = {
   business: [
     { href: MARKETING_ROUTES.corporate, label: "Corporate Health" },
     { href: MARKETING_ROUTES.hmo, label: "HMO Support" },
-  ],
-  platform: [
     { href: "/login", label: "Sign in" },
     { href: "/signup", label: "Start monitoring" },
+  ],
+  legal: [
+    { href: MARKETING_ROUTES.privacy, label: "Privacy" },
+    { href: MARKETING_ROUTES.telehealthConsent, label: "Telehealth consent" },
+    { href: MARKETING_ROUTES.terms, label: "Terms of service" },
+    { href: MARKETING_ROUTES.accessibility, label: "Accessibility" },
+    { href: MARKETING_ROUTES.cookies, label: "Cookies" },
   ],
 };
 
@@ -127,9 +139,9 @@ export function MarketingFooter() {
 
         <FooterGroup title="Care" links={FOOTER_LINKS.care} />
         <FooterGroup title="Programmes" links={FOOTER_LINKS.programmes} />
+        <FooterGroup title="Conditions" links={FOOTER_LINKS.conditions} />
         <FooterGroup title="Company" links={FOOTER_LINKS.company} />
         <FooterGroup title="Business" links={FOOTER_LINKS.business} />
-        <FooterGroup title="Platform" links={FOOTER_LINKS.platform} />
       </div>
 
       <div className="border-t border-white/10 px-4 py-5 sm:px-6">
@@ -141,7 +153,20 @@ export function MarketingFooter() {
       </div>
 
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
-        © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.
+        <p>© {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.</p>
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          {FOOTER_LINKS.legal.map((link, i) => (
+            <span key={link.href} className="flex items-center gap-x-3">
+              {i > 0 ? <span className="text-white/30">·</span> : null}
+              <Link
+                href={link.href}
+                className="text-white/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+              >
+                {link.label}
+              </Link>
+            </span>
+          ))}
+        </p>
       </div>
     </footer>
   );

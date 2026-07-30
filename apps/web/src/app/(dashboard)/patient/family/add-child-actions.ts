@@ -9,21 +9,23 @@ import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate
 import { ageFromDateOfBirth } from "@tarragon/shared";
 
 /**
- * Provisions a child family member the parent keeps a vaccination card and
- * health record for — the one family_plan_members relationship that has
- * never signed up and never will (every other relationship links to an
- * *existing* account via find_profile_by_phone).
+ * Provisions a child the parent keeps a vaccination card and health record
+ * for — someone who has never signed up and cannot, because they are too young
+ * to hold an account.
  *
  * profiles.id is a hard FK to auth.users(id), so there's no way to represent
  * "a health record with nobody behind it" other than a real auth user with
  * no usable credentials: a synthetic, non-deliverable email (nobody can ever
  * receive a magic link there) and no password set (same auth.admin.createUser
  * shape as /admin/settings/members' provisioning, minus the password field).
- * The child inherits the parent's organisation_id and is linked two ways:
- * family_plan_members (household/billing bundling — plan_id left null, so it
- * counts against the free base cap of 4, not a paid tier) and profile_access
- * ('manage', so the already-built vaccination_records/vaccination_schedules
- * RLS — which checks profile_access — lets the parent log and view doses).
+ *
+ * The child inherits the parent's organisation_id and is linked by exactly one
+ * thing: a profile_access grant at level 'manage', which is what the already-
+ * built vaccination_records/vaccination_schedules RLS checks before letting the
+ * parent log and view doses. Until removal 4 (20260729143514) this also wrote a
+ * family_plan_members row to put the child on the parent's bill; enrolment is
+ * individual now, and a child's record was never a billing relationship in the
+ * first place — it is a consent one.
  */
 export async function addChildDependentAction(
   input: unknown
@@ -58,16 +60,6 @@ export async function addChildDependentAction(
     .eq("id", childId);
   if (updateError) {
     return { error: updateError.message };
-  }
-
-  const { error: familyError } = await svc.from("family_plan_members").insert({
-    organisation_id: parent.organisation_id,
-    plan_owner_id: parent.id,
-    member_id: childId,
-    relationship: "child",
-  });
-  if (familyError) {
-    return { error: familyError.message };
   }
 
   const { error: accessError } = await svc.from("profile_access").insert({

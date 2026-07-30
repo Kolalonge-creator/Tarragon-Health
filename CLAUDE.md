@@ -1,4 +1,416 @@
-# Tarragon Health — Claude Code Master Instructions (v3)
+# Tarragon Health — Claude Code Master Instructions
+
+> Read every session.
+
+## ⚠️ 2026-07-29 (evening) — PIVOT REVERSED. Read this section first, every session.
+
+**The platform (`apps/web`) is the build target again. It is NOT frozen. v3 is now an idea source,
+not a replacement.** This supersedes the earlier same-day banner, which declared a full pivot to the
+narrow v3 cardiometabolic build and froze `apps/web` — that pivot lasted less than a day.
+
+Founder decision, after walking through what v3 actually offers: **v3 is not a newer version of the
+platform, it is a narrower product with different commercial physics.** So it splits in two, and the
+two halves are treated completely differently:
+
+1. **v3's engineering and clinical-safety discipline → PORT IT IN.** Invariants as failing-first
+   tests, I1 (no clinical content on WhatsApp/SMS/email) as a real DB CHECK rather than a
+   convention, delivery states (delivered/opened/acted) + device heartbeat + forced-channel
+   fallback, the escalation SLA table as data not code, deterministic always-classify with a
+   `clinician_override` field, versioned clinician-approved rulesets, I5 (urgent/emergency cannot
+   be closed by a text-only note), `proof_log`-style plain-language patient-facing summaries,
+   small-cell suppression, provenance NOT NULL, I6, I7.
+2. **v3's product narrowing → four rules ADOPTED, the rest NOT.** These delete shipped features and
+   are founder-approved (2026-07-29):
+   - **I9** — institutions get aggregate only; **only superadmin** may drill into an individual.
+     Removes the employer/HMO per-member drill-down shipped 2026-07-16.
+   - **I8** — **no capitation, ever.** Removes `finance_capitation_contracts` / HMO capitation.
+   - **Individual enrolment only** — removes family plans (Family Lite/Plus/Premium) and ParentCare.
+   - **One naira price list** — removes the GBP/USD diaspora price book. Reason given: a visible
+     NGN-vs-diaspora gap makes buyers sceptical.
+
+   Everything else in build-spec-v3 §19's out-of-scope list does **not** apply here — care
+   coordination, specialist referrals and multimorbidity remain core platform categories.
+
+**Agreed order:** restore the platform DB first (done), then remove the four areas above as
+deliberate, tested migrations, so each removal is provable. **The four removals are NOT yet built.**
+
+### Where each database lives (as of 2026-07-29 evening)
+
+| Project | Ref | Holds |
+|---|---|---|
+| **Tarragon Health** | `koiplnmbgnqnbywhpjlf` | **The platform.** 277/277 migrations, 184 tables, 487 policies, 20 cron jobs. All 7 Edge Functions + their secrets. This is the go-forward database. |
+| Tarragon Platform | `rjsxbhgqdudowlvarmzq` | Throwaway rehearsal copy of the same 277. Slated for deletion. |
+| tarragon-control-staging | `jpdwbnvrgvpntcmfefeu` | Paused. Duplicate v3 build from the (now preserved) `~/Documents/tarragon-control` repo. |
+
+`koiplnmbgnqnbywhpjlf` was chosen to keep the platform specifically because **Edge Function secrets
+never transfer between projects** and fail silently when missing — the lesson already learned the
+hard way with `stripe-webhook`. Keeping the ref also avoided re-pointing Paystack, Stripe, Zoom
+and Meta.
+
+- **Migrations:** `supabase/migrations/` = the platform (277). `supabase/migrations_v3_spec_build/`
+  = the 44 v3 files, reference only, applied to no active project. See that folder's README.
+- **`reference/tarragon-control/`** = a full git bundle + every file of the separate v3 repo, which
+  had **no git remote**. Contains the I1–I10 invariant suite and M1–M4 exit tests that exist
+  nowhere else — the highest-value artifacts for the port described above.
+- The **"Current Sprint — v3"** section below is the record of the M1–M4 v3 build. Real work,
+  kept as history, **not the current build target**. Log new platform work in the legacy
+  "Current Sprint" section further down instead.
+
+### Three bugs only a clean replay could find (fixed 2026-07-29, do not reintroduce)
+
+1. `20260706033358` revoked EXECUTE on `public.rls_auto_enable()` — **a function no committed
+   migration ever creates.** It was made directly against the old database. Now guarded on
+   `pg_proc`. ⚠️ **A rebuilt database therefore had no `rls_auto_enable` event trigger** from
+   2026-07-06 through 2026-07-29, so the auto-enable-RLS-on-new-table safety net did not exist
+   and had never existed in migration history for that whole window. **Fixed 2026-07-29 evening**
+   by `20260729235803_rls_auto_enable_event_trigger` — a real `create event trigger` on
+   `ddl_command_end` for `CREATE TABLE`/`CREATE TABLE AS`/`SELECT INTO` in the `public` schema,
+   auto-enabling RLS (no policy — that still has to be written per table) the instant a table is
+   created, with zero explicit `alter table ... enable row level security` needed. Verified live:
+   a bare `CREATE TABLE` with no follow-up ALTER came up `relrowsecurity = true` in a rolled-back
+   transaction. `anon`/`PUBLIC` EXECUTE revoked on the function in the same migration this time
+   (no follow-up needed, unlike the original out-of-band version). Every table created before
+   this timestamp still needed — and got, per migration history — its own explicit
+   `enable row level security` line; this only protects tables created from here forward.
+2. **Seven version numbers were claimed by more than one migration** (`20260720120000` by six
+   files), from parallel sessions hand-typing round-number timestamps.
+   `supabase_migrations.version` is the PK, so the second file of each group could never record.
+   Renumbered by seconds. **Never hand-type a round-number migration timestamp.**
+3. Bare `vector(1536)` failed on replay — pgvector installs into `extensions`, which is not on the
+   migration connection's search_path (`config.toml`'s `extra_search_path` governs PostgREST, not
+   psql). Always write `extensions.vector(...)`.
+
+**Anon-execute finding: CLOSED** by `20260729183412_revoke_anon_execute_on_security_definer_rpcs.sql`.
+`public` now has **zero** anon-executable SECURITY DEFINER functions. Note the mechanism, because
+this codebase got it wrong four times: `anon` holds no direct grant — it inherits EXECUTE from the
+**PUBLIC pseudo-role** (the leading `=X/postgres` entry in `pg_proc.proacl`). So
+`revoke ... from anon` is a **no-op**; `revoke ... from public` is the fix. Always end such a
+migration with an assertion block that raises if `has_function_privilege('anon', ...)` is still
+true — that assertion is what caught the wrong form being applied here.
+
+### ▶ NEXT ACTIONS — start here
+
+**State: all four founder-approved removals are done, both pricing decisions that were blocking
+them are answered, and the four follow-up items from the same evening (lab_partner merge,
+rls_auto_enable, the I1–I10 invariant port, config.toml) are also done.** `supabase/migrations/`
+has 293 files, matching every migration this session applied (287 base + the 5 lab_partner +
+`rls_auto_enable_event_trigger`), verified by diffing the applied version list against the
+filenames, not by counting. typecheck, lint (0 errors, 2 pre-existing warnings), 444 web + 47
+shared tests and the production build all green. Nothing from this session is half-finished.
+⚠️ **The live database has a 294th applied migration, `20260730000555_vaccination_schedule_signoffs`,
+with no local file** — a concurrent session's in-flight work, not part of this pass and
+deliberately not reconciled here per the shared-working-directory hazard (don't touch another
+session's uncommitted work). Whoever picks it up next should pull it from
+`supabase_migrations.schema_migrations.statements` and commit the file, same as every prior
+reconciliation in this log.
+
+`main-dev` is pushed and reproduces the live database. Removals 1-3 were merged as a single
+fast-forward — they were a linear stack, not three parallel branches — along with
+`20260729194127_scoped_access_roles_out_of_org_staff` from a parallel session.
+
+| # | Removal | Migration(s) |
+|---|---|---|
+| 1 | ~~**No capitation (I8)**~~ ✅ | `20260729122912` |
+| 2 | ~~**Institutions aggregate-only (I9)**~~ ✅ | `20260729124330` |
+| 3 | ~~**One price list**~~ ✅ | `20260729130000`, `131500`, `140916`, `141426` |
+| 4 | ~~**Individual enrolment only**~~ ✅ | `20260729143514` |
+| + | ~~**GBP + Diaspora Premium retired, USD rate set**~~ ✅ | `20260729143814` |
+
+✅ **`claude/lab-partner-role` (PR #159) is now merged — deliberately NOT as the raw branch.**
+Its five migrations were timestamped `20260727*` and one of them
+(`harden_is_org_staff_exclude_partner_employees`) rewrites `is_org_staff`. Applying it as-is would
+have run *after* `20260729194127` in wall-clock time but sorted *before* it, so its older
+definition would have overwritten the newer one and silently re-admitted `pharmacist`,
+`lab_liaison`, `finance` and `analyst` to 314 policies across 110 patient-scoped tables — it was
+merged and reverted once here for exactly this reason. Fixed 2026-07-29 evening: renumbered all
+five to `20260729234443`–`234618` (after `20260729194127`) and rewrote the hardening migration to
+COMPOSE with the two prior exclusions rather than replace them — net effect one role,
+`lab_partner`, added; every prior exclusion preserved and proven by assertion block. Verified with
+a rolled-back RLS test including a clinician control and a deliberate-sabotage run
+(`packages/db/tests/lab_partner_rls.sql` — sabotaged, a lab partner reads 2 lab_orders + 30
+profiles; fixed, 0 + 1).
+
+✅ **`rls_auto_enable` written for real, 2026-07-29 evening** —
+`20260729235803_rls_auto_enable_event_trigger`. The rebuilt database had no auto-enable-RLS-on-
+new-table safety net from 2026-07-06 through 2026-07-29 (see bug 1 below); now a real
+`create event trigger` on `ddl_command_end` auto-enables RLS the instant any `CREATE TABLE` runs
+in the `public` schema, proven live in a rolled-back transaction (a bare `CREATE TABLE` with zero
+`ALTER TABLE` statements came up `relrowsecurity = true`). `anon`/`PUBLIC` EXECUTE revoked on the
+function in the same migration.
+
+✅ **The I1–I10 invariant suite ported, 2026-07-29 evening** —
+`packages/db/tests/i1_i10_invariants_platform.sql`, adapted from
+`reference/tarragon-control/supabase/tests/invariants_test.sql` onto the platform's real tables
+(the two schemas share no table names). 7 of 11 checks are genuine, live-proven **PASS** (I3, I4×2,
+I8, I9×4). **3 are genuine, live-proven GAPS — real findings, not hypothetical:**
+- **I1 — no clinical content on WhatsApp/SMS/email.** `public.notifications` has no
+  `content_class` column and no CHECK at all. Enforced today by convention only (every template in
+  this codebase is deliberately non-clinical), not by the database. This is the exact item the
+  pivot banner above already named under "PORT IT IN" — now a concrete, rerunnable regression check
+  instead of banner text.
+- **I5 — urgent/emergency escalations can be closed by a text-only note.** `escalations` has no
+  trigger requiring a linked synchronous contact (voice/video) before a `clinician_alerts.level =
+  'emergency'`-linked escalation resolves. Proven live: the resolve succeeds with nothing but
+  `resolution_note`. Also already named under "PORT IT IN" above.
+- **I14 — a patient can edit their own device-sourced vitals reading.** New finding, not
+  previously flagged anywhere in this file. `vitals_readings_update`'s RLS policy is source-blind
+  (`patient_id = auth.uid() OR is_org_staff(...)`) — nothing stops a patient from directly editing
+  a `source = 'device'` row after the fact, which matters because device readings already feed the
+  BP/glucose red-flag and abnormal-result pipelines. **This is a product decision, not purely an
+  engineering one** — tightening it changes real patient-facing behaviour (can a patient edit ANY
+  vitals row, or only manual ones?) — flag to the founder before building the fix.
+None of the three were fixed in this pass — the suite's job was to prove and document them
+precisely, matching the source file's own "a fake pass is worse than no test" discipline. Building
+the actual DB-level enforcement for each is real, separate, higher-blast-radius engineering work
+(I1 needs a content-classification audit of every live template; I5 needs the synchronous-contact
+trigger designed; I14 needs the founder's call above) — do not build any of the three without an
+explicit ask.
+
+✅ **`supabase/config.toml`'s stale region comment fixed, 2026-07-29 evening.** It previously and
+incorrectly claimed production must be `af-south-1`; corrected to `eu-west-1`, matching the real
+live project and the rest of this file.
+
+**Removal 3 changed meaning mid-flight — do not re-read the old wording.** "One naira price list"
+does NOT mean naira only. It means **one price, payable in naira or dollars**: the naira price is
+the only stored price and the dollar price is derived from it at the admin-set reference rate
+(`/admin/settings/diaspora-pricing`), enforced by `private.enforce_derived_price`. Changing the
+rate recomputes every derived row, clears provider references (Paystack Plans and Stripe Prices are
+amount-immutable) and mints replacements.
+
+**Removal 4's replacement model, as the founder specified it:** each person keeps their own account
+and their own subscription. A next of kin can be **contacted if something goes wrong** and can
+**view activity but not edit it**. That maps exactly onto `profile_access`, which was already in
+the schema and already correct:
+
+| Level | Who | What the database allows |
+|---|---|---|
+| `view` | next of kin | reads every profile_access-aware SELECT policy; every write policy requires `manage`, so they cannot edit |
+| `manage` | a parent, for a child with no login | reads and writes — vaccination doses, bookings, reproductive-health |
+
+**The gap this removal actually had to close** was not the model, it was that **no UI had ever
+written an adult grant** — only `addChildDependentAction`. `/patient/family` is now where a patient
+names a next of kin (granting `view` and filling the `emergency_contact_*` fields the escalation
+path already reads), lists the children they look after, and adds a new one. It is ungated: naming
+a next of kin is not something a person should have to buy.
+
+**Prove any change to this with a control.** `packages/db/tests/individual_enrolment_and_next_of_kin.sql`
+pairs every negative check with a positive one in the same rolled-back transaction — the `view`
+next of kin is refused the exact write a `manage` guardian completes. It was confirmed to
+discriminate by re-running it with the control downgraded to `view`, which fails at that check with
+`42501`. A blocked-everything grant would otherwise pass a negatives-only test.
+
+**`quarterly_report` moved to Complete Care** — it was granted only by tiers removal 4 deletes, and
+leaving it granted to nobody would have left a built, working per-patient PDF (generator, cron,
+download route) reachable by no one. **That is a pricing judgement, not a founder decision on
+record**; reverse it by deleting one block in `20260729143514`.
+
+**The price list is fully on sale again, and this was a real latent bug.** Removal 3's restore had
+left all 12 naira plan and add-on rows with `paystack_plan_code = null`, so after removal 4 deleted
+Family Plus and Family Premium — the only two active paid plans — **Free was the only purchasable
+plan on the platform.** The Paystack Plans still existed at exactly the right amounts, so they were
+re-linked (each guarded on the amount matching) rather than re-minted. All 24 rows (12 naira, 12
+dollar) are now active with real provider objects. ⚠️ **All of them are on the TEST-mode Paystack
+and Stripe accounts** — a live-keys cutover needs a full re-sync.
+
+**Provider objects for the deleted tiers:** 10 family/ParentCare Paystack Plans still exist and are
+renamed `RETIRED 2026-07-29 - …`. Paystack has no delete or deactivate for a plan. They are
+unreachable in practice — the app only ever initialises checkout from a `subscription_plans` row,
+those rows are gone, and the account has **zero payment pages** (checked), which is the only way to
+buy a plan outside the app.
+
+**⚠️ `private.is_org_staff` is still the highest-leverage security function in this codebase.**
+Removal 2 found it admitted **every non-patient role**, so `corporate_admin` and `hmo_admin`
+satisfied **314 policies across 110 patient-scoped tables** — an employer or HMO administrator had
+direct RLS read access to vitals, medications, screening results and risk scores for every patient
+in their organisation. Two such accounts existed. Fixed in the function itself rather than in 314
+policies, then the three non-health surfaces an employer genuinely owns (`employer_roster_members`,
+`outcome_reports`, `cohort_cost_model_constants`) were re-granted by name.
+`20260729194127_scoped_access_roles_out_of_org_staff` then removed `pharmacist`, `lab_liaison`,
+`finance` and `analyst` for the same reason. **Any change to this function is a change to 110
+tables at once.**
+
+**The pattern the four removals set — follow it for anything similar:**
+1. **Count the rows first.** Every one of the four turned out to have zero rows, which converted a
+   feared data migration into a pure structural change. Put the counts in the migration header so a
+   reader can see why no conversion step exists.
+2. **Delete the enum VALUE, not just the feature.** `outcomes_contract_type` lost `capitation`,
+   `booking_origin` lost `capitated`, and removal 4 dropped `family_relationship` outright. An
+   unreachable enum member is the loophole the feature grows back through. Where the type is too
+   widely used to rewrite — `currency` still carries `GBP`, because it is stamped on historical
+   payment rows — make the guarantee with a CHECK on the tables that matter instead.
+3. **Rewrite dependents before you drop the thing they depend on.** `DROP TABLE` refuses while a
+   policy references it, and `CASCADE` would have quietly left `patient_quarterly_reports` one
+   policy short — the wrong failure. Recreate the policy first, then drop.
+4. **End with a DO block of assertions.** The migration is the test: it raises if any deleted enum
+   value, table, function body, policy or plan row survived. That is what makes "removed" provable
+   rather than hopeful.
+5. **Prove it with a simulated session AND a control.** `set_config('request.jwt.claims', …)` +
+   `set local role authenticated` in a rolled-back transaction. An institution seeing 0 patient rows
+   means something only once a clinician in the same probe sees 15; a `view` grantee being refused a
+   write means something only once a `manage` grantee completes it. Then break the test on purpose
+   and confirm it fails — removal 4's suite was validated that way.
+6. **Anything data-only dies in a rebuild.** `seed.sql` runs on a local `db reset` and is never
+   applied to a remote project. Removal 3 existed because the price book lived there. After each
+   removal, reconcile `seed.sql` too, or a fresh environment resurrects what the database now
+   refuses.
+7. **Deleting the row is not deleting the product.** Check the provider. Paystack has no
+   delete-or-deactivate for a plan, so the mitigation is that no `subscription_plans` row and no
+   payment page reference it — verify both rather than assuming.
+
+**Founder decisions — all three answered 2026-07-29, recorded here so they are not re-asked:**
+1. **The FX reference rate.** USD only, "as it is the universal currency", at **₦1,365 to the
+   dollar**. Pounds retired outright rather than given a rate. Editable any time at
+   `/admin/settings/diaspora-pricing`, which is now a single-rate form.
+2. **Diaspora Premium.** Retired. It had no naira counterpart, so it could never sit on a single
+   price list, and it was GBP-only anyway.
+3. **Removal 4's replacement model.** Individual accounts plus a next of kin who can be contacted
+   and can view but not edit — see the removal-4 section above.
+
+**Owner-side (cannot be done by an agent):**
+- Delete the **Tarragon Platform** (`rjsxbhgqdudowlvarmzq`) and **tarragon-control-staging**
+  (`jpdwbnvrgvpntcmfefeu`) projects in the dashboard — MCP can only pause, not delete. Everything
+  from both is preserved in this repo. Keeping Tarragon Platform briefly as a fallback is fine.
+- **Rename** `koiplnmbgnqnbywhpjlf` if desired — it is correctly named "Tarragon Health" already,
+  but nothing else should be named "Tarragon Platform" going forward.
+- ~~**Push `main-dev` to GitHub.**~~ Done 2026-07-29. `reference/tarragon-control/` is still the
+  only copy of that repo's history and it still lives on one disk.
+
+## Current Sprint — v3 (FROZEN — not an active roadmap, see 2026-07-30 note)
+
+**2026-07-30 — founder confirmed: "V3 should be enhancement of what we already have, not a
+replacement."** This sharpens the pivot-reversal above. Concretely: neither of the two v3
+codebases below (this project's M1/M2, or the separate `tarragon-control` repo which independently
+reached M1-M4) continues as a milestone-by-milestone build. **Do not resume M3/M4/M5/etc. in
+either place.** Both stay dormant, reference-only — the only sanctioned path for anything in v3
+reaching the real platform is a deliberate, explicitly-asked-for port of one named feature/
+discipline into `apps/web`, the same way I1-I10, `rls_auto_enable`, and the four narrowing rules
+were each pulled in above. If asked to "continue v3," clarify which specific piece to port instead
+of resuming a milestone.
+
+The M1/M2 entries below are the historical record of what was built here before the pivot
+reversed, kept for reference — do not add new milestones to this section going forward.
+
+### 2026-07-29 — M1 built and verified: schema, RLS, audit, invariants (this session)
+Full Phase 1 §5 schema (all 17 enums, 33 tables — see build-spec-v3 §5.1–§5.11), RLS enabled and
+policied on every table (default-deny, matches §6), the generic audit trigger (§5.11) attached to
+every patient-linked table, and DB-level enforcement of I1 (CHECK constraints), I2 (readings →
+exactly one triage_classifications row, via a v0-provisional "everything needs_review" trigger —
+blocks reading inserts entirely until a real clinician approves at least a provisional protocol,
+which is correct per §7.1's own build order), I3 (NOT NULL, schema-level), I5 (BEFORE INSERT
+trigger — closing an urgent/emergency classification requires a linked voice/synchronous_in_app
+`clinical_contacts` row), I8 (no `capitation` enum value, structurally impossible to add without a
+migration), I9 (institution_admin returns zero rows on every patient-scoped table — proven, not
+assumed), I10 (proof_log triggers on clinical_notes/triage_classifications/escalations/
+medication_dispenses). I4's exact `funder_reads_summary` policy from §6.2 implemented on `proof_log`.
+- **Two mechanical deviations from the literal spec text** (not product decisions — invalid/missing
+  SQL, fixed the same way this codebase has always handled spec gaps): (1) `escalations.breached`
+  used `generated always as (... now() ...) stored`, which Postgres rejects (generated columns must
+  be immutable) — replaced with a plain column + `v_escalations` view exposing a live-computed
+  `breached_live`. (2) `programmes` (control/concierge) and `app_config` (accountability_model +
+  the four Phase 2 go-live guards L1–L4) are referenced throughout the spec but never DDL'd —
+  added both, `app_config` as a singleton row, superadmin-write-only.
+- **Real bugs the test suite caught and fixed** (see `packages/db/tests/m1_invariant_and_rls_suite.sql`
+  for the full account): `authenticated` had no base table-level GRANT after the schema reset
+  (RLS restricts rows, but the role still needs the underlying SQL grant — Supabase normally
+  provisions this at project creation, not on a schema rebuilt mid-project); `funder_reads_summary`/
+  `consent_records_select` let an institution_admin-role consent grantee through, which violates
+  I9's *absolute* "zero rows, no exceptions" — fixed by excluding institution_admin from those
+  policies regardless of any consent naming that profile (defence in depth for §13's product
+  promise); `lab_orders`' staff policy reused `can_see_patient()` (which includes patient
+  self-access), accidentally letting a patient query `commission_minor` directly instead of being
+  forced through the column-safe `lab_orders_patient()` function.
+- Two `security_definer_view`-flagged views (`lab_orders_patient`, `clinical_notes_summary` — the
+  column-restriction pattern for "patient/coordinator needs fewer columns than staff") were
+  converted to SECURITY DEFINER **functions** instead, which only carries the accepted
+  `authenticated_security_definer_function_executable` WARN every sibling RPC in this codebase's
+  history carries, not the ERROR-level view finding.
+- **Verified live** via `packages/db/tests/m1_invariant_and_rls_suite.sql`, a rolled-back
+  transaction (JWT-claims role simulation, `set local role authenticated`, matching this
+  codebase's established RLS-verification convention) — every invariant assertion and the full
+  six-role RLS matrix passed with zero leftover rows after rollback. `get_advisors` clean (only
+  the 2 accepted SECURITY DEFINER WARNs + a pre-existing, unrelated auth setting).
+- **Real gap, flagged not guessed at:** the spec has no table linking an `institution_admin`
+  profile to a specific `organisations` row (no `organisation_admins` bridge, no
+  `profiles.organisation_id`) — `organisations`/`invoice_lines` currently have no institution_admin
+  policy at all (safe default: zero rows, not broken), deferred to **M8** when the institution
+  portal actually needs it. Flag to the founder before M8 starts.
+- **Not yet built:** CI wiring for the test suite (needs a disposable/branch database + a
+  `pnpm --filter db test:rls` script — tracked in the test file's own header comment). Repo
+  scaffolding for `apps/patient`/`apps/screening`/`apps/console`/`apps/public` is READMEs only,
+  correctly not-yet-functional per the spec's own milestone-order discipline (§20: "do not begin
+  a milestone until the previous one passes its test").
+- **Open decisions, per spec §21 — stop and ask before guessing:** voice vendor, `who_hearts` v1
+  thresholds (ship v0-provisional until 200 real screening-day readings exist), Head of Clinical
+  Operations name, validated-device list source, referral criteria v1 document, and — separately
+  — the institution_admin↔organisation linkage gap noted above.
+
+### 2026-07-29 — M2 built and verified: activation guard + accountability signature (this session)
+Scoped tightly to §20's exit test — "Expired-MDCN clinician auto-suspends overnight; note
+signature block renders correctly under both models" — not the full auth-screens/patient-clinician
+CRUD surface, which has no consuming UI until M7/M8 per each app's own README discipline
+(`apps/patient`, `apps/console` are still correctly READMEs-only). `profiles`/`patients`/`clinicians`
+and the `handle_new_user` auth trigger already existed from M1; M2 adds the lifecycle rules around
+`clinicians.active` and the accountability model.
+- **Activation gate (write-time):** `private.enforce_clinician_activation_requirements` (BEFORE
+  INSERT/UPDATE trigger on `clinicians`) blocks a row from ever reaching `active = true` unless
+  `private.clinician_meets_activation_requirements` passes — MDCN current always; under
+  `tech_layer` (the default), indemnity provider/policy/expiry also required and current. Under
+  `provider`, indemnity is irrelevant, matching §4's table exactly. Re-validates on every update to
+  an already-active row, not just insert, so an ops edit can't accidentally leave stale credentials
+  active.
+- **Nightly sweep (time-based):** `private.run_clinician_activation_guard`, scheduled via
+  `cron.schedule('clinician-activation-guard-nightly', '15 2 * * *', ...)`, catches credentials that
+  lapse purely by the passage of time with no write ever happening — the write-time trigger
+  structurally can't see that. Only ever suspends (`active → false` + a `suspended_reason`), never
+  activates; activation stays a deliberate ops/superadmin action gated by the trigger above.
+  Suspension needs no `profiles.role` change or grant revocation — `private.actor_clinician_id()`
+  already filters on `active = true` (a belt-and-suspenders comment already in the M1 RLS helper
+  file anticipated this), so every `can_see_patient()` check for the clinician role goes dead the
+  instant this one column flips. This is what §5.2's "revokes the clinician role grant immediately"
+  means in this schema.
+- **Real gap the M1 RLS review missed, fixed same pass:** `clinicians_update` let a clinician
+  update their OWN row (`profile_id = auth.uid()`), including `active`/`suspended_reason`/
+  `mdcn_*`/`indemnity_*` — combined with the guard above, a clinician the nightly sweep just
+  suspended could have immediately reactivated themselves. Nothing in §5.2 defines a legitimate
+  clinician self-service field on this table, so the self-update clause was removed outright
+  (ops_admin/superadmin only) rather than patched with a second column-restriction trigger.
+- **Accountability stamping is server-derived, not client-supplied:** `private.stamp_clinical_note_accountability`
+  (BEFORE INSERT on `clinical_notes`) always overwrites `accountability_model_at_signing` (from
+  live `app_config`) and `mdcn_number_at_signing` (from the real `clinicians` row), regardless of
+  what the caller sends — same never-trust-the-client discipline as every other attribution field
+  in this codebase. Proven in the test suite by deliberately inserting spoofed values and asserting
+  they get overwritten.
+- **Signature block rendering:** `packages/protocol/src/accountability.ts`, `getSignatureBlock(clinician, model)`
+  — a pure function rendering the two §4 variants ("practising under own registration" /
+  "on behalf of Tarragon Health Ltd"), unit-tested for both models
+  (`accountability.test.ts`, 3 tests, added `jest.config.mjs` mirroring `packages/shared`'s since
+  none existed yet). Always render from a signed note's own `accountability_model_at_signing`
+  (or, for a not-yet-signed preview, live `app_config`) — never from live config for a past note,
+  so a later model switch doesn't rewrite history, per §4's own requirement.
+- **Verified live** via `packages/db/tests/m2_activation_guard_and_signature.sql`, a rolled-back
+  transaction: activation blocked on expired MDCN, blocked on missing indemnity under
+  `tech_layer`, allowed under `provider` with null indemnity, both nightly-suspension paths
+  (MDCN and indemnity lapse) correctly stamp `suspended_reason`, the self-update lockdown holds
+  (RLS admits zero matching rows, doesn't error — asserted on resulting state not an exception),
+  and the stamping trigger overwrites spoofed input. Re-ran `m1_invariant_and_rls_suite.sql`
+  unchanged afterward — no regression. `pnpm --filter @tarragon/protocol test`/`typecheck` green.
+  `get_advisors` shows no new finding (only the same 2 pre-existing accepted SECURITY DEFINER
+  WARNs from M1 + the pre-existing, unrelated leaked-password-protection setting — everything new
+  this pass lives in `private` schema, never exposed via PostgREST, so it doesn't need an explicit
+  anon/authenticated revoke the way a `public.*` RPC would).
+- **Not yet built (deliberately, per milestone discipline):** any actual sign-up/login screen —
+  there is no consuming app until M7 (patient) / M8 (console); `handle_new_user` (M1) is the whole
+  of "auth infrastructure" needed so far. CI wiring for either test suite is still the same
+  tracked-not-done follow-up as M1.
+- **Next: M3** — `apps/screening` offline-first capture: consent-before-measurement, BP×2 with a
+  rest-interval timer, `source = 'screening_day'`, on-device instant result card, aggregate
+  report with `min_cohort_size` suppression, duplicate-not-merge conflict resolution on sync,
+  attach-rate instrumentation (`screening_participants.converted_to_enrolment_id`). Exit test per
+  §20: "200 synthetic readings captured offline, synced, duplicates surfaced not merged."
+
+---
+
+## Legacy platform reference (frozen 2026-07-29 — history below, not the current build target)
 
 > Read every session. Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. Competitive-intelligence feature roadmap: `docs/FULL_SPECIFICATION_V4.md`. Master operating plan (business model, **5-tier doctor ladder**, phased Phase 1/2/3 roadmap): `docs/Tarragon_Health_Master_Operating_Plan_v4.md` — authoritative on the clinical staffing model, supersedes the flat clinician/escalation-doctor language elsewhere. Clinician attribution & trust model: `docs/CLINICAL_TRUST_MODEL_SPEC.md` — still authoritative for per-touchpoint attribution UI rules (e.g. `ReviewedByDoctor`) not covered by the tier ladder. This file is the operating contract — keep it under 300 lines (raised from 200 on 2026-07-15 to let "Current Sprint" read as a scannable dated changelog instead of one dense paragraph), update "Current Sprint" every sprint.
 
@@ -41,7 +453,7 @@ Prevention and chronic management **share the same patient record** — design e
 - **Superseded 2026-07-11 — WhatsApp is not a required interface for signup or core platform actions.** Signup, onboarding, and every core patient/clinician transaction (vitals/meds/screening/booking logging, dose tracking, etc.) happen via app or web only — no bot-driven data entry over WhatsApp, ever, and no feature may be built to depend on a WhatsApp send succeeding. WhatsApp/SMS (Termii fallback) still carries reminders/alerts/confirmations, **and patients may message their doctor on WhatsApp for support, with the doctor replying on WhatsApp too** — that two-way channel is human-routed (a clinician inbox), never parsed by automation into a platform action.
 - Phone numbers always E.164 (`+234XXXXXXXXX`). Timezone always `Africa/Lagos`.
 - Every table has `organisation_id` — always filter by it. **RLS enforced at the Postgres level for every multi-tenant table — never bypass, never filter in application code instead.**
-- Doctor:patient ratio target — **1:120** for Tier 1–3 staffing (see Clinical Tier Ladder below).
+- **Doctor:patient ratio target — under review as of 2026-07-30, do not cite 1:120 as current.** It was the working figure for Tier 1–3 staffing (see Clinical Tier Ladder below); founder is now exploring how far protocol/automation design can responsibly stretch one doctor's coverage, with **1:2000 as an aspiration, not a committed number** ("where possible with good design"). No new fixed ratio is confirmed yet — don't put a specific ratio in marketing copy, UI, or business-rule text until the founder settles on one; where a ratio claim is needed, describe the mechanism (protocol-driven review, triage before a doctor sees a case) instead of a number.
 - Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → doctor WhatsApp alert **immediate, not scheduled** → doctor has a 4-hour contact SLA → surfaces as Priority 1 (red) on doctor dashboard.
 
 ## Clinical Tier Ladder (supersedes flat clinician/escalation-doctor model — 2026-07-15)
@@ -91,7 +503,7 @@ Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14,
 - Master tagline: **"Care that stays with you."** Wordmark: **TarragonHealth** (camel-case). Mark: **Guard Leaf** (shield + sprout crown + checkmark vein).
 - Tarragon Green `#0E7C52` (brand/primary actions), Clinical Navy `#12324B` (B2B/clinical documents). Clinical dashboard status colours (green/amber/red/blue/grey) are a **separate system** from brand colour — never confuse the two.
 - Voice: warm and personal, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
-- **Do not use "doctor-led" as a headline/marketing claim** (retired 2026-07-18 — it reads as over-promising and unprofessional). Describe the actual clinical process instead — "clinical review and escalation", "your care team", "reviewed against care protocols" — and reference doctors concretely in process/explanation ("escalates to a doctor", "the doctors who keep the 1:120 ratio"), never as a blanket brand adjective. The operating model is unchanged (Tarragon still employs its own doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`); this is a public-copy/positioning rule only.
+- **Do not use "doctor-led" as a headline/marketing claim** (retired 2026-07-18 — it reads as over-promising and unprofessional). Describe the actual clinical process instead — "clinical review and escalation", "your care team", "reviewed against care protocols" — and reference doctors concretely in process/explanation ("escalates to a doctor", "the doctors who review every case"), never as a blanket brand adjective. Don't cite a specific doctor:patient ratio in this kind of copy — see the Non-Negotiable Business Rules note above, it's under review. The operating model is unchanged (Tarragon still employs its own doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`); this is a public-copy/positioning rule only.
 
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
 
@@ -586,8 +998,18 @@ A follow-up pass on the 2026-07-25 finance build, closing the gaps a premium hea
 ### 2026-07-26 — Tarragon Prevent tier: synced + activated (founder confirmed pricing final)
 Founder confirmed the 6 Tarragon Prevent placeholder prices (₦3,500/mo · ₦35,000/yr · £7/£70 · $9/$90, seeded 2026-07-23 as part of the prevention-healthy-users-visibility build, `is_active=false` pending sync) are **final for now**. All 6 rows were already synced + `is_active=true` on the live project by the time this pass checked — re-verified directly against the provider APIs rather than trusting DB columns alone: `prevent`/`prevent_yearly` are real Paystack Plans (`PLN_p5ulhm2eal2984m`/`PLN_ntgxmcc47sc6pze`, correct amount/interval/currency); the 4 GBP/USD rows are real, active Stripe Prices (correct `unit_amount`/`currency`/`recurring.interval`, both linked to real Stripe Products). All 6 confirmed `price_locked=false` with 0 active subscribers — fully open to a future reprice. The onboarding/subscription plan-selector queries filter on exactly `is_active=true`, so Tarragon Prevent is live and checkout-able now, no deploy needed (the marketing `/pricing` card was already showing regardless of this flag — it's static copy in `_content/pricing.ts`, not DB-driven; this activation is what makes the tier actually purchasable). Repricing later: the bulk % adjustment tool (`/admin/settings/subscriptions`) already reaches these rows since it operates on any active, unlocked plan; an exact new number still needs a direct Supabase update + re-sync (Paystack Plans/Stripe Prices are amount-immutable), same pattern as every prior reprice in this file. `seed.sql` deliberately left at `is_active=false` — matches the established convention (e.g. ParentCare) that a fresh environment must run its own sync against whatever provider keys it has, rather than seed inheriting another environment's activated state.
 
+### 2026-07-27 — Lab Partner role: partner-lab login, mirrors pharmacist (branch `claude/lab-partner-role`, isolated worktree, explicit ask)
+Labs had only one path — email a result to Tarragon's in-house Lab Liaison Officer, who uploads on their behalf (`lab_liaison` role, 20260720120000/120100). There was no equivalent of `pharmacist` (a partner's OWN staff logging in, scoped to just their own catalogue row) for labs. Built `lab_partner`, side by side with `lab_liaison` — a lab picks whichever fits it; neither replaces the other. Five migrations applied via `apply_migration` (recorded: `20260727002631`/`002742`/`004013`/`004156`/`004500`); `pnpm --filter web typecheck`/`lint`(0 errors, 2 pre-existing warnings)/`test` (436)/production build (`/lab-partner` compiles) all green.
+- **Schema, same shape as `pharmacist_surface.sql`:** `profiles.lab_provider_id` (→ `lab_providers`) + `private.lab_partner_provider()` (returns the caller's lab only for role='lab_partner', null otherwise) + three SECURITY DEFINER RPCs scoped to it — `lab_partner_orders()` (worklist, excludes `pending_payment`), `lab_partner_order_patient(order_id)` (patient lookup for the storage-path step), `lab_partner_upload_result(...)` (inserts `lab_result_documents` with a new `source='lab_partner'` value, reusing the EXISTING insert trigger verbatim — same clinician_review alert + patient notification as every other source, no duplicated logic — and advances the order to `resulted` unless already resulted/cancelled). No broad RLS grant anywhere; a lab_partner reaching for another lab's order gets zero rows / a `42501`, proven via rolled-back live SQL (jwt-sim across two real lab_provider-scoped accounts + a plain patient session, all three read/write paths).
+- **App layer:** `/lab-partner` page + worklist (per-order upload form, mirrors `pharmacist-worklist.tsx`), `lib/queries/lab-partner.ts`, a new `uploadResultAsLabPartner` server action in `lib/lab-results/actions.ts` (storage-upload-then-RPC-insert-with-rollback, same shape as the existing `uploadResultDocumentForPatient`). Wired into `roles.ts`/`navigation.ts`/`(dashboard)/layout.tsx`/`members.ts` (provisioning role list)/`robots.ts`.
+- **Found + fixed two real, currently-live security gaps in passing (not hypothetical — both confirmed against real data before and after):**
+  1. **The anon-execute gotcha's documented fix was wrong.** `20260724020855`/`20260724163357`/`20260720224204`'s comments claim `revoke ... from public` doesn't strip anon's EXECUTE and only `revoke ... from anon` works — the opposite is true. Confirmed live: `has_function_privilege('anon', 'public.pharmacist_orders()', 'EXECUTE')` is STILL `true` today, on a function those very migrations claimed to have fixed. `pg_proc.proacl` shows why — anon inherits EXECUTE via the PUBLIC pseudo-grant (`=X/postgres`) a new function gets by default, not a direct `anon=X` entry, so revoking from `anon` (which never held a direct grant) is a no-op; revoking `from public` is what actually removes it (confirmed: `anon` flips to `false`, `authenticated` correctly stays `true`). An earlier, correct precedent already existed (`20260719230239_open_health_check_revoke_public`) before the mistaken belief took over. Fixed for my own three new RPCs (`20260727004156`); **the previously "fixed" functions across the codebase (pharmacist_order_allergies/medications/orders/record_dispense, admin_send_broadcast, admin_broadcast_audience_count, the facility-activation RPCs, etc.) are still anon-executable today** — out of scope to re-audit all of them in this pass, flagging for a dedicated follow-up.
+  2. **`private.is_org_staff()` didn't exclude partner-employee roles.** It only ever excluded `role = 'patient'` — any other role with a non-null `organisation_id` passes it, which is exactly what most multi-tenant tables' RLS gates on. Both `pharmacist` and `lab_partner` are documented as RPC-only, no-broad-RLS roles, but nothing enforced that. Confirmed live (not hypothetical): the real `Test Pharmacist` fixture (`organisation_id` = org 0001) could read a real `lab_orders` row (`LAB-000019`) directly via plain RLS — a live PHI-adjacent bypass of the entire pharmacist-scoped-RPC design, and the exact same latent exposure my new `lab_partner` role would carry if ever provisioned with an org id (the generic admin members-provisioning UI doesn't prevent this). Fixed (`20260727004500`): `is_org_staff` now excludes `'pharmacist'`/`'lab_partner'` too — verified byte-scoped (`create or replace`, only the role list changed) and re-verified live both directions: pharmacist's direct `lab_orders` read now returns 0, a genuine org-staff role (doctor test fixture) is completely unaffected (still returns 1). Neither role's own application code ever used direct `.from(table)` reads (100% `.rpc(...)`-only for both), so this closes a real gap with zero legitimate-access regression.
+- **Verified beyond typecheck/lint/test/build:** full isolation proof via rolled-back live SQL — Lab A's session sees exactly its own order, resolves the right patient, uploads successfully (order flips to `resulted`, `lab_result_documents` row lands with `source='lab_partner'` + correct org/patient, a `clinician_review`/escalation-level-2 alert fires, 2 notification rows queue — all via the pre-existing trigger, not new code); Lab B's session sees 0 orders/NULL patient/blocked-`42501` upload attempt with zero side effects; a plain patient session sees 0 orders. `get_advisors` shows only the expected `authenticated`-security-definer WARN on the 3 new RPCs (same accepted advisory every sibling RPC carries) — confirmed no new/unexpected finding, and the lint-output byte count is identical before/after the `is_org_staff` hardening (no new/removed advisory).
+- **NOT browser-verified** (no dev-server/test-credential run this session — composition over DB-verified primitives + green production build). **Next / owner steps:** provision a real lab-partner login when a partner lab wants one (leave `organisation_id` unset, set `lab_provider_id` via direct SQL — no admin UI for either FK yet, same as pharmacist today); a dedicated follow-up to re-audit and properly fix every previously-"anon-fixed" RPC across the codebase using the corrected `revoke ... from public` form; browser click-through of the `/lab-partner` worklist once a preview env is free.
+
 ### 2026-07-30 — Child Immunisation build kickoff: versioned/signed vaccination-schedule layer + real Clinical Director provisioned (branch `claude/child-immunisation-module`, isolated worktree)
-**Reconciliation note:** `main` was 24 commits behind `main-dev` at the time of this entry (`main-dev` has `lab_partner` role and other sprints `main` doesn't) — this entry's 3 commits were cherry-picked directly onto `main` to unblock a live sign-off without dragging in that unreconciled gap. The full `main-dev`→`main` reconciliation is separate, larger, and not done here.
+**Reconciliation note:** `main` was 24 commits behind `main-dev` at the time of this entry (`main-dev` has `lab_partner` role and other sprints `main` doesn't) — this entry's 3 commits were cherry-picked directly onto `main` to unblock a live sign-off without dragging in that unreconciled gap. **Closed same day** by the full `main-dev`→`main` release described in the entry at the end of this file.
 An external "Child Immunisation Record & Due Notifications" build spec was reviewed against what already exists — `vaccination_catalog`/`vaccination_records`/`vaccination_schedules` (live since 2026-07-06, actively maintained through 2026-07-24's tetanus/shingles dosing-accuracy work) already cover most of it, including a verification/certificate layer (2026-07-17) the spec's own scope excluded. Founder chose to **merge the spec's genuinely-new ideas into the existing system rather than build a parallel one**. This session shipped the first piece: a versioned, Clinical-Director-signed review record over the live schedule. Three migrations applied via `apply_migration` (recorded: `20260729235803` — reconciling another session's already-live `rls_auto_enable_event_trigger` with no local file, same recurring drift class as every prior entry — `20260730000555`, `20260730001541`); `pnpm --filter web typecheck`/`lint`(0 errors, 2 pre-existing warnings)/`test` (444)/production build all green.
 - **`vaccination_schedule_signoffs` + `sign_vaccination_schedule()`:** mirrors `cv_risk_config`'s proven signing model (director-only, forge-proof, one-active-at-a-time, audit-logged) — global scope (no `organisation_id`), matching `vaccination_catalog` itself. `catalog_snapshot` (follow-up migration) captures exactly what was reviewed at draft time, so a later catalog edit can't silently drift from what was actually signed off. **Deliberately not wired into `queue_vaccination_reminders` yet** — checked live before writing anything: zero active Clinical Directors existed in production at the time, so gating live reminders on a signature would have silently stopped them. Verified via rolled-back live SQL (`packages/db/tests/vaccination_schedule_signoff.sql`): non-director blocked, real director signs, attribution correct, one-active-only holds.
 - **`/admin/settings/vaccination-schedule`:** a straight structural clone of `/admin/settings/cv-risk-config`'s review-then-sign UI — shows the live catalog, lets an admin snapshot it into a draft, lets an active Clinical Director sign. New "Clinical" nav group links it (the founder asked to be able to find and review this again later — `cv-risk-config` itself has no nav link at all, a pre-existing gap not fixed here, out of scope for this pass).
@@ -599,6 +1021,13 @@ An external "Child Immunisation Record & Due Notifications" build spec was revie
   3. Forbidden-copy lint test for the notification templates (no "you must", "we have booked", "guaranteed", etc.).
   4. Optionally wire `sign_vaccination_schedule`'s active row into `queue_vaccination_reminders` as a hard gate now that a real signed version exists — was deliberately left unwired while no director existed; revisit now that one does.
   5. A real MDCN/credential number for the founder's `clinical_staff` record when convenient (currently exempted, not verified — see the bullet above).
+
+### 2026-07-30 — Release: main-dev → main, closing the 24-commit reconciliation gap
+Explicit ask ("merge, move, push, pr all changes... so everything is up to date"). Two independent pieces landed same session, then both released together:
+- **Marketing site expansion** ([PR #166](https://github.com/Kolalonge-creator/Tarragon-Health/pull/166), squash-merged to `main-dev`): a large batch of uncommitted working-tree changes found sitting on `main-dev` — cookie consent banner (opt-out, marketing-only, honors DNT, gates the existing page-tracker beacon), a non-clinical mental well-being pulse-check (always-visible Nigerian support-line notice, explicitly disclaimed against the real PHQ-9/GAD-7 screen), BMI/calorie + activity-intensity calculators (reuse the platform's existing BMI logic, no signup), an interactive Screening Journey tool, a new informational `/gift` page (funds an existing Health Wallet or shares the existing referral link — no new checkout path), `/accessibility` + `/cookies` legal pages, a leadership-panel/`/about` redesign (real founder bio; other seats honestly labeled "Open role"; drops the retired 1:120-ratio claim; softens "obesity"→"weight" in patient-facing copy), a homepage PWA-install mockup, a resources-hub carousel/share system, an illustrative unauthenticated plan-preview sample for `/prevention`, a login/signup visual refresh (no auth logic changed), and 6 content-only `marketing_resources` migrations (already applied to the live project before this session — confirmed via `list_migrations` before committing, no drift). Touches no auth/payment/RLS logic. Verified: `pnpm --filter web typecheck`/`lint` (0 errors, 2 pre-existing warnings)/`test` (465 passing) all green before commit.
+- **`main-dev` → `main` release** (this entry): the Child Immunisation entry directly above flagged a 24-commit `main`/`main-dev` divergence as "pre-existing and still unreconciled" after cherry-picking just the vaccination-schedule-signoff work onto `main` via PR #162/#163. Closed properly here rather than left open: merged `main-dev` (27 commits ahead, including PR #166 above) into `main` via a dedicated `release/main-dev-to-main-20260730` branch — dry-run first to confirm shape, one real conflict (`CLAUDE.md`'s own changelog, both branches having appended different entries after the PR #158 release point — resolved by keeping both entries in chronological order and keeping the more complete, browser-verified version of the Child Immunisation entry that existed on `main` after the PR #162 cherry-pick); `navigation.ts`/`database.types.ts` auto-merged cleanly (identical vaccination-schedule-signoff content on both sides). This release brings the **founder-approved 2026-07-29 business-model changes to production for the first time**: no capitation (I8), institutions get aggregate-only patient access (I9 — this one closes a live PHI-exposure bug, not just a feature), one price list (GBP retired, USD derived from an admin-set naira rate), individual-enrolment-only (removes Family Lite/Plus/Premium and ParentCare as purchasable plans — existing subscribers on those tiers are grandfathered per the removal migration's own logic, not force-cancelled), plus the `lab_partner` role, the `rls_auto_enable` safety-net trigger, and the I1–I10 invariant-suite port. Confirmed with the founder before merging, given the live business-model impact. `main` and `main-dev` are fully reconciled as of this release — no more divergence in either direction.
+- **Verification:** same local `pnpm --filter web typecheck`/`lint`/`test` pass as PR #166 (nothing new to break — this is a pure merge, no new code); CI (TypeScript, Python ML, Vercel preview) green on both PR #166 and the release PR before merging either.
+- **Next:** none blocking. The Child Immunisation build's own 5-item resume list above (catch-up intake flow, per-state notification dedup, forbidden-copy lint, wiring the signed schedule into the reminder cron, a real MDCN number for the founder) is unchanged by this release.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

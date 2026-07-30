@@ -108,49 +108,34 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
 /**
  * Assigns a specialist_providers row to a referral and locks in its fee at
  * assignment time (so a later catalogue price change never retroactively
- * changes what this patient owes). Checks the referral's org for an active
- * capitation contract right here: capitated orgs skip straight to
- * payment_confirmed (a small inline duplicate of Build 1's capitated
- * branch — initiateBookingCheckout's own capitated branch is meant for the
- * patient's own checkout call, not a clinician mutation with no browser to
- * redirect); non-capitated referrals just move to pending_payment and wait
- * for the patient's own payment action, the only place that runs
- * initiateBookingCheckout for this referral.
+ * changes what this patient owes). The referral then waits at
+ * pending_payment for the patient's own payment action, the only place that
+ * runs initiateBookingCheckout for this referral.
+ *
+ * Until 2026-07-29 this also checked the org for an active capitation
+ * contract and confirmed such referrals without payment. Capitation is gone
+ * (I8), so there is one path.
  */
 export function useAssignSpecialistProvider() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       referralId,
-      organisationId,
       specialistProviderId,
       feeKobo,
     }: {
       referralId: string;
-      organisationId: string;
       specialistProviderId: string;
       feeKobo: number;
     }) => {
       const supabase = createClient();
-
-      const { data: capitationContract } = await supabase
-        .from("outcomes_contracts")
-        .select("id")
-        .eq("organisation_id", organisationId)
-        .eq("contract_type", "capitation")
-        .lte("effective_from", new Date().toISOString().slice(0, 10))
-        .order("effective_from", { ascending: false })
-        .limit(1)
-        .maybeSingle();
 
       const { error } = await supabase
         .from("specialist_referrals")
         .update({
           specialist_provider_id: specialistProviderId,
           referral_fee_kobo: feeKobo,
-          ...(capitationContract
-            ? { status: "payment_confirmed" as const, origin: "capitated" as const }
-            : { status: "pending_payment" as const }),
+          status: "pending_payment" as const,
         })
         .eq("id", referralId);
       if (error) throw error;

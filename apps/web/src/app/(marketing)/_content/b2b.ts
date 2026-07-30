@@ -80,7 +80,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       "Population risk stratification, updated as members are monitored",
       "Care gap closure tracked to completion, not just flagged",
       "Immediate doctor follow-up on abnormal screening results",
-      "Outcome reporting built for renewal and capitation conversations",
+      "Outcome reporting built for renewal conversations",
       "The same four-level clinical escalation pathway as every Tarragon patient",
     ],
     exampleTitle: "What member reporting looks like",

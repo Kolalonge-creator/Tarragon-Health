@@ -9,8 +9,7 @@ import type { BookingOrderType, CheckoutMetadata } from "@/lib/billing/checkout-
 import type { Currency } from "@tarragon/shared";
 
 export type BookingCheckoutResult =
-  | { ok: true; capitated: true }
-  | { ok: true; capitated: false; checkoutUrl: string }
+  | { ok: true; checkoutUrl: string }
   | { ok: false; error: string };
 
 /**
@@ -38,29 +37,11 @@ export async function initiateBookingCheckout(args: {
   const table = bookingTableFor(args.orderType);
   const serviceRole = createServiceRoleClient();
 
-  // Capitated org members pay nothing at point of service — the contract
-  // between TarragonHealth and the HMO/corporate client covers it, per
-  // outcomes_contracts.contract_type='capitation'. No payment_transactions
-  // row is ever written for this path; there is no payment event to record.
-  const { data: capitationContract } = await serviceRole
-    .from("outcomes_contracts")
-    .select("id")
-    .eq("organisation_id", args.organisationId)
-    .eq("contract_type", "capitation")
-    .lte("effective_from", new Date().toISOString().slice(0, 10))
-    .order("effective_from", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (capitationContract) {
-    const { error } = await serviceRole
-      .from(table)
-      .update({ status: "payment_confirmed", origin: "capitated" })
-      .eq("id", args.orderId);
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, capitated: true };
-  }
-
+  // There is no longer a payment bypass here. Until 2026-07-29 a member of a
+  // capitated organisation had their order flipped straight to
+  // payment_confirmed on the grounds that the HMO's per-member fee covered it;
+  // capitation is gone (I8), so every order takes the ordinary provider
+  // checkout and produces a real payment_transactions row.
   const provider = resolveProvider(args.currency);
   const metadata: CheckoutMetadata = {
     kind: "booking",
@@ -92,7 +73,7 @@ export async function initiateBookingCheckout(args: {
       .eq("id", args.orderId);
     if (error) return { ok: false, error: error.message };
 
-    return { ok: true, capitated: false, checkoutUrl: result.data.authorizationUrl };
+    return { ok: true, checkoutUrl: result.data.authorizationUrl };
   }
 
   if (!isStripeConfigured()) {
@@ -118,5 +99,5 @@ export async function initiateBookingCheckout(args: {
     .eq("id", args.orderId);
   if (error) return { ok: false, error: error.message };
 
-  return { ok: true, capitated: false, checkoutUrl: result.data.checkoutUrl };
+  return { ok: true, checkoutUrl: result.data.checkoutUrl };
 }

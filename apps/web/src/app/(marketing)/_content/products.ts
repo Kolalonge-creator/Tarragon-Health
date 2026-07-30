@@ -83,7 +83,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "A supported, doctor-reviewed programme to manage weight and the health that comes with it.",
     campaignLine: "Weight is a health condition, managed with real support.",
     intro:
-      "Tarragon's obesity programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
+      "Tarragon's weight management programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
     included: [
       "Weight and waist tracking on one record",
       "A personalised lifestyle and activity plan",
@@ -106,9 +106,9 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
     ],
     metadata: {
-      title: "Obesity & Weight Management",
+      title: "Weight Health",
       description:
-        "A structured, doctor-reviewed obesity programme: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
+        "A structured, doctor-reviewed weight management programme: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
     },
   },
   parentcare: {
@@ -116,32 +116,33 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Know how your parent is doing, even when you are not there every day.",
     campaignLine: "Your parents looked after you. Now help look after them.",
     intro:
-      "ParentCare keeps you connected to Mum or Dad's health: vitals, medication, preventive checks, and calm updates, whether you live in Lagos or London.",
+      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can pay for their care by topping up their Health Wallet, from Lagos or from anywhere.",
     included: [
-      "Parent health profile and monitoring goals",
+      "Their own plan and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
-      "Calm family updates for loved ones near or abroad",
+      "Next of kin access: you see their care, you cannot change it, and they can withdraw it whenever they want",
+      "We contact you first if something urgent comes up",
+      "Pay for their care by funding their Health Wallet, in naira or dollars",
       "Doctor follow-up when readings or care gaps need attention",
-      "Escalation support when closer care is needed",
     ],
     howItWorks: [
       {
-        title: "Set up their care profile",
-        body: "Onboard your parent with their conditions, medications, and what you want monitored.",
+        title: "They sign up, on their own account",
+        body: "One person, one subscription. Their record is theirs, which is what lets a doctor treat them and what keeps their consent meaningful.",
       },
       {
-        title: "Stay informed",
-        body: "Receive clear updates on readings, reminders, and doctor follow-ups.",
+        title: "They name you as next of kin",
+        body: "A single setting on their account. From then on you can follow their readings, appointments and results, and we know who to call first.",
       },
       {
-        title: "Escalate with confidence",
-        body: "When something needs attention, Tarragon's team handles review and escalation; you stay in the loop.",
+        title: "You cover the cost, if you want to",
+        body: "Top up their Health Wallet whenever suits you. It pays for lab tests, refills, health checks and Tarragon fees, and is never cashed out.",
       },
     ],
     metadata: {
-      title: "ParentCare",
+      title: "Caring for a parent",
       description:
-        "Dedicated care coordination for your loved ones: vitals, medication, and calm family updates, near or far.",
+        "Follow a parent's care without taking it over: their own account, you as next of kin, and a Health Wallet you can fund from anywhere.",
     },
   },
   prevention: {

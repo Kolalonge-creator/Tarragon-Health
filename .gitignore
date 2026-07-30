@@ -55,3 +55,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase CLI local state (project ref, versions, pooler url — machine-specific)
+supabase/.temp/
+
+# redundant working copy of the preserved v3 repo; the canonical copy (with its
+# git bundle) is tracked at reference/tarragon-control/
+/tarragon-control/
+
+# root-level duplicates of the specs already tracked under docs/
+/tarragon-build-spec-v3.md
+/tarragon-build-spec-v3-phase2.md

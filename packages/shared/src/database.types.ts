@@ -19,6 +19,7 @@ export type Database = {
           code: string
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
+          derived_from_code: string | null
           description: string | null
           features: string[]
           id: string
@@ -37,6 +38,7 @@ export type Database = {
           code: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
+          derived_from_code?: string | null
           description?: string | null
           features?: string[]
           id?: string
@@ -55,6 +57,7 @@ export type Database = {
           code?: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
+          derived_from_code?: string | null
           description?: string | null
           features?: string[]
           id?: string
@@ -69,7 +72,15 @@ export type Database = {
           stripe_product_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "add_ons_derived_from_code_fkey"
+            columns: ["derived_from_code"]
+            isOneToOne: false
+            referencedRelation: "add_ons"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       ai_coach_access_rules: {
         Row: {
@@ -2824,71 +2835,6 @@ export type Database = {
           },
         ]
       }
-      family_plan_members: {
-        Row: {
-          conditions: string[]
-          created_at: string
-          id: string
-          member_id: string
-          onboarded_at: string
-          organisation_id: string
-          plan_id: string | null
-          plan_owner_id: string
-          relationship: Database["public"]["Enums"]["family_relationship"]
-        }
-        Insert: {
-          conditions?: string[]
-          created_at?: string
-          id?: string
-          member_id: string
-          onboarded_at?: string
-          organisation_id: string
-          plan_id?: string | null
-          plan_owner_id: string
-          relationship?: Database["public"]["Enums"]["family_relationship"]
-        }
-        Update: {
-          conditions?: string[]
-          created_at?: string
-          id?: string
-          member_id?: string
-          onboarded_at?: string
-          organisation_id?: string
-          plan_id?: string | null
-          plan_owner_id?: string
-          relationship?: Database["public"]["Enums"]["family_relationship"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "family_plan_members_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "family_plan_members_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "family_plan_members_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "subscriptions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "family_plan_members_plan_owner_id_fkey"
-            columns: ["plan_owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       finance_accounts: {
         Row: {
           account_type: string
@@ -3216,140 +3162,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      finance_capitation_contracts: {
-        Row: {
-          contract_name: string
-          created_at: string
-          created_by: string | null
-          currency: Database["public"]["Enums"]["currency"]
-          effective_from: string
-          effective_to: string | null
-          id: string
-          is_active: boolean
-          notes: string | null
-          organisation_id: string
-          pmpm_rate_minor: number
-          updated_at: string
-        }
-        Insert: {
-          contract_name: string
-          created_at?: string
-          created_by?: string | null
-          currency?: Database["public"]["Enums"]["currency"]
-          effective_from: string
-          effective_to?: string | null
-          id?: string
-          is_active?: boolean
-          notes?: string | null
-          organisation_id: string
-          pmpm_rate_minor: number
-          updated_at?: string
-        }
-        Update: {
-          contract_name?: string
-          created_at?: string
-          created_by?: string | null
-          currency?: Database["public"]["Enums"]["currency"]
-          effective_from?: string
-          effective_to?: string | null
-          id?: string
-          is_active?: boolean
-          notes?: string | null
-          organisation_id?: string
-          pmpm_rate_minor?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "finance_capitation_contracts_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "finance_capitation_contracts_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      finance_capitation_receipts: {
-        Row: {
-          amount_minor: number
-          bank_account_code: string | null
-          contract_id: string
-          created_at: string
-          created_by: string | null
-          enrolled_members: number
-          estimated_cost_of_care_minor: number | null
-          id: string
-          journal_entry_id: string | null
-          notes: string | null
-          period_month: string
-          received_date: string
-        }
-        Insert: {
-          amount_minor: number
-          bank_account_code?: string | null
-          contract_id: string
-          created_at?: string
-          created_by?: string | null
-          enrolled_members: number
-          estimated_cost_of_care_minor?: number | null
-          id?: string
-          journal_entry_id?: string | null
-          notes?: string | null
-          period_month: string
-          received_date: string
-        }
-        Update: {
-          amount_minor?: number
-          bank_account_code?: string | null
-          contract_id?: string
-          created_at?: string
-          created_by?: string | null
-          enrolled_members?: number
-          estimated_cost_of_care_minor?: number | null
-          id?: string
-          journal_entry_id?: string | null
-          notes?: string | null
-          period_month?: string
-          received_date?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "finance_capitation_receipts_bank_account_code_fkey"
-            columns: ["bank_account_code"]
-            isOneToOne: false
-            referencedRelation: "finance_accounts"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "finance_capitation_receipts_contract_id_fkey"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "finance_capitation_contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "finance_capitation_receipts_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "finance_capitation_receipts_journal_entry_id_fkey"
-            columns: ["journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "finance_journal_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -4130,56 +3942,6 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: true
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      hmo_contracts: {
-        Row: {
-          capitation_rate_kobo: number
-          created_at: string
-          effective_from: string | null
-          effective_to: string | null
-          id: string
-          latest_claim: Json
-          member_count: number
-          name: string
-          organisation_id: string
-          status: Database["public"]["Enums"]["contract_status"]
-          updated_at: string
-        }
-        Insert: {
-          capitation_rate_kobo?: number
-          created_at?: string
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string
-          latest_claim?: Json
-          member_count?: number
-          name: string
-          organisation_id: string
-          status?: Database["public"]["Enums"]["contract_status"]
-          updated_at?: string
-        }
-        Update: {
-          capitation_rate_kobo?: number
-          created_at?: string
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string
-          latest_claim?: Json
-          member_count?: number
-          name?: string
-          organisation_id?: string
-          status?: Database["public"]["Enums"]["contract_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "hmo_contracts_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -6767,6 +6529,7 @@ export type Database = {
           id: string
           is_active: boolean
           metadata: Json
+          min_cohort_size: number
           name: string
           type: Database["public"]["Enums"]["organisation_type"]
           updated_at: string
@@ -6776,6 +6539,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           metadata?: Json
+          min_cohort_size?: number
           name: string
           type: Database["public"]["Enums"]["organisation_type"]
           updated_at?: string
@@ -6785,6 +6549,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           metadata?: Json
+          min_cohort_size?: number
           name?: string
           type?: Database["public"]["Enums"]["organisation_type"]
           updated_at?: string
@@ -8192,27 +7957,21 @@ export type Database = {
       platform_currency_settings: {
         Row: {
           id: boolean
-          ngn_per_gbp: number | null
           ngn_per_usd: number | null
           updated_at: string
           updated_by: string | null
-          usd_per_gbp: number
         }
         Insert: {
           id?: boolean
-          ngn_per_gbp?: number | null
           ngn_per_usd?: number | null
           updated_at?: string
           updated_by?: string | null
-          usd_per_gbp?: number
         }
         Update: {
           id?: boolean
-          ngn_per_gbp?: number | null
           ngn_per_usd?: number | null
           updated_at?: string
           updated_by?: string | null
-          usd_per_gbp?: number
         }
         Relationships: [
           {
@@ -8559,6 +8318,7 @@ export type Database = {
           identity_verified_at: string | null
           is_active: boolean
           is_pregnant: boolean
+          lab_provider_id: string | null
           language: string
           metadata: Json
           next_of_kin_name: string | null
@@ -8590,6 +8350,7 @@ export type Database = {
           identity_verified_at?: string | null
           is_active?: boolean
           is_pregnant?: boolean
+          lab_provider_id?: string | null
           language?: string
           metadata?: Json
           next_of_kin_name?: string | null
@@ -8621,6 +8382,7 @@ export type Database = {
           identity_verified_at?: string | null
           is_active?: boolean
           is_pregnant?: boolean
+          lab_provider_id?: string | null
           language?: string
           metadata?: Json
           next_of_kin_name?: string | null
@@ -8642,6 +8404,13 @@ export type Database = {
             columns: ["custom_role_id"]
             isOneToOne: false
             referencedRelation: "custom_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_lab_provider_id_fkey"
+            columns: ["lab_provider_id"]
+            isOneToOne: false
+            referencedRelation: "lab_providers"
             referencedColumns: ["id"]
           },
           {
@@ -9732,6 +9501,7 @@ export type Database = {
           code: string
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
+          derived_from_code: string | null
           description: string | null
           features: string[]
           id: string
@@ -9749,6 +9519,7 @@ export type Database = {
           code: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
+          derived_from_code?: string | null
           description?: string | null
           features?: string[]
           id?: string
@@ -9766,6 +9537,7 @@ export type Database = {
           code?: string
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
+          derived_from_code?: string | null
           description?: string | null
           features?: string[]
           id?: string
@@ -9778,7 +9550,15 @@ export type Database = {
           stripe_price_id?: string | null
           stripe_product_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subscription_plans_derived_from_code_fkey"
+            columns: ["derived_from_code"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -11377,7 +11157,6 @@ export type Database = {
         Returns: Json
       }
       finance_budgets_list: { Args: { p_period_month?: string }; Returns: Json }
-      finance_capitation_register: { Args: never; Returns: Json }
       finance_cash_flow_statement: {
         Args: { p_currency?: string; p_from: string; p_to: string }
         Returns: Json
@@ -11406,7 +11185,6 @@ export type Database = {
       }
       finance_dashboard_summary: { Args: never; Returns: Json }
       finance_delete_budget: { Args: { p_id: string }; Returns: undefined }
-      finance_hmo_organisations_list: { Args: never; Returns: Json }
       finance_import_settlement: {
         Args: {
           p_bank_account: string
@@ -11480,19 +11258,6 @@ export type Database = {
         Returns: string
       }
       finance_reconciliation_summary: { Args: never; Returns: Json }
-      finance_record_capitation_receipt: {
-        Args: {
-          p_amount_minor: number
-          p_bank_account_code: string
-          p_contract_id: string
-          p_enrolled_members: number
-          p_estimated_cost_of_care_minor: number | null
-          p_notes: string | null
-          p_period_month: string
-          p_received_date: string
-        }
-        Returns: string
-      }
       finance_reject_request: {
         Args: { p_id: string; p_note: string }
         Returns: undefined
@@ -11550,20 +11315,6 @@ export type Database = {
           p_currency: string
           p_notes: string | null
           p_period_month: string
-        }
-        Returns: string
-      }
-      finance_upsert_capitation_contract: {
-        Args: {
-          p_contract_name: string
-          p_currency: string
-          p_effective_from: string
-          p_effective_to: string | null
-          p_id: string | null
-          p_is_active: boolean
-          p_notes: string | null
-          p_organisation_id: string
-          p_pmpm_rate_minor: number
         }
         Returns: string
       }
@@ -11646,6 +11397,34 @@ export type Database = {
       }
       health_education_locked_count: { Args: never; Returns: number }
       htn_quality_metrics: { Args: { p_org: string }; Returns: Json }
+      lab_partner_order_patient: {
+        Args: { p_order_id: string }
+        Returns: string
+      }
+      lab_partner_orders: {
+        Args: never
+        Returns: {
+          order_id: string
+          order_number: string | null
+          ordered_at: string
+          panel_name: string | null
+          patient_name: string | null
+          patient_number: string | null
+          resulted_at: string | null
+          status: string
+        }[]
+      }
+      lab_partner_upload_result: {
+        Args: {
+          p_file_path: string
+          p_file_size_bytes: number
+          p_mime_type: string
+          p_note?: string | null
+          p_order_id: string
+          p_original_filename: string
+        }
+        Returns: string
+      }
       open_health_check: { Args: never; Returns: string }
       pharmacist_order_allergies: {
         Args: { p_order_id: string }
@@ -11687,6 +11466,15 @@ export type Database = {
       post_care_message: {
         Args: { p_body: string; p_thread_id: string }
         Returns: string
+      }
+      public_price_list: {
+        Args: never
+        Returns: {
+          billing_interval: Database["public"]["Enums"]["billing_interval"]
+          code: string
+          currency: Database["public"]["Enums"]["currency"]
+          price_minor: number
+        }[]
       }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
       region_service_available: {
@@ -11772,6 +11560,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_vaccination_schedule: { Args: { p_signoff_id: string }; Returns: string }
       start_care_thread: {
@@ -11830,7 +11619,7 @@ export type Database = {
         | "declined"
         | "not_eligible"
       billing_interval: "monthly" | "yearly"
-      booking_origin: "patient_initiated" | "clinically_triggered" | "capitated"
+      booking_origin: "patient_initiated" | "clinically_triggered"
       booking_request_status:
         | "requested"
         | "confirmed"
@@ -11898,8 +11687,8 @@ export type Database = {
         | "symptom_log"
         | "ai_coach"
         | "intake_screen"
-        | "glucose_red_flag"
         | "bp_reading"
+        | "glucose_red_flag"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       facility_type:
@@ -11909,7 +11698,6 @@ export type Database = {
         | "radiology"
         | "optician"
         | "vaccination_centre"
-      family_relationship: "spouse" | "parent" | "child" | "sibling" | "other"
       foot_risk_class: "low" | "increased" | "high" | "active"
       foot_sensation: "normal" | "reduced" | "absent"
       glucose_context:
@@ -11945,6 +11733,7 @@ export type Database = {
         | "lab_liaison"
         | "clinician"
         | "admin"
+        | "lab_partner"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other"
       lpe_enrollment_status:
         | "draft"
@@ -12027,7 +11816,7 @@ export type Database = {
         | "lab"
         | "pharmacy"
         | "direct_consumer"
-      outcomes_contract_type: "capitation" | "fee_at_risk" | "flat"
+      outcomes_contract_type: "fee_at_risk" | "flat"
       outreach_task_status:
         | "open"
         | "in_progress"
@@ -12179,6 +11968,7 @@ export type Database = {
         | "analyst"
         | "lab_liaison"
         | "finance"
+        | "lab_partner"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -12396,11 +12186,7 @@ export const Constants = {
         "not_eligible",
       ],
       billing_interval: ["monthly", "yearly"],
-      booking_origin: [
-        "patient_initiated",
-        "clinically_triggered",
-        "capitated",
-      ],
+      booking_origin: ["patient_initiated", "clinically_triggered"],
       booking_request_status: [
         "requested",
         "confirmed",
@@ -12475,8 +12261,8 @@ export const Constants = {
         "symptom_log",
         "ai_coach",
         "intake_screen",
-        "glucose_red_flag",
         "bp_reading",
+        "glucose_red_flag",
       ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
@@ -12488,7 +12274,6 @@ export const Constants = {
         "optician",
         "vaccination_centre",
       ],
-      family_relationship: ["spouse", "parent", "child", "sibling", "other"],
       foot_risk_class: ["low", "increased", "high", "active"],
       foot_sensation: ["normal", "reduced", "absent"],
       glucose_context: [
@@ -12527,6 +12312,7 @@ export const Constants = {
         "lab_liaison",
         "clinician",
         "admin",
+        "lab_partner",
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other"],
       lpe_enrollment_status: [
@@ -12618,7 +12404,7 @@ export const Constants = {
         "pharmacy",
         "direct_consumer",
       ],
-      outcomes_contract_type: ["capitation", "fee_at_risk", "flat"],
+      outcomes_contract_type: ["fee_at_risk", "flat"],
       outreach_task_status: [
         "open",
         "in_progress",
@@ -12785,6 +12571,7 @@ export const Constants = {
         "analyst",
         "lab_liaison",
         "finance",
+        "lab_partner",
       ],
       vaccination_verification_status: [
         "self_reported",

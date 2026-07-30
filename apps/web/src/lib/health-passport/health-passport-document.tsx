@@ -48,7 +48,7 @@ export function HealthPassportDocument({
 }: {
   patientName: string;
   data: HealthPassportData;
-  /** Reused verbatim by the ParentCare/Family Premium quarterly report
+  /** Reused verbatim by the quarterly report
    * (see lib/reports/generate-quarterly-report.ts) — same layout, same
    * data shape (just a shorter period window), different title so it
    * reads as its own named artifact rather than a re-skinned Health
