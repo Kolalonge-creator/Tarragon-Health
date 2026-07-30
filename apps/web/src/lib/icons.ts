@@ -93,6 +93,7 @@ export const SEMANTIC_ICON = {
   challenge: Target,
   wellnessClass: Dumbbell,
   nutrition: Utensils,
+  impact: BarChart3,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Navigation + app-shell chrome icons — same sanctioned-surface rule as

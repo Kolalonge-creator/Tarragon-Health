@@ -5614,6 +5614,151 @@ export type Database = {
           },
         ]
       }
+      masked_call_participants: {
+        Row: {
+          added_at: string
+          id: string
+          organisation_id: string
+          profile_id: string
+          role: Database["public"]["Enums"]["masked_call_participant_role"]
+          session_id: string
+          twilio_participant_sid: string | null
+          twilio_proxy_identifier: string | null
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          organisation_id: string
+          profile_id: string
+          role: Database["public"]["Enums"]["masked_call_participant_role"]
+          session_id: string
+          twilio_participant_sid?: string | null
+          twilio_proxy_identifier?: string | null
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          organisation_id?: string
+          profile_id?: string
+          role?: Database["public"]["Enums"]["masked_call_participant_role"]
+          session_id?: string
+          twilio_participant_sid?: string | null
+          twilio_proxy_identifier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "masked_call_participants_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "masked_call_participants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "masked_call_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "masked_call_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      masked_call_sessions: {
+        Row: {
+          closed_at: string | null
+          context: Database["public"]["Enums"]["masked_call_context"]
+          created_at: string
+          escalation_id: string | null
+          expires_at: string
+          id: string
+          initiated_by: string
+          organisation_id: string
+          patient_id: string
+          staff_profile_id: string
+          status: Database["public"]["Enums"]["masked_call_session_status"]
+          twilio_proxy_service_sid: string | null
+          twilio_proxy_session_sid: string | null
+          updated_at: string
+          vendor_error: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          context: Database["public"]["Enums"]["masked_call_context"]
+          created_at?: string
+          escalation_id?: string | null
+          expires_at?: string
+          id?: string
+          initiated_by: string
+          organisation_id: string
+          patient_id: string
+          staff_profile_id: string
+          status?: Database["public"]["Enums"]["masked_call_session_status"]
+          twilio_proxy_service_sid?: string | null
+          twilio_proxy_session_sid?: string | null
+          updated_at?: string
+          vendor_error?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          context?: Database["public"]["Enums"]["masked_call_context"]
+          created_at?: string
+          escalation_id?: string | null
+          expires_at?: string
+          id?: string
+          initiated_by?: string
+          organisation_id?: string
+          patient_id?: string
+          staff_profile_id?: string
+          status?: Database["public"]["Enums"]["masked_call_session_status"]
+          twilio_proxy_service_sid?: string | null
+          twilio_proxy_session_sid?: string | null
+          updated_at?: string
+          vendor_error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "masked_call_sessions_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "masked_call_sessions_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "masked_call_sessions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "masked_call_sessions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "masked_call_sessions_staff_profile_id_fkey"
+            columns: ["staff_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_adherence_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -8665,6 +8810,42 @@ export type Database = {
           },
         ]
       }
+      public_impact_metrics: {
+        Row: {
+          computed_at: string | null
+          description: string | null
+          display_order: number
+          is_published: boolean
+          label: string
+          metric_key: string
+          suppressed: boolean
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          computed_at?: string | null
+          description?: string | null
+          display_order?: number
+          is_published?: boolean
+          label: string
+          metric_key: string
+          suppressed?: boolean
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          computed_at?: string | null
+          description?: string | null
+          display_order?: number
+          is_published?: boolean
+          label?: string
+          metric_key?: string
+          suppressed?: boolean
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: []
+      }
       referral_codes: {
         Row: {
           code: string
@@ -11678,9 +11859,14 @@ export type Database = {
         Returns: string[]
       }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
+      admin_refresh_public_impact_metrics: { Args: never; Returns: undefined }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
+      }
+      admin_set_impact_metric_published: {
+        Args: { p_is_published: boolean; p_metric_key: string }
+        Returns: undefined
       }
       analytics_accounting_summary: { Args: never; Returns: Json }
       analytics_acquisition_funnel: {
@@ -11795,6 +11981,10 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
+      close_masked_call: {
+        Args: { p_reason?: string | null; p_session_id: string }
+        Returns: undefined
+      }
       decline_video_visit_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
@@ -12189,6 +12379,15 @@ export type Database = {
         Args: { p_service: string; p_state: string }
         Returns: boolean
       }
+      request_masked_call: {
+        Args: {
+          p_context: Database["public"]["Enums"]["masked_call_context"]
+          p_escalation_id?: string | null
+          p_patient_id: string
+          p_staff_profile_id: string
+        }
+        Returns: string
+      }
       resolve_personalised_lifestyle_goal: {
         Args: {
           p_goal_id: string
@@ -12522,6 +12721,9 @@ export type Database = {
       lpe_red_flag_status: "open" | "stood_down"
       lpe_task_channel: "app" | "whatsapp_reminder"
       lpe_task_status: "pending" | "done" | "missed" | "skipped"
+      masked_call_context: "care_coordination" | "clinical_follow_up" | "escalation_contact"
+      masked_call_participant_role: "patient" | "staff"
+      masked_call_session_status: "requested" | "active" | "closed" | "expired" | "failed"
       meal_type: "breakfast" | "lunch" | "dinner" | "snack"
       med_adherence_alert_level: "coach" | "doctor"
       med_adherence_alert_status: "open" | "acknowledged" | "resolved"
@@ -13122,6 +13324,9 @@ export const Constants = {
       lpe_red_flag_status: ["open", "stood_down"],
       lpe_task_channel: ["app", "whatsapp_reminder"],
       lpe_task_status: ["pending", "done", "missed", "skipped"],
+      masked_call_context: ["care_coordination", "clinical_follow_up", "escalation_contact"],
+      masked_call_participant_role: ["patient", "staff"],
+      masked_call_session_status: ["requested", "active", "closed", "expired", "failed"],
       meal_type: ["breakfast", "lunch", "dinner", "snack"],
       med_adherence_alert_level: ["coach", "doctor"],
       med_adherence_alert_status: ["open", "acknowledged", "resolved"],
