@@ -7295,6 +7295,64 @@ export type Database = {
           },
         ]
       }
+      patient_health_resets: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          started_at: string
+          trial_claimed_at: string | null
+          trial_subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          started_at?: string
+          trial_claimed_at?: string | null
+          trial_subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          started_at?: string
+          trial_claimed_at?: string | null
+          trial_subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_health_resets_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_health_resets_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_health_resets_trial_subscription_id_fkey"
+            columns: ["trial_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_hospital_admissions: {
         Row: {
           admitted_on: string
@@ -11736,6 +11794,7 @@ export type Database = {
         Args: { target_roster_id: string }
         Returns: boolean
       }
+      claim_health_reset_trial: { Args: never; Returns: Json }
       decline_video_visit_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
@@ -12038,6 +12097,19 @@ export type Database = {
         Returns: string
       }
       open_health_check: { Args: never; Returns: string }
+      patient_health_reset_progress: {
+        Args: never
+        Returns: {
+          baseline_done: boolean
+          completed_at: string | null
+          consistency_done: boolean
+          day_number: number
+          programme_set_done: boolean
+          reset_id: string
+          started_at: string
+          trial_claimed_at: string | null
+        }[]
+      }
       pharmacist_order_allergies: {
         Args: { p_order_id: string }
         Returns: {
