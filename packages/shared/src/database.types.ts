@@ -10177,6 +10177,50 @@ export type Database = {
           },
         ]
       }
+      vaccination_schedule_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          catalog_snapshot: Json | null
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          source_url: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          catalog_snapshot?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          source_url?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          catalog_snapshot?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          source_url?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vaccination_schedule_signoffs_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vaccination_schedules: {
         Row: {
           created_at: string
@@ -11729,6 +11773,7 @@ export type Database = {
         }
       }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
+      sign_vaccination_schedule: { Args: { p_signoff_id: string }; Returns: string }
       start_care_thread: {
         Args: {
           p_body: string
