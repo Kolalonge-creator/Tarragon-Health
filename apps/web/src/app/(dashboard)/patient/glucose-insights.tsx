@@ -53,7 +53,7 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
         {tir ? (
           <div className="space-y-1.5">
             <p className="text-charcoal-ink/80">
-              Last {WINDOW_DAYS} days ({tir.total} readings) — how often you were in range
+              Last {WINDOW_DAYS} days ({tir.total} readings), how often you were in range
               ({tir.low}–{tir.high} mmol/L):
             </p>
             <div className="flex h-4 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
@@ -63,7 +63,7 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
             </div>
             <p className="text-charcoal-ink/60">
               {tir.inRangePct}% in range · {tir.belowPct}% low · {tir.abovePct}% high. Your doctor
-              reviews the pattern — a single reading isn&apos;t the whole picture.
+              reviews the pattern; a single reading isn&apos;t the whole picture.
             </p>
           </div>
         ) : (

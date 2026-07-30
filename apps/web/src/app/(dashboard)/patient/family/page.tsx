@@ -120,8 +120,8 @@ export default async function CareCirclePage() {
         <CardHeader>
           <CardTitle>Managing care together</CardTitle>
           <CardDescription>
-            For an adult who should be able to act on a record, not just follow it — bookings,
-            prescriptions, vaccinations — set that up with its own step-by-step request.
+            For an adult who should be able to act on a record, not just follow it (bookings,
+            prescriptions, vaccinations), set that up with its own step-by-step request.
           </CardDescription>
         </CardHeader>
         <CardContent>

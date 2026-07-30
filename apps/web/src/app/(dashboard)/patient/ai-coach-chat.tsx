@@ -55,7 +55,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         <div className="max-h-80 space-y-2 overflow-y-auto rounded-md bg-charcoal-ink/5 p-3">
           {messages.length === 0 && !sendMessage.isPending && (
             <p className="text-sm text-charcoal-ink/60">
-              Ask me anything about your health — I&apos;m here to help you understand what to do next.
+              Ask me anything about your health; I&apos;m here to help you understand what to do next.
             </p>
           )}
           {messages.map((message) => (

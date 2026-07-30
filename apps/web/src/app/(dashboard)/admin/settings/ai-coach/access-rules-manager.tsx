@@ -59,7 +59,7 @@ export function AccessRulesManager() {
               ? globalRule.enabled
                 ? "The coach is currently available to every patient."
                 : "The coach is currently disabled for every patient (overrides any subscription plan feature)."
-              : "No org-wide override set — access falls back to each patient's subscription plan and any patient-specific grant below."}
+              : "No org-wide override set. Access falls back to each patient's subscription plan and any patient-specific grant below."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -124,7 +124,7 @@ export function AccessRulesManager() {
         <CardHeader>
           <CardTitle>Patient-specific access</CardTitle>
           <CardDescription>
-            Grant/revoke access or override the daily message cap for one patient — beats both
+            Grant/revoke access or override the daily message cap for one patient. Beats both
             the org-wide setting above and their subscription plan&apos;s cap.
           </CardDescription>
         </CardHeader>
@@ -202,8 +202,8 @@ export function AccessRulesManager() {
                       {rule.patient?.full_name ?? "Unknown patient"}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
-                      {rule.patient?.phone} — {rule.enabled ? "granted" : "revoked"}
-                      {rule.daily_limit ? ` — ${rule.daily_limit} messages/day` : ""}
+                      {rule.patient?.phone}, {rule.enabled ? "granted" : "revoked"}
+                      {rule.daily_limit ? `, ${rule.daily_limit} messages/day` : ""}
                     </p>
                   </div>
                   <Button

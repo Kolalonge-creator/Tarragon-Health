@@ -27,7 +27,7 @@ export default async function WeightPage() {
       </div>
       <p className="max-w-2xl text-sm text-charcoal-ink/70">
         Track your weight against a goal you set. Log weight from your vitals or your lifestyle
-        check-in — either way, it shows up here.
+        check-in; either way, it shows up here.
       </p>
       <RequiresEntitlement
         feature="lifestyle_coaching"

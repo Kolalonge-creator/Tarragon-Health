@@ -19,7 +19,7 @@ export default async function ServiceRegionsSettingsPage() {
         </h1>
         <p className="text-charcoal-ink/60">
           Turn TarragonHealth on one state at a time. Registration and the free / self-service
-          tier work everywhere regardless — this switch only controls the partner-dependent
+          tier work everywhere regardless. This switch only controls the partner-dependent
           actions (lab tests, pharmacy, home collection, delivery). A state also needs an active
           partner for a given service before that service goes live there. Activating a state
           automatically notifies everyone waiting for it.

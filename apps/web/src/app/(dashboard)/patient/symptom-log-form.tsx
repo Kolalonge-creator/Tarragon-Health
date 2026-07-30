@@ -56,7 +56,7 @@ export function SymptomLogForm({ patientId }: { patientId: string }) {
 
           <div className="space-y-1.5">
             <Label htmlFor="severity">
-              Severity — {severity}/10
+              Severity: {severity}/10
             </Label>
             <input
               id="severity"

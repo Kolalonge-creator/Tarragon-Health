@@ -52,7 +52,7 @@ export default async function PreventionHubPage() {
         </h1>
         <p className="mt-1 text-sm text-charcoal-ink/70">
           You don&apos;t need to be unwell to be here. Screenings, vaccinations, and the
-          yearly checks that keep healthy people healthy — all in one place, built around
+          yearly checks that keep healthy people healthy: all in one place, built around
           your age, sex, and history.
         </p>
       </div>
@@ -64,7 +64,7 @@ export default async function PreventionHubPage() {
         <CardContent className="space-y-2 text-sm">
           <p className="text-charcoal-ink/70">
             A guided, whole-body check-in: your health profile, wellbeing, measurements,
-            screenings, and immunisations — reviewed by a doctor at the end.
+            screenings, and immunisations, reviewed by a doctor at the end.
           </p>
           <Link href="/patient/health-check" className="text-sm text-brand-green hover:underline">
             Open this year&apos;s Health Check →

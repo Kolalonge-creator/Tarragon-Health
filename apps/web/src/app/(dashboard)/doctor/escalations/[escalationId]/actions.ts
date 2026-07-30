@@ -70,7 +70,7 @@ export async function startVirtualReview(escalationId: string): Promise<StartVir
   }
 
   const meetingResult = await createMeeting({
-    topic: `Tarragon Health — virtual review with ${escalation.patient?.full_name ?? "patient"}`,
+    topic: `Tarragon Health: virtual review with ${escalation.patient?.full_name ?? "patient"}`,
   });
   if (!meetingResult.ok) {
     await supabase.from("video_consultations").update({ status: "cancelled" }).eq("id", consultation.id);

@@ -80,7 +80,7 @@ function OrderCard({ order }: { order: OrderRow }) {
                   <li key={i} className="text-sm text-red-700">
                     {a.allergen}
                     {a.severity ? ` (${a.severity})` : ""}
-                    {a.reaction ? ` — ${a.reaction}` : ""}
+                    {a.reaction ? `: ${a.reaction}` : ""}
                   </li>
                 ))}
               </ul>
@@ -95,7 +95,7 @@ function OrderCard({ order }: { order: OrderRow }) {
                 {medications.map((m, i) => (
                   <li key={i} className="text-sm text-charcoal-ink">
                     {m.drug_name}
-                    {m.dose ? ` — ${m.dose}` : ""}
+                    {m.dose ? `: ${m.dose}` : ""}
                     {m.frequency ? ` (${m.frequency})` : ""}
                   </li>
                 ))}

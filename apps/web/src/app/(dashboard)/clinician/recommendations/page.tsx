@@ -93,7 +93,7 @@ export default function RecommendationsPage() {
         <CardContent>
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
           {!isLoading && (!recommendations || recommendations.length === 0) && (
-            <p className="text-sm text-charcoal-ink/60">Nothing waiting — you&apos;re all caught up.</p>
+            <p className="text-sm text-charcoal-ink/60">Nothing waiting, you&apos;re all caught up.</p>
           )}
           {recommendations && recommendations.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">

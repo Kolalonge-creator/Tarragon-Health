@@ -19,7 +19,7 @@ export default async function LogisticsPartnersSettingsPage() {
           Home visit &amp; delivery partners
         </h1>
         <p className="text-charcoal-ink/60">
-          There is no feature flag for home collection or delivery — patients see a real
+          There is no feature flag for home collection or delivery. Patients see a real
           scheduling/tracking UI the moment an active partner row exists covering their region.
           Adding or activating a row below is the entire mechanism.
         </p>

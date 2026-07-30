@@ -76,7 +76,7 @@ export default async function HealthPassportPage() {
             Your Health Passport
           </h1>
           <p className="text-charcoal-ink/60">
-            A summary of your health record for {periodLabel} — for your own records or to
+            A summary of your health record for {periodLabel}, for your own records or to
             share with another doctor. Not a substitute for your full medical record.
           </p>
         </div>
@@ -133,12 +133,12 @@ export default async function HealthPassportPage() {
               {data.screenings.map((s, i) => (
                 <li key={i} className="py-2">
                   <p className="text-sm font-medium text-charcoal-ink">
-                    {s.screenTypeName} — {s.status}
+                    {s.screenTypeName}: {s.status}
                   </p>
                   {s.resultStatus && (
                     <p className="text-xs text-charcoal-ink/60">
                       Result: {s.resultStatus}
-                      {s.resultSummary ? ` — ${s.resultSummary}` : ""}
+                      {s.resultSummary ? `, ${s.resultSummary}` : ""}
                     </p>
                   )}
                 </li>

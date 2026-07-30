@@ -61,7 +61,7 @@ export async function requestVideoVisit(
     .eq("id", parsed.data.slotId)
     .maybeSingle();
   if (!slot) {
-    return { error: "That time is no longer available — pick another slot." };
+    return { error: "That time is no longer available, pick another slot." };
   }
 
   const { data: request, error: insertError } = await supabase
@@ -87,7 +87,7 @@ export async function requestVideoVisit(
     amountKobo: request.amount_minor,
     currency: request.currency as Currency,
     email: user.email,
-    description: "Tarragon Health — video visit with a doctor",
+    description: "Tarragon Health: video visit with a doctor",
     callbackUrl: `${origin}/patient`,
   });
 

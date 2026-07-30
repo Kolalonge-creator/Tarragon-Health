@@ -33,7 +33,7 @@ export function ObesityEdScreenForm({ patientId }: { patientId: string }) {
       <CardContent>
         <p className="mb-4 text-sm text-charcoal-ink/70">
           Mandatory before any weight-loss plan (§6.5, §18). A positive screen automatically pauses
-          weight-loss tasks and raises a doctor alert — treat the eating disorder or mental-health need
+          weight-loss tasks and raises a doctor alert; treat the eating disorder or mental-health need
           first.
         </p>
         <form action={formAction} className="space-y-5">
@@ -77,12 +77,12 @@ export function ObesityEdScreenForm({ patientId }: { patientId: string }) {
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && state.positive && (
             <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-              Screen positive. Weight-loss tasks have been paused and a doctor alert raised — review and
+              Screen positive. Weight-loss tasks have been paused and a doctor alert raised; review and
               refer per §18 before resuming weight-loss care.
             </p>
           )}
           {state?.success && !state.positive && (
-            <p className="text-sm text-brand-green">Screen recorded — no eating-disorder / mental-health flag.</p>
+            <p className="text-sm text-brand-green">Screen recorded, no eating-disorder / mental-health flag.</p>
           )}
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Record screen"}

@@ -20,7 +20,7 @@ export default async function ImpactMetricsSettingsPage() {
         <p className="text-charcoal-ink/60">
           Controls what shows on the public <code>/impact</code> page. Every value is a real
           platform-wide count, refreshed nightly; anything under 25 is held back automatically to
-          protect patient privacy — hiding a row here is a separate, manual kill switch on top of
+          protect patient privacy. Hiding a row here is a separate, manual kill switch on top of
           that.
         </p>
       </div>

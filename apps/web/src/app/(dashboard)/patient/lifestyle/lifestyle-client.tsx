@@ -79,7 +79,7 @@ export function LifestyleClient({
         <div>
           <h1 className="text-2xl font-semibold">Your lifestyle programme</h1>
           <p className="text-muted-foreground text-sm">
-            Small, steady changes — logged here, supported by your care team.
+            Small, steady changes, logged here, supported by your care team.
           </p>
         </div>
         <GoalsDialog enrollments={enrollments} pastGoals={pastGoals} />

@@ -48,9 +48,9 @@ export function CvRiskConfigManager({ configs }: { configs: CvRiskConfigRow[] })
             <CardTitle className="flex items-center gap-2 text-base">
               Version {c.version}
               {c.is_active ? (
-                <Badge variant="green">Active — signed</Badge>
+                <Badge variant="green">Active, signed</Badge>
               ) : (
-                <Badge variant="grey">Draft — not in force</Badge>
+                <Badge variant="grey">Draft, not in force</Badge>
               )}
             </CardTitle>
           </CardHeader>

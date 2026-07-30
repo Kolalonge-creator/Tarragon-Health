@@ -85,9 +85,9 @@ export function ComplianceCalendar() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Nigeria&apos;s recurring statutory filings — VAT, WHT, PAYE, pension (PRA 2014), and annual CIT.
+        Nigeria&apos;s recurring statutory filings: VAT, WHT, PAYE, pension (PRA 2014), and annual CIT.
         Cadences shown are the standard statutory day-of-month figures as a starting point; confirm exact
-        dates with your tax adviser. This is a tracker, not a filing engine — it never files anything with
+        dates with your tax adviser. This is a tracker, not a filing engine: it never files anything with
         FIRS/PENCOM itself; &quot;mark as filed&quot; just records that your team remitted it, with a
         reference, and is logged in the audit trail.
       </p>

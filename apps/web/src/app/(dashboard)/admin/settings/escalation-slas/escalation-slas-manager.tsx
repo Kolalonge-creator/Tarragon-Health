@@ -74,14 +74,14 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Re-attest the current config — version {nextVersion}</CardTitle>
+        <CardTitle className="text-base">Re-attest the current config: version {nextVersion}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={action} className="space-y-3">
           <p className="text-sm text-charcoal-ink/70">
             Creates a draft that duplicates the active configuration below exactly as it stands.
             Sign it to put a fresh reviewed-and-approved record on file. To actually change an SLA
-            number, that goes through a reviewed, tested migration first — this form only re-attests
+            number, that goes through a reviewed, tested migration first; this form only re-attests
             or brings a migration-updated config into force.
           </p>
           <div className="space-y-1">
@@ -101,7 +101,7 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
           </Button>
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">Draft created — sign it below to bring it into force.</p>
+            <p className="text-sm text-brand-green">Draft created. Sign it below to bring it into force.</p>
           )}
         </form>
       </CardContent>
@@ -187,13 +187,13 @@ export function EscalationSlasManager({
           <CardContent className="space-y-2 pt-6">
             <div className="flex items-center gap-2">
               <Badge variant={activeVersion.approved_at ? "green" : "grey"}>
-                {activeVersion.approved_at ? "Signed" : "Unsigned"} — version {activeVersion.version}
+                {activeVersion.approved_at ? "Signed" : "Unsigned"}, version {activeVersion.version}
               </Badge>
             </div>
             <p className="text-sm text-charcoal-ink/70">
               {activeVersion.approved_at
                 ? `In force since ${new Date(activeVersion.approved_at).toLocaleString("en-GB")}.`
-                : "This version is live and driving every clinician_alert's sla_due_at today — that isn't gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
+                : "This version is live and driving every clinician_alert's sla_due_at today. That isn't gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
               {activeVersion.notes}
             </p>
           </CardContent>
@@ -221,7 +221,7 @@ export function EscalationSlasManager({
                   {v.is_active ? (
                     <Badge variant="green">Active</Badge>
                   ) : (
-                    <Badge variant="grey">Draft — not in force</Badge>
+                    <Badge variant="grey">Draft, not in force</Badge>
                   )}
                   {v.approved_at && <Badge variant="green">Signed</Badge>}
                 </CardTitle>

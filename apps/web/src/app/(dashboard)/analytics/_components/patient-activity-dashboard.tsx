@@ -45,7 +45,7 @@ export function PatientActivityDashboard() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         <ShieldAlert className="mr-1 inline h-3.5 w-3.5" />
-        Identified patient lookup for dispute / compliance purposes — shows whether and when a
+        Identified patient lookup for dispute / compliance purposes: shows whether and when a
         patient engaged with the platform. Every lookup is recorded to the audit log with the reason
         you enter. Handle under your data-protection policy.
       </p>
@@ -67,7 +67,7 @@ export function PatientActivityDashboard() {
             <Input
               id="pa-reason"
               value={reason}
-              placeholder="e.g. legal review — case #..."
+              placeholder="e.g. legal review, case #..."
               onChange={(ev) => setReason(ev.target.value)}
             />
           </div>
@@ -123,7 +123,7 @@ export function PatientActivityDashboard() {
           </div>
 
           <SectionCard
-            title={`Engagement — ${activity.data?.patient?.name ?? selected.label}`}
+            title={`Engagement: ${activity.data?.patient?.name ?? selected.label}`}
             description="Whether and when this patient engaged with the platform."
           >
             <dl className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
@@ -179,7 +179,7 @@ export function PatientActivityDashboard() {
 
           <SectionCard
             title="Activity timeline"
-            description="Logins, readings logged, AI-coach use, consents, and audited actions — newest first."
+            description="Logins, readings logged, AI-coach use, consents, and audited actions, newest first."
             actions={<ExportButton filename={`patient-${selected.label}-activity`} rows={activity.data?.activity ?? []} />}
           >
             {activity.isLoading ? (

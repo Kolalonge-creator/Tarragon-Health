@@ -87,7 +87,7 @@ export default async function DoctorEscalationPage({
           {escalation.clinician_alert && (
             <p className="text-sm text-charcoal-ink">
               {escalation.clinician_alert.title}
-              {escalation.clinician_alert.detail && ` — ${escalation.clinician_alert.detail}`}
+              {escalation.clinician_alert.detail && `: ${escalation.clinician_alert.detail}`}
             </p>
           )}
           <p className="text-sm text-charcoal-ink">Reason: {escalation.reason}</p>

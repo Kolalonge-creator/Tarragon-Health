@@ -91,9 +91,9 @@ function LogMealSection({
       setFile(null);
       setMealType("lunch");
       if (res?.aiStatus === "estimated") {
-        setMessage("Logged. We've added an estimate below — check and confirm it.");
+        setMessage("Logged. We've added an estimate below. Check and confirm it.");
       } else if (res?.aiStatus === "unavailable") {
-        setMessage("Logged. We couldn't estimate this photo automatically — you can add details.");
+        setMessage("Logged. We couldn't estimate this photo automatically. You can add details.");
       } else {
         setMessage("Logged.");
       }
@@ -166,8 +166,8 @@ function LogMealSection({
             />
             <p className="text-xs text-charcoal-ink/60">
               {visionConfigured
-                ? "Add a photo and we'll estimate the portions and carbs for you — a coaching guide, not a medical measurement."
-                : "Photo estimates aren't switched on yet — your meal still logs with the details you add."}
+                ? "Add a photo and we'll estimate the portions and carbs for you: a coaching guide, not a medical measurement."
+                : "Photo estimates aren't switched on yet; your meal still logs with the details you add."}
             </p>
           </div>
 
@@ -249,13 +249,13 @@ function EntryCard({ entry, patientId }: { entry: NutritionEntry; patientId: str
             <ul className="mt-1 list-disc pl-5 text-charcoal-ink/70">
               {estimate.items.map((item, i) => (
                 <li key={i}>
-                  {item.name} — {item.portion} (~{Math.round(item.est_carbs_g)} g)
+                  {item.name}, {item.portion} (~{Math.round(item.est_carbs_g)} g)
                 </li>
               ))}
             </ul>
           )}
           <p className="mt-1 text-xs text-charcoal-ink/50">
-            Coaching estimate only — not a medical measurement.
+            Coaching estimate only, not a medical measurement.
           </p>
         </div>
       )}

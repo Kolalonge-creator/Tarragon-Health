@@ -171,7 +171,7 @@ export async function testPartnerConnectionAction(
       .eq("id", id);
     revalidatePath("/admin/settings/integrations");
     return ok
-      ? { ok: true, detail: `Reachable — HTTP ${result.status}` }
+      ? { ok: true, detail: `Reachable: HTTP ${result.status}` }
       : { ok: false, detail: result.error };
   } catch {
     return { ok: false, detail: "Not authorised" };

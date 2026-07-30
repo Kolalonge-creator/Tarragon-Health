@@ -44,8 +44,8 @@ export default function ClinicianEscalationsPage() {
                       className="hover:underline"
                     >
                       {escalation.patient?.full_name ?? "Unknown patient"}
-                    </Link>{" "}
-                    — {escalation.reason}
+                    </Link>
+                    : {escalation.reason}
                   </p>
                   <p className="text-xs text-charcoal-ink/60">
                     Assigned to {escalation.assigned_doctor?.full_name ?? "Unclaimed"} · raised{" "}

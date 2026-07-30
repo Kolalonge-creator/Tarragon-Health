@@ -20,7 +20,7 @@ export function CareTeamContact() {
       </CardHeader>
       <CardContent>
         <p className="text-sm text-charcoal-ink/70">
-          Your care team reaches out on WhatsApp for your scheduled check-ins — you can also
+          Your care team reaches out on WhatsApp for your scheduled check-ins, and you can also
           reply directly on that thread any time with a question, and a real person on your care
           team will get back to you.
         </p>

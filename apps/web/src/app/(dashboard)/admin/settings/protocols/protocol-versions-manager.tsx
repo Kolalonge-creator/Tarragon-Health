@@ -50,7 +50,7 @@ export function ProtocolVersionsManager() {
         <CardHeader>
           <CardTitle>Sign a new protocol version</CardTitle>
           <CardDescription>
-            protocol_id is a stable slug shared across versions of the same protocol — reuse an
+            protocol_id is a stable slug shared across versions of the same protocol; reuse an
             existing one (see below) to add a version to it, or pick a new one to start a
             protocol.
           </CardDescription>
@@ -134,7 +134,7 @@ export function ProtocolVersionsManager() {
               {protocolVersions.map((v) => (
                 <li key={v.id} className="space-y-1 py-3">
                   <p className="text-sm font-medium text-charcoal-ink">
-                    v{v.version_number} — {formatApprovedAt(v.approved_at)}
+                    v{v.version_number}, {formatApprovedAt(v.approved_at)}
                   </p>
                   <p className="text-xs text-charcoal-ink/60">
                     Signed by {v.approved_by_staff?.full_name ?? "unknown"}

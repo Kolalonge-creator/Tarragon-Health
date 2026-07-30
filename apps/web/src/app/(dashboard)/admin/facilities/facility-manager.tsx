@@ -204,7 +204,7 @@ export function FacilityManager() {
           {facilities.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
           {facilities.isError && <p className="text-sm text-red-600">Could not load facilities.</p>}
           {!facilities.isLoading && !facilities.isError && facilities.data?.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No facilities yet — add one above.</p>
+            <p className="text-sm text-charcoal-ink/60">No facilities yet. Add one above.</p>
           )}
           {facilities.data && facilities.data.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
@@ -214,7 +214,7 @@ export function FacilityManager() {
                     <div>
                       <p className="text-sm font-medium text-charcoal-ink">{facility.name}</p>
                       <p className="text-xs text-charcoal-ink/60">
-                        {FACILITY_TYPE_LABEL[facility.type]} — {facility.city}, {facility.state}
+                        {FACILITY_TYPE_LABEL[facility.type]}, {facility.city}, {facility.state}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -321,8 +321,7 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
                   {service.name}
                   {service.price_kobo != null && (
                     <span className="text-charcoal-ink/60">
-                      {" "}
-                      — ₦{koboToNaira(service.price_kobo).toLocaleString()}
+                      , ₦{koboToNaira(service.price_kobo).toLocaleString()}
                     </span>
                   )}
                 </p>

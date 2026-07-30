@@ -46,14 +46,14 @@ export function ClassesSection({
           Workout classes &amp; health workshops
         </CardTitle>
         <CardDescription>
-          Live sessions from partner instructors and studios — coming soon in your area.
+          Live sessions from partner instructors and studios, coming soon in your area.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {!isLoading && (!classes || classes.length === 0) && (
           <p className="text-sm text-charcoal-ink/60">
-            Nothing scheduled yet — we&apos;re working on bringing partner classes to your area.
+            Nothing scheduled yet; we&apos;re working on bringing partner classes to your area.
           </p>
         )}
         {classes && classes.length > 0 && (

@@ -48,7 +48,7 @@ function RequestRow({ request }: { request: VideoVisitRequestWithPatient }) {
         </p>
         <Badge variant="amber">
           Paid {symbol}
-          {koboToNaira(request.amount_minor).toLocaleString()} — held
+          {koboToNaira(request.amount_minor).toLocaleString()}, held
         </Badge>
       </div>
       <p className="text-sm text-charcoal-ink">
@@ -114,7 +114,7 @@ export function VideoVisitRequestQueue() {
       </CardHeader>
       <CardContent>
         <p className="mb-3 text-xs text-charcoal-ink/60">
-          Patients have already paid for these — the money is held until you accept.
+          Patients have already paid for these; the money is held until you accept.
           Accept to book the time, or decline with a reason and the patient is refunded in
           full.
         </p>

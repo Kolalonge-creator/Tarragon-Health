@@ -8,7 +8,7 @@ export type SubmitTestimonialState = { error?: string; message?: string } | unde
 
 const schema = z.object({
   display_name: z.string().trim().min(1, "Enter a display name").max(80),
-  quote: z.string().trim().min(20, "A few more words help — at least 20 characters").max(500),
+  quote: z.string().trim().min(20, "A few more words help: at least 20 characters").max(500),
 });
 
 /**
@@ -45,5 +45,5 @@ export async function submitTestimonial(
   });
   if (error) return { error: error.message };
 
-  return { message: "Thank you — our team will review it before it's shared." };
+  return { message: "Thank you. Our team will review it before it's shared." };
 }

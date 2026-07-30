@@ -163,7 +163,7 @@ export function PharmacyCatalogue({
         )}
         {catalogue && catalogue.length > 0 && drugGroups.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            No pharmacies match that location — try a nearby city or clear the filter.
+            No pharmacies match that location, try a nearby city or clear the filter.
           </p>
         )}
 
@@ -252,7 +252,7 @@ export function PharmacyCatalogue({
                         </Button>
                         {geoStatus === "denied" && (
                           <span className="text-xs text-charcoal-ink/60">
-                            Location unavailable — showing lowest price first.
+                            Location unavailable, showing lowest price first.
                           </span>
                         )}
                       </div>

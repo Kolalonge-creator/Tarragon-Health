@@ -112,7 +112,7 @@ export async function createPlan(
   if (!sync.ok) {
     const providerLabel = parsed.data.currency === "NGN" ? "Paystack" : "Stripe";
     return {
-      error: `Plan saved but ${providerLabel} sync failed (${sync.error}) — it stays inactive until synced. Try "Sync to ${providerLabel}" below.`,
+      error: `Plan saved but ${providerLabel} sync failed (${sync.error}). It stays inactive until synced. Try "Sync to ${providerLabel}" below.`,
     };
   }
 
@@ -186,7 +186,7 @@ export async function createAddOn(
   if (!sync.ok) {
     const providerLabel = parsed.data.currency === "NGN" ? "Paystack" : "Stripe";
     return {
-      error: `Add-on saved but ${providerLabel} sync failed (${sync.error}) — it stays inactive until synced. Try "Sync to ${providerLabel}" below.`,
+      error: `Add-on saved but ${providerLabel} sync failed (${sync.error}). It stays inactive until synced. Try "Sync to ${providerLabel}" below.`,
     };
   }
 
