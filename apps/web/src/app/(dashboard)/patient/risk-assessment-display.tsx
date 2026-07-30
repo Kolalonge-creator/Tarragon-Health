@@ -47,7 +47,7 @@ export function RiskAssessmentDisplay({ patientId }: { patientId: string }) {
         )}
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            Fill in the assessment above to see your personal risk tiers — a starting
+            Fill in the assessment above to see your personal risk tiers, a starting
             point for your care, not a diagnosis.
           </p>
         )}

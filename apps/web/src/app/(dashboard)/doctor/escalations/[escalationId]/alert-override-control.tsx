@@ -83,7 +83,7 @@ export function AlertOverrideControl({
   return (
     <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
       <p className="text-xs text-charcoal-ink/60">
-        Disagree with the auto-assigned level? Record your own — the system&apos;s original
+        Disagree with the auto-assigned level? Record your own: the system&apos;s original
         classification is kept, never overwritten.
       </p>
       <Select value={level} onChange={(e) => setLevel(e.target.value as EscalationLevel)}>

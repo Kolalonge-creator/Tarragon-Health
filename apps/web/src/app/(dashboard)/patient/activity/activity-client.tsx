@@ -182,7 +182,7 @@ function TodayCard({
           <CardTitle>Today</CardTitle>
           {!loading && (
             <p className="text-sm text-charcoal-ink/60">
-              {remaining > 0 ? `Try for ${remaining.toLocaleString()} more steps today` : "Goal reached — nice work"}
+              {remaining > 0 ? `Try for ${remaining.toLocaleString()} more steps today` : "Goal reached, nice work"}
             </p>
           )}
         </div>

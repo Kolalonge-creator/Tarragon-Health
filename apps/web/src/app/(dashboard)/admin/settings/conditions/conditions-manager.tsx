@@ -57,7 +57,7 @@ function SignProtocolForm({
           create.mutate(
             {
               protocolId: programme.protocol_slug,
-              title: `${programme.name} — WHO clinical protocol`,
+              title: `${programme.name}: WHO clinical protocol`,
               changeSummary: summary.trim(),
               content: protocol
                 ? {
@@ -80,7 +80,7 @@ function SignProtocolForm({
       </Button>
       <p className="text-xs text-charcoal-ink/50">
         Only the org&apos;s active Clinical Director can sign. Signing does not activate the
-        condition on its own — you still switch it on below.
+        condition on its own; you still switch it on below.
       </p>
     </div>
   );

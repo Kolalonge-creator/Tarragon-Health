@@ -128,7 +128,7 @@ export function CaregiverRequestFlow() {
             <CardTitle>Who is this for?</CardTitle>
             <CardDescription>
               &quot;Manage&quot; access lets someone book appointments, order labs and
-              prescriptions, log doses and vitals, and see everything on the record — not just
+              prescriptions, log doses and vitals, and see everything on the record, not just
               follow it. It only ever starts once the other person accepts, and either side can
               withdraw it at any time. For someone who should only be able to follow your care, not
               act on it, use{" "}
@@ -166,7 +166,7 @@ export function CaregiverRequestFlow() {
                 I want to help manage someone else&apos;s care
               </p>
               <p className="mt-1 text-sm text-charcoal-ink/60">
-                For example, an elderly parent you look after — they&apos;ll need to accept before
+                For example, an elderly parent you look after; they&apos;ll need to accept before
                 anything changes.
               </p>
             </button>
@@ -181,7 +181,7 @@ export function CaregiverRequestFlow() {
               {direction === "i_will_manage" ? "Who will manage your care?" : "Whose care?"}
             </CardTitle>
             <CardDescription>
-              They need a Tarragon account of their own already — we&apos;ll look them up by phone
+              They need a Tarragon account of their own already; we&apos;ll look them up by phone
               number.
             </CardDescription>
           </CardHeader>

@@ -33,7 +33,7 @@ export function HealthCheckReview({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Health check — review &amp; communicate</CardTitle>
+        <CardTitle className="text-base">Health check: review &amp; communicate</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {reviewedAt && (
@@ -52,7 +52,7 @@ export function HealthCheckReview({
             name="summary"
             required
             rows={3}
-            placeholder="Summary for the patient — what the check found and the plan ahead."
+            placeholder="Summary for the patient: what the check found and the plan ahead."
           />
           <Button type="submit" disabled={pending} variant={reviewedAt ? "outline" : "default"}>
             {pending ? "Saving…" : reviewedAt ? "Update review" : "Complete health check"}

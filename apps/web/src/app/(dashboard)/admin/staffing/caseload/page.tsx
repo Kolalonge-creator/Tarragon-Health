@@ -101,7 +101,7 @@ export default async function DoctorCaseloadPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Doctor caseload</h1>
         <p className="text-charcoal-ink/60">
           Who&apos;s carrying how much, right now. There&apos;s no fixed target ratio to compare
-          against — this ranks the team against its own average load today.
+          against; this ranks the team against its own average load today.
         </p>
       </div>
 
@@ -135,7 +135,7 @@ export default async function DoctorCaseloadPage() {
           <CardDescription>
             Panel = standing patients (care team assignment). Active escalations/outreach = work
             this person has personally claimed and hasn&apos;t closed out. Load score weights a
-            claimed escalation heaviest, then outreach, then plain panel size — it&apos;s a rough
+            claimed escalation heaviest, then outreach, then plain panel size. It&apos;s a rough
             sort order, not a validated formula, which is why the raw counts are shown alongside
             it. Team average today: {averageLoadScore.toFixed(1)}.
           </CardDescription>

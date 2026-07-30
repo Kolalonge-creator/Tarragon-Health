@@ -229,8 +229,8 @@ export function VaccinationRegistry({
                   <span className="font-medium">{entry.name}</span>
                   {entry.dosesGiven > 0 ? ` · dose ${entry.dosesGiven + 1}` : ""}
                   {entry.nextDueDate
-                    ? ` — due ${new Date(entry.nextDueDate).toLocaleDateString()}`
-                    : " — due now"}
+                    ? `, due ${new Date(entry.nextDueDate).toLocaleDateString()}`
+                    : ", due now"}
                 </li>
               ))}
             </ul>
@@ -263,7 +263,7 @@ export function VaccinationRegistry({
                         ? `Last dose ${new Date(entry.lastDoseDate).toLocaleDateString()} (dose ${entry.dosesGiven})`
                         : "No doses recorded yet"}
                       {entry.nextDueDate &&
-                        ` — next due ${new Date(entry.nextDueDate).toLocaleDateString()}`}
+                        `, next due ${new Date(entry.nextDueDate).toLocaleDateString()}`}
                     </p>
                   </li>
                 );

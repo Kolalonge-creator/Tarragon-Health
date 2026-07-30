@@ -118,7 +118,7 @@ export function PayablesAndVendors() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Accounts payable for operating spend that isn&apos;t already automated — rent, SaaS, marketing
+        Accounts payable for operating spend that isn&apos;t already automated: rent, SaaS, marketing
         agencies, indemnity cover, professional/legal fees. A bill moves draft → approved (books the
         expense + payable, withholding tax if the vendor is WHT-applicable) → paid (books the cash out).
         Correct an approved/paid bill by reversing its journal entry on the ledger, never by editing it.
@@ -278,7 +278,7 @@ export function PayablesAndVendors() {
         )}
       </SectionCard>
 
-      <SectionCard title="AP aging" description="Approved, unpaid bills — days past due.">
+      <SectionCard title="AP aging" description="Approved, unpaid bills: days past due.">
         {aging.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (aging.data ?? []).length === 0 ? (

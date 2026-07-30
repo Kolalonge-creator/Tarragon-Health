@@ -28,7 +28,7 @@ export function FacilitySelector({
   selectedFacilityId,
   onSelect,
   idPrefix = "facility",
-  emptyText = "No facilities match yet — we're onboarding partners city by city.",
+  emptyText = "No facilities match yet; we're onboarding partners city by city.",
 }: {
   type: Facility["type"];
   patientLocation?: PatientLocation | null;
@@ -69,7 +69,7 @@ export function FacilitySelector({
     }
     navigator.geolocation.getCurrentPosition(
       (position) => setNearMe({ lat: position.coords.latitude, lng: position.coords.longitude }),
-      () => setLocationError("We couldn't get your location — you can still search by state and city.")
+      () => setLocationError("We couldn't get your location; you can still search by state and city.")
     );
   }
 
@@ -150,7 +150,7 @@ export function FacilitySelector({
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
                       {[facility.area, facility.city, facility.state].filter(Boolean).join(", ")}
-                      {facility.address ? ` — ${facility.address}` : ""}
+                      {facility.address ? `, ${facility.address}` : ""}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">

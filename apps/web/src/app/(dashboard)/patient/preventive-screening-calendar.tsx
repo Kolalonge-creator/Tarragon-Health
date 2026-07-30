@@ -60,7 +60,7 @@ export function PreventiveScreeningCalendar({
           <p className="text-sm text-charcoal-ink/60">
             No screenings scheduled yet. Complete your health profile (the two-minute risk
             assessment on this page) and your personal calendar builds itself from your age,
-            sex, and history — your care team can add to it from there.
+            sex, and history; your care team can add to it from there.
           </p>
         )}
         {data && data.length > 0 && (
@@ -107,11 +107,11 @@ export function PreventiveScreeningCalendar({
                             selectedFacilityId={selectedFacility?.id ?? null}
                             onSelect={setSelectedFacility}
                             idPrefix={`lab-${schedule.id}`}
-                            emptyText="No labs listed for that location yet — try a nearby city, or message your care team to arrange it."
+                            emptyText="No labs listed for that location yet, try a nearby city, or message your care team to arrange it."
                           />
                           {selectedFacility && !selectedFacility.lab_provider_id && (
                             <p className="text-xs text-amber-700">
-                              This location can&apos;t take an online booking yet — pick another lab, or
+                              This location can&apos;t take an online booking yet, pick another lab, or
                               message your care team.
                             </p>
                           )}
@@ -143,7 +143,7 @@ export function PreventiveScreeningCalendar({
                             >
                               {createOrder.isPending
                                 ? "Booking…"
-                                : `Confirm booking — ₦${koboToNaira(bundle.price_kobo).toLocaleString()}`}
+                                : `Confirm booking: ₦${koboToNaira(bundle.price_kobo).toLocaleString()}`}
                             </Button>
                             <Button
                               size="sm"
@@ -172,7 +172,7 @@ export function PreventiveScreeningCalendar({
                             setSelectedFacility(null);
                           }}
                         >
-                          Book now — ₦{koboToNaira(bundle.price_kobo).toLocaleString()}
+                          Book now: ₦{koboToNaira(bundle.price_kobo).toLocaleString()}
                         </Button>
                       )}
                     </RegionGate>

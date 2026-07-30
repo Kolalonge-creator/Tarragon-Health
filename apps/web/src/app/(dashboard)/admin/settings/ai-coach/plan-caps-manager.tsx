@@ -61,7 +61,7 @@ export function PlanCapsManager() {
               <div>
                 <p className="text-sm font-medium text-charcoal-ink">{plan.name}</p>
                 <p className="text-xs text-charcoal-ink/60">
-                  {formatPrice(plan.price_minor, plan.currency)} —{" "}
+                  {formatPrice(plan.price_minor, plan.currency)},{" "}
                   {plan.ai_coach_daily_limit
                     ? `${plan.ai_coach_daily_limit} messages/day`
                     : "no cap set (falls back to the org-wide/default cap)"}

@@ -28,7 +28,7 @@ export default async function CorporatePage() {
       <DashboardPlaceholder
         greeting={greeting}
         roleLabel="Corporate admin"
-        comingUp={["Staff enrolment", "Workforce health — cohort risk distribution"]}
+        comingUp={["Staff enrolment", "Workforce health: cohort risk distribution"]}
       />
     );
   }
@@ -43,7 +43,7 @@ export default async function CorporatePage() {
       <DashboardPlaceholder
         greeting={greeting}
         roleLabel="Corporate admin"
-        comingUp={["Workforce health — cohort risk distribution"]}
+        comingUp={["Workforce health: cohort risk distribution"]}
       />
     );
   }
@@ -80,7 +80,7 @@ export default async function CorporatePage() {
       <DashboardPlaceholder
         greeting={greeting}
         roleLabel="Corporate admin"
-        comingUp={["Workforce health — cohort risk distribution (ML service unavailable)"]}
+        comingUp={["Workforce health: cohort risk distribution (ML service unavailable)"]}
       >
         <div className="space-y-6">
           <InstitutionPrivacyNotice />

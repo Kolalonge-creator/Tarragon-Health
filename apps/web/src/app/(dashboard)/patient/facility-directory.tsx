@@ -75,7 +75,7 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
     }
     navigator.geolocation.getCurrentPosition(
       (position) => setNearMe({ lat: position.coords.latitude, lng: position.coords.longitude }),
-      () => setLocationError("We couldn't get your location — you can still search by state and city.")
+      () => setLocationError("We couldn't get your location; you can still search by state and city.")
     );
   }
 
@@ -87,7 +87,7 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
           Care navigation
         </CardTitle>
         <CardDescription>
-          Find a nearby lab, pharmacy, vaccination centre, or specialist — browse first, book only when you&apos;re ready.
+          Find a nearby lab, pharmacy, vaccination centre, or specialist. Browse first, book only when you&apos;re ready.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -149,7 +149,7 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
         )}
         {!facilities.isLoading && !facilities.isError && sorted.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            No facilities match yet — we&apos;re onboarding partners city by city.
+            No facilities match yet; we&apos;re onboarding partners city by city.
           </p>
         )}
 
@@ -169,7 +169,7 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
                       {facility.city}, {facility.state}
-                      {facility.address ? ` — ${facility.address}` : ""}
+                      {facility.address ? `, ${facility.address}` : ""}
                     </p>
                     {facility.hours && (
                       <p className="text-xs text-charcoal-ink/60">Hours: {facility.hours}</p>

@@ -34,7 +34,7 @@ export async function payForReferral(
     .eq("id", referralId)
     .single();
   if (!referral?.referral_fee_kobo) {
-    return { error: "This referral has no fee set yet — contact your care team." };
+    return { error: "This referral has no fee set yet, contact your care team." };
   }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";

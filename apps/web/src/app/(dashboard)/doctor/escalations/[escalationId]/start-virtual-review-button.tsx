@@ -23,7 +23,7 @@ export function StartVirtualReviewButton({ escalationId }: { escalationId: strin
         <p className="text-xs text-charcoal-ink/60">
           {result.patientNotified
             ? "The patient has been sent their own join link by SMS."
-            : "Could not text the patient a join link — share it with them directly."}
+            : "Could not text the patient a join link. Share it with them directly."}
         </p>
       </div>
     );

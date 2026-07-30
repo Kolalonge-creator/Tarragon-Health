@@ -5,7 +5,7 @@ const RISK_LABEL: Record<string, { label: string; tone: string }> = {
   low: { label: "Low risk", tone: "text-brand-green" },
   increased: { label: "Increased risk", tone: "text-amber-700" },
   high: { label: "High risk", tone: "text-orange-700" },
-  active: { label: "Active problem — under care", tone: "text-red-700" },
+  active: { label: "Active problem, under care", tone: "text-red-700" },
 };
 
 /**
@@ -40,7 +40,7 @@ export async function FootRiskStatus({ patientId }: { patientId: string }) {
           {data.next_due_at ? ` · next check due ${new Date(data.next_due_at).toLocaleDateString()}` : ""}
         </p>
         <p className="text-charcoal-ink/60">
-          Check your own feet daily and log anything new above — your care team is told straight away.
+          Check your own feet daily and log anything new above; your care team is told straight away.
         </p>
       </CardContent>
     </Card>

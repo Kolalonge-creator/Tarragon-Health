@@ -50,7 +50,7 @@ export function OutcomeReportsPanel({ organisationId }: { organisationId: string
           Outcome reports
         </CardTitle>
         <CardDescription>
-          A point-in-time, anonymised snapshot of your workforce&apos;s numbers for a period you choose —
+          A point-in-time, anonymised snapshot of your workforce&apos;s numbers for a period you choose:
           safe to share externally, since it won&apos;t change after it&apos;s generated.
         </CardDescription>
       </CardHeader>
@@ -132,7 +132,7 @@ function ReportRow({
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-charcoal-ink">
-            {report.period_start} — {report.period_end}
+            {report.period_start} to {report.period_end}
           </p>
           <p className="text-xs text-charcoal-ink/60">
             {snapshot?.analytics?.cohort_size != null

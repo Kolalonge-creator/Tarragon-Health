@@ -41,7 +41,7 @@ export async function PregnancyStatus({ patientId }: { patientId: string }) {
             <p className="mt-1">
               Diabetes in pregnancy needs tighter control and specialist oversight, so your care is
               led by an obstetric / antenatal team. Please make sure you&apos;re booked into antenatal
-              care — your Tarragon team will help coordinate and stay in touch, but won&apos;t manage
+              care; your Tarragon team will help coordinate and stay in touch, but won&apos;t manage
               your diabetes on its own during pregnancy. Some diabetes tablets are usually stopped in
               pregnancy, so don&apos;t change anything without your antenatal team.
             </p>

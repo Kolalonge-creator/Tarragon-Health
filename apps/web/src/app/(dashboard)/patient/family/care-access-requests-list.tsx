@@ -142,8 +142,8 @@ export function CareAccessRequestsList({
           const isAboutMyRecord = r.profile_id === currentUserId;
           const otherName = (isAboutMyRecord ? r.counterparty_name : r.owner_name) ?? "them";
           const text = isAboutMyRecord
-            ? `You offered ${otherName} the ability to ${LEVEL_LABEL[r.permission_level]} your care — waiting for them to accept.`
-            : `You asked to ${LEVEL_LABEL[r.permission_level]} ${otherName}'s care — waiting for them to accept.`;
+            ? `You offered ${otherName} the ability to ${LEVEL_LABEL[r.permission_level]} your care: waiting for them to accept.`
+            : `You asked to ${LEVEL_LABEL[r.permission_level]} ${otherName}'s care: waiting for them to accept.`;
           return (
             <div
               key={r.id}

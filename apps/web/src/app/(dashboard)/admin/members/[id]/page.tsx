@@ -144,7 +144,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {isMemberSuperAdmin ? (
-            <p className="text-charcoal-ink/70">Super Admin — holds every capability on the platform.</p>
+            <p className="text-charcoal-ink/70">Super Admin: holds every capability on the platform.</p>
           ) : (
             <>
               <div>

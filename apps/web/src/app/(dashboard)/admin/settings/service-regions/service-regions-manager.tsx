@@ -30,7 +30,7 @@ export function ServiceRegionsManager() {
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load service regions.</p>}
         {setActive.isError && (
-          <p className="text-sm text-red-600">Could not update that state — please try again.</p>
+          <p className="text-sm text-red-600">Could not update that state. Please try again.</p>
         )}
         {regions && regions.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

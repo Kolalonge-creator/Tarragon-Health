@@ -44,7 +44,7 @@ export function FinanceSettings() {
     if (!res.ok) return window.alert(res.error ?? "Could not update period.");
     const resultStatus = (res.data as { status?: string } | undefined)?.status;
     if (resultStatus === "pending_approval") {
-      window.alert("Locking this period requires a second finance officer's approval — sent to Approvals.");
+      window.alert("Locking this period requires a second finance officer's approval, sent to Approvals.");
     }
     invalidate();
   }
@@ -99,7 +99,7 @@ export function FinanceSettings() {
         {periods.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (periods.data ?? []).length === 0 ? (
-          <CenterNote>No periods yet — the first posting opens one automatically.</CenterNote>
+          <CenterNote>No periods yet. The first posting opens one automatically.</CenterNote>
         ) : (
           <TableShell>
             <thead>

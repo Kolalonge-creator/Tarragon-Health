@@ -83,7 +83,7 @@ export default function CarePlanReviewPage() {
           <p className="mb-4 text-xs text-charcoal-ink/60">
             Raised automatically when an abnormal result, a missed-medication escalation, a new
             diagnosis, a risk-tier change, or a hospital discharge suggests a patient&apos;s care
-            plan may be stale. This never edits a care plan itself — open the patient to make any
+            plan may be stale. This never edits a care plan itself; open the patient to make any
             change, then mark the prompt reviewed.
           </p>
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
@@ -91,7 +91,7 @@ export default function CarePlanReviewPage() {
             <p className="text-sm text-red-600">Could not load care-plan review prompts.</p>
           )}
           {data && data.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">Nothing waiting — you&apos;re all caught up.</p>
+            <p className="text-sm text-charcoal-ink/60">Nothing waiting, you&apos;re all caught up.</p>
           )}
           {data && data.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">

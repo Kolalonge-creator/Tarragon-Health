@@ -67,7 +67,7 @@ export function SubscriptionManager() {
   if (!subscription) {
     return (
       <p className="text-sm text-charcoal-ink/60">
-        No plan on file yet — this shouldn&apos;t happen after onboarding. Contact support if
+        No plan on file yet. This shouldn&apos;t happen after onboarding. Contact support if
         this persists.
       </p>
     );
@@ -142,7 +142,7 @@ export function SubscriptionManager() {
               <>
                 {" · "}
                 {scheduledToCancel
-                  ? `Ends ${periodEndLabel} — you keep access until then`
+                  ? `Ends ${periodEndLabel}, you keep access until then`
                   : `Auto-renews ${periodEndLabel}`}
               </>
             )}
@@ -153,7 +153,7 @@ export function SubscriptionManager() {
             <p className="text-xs text-charcoal-ink/60">
               Your plan renews automatically at the end of each {subscription.plan?.interval === "yearly" ? "year" : "month"} so
               your care never lapses. You can turn off auto-renewal any time. Subscriptions are
-              non-refundable — the {subscription.plan?.interval === "yearly" ? "year" : "month"} you&apos;ve
+              non-refundable: the {subscription.plan?.interval === "yearly" ? "year" : "month"} you&apos;ve
               paid for runs to the end, and turning off auto-renewal simply stops the next charge.
             </p>
           )}
@@ -206,7 +206,7 @@ export function SubscriptionManager() {
         <CardHeader>
           <CardTitle>Change plan</CardTitle>
           <CardDescription>
-            Switching starts a fresh billing cycle on the new plan — no partial-month credit.
+            Switching starts a fresh billing cycle on the new plan: no partial-month credit.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

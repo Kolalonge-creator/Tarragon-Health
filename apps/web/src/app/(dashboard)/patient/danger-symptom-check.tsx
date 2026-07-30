@@ -48,7 +48,7 @@ export function DangerSymptomCheck({ patientId }: { patientId: string }) {
         </CardTitle>
         <CardDescription>
           Tap anything you&apos;re experiencing. If it&apos;s a medical emergency, we&apos;ll tell
-          you what to do — TarragonHealth does not provide emergency care, so you should go to your
+          you what to do; TarragonHealth does not provide emergency care, so you should go to your
           nearest hospital.
         </CardDescription>
       </CardHeader>

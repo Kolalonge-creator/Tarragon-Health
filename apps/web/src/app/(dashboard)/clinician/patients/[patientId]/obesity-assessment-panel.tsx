@@ -123,7 +123,7 @@ export function ObesityAssessmentPanel({
       <CardContent>
         {!patientSex && (
           <p className="mb-4 text-sm text-amber-700">
-            This patient has no sex on file — waist-risk thresholds are sex-specific, so set it before
+            This patient has no sex on file. Waist-risk thresholds are sex-specific, so set it before
             assessing.
           </p>
         )}
@@ -240,14 +240,14 @@ export function ObesityAssessmentPanel({
               <span>Functional limitation caused by excess adiposity</span>
             </label>
             <p className="text-xs text-charcoal-ink/60">
-              Suggested: <strong>{suggestion.suggested}</strong> — {suggestion.rationale} This is your
+              Suggested: <strong>{suggestion.suggested}</strong>. {suggestion.rationale} This is your
               clinical decision to confirm.
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="clinical_status">Clinical status</Label>
                 <Select id="clinical_status" name="clinical_status" defaultValue="">
-                  <option value="">— not yet decided —</option>
+                  <option value="">Not yet decided</option>
                   <option value="preclinical">Preclinical (risk state)</option>
                   <option value="clinical">Clinical (a disease)</option>
                 </Select>
@@ -255,10 +255,10 @@ export function ObesityAssessmentPanel({
               <div className="space-y-1.5">
                 <Label htmlFor="eoss_stage">Edmonton stage (EOSS)</Label>
                 <Select id="eoss_stage" name="eoss_stage" defaultValue="">
-                  <option value="">— not staged —</option>
+                  <option value="">Not staged</option>
                   {EOSS_STAGES.map((s) => (
                     <option key={s.stage} value={s.stage}>
-                      {s.label} — {s.description}
+                      {s.label}: {s.description}
                     </option>
                   ))}
                 </Select>
@@ -311,7 +311,7 @@ function BariatricReferralForm({
     <form action={formAction} className="mt-6 space-y-3 border-t border-mist-grey pt-6">
       <p className="text-sm font-medium text-charcoal-ink">Metabolic / bariatric surgery referral (§14)</p>
       <p className="text-xs text-charcoal-ink/60">
-        Uses the most recent assessment&apos;s BMI. Tarragon identifies candidates and refers — surgery is
+        Uses the most recent assessment&apos;s BMI. Tarragon identifies candidates and refers; surgery is
         specialist, with lifelong follow-up.
         {eligibleHint ? " Current inputs meet a referral criterion." : ""}
       </p>

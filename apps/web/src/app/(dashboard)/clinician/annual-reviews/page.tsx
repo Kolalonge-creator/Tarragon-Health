@@ -111,7 +111,7 @@ function ConsultProposer({ review }: { review: AnnualReviewWithContext }) {
   if (consult && (consult.proposed_slots?.length ?? 0) > 0) {
     return (
       <p className="text-sm text-charcoal-ink/70">
-        {consult.proposed_slots?.length} time(s) offered — awaiting the patient&apos;s pick.
+        {consult.proposed_slots?.length} time(s) offered, awaiting the patient&apos;s pick.
       </p>
     );
   }
@@ -326,7 +326,7 @@ export default function AnnualReviewsPage() {
         <h1 className="mt-2 text-xl font-semibold text-charcoal-ink">Annual Doctor Reviews</h1>
         <p className="text-sm text-charcoal-ink/70">
           Whole-body annual reviews for subscribed patients. Completing the medication-review stage
-          adopts and rolls each patient&apos;s condition medication reviews — no double review.
+          adopts and rolls each patient&apos;s condition medication reviews, so there is no double review.
         </p>
       </div>
 

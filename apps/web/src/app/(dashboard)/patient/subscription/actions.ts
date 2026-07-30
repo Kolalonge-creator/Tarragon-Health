@@ -147,7 +147,7 @@ export async function changePlan(
   const disableResult = await disableProviderRenewal(subscription);
   if (!disableResult.ok) {
     return {
-      error: `Couldn't cancel your current plan (${disableResult.error}) — try again before switching.`,
+      error: `Couldn't cancel your current plan (${disableResult.error}); try again before switching.`,
     };
   }
   // subscriptions' UPDATE RLS policy only grants org staff, not the
@@ -202,7 +202,7 @@ export async function changePlan(
 
   if (resolveProvider(plan.currency) === "paystack") {
     if (!isPaystackConfigured() || !plan.paystack_plan_code) {
-      return { error: "Card payments aren't set up yet — try again shortly." };
+      return { error: "Card payments aren't set up yet; try again shortly." };
     }
     const result = await initializeTransaction({
       email: user.email,
@@ -231,7 +231,7 @@ export async function changePlan(
   }
 
   if (!isStripeConfigured() || !plan.stripe_price_id) {
-    return { error: "Card payments aren't set up yet — try again shortly." };
+    return { error: "Card payments aren't set up yet; try again shortly." };
   }
   const result = await createCheckoutSession({
     email: user.email,
@@ -294,7 +294,7 @@ export async function attachAddOn(
 
   if (resolveProvider(addOn.currency) === "paystack") {
     if (!isPaystackConfigured() || !addOn.paystack_plan_code) {
-      return { error: "Card payments aren't set up yet — try again shortly." };
+      return { error: "Card payments aren't set up yet; try again shortly." };
     }
     const result = await initializeTransaction({
       email: user.email,
@@ -326,7 +326,7 @@ export async function attachAddOn(
   }
 
   if (!isStripeConfigured() || !addOn.stripe_price_id) {
-    return { error: "Card payments aren't set up yet — try again shortly." };
+    return { error: "Card payments aren't set up yet; try again shortly." };
   }
   const result = await createCheckoutSession({
     email: user.email,
@@ -380,7 +380,7 @@ export async function detachAddOn(subscriptionAddOnId: string): Promise<Subscrip
   if (canDisableRemotely(row)) {
     const disableResult = await disableProviderRenewal(row);
     if (!disableResult.ok) {
-      return { error: `Couldn't remove this add-on (${disableResult.error}) — try again.` };
+      return { error: `Couldn't remove this add-on (${disableResult.error}); try again.` };
     }
   }
 
@@ -425,7 +425,7 @@ export async function cancelSubscription(subscriptionId: string): Promise<Subscr
   const { subscription } = await requireOwnedSubscription(subscriptionId);
 
   if (subscription.cancel_at_period_end) {
-    return { message: "Auto-renewal is already off — your plan won't renew." };
+    return { message: "Auto-renewal is already off; your plan won't renew." };
   }
 
   // Stop the provider from charging the next cycle first — if this fails we
@@ -433,7 +433,7 @@ export async function cancelSubscription(subscriptionId: string): Promise<Subscr
   if (canDisableRemotely(subscription)) {
     const disableResult = await disableProviderRenewal(subscription);
     if (!disableResult.ok) {
-      return { error: `Couldn't turn off auto-renewal (${disableResult.error}) — try again.` };
+      return { error: `Couldn't turn off auto-renewal (${disableResult.error}); try again.` };
     }
   }
 
@@ -481,13 +481,13 @@ export async function resumeSubscription(subscriptionId: string): Promise<Subscr
     return { message: "Auto-renewal is already on." };
   }
   if (subscription.status === "cancelled") {
-    return { error: "This plan has already ended — pick a plan to subscribe again." };
+    return { error: "This plan has already ended; pick a plan to subscribe again." };
   }
 
   if (canDisableRemotely(subscription)) {
     const enableResult = await enableProviderRenewal(subscription);
     if (!enableResult.ok) {
-      return { error: `Couldn't turn auto-renewal back on (${enableResult.error}) — try again.` };
+      return { error: `Couldn't turn auto-renewal back on (${enableResult.error}); try again.` };
     }
   }
 
@@ -495,5 +495,5 @@ export async function resumeSubscription(subscriptionId: string): Promise<Subscr
     .from("subscriptions")
     .update({ cancel_at_period_end: false, cancelled_at: null })
     .eq("id", subscription.id);
-  return { message: "Auto-renewal is back on — your plan will renew as usual." };
+  return { message: "Auto-renewal is back on; your plan will renew as usual." };
 }

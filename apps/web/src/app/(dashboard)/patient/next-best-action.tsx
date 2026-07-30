@@ -94,7 +94,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     action = {
       icon: "booking",
       title: "Your doctor offered times for a video call",
-      body: "Pick whichever works for you — it only takes a tap to confirm.",
+      body: "Pick whichever works for you; it only takes a tap to confirm.",
       href: "#care",
       cta: "Pick a time",
     };
@@ -102,7 +102,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     action = {
       icon: "medication",
       title: "A 2-minute medicines check-in is waiting",
-      body: "Tell us how the medicine is going — it helps your care team spot problems early.",
+      body: "Tell us how the medicine is going; it helps your care team spot problems early.",
       href: "#medications",
       cta: "Answer now",
     };
@@ -118,7 +118,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     action = {
       icon: "bp",
       title: "Log a reading today",
-      body: "A fresh reading keeps your care team's picture of you current — it takes under a minute.",
+      body: "A fresh reading keeps your care team's picture of you current; it takes under a minute.",
       href: "#vitals",
       cta: "Log a reading",
     };

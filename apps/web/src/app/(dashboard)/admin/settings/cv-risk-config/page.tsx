@@ -40,7 +40,7 @@ export default async function CvRiskConfigSettingsPage() {
           Cardiovascular-risk configuration
         </h1>
         <p className="text-charcoal-ink/60">
-          These are the clinical parameters the lipid / CV-risk engine uses — LDL and Non-HDL
+          These are the clinical parameters the lipid / CV-risk engine uses: LDL and Non-HDL
           targets by risk category, statin-eligibility thresholds, and the levels that flag a
           patient for review. They are seeded from published guidelines as a provisional draft and
           are <strong>not in force until the Medical Director signs them</strong>. Confirm the

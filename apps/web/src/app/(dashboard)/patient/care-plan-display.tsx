@@ -30,7 +30,7 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
         )}
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            No care plan yet — your doctor will assign one after reviewing your health data.
+            No care plan yet, your doctor will assign one after reviewing your health data.
           </p>
         )}
         {data && data.length > 0 && (
@@ -56,7 +56,7 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
                     <p className="text-xs text-charcoal-ink/60">
                       {targetRangeEntries
                         .map(([key, value]) => `${humanize(key)}: ${value}`)
-                        .join(" — ")}
+                        .join("; ")}
                     </p>
                   )}
                   {plan.notes && (

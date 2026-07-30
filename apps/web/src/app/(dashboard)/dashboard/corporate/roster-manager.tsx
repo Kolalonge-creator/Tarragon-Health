@@ -73,8 +73,8 @@ export function RosterManager({
         </CardTitle>
         <CardDescription>
           {entityLabel === "member"
-            ? "Add your members by phone number — they're attached to your organisation the moment they sign up, or immediately if they already have a Tarragon account."
-            : "Add your workforce by phone number — they're attached to your organisation the moment they sign up, or immediately if they already have a Tarragon account."}
+            ? "Add your members by phone number: they're attached to your organisation the moment they sign up, or immediately if they already have a Tarragon account."
+            : "Add your workforce by phone number: they're attached to your organisation the moment they sign up, or immediately if they already have a Tarragon account."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -101,7 +101,7 @@ export function RosterManager({
 
         {roster.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {activeRows.length === 0 && !roster.isLoading && (
-          <p className="text-sm text-charcoal-ink/60">No one on your roster yet — add a phone number above.</p>
+          <p className="text-sm text-charcoal-ink/60">No one on your roster yet. Add a phone number above.</p>
         )}
         {activeRows.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
@@ -142,7 +142,7 @@ export function RosterManager({
                 </div>
                 {claimResult?.id === member.id && !claimResult.attached && (
                   <p className="w-full text-xs text-charcoal-ink/60">
-                    No Tarragon account found with that number yet — they&apos;ll be attached automatically
+                    No Tarragon account found with that number yet. They&apos;ll be attached automatically
                     once they sign up.
                   </p>
                 )}

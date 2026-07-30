@@ -44,7 +44,7 @@ export function OrderLabTestForm({
               <option value="">Select a test</option>
               {(bundles ?? []).map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name} — ₦{koboToNaira(b.price_kobo).toLocaleString()}
+                  {b.name}: ₦{koboToNaira(b.price_kobo).toLocaleString()}
                 </option>
               ))}
             </Select>
@@ -55,7 +55,7 @@ export function OrderLabTestForm({
               <option value="">Select a provider</option>
               {(providers ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — {p.regions.join(", ")}
+                  {p.name}: {p.regions.join(", ")}
                   {p.home_collection ? " (home collection)" : ""}
                 </option>
               ))}
@@ -69,7 +69,7 @@ export function OrderLabTestForm({
         )}
         {orderLabTest.isSuccess && (
           <p className="text-sm text-brand-green">
-            Order created — the patient can complete payment from their dashboard.
+            Order created. The patient can complete payment from their dashboard.
           </p>
         )}
         <Button

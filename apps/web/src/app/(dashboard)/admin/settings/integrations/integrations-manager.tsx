@@ -97,13 +97,13 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/60">
           A partner sends the key as <code>Authorization: Bearer th_live_…</code>. The full key is
-          shown once at issue time — only its hash is stored.
+          shown once at issue time; only its hash is stored.
         </p>
 
         {issuedKey && (
           <div className="space-y-2 rounded-lg border border-brand-green/40 bg-brand-green/5 p-4">
             <p className="text-sm font-medium text-deep-forest">
-              Copy this key now — it will never be shown again.
+              Copy this key now; it will never be shown again.
             </p>
             <code className="block break-all rounded bg-white p-2 text-xs text-charcoal-ink">
               {issuedKey}

@@ -60,7 +60,7 @@ export function GlucoseTargetForm({ patientId }: { patientId: string }) {
                 key={`upper-${category}`}
               />
               <p className="text-xs text-charcoal-ink/60">
-                Relaxing this only softens the routine &quot;persistent high&quot; review flag —
+                Relaxing this only softens the routine &quot;persistent high&quot; review flag;
                 hypo and emergency alerts are never relaxed.
               </p>
             </div>

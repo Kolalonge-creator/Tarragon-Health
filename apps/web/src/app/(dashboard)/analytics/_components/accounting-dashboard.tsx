@@ -20,7 +20,7 @@ export function AccountingDashboard() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         Revenue recognition is modeled from subscription billing periods (ASC 606 / IFRS 15 style).
-        The general ledger and formal close stay in your accounting system — this is the
+        The general ledger and formal close stay in your accounting system: this is the
         investor/audit-facing evidence layer.
       </p>
 

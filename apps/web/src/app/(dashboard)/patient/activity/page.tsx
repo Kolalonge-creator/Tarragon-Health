@@ -27,7 +27,7 @@ export default async function ActivityPage() {
         </Link>
       </div>
       <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Log your steps and workouts. There&apos;s no automatic step counter yet — wearable sync is
+        Log your steps and workouts. There&apos;s no automatic step counter yet, wearable sync is
         coming, but for now this tracks whatever you log yourself.
       </p>
       <RequiresEntitlement

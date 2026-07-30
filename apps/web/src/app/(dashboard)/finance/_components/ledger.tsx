@@ -87,7 +87,7 @@ export function LedgerBrowser() {
     const status = (res.data as { status?: string } | undefined)?.status;
     setMessage(
       status === "pending_approval"
-        ? { ok: true, text: "This entry is above the approval threshold — sent to Approvals for a second finance officer to review before it posts." }
+        ? { ok: true, text: "This entry is above the approval threshold, so it was sent to Approvals for a second finance officer to review before it posts." }
         : { ok: true, text: "Journal entry posted." },
     );
     setLines([emptyLine(), emptyLine()]);

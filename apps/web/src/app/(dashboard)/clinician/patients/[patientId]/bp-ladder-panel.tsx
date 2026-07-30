@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const SECONDARY_FLAG_LABEL: Record<string, string> = {
   young_onset_under_40:
-    "Confirmed hypertension under age 40 — assess for a secondary cause (§7.3).",
+    "Confirmed hypertension under age 40: assess for a secondary cause (§7.3).",
   resistant_htn:
-    "Above target on ≥3 antihypertensives including a diuretic — resistant HTN: confirm adherence, exclude secondary causes / white-coat, consider referral (§18.6).",
+    "Above target on ≥3 antihypertensives including a diuretic; resistant HTN: confirm adherence, exclude secondary causes / white-coat, consider referral (§18.6).",
 };
 
 // Nigeria HEARTS stepped ladder (§12.3) — display copy mirrors the admin-editable
@@ -20,7 +20,7 @@ const LADDER: { step: number; regimen: string; note: string }[] = [
   { step: 2, regimen: "Amlodipine 5 mg + Losartan 50 mg (SPC preferred)", note: "Telmisartan preferable if available. Check U&E/K⁺ around ARB start." },
   { step: 3, regimen: "Amlodipine 10 mg + Losartan 100 mg (SPC)", note: "Up-titrate both components." },
   { step: 4, regimen: "+ Hydrochlorothiazide 25 mg (or amiloride/HCTZ)", note: "Check electrolytes." },
-  { step: 5, regimen: "Refer — specialist / consider spironolactone", note: "Resistant HTN: confirm adherence, exclude secondary causes first." },
+  { step: 5, regimen: "Refer: specialist / consider spironolactone", note: "Resistant HTN: confirm adherence, exclude secondary causes first." },
 ];
 
 const SAFETY_NOTES = [
