@@ -83,7 +83,7 @@ export function ReproductiveHealthCard({
           Your cycle & life stage
         </CardTitle>
         <CardDescription>
-          Tell us where you are so we can give a useful nudge — never a diagnosis, and you can
+          Tell us where you are so we can give a useful nudge, never a diagnosis, and you can
           change this any time.
         </CardDescription>
       </CardHeader>

@@ -18,8 +18,8 @@ import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } fr
 const PROVIDERS = ["paystack", "stripe"];
 const CURRENCIES = ["NGN", "GBP", "USD"];
 const BANKS = [
-  { code: "1000", label: "Bank — Paystack (NGN)" },
-  { code: "1010", label: "Bank — Stripe (diaspora)" },
+  { code: "1000", label: "Bank: Paystack (NGN)" },
+  { code: "1010", label: "Bank: Stripe (diaspora)" },
 ];
 const today = () => new Date().toISOString().slice(0, 10);
 

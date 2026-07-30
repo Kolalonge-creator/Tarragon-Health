@@ -17,7 +17,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TarragonHealth — Care that stays with you",
+  title: "TarragonHealth: Care that stays with you",
   description:
     "Nigeria's digital-first chronic disease, preventive health, and family care coordination platform.",
   icons: {

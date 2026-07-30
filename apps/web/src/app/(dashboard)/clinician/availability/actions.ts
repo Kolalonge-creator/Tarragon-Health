@@ -40,7 +40,7 @@ export async function acceptVideoVisit(
   const service = createServiceRoleClient();
   if (consult?.scheduled_at && isZoomConfigured()) {
     const meeting = await createMeeting({
-      topic: "Tarragon Health — video visit",
+      topic: "Tarragon Health: Video visit",
       startTime: consult.scheduled_at,
     });
     if (meeting.ok) {
@@ -65,7 +65,7 @@ export async function acceptVideoVisit(
     });
   }
 
-  return { message: "Accepted — the visit is booked and the patient has been told." };
+  return { message: "Accepted: the visit is booked and the patient has been told." };
 }
 
 /**
@@ -107,5 +107,5 @@ export async function declineVideoVisit(
     });
   }
 
-  return { message: "Declined — the patient will be refunded in full." };
+  return { message: "Declined: the patient will be refunded in full." };
 }

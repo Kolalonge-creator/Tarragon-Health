@@ -35,7 +35,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         body: "Track how your numbers change over weeks, not just single visits.",
       },
       {
-        title: "Doctor review & escalation",
+        title: "Escalated when it matters",
         body: "When readings need attention, your care team follows up and escalates to a doctor if needed.",
       },
     ],
@@ -80,7 +80,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
   },
   obesity: {
     slug: "obesity",
-    headline: "A supported, doctor-reviewed programme to manage weight and the health that comes with it.",
+    headline: "Weight tracked, reviewed, and followed up, not left to willpower alone.",
     campaignLine: "Weight is a health condition, managed with real support.",
     intro:
       "Tarragon's weight management programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
@@ -108,7 +108,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Weight Health",
       description:
-        "A structured, doctor-reviewed weight management programme: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
+        "Weight tracked, reviewed, and followed up: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
     },
   },
   parentcare: {

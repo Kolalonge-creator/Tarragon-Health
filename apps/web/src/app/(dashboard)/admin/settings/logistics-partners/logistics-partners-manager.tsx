@@ -42,7 +42,7 @@ function HomeVisitProvidersSection() {
       <CardHeader>
         <CardTitle>Home visit providers</CardTitle>
         <CardDescription>
-          Global catalogue — no organisation scoping, same posture as lab_providers/pharmacy_partners.
+          Global catalogue: no organisation scoping, same posture as lab_providers/pharmacy_partners.
           A new row starts inactive by default here; activate it once a real partner contract exists.
         </CardDescription>
       </CardHeader>
@@ -57,7 +57,7 @@ function HomeVisitProvidersSection() {
                   <p className="text-sm font-medium text-charcoal-ink">{p.name}</p>
                   <p className="text-xs text-charcoal-ink/60">
                     {p.regions.join(", ") || "No regions set"}
-                    {p.sample_types.length > 0 && ` · ${p.sample_types.join(", ")}`} — ₦
+                    {p.sample_types.length > 0 && ` · ${p.sample_types.join(", ")}`}, ₦
                     {koboToNaira(p.home_visit_fee_kobo).toLocaleString()}
                   </p>
                 </div>
@@ -179,7 +179,7 @@ function LogisticsPartnersSection() {
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">{p.name}</p>
                   <p className="text-xs text-charcoal-ink/60">
-                    {p.regions.join(", ") || "No regions set"} — ₦
+                    {p.regions.join(", ") || "No regions set"}, ₦
                     {koboToNaira(p.delivery_fee_kobo).toLocaleString()}
                     {p.estimated_delivery_hours ? ` · ~${p.estimated_delivery_hours}h` : ""}
                   </p>

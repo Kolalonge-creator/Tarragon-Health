@@ -87,7 +87,7 @@ function VerificationRow({ item }: { item: PendingVerificationItem }) {
 
       <div className="space-y-2">
         <Input
-          placeholder="Note (optional — required context if rejecting)"
+          placeholder="Note (optional, required context if rejecting)"
           value={note}
           onChange={(event) => setNote(event.target.value)}
           className="max-w-md text-sm"
@@ -120,7 +120,7 @@ export function VaccinationVerificationList({ items }: { items: PendingVerificat
       <CardContent>
         {items.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60">
-            Nothing waiting — you&apos;re all caught up.
+            Nothing waiting, you&apos;re all caught up.
           </p>
         ) : (
           <ul className="divide-y divide-charcoal-ink/10">

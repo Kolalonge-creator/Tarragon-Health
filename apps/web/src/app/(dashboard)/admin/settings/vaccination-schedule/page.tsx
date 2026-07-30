@@ -48,7 +48,7 @@ export default async function VaccinationScheduleSettingsPage() {
         </h1>
         <p className="text-charcoal-ink/60">
           This is the reference immunisation schedule that drives every parent&apos;s due/overdue
-          calendar and the vaccination reminder notifications — {catalogRows.length} active entries.
+          calendar and the vaccination reminder notifications, {catalogRows.length} active entries.
           The schedule itself changes only through reviewed, tested code changes; this page is where
           a Clinical Director puts a signed record on file confirming the current schedule has been
           reviewed and approved.

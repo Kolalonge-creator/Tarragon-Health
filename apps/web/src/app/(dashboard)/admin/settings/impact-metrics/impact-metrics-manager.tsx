@@ -20,7 +20,7 @@ export function ImpactMetricsManager() {
         <div>
           <CardTitle>Impact metrics</CardTitle>
           <CardDescription>
-            The refresh runs automatically every night — use this only to see the effect of a
+            The refresh runs automatically every night; use this only to see the effect of a
             recent change sooner.
           </CardDescription>
         </div>

@@ -41,7 +41,7 @@ export function SymptomLogHistory({ patientId }: { patientId: string }) {
               <li key={symptom.id} className="flex items-center justify-between gap-4 py-2">
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">
-                    {SYMPTOM_LABEL[symptom.symptom_type] ?? symptom.symptom_type} — severity{" "}
+                    {SYMPTOM_LABEL[symptom.symptom_type] ?? symptom.symptom_type}: severity{" "}
                     {symptom.severity ?? "—"}/10
                     {symptom.is_red_flag && (
                       <Badge variant="red" className="ml-2">

@@ -111,8 +111,8 @@ export function Worklist() {
                           className="hover:underline"
                         >
                           {alert.patient?.full_name ?? "Unknown patient"}
-                        </Link>{" "}
-                        — {alert.title}
+                        </Link>
+                        : {alert.title}
                       </p>
                       {alert.sla_due_at && (
                         <p className="text-xs text-charcoal-ink/60">

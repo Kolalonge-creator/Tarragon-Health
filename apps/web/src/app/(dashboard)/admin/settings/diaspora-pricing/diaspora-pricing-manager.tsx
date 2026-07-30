@@ -104,7 +104,7 @@ export function CurrencyRateManager({
             <p className="text-sm text-charcoal-ink/70">
               {changing === 0
                 ? "Nothing would change at this rate."
-                : `Saving changes ${changing} price${changing === 1 ? "" : "s"}. Each one gets a brand-new Stripe price, because a Stripe price can never be edited after it is created — the old one is retired and the plan switches back on only once its replacement exists.`}
+                : `Saving changes ${changing} price${changing === 1 ? "" : "s"}. Each one gets a brand-new Stripe price, because a Stripe price can never be edited after it is created. The old one is retired and the plan switches back on only once its replacement exists.`}
             </p>
 
             {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
@@ -129,7 +129,7 @@ export function CurrencyRateManager({
           <CardTitle>What these rates produce</CardTitle>
           <CardDescription>
             Every row is its naira price converted. There is no way to set one of these
-            individually — the database rejects it.
+            individually; the database rejects it.
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">

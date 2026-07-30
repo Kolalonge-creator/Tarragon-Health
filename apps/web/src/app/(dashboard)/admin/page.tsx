@@ -68,7 +68,7 @@ export default async function AdminPage() {
               </Link>
             </CardTitle>
             <CardDescription>
-              Add and manage the partner network — labs, pharmacies, hospitals, specialists, and
+              Add and manage the partner network: labs, pharmacies, hospitals, specialists, and
               logistics.
             </CardDescription>
           </CardHeader>
@@ -112,7 +112,7 @@ export default async function AdminPage() {
             </Link>
           </CardTitle>
           <CardDescription>
-            Set how often patients are nudged to log vitals — globally, per condition, or
+            Set how often patients are nudged to log vitals: globally, per condition, or
             per patient.
           </CardDescription>
         </CardHeader>
@@ -137,7 +137,7 @@ export default async function AdminPage() {
             </Link>
           </CardTitle>
           <CardDescription>
-            Set how many days before a refill date patients get reminded — globally or per
+            Set how many days before a refill date patients get reminded: globally or per
             patient.
           </CardDescription>
         </CardHeader>
@@ -211,7 +211,7 @@ export default async function AdminPage() {
             </Link>
           </CardTitle>
           <CardDescription>
-            Try the AI Coach yourself before it&apos;s released to patients — it&apos;s gated to
+            Try the AI Coach yourself before it&apos;s released to patients. It&apos;s gated to
             admins only until a subscription plan lists the ai_coach feature.
           </CardDescription>
         </CardHeader>
@@ -257,8 +257,8 @@ export default async function AdminPage() {
             </Link>
           </CardTitle>
           <CardDescription>
-            Add and verify every named Clinical Director, care team doctor, and escalation doctor —
-            a record can&apos;t go active until its MDCN/NMCN credential is verified.
+            Add and verify every named Clinical Director, care team doctor, and escalation doctor.
+            A record can&apos;t go active until its MDCN/NMCN credential is verified.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -308,7 +308,7 @@ export default async function AdminPage() {
           </CardTitle>
           <CardDescription>
             The LDL/Non-HDL targets, statin-eligibility thresholds and escalation levels the lipid
-            / CV-risk engine uses. Seeded as a provisional draft — not in force until the Medical
+            / CV-risk engine uses. Seeded as a provisional draft; not in force until the Medical
             Director signs it.
           </CardDescription>
         </CardHeader>
@@ -384,7 +384,7 @@ export default async function AdminPage() {
             </Link>
           </CardTitle>
           <CardDescription>
-            Create, price, and activate patient plans and add-on services — synced to Paystack
+            Create, price, and activate patient plans and add-on services, synced to Paystack
             automatically.
           </CardDescription>
         </CardHeader>
@@ -442,7 +442,7 @@ export default async function AdminPage() {
             </Link>
           </CardTitle>
           <CardDescription>
-            Add or activate a home-collection or delivery partner for a region — this is what
+            Add or activate a home-collection or delivery partner for a region. This is what
             turns on real scheduling/tracking for patients there instead of &quot;coming soon&quot;.
           </CardDescription>
         </CardHeader>
@@ -492,7 +492,7 @@ export default async function AdminPage() {
             </Link>
           </CardTitle>
           <CardDescription>
-            Send an email/WhatsApp/SMS announcement to a targeted audience — all patients,
+            Send an email/WhatsApp/SMS announcement to a targeted audience: all patients,
             a state, subscribers on a plan, all partners, or a partner group.
           </CardDescription>
         </CardHeader>

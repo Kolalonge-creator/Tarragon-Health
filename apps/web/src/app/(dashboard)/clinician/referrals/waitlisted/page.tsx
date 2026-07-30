@@ -46,15 +46,15 @@ export default function WaitlistedReferralsPage() {
                 <p className="text-sm font-medium text-charcoal-ink">
                   <Link href={`/clinician/patients/${referral.patient_id}`} className="hover:underline">
                     {referral.patient?.full_name ?? "Unknown patient"}
-                  </Link>{" "}
-                  — {referral.specialist_type}
+                  </Link>
+                  : {referral.specialist_type}
                 </p>
                 {referral.interim_management_plan && (
                   <p className="text-xs text-charcoal-ink/60">Interim plan: {referral.interim_management_plan}</p>
                 )}
                 {matchingProviderCount > 0 ? (
                   <p className="text-xs font-medium text-brand-green">
-                    {matchingProviderCount} matching provider{matchingProviderCount === 1 ? "" : "s"} now active —{" "}
+                    {matchingProviderCount} matching provider{matchingProviderCount === 1 ? "" : "s"} now active:{" "}
                     <Link href="/clinician/referrals" className="hover:underline">
                       go assign
                     </Link>

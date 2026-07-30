@@ -154,7 +154,7 @@ export function AnnualHealthCheckBooking({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
-          Book directly, on any plan — you see the exact price before you pay, and a doctor
+          Book directly, on any plan: you see the exact price before you pay, and a doctor
           reviews every result with you, including the all-clear ones.
         </p>
 
@@ -164,8 +164,8 @@ export function AnnualHealthCheckBooking({
             {new Date(lastResulted.created_at).toLocaleDateString("en-GB", {
               month: "long",
               year: "numeric",
-            })}{" "}
-            — it&apos;s about time for this year&apos;s. Numbers mean the most when there&apos;s
+            })}
+            , so it&apos;s about time for this year&apos;s. Numbers mean the most when there&apos;s
             last year&apos;s to compare against.
           </p>
         )}
@@ -184,8 +184,8 @@ export function AnnualHealthCheckBooking({
                   {order.panel_bundle?.name ?? "Health check"}
                   {order.provider && (
                     <span className="text-charcoal-ink/60"> · {order.provider.name}</span>
-                  )}{" "}
-                  — ₦{koboToNaira(order.total_kobo).toLocaleString()}
+                  )}
+                  : ₦{koboToNaira(order.total_kobo).toLocaleString()}
                 </p>
                 {order.status === "pending_payment" && (
                   <>
@@ -221,7 +221,7 @@ export function AnnualHealthCheckBooking({
                 Confidential screenings
               </p>
               <p className="text-xs text-charcoal-ink/60">
-                Recommended by the World Health Organization for everyone — booked privately,
+                Recommended by the World Health Organization for everyone; booked privately,
                 results shared only with you and the reviewing doctor.
               </p>
               {confidential.map(bundleRow)}
@@ -234,7 +234,7 @@ export function AnnualHealthCheckBooking({
                 Other self-service tests
               </p>
               <p className="text-xs text-charcoal-ink/60">
-                Book directly — no due screening or doctor referral needed.
+                Book directly: no due screening or doctor referral needed.
               </p>
               {otherTests.map(bundleRow)}
             </div>
@@ -253,11 +253,11 @@ export function AnnualHealthCheckBooking({
                     selectedFacilityId={selectedFacility?.id ?? null}
                     onSelect={setSelectedFacility}
                     idPrefix="ahc"
-                    emptyText="No labs listed for that location yet — try a nearby city, or message your care team to arrange it."
+                    emptyText="No labs listed for that location yet; try a nearby city, or message your care team to arrange it."
                   />
                   {selectedFacility && !selectedFacility.lab_provider_id && (
                     <p className="text-xs text-amber-700">
-                      This location can&apos;t take an online booking yet — pick another lab.
+                      This location can&apos;t take an online booking yet, pick another lab.
                     </p>
                   )}
                   <div className="flex flex-wrap items-center gap-2">
@@ -285,7 +285,7 @@ export function AnnualHealthCheckBooking({
                     >
                       {createOrder.isPending
                         ? "Booking…"
-                        : `Confirm — ₦${koboToNaira(selected.price_kobo).toLocaleString()}`}
+                        : `Confirm: ₦${koboToNaira(selected.price_kobo).toLocaleString()}`}
                     </Button>
                     <Button
                       size="sm"
@@ -304,7 +304,7 @@ export function AnnualHealthCheckBooking({
                 </div>
               ) : (
                 <Button type="button" size="sm" onClick={() => setBooking(true)}>
-                  Book {selected.name} — ₦{koboToNaira(selected.price_kobo).toLocaleString()}
+                  Book {selected.name}: ₦{koboToNaira(selected.price_kobo).toLocaleString()}
                 </Button>
               )}
             </div>

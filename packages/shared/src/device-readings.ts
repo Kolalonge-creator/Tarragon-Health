@@ -287,7 +287,7 @@ export function parseWeightMeasurement(data: Uint8Array): WeightReading {
   const rawWeight = readUint16LE(data, offset);
   offset += 2;
   if (rawWeight === 0xffff) {
-    throw new Error("Scale reported an unsuccessful measurement — step on again and retry");
+    throw new Error("Scale reported an unsuccessful measurement. Step on again and retry.");
   }
 
   const weightKg = isImperial ? rawWeight * 0.01 * LB_TO_KG : rawWeight * 0.005;

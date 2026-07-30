@@ -6,7 +6,7 @@ export function CtaBand({
   title,
   description,
   primaryHref = "/signup",
-  primaryLabel = "Start monitoring",
+  primaryLabel = "Get started",
   secondaryHref,
   secondaryLabel,
   className,

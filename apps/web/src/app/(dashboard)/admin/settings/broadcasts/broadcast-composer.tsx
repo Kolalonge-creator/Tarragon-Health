@@ -98,7 +98,7 @@ export function BroadcastComposer() {
       const flags = await contentCheck.mutateAsync(`${title.trim()} ${body.trim()}`);
       if (flags.length > 0) {
         setValidationError(
-          "This reads like a personal clinical result or diagnosis. Broadcasts must stay general — remove any result/diagnosis language specific to a person."
+          "This reads like a personal clinical result or diagnosis. Broadcasts must stay general. Remove any result/diagnosis language specific to a person."
         );
         return;
       }
@@ -159,7 +159,7 @@ export function BroadcastComposer() {
                 required
               />
               <p className="text-xs text-charcoal-ink/50">
-                This goes out over WhatsApp/SMS/email — never include a diagnosis, test result, or
+                This goes out over WhatsApp/SMS/email. Never include a diagnosis, test result, or
                 other clinical detail specific to a person. General announcements only.
               </p>
             </div>
@@ -195,7 +195,7 @@ export function BroadcastComposer() {
 
             {audience === "subscribers_by_plan" && (
               <div className="space-y-1.5">
-                <Label htmlFor="plan">Plan (optional — any plan if blank)</Label>
+                <Label htmlFor="plan">Plan (optional, any plan if blank)</Label>
                 <Select id="plan" value={planCode} onChange={(e) => setPlanCode(e.target.value)}>
                   <option value="">Any plan</option>
                   {planCodes.map(([code, name]) => (
@@ -246,7 +246,7 @@ export function BroadcastComposer() {
               </div>
               {isPartnerAudience && (
                 <p className="text-xs text-charcoal-ink/50">
-                  Partners are reached by email/SMS only — WhatsApp is a patient channel.
+                  Partners are reached by email/SMS only; WhatsApp is a patient channel.
                 </p>
               )}
             </div>

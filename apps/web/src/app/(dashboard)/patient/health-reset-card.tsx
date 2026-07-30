@@ -41,21 +41,21 @@ export function HealthResetCard({ patientId }: { patientId: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Icon className="h-5 w-5 text-brand-green" aria-hidden />
-          {isComplete ? "90-Day Health Reset — complete" : `90-Day Health Reset — day ${dayLabel} of 90`}
+          {isComplete ? "90-Day Health Reset: complete" : `90-Day Health Reset: day ${dayLabel} of 90`}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <ul className="space-y-1.5">
-          <Milestone done={progress.baseline_done} label="Baseline set — a first reading and your health profile" />
+          <Milestone done={progress.baseline_done} label="Baseline set: a first reading and your health profile" />
           <Milestone done={progress.programme_set_done} label="Your care team sets up your plan or screening calendar" />
-          <Milestone done={progress.consistency_done} label="Building the habit — regular logging or learning" />
+          <Milestone done={progress.consistency_done} label="Building the habit: regular logging or learning" />
         </ul>
 
         {isComplete && !progress.trial_claimed_at && (
           <div className="space-y-2 rounded-md bg-brand-green/[0.06] p-3">
             <p className="text-sm text-charcoal-ink">
               You&apos;ve completed your 90-Day Health Reset. As promised, you can claim 30 days of
-              Complete Care at no charge — no card required — so a doctor reviews your numbers
+              Complete Care at no charge, no card required, so a doctor reviews your numbers
               for a month before you decide.
             </p>
             <Button size="sm" disabled={claim.isPending} onClick={() => claim.mutate()}>
@@ -71,7 +71,7 @@ export function HealthResetCard({ patientId }: { patientId: string }) {
 
         {progress.trial_claimed_at && (
           <p className="text-sm text-charcoal-ink/70">
-            Your free trial is active — enjoy the full Complete Care experience. It quietly
+            Your free trial is active: enjoy the full Complete Care experience. It quietly
             returns you to Tarragon Free at the end unless you choose to continue.
           </p>
         )}

@@ -35,7 +35,7 @@ function formatReading(reading: Tables<"vitals_readings">): string {
     case "glucose": {
       const mmolL = reading.glucose_mmol_l;
       const mgDl = mmolL === null ? null : mmolLToMgDl(mmolL);
-      return `${mmolL} mmol/L (${mgDl} mg/dL) — ${reading.glucose_context ?? "—"}`;
+      return `${mmolL} mmol/L (${mgDl} mg/dL), ${reading.glucose_context ?? "—"}`;
     }
     case "weight":
       return `${reading.weight_kg} kg`;

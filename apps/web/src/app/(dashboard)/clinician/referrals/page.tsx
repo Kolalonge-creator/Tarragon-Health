@@ -28,7 +28,7 @@ const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["varia
   confirmed: { variant: "blue", label: "Confirmed" },
   completed: { variant: "green", label: "Completed" },
   declined: { variant: "grey", label: "Declined" },
-  waitlisted: { variant: "amber", label: "Waitlisted — no specialist available" },
+  waitlisted: { variant: "amber", label: "Waitlisted: no specialist available" },
 };
 
 function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDetails }) {
@@ -97,7 +97,7 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
                   {[p.city, p.state].filter(Boolean).length > 0
                     ? ` · ${[p.city, p.state].filter(Boolean).join(", ")}`
                     : ""}
-                  {p.supports_telemedicine ? " · telemedicine" : ""} — ₦
+                  {p.supports_telemedicine ? " · telemedicine" : ""}: ₦
                   {koboToNaira(p.consultation_fee_kobo).toLocaleString()}
                 </option>
               ))}
@@ -124,7 +124,7 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
       {noMatches && (
         <div className="space-y-2 border-t border-charcoal-ink/10 pt-2">
           <Label htmlFor={`interim-plan-${referral.id}`}>
-            No specialist available — interim management plan (required to waitlist)
+            No specialist available: interim management plan (required to waitlist)
           </Label>
           <Textarea
             id={`interim-plan-${referral.id}`}
@@ -228,8 +228,8 @@ export default function ClinicianReferralsPage() {
                   <p className="text-sm font-medium text-charcoal-ink">
                     <Link href={`/clinician/patients/${referral.patient_id}`} className="hover:underline">
                       {referral.patient?.full_name ?? "Unknown patient"}
-                    </Link>{" "}
-                    — {referral.specialist_type}
+                    </Link>
+                    : {referral.specialist_type}
                   </p>
                   {referral.referral_reason && (
                     <p className="text-xs text-charcoal-ink/60">{referral.referral_reason}</p>

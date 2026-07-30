@@ -29,7 +29,7 @@ export default async function PartnersIndexPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Partners</h1>
         <p className="text-charcoal-ink/60">
-          Manage the partner network — labs, pharmacies, hospitals, specialists, and logistics.
+          Manage the partner network: labs, pharmacies, hospitals, specialists, and logistics.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

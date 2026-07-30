@@ -39,7 +39,7 @@ export default async function DiabetesQualityPage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-charcoal-ink/60">
-              No patients on an active diabetes care plan yet — metrics appear once patients are
+              No patients on an active diabetes care plan yet. Metrics appear once patients are
               enrolled and complication checks are recorded.
             </p>
           </CardContent>
@@ -61,7 +61,7 @@ export default async function DiabetesQualityPage() {
       )}
       <p className="text-xs text-charcoal-ink/50">
         HbA1c-at-target and severe-hypo/DKA event rates are tracked separately as the lab-value and
-        alert pipelines mature — this view covers the complication-surveillance KPIs.
+        alert pipelines mature; this view covers the complication-surveillance KPIs.
       </p>
     </div>
   );

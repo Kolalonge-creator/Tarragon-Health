@@ -104,7 +104,7 @@ export function DoctorsDashboard() {
                       <tr className="border-b border-charcoal-ink/5 bg-warm-ivory">
                         <td colSpan={9} className="px-4 py-3">
                           <p className="mb-2 text-xs font-medium text-charcoal-ink/60">
-                            Patient panel ({d.patient_panel.length}) — de-identified
+                            Patient panel ({d.patient_panel.length}), de-identified
                           </p>
                           {d.patient_panel.length === 0 ? (
                             <p className="text-sm text-charcoal-ink/50">No patients assigned.</p>

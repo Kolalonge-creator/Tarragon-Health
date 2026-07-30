@@ -107,9 +107,9 @@ export default function ActivityCalculatorPage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Start monitoring today; it takes minutes to set up."
+          description="Get started today; it takes minutes to set up."
           primaryHref="/signup"
-          primaryLabel="Start monitoring"
+          primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}
           secondaryLabel="View pricing"
         />

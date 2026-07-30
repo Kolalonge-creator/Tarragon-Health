@@ -93,9 +93,9 @@ export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferra
               onChange={(e) => setUrgencyLocal(e.target.value as ReferralUrgency)}
             >
               <option value="">Select urgency</option>
-              <option value="routine">Routine — within weeks</option>
-              <option value="priority">Priority — within days</option>
-              <option value="urgent">Urgent — same day</option>
+              <option value="routine">Routine, within weeks</option>
+              <option value="priority">Priority, within days</option>
+              <option value="urgent">Urgent, same day</option>
             </Select>
           </div>
           <Button
@@ -162,7 +162,7 @@ export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferra
                 <div>
                   <p className="font-medium">Triggering result</p>
                   <p className="text-charcoal-ink/70">
-                    {summary.triggering_result.result_status} —{" "}
+                    {summary.triggering_result.result_status}:{" "}
                     {summary.triggering_result.result_summary ?? "no summary on file"}
                   </p>
                 </div>
@@ -183,7 +183,7 @@ export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferra
                   {summary.medications.map((m, i) => (
                     <li key={i}>
                       {m.drug_name}
-                      {m.dose && ` — ${m.dose}`}
+                      {m.dose && `: ${m.dose}`}
                       {m.frequency && ` (${m.frequency})`}
                     </li>
                   ))}
@@ -206,7 +206,7 @@ export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferra
             {referral.treatment_plan_received_at ? (
               <p className="text-sm text-charcoal-ink">
                 Treatment plan received {new Date(referral.treatment_plan_received_at).toLocaleDateString("en-GB")}
-                {referral.treatment_plan_note && ` — ${referral.treatment_plan_note}`}
+                {referral.treatment_plan_note && `: ${referral.treatment_plan_note}`}
               </p>
             ) : (
               <div className="space-y-2">

@@ -88,7 +88,7 @@ export function ResultsTrendsCard({ patientId }: { patientId: string }) {
       <CardContent className="space-y-3">
         <p className="text-xs text-charcoal-ink/60">
           Each lab result, compared with your previous one. Changes here are for tracking, not
-          diagnosis — your doctor reviews what they mean.
+          diagnosis; your doctor reviews what they mean.
         </p>
         <ul className="divide-y divide-charcoal-ink/10">
           {data.map(({ code, latest, previous }) => {

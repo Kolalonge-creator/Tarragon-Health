@@ -21,7 +21,7 @@ export default async function ProtocolsSettingsPage() {
         </h1>
         <p className="text-charcoal-ink/60">
           The version-signed record behind every &quot;protocols supervised by Dr. X&quot; claim
-          shown to patients — docs/CLINICAL_TRUST_MODEL_SPEC.md §1/§4. Append-only: signing a new
+          shown to patients: docs/CLINICAL_TRUST_MODEL_SPEC.md §1/§4. Append-only: signing a new
           version is how a protocol changes, nothing here is ever edited after the fact. Only the
           org&apos;s active Clinical Director can sign.
         </p>

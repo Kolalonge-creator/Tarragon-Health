@@ -141,7 +141,7 @@ export function HospitalAdmissionsCard({ patientId }: { patientId: string }) {
       <CardContent className="space-y-5">
         <p className="text-sm text-charcoal-ink/70">
           Let your care team know if you&apos;ve been admitted to hospital. What you enter here is
-          self-reported — your care team reviews it and updates your care plan if needed.
+          self-reported; your care team reviews it and updates your care plan if needed.
         </p>
 
         <form action={formAction} className="space-y-4">
@@ -170,7 +170,7 @@ export function HospitalAdmissionsCard({ patientId }: { patientId: string }) {
               maxLength={500}
             />
             <p className="text-xs text-charcoal-ink/60">
-              In your own words — this is recorded as self-reported, not a diagnosis.
+              In your own words: this is recorded as self-reported, not a diagnosis.
             </p>
           </div>
 

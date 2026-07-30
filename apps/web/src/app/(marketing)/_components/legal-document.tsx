@@ -67,7 +67,7 @@ export function LegalDocumentPage({
               })}
             </p>
             <p className="mt-6 rounded-xl border border-charcoal-ink/10 bg-soft-sage/50 p-4 text-sm text-charcoal-ink/70">
-              This document is being finalised with our legal counsel and may be updated —
+              This document is being finalised with our legal counsel and may be updated:
               bracketed passages mark details still being confirmed. Questions:{" "}
               <a href="mailto:legal@tarragonhealth.ng" className="underline">
                 legal@tarragonhealth.ng

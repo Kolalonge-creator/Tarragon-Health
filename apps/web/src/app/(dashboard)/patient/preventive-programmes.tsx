@@ -57,7 +57,7 @@ function WomensHealthScreeningStatus({ patientId }: { patientId: string }) {
         <li key={schedule.id} className="text-xs text-charcoal-ink/70">
           <span className="font-medium">{schedule.screen_type?.name}</span>:{" "}
           {SCREENING_STATUS_LABEL[schedule.status]}
-          {schedule.due_date && ` — ${new Date(schedule.due_date).toLocaleDateString()}`}
+          {schedule.due_date && `, ${new Date(schedule.due_date).toLocaleDateString()}`}
         </li>
       ))}
     </ul>

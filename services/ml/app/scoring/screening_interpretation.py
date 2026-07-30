@@ -87,16 +87,16 @@ def _classify_genotype(genotype: str) -> tuple[ResultStatus, str]:
     if normalised in _SICKLE_CELL_CARRIER:
         return (
             "borderline",
-            f"Genotype {normalised}: carrier/trait — genetic counselling advised.",
+            f"Genotype {normalised}: carrier/trait; genetic counselling advised.",
         )
     if normalised in _SICKLE_CELL_DISEASE:
         return (
             "abnormal",
-            f"Genotype {normalised}: sickle cell disease — specialist referral needed.",
+            f"Genotype {normalised}: sickle cell disease; specialist referral needed.",
         )
     # Unrecognised genotype string: escalate rather than silently pass as
     # normal, per CLAUDE.md's never-silently-swallow-an-abnormal-result rule.
-    return "abnormal", f"Genotype '{genotype}' not recognised — clinician review required."
+    return "abnormal", f"Genotype '{genotype}' not recognised; clinician review required."
 
 
 def _format_analyte(r: AnalyteResult) -> str:

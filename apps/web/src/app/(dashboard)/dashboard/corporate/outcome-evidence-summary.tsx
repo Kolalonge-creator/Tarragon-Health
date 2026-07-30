@@ -47,7 +47,7 @@ export function OutcomeEvidenceSummary({
           <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest" strokeWidth={2} />
           Outcome evidence
         </CardTitle>
-        <CardDescription>For renewal conversations — quotable, frozen-per-report figures.</CardDescription>
+        <CardDescription>For renewal conversations: quotable, frozen-per-report figures.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {hasTrend ? (
@@ -63,7 +63,7 @@ export function OutcomeEvidenceSummary({
           />
         ) : (
           <p className="text-sm text-charcoal-ink/60">
-            Not enough report history yet — generate at least 2 outcome reports to see a compliance trend.
+            Not enough report history yet. Generate at least 2 outcome reports to see a compliance trend.
           </p>
         )}
         {costAvoided && (

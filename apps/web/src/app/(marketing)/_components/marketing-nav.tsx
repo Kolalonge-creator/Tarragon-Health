@@ -87,7 +87,7 @@ export function MarketingNav() {
                 href="/signup"
                 className="hidden h-9 items-center justify-center rounded-full bg-brand-green px-4 text-sm font-medium text-white transition-colors hover:bg-brand-green/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 sm:inline-flex"
               >
-                Start monitoring
+                Get started
               </Link>
               <button
                 type="button"
@@ -151,7 +151,7 @@ export function MarketingNav() {
                 onClick={() => setOpen(false)}
                 className="mt-2 inline-flex h-10 items-center justify-center rounded-full bg-brand-green px-4 text-sm font-medium text-white"
               >
-                Start monitoring
+                Get started
               </Link>
             </nav>
           ) : null}

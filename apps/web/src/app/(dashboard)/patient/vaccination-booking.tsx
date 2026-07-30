@@ -33,7 +33,7 @@ export function VaccinationBooking({
           Book a vaccination near you
         </CardTitle>
         <CardDescription>
-          Find a vaccination centre in your area and send a booking request — they&apos;ll
+          Find a vaccination centre in your area and send a booking request; they&apos;ll
           confirm the date with you.
         </CardDescription>
       </CardHeader>
@@ -44,7 +44,7 @@ export function VaccinationBooking({
           selectedFacilityId={selectedFacility?.id ?? null}
           onSelect={setSelectedFacility}
           idPrefix="vax"
-          emptyText="No vaccination centres listed for that location yet — try a nearby city."
+          emptyText="No vaccination centres listed for that location yet, try a nearby city."
         />
         {selectedFacility && (
           <>

@@ -25,7 +25,7 @@ export function buildSamplePlan(age: AgeBand, sex: Sex, situation: Situation): S
     return {
       kind: "redirect",
       message:
-        "It sounds like you may already be managing a diagnosed condition. Prevention's screening calendar is built for people without one yet — Tarragon's chronic care programme (hypertension, diabetes, weight, and more) is likely the better starting point, with regular doctor review built in.",
+        "It sounds like you may already be managing a diagnosed condition. Prevention's screening calendar is built for people without one yet; Tarragon's chronic care programme (hypertension, diabetes, weight, and more) is likely the better starting point, with regular doctor review built in.",
     };
   }
 
@@ -58,7 +58,7 @@ export function buildSamplePlan(age: AgeBand, sex: Sex, situation: Situation): S
     kind: "example",
     calendar,
     firstNinetyDays: [
-      "A real two-minute health profile builds your real calendar — this example only used three quick picks.",
+      "A real two-minute health profile builds your real calendar; this example only used three quick picks.",
       "You book your first due check at a partner lab near you, and see the exact price before confirming.",
       "Most results just confirm you're on track. If one doesn't, a doctor follows up the same day, not next month.",
     ],
@@ -137,7 +137,7 @@ export function PlanPreviewSample() {
         See what a plan could look like
       </h3>
       <p className="mt-1 text-sm text-charcoal-ink/60">
-        Three quick picks, purely illustrative — nothing here is saved or scored.
+        Three quick picks, purely illustrative: nothing here is saved or scored.
       </p>
       <div className="mt-5 space-y-4">
         <PillGroup legend="Age range" options={AGE_OPTIONS} value={age} onChange={setAge} />

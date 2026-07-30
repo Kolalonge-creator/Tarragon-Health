@@ -39,7 +39,7 @@ export function UploadResultForm() {
       { file, note },
       {
         onSuccess: () => {
-          setSuccess("Result uploaded — your care team will review it.");
+          setSuccess("Result uploaded. Your care team will review it.");
           setFile(null);
           setNote("");
           if (fileInputRef.current) fileInputRef.current.value = "";
@@ -68,7 +68,7 @@ export function UploadResultForm() {
         </p>
       </div>
       <Textarea
-        placeholder="Note (optional) — e.g. which lab and which test"
+        placeholder="Note (optional): e.g. which lab and which test"
         value={note}
         onChange={(event) => setNote(event.target.value)}
         rows={2}

@@ -112,7 +112,7 @@ export function RulesManager() {
       <Card>
         <CardHeader>
           <CardTitle>Patient-specific overrides</CardTitle>
-          <CardDescription>Highest priority — beats the global lead time.</CardDescription>
+          <CardDescription>Highest priority; beats the global lead time.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-end gap-3">
@@ -168,7 +168,7 @@ export function RulesManager() {
                       {rule.patient?.full_name ?? "Unknown patient"}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
-                      {rule.patient?.phone} — remind {rule.lead_days} days before refill
+                      {rule.patient?.phone}, remind {rule.lead_days} days before refill
                     </p>
                   </div>
                   <Button

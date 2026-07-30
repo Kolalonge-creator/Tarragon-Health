@@ -30,8 +30,8 @@ const WHATS_INCLUDED = [
     body: "Measured properly and recorded to your Tarragon record, so next year has something real to compare against.",
   },
   {
-    title: "Doctor review of everything",
-    body: "A doctor reads every result against your history and tells you plainly what's fine, what to watch, and what, if anything, to do next.",
+    title: "A doctor reads every result",
+    body: "Checked against your history, and explained plainly: what's fine, what to watch, and what, if anything, to do next.",
   },
   {
     title: "One record, year after year",

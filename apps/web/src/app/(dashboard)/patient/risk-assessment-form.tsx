@@ -102,13 +102,13 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
       <CardContent>
         <form action={formAction} className="space-y-6">
           <p className="text-sm text-charcoal-ink/60">
-            A few honest answers help us tell you what to check and when — this isn&apos;t
+            A few honest answers help us tell you what to check and when. This isn&apos;t
             a diagnosis, just a starting point for your care.
           </p>
 
           <div className="flex items-center gap-2 text-xs text-charcoal-ink/60">
             <span className="whitespace-nowrap">
-              Step {step} of {STEP_COUNT} — {STEP_LABELS[step - 1]}
+              Step {step} of {STEP_COUNT}: {STEP_LABELS[step - 1]}
             </span>
             <div className="h-1.5 flex-1 rounded-full bg-charcoal-ink/10">
               <div
@@ -330,7 +330,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
             <p className="text-sm text-brand-green">
-              Thanks — your care plan preview below reflects your answers.
+              Thanks, your care plan preview below reflects your answers.
             </p>
           )}
 

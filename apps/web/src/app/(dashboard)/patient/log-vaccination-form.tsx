@@ -142,7 +142,7 @@ export function LogVaccinationForm({
         <CardTitle>Log a vaccination</CardTitle>
         <CardDescription>
           Record a dose you&apos;ve received. If you were given a certificate at the centre, add a
-          photo of it — your Tarragon care team will verify it and issue your Tarragon certificate.
+          photo of it, and your Tarragon care team will verify it and issue your Tarragon certificate.
         </CardDescription>
       </CardHeader>
       <CardContent>
