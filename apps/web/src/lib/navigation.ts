@@ -134,6 +134,12 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
           ],
         },
+        {
+          label: "Clinical",
+          items: [
+            { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
+          ],
+        },
       ];
     case "pharmacist":
       return [
