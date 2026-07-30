@@ -137,6 +137,8 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
           label: "Clinical",
           items: [
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
+            { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
+            { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
           ],
         },
       ];

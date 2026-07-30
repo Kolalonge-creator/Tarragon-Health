@@ -23,10 +23,14 @@ const TIMELINE_SELECT =
   "*, actor:clinical_staff!patient_timeline_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number)";
 
 /**
- * The unified activity feed for a single patient, newest first. Read by both the
- * patient dashboard and the clinician patient-detail view — RLS
- * (patient_id = auth.uid() OR private.is_org_staff(organisation_id)) is what
- * scopes each caller to what they may see, so the same query is safe on both.
+ * The unified activity feed for a single patient, newest first. Read by the
+ * patient dashboard, the clinician patient-detail view, and (since the
+ * 2026-07-30 proof_log gap closure) any profile_access grantee — RLS
+ * (patient_id = auth.uid() OR is_org_staff(organisation_id) OR a matching
+ * profile_access row) is what scopes each caller to what they may see, so the
+ * same query is safe everywhere. No UI currently renders this for a grantee
+ * viewing someone else's timeline — the capability exists at the data layer
+ * ahead of any consuming surface.
  */
 export function usePatientTimeline(patientId: string, limit = 50) {
   return useQuery({
