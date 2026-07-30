@@ -12160,10 +12160,54 @@ export type Database = {
           price_minor: number
         }[]
       }
+      create_personalised_lifestyle_goal: {
+        Args: {
+          p_enrollment_id: string
+          p_module: Database["public"]["Enums"]["lpe_module"]
+          p_target_date?: string | null
+          p_target_unit?: string | null
+          p_target_value?: number | null
+          p_title: string
+        }
+        Returns: {
+          created_at: string
+          goal_template_id: string | null
+          id: string
+          metric_key: string | null
+          module: Database["public"]["Enums"]["lpe_module"]
+          organisation_id: string
+          personalised: boolean
+          programme_instance_id: string
+          status: Database["public"]["Enums"]["lpe_goal_status"]
+          target: Json | null
+          title: string
+          updated_at: string
+        }
+      }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
       region_service_available: {
         Args: { p_service: string; p_state: string }
         Returns: boolean
+      }
+      resolve_personalised_lifestyle_goal: {
+        Args: {
+          p_goal_id: string
+          p_status: Database["public"]["Enums"]["lpe_goal_status"]
+        }
+        Returns: {
+          created_at: string
+          goal_template_id: string | null
+          id: string
+          metric_key: string | null
+          module: Database["public"]["Enums"]["lpe_module"]
+          organisation_id: string
+          personalised: boolean
+          programme_instance_id: string
+          status: Database["public"]["Enums"]["lpe_goal_status"]
+          target: Json | null
+          title: string
+          updated_at: string
+        }
       }
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }

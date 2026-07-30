@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
-import { getLifestyleState } from "@/lib/lifestyle/service";
+import { getLifestyleState, getPastLifestyleGoals } from "@/lib/lifestyle/service";
 import { LifestyleClient } from "./lifestyle-client";
 
 /**
@@ -29,7 +29,10 @@ export default async function LifestylePage() {
     );
   }
 
-  const enrollments = await getLifestyleState(supabase, user.id);
+  const [enrollments, pastGoals] = await Promise.all([
+    getLifestyleState(supabase, user.id),
+    getPastLifestyleGoals(supabase, user.id),
+  ]);
 
-  return <LifestyleClient enrollments={enrollments} />;
+  return <LifestyleClient enrollments={enrollments} pastGoals={pastGoals} />;
 }

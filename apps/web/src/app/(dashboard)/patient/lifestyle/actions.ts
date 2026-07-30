@@ -146,3 +146,73 @@ export async function logReadingAction(
   }
   return { success: true, message: "Logged. Nice work keeping it up." };
 }
+
+const emptyToUndefined = (v: unknown) =>
+  typeof v === "string" && v.trim() === "" ? undefined : v;
+
+const GOAL_MODULES = ["diet", "activity", "behaviour", "sleep", "stress"] as const;
+
+const createGoalSchema = z.object({
+  enrollmentId: z.string().uuid(),
+  module: z.enum(GOAL_MODULES),
+  title: z.string().trim().min(1, "Please describe your goal").max(200),
+  targetValue: z.preprocess(emptyToUndefined, z.coerce.number().finite().positive().optional()),
+  targetUnit: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional()),
+  targetDate: z.preprocess(emptyToUndefined, z.string().optional()),
+});
+
+export async function createGoalAction(
+  _prev: LifestyleActionState,
+  formData: FormData,
+): Promise<LifestyleActionState> {
+  const parsed = createGoalSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { enrollmentId, module, title, targetValue, targetUnit, targetDate } = parsed.data;
+
+  const ctx = await currentPatient();
+  if (ctx.error) return { error: ctx.error };
+
+  const { error } = await ctx.supabase.rpc("create_personalised_lifestyle_goal", {
+    p_enrollment_id: enrollmentId,
+    p_module: module,
+    p_title: title,
+    p_target_value: targetValue ?? null,
+    p_target_unit: targetUnit ?? null,
+    p_target_date: targetDate ?? null,
+  });
+  if (error) return { error: error.message || "Could not save your goal" };
+
+  revalidatePath("/patient/lifestyle");
+  return { success: true, message: "Goal added." };
+}
+
+const resolveGoalSchema = z.object({
+  goalId: z.string().uuid(),
+  status: z.enum(["achieved", "abandoned"]),
+});
+
+export async function resolveGoalAction(
+  _prev: LifestyleActionState,
+  formData: FormData,
+): Promise<LifestyleActionState> {
+  const parsed = resolveGoalSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: "Invalid input" };
+
+  const ctx = await currentPatient();
+  if (ctx.error) return { error: ctx.error };
+
+  const { error } = await ctx.supabase.rpc("resolve_personalised_lifestyle_goal", {
+    p_goal_id: parsed.data.goalId,
+    p_status: parsed.data.status,
+  });
+  if (error) return { error: error.message || "Could not update this goal" };
+
+  revalidatePath("/patient/lifestyle");
+  return {
+    success: true,
+    message:
+      parsed.data.status === "achieved" ? "Nice work — marked as achieved." : "Goal removed.",
+  };
+}
