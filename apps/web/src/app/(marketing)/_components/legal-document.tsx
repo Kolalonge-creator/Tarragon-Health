@@ -1,21 +1,51 @@
 import Link from "next/link";
 import { Section } from "./section";
 import type { LegalDocument } from "@/lib/marketing/legal-data";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+
+/** All public legal pages, consent-versioned or static, in one cross-link set. */
+const LEGAL_PAGES = [
+  { key: "privacy", href: MARKETING_ROUTES.privacy, label: "Data Processing Consent" },
+  { key: "telehealthConsent", href: MARKETING_ROUTES.telehealthConsent, label: "Telehealth Consent" },
+  { key: "terms", href: MARKETING_ROUTES.terms, label: "Terms of Service" },
+  { key: "accessibility", href: MARKETING_ROUTES.accessibility, label: "Accessibility Statement" },
+  { key: "cookies", href: MARKETING_ROUTES.cookies, label: "Cookie Policy" },
+] as const;
+
+/** Cross-link row shown at the foot of every legal page, omitting whichever one you're on. */
+export function LegalCrossLinks({ current }: { current: (typeof LEGAL_PAGES)[number]["key"] }) {
+  const links = LEGAL_PAGES.filter((page) => page.key !== current);
+  return (
+    <p className="mt-10 text-sm text-charcoal-ink/60">
+      {links.map((link, i) => (
+        <span key={link.key}>
+          {i > 0 ? " · " : ""}
+          <Link href={link.href} className="underline hover:no-underline">
+            {link.label}
+          </Link>
+        </span>
+      ))}
+    </p>
+  );
+}
 
 /**
- * Shared renderer for the three public legal pages (/privacy,
+ * Shared renderer for the DB-backed consent-versioned legal pages (/privacy,
  * /telehealth-consent, /terms) — each page.tsx just loads its own
  * consent_versions row via loadLegalDocument and passes it here. Sections
  * render the same "## Heading" body the onboarding consent step shows, so a
  * patient reads the exact text their acceptance record points at, not a
- * marketing paraphrase.
+ * marketing paraphrase. Static legal pages (accessibility, cookies) render
+ * their own markup and reuse only LegalCrossLinks above.
  */
 export function LegalDocumentPage({
   crumbLabel,
   document,
+  documentKey,
 }: {
   crumbLabel: string;
   document: LegalDocument | null;
+  documentKey: (typeof LEGAL_PAGES)[number]["key"];
 }) {
   return (
     <Section className="pt-20">
@@ -68,19 +98,7 @@ export function LegalDocumentPage({
             .
           </div>
         )}
-        <p className="mt-10 text-sm text-charcoal-ink/60">
-          <Link href="/privacy" className="underline hover:no-underline">
-            Data Processing Consent
-          </Link>
-          {" · "}
-          <Link href="/telehealth-consent" className="underline hover:no-underline">
-            Telehealth Consent
-          </Link>
-          {" · "}
-          <Link href="/terms" className="underline hover:no-underline">
-            Terms of Service
-          </Link>
-        </p>
+        <LegalCrossLinks current={documentKey} />
       </article>
     </Section>
   );

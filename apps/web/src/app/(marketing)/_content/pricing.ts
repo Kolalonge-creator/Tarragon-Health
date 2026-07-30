@@ -140,7 +140,7 @@ export const NGN_TIERS: PricingTier[] = [
   {
     id: "essential",
     name: "Essential Care",
-    whoFor: "One condition: hypertension, diabetes, or obesity",
+    whoFor: "One condition: hypertension, diabetes, or weight management",
     priceMain: "₦8,000",
     pricePeriod: "per month",
     priceSecondary: "or ₦80,000/year (2 months free)",
@@ -166,11 +166,11 @@ export const NGN_TIERS: PricingTier[] = [
     pricePeriod: "per month",
     priceSecondary: "or ₦150,000/year (2 months free)",
     description:
-      "Tarragon currently manages three chronic conditions: hypertension, diabetes, and obesity. Complete Care is for anyone managing more than one of them together (for example, blood pressure and blood sugar, or diabetes and weight), or anyone whose doctor recommends closer monitoring.",
+      "Tarragon currently manages three chronic conditions: hypertension, diabetes, and weight management. Complete Care is for anyone managing more than one of them together (for example, blood pressure and blood sugar, or diabetes and weight), or anyone whose doctor recommends closer monitoring.",
     items: [
       { feature: "Everything in Essential Care", label: "INCLUDED" },
       { feature: "Weekly doctor review (instead of monthly)", label: "INCLUDED" },
-      { feature: "Hypertension, diabetes, and obesity managed together on one care plan", label: "INCLUDED" },
+      { feature: "Hypertension, diabetes, and weight all managed together on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
       { feature: "Ask a doctor a one-off written question, answered within 24 hours", label: "INCLUDED" },
       { feature: "Lab tests", label: "BOOK & PAY" },
@@ -340,7 +340,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦25,000/month",
     label: "ADD-ON",
     description:
-      "A guided programme for diet, activity, and weight: a personal assessment, goals you set with support, structured diet and exercise tracks, and in-app check-ins, with a progress review every three months. It's also the engine behind Tarragon's obesity programme.",
+      "A guided programme for diet, activity, and weight: a personal assessment, goals you set with support, structured diet and exercise tracks, and in-app check-ins, with a progress review every three months. It's also the engine behind Tarragon's weight programme.",
     availability: "Included on Complete Care and above. Available as an add-on on Essential Care or Tarragon Free.",
   },
   {
@@ -482,9 +482,9 @@ export const NEVER_DO: string[] = [
 
 export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
-    question: "Which conditions does Tarragon manage, and where does obesity fit?",
+    question: "Which conditions does Tarragon manage, and where does weight management fit?",
     answer:
-      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and obesity. Obesity is a full condition on any plan, not an extra: with only obesity to manage, Essential Care (₦8,000/month) covers it, including doctor review of your weight trend, a structured lifestyle plan, and follow-up. Managing obesity alongside blood pressure or diabetes is exactly what Complete Care (₦15,000/month) is for, and Lifestyle Coaching is already included there at no extra charge. Preventive screening is separate and available to everyone, whatever your conditions.",
+      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and weight management. Weight management is a full condition on any plan, not an extra: if that's the only one you need, Essential Care (₦8,000/month) covers it, including doctor review of your weight trend, a structured lifestyle plan, and follow-up. Managing your weight alongside blood pressure or diabetes is exactly what Complete Care (₦15,000/month) is for, and Lifestyle Coaching is already included there at no extra charge. Preventive screening is separate and available to everyone, whatever your conditions.",
   },
   {
     question: "Will my card ever be charged automatically for a test I didn't ask for?",

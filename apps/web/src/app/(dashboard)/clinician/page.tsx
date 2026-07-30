@@ -128,7 +128,7 @@ export default async function ClinicianPage() {
     <DashboardPlaceholder
       greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
       roleLabel={roleLabel}
-      comingUp={["Workload metrics (1:120 ratio target)"]}
+      comingUp={["Workload metrics"]}
     >
       {authorityBlurb && (
         <Card variant="soft">

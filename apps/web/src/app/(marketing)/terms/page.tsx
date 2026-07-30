@@ -14,5 +14,5 @@ export const metadata: Metadata = {
 
 export default async function TermsPage() {
   const document = await loadLegalDocument("terms_of_service");
-  return <LegalDocumentPage crumbLabel="Legal · Schedule C" document={document} />;
+  return <LegalDocumentPage crumbLabel="Legal · Schedule C" document={document} documentKey="terms" />;
 }

@@ -275,7 +275,20 @@ tables at once.**
 - ~~**Push `main-dev` to GitHub.**~~ Done 2026-07-29. `reference/tarragon-control/` is still the
   only copy of that repo's history and it still lives on one disk.
 
-## Current Sprint — v3 (UPDATE THIS EVERY SPRINT GOING FORWARD)
+## Current Sprint — v3 (FROZEN — not an active roadmap, see 2026-07-30 note)
+
+**2026-07-30 — founder confirmed: "V3 should be enhancement of what we already have, not a
+replacement."** This sharpens the pivot-reversal above. Concretely: neither of the two v3
+codebases below (this project's M1/M2, or the separate `tarragon-control` repo which independently
+reached M1-M4) continues as a milestone-by-milestone build. **Do not resume M3/M4/M5/etc. in
+either place.** Both stay dormant, reference-only — the only sanctioned path for anything in v3
+reaching the real platform is a deliberate, explicitly-asked-for port of one named feature/
+discipline into `apps/web`, the same way I1-I10, `rls_auto_enable`, and the four narrowing rules
+were each pulled in above. If asked to "continue v3," clarify which specific piece to port instead
+of resuming a milestone.
+
+The M1/M2 entries below are the historical record of what was built here before the pivot
+reversed, kept for reference — do not add new milestones to this section going forward.
 
 ### 2026-07-29 — M1 built and verified: schema, RLS, audit, invariants (this session)
 Full Phase 1 §5 schema (all 17 enums, 33 tables — see build-spec-v3 §5.1–§5.11), RLS enabled and
@@ -440,7 +453,7 @@ Prevention and chronic management **share the same patient record** — design e
 - **Superseded 2026-07-11 — WhatsApp is not a required interface for signup or core platform actions.** Signup, onboarding, and every core patient/clinician transaction (vitals/meds/screening/booking logging, dose tracking, etc.) happen via app or web only — no bot-driven data entry over WhatsApp, ever, and no feature may be built to depend on a WhatsApp send succeeding. WhatsApp/SMS (Termii fallback) still carries reminders/alerts/confirmations, **and patients may message their doctor on WhatsApp for support, with the doctor replying on WhatsApp too** — that two-way channel is human-routed (a clinician inbox), never parsed by automation into a platform action.
 - Phone numbers always E.164 (`+234XXXXXXXXX`). Timezone always `Africa/Lagos`.
 - Every table has `organisation_id` — always filter by it. **RLS enforced at the Postgres level for every multi-tenant table — never bypass, never filter in application code instead.**
-- Doctor:patient ratio target — **1:120** for Tier 1–3 staffing (see Clinical Tier Ladder below).
+- **Doctor:patient ratio target — under review as of 2026-07-30, do not cite 1:120 as current.** It was the working figure for Tier 1–3 staffing (see Clinical Tier Ladder below); founder is now exploring how far protocol/automation design can responsibly stretch one doctor's coverage, with **1:2000 as an aspiration, not a committed number** ("where possible with good design"). No new fixed ratio is confirmed yet — don't put a specific ratio in marketing copy, UI, or business-rule text until the founder settles on one; where a ratio claim is needed, describe the mechanism (protocol-driven review, triage before a doctor sees a case) instead of a number.
 - Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → doctor WhatsApp alert **immediate, not scheduled** → doctor has a 4-hour contact SLA → surfaces as Priority 1 (red) on doctor dashboard.
 
 ## Clinical Tier Ladder (supersedes flat clinician/escalation-doctor model — 2026-07-15)
@@ -490,7 +503,7 @@ Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14,
 - Master tagline: **"Care that stays with you."** Wordmark: **TarragonHealth** (camel-case). Mark: **Guard Leaf** (shield + sprout crown + checkmark vein).
 - Tarragon Green `#0E7C52` (brand/primary actions), Clinical Navy `#12324B` (B2B/clinical documents). Clinical dashboard status colours (green/amber/red/blue/grey) are a **separate system** from brand colour — never confuse the two.
 - Voice: warm and personal, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
-- **Do not use "doctor-led" as a headline/marketing claim** (retired 2026-07-18 — it reads as over-promising and unprofessional). Describe the actual clinical process instead — "clinical review and escalation", "your care team", "reviewed against care protocols" — and reference doctors concretely in process/explanation ("escalates to a doctor", "the doctors who keep the 1:120 ratio"), never as a blanket brand adjective. The operating model is unchanged (Tarragon still employs its own doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`); this is a public-copy/positioning rule only.
+- **Do not use "doctor-led" as a headline/marketing claim** (retired 2026-07-18 — it reads as over-promising and unprofessional). Describe the actual clinical process instead — "clinical review and escalation", "your care team", "reviewed against care protocols" — and reference doctors concretely in process/explanation ("escalates to a doctor", "the doctors who review every case"), never as a blanket brand adjective. Don't cite a specific doctor:patient ratio in this kind of copy — see the Non-Negotiable Business Rules note above, it's under review. The operating model is unchanged (Tarragon still employs its own doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`); this is a public-copy/positioning rule only.
 
 ## Current Sprint (UPDATE THIS EVERY SPRINT)
 

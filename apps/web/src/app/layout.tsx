@@ -4,6 +4,7 @@ import { Sora, Inter } from "next/font/google";
 import "./globals.css";
 import { PageTracker } from "@/components/analytics/page-tracker";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
+import { CookieConsentBanner } from "@/components/consent/cookie-consent-banner";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -53,6 +54,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <PageTracker />
         </Suspense>
+        <CookieConsentBanner />
       </body>
     </html>
   );

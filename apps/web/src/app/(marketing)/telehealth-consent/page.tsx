@@ -14,5 +14,11 @@ export const metadata: Metadata = {
 
 export default async function TelehealthConsentPage() {
   const document = await loadLegalDocument("telehealth");
-  return <LegalDocumentPage crumbLabel="Legal · Schedule B" document={document} />;
+  return (
+    <LegalDocumentPage
+      crumbLabel="Legal · Schedule B"
+      document={document}
+      documentKey="telehealthConsent"
+    />
+  );
 }

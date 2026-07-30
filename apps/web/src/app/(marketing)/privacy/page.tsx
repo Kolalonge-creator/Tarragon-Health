@@ -14,5 +14,7 @@ export const metadata: Metadata = {
 
 export default async function PrivacyPage() {
   const document = await loadLegalDocument("data_processing");
-  return <LegalDocumentPage crumbLabel="Legal · Schedule A" document={document} />;
+  return (
+    <LegalDocumentPage crumbLabel="Legal · Schedule A" document={document} documentKey="privacy" />
+  );
 }
