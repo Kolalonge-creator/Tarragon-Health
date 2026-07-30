@@ -9,12 +9,12 @@ import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
 import { TestimonialsSection } from "./_components/testimonials-section";
-import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
 import { AppDashboardMockup } from "./_components/app-dashboard-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
 import { ServiceCardLink } from "./_components/service-card";
+import { AnimatedNumber } from "./_components/animated-number";
 import {
   PREVENTION_CALLOUT,
   PROOF_STATS,
@@ -45,12 +45,11 @@ export default function MarketingHomePage() {
           aria-hidden
           className="pointer-events-none absolute -right-16 top-10 -z-10 h-[320px] w-[320px] rounded-full bg-sprout-gold/15 blur-3xl"
         />
-        {/* When hero footage exists (homepage.hero.videoSrc), the ambient video
-            frame takes over from the WhatsApp mockup automatically. */}
-        <MarketingHero
-          media={homepage.hero}
-          visual={homepage.hero.videoSrc ? undefined : <WhatsappHeroMockup />}
-        >
+        {/* No custom visual override: the default MarketingMediaFrame renders
+            homepage.hero (ambient video once videoSrc is set, otherwise the
+            calm illustration), the same framed-card treatment used for every
+            other image on the site. */}
+        <MarketingHero media={homepage.hero}>
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
             Continuity, not just monitoring
           </p>
@@ -84,8 +83,13 @@ export default function MarketingHomePage() {
       <Section className="py-8 sm:py-10">
         <div className="grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
           {PROOF_STATS.map((stat) => (
-            <div key={stat.label} className="rounded-xl bg-warm-ivory p-5">
-              <p className="font-heading text-3xl font-bold text-brand-green">{stat.value}</p>
+            <div
+              key={stat.label}
+              className="rounded-xl bg-warm-ivory p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+            >
+              <p className="font-heading text-3xl font-bold text-brand-green">
+                <AnimatedNumber value={stat.value} />
+              </p>
               <h2 className="mt-1 font-heading text-sm font-semibold uppercase tracking-wide text-charcoal-ink">
                 {stat.label}
               </h2>

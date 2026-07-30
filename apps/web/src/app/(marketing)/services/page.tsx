@@ -4,7 +4,9 @@ import { DashboardPreview } from "../_components/dashboard-preview";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
-import { HOW_IT_WORKS_STEPS, SERVICE_CARDS } from "../_content/services";
+import { ConditionsMarquee } from "../_components/conditions-marquee";
+import { StepsExplorer } from "../_components/steps-explorer";
+import { HOW_IT_WORKS_STEPS, SERVICE_CARDS, WHAT_WE_TRACK } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = {
@@ -34,38 +36,10 @@ export default function ServicesPage() {
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
             One record, watching what matters
           </h2>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            {[
-              "blood pressure",
-              "blood sugar & HbA1c",
-              "weight & BMI",
-              "cholesterol",
-              "kidney function",
-              "medication adherence",
-              "refills before you run out",
-              "cervical screening",
-              "breast screening",
-              "prostate (PSA) screening",
-              "colorectal screening",
-              "HIV, Hepatitis B & Hepatitis C checks",
-              "blood group & genotype",
-              "vaccinations",
-              "symptoms you report",
-              "hospital admissions",
-              "annual health checks",
-              "cardiovascular risk",
-              "doctor video visits",
-              "ask-a-doctor messages",
-            ].map((item) => (
-              <span
-                key={item}
-                className="rounded-full border border-charcoal-ink/10 bg-white px-4 py-1.5 text-sm text-charcoal-ink/75"
-              >
-                {item}
-              </span>
-            ))}
+          <div className="mt-6">
+            <ConditionsMarquee items={[...WHAT_WE_TRACK]} />
           </div>
-          <p className="mt-5 text-sm text-charcoal-ink/60">
+          <p className="mt-2 text-sm text-charcoal-ink/60">
             All on one longitudinal record your care team actually reviews.
           </p>
         </div>
@@ -93,25 +67,12 @@ export default function ServicesPage() {
           />
         </div>
 
-        <ol className="mx-auto mt-12 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {HOW_IT_WORKS_STEPS.map(({ step, title, body }) => (
-            <li
-              key={step}
-              className="flex gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-4"
-            >
-              <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-clinical-navy text-xs font-semibold text-white"
-                aria-hidden
-              >
-                {step}
-              </span>
-              <div>
-                <h3 className="font-heading text-sm font-semibold text-charcoal-ink">{title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/70">{body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div className="mt-12">
+          <StepsExplorer
+            steps={HOW_IT_WORKS_STEPS.map(({ title, body }) => ({ title, body }))}
+            tone="navy"
+          />
+        </div>
       </Section>
 
       <Section>

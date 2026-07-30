@@ -1259,6 +1259,36 @@ tracks. Migration `20260730120518_health_reset_90_day.sql` applied and recorded.
 User flagged the 2026-07-21 "attaching real domains to the Vercel project is an owner step" line (see the corrected annotation on it, further up this section) as a to-do. Checked live rather than trusting either note: `get_project` on Vercel project `tarragon-health-web` (`prj_mhUTlvnSc6a2JdJvnIOmn7fMjEw4`) shows `tarragonhealth.ng`, `www.tarragonhealth.ng`, and `app.tarragonhealth.ng` are all already attached, alongside the `.vercel.app` fallbacks. This matches `project_domain_email_golive` (memory) — the real domains were registered and attached 2026-07-22, one day after the stale note above was written; the "owner step" it describes was already completed by the time it was written, just never corrected in this file.
 - **Live-fetched all three, not just checked the Vercel API list:** `https://tarragonhealth.ng` serves the real marketing site; `https://app.tarragonhealth.ng` serves the real login page; `https://tarragonhealth.com.ng` (not itself a Vercel-attached domain — it 301-redirects at the DNS/Cloudflare layer per the memory's own "301 → .ng, path-preserving" note) correctly redirects to `https://tarragonhealth.ng/`. All three resolve to the live app, not a placeholder — nothing was broken, nothing needed fixing.
 - **No action taken beyond verification + this correction** — the domains were never actually unattached; the only real gap was this file not being updated after the 2026-07-22 work landed. `tarragonhealth.com` (no `.ng`, third-party/Squarespace-owned per the annotation above) remains a separate, unrelated matter — still not Tarragon's, not blocking anything (production is reachable at the real `.ng` domains regardless).
+### 2026-07-30 — Marketing site interactivity/visual pass (branch `feat/marketing-site-redesign`)
+A coherent visual and interactivity refresh across the marketing site, pure presentation layer — no
+data logic, entitlement, or platform-code changes. Four new reusable components replace static lists/
+grids that repeated the same pattern on every page:
+- **`AnimatedNumber`** — count-up-on-mount treatment for stat figures, swapped into the homepage proof
+  stats, `AudienceTabs`, and every `B2bPageTemplate` stat row.
+- **`StepsExplorer`** — replaces the numbered-card "How it works" grid used on `services`,
+  `chronic-care`, `prevention`, and both shared `B2bPageTemplate`/`ProductPageTemplate` templates, with
+  a consistent tone-aware (navy/green) treatment.
+- **`ConditionsMarquee`** — replaces the static pill-cloud "what we track" list on `/services` with a
+  scrolling marquee (`marketing-marquee-left`/`-right` keyframes in `globals.css`, reduced-motion
+  respected), driven by a new shared `WHAT_WE_TRACK` content array in `_content/services.ts`.
+- **`TestimonialsCarousel`** — replaces the static 3-column testimonial grid in `TestimonialsSection`.
+- **`ContinuityPath`** gained click-to-reveal detail per moment (auto-advances every 3.2s until a
+  visitor interacts, `aria-live` on the detail text, `prefers-reduced-motion` respected throughout) —
+  matches the numbered-step-with-detail pattern used by comparable prevention-health sites without
+  inventing anything beyond what the product actually does.
+- **Removed** the static WhatsApp chat-bubble hero mockup (`whatsapp-hero-mockup.tsx`) and its dead
+  `marketing-bubble`/`marketing-typing` CSS keyframes — the homepage hero now always renders through the
+  standard `MarketingMediaFrame`, same treatment as every other page's hero image.
+- **Verified:** `pnpm typecheck`/`lint` (0 errors)/`test` (465) and a full production build all clean —
+  every marketing route prerenders correctly, including the new marquee/carousel/steps components across
+  `services`, `chronic-care`, `prevention`, `b2b-page-template`, `product-page-template`, and the
+  homepage.
+- **Not yet done:** authenticated/anonymous browser click-through — this is the one that most needs
+  eyes (marquee scroll speed/readability, testimonials carousel controls, continuity-path click states).
+  Push + open a PR when ready.
+
+### 2026-07-30 — Phone contact number + RC company registration number added to marketing footer and contact page
+Small additive copy fix: `+234 806 119 7940` and `TarragonHealth · RC 9702108` now appear in the site footer and on `/contact`, next to the existing patient-support copy.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

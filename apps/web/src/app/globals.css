@@ -134,57 +134,30 @@ body {
   }
 }
 
-@keyframes marketing-bubble-in {
+@keyframes marketing-marquee-left {
   from {
-    opacity: 0;
-    transform: translateY(8px);
+    transform: translateX(0);
   }
   to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translateX(-50%);
   }
 }
 
-@keyframes marketing-typing-dot {
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.4;
+@keyframes marketing-marquee-right {
+  from {
+    transform: translateX(-50%);
   }
-  30% {
-    transform: translateY(-4px);
-    opacity: 1;
+  to {
+    transform: translateX(0);
   }
 }
 
-@keyframes marketing-typing-show {
-  0%,
-  16% {
-    opacity: 0;
-  }
-  18%,
-  26% {
-    opacity: 1;
-  }
-  28%,
-  100% {
-    opacity: 0;
-  }
+.marketing-marquee-left {
+  animation: marketing-marquee-left 46s linear infinite;
 }
 
-.marketing-bubble {
-  opacity: 0;
-  animation: marketing-bubble-in 0.5s cubic-bezier(0.22, 0.9, 0.32, 1) forwards;
-}
-
-.marketing-typing {
-  opacity: 0;
-  animation: marketing-typing-show 6s ease-in-out infinite;
-}
-
-.marketing-typing-dot {
-  animation: marketing-typing-dot 1s infinite ease-in-out;
+.marketing-marquee-right {
+  animation: marketing-marquee-right 56s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -197,17 +170,8 @@ body {
     animation: none !important;
   }
 
-  .marketing-bubble,
-  .marketing-typing {
-    opacity: 1 !important;
-    animation: none !important;
-  }
-
-  .marketing-typing {
-    display: none !important;
-  }
-
-  .marketing-typing-dot {
+  .marketing-marquee-left,
+  .marketing-marquee-right {
     animation: none !important;
   }
 }

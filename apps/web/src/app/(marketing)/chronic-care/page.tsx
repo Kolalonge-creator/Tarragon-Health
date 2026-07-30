@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
+import { StepsExplorer } from "../_components/steps-explorer";
 import { SERVICE_CARDS } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { ResourceCarousel } from "../_components/resource-carousel";
@@ -58,23 +59,7 @@ export default async function ChronicCarePage() {
 
       <Section variant="sage">
         <SectionHeading eyebrow="How chronic care works" title="Monitor, review, escalate" />
-        <ol className="grid gap-6 md:grid-cols-3">
-          {HOW.map((item, index) => (
-            <li
-              key={item.title}
-              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 transition duration-200 hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-md"
-            >
-              <span
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-clinical-navy font-heading text-sm font-semibold text-white"
-                aria-hidden
-              >
-                {index + 1}
-              </span>
-              <h3 className="mt-4 font-heading text-xl font-semibold text-charcoal-ink">{item.title}</h3>
-              <p className="mt-3 text-charcoal-ink/70">{item.body}</p>
-            </li>
-          ))}
-        </ol>
+        <StepsExplorer steps={HOW} tone="navy" />
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Looking after a parent with a long-term condition?{" "}
           <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">

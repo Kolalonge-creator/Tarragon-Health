@@ -35,7 +35,14 @@ export default async function ContactPage({
             <a href="mailto:support@tarragonhealth.ng" className="font-medium text-brand-green hover:underline">
               support@tarragonhealth.ng
             </a>{" "}
-            if you&apos;re already a patient.
+            if you&apos;re already a patient, or call{" "}
+            <a href="tel:+2348061197940" className="font-medium text-brand-green hover:underline">
+              +234 806 119 7940
+            </a>
+            .
+          </p>
+          <p className="mt-2 text-center text-xs text-charcoal-ink/45">
+            TarragonHealth · RC 9702108
           </p>
         </div>
       </Section>
