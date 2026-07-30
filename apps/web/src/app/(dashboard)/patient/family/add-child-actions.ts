@@ -26,6 +26,13 @@ import { ageFromDateOfBirth } from "@tarragon/shared";
  * family_plan_members row to put the child on the parent's bill; enrolment is
  * individual now, and a child's record was never a billing relationship in the
  * first place — it is a consent one.
+ *
+ * profiles.is_dependent_account is stamped true here and here only. It is
+ * what keeps this child out of the eldercare 'manage' surfaces (an adult
+ * granted/accepted care_access_requests access) and keeps an eldercare-
+ * managed adult out of this surface's "children you look after" list — both
+ * paths write an identical profile_access row, and this column is the only
+ * thing that tells them apart.
  */
 export async function addChildDependentAction(
   input: unknown
@@ -56,7 +63,7 @@ export async function addChildDependentAction(
 
   const { error: updateError } = await svc
     .from("profiles")
-    .update({ date_of_birth, sex: sex ?? null })
+    .update({ date_of_birth, sex: sex ?? null, is_dependent_account: true })
     .eq("id", childId);
   if (updateError) {
     return { error: updateError.message };
