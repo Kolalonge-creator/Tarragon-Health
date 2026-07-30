@@ -31,6 +31,7 @@ export interface LifestyleGoalView {
   id: string;
   module: string;
   title: string;
+  personalised: boolean;
 }
 
 export interface LifestyleEnrollmentView {
@@ -42,6 +43,61 @@ export interface LifestyleEnrollmentView {
   currentPhaseName: string | null;
   goals: LifestyleGoalView[];
   nextReviewDue: string | null;
+}
+
+export const CONDITION_LABEL: Partial<Record<CarePlanCondition, string>> = {
+  hypertension: "Blood pressure care",
+  diabetes: "Diabetes care",
+  obesity: "Weight & lifestyle",
+};
+
+export interface PastLifestyleGoalView {
+  id: string;
+  module: string;
+  title: string;
+  status: string;
+  conditionLabel: string;
+  updatedAt: string;
+}
+
+/** The patient's own resolved (non-active) goals, most recent first. RLS
+ * already scopes lpe_goal_instances to the caller's own enrolments, so no
+ * extra ownership filter is needed here (same trust-RLS convention as
+ * getLifestyleState). */
+export async function getPastLifestyleGoals(
+  db: SupabaseClient<Database>,
+  userId: string,
+): Promise<PastLifestyleGoalView[]> {
+  const { data } = await db
+    .from("lpe_goal_instances")
+    .select(
+      "id, module, title, status, updated_at, lpe_programme_instances(lpe_enrollments(condition, patient_id))",
+    )
+    .neq("status", "active")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  return (data ?? [])
+    .filter((g) => {
+      const inst = g.lpe_programme_instances as {
+        lpe_enrollments: { condition: CarePlanCondition; patient_id: string } | null;
+      } | null;
+      return inst?.lpe_enrollments?.patient_id === userId;
+    })
+    .map((g) => {
+      const inst = g.lpe_programme_instances as {
+        lpe_enrollments: { condition: CarePlanCondition } | null;
+      } | null;
+      const condition = inst?.lpe_enrollments?.condition;
+      return {
+        id: g.id,
+        module: g.module,
+        title: g.title,
+        status: g.status,
+        conditionLabel: (condition && CONDITION_LABEL[condition]) || "Lifestyle",
+        updatedAt: g.updated_at,
+      };
+    });
 }
 
 /** Everything the patient page needs, in one call. */
@@ -81,10 +137,15 @@ export async function getLifestyleState(
       }
       const { data: goalRows } = await db
         .from("lpe_goal_instances")
-        .select("id, module, title, status")
+        .select("id, module, title, status, personalised")
         .eq("programme_instance_id", inst.id)
         .eq("status", "active");
-      goals = (goalRows ?? []).map((g) => ({ id: g.id, module: g.module, title: g.title }));
+      goals = (goalRows ?? []).map((g) => ({
+        id: g.id,
+        module: g.module,
+        title: g.title,
+        personalised: g.personalised,
+      }));
     }
 
     const { data: review } = await db
