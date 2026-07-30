@@ -131,6 +131,10 @@ export function BroadcastComposer() {
                 placeholder="The message recipients will receive."
                 required
               />
+              <p className="text-xs text-charcoal-ink/50">
+                This goes out over WhatsApp/SMS/email — never include a diagnosis, test result, or
+                other clinical detail specific to a person. General announcements only.
+              </p>
             </div>
 
             <div className="space-y-1.5">

@@ -42,7 +42,9 @@ export function ResolveForm({ escalationId }: { escalationId: string }) {
           />
         </div>
         {resolve.isError && (
-          <p className="text-sm text-red-600">Could not save. Try again.</p>
+          <p className="text-sm text-red-600">
+            {resolve.error?.message || "Could not save. Try again."}
+          </p>
         )}
         <Button
           disabled={resolve.isPending || resolutionNote.trim().length === 0}

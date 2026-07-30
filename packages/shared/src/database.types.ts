@@ -1804,6 +1804,10 @@ export type Database = {
           id: string
           level: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
+          overridden_at: string | null
+          overridden_by: string | null
+          override_level: Database["public"]["Enums"]["alert_level"] | null
+          override_reason: string | null
           patient_id: string
           screening_result_id: string | null
           sla_due_at: string | null
@@ -1821,6 +1825,10 @@ export type Database = {
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_level?: Database["public"]["Enums"]["alert_level"] | null
+          override_reason?: string | null
           patient_id: string
           screening_result_id?: string | null
           sla_due_at?: string | null
@@ -1838,6 +1846,10 @@ export type Database = {
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id?: string
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_level?: Database["public"]["Enums"]["alert_level"] | null
+          override_reason?: string | null
           patient_id?: string
           screening_result_id?: string | null
           sla_due_at?: string | null
@@ -1859,6 +1871,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_overridden_by_fkey"
+            columns: ["overridden_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
           {

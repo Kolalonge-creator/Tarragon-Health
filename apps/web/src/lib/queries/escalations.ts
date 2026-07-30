@@ -6,8 +6,13 @@ export type EscalationWithDetails = Tables<"escalations"> & {
   patient: { full_name: string | null } | null;
   clinician_alert:
     | {
+        id: string;
         title: string;
         level: EscalationLevel;
+        override_level: EscalationLevel | null;
+        override_reason: string | null;
+        overridden_at: string | null;
+        overridden_by_staff: { full_name: string } | null;
         screening_result: { result_status: ScreeningResultStatus } | null;
       }
     | null;
@@ -15,7 +20,7 @@ export type EscalationWithDetails = Tables<"escalations"> & {
 };
 
 const ESCALATION_SELECT =
-  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, level, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
+  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
 
 /** All escalations in the caller's org, newest first — clinician tracking view. */
 export function useOrgEscalations() {
