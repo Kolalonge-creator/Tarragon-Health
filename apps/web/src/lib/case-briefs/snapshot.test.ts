@@ -14,10 +14,16 @@ function snapshot(overrides: Partial<CaseSnapshot> = {}): CaseSnapshot {
 }
 
 describe("formatSnapshotForPrompt", () => {
-  it("includes the escalation reason and alert level", () => {
+  it("includes the escalation reason and alert level when the alert has been escalated to a doctor", () => {
     const text = formatSnapshotForPrompt(snapshot());
     expect(text).toContain("BP reading flagged high");
     expect(text).toContain("urgent_escalation");
+  });
+
+  it("omits the escalation-reason line for a plain, not-yet-escalated clinician alert", () => {
+    const text = formatSnapshotForPrompt(snapshot({ escalationReason: null }));
+    expect(text).not.toContain("Escalated to a doctor because");
+    expect(text).toContain("High BP");
   });
 
   it("uses the effective (override-aware) level already resolved into the snapshot, not a raw column", () => {
@@ -66,11 +72,5 @@ describe("formatSnapshotForPrompt", () => {
       })
     );
     expect(text).not.toContain("null");
-  });
-
-  it("handles a null alert (e.g. a manually-raised escalation with no linked clinician_alert)", () => {
-    const text = formatSnapshotForPrompt(snapshot({ alert: null }));
-    expect(text).not.toContain("Alert:");
-    expect(text).toContain("BP reading flagged high");
   });
 });

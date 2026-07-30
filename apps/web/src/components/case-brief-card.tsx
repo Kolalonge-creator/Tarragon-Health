@@ -32,15 +32,25 @@ function formatGeneratedAt(value: string): string {
 /**
  * Always labelled "AI-drafted" and never styled like ReviewedByDoctor's
  * null-gated attribution -- the two must never be visually confusable. This
- * card sits ABOVE the escalation's real data on the page, never replaces
- * it: the raw vitals chart, notes, and alert detail are unchanged below.
+ * card sits ABOVE the alert's real data on the page, never replaces it.
+ * Shared between the doctor escalation detail page and the clinician
+ * worklist -- same mechanism (Claude Haiku, same safety prompt, same
+ * fail-open persistence), keyed to the underlying clinician_alert so both
+ * surfaces read/write the same brief. Deliberately the same component
+ * rather than two near-identical ones, so the "AI-drafted" treatment reads
+ * identically everywhere it appears.
  */
 export function CaseBriefCard({
-  escalationId,
+  clinicianAlertId,
   initialBrief,
+  onGenerated,
 }: {
-  escalationId: string;
+  clinicianAlertId: string;
   initialBrief: CaseBriefData | null;
+  /** Called after a successful generate/regenerate, in addition to
+   * router.refresh() -- lets a list-based caller (the clinician worklist)
+   * refetch its own query instead of relying on a full page refresh. */
+  onGenerated?: () => void;
 }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -48,8 +58,9 @@ export function CaseBriefCard({
   async function generate() {
     setIsPending(true);
     try {
-      await generateCaseBriefAction(escalationId);
+      await generateCaseBriefAction(clinicianAlertId);
       router.refresh();
+      onGenerated?.();
     } finally {
       setIsPending(false);
     }
@@ -64,7 +75,7 @@ export function CaseBriefCard({
         </div>
         <CardDescription>
           A quick summary grounded only in this patient&apos;s recorded data — read it alongside the
-          case detail below, not instead of it.
+          case detail, not instead of it.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -80,7 +91,7 @@ export function CaseBriefCard({
         {initialBrief?.status === "failed" && (
           <div className="space-y-2">
             <p className="text-sm text-charcoal-ink/60">
-              Couldn&apos;t generate a summary for this case — the case detail below is unaffected.
+              Couldn&apos;t generate a summary for this case — the case detail is unaffected.
             </p>
             <Button size="sm" variant="outline" disabled={isPending} onClick={generate}>
               {isPending ? "Retrying…" : "Try again"}

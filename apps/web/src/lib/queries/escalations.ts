@@ -116,21 +116,29 @@ export function useClaimEscalation() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("escalations")
         .update({ assigned_doctor_id: user.id, status: "under_review" })
         .eq("id", escalationId)
-        .eq("status", "open");
+        .eq("status", "open")
+        .select("clinician_alert_id")
+        .maybeSingle();
       if (error) throw error;
+      return data;
     },
-    onSuccess: (_data, escalationId) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["escalations"] });
       // Fire-and-forget: the case brief is a nice-to-have read the doctor
       // will see once they open the case, not something the claim itself
       // should wait on or fail over. generateCaseBriefAction never throws
       // (fail-open, see lib/case-briefs/generate.ts) but this is claimed
       // from a client mutation, so guard here too rather than trust that.
-      void generateCaseBriefAction(escalationId).catch(() => {});
+      // Same brief the clinician worklist writes on acknowledge -- keyed to
+      // the alert, not the escalation, so escalating an already-summarized
+      // alert doesn't burn a second Claude call for nothing.
+      if (data?.clinician_alert_id) {
+        void generateCaseBriefAction(data.clinician_alert_id).catch(() => {});
+      }
     },
   });
 }

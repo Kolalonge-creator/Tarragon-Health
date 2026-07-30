@@ -1392,8 +1392,8 @@ export type Database = {
       }
       case_briefs: {
         Row: {
+          clinician_alert_id: string
           error_message: string | null
-          escalation_id: string
           generated_at: string
           id: string
           input_snapshot: Json
@@ -1405,8 +1405,8 @@ export type Database = {
           summary_text: string | null
         }
         Insert: {
+          clinician_alert_id: string
           error_message?: string | null
-          escalation_id: string
           generated_at?: string
           id?: string
           input_snapshot: Json
@@ -1418,8 +1418,8 @@ export type Database = {
           summary_text?: string | null
         }
         Update: {
+          clinician_alert_id?: string
           error_message?: string | null
-          escalation_id?: string
           generated_at?: string
           id?: string
           input_snapshot?: Json
@@ -1432,10 +1432,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "case_briefs_escalation_id_fkey"
-            columns: ["escalation_id"]
+            foreignKeyName: "case_briefs_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
             isOneToOne: true
-            referencedRelation: "escalations"
+            referencedRelation: "clinician_alerts"
             referencedColumns: ["id"]
           },
           {

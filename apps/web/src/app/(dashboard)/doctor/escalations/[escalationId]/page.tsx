@@ -5,9 +5,9 @@ import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge
 import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
+import { CaseBriefCard } from "@/components/case-brief-card";
 import { StartVirtualReviewButton } from "./start-virtual-review-button";
 import { AlertOverrideControl } from "./alert-override-control";
-import { CaseBriefCard } from "./case-brief-card";
 import { NotesPanel } from "./notes-panel";
 import { ResolveForm } from "./resolve-form";
 
@@ -45,11 +45,15 @@ export default async function DoctorEscalationPage({
     );
   }
 
-  const { data: caseBrief } = await supabase
-    .from("case_briefs")
-    .select("status, summary_text, suggested_action_text, generated_at")
-    .eq("escalation_id", escalationId)
-    .maybeSingle();
+  const caseBrief = escalation.clinician_alert_id
+    ? (
+        await supabase
+          .from("case_briefs")
+          .select("status, summary_text, suggested_action_text, generated_at")
+          .eq("clinician_alert_id", escalation.clinician_alert_id)
+          .maybeSingle()
+      ).data
+    : null;
 
   const levelBadge = escalation.clinician_alert
     ? LEVEL_BADGE[escalation.clinician_alert.override_level ?? escalation.clinician_alert.level]
@@ -100,19 +104,21 @@ export default async function DoctorEscalationPage({
         </CardContent>
       </Card>
 
-      <CaseBriefCard
-        escalationId={escalation.id}
-        initialBrief={
-          caseBrief
-            ? {
-                status: caseBrief.status,
-                summaryText: caseBrief.summary_text,
-                suggestedActionText: caseBrief.suggested_action_text,
-                generatedAt: caseBrief.generated_at,
-              }
-            : null
-        }
-      />
+      {escalation.clinician_alert_id && (
+        <CaseBriefCard
+          clinicianAlertId={escalation.clinician_alert_id}
+          initialBrief={
+            caseBrief
+              ? {
+                  status: caseBrief.status,
+                  summaryText: caseBrief.summary_text,
+                  suggestedActionText: caseBrief.suggested_action_text,
+                  generatedAt: caseBrief.generated_at,
+                }
+              : null
+          }
+        />
+      )}
 
       <ReviewedByDoctor escalationId={escalation.id} />
 
