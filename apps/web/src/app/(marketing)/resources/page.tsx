@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
+import { ResourceThumbnail, resourceThumbnailIcon } from "../_components/resource-thumbnail";
 
 export const metadata: Metadata = {
   title: "Health resources: plain answers to real questions",
@@ -41,15 +42,18 @@ export default async function ResourcesPage() {
                 <Link
                   key={article.slug}
                   href={`/resources/${article.slug}`}
-                  className="group rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm transition hover:border-brand-green/40 hover:shadow-md"
+                  className="group overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white shadow-sm transition hover:border-brand-green/40 hover:shadow-md"
                 >
-                  <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
-                    {article.readMinutes} min read
-                  </p>
-                  <h3 className="mt-2 font-heading text-lg font-semibold text-charcoal-ink group-hover:text-brand-green">
-                    {article.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-charcoal-ink/70">{article.description}</p>
+                  <ResourceThumbnail icon={resourceThumbnailIcon(article)} className="aspect-[16/9]" />
+                  <div className="p-6">
+                    <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
+                      {article.readMinutes} min read
+                    </p>
+                    <h3 className="mt-2 font-heading text-lg font-semibold text-charcoal-ink group-hover:text-brand-green">
+                      {article.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-charcoal-ink/70">{article.description}</p>
+                  </div>
                 </Link>
               ))}
           </div>

@@ -20,8 +20,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     chronicCare: 0.8,
     prevention: 0.8,
     annualHealthCheck: 0.7,
+    screeningJourney: 0.65,
     vaccinations: 0.7,
+    mentalWellbeingCheck: 0.6,
     healthEducation: 0.6,
+    bmiCalculator: 0.65,
+    activityCalculator: 0.65,
     careCoordination: 0.8,
     whoItsFor: 0.7,
     forYou: 0.7,
@@ -29,6 +33,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     privacy: 0.3,
     telehealthConsent: 0.3,
     terms: 0.3,
+    accessibility: 0.3,
+    cookies: 0.3,
   };
 
   const pages: MetadataRoute.Sitemap = MARKETING_ROUTES_BUILT.map((key) => ({

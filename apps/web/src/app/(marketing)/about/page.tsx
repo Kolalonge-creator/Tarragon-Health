@@ -1,79 +1,40 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
-import { User } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { TrustPillars } from "../_components/trust-pillars";
+import { LeadershipGrid } from "../_components/leadership-panel";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
-import { cn } from "@/lib/utils";
-
-function LinkedInGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
-      <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.63-1.85 3.36-1.85 3.59 0 4.25 2.36 4.25 5.44v6.3zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z" />
-    </svg>
-  );
-}
-
-function LinkedInButton({ href, compact = false }: { href: string; compact?: boolean }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full bg-[#0A66C2] font-semibold text-white shadow-sm transition-transform hover:scale-105 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A66C2] focus-visible:ring-offset-2",
-        compact ? "mt-4 px-4 py-2 text-xs" : "mt-6 px-5 py-2.5 text-sm"
-      )}
-    >
-      <LinkedInGlyph className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
-      Connect on LinkedIn
-    </a>
-  );
-}
 
 /**
- * Key seats TarragonHealth needs beyond the founder as it scales past one
- * doctor, mapped to the five business categories in CLAUDE.md (chronic
- * disease + prevention, care coordination, B2B & institutional, platform
- * infrastructure, clinical delivery). All open, no names yet; `person` stays
- * unset until someone is actually hired, at which point the card upgrades
- * itself to the founder-card treatment (photo + name + LinkedIn button).
+ * Honest operating commitments, not vanity metrics — TarragonHealth is
+ * pre-revenue, so this band states policy/approach (escalation SLA, pricing
+ * model from CLAUDE.md) rather than achieved-scale numbers a company at this
+ * stage can't truthfully claim. Deliberately no doctor:patient ratio here:
+ * the 1:120 figure is under active review as we look at how far good
+ * protocol/automation design can responsibly stretch doctor coverage, so it
+ * isn't a settled public claim yet — don't reintroduce a specific ratio
+ * without checking with the founder first.
  */
-type OpenRole = {
-  title: string;
-  scope: string;
-  person?: {
-    name: string;
-    photoSrc: string;
-    photoAlt?: string;
-    linkedinUrl: string;
-  };
-};
-
-const OPEN_ROLES: OpenRole[] = [
+const ABOUT_COMMITMENTS = [
   {
-    title: "Chief Medical Officer",
-    scope: "Owns clinical protocols and the four-level escalation pathway, and leads the doctor network as chronic disease and preventive screening scale together.",
+    value: "4 hrs",
+    label: "contact SLA on abnormal results",
+    detail: "The clock starts the moment a result comes back abnormal, never on a schedule.",
   },
   {
-    title: "Head of Clinical Operations",
-    scope: "Builds and leads the clinical review model: recruiting, training, and scheduling the doctors who keep the doctor:patient ratio at 1:120.",
+    value: "₦ + $",
+    label: "one price, either currency",
+    detail: "Pay in naira at home, or in dollars from wherever you're keeping watch from.",
   },
   {
-    title: "Head of Engineering",
-    scope: "Owns the TypeScript platform and ML microservice, the system of record behind every reading, reminder, and escalation.",
+    value: "Built to scale",
+    label: "how one doctor covers more ground",
+    detail:
+      "We invest in protocols, automation, and triage so a doctor can safely support far more patients than a traditional clinic, without cutting corners on review.",
   },
-  {
-    title: "Head of Partnerships",
-    scope: "Grows and manages the lab, pharmacy, and specialist network that Care Coordination runs on.",
-  },
-  {
-    title: "Head of Growth & Commercial",
-    scope: "Leads corporate wellness and HMO partnerships, turning the B2B & Institutional pipeline into revenue.",
-  },
-];
+] as const;
 
 export const metadata: Metadata = {
   title: "About",
@@ -86,48 +47,57 @@ export default function AboutPage() {
   return (
     <>
       <Section className="pt-20">
-        <SectionHeading
-          eyebrow="About"
-          title="Built for the care that happens between visits"
-          description="Chronic disease isn't managed in the clinic. It's managed in the days after, in the missed dose, the reading nobody saw, and the follow-up call that never came. TarragonHealth exists to close that gap."
-        />
+        <div className="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-start lg:gap-16">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              About TarragonHealth
+            </p>
+            <h1 className="mt-4 font-heading text-4xl font-bold leading-[1.05] text-charcoal-ink sm:text-5xl lg:text-6xl">
+              Built on one conviction: care shouldn&apos;t stop when the appointment ends.
+            </h1>
+          </div>
+          <div className="lg:pt-3">
+            <p className="text-lg leading-relaxed text-charcoal-ink/75">
+              Chronic disease isn&apos;t managed in a fifteen-minute consultation. It&apos;s
+              managed in the weeks after, in the dose that gets missed, the reading nobody
+              sees, and the follow-up call that never comes. TarragonHealth exists to close
+              that gap.
+            </p>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/75">
+              We started in the emergency department, watching people arrive in crisis with
+              conditions that were entirely manageable days or weeks earlier, if someone had
+              been watching. That&apos;s the gap we built TarragonHealth to close, for families
+              in Nigeria and for the people keeping watch on them from abroad.
+            </p>
+            <p className="mt-6 font-heading text-2xl font-semibold text-deep-forest">
+              Care that stays with you.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/signup">Start monitoring</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href="#team">Meet our team</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
       </Section>
 
-      <Section variant="sage">
-        <div className="mx-auto max-w-xl">
-          <div className="flex flex-col items-center rounded-2xl border border-charcoal-ink/10 bg-white p-8 text-center sm:p-10">
-            <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30 sm:h-36 sm:w-36">
-              <Image
-                src="/marketing/founder-kola-longe.jpg"
-                alt="Dr Kola Longe, Founder & CEO of TarragonHealth"
-                width={288}
-                height={288}
-                className="h-full w-full object-cover"
-                priority
-              />
+      <Section variant="navy" className="py-14">
+        <div className="grid gap-6 sm:grid-cols-3">
+          {ABOUT_COMMITMENTS.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center"
+            >
+              <p className="font-heading text-3xl font-bold text-sprout-gold">{item.value}</p>
+              <h3 className="mt-2 font-heading text-sm font-semibold uppercase tracking-wide text-white">
+                {item.label}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">{item.detail}</p>
             </div>
-            <span className="mt-4 inline-flex rounded-full bg-brand-green/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deep-forest">
-              Founder &amp; CEO
-            </span>
-            <h3 className="mt-3 font-heading text-2xl font-semibold text-charcoal-ink">
-              Dr Kola Longe
-            </h3>
-            <p className="mt-1 text-sm font-medium text-charcoal-ink/60">
-              Emergency Physician &amp; Healthcare Innovator
-            </p>
-            <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/40">
-              MBChB · FEBEM · FRCEM · MSt (University of Cambridge)
-            </p>
-            <p className="mt-4 leading-relaxed text-charcoal-ink/70">
-              Over a decade of medical practice across Nigeria and the UK,
-              paired with PMP and PgMP certification from the Project
-              Management Institute. Kola founded TarragonHealth to bring that
-              same rigour to the gap between doctor visits, leading clinical
-              strategy and product direction so every patient&rsquo;s care
-              stays protocol-driven, continuous, and never left to chance.
-            </p>
-            <LinkedInButton href="https://www.linkedin.com/in/dr-kola-longe-408b15121/" />
-          </div>
+          ))}
         </div>
       </Section>
 
@@ -175,53 +145,15 @@ export default function AboutPage() {
         <TrustPillars />
       </Section>
 
-      <Section variant="sage">
+      <Section id="team" variant="sage">
         <SectionHeading
           eyebrow="Team"
-          title="Roles we're building out next"
-          description="TarragonHealth is growing beyond one founder. These seats are open, no names yet, so say hello if one of them is you."
+          title="The people building TarragonHealth"
+          description="Meet our founder, and see the seats we're building out next as TarragonHealth grows beyond one person. Click a card for the full story."
         />
-        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {OPEN_ROLES.map((role) => (
-            <div
-              key={role.title}
-              className="flex flex-col items-center rounded-2xl border border-charcoal-ink/10 bg-white p-6 text-center"
-            >
-              {role.person ? (
-                <div className="h-20 w-20 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30">
-                  <Image
-                    src={role.person.photoSrc}
-                    alt={role.person.photoAlt ?? `${role.person.name}, ${role.title} at TarragonHealth`}
-                    width={160}
-                    height={160}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div
-                  className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-charcoal-ink/20 text-charcoal-ink/40"
-                  role="img"
-                  aria-label={`Placeholder for ${role.title}`}
-                >
-                  <User className="h-7 w-7" strokeWidth={1.25} />
-                </div>
-              )}
-              <span className="mt-3 inline-flex rounded-full bg-brand-green/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deep-forest">
-                {role.person ? role.title : "Open role"}
-              </span>
-              <h3 className="mt-3 font-heading text-lg font-semibold text-charcoal-ink">
-                {role.person ? role.person.name : role.title}
-              </h3>
-              {role.person ? (
-                <p className="mt-1 text-sm font-medium text-charcoal-ink/60">{role.title}</p>
-              ) : null}
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{role.scope}</p>
-              {role.person ? <LinkedInButton href={role.person.linkedinUrl} compact /> : null}
-            </div>
-          ))}
-        </div>
+        <LeadershipGrid />
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Think you&rsquo;re a fit for one of these?{" "}
+          Think you&rsquo;re a fit for one of the open seats?{" "}
           <Link
             href={`${MARKETING_ROUTES.contact}?source=careers`}
             className="font-medium text-deep-forest hover:underline"
@@ -233,6 +165,9 @@ export default function AboutPage() {
       </Section>
 
       <Section>
+        <p className="mx-auto mb-8 max-w-xl text-center font-heading text-xl font-semibold text-charcoal-ink sm:text-2xl">
+          Continuity of care isn&apos;t a feature we bolted on. It&apos;s the whole product.
+        </p>
         <CtaBand
           variant="gradient"
           title="Come build continuity of care with us"

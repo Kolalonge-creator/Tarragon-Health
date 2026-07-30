@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CtaBand } from "../_components/cta-band";
@@ -12,12 +13,68 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "For you",
   description:
-    "What TarragonHealth does for you as an individual: doctor-reviewed monitoring for hypertension, diabetes, and obesity, preventive screening, medication support, and lab coordination on one record.",
+    "What TarragonHealth does for you as an individual: doctor-reviewed monitoring for hypertension, diabetes, and weight management, preventive screening, medication support, and lab coordination on one record.",
   alternates: { canonical: MARKETING_ROUTES.forYou },
 };
 
 /** Everything an individual patient uses. Caring for a parent has its own page. */
 const FOR_YOU_CARDS = SERVICE_CARDS.filter((card) => card.key !== "parentcare");
+
+const CARE_COMPARISON: {
+  theOldWay: { label: string; body: string };
+  withTarragon: { label: string; body: string };
+}[] = [
+  {
+    theOldWay: {
+      label: "One rushed visit",
+      body: "Book, wait weeks for an appointment, then get ten minutes of a doctor's time.",
+    },
+    withTarragon: {
+      label: "A team that keeps watching",
+      body: "Message your care team anytime, get an async doctor's answer within 24 hours, and book a paid 15-minute video visit only when you actually need one.",
+    },
+  },
+  {
+    theOldWay: {
+      label: "Whatever panel your doctor happens to order",
+      body: "Testing usually means one flat panel, ordered on the day, with no easy way to book it yourself.",
+    },
+    withTarragon: {
+      label: "A Health Check that matches you",
+      body: "From a ₦15,000 basic panel to a ₦75,000 comprehensive check, plus confidential screenings you can book yourself in minutes.",
+    },
+  },
+  {
+    theOldWay: {
+      label: "Scattered care",
+      body: "One doctor for medication, another lab for results, a WhatsApp thread for everything else, nobody connecting the dots.",
+    },
+    withTarragon: {
+      label: "One record, one care team",
+      body: "Vitals, medications, labs, screenings and referrals live on a single dashboard that every clinician treating you can see.",
+    },
+  },
+  {
+    theOldWay: {
+      label: "Reactive",
+      body: "Nothing happens until you notice something is wrong and go looking for help.",
+    },
+    withTarragon: {
+      label: "Proactive",
+      body: "Your screening and vaccination calendar builds itself, and an abnormal result reaches a doctor automatically, no symptom required to trigger it.",
+    },
+  },
+  {
+    theOldWay: {
+      label: "Another prescription",
+      body: "Medication is often the first and only lever, refilled again and again.",
+    },
+    withTarragon: {
+      label: "A plan built around the cause",
+      body: "Lifestyle coaching alongside medication, regular reviews, and stopping a drug tracked as a real outcome, not just another refill.",
+    },
+  },
+];
 
 const MONTH_WITH_TARRAGON = [
   {
@@ -46,18 +103,73 @@ export default function ForYouPage() {
   return (
     <>
       <Section className="pt-20">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">For you</p>
+            <h1 className="mt-2 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
+              Track your health without carrying it alone
+            </h1>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              Most people only discover a problem when it becomes an emergency. Tarragon gives you
+              what a well-run clinic gives its best-followed patients: someone watching your numbers
+              between visits, through your phone, at a fraction of the cost of a single hospital
+              admission.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/signup">Start monitoring</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href={MARKETING_ROUTES.pricing}>Find your plan</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-3xl bg-soft-sage/40">
+            <Image
+              src="/marketing/illustrations/telehealth-video-consult.png"
+              alt="A patient having a video consultation with a doctor from home"
+              width={1456}
+              height={816}
+              className="h-auto w-full"
+              priority
+            />
+          </div>
+        </div>
+      </Section>
+
+      <Section>
         <SectionHeading
-          eyebrow="For you"
-          title="Track your health without carrying it alone"
-          description="Most people only discover a problem when it becomes an emergency. Tarragon gives you what a well-run clinic gives its best-followed patients: someone watching your numbers between visits, through your phone, at a fraction of the cost of a single hospital admission."
+          eyebrow="How it compares"
+          title="The care most people get, and the care Tarragon gives you"
+          description="No fear, no jargon: just what changes when someone is actually watching your numbers between visits."
         />
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button asChild size="lg">
-            <Link href="/signup">Start monitoring</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <Link href={MARKETING_ROUTES.pricing}>Find your plan</Link>
-          </Button>
+        <div className="mx-auto max-w-4xl overflow-x-auto">
+          <table className="w-full min-w-[40rem] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white text-sm">
+            <thead>
+              <tr className="bg-warm-ivory text-left">
+                <th scope="col" className="w-1/2 p-4 font-heading font-semibold text-charcoal-ink">
+                  The way most people get care
+                </th>
+                <th scope="col" className="w-1/2 p-4 font-heading font-semibold text-charcoal-ink">
+                  With TarragonHealth
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {CARE_COMPARISON.map((row) => (
+                <tr key={row.theOldWay.label} className="border-t border-charcoal-ink/10">
+                  <td className="border-t border-charcoal-ink/10 p-4 align-top">
+                    <p className="font-medium text-charcoal-ink/60">{row.theOldWay.label}</p>
+                    <p className="mt-1 text-charcoal-ink/70">{row.theOldWay.body}</p>
+                  </td>
+                  <td className="border-t border-charcoal-ink/10 p-4 align-top">
+                    <p className="font-medium text-deep-forest">{row.withTarragon.label}</p>
+                    <p className="mt-1 text-charcoal-ink/70">{row.withTarragon.body}</p>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Section>
 
@@ -92,7 +204,7 @@ export default function ForYouPage() {
         <SectionHeading
           eyebrow="What we help you manage"
           title="Programmes built around your health, not one symptom"
-          description="Chronic care for hypertension, diabetes, and obesity; preventive screening to stay ahead; medication and lab support to keep everything on track, all on one shared record."
+          description="Chronic care for hypertension, diabetes, and weight; preventive screening to stay ahead; medication and lab support to keep everything on track, all on one shared record."
         />
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FOR_YOU_CARDS.map((service) => (
@@ -115,7 +227,7 @@ export default function ForYouPage() {
             Tarragon Free lets you track your own numbers forever, at no cost; it never expires and
             never converts to a paid plan on its own. When you want a doctor actually reviewing your
             readings, Essential Care starts at ₦8,000/month for one condition, and Complete Care
-            covers hypertension, diabetes, and obesity together with weekly review.
+            covers hypertension, diabetes, and weight together with weekly review.
           </p>
           <p>
             Not sure which fits? The three-question plan finder on the{" "}

@@ -15,7 +15,7 @@ const RISK_ORDER = ["low", "moderate", "high", "very_high"];
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "Hypertension programme",
   diabetes: "Diabetes programme",
-  obesity: "Obesity programme",
+  obesity: "Weight & metabolic care",
   cardiovascular: "Cardiovascular prevention programme",
   ckd: "Kidney health programme",
   asthma: "Asthma programme",

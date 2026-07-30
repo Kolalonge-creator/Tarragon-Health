@@ -83,7 +83,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "A supported, doctor-reviewed programme to manage weight and the health that comes with it.",
     campaignLine: "Weight is a health condition, managed with real support.",
     intro:
-      "Tarragon's obesity programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
+      "Tarragon's weight management programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
     included: [
       "Weight and waist tracking on one record",
       "A personalised lifestyle and activity plan",
@@ -106,9 +106,9 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
     ],
     metadata: {
-      title: "Obesity & Weight Management",
+      title: "Weight Health",
       description:
-        "A structured, doctor-reviewed obesity programme: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
+        "A structured, doctor-reviewed weight management programme: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
     },
   },
   parentcare: {

@@ -90,6 +90,9 @@ export default function AnnualHealthCheckPage() {
             <Button asChild variant="outline" size="lg">
               <Link href={MARKETING_ROUTES.prevention}>Explore preventive health</Link>
             </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link href={MARKETING_ROUTES.screeningJourney}>See your Screening Journey</Link>
+            </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
             Already a member? Book directly from your dashboard&apos;s Prevention section.

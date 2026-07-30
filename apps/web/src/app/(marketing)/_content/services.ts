@@ -27,7 +27,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
   {
     key: "obesity",
     href: MARKETING_ROUTES.obesity,
-    title: "Obesity & Weight",
+    title: "Weight Health",
     description: "A structured, doctor-reviewed programme to manage weight and related conditions.",
     built: true,
   },
@@ -65,7 +65,7 @@ export const PROOF_STATS = [
   {
     value: "5",
     label: "priority programmes",
-    detail: "Hypertension, diabetes, obesity, and preventive health.",
+    detail: "Hypertension, diabetes, weight management, and preventive health.",
   },
   {
     value: "2",
@@ -237,7 +237,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "What is Tarragon Health?",
     answer:
-      "TarragonHealth is a health monitoring platform for chronic disease (hypertension, diabetes, and obesity), preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
+      "TarragonHealth is a health monitoring platform for chronic disease (hypertension, diabetes, and weight management), preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
   },
   {
     question: "I'm healthy, is Tarragon for me?",

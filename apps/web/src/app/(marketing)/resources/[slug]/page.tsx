@@ -4,8 +4,11 @@ import { notFound } from "next/navigation";
 import { Section } from "../../_components/section";
 import { CtaBand } from "../../_components/cta-band";
 import { RESOURCE_ARTICLES, RESOURCE_DISCLAIMER } from "../../_content/resources";
-import { loadResourceArticle } from "@/lib/marketing/resources-data";
+import { loadResourceArticle, loadResourceArticles } from "@/lib/marketing/resources-data";
 import { absoluteUrl, SITE, SITE_URL } from "@/lib/marketing/site";
+import { ResourceCarousel } from "../../_components/resource-carousel";
+import { ResourceThumbnail, resourceThumbnailIcon } from "../../_components/resource-thumbnail";
+import { ShareArticleButton } from "../../_components/share-article-button";
 
 // Admin-published articles beyond the static seed list resolve at request
 // time; the seed slugs stay statically generated for build-time coverage.
@@ -47,6 +50,11 @@ export default async function ResourceArticlePage({
   const { slug } = await params;
   const article = await loadResourceArticle(slug);
   if (!article) notFound();
+
+  const allArticles = await loadResourceArticles();
+  const related = allArticles.filter(
+    (a) => a.category === article.category && a.slug !== article.slug
+  );
 
   const isReviewed = Boolean(article.reviewedByName && article.reviewedAt);
   const url = absoluteUrl(`/resources/${article.slug}`);
@@ -94,9 +102,16 @@ export default async function ResourceArticlePage({
           <Link href="/resources" className="text-sm text-brand-green hover:underline">
             ← All resources
           </Link>
-          <p className="mt-6 text-xs font-medium uppercase tracking-wide text-deep-forest">
-            {article.category} · {article.readMinutes} min read
-          </p>
+          <ResourceThumbnail
+            icon={resourceThumbnailIcon(article)}
+            className="mt-6 aspect-[16/7] rounded-2xl"
+          />
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
+              {article.category} · {article.readMinutes} min read
+            </p>
+            <ShareArticleButton title={article.title} url={url} />
+          </div>
           <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-charcoal-ink sm:text-4xl">
             {article.title}
           </h1>
@@ -109,13 +124,21 @@ export default async function ResourceArticlePage({
               : "By the TarragonHealth editorial team"}
           </p>
           <div className="mt-10 space-y-8">
-            {article.sections.map((section) => (
+            {article.sections.map((section, index) => (
               <section key={section.heading}>
-                <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-                  {section.heading}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-green/10 text-xs font-bold text-brand-green"
+                  >
+                    {index + 1}
+                  </span>
+                  <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
+                    {section.heading}
+                  </h2>
+                </div>
                 {section.paragraphs.map((p, i) => (
-                  <p key={i} className="mt-3 leading-relaxed text-charcoal-ink/80">
+                  <p key={i} className="mt-3 pl-10 leading-relaxed text-charcoal-ink/80">
                     {p}
                   </p>
                 ))}
@@ -125,8 +148,19 @@ export default async function ResourceArticlePage({
           <p className="mt-10 rounded-xl border border-charcoal-ink/10 bg-soft-sage/50 p-4 text-sm text-charcoal-ink/70">
             {RESOURCE_DISCLAIMER}
           </p>
+          <div className="mt-6 flex justify-center">
+            <ShareArticleButton title={article.title} url={url} />
+          </div>
         </article>
       </Section>
+      {related.length > 0 ? (
+        <Section>
+          <ResourceCarousel
+            title={`Explore more ${article.category} resources`}
+            articles={related}
+          />
+        </Section>
+      ) : null}
       <Section variant="sage">
         <CtaBand
           variant="gradient"
