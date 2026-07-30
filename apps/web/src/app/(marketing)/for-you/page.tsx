@@ -37,6 +37,10 @@ const MONTH_WITH_TARRAGON = [
     body: "When a test is due or medication runs low, Tarragon shows you the exact price, books a vetted partner lab or licensed pharmacy, and follows the result until a doctor has reviewed it.",
   },
   {
+    title: "Small habits earn real rewards",
+    body: "Logging a reading, finishing a lesson, or completing a challenge earns wellness points, free on every plan. Collect badges along the way, and redeem points any time for real Health Wallet balance you can spend on care.",
+  },
+  {
     title: "Escalation only when it's needed",
     body: "Steady numbers get calm follow-up. A worrying pattern gets escalated through a defined clinical pathway, quickly and without drama; you are never left wondering whether anyone noticed.",
   },

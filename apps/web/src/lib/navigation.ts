@@ -29,6 +29,7 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
+            { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
             { label: "Your people", href: "/patient/family", icon: "family" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
           ],
@@ -131,6 +132,7 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
+            { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
           ],
         },
         {
