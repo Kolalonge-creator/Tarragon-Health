@@ -98,6 +98,69 @@ export function useLabProviderTurnaroundStats() {
   });
 }
 
+export type Facility = Tables<"facilities">;
+
+/** Admin view of one lab's branches/addresses — admin already holds RLS write on facilities (is_admin() OR partners.facilities.manage), this just scopes the read to one lab. */
+export function useLabFacilities(labProviderId: string) {
+  return useQuery({
+    queryKey: ["lab-facilities", "admin", labProviderId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("facilities")
+        .select("*")
+        .eq("lab_provider_id", labProviderId)
+        .order("state")
+        .order("city");
+      if (error) throw error;
+      return data as Facility[];
+    },
+  });
+}
+
+export function useCreateLabFacility() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      labProviderId: string;
+      name: string;
+      state: string;
+      city: string;
+      area?: string;
+      address?: string;
+      contactPhone?: string;
+      contactEmail?: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("facilities").insert({
+        type: "lab",
+        lab_provider_id: input.labProviderId,
+        name: input.name,
+        state: input.state,
+        city: input.city,
+        area: input.area || null,
+        address: input.address || null,
+        contact_phone: input.contactPhone || null,
+        contact_email: input.contactEmail || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-facilities"] }),
+  });
+}
+
+export function useSetLabFacilityActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("facilities").update({ is_active: isActive }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-facilities"] }),
+  });
+}
+
 export type LabPartnerLoginRow = {
   id: string;
   email: string | null;

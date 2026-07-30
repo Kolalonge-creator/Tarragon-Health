@@ -1,41 +1,49 @@
 # Schedule B — Telehealth Consent
 
-*Draft for legal review — not yet approved by counsel. Version 2026-07-29-v2 (rewritten to match `docs/tarragon-build-spec-v3.md`). This text is the canonical source for the `telehealth` consent content and for any future public/patient-facing rendering of it; edit here first, then re-sync wherever it's reused.*
+*Draft for legal review — not yet approved by counsel. Version 2026-07-30-v3 (rewritten to match the platform as actually built in `apps/web`, after the narrow cardiometabolic-only pivot described in v2 was reversed the same evening it was adopted — see `CLAUDE.md`'s "PIVOT REVERSED" banner). This text is the canonical source for the `telehealth` consent content and for any future public/patient-facing rendering of it; edit here first, then re-sync wherever it's reused.*
 
 ## About this document
-This is TarragonHealth's Telehealth Consent — Schedule B of our legal documentation. Version 2026-07-29-v2, published 29 July 2026. This document is currently in draft and pending final review by our legal counsel.
+This is TarragonHealth's Telehealth Consent — Schedule B of our legal documentation. Version 2026-07-30-v3, published 30 July 2026. This document is currently in draft and pending final review by our legal counsel.
 
 ## What this consent covers
 This is your consent to receive clinical monitoring, classification, and review from TarragonHealth remotely, and to be contacted by phone, message, or in the app as part of that care. It is separate from, and in addition to, our data processing consent and our terms of service.
 
 ## Your care team
-Your day-to-day care is provided by a doctor registered with the Medical and Dental Council of Nigeria (MDCN), whose registration is verified before they can see patients and checked continuously afterwards — a doctor whose registration or indemnity cover lapses is automatically suspended from seeing patients. Non-clinical coordinators may also be involved in your care: they follow up if we haven't heard from you and help with logistics, and can see your progress record, but they cannot read your clinical notes, interpret a result, or give clinical advice — anything clinical is handled by your doctor.
+Every clinical judgment about your care is made by a doctor registered with the Medical and Dental Council of Nigeria (MDCN), whose registration is verified before they can see patients and checked continuously afterwards — a doctor whose registration or indemnity cover lapses is automatically suspended from seeing patients that same night. Your care may involve several people at different levels of seniority, and your record always shows plainly who did what:
 
-TarragonHealth operates under one of two accountability models, and which one applies to you is clearly stated on every note: either your doctor practises under their own individual MDCN registration, or Tarragon Health Ltd itself takes responsibility for the note with your doctor countersigning it. Every clinical note you can read tells you plainly which model applied, and shows your doctor's name and MDCN number.
+• A **Care Coordinator** (non-clinical) follows up if we haven't heard from you and helps with logistics like booking a lab test or refill — they can see your progress record but cannot read your clinical notes, interpret a result, adjust a medication, or close an escalation.
+
+• **Medical Officers** at increasing levels of seniority review routine results, confirm stable prescriptions, and (at the more senior levels) initiate new medications or manage complex cases.
+
+• A **Senior Registrar** or **Partner Specialist** may be brought in for a pre-referral consult or a specialist opinion on a complex case.
+
+Whenever you see a note that says a doctor reviewed something, it is tied to a real record of who reviewed it and when — never a generic claim. TarragonHealth directly employs its day-to-day care-team doctors.
+
+[We have not yet obtained MDCN/regulatory confirmation that this tiered review structure is compliant; do not represent it to a patient or a regulator as already approved. Counsel to advise.]
 
 ## How your results are classified and how we respond
-Every reading you log is classified, automatically, against a published clinical protocol — even a normal reading gets a record, so nothing is silently skipped. Depending on how a result is classified, we respond on the following timeline:
+Every reading you log is classified, automatically, against a published clinical protocol — even a normal reading gets a record, so nothing is silently skipped. How quickly we respond depends on what triggered the classification, not a single flat rule for everything — a positive self-harm or mental-health screen, for example, is treated faster than a routine borderline reading, because the two situations are not equally urgent. Our current, clinically-approved response targets are:
 
-• Routine — reviewed within 7 days, as part of a batch.
+• **Emergency** — as fast as 15 minutes for a self-harm risk flag, and up to 2 hours for a critical screening result or a reported danger symptom (for example, a hypertensive-crisis reading). We contact you on every channel at once and, for a reported danger symptom, document an attempt to reach your emergency contact if we cannot reach you. A case classified emergency cannot be closed from a written note alone — our system requires your doctor to have had a real-time voice or video conversation with you first.
 
-• Important — you'll hear from us within 48 hours.
+• **Urgent** — typically within 1 hour (for example, a red-range home blood pressure reading), up to 4 hours for a reported foot problem, and up to 24 hours for a non-critical abnormal screening result.
 
-• Urgent — your doctor calls you by phone within 2 hours. We do not use a text message alone for an urgent result.
+• **Needs clinician review** — within 3 days (for example, a reading above target but not in a danger range, or a pattern of missed readings we want a clinician to look at).
 
-• Emergency — we contact you immediately, on every channel at once, and if we cannot reach you, we document an attempt to reach your emergency contact.
+• **Routine** — within 7 days.
 
-These are service standards we hold ourselves to, not guarantees of a specific outcome in every case — how quickly we can reach you also depends on you being reachable.
+These are the service standards we hold ourselves to today, set out in a versioned internal configuration a Clinical Director signs off on, not guarantees of a specific outcome in every case — how quickly we can reach you also depends on you being reachable. [Counsel: the founder has confirmed these targets are deliberately differentiated by clinical situation rather than collapsed to one number; flag if a simpler patient-facing summary is legally preferable to the tiered detail above.]
 
 ## How we communicate with you
 Different channels carry different kinds of information, on purpose:
 
-• The app is your record — all clinical conversation, your results, your care plan, and your consent history live here.
+• The app is your record — your ongoing conversation with your care team, your results, your care plan, and your consent history live here. This in-app conversation is the primary channel for anything clinical.
 
-• A phone call is how clinical judgement is delivered — if something in your results needs discussing, a clinician or coordinator calls you; your doctor's number is masked, and the call is logged to your record.
+• A phone or video call is how clinical judgement is delivered when something needs real-time discussion — your doctor's number is masked when we connect a call through the platform, and the call is logged to your record.
 
 • SMS is used for urgent backup, and as the primary channel if you've told us you don't use a smartphone.
 
-• WhatsApp is notification-only — a short message telling you a result is ready or a check-in is due, so you open the app. It never contains a specific number, result, diagnosis, or medication name, and no one discusses your clinical care with you over WhatsApp. If you reply describing a symptom, we log it and act on it through the proper channel; a clinician replying to you on WhatsApp itself does not happen.
+• WhatsApp carries reminders, alerts, and confirmations — a short message telling you a result is ready or a check-in is due, so you open the app. It never contains a specific number, result, diagnosis, or medication name — our system enforces this at the database level, not just by convention. Separately, you may message your care team for support over WhatsApp, and a person there may reply to you on WhatsApp too; this is a human-routed help channel, never something automated turns into a clinical decision, and it is never required — you can always reach your care team through the app instead.
 
 • Email carries documents — receipts, reports, and copies of your consent records.
 

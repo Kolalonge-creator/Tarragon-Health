@@ -1,12 +1,12 @@
 # Schedule A — Data Processing Consent
 
-*Draft for legal review — not yet approved by counsel. Version 2026-07-29-v2 (rewritten to match `docs/tarragon-build-spec-v3.md`, the founder-authored spec that superseded the prior platform description). This text is the canonical source for the `data_processing` consent content and for any future public/patient-facing rendering of it; edit here first, then re-sync wherever it's reused.*
+*Draft for legal review — not yet approved by counsel. Version 2026-07-30-v3 (rewritten to match the platform as actually built in `apps/web`, after the narrow cardiometabolic-only pivot described in v2 was reversed the same evening it was adopted — see `CLAUDE.md`'s "PIVOT REVERSED" banner. This version replaces v2's platform-description drift; it does not re-open any of v2's still-open legal questions, which are unchanged.). This text is the canonical source for the `data_processing` consent content and for any future public/patient-facing rendering of it; edit here first, then re-sync wherever it's reused.*
 
 ## About this document
-This is TarragonHealth's Data Processing Consent — Schedule A of our legal documentation. Version 2026-07-29-v2, published 29 July 2026. This document is currently in draft and pending final review by our legal counsel; some details (marked in brackets) are still being finalised.
+This is TarragonHealth's Data Processing Consent — Schedule A of our legal documentation. Version 2026-07-30-v3, published 30 July 2026. This document is currently in draft and pending final review by our legal counsel; some details (marked in brackets) are still being finalised.
 
 ## Who we are
-Tarragon Health Ltd (RC 9702108) ("TarragonHealth", "we", "us") operates a cardiometabolic detection-and-control platform in Nigeria, focused on hypertension, type 2 diabetes, and obesity. We are the data controller for the personal data described in this notice.
+Tarragon Health Ltd (RC 9702108) ("TarragonHealth", "we", "us") operates a digital-first care coordination platform in Nigeria connecting patients with doctors, labs, pharmacies, and specialists across five service areas: chronic disease management (hypertension, type 2 diabetes, with further conditions planned), preventive screening, care coordination (lab and pharmacy ordering, specialist referrals), employer/HMO institutional programmes, and the underlying notification and clinical-decisioning infrastructure that connects them. We do not own or operate any hospital, clinic, or laboratory. We are the data controller for the personal data described in this notice.
 
 Data Protection Officer: [DPO name and contact — to be appointed and confirmed]. Nigeria Data Protection Commission (NDPC) registration status: [to be confirmed]. Our own platform will not accept live patients into production until NDPC registration is complete and a DPO is appointed — this is enforced as a technical gate on our own systems, not just a policy.
 
@@ -21,7 +21,7 @@ We collect the information you give us directly, the information our field staff
 
 • Health and clinical information — blood pressure, glucose, HbA1c, weight, height, and waist readings; the device you use to take them; symptoms and messages you share with your care team; medications; lab results; and clinical notes written by your doctor.
 
-• Screening information — if you attend a screening event (for example, at your employer's premises), we record your participation and initial readings, whether or not you go on to become a full patient.
+• Screening information — when you book or complete a preventive screening or health check through the app (for example, an Annual Health Check or a confidential test like HIV/Hepatitis B/cervical screening), we record your booking, the facility you chose, and the result.
 
 • Payment information — subscription, wallet, and order history, and payment references from Paystack or Stripe. We do not store your full card number.
 
@@ -43,9 +43,11 @@ We rely on more than one lawful basis, depending on the purpose.
 
 • Clinical share — your consent to share your clinical information with a specific named recipient, for example a specialist you are referred to.
 
-• Funder summary — if a third party (an employer, a relative, or another sponsor) is paying for your care through our Health Wallet, their access to a summary of your progress requires this separate consent from you. Funding your care never grants this access automatically.
+• Family and next-of-kin access — you may name a next of kin who can be contacted if something goes wrong and can view (but not edit) your care, or set up a two-way arrangement with another adult (for example, an adult child helping manage an elderly parent's care) so they can manage bookings and records on your behalf. Either arrangement requires the other person to actively accept it — naming someone does not grant them access until they do. You may also add a child with no account of their own as a dependant you manage directly.
 
-• Institution aggregate — if you are enrolled through an employer or HMO programme, your data contributes to that organisation's aggregate statistics in de-identified form regardless of this consent, because the organisation never sees anything about you individually — see "Who we share your data with" below.
+• Wallet sponsor — someone else (a family member or other payer) may fund your Health Wallet with your consent. Funding your wallet never gives that person visibility into your health information — it only lets them add money to a balance you control.
+
+• Institution aggregate — if you are enrolled through an employer or HMO programme, your data contributes to that organisation's aggregate statistics in de-identified form regardless of this consent, because the organisation never sees anything about you individually, and only a small number of senior TarragonHealth staff can ever look at an individual record on the organisation's behalf — see "Who we share your data with" below.
 
 • Research, anonymised — your optional consent for your anonymised data to be used in research. This is off by default. If you consent and later withdraw, we stop including you in future research exports, but we cannot recall an export already delivered before you withdrew.
 
@@ -61,16 +63,16 @@ This means your personal data, including sensitive health information, leaves Ni
 [The exact mechanism we rely on for this transfer is being finalised with our legal counsel. Until confirmed, this section should be read as a disclosure of the fact of the transfer, not a representation that a specific lawful mechanism has been finalised. See the accompanying memo, Question 1.]
 
 ## Automated processing
-Every reading you log is automatically classified against a clinical protocol (currently the WHO HEARTS guideline) — this always happens, even for a normal reading, so nothing is silently skipped. Automated assistance from an AI model may flag a pattern the deterministic rules might miss, but it can only make your classification more cautious, never less — an automated system can never turn a result that needs review into one that doesn't. A result classified urgent or emergency can only be closed by your doctor after they have spoken with you directly by phone or a live in-app conversation — it cannot be closed from a written note alone. You may ask us for an explanation of any automated assessment shown to you.
+Every reading you log is automatically classified against a clinically-approved protocol (drawing on WHO guidance for the condition involved) — this always happens, even for a normal reading, so nothing is silently skipped. Automated assistance from an AI model may draft a summary or flag a pattern the deterministic rules might miss, but it never makes a diagnosis, never decides on treatment, and never closes a case — a doctor always reviews and decides. A result classified as an emergency can only be closed after your doctor has had a real-time voice or video conversation with you — our system will not let it be closed from a written note alone. You may ask us for an explanation of any automated assessment shown to you.
 
 ## Who we share your data with
 We share your data only as needed to provide your care and run the platform.
 
 • Your care team — the doctors and coordinators involved in your care.
 
-• A specific person or organisation you have separately consented to share with — see "Clinical share" and "Funder summary" above.
+• A specific person or organisation you have separately consented to share with — see "Clinical share" and "Family and next-of-kin access" above.
 
-• Your employer or HMO, where you are enrolled through their programme, only as aggregate statistics with no individual identified — any figure drawn from fewer than 15 people is withheld rather than shown. We tell every patient plainly: TarragonHealth does not share individual health records with your employer.
+• Your employer or HMO, where you are enrolled through their programme, only as aggregate statistics with no individual identified — any figure drawn from fewer than 10 people is withheld rather than shown, and this is enforced by our database, not just by policy. We tell every patient plainly: TarragonHealth does not share individual health records with your employer or HMO. A small number of designated senior TarragonHealth staff (never the employer or HMO itself) retain the same operational access to an individual record as your care team, for support and platform-administration purposes.
 
 • Our payment processors, Paystack and Stripe, to process a payment you have initiated.
 
@@ -101,10 +103,16 @@ Under Nigerian data protection law, you have the right to:
 ## Security
 We restrict access to your data to the staff who need it for your care, encrypt data in transit and at rest, and keep an immutable log of every access to and change of your clinical record. No system is completely secure, and we will tell you and, where the law requires it, the NDPC, if we become aware of a breach affecting your personal data.
 
-## Guardian and dependant data
-If you enrol a child under 18 as your dependant, you are their guardian for the purposes of this notice: you confirm you have the legal authority to consent to their information being processed, and you are responsible for the accuracy of what you record on their behalf. We do not offer household or family-wide accounts — each dependant's record is separately structured under the guardian who enrolled them.
+## Family, guardian, and next-of-kin data
+Every adult keeps their own individual account — TarragonHealth does not offer a shared or discounted household subscription. Within that individual-account model, three separate mechanisms let family members be involved in each other's care, each requiring active consent from the account holder (or their guardian, for a child):
 
-[Counsel to confirm the Act's threshold for "child" data requiring guardian consent, and that this dependant-enrolment mechanism satisfies it.]
+• If you enrol a child under 18 as your dependant, you are their guardian for the purposes of this notice: you confirm you have the legal authority to consent to their information being processed, and you are responsible for the accuracy of what you record on their behalf.
+
+• You may name a next of kin, who can view (but not edit) your care and can be contacted if something goes wrong. The person you name must actively accept before they gain any access — naming them alone does not grant it.
+
+• Two adults (for example, an adult child and an elderly parent) may separately set up a "manage" arrangement, where one person handles bookings and records for the other — again, requiring the other party's active acceptance, not a unilateral grant.
+
+[Counsel to confirm the Act's threshold for "child" data requiring guardian consent, that this dependant-enrolment mechanism satisfies it, and that the next-of-kin/manage consent mechanisms above are an adequate basis for one adult's access to another's health data.]
 
 ## Changes to this notice
 We may update this notice as the platform changes. We will show you the current version and ask you to accept it again if a material change affects how your data is used.

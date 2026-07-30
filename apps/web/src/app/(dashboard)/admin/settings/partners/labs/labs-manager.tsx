@@ -17,6 +17,7 @@ import {
   type LabPartnerLoginRow,
   type LabProvider,
 } from "@/lib/queries/partner-catalogues";
+import { AdminLabFacilities } from "./admin-lab-facilities";
 
 function parseRegions(raw: string): string[] {
   return raw.split(",").map((r) => r.trim()).filter(Boolean);
@@ -294,6 +295,7 @@ export function LabsManager({ labPartnerLogins }: { labPartnerLogins: LabPartner
                   {expanded && (
                     <div className="mt-3 space-y-3 border-t border-charcoal-ink/10 pt-3">
                       <ContactEditor lab={lab} />
+                      <AdminLabFacilities labProviderId={lab.id} />
                       <PartnerLoginLinker lab={lab} logins={labPartnerLogins} />
                     </div>
                   )}
