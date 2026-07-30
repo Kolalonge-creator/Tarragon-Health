@@ -1103,6 +1103,35 @@ closes the loop on the CLAUDE.md side.
   for why `ON DELETE RESTRICT` was the correct fix instead of a blanket `NOT NULL`, which would have
   broken every legitimately-null-until-actioned attribution column on the platform).
 
+### 2026-07-30 — Escalation-SLA page was never actually deployed; admin sidebar fix
+The escalation-SLA-as-data page (`/admin/settings/escalation-slas`, built in the fourth-port entry
+above) only ever existed as local files in this worktree — it was never committed, so it 404'd in
+production despite the underlying DB work being live. Shipped for real this pass ([PR #169](
+https://github.com/Kolalonge-creator/Tarragon-Health/pull/169), merged to `main-dev` then released
+to `main`). Also added the founder's own ask in the same pass: **CV-risk config had no admin nav
+entry at all** (a gap already flagged, never fixed) — all three signable Clinical governance pages
+(vaccination schedule / escalation SLAs / CV-risk config) are now linked together under a "Clinical"
+group in the admin sidebar instead of direct-URL-only.
+- **Confirmed live DB state directly (not via login) before touching anything:** vaccination schedule
+  is genuinely signed (`approved_by` resolves to the founder's own `clinical_staff` row, timestamped
+  today) — the earlier "sitting unsigned" claim in this file was stale. `escalation_slas` is genuinely
+  unsigned. **`cv_risk_config` reverted to unsigned/inactive** — the 2026-07-20 signature was a real
+  RPC call against the *pre-rebuild* database; the 2026-07-29 full DB rebuild-from-migrations replays
+  schema only, and `cv_risk_config`'s own migration deliberately seeds it inert pending review, so a
+  prior runtime sign-off cannot survive a rebuild. **General lesson, worth remembering for any future
+  signable-governance-config feature: check live state after a DB rebuild, don't trust a changelog's
+  "already signed" claim across that boundary.**
+- **A real Vercel anomaly, not yet root-caused:** merging the release PR into `main` (via `gh pr merge`,
+  same mechanism the founder's own UI merges use) updated `origin/main` correctly and both GitHub
+  Actions CI checks passed on that commit, but **Vercel's GitHub integration never created a deployment
+  for it at all** — confirmed via GitHub's own Deployments API (zero entries for that SHA) after
+  waiting several minutes, while OTHER branches pushed around the same time deployed normally within
+  seconds. No CLI/token was available in this environment to force a manual `vercel --prod` redeploy,
+  so the fix was a second, legitimate small commit (this entry) to give the webhook another chance.
+  **If this recurs, it's worth checking directly in the Vercel dashboard** (Deployments tab, or
+  Settings → Git) whether a specific push to `main` silently failed to trigger — something this
+  session's tools couldn't see further into.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
