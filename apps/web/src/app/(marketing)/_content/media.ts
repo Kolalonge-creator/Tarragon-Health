@@ -72,13 +72,31 @@ export const MARKETING_MEDIA = {
     },
   },
   productHero: {
-    hypertension: { illustration: "hypertension" } satisfies MarketingMediaSlot,
-    diabetes: { illustration: "diabetes" } satisfies MarketingMediaSlot,
-    obesity: { illustration: "obesity" } satisfies MarketingMediaSlot,
+    hypertension: {
+      imageSrc: "/marketing/photos/hypertension-bp-monitor.png",
+      imageAlt: "A close-up of someone checking their blood pressure with a home monitor",
+    } satisfies MarketingMediaSlot,
+    diabetes: {
+      imageSrc: "/marketing/photos/diabetes-glucometer.png",
+      imageAlt: "A close-up of a hand holding a glucometer showing a blood sugar reading",
+    } satisfies MarketingMediaSlot,
+    obesity: {
+      imageSrc: "/marketing/photos/obesity-healthy-meal.png",
+      imageAlt: "Hands preparing a colorful, healthy meal at home",
+    } satisfies MarketingMediaSlot,
     parentcare: { illustration: "parentcare" } satisfies MarketingMediaSlot,
-    prevention: { illustration: "prevention" } satisfies MarketingMediaSlot,
-    medication: { illustration: "connected-care" } satisfies MarketingMediaSlot,
-    labs: { illustration: "prevention" } satisfies MarketingMediaSlot,
+    prevention: {
+      imageSrc: "/marketing/illustrations/prevention-health-check.png",
+      imageAlt: "A patient having a routine blood pressure check with a doctor",
+    } satisfies MarketingMediaSlot,
+    medication: {
+      imageSrc: "/marketing/photos/medication-pill-organizer.png",
+      imageAlt: "Hands sorting medication into a weekly pill organizer",
+    } satisfies MarketingMediaSlot,
+    labs: {
+      imageSrc: "/marketing/photos/labs-blood-sample.png",
+      imageAlt: "A gloved hand labeling a blood sample tube in a lab",
+    } satisfies MarketingMediaSlot,
   },
   serviceCard: {
     hypertension: { illustration: "hypertension" } satisfies MarketingMediaSlot,
@@ -118,13 +136,13 @@ export const PRODUCT_VIDEOS: Record<string, ProductVideo> = {
   },
   obesity: {
     youtubeId: "",
-    title: "See how the obesity programme works",
+    title: "See how the weight programme works",
     caption:
       "A structured, doctor-reviewed programme: weight tracking, a lifestyle plan, and related conditions watched on the same record.",
   },
   parentcare: {
     youtubeId: "",
-    title: "See how ParentCare keeps you close",
+    title: "See how next of kin access keeps you close",
     caption:
       "How monitoring, doctor follow-up, and calm opt-in family updates work for a parent in Nigeria, wherever you live.",
   },

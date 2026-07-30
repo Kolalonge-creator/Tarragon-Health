@@ -29,8 +29,7 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
-            { label: "Family plan", href: "/patient/family", icon: "family" },
-            { label: "ParentCare", href: "/patient/parentcare", icon: "parentCare" },
+            { label: "Your people", href: "/patient/family", icon: "family" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
           ],
         },
@@ -149,6 +148,14 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
           ],
         },
       ];
+    case "lab_partner":
+      return [
+        {
+          items: [
+            { label: "Dashboard", href: "/lab-partner", icon: "dashboard", exact: true },
+          ],
+        },
+      ];
     case "analyst":
       return [
         {
@@ -166,7 +173,6 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
-            { label: "HMO capitation", href: "/finance/capitation", icon: "capitation" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },

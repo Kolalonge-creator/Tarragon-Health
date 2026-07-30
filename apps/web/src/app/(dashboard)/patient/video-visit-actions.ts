@@ -94,9 +94,6 @@ export async function requestVideoVisit(
   if (!result.ok) {
     return { error: result.error };
   }
-  if (result.capitated) {
-    redirect("/patient");
-  }
   redirect(result.checkoutUrl);
 }
 

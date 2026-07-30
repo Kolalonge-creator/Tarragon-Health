@@ -111,7 +111,6 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
             chosen &&
             assign.mutate({
               referralId: referral.id,
-              organisationId: referral.organisation_id,
               specialistProviderId: chosen.id,
               feeKobo: chosen.consultation_fee_kobo,
             })

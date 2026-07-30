@@ -2,11 +2,16 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { isAnalyticsAllowedNow, useAnalyticsAllowed } from "@/lib/consent";
 
 /**
  * First-party page-view tracker. Fires a beacon to /api/track on each
  * navigation so the analytics console can report acquisition (anonymous
  * visitors, geo, referrers) and engagement (logged-in DAU/WAU/MAU, retention).
+ *
+ * Opt-out — runs by default, everywhere (marketing and the signed-in app
+ * alike), and stops immediately the moment someone rejects via
+ * cookie-consent-banner.tsx or their browser sends Do Not Track.
  *
  * Deliberately dependency-light and marketing-safe: it imports nothing from
  * auth/platform modules (the marketing route group must not), and it never
@@ -55,10 +60,23 @@ function send(payload: Record<string, string | undefined>) {
 export function PageTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const consented = useAnalyticsAllowed();
 
   useEffect(() => {
+    if (!consented) return;
+    // Extra, non-reactive guard against the one-tick SSR-matched snapshot
+    // useAnalyticsAllowed() intentionally reads as tracking-allowed right
+    // after hydration on a fresh page load, before it self-corrects — this
+    // reads localStorage directly, so a real rejection is honoured on the
+    // very first effect run of every navigation, not just from the second.
+    if (!isAnalyticsAllowedNow()) return;
     // Skip automated browsers/bots best-effort.
     if (typeof navigator !== "undefined" && navigator.webdriver) return;
+    // Honour Do Not Track client-side too — don't even send the beacon
+    // (the server already discards a DNT'd request, but this avoids the
+    // pointless network call, matching the Cookie Policy's "we record
+    // nothing at all, immediately" promise).
+    if (typeof navigator !== "undefined" && navigator.doNotTrack === "1") return;
 
     const base = () => ({
       path: pathname,
@@ -83,7 +101,7 @@ export function PageTracker() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", beat);
     };
-  }, [pathname, searchParams]);
+  }, [pathname, searchParams, consented]);
 
   return null;
 }

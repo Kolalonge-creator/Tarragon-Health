@@ -17,6 +17,7 @@ const ROLE_LABEL: Record<string, string> = {
   analyst: "Platform Analytics",
   finance: "Finance",
   lab_liaison: "Lab Liaison",
+  lab_partner: "Partner Laboratory",
 };
 
 export default async function DashboardLayout({

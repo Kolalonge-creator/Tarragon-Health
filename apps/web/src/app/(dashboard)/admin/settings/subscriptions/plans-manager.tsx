@@ -166,7 +166,6 @@ export function PlansManager() {
                 <Select id="currency" name="currency" defaultValue={prefill?.currency ?? "NGN"}>
                   <option value="NGN">NGN (Paystack)</option>
                   <option value="USD">USD (Stripe)</option>
-                  <option value="GBP">GBP (Stripe)</option>
                 </Select>
               </div>
               <div className="space-y-1.5">

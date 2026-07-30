@@ -198,8 +198,8 @@ export async function runRevenueRecognitionAction(): Promise<FinanceActionResult
 
 /**
  * Additions from the 2026-07-26 audit/tracking/functionality pass: maker-
- * checker approvals, cost centers, budgets, accounts payable, HMO capitation
- * register, statutory compliance calendar.
+ * checker approvals, cost centers, budgets, accounts payable, statutory
+ * compliance calendar.
  */
 
 export async function approveRequestAction(id: string, note: string): Promise<FinanceActionResult> {
@@ -364,60 +364,6 @@ export async function voidBillAction(id: string, reason: string): Promise<Financ
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
   return { ok: true };
-}
-
-export async function upsertCapitationContractAction(input: {
-  id: string | null;
-  organisation_id: string;
-  contract_name: string;
-  pmpm_rate_minor: number;
-  currency: string;
-  effective_from: string;
-  effective_to?: string;
-  is_active: boolean;
-  notes?: string;
-}): Promise<FinanceActionResult> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("finance_upsert_capitation_contract", {
-    p_id: input.id,
-    p_organisation_id: input.organisation_id,
-    p_contract_name: input.contract_name,
-    p_pmpm_rate_minor: input.pmpm_rate_minor,
-    p_currency: input.currency,
-    p_effective_from: input.effective_from,
-    p_effective_to: input.effective_to ?? null,
-    p_is_active: input.is_active,
-    p_notes: input.notes ?? null,
-  });
-  if (error) return { ok: false, error: error.message };
-  revalidateFinance();
-  return { ok: true, data };
-}
-
-export async function recordCapitationReceiptAction(input: {
-  contract_id: string;
-  period_month: string;
-  enrolled_members: number;
-  amount_minor: number;
-  received_date: string;
-  bank_account_code: string;
-  estimated_cost_of_care_minor?: number;
-  notes?: string;
-}): Promise<FinanceActionResult> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("finance_record_capitation_receipt", {
-    p_contract_id: input.contract_id,
-    p_period_month: input.period_month,
-    p_enrolled_members: input.enrolled_members,
-    p_amount_minor: input.amount_minor,
-    p_received_date: input.received_date,
-    p_bank_account_code: input.bank_account_code,
-    p_estimated_cost_of_care_minor: input.estimated_cost_of_care_minor ?? null,
-    p_notes: input.notes ?? null,
-  });
-  if (error) return { ok: false, error: error.message };
-  revalidateFinance();
-  return { ok: true, data };
 }
 
 export async function markFiledAction(input: {

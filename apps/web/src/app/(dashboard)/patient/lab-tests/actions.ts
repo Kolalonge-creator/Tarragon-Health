@@ -10,8 +10,7 @@ export type PayForLabOrderState = { error?: string } | undefined;
 /**
  * Patient-initiated payment for a booked lab order (status='pending_payment').
  * Mirrors payForReferral (apps/web/src/app/(dashboard)/patient/referrals/actions.ts)
- * exactly — a capitated order never reaches this state (Build 1's
- * capitated bypass applies uniformly to every orderType).
+ * exactly.
  */
 export async function payForLabOrder(
   _prevState: PayForLabOrderState,
@@ -54,9 +53,6 @@ export async function payForLabOrder(
 
   if (!result.ok) {
     return { error: result.error };
-  }
-  if (result.capitated) {
-    redirect("/patient");
   }
   redirect(result.checkoutUrl);
 }

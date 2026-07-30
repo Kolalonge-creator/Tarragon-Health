@@ -10,6 +10,7 @@ import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
 import { TestimonialsSection } from "./_components/testimonials-section";
 import { WhatsappHeroMockup } from "./_components/whatsapp-hero-mockup";
+import { AppDashboardMockup } from "./_components/app-dashboard-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
@@ -166,7 +167,7 @@ export default function MarketingHomePage() {
       <Section>
         <SectionHeading
           eyebrow="Chronic care programmes"
-          title="Hypertension, diabetes, and obesity, managed with follow-up"
+          title="Hypertension, diabetes, and weight, managed with follow-up"
           description="Three conditions drive most preventable emergencies in Nigeria. Tarragon runs a structured, doctor-reviewed programme for each, on one shared record, so related conditions are watched together, not separately."
         />
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-3">
@@ -237,6 +238,47 @@ export default function MarketingHomePage() {
               <p className="mt-3 text-charcoal-ink/70">{pillar.body}</p>
             </div>
           ))}
+        </div>
+      </Section>
+
+      <Section>
+        <div className="mx-auto grid max-w-5xl items-center gap-8 overflow-hidden rounded-2xl border border-brand-green/20 bg-white p-8 shadow-sm sm:p-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12 lg:p-12">
+          <AppDashboardMockup className="relative mx-auto" />
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              On your phone
+            </p>
+            <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
+              Take Tarragon with you
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              Add TarragonHealth to your phone&apos;s home screen and check in wherever you are.
+              No app store, no separate download, the same secure record you already use on the
+              web.
+            </p>
+            <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+              {[
+                "Track BP, glucose, and weight trends at a glance",
+                "Get reminders for medication, screenings, and reviews",
+                "Message your care team on WhatsApp for support",
+                "Share your Health Passport with any doctor",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm text-charcoal-ink/75">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-green" aria-hidden />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/signup">Start monitoring</Link>
+              </Button>
+            </div>
+            <p className="mt-3 text-sm text-charcoal-ink/55">
+              Already have an account? Open tarragonhealth.com on your phone, then tap Share →
+              Add to Home Screen on iPhone, or Install app when Chrome prompts you on Android.
+            </p>
+          </div>
         </div>
       </Section>
 

@@ -130,7 +130,6 @@ export function PriceAdjustmentManager() {
               }}
             >
               <option value="NGN">NGN only</option>
-              <option value="GBP">GBP only</option>
               <option value="USD">USD only</option>
               <option value="ALL">All currencies</option>
             </Select>

@@ -4,6 +4,11 @@ import { ProductPageTemplate } from "../_components/product-page-template";
 import { Section, SectionHeading } from "../_components/section";
 import { getProductPage } from "../_content/products";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { ResourceCarousel } from "../_components/resource-carousel";
+import { PlanPreviewSample } from "../_components/plan-preview-sample";
+import { loadResourceArticles } from "@/lib/marketing/resources-data";
+
+export const revalidate = 300;
 
 export function generateMetadata() {
   const content = getProductPage("prevention");
@@ -77,11 +82,25 @@ const ABNORMAL_STEPS = [
   },
 ];
 
-export default function PreventionPage() {
+export default async function PreventionPage() {
   const content = getProductPage("prevention");
   if (!content) notFound();
+
+  const articles = await loadResourceArticles();
+  const screeningArticles = articles.filter((a) => a.category === "Screening");
+  const nutritionArticles = articles.filter((a) => a.category === "Nutrition");
+
   return (
     <ProductPageTemplate content={content}>
+      <Section>
+        <SectionHeading
+          eyebrow="Try it yourself"
+          title="What could your plan look like?"
+          description="Your real calendar is built from a real health profile after you sign up. This is a quick, illustrative preview of the same idea."
+        />
+        <PlanPreviewSample />
+      </Section>
+
       <Section>
         <SectionHeading
           eyebrow="What we screen for"
@@ -118,11 +137,30 @@ export default function PreventionPage() {
           core checks with a doctor consultation about your results.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
+          Not sure what applies to you specifically? Walk through the{" "}
+          <Link href={MARKETING_ROUTES.screeningJourney} className="font-medium text-deep-forest hover:underline">
+            Screening Journey
+          </Link>
+          : pick your age and sex and see each recommended screening, step by step, from booking
+          to results.
+        </p>
+        <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Looking after your children&apos;s vaccinations too? See how the{" "}
           <Link href={MARKETING_ROUTES.vaccinations} className="font-medium text-deep-forest hover:underline">
             schedule, reminders, and doctor-verified certificates
           </Link>{" "}
           work for your whole family.
+        </p>
+        <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
+          Curious where you stand before booking anything? Try the free{" "}
+          <Link href={MARKETING_ROUTES.bmiCalculator} className="font-medium text-deep-forest hover:underline">
+            BMI & calorie calculator
+          </Link>{" "}
+          or the{" "}
+          <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-deep-forest hover:underline">
+            activity intensity calculator
+          </Link>
+          , no sign-up required.
         </p>
       </Section>
 
@@ -150,6 +188,21 @@ export default function PreventionPage() {
           ))}
         </ol>
       </Section>
+
+      {screeningArticles.length > 0 ? (
+        <Section>
+          <ResourceCarousel
+            title="Explore more Prevention & Screening resources"
+            articles={screeningArticles}
+          />
+        </Section>
+      ) : null}
+
+      {nutritionArticles.length > 0 ? (
+        <Section>
+          <ResourceCarousel title="Explore more Nutrition resources" articles={nutritionArticles} />
+        </Section>
+      ) : null}
     </ProductPageTemplate>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
 import { PricingTable } from "../_components/pricing-table";
+import { fetchTierPriceOverrides } from "@/lib/marketing/plan-prices";
 import { PricingAddOns } from "../_components/pricing-addons";
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { PlanFinder } from "../_components/plan-finder";
@@ -48,7 +49,8 @@ const pricingFaqJsonLd = {
   })),
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const priceOverrides = await fetchTierPriceOverrides();
   return (
     <>
       <script
@@ -62,7 +64,7 @@ export default function PricingPage() {
           description="Every line item carries exactly one label: included, book & pay, free elsewhere, or add-on. No hidden costs."
         />
         <PlanFinder />
-        <PricingTable />
+        <PricingTable priceOverrides={priceOverrides} />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
             <Link href="/signup">Start monitoring</Link>

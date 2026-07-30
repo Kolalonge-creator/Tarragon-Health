@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ageFromDateOfBirth } from "@tarragon/shared";
-import { useManagedDependents } from "@/lib/queries/family-plan-members";
+import { useManagedDependents } from "@/lib/queries/care-access";
 import type { PatientLocation } from "./facility-selector";
 import { VaccinationRegistry } from "./vaccination-registry";
 import { VaccinationBooking } from "./vaccination-booking";

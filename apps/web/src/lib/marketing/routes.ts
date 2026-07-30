@@ -13,8 +13,12 @@ export const MARKETING_ROUTES = {
   parentcare: "/parentcare",
   prevention: "/prevention",
   annualHealthCheck: "/annual-health-check",
+  screeningJourney: "/screening-journey",
   vaccinations: "/vaccinations",
+  mentalWellbeingCheck: "/mental-wellbeing-check",
   healthEducation: "/health-education",
+  bmiCalculator: "/bmi-calculator",
+  activityCalculator: "/activity-calculator",
   medication: "/medication",
   labs: "/labs",
   pricing: "/pricing",
@@ -24,6 +28,12 @@ export const MARKETING_ROUTES = {
   hmo: "/hmo",
   resources: "/resources",
   contact: "/contact",
+  privacy: "/privacy",
+  telehealthConsent: "/telehealth-consent",
+  terms: "/terms",
+  accessibility: "/accessibility",
+  cookies: "/cookies",
+  gift: "/gift",
 } as const;
 
 export type MarketingRouteKey = keyof typeof MARKETING_ROUTES;
@@ -42,8 +52,12 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "parentcare",
   "prevention",
   "annualHealthCheck",
+  "screeningJourney",
   "vaccinations",
+  "mentalWellbeingCheck",
   "healthEducation",
+  "bmiCalculator",
+  "activityCalculator",
   "medication",
   "labs",
   "pricing",
@@ -53,6 +67,12 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "hmo",
   "resources",
   "contact",
+  "privacy",
+  "telehealthConsent",
+  "terms",
+  "accessibility",
+  "cookies",
+  "gift",
 ];
 
 export const MARKETING_PATH_PREFIXES = Object.values(MARKETING_ROUTES).filter(

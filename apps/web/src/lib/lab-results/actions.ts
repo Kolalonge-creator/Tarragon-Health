@@ -7,6 +7,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import {
+  labPartnerResultUploadSchema,
   markResultReviewedSchema,
   staffResultUploadSchema,
   validateResultDocFile,
@@ -196,5 +197,88 @@ export async function markResultDocumentReviewed(input: {
 
   revalidatePath("/clinician");
   revalidatePath(`/clinician/patients/${doc.patient_id}`);
+  return { success: true };
+}
+
+/**
+ * A partner lab's own logged-in staff (the `lab_partner` account, scoped to a
+ * single `lab_providers` row) uploads a result directly for one of ITS OWN
+ * orders — the alternative to a lab emailing the Lab Liaison Officer. Mirrors
+ * `uploadResultDocumentForPatient`'s storage-then-insert-with-rollback shape,
+ * but authorisation is delegated to the SECURITY DEFINER RPCs
+ * (`lab_partner_order_patient`/`lab_partner_upload_result`,
+ * 20260727002742_lab_partner_surface.sql) rather than this app-layer's own
+ * is_org_staff check — a lab partner has no org-staff RLS access at all, by
+ * design (see the migration's security model comment).
+ */
+export async function uploadResultAsLabPartner(
+  formData: FormData,
+): Promise<ResultUploadResult> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const supabase = await createClient();
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (me?.role !== "lab_partner") {
+    return { error: "This action is for partner labs." };
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Attach the result file (PDF or image)." };
+  }
+  const fileError = validateResultDocFile(file);
+  if (fileError) return { error: fileError };
+
+  const parsed = labPartnerResultUploadSchema.safeParse({
+    order_id: formData.get("order_id"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { order_id: orderId, note } = parsed.data;
+
+  // Scoped to the caller's own lab via private.lab_partner_provider() —
+  // returns null for another lab's order, so this can't leak a patient_id
+  // cross-lab even at the path-building stage.
+  const { data: patientId, error: lookupError } = await supabase.rpc(
+    "lab_partner_order_patient",
+    { p_order_id: orderId },
+  );
+  if (lookupError || !patientId) {
+    return { error: "Order not found for your lab." };
+  }
+
+  const service = createServiceRoleClient();
+  const ext = EXT_BY_MIME[file.type] ?? "bin";
+  const path = `${patientId}/${randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await service.storage
+    .from(RESULT_DOC_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { error: uploadError.message };
+
+  // Re-verifies ownership independently (defence in depth) and derives
+  // patient_id/organisation_id itself from the order row — never trusts the
+  // lookup above for the write. Also advances the order to 'resulted'.
+  const { error: insertError } = await supabase.rpc("lab_partner_upload_result", {
+    p_order_id: orderId,
+    p_file_path: path,
+    p_original_filename: file.name,
+    p_mime_type: file.type,
+    p_file_size_bytes: file.size,
+    p_note: note ?? null,
+  });
+  if (insertError) {
+    await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    return { error: insertError.message };
+  }
+
+  revalidatePath("/lab-partner");
   return { success: true };
 }

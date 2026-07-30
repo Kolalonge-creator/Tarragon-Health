@@ -1,18 +1,25 @@
-import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@tarragon/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
- * Aggregate lifestyle programme outcomes for an org (spec §13). Reads the
- * security_invoker view public.lpe_programme_outcomes, so org staff (HMO /
- * employer admins) see only their own org's aggregates. Renders nothing when
- * there are no enrolments yet.
+ * Aggregate lifestyle programme outcomes for an org (spec §13), read from the
+ * security_invoker view public.lpe_programme_outcomes.
+ *
+ * The caller supplies the client rather than this component opening its own
+ * session, because an institution admin's session reads zero rows from that
+ * view under I9. The institution dashboards pass the verified aggregate client
+ * from requireInstitutionAggregateAccess, and only render this card once the
+ * cohort clears the org's suppression threshold. Renders nothing when there
+ * are no enrolments yet.
  */
 export async function LifestyleOutcomesCard({
+  supabase,
   organisationId,
 }: {
+  supabase: SupabaseClient<Database>;
   organisationId: string;
 }) {
-  const supabase = await createClient();
   const { data: rows } = await supabase
     .from("lpe_programme_outcomes")
     .select("condition, enrolled, active, paused, maintenance, disengaged, reviews_overdue")

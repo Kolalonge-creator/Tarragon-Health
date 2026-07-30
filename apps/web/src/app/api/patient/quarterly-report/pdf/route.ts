@@ -6,7 +6,7 @@ import type { HealthPassportData } from "@/lib/health-passport/get-health-passpo
 
 /**
  * Streams the caller's own quarterly report as a downloadable PDF —
- * ParentCare/Family Premium's "quarterly PDF report" promise. Gated on
+ * the "quarterly PDF report" promise. Gated on
  * has_feature_access('quarterly_report'), same null-gated-entitlement
  * pattern as RequiresEntitlement. Renders the most recently archived
  * patient_quarterly_reports row if one exists (the frozen, quotable

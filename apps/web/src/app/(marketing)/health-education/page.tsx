@@ -136,6 +136,21 @@ export default function HealthEducationPage() {
         </div>
       </Section>
 
+      <Section>
+        <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8 text-center">
+          <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
+            Health isn&apos;t only physical
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+            Curious how you&apos;re really doing beyond the numbers? Try the free, anonymous{" "}
+            <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="text-brand-green hover:underline">
+              Mental Well-being Check
+            </Link>
+            : two minutes, ten questions, no sign-up required.
+          </p>
+        </div>
+      </Section>
+
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"

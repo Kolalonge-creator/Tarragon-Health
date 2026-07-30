@@ -38,3 +38,12 @@ export const markResultReviewedSchema = z.object({
   note: z.string().trim().max(500).optional(),
 });
 export type MarkResultReviewedInput = z.infer<typeof markResultReviewedSchema>;
+
+/** A partner lab uploading a result directly for one of its own orders (the
+ * `lab_partner` account surface) — order ownership is re-verified server-side
+ * via the scoped RPCs, never trusted from this input alone. */
+export const labPartnerResultUploadSchema = z.object({
+  order_id: z.string().uuid(),
+  note: z.string().trim().max(500).optional(),
+});
+export type LabPartnerResultUploadInput = z.infer<typeof labPartnerResultUploadSchema>;

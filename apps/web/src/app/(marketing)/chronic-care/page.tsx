@@ -5,11 +5,15 @@ import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { ResourceCarousel } from "../_components/resource-carousel";
+import { loadResourceArticles } from "@/lib/marketing/resources-data";
+
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Chronic care",
   description:
-    "Ongoing monitoring for chronic conditions like hypertension, diabetes, and obesity: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
+    "Ongoing monitoring for chronic conditions like hypertension, diabetes, and weight management: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
   alternates: { canonical: MARKETING_ROUTES.chronicCare },
 };
 
@@ -33,7 +37,10 @@ const HOW = [
   },
 ];
 
-export default function ChronicCarePage() {
+export default async function ChronicCarePage() {
+  const articles = await loadResourceArticles();
+  const cholesterolArticles = articles.filter((a) => a.category === "Cholesterol");
+
   return (
     <>
       <Section className="pt-20">
@@ -71,7 +78,7 @@ export default function ChronicCarePage() {
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Looking after a parent with a long-term condition?{" "}
           <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
-            ParentCare
+            Caring for a parent
           </Link>{" "}
           brings the same monitoring together for a loved one, with opt-in family updates.
         </p>
@@ -82,6 +89,15 @@ export default function ChronicCarePage() {
           drive the same underlying risk.
         </p>
       </Section>
+
+      {cholesterolArticles.length > 0 ? (
+        <Section>
+          <ResourceCarousel
+            title="Explore more Cholesterol & Heart Health resources"
+            articles={cholesterolArticles}
+          />
+        </Section>
+      ) : null}
 
       <Section className="pb-24">
         <CtaBand

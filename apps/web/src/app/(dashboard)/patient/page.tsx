@@ -60,7 +60,7 @@ import { PharmacyCatalogue } from "./pharmacy-catalogue";
 import { PharmacyOrdersList } from "./pharmacy-orders-list";
 import { BookingRequestsList } from "./booking-requests-list";
 import { AiCoachChat } from "./ai-coach-chat";
-import { FamilyDashboardCard } from "./family-dashboard-card";
+import { CareCircleCard } from "./care-circle-card";
 import { AnnualReviewCard } from "./annual-review-card";
 import { ObesitySummary } from "./obesity-summary";
 
@@ -409,9 +409,7 @@ export default async function PatientPage() {
         >
           <CareTeamContact />
         </RequiresEntitlement>
-        <RequiresEntitlement feature="family_dashboard" fallback={null}>
-          <FamilyDashboardCard />
-        </RequiresEntitlement>
+        <CareCircleCard />
         {coachAccess && <AiCoachChat patientId={profile.id} />}
         <TestimonialForm />
       </DashboardSection>

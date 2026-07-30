@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import type { ContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 
 const CONTRACT_TYPE_LABEL: Record<ContractPerformance["contractType"], string> = {
-  capitation: "Capitation",
   fee_at_risk: "Fee-at-risk (outcomes-based)",
   flat: "Flat fee",
 };
