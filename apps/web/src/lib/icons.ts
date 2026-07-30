@@ -1,6 +1,9 @@
 import {
   HeartPulse,
   Droplet,
+  Utensils,
+  Moon,
+  Brain,
   Pill,
   TestTube,
   Users,
@@ -65,6 +68,9 @@ import {
 export const SEMANTIC_ICON = {
   bp: HeartPulse,
   diabetes: Droplet,
+  food: Utensils,
+  sleep: Moon,
+  mood: Brain,
   medication: Pill,
   labs: TestTube,
   parentCare: Users,

@@ -1,13 +1,19 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { enrollAction, logReadingAction, type LifestyleActionState } from "./actions";
-import type { LifestyleEnrollmentView } from "@/lib/lifestyle/service";
+import {
+  enrollAction,
+  logReadingAction,
+  resolveGoalAction,
+  type LifestyleActionState,
+} from "./actions";
+import type { LifestyleEnrollmentView, PastLifestyleGoalView } from "@/lib/lifestyle/service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GoalsDialog } from "./goals-dialog";
 
 const ENROLLABLE: { key: "obesity" | "htn" | "diabetes"; label: string }[] = [
   { key: "obesity", label: "Weight & lifestyle" },
@@ -23,8 +29,10 @@ function StatusBadge({ status }: { status: string }) {
 
 export function LifestyleClient({
   enrollments,
+  pastGoals,
 }: {
   enrollments: LifestyleEnrollmentView[];
+  pastGoals: PastLifestyleGoalView[];
 }) {
   const [enrollState, enroll] = useActionState<LifestyleActionState, FormData>(
     enrollAction,
@@ -36,11 +44,14 @@ export function LifestyleClient({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Your lifestyle programme</h1>
-        <p className="text-muted-foreground text-sm">
-          Small, steady changes — logged here, supported by your care team.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Your lifestyle programme</h1>
+          <p className="text-muted-foreground text-sm">
+            Small, steady changes — logged here, supported by your care team.
+          </p>
+        </div>
+        <GoalsDialog enrollments={enrollments} pastGoals={pastGoals} />
       </div>
 
       {enrollments.map((e) => (
@@ -66,13 +77,14 @@ export function LifestyleClient({
                   </p>
                 )}
                 {e.goals.length > 0 && (
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-2 text-sm">
                     {e.goals.map((g) => (
-                      <li key={g.id} className="flex gap-2">
-                        <span className="text-muted-foreground capitalize">
-                          {g.module}
+                      <li key={g.id} className="flex items-center justify-between gap-2">
+                        <span>
+                          <span className="text-muted-foreground capitalize">{g.module}</span>{" "}
+                          {g.title}
                         </span>
-                        <span>{g.title}</span>
+                        {g.personalised && <ResolveGoalControls goalId={g.id} />}
                       </li>
                     ))}
                   </ul>
@@ -196,5 +208,35 @@ function LogForm({
         Log check-in
       </Button>
     </form>
+  );
+}
+
+function ResolveGoalControls({ goalId }: { goalId: string }) {
+  const [state, resolve] = useActionState<LifestyleActionState, FormData>(
+    resolveGoalAction,
+    undefined,
+  );
+
+  if (state?.success) {
+    return <span className="text-xs text-brand-green">{state.message}</span>;
+  }
+
+  return (
+    <span className="flex shrink-0 gap-2">
+      <form action={resolve}>
+        <input type="hidden" name="goalId" value={goalId} />
+        <input type="hidden" name="status" value="achieved" />
+        <button type="submit" className="text-xs text-brand-green hover:underline">
+          Mark achieved
+        </button>
+      </form>
+      <form action={resolve}>
+        <input type="hidden" name="goalId" value={goalId} />
+        <input type="hidden" name="status" value="abandoned" />
+        <button type="submit" className="text-xs text-muted-foreground hover:underline">
+          Let this go
+        </button>
+      </form>
+    </span>
   );
 }
