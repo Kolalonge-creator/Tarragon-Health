@@ -95,8 +95,8 @@ export default async function BmiCalculatorPage() {
               <Link href={MARKETING_ROUTES.obesity} className="font-medium text-deep-forest hover:underline">
                 Weight Health programme
               </Link>{" "}
-              is doctor-led, lifestyle-first support, not judgment: real medication and lifestyle
-              guidance if it&apos;s needed, built around you.
+              is lifestyle-first support, not judgment: a doctor reviews your progress and adjusts
+              medication and lifestyle guidance if it&apos;s needed, built around you.
             </p>
           </div>
         </div>

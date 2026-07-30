@@ -55,17 +55,17 @@ const CATEGORY_COPY: Record<
   obesity_class_i: {
     label: "Higher weight range",
     tone: "text-charcoal-ink",
-    body: "Your BMI is in a range where a doctor-led plan tends to help more than going it alone: real support, not judgment.",
+    body: "Your BMI is in a range where a plan reviewed by a doctor tends to help more than going it alone: real support, not judgment.",
   },
   obesity_class_ii: {
     label: "Higher weight range",
     tone: "text-charcoal-ink",
-    body: "Your BMI is in a range where a doctor-led plan tends to help more than going it alone: real support, not judgment.",
+    body: "Your BMI is in a range where a plan reviewed by a doctor tends to help more than going it alone: real support, not judgment.",
   },
   obesity_class_iii: {
     label: "Higher weight range",
     tone: "text-charcoal-ink",
-    body: "Your BMI is in a range where a doctor-led plan tends to help more than going it alone: real support, not judgment.",
+    body: "Your BMI is in a range where a plan reviewed by a doctor tends to help more than going it alone: real support, not judgment.",
   },
 };
 
