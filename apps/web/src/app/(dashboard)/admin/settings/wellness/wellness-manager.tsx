@@ -18,42 +18,66 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 
+/** The DB stores kobo-per-point (points_to_kobo_rate) since every other
+ * money figure in this codebase is kobo-denominated, but an admin thinks in
+ * naira — so this card converts at the boundary and works entirely in naira
+ * for both the displayed current rate and the input, rather than mixing
+ * units (a prior version showed the rate in naira but expected kobo back on
+ * save, which meant re-typing the displayed number silently zeroed it out). */
 function PointsConfigCard() {
   const { data: config } = useWellnessPointsConfig();
   const setRate = useSetWellnessPointsRate();
-  const [rate, setRate2] = useState<string>("");
+  const [nairaInput, setNairaInput] = useState<string>("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const currentNaira = config ? config.points_to_kobo_rate / 100 : null;
+  const exampleValue = config ? Math.round(config.points_to_kobo_rate * 100) / 100 : null; // 100 pts in naira
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Points-to-wallet conversion rate</CardTitle>
         <CardDescription>
-          How many kobo one point is worth when a patient redeems. Current rate:{" "}
-          {config ? `₦${config.points_to_kobo_rate / 100} per point` : "…"}
+          What one wellness point is worth when a patient redeems it for Health Wallet balance.
+          Current rate: {currentNaira !== null ? `₦${currentNaira} per point` : "…"}
+          {exampleValue !== null ? ` — 100 points = ₦${exampleValue}.` : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex items-end gap-2">
-        <Input
-          type="number"
-          min={0}
-          step="0.01"
-          placeholder={config ? String(config.points_to_kobo_rate) : ""}
-          value={rate}
-          onChange={(e) => setRate2(e.target.value)}
-          className="h-9 w-40"
-        />
+        <div className="grid gap-1">
+          <label htmlFor="points-rate-naira" className="text-xs font-medium text-charcoal-ink/70">
+            Naira per point
+          </label>
+          <Input
+            id="points-rate-naira"
+            type="number"
+            min={0}
+            step="0.01"
+            placeholder={currentNaira !== null ? String(currentNaira) : ""}
+            value={nairaInput}
+            onChange={(e) => setNairaInput(e.target.value)}
+            className="h-9 w-40"
+          />
+        </div>
         <Button
           size="sm"
-          disabled={setRate.isPending || rate === ""}
+          disabled={setRate.isPending || nairaInput === ""}
           onClick={() => {
-            const v = Number(rate);
-            if (!Number.isFinite(v) || v < 0) return;
-            setRate.mutate(v, { onSuccess: () => setRate2("") });
+            const naira = Number(nairaInput);
+            if (!Number.isFinite(naira) || naira < 0) return;
+            const kobo = Math.round(naira * 100);
+            setRate.mutate(kobo, {
+              onSuccess: () => {
+                setMessage(`Saved — 1 point is now worth ₦${naira}.`);
+                setNairaInput("");
+              },
+              onError: () => setMessage("Could not save — please try again."),
+            });
           }}
         >
           {setRate.isPending ? "Saving…" : "Save"}
         </Button>
-        <p className="text-xs text-charcoal-ink/50">Enter kobo per point (100 = ₦1 per point).</p>
+        {message && <span className="text-sm text-charcoal-ink/70">{message}</span>}
       </CardContent>
     </Card>
   );
