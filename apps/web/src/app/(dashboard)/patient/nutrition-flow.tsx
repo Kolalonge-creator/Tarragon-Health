@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { logMealAction, confirmMealAction } from "./nutrition-actions";
@@ -10,8 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { MEAL_TYPE_ICON } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 
 const MEAL_PHOTO_BUCKET = "meal-photos";
 const ENTRIES_KEY = "nutrition-entries";
@@ -60,6 +61,7 @@ function LogMealSection({
   const formRef = useRef<HTMLFormElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [mealType, setMealType] = useState<(typeof MEAL_TYPES)[number]>("lunch");
 
   const mutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -87,6 +89,7 @@ function LogMealSection({
       queryClient.invalidateQueries({ queryKey: [ENTRIES_KEY, patientId] });
       formRef.current?.reset();
       setFile(null);
+      setMealType("lunch");
       if (res?.aiStatus === "estimated") {
         setMessage("Logged. We've added an estimate below — check and confirm it.");
       } else if (res?.aiStatus === "unavailable") {
@@ -116,14 +119,31 @@ function LogMealSection({
           }}
         >
           <div className="grid gap-2">
-            <Label htmlFor="meal_type">Meal</Label>
-            <Select id="meal_type" name="meal_type" defaultValue="lunch" required>
-              {MEAL_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {MEAL_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </Select>
+            <Label>Meal</Label>
+            <input type="hidden" name="meal_type" value={mealType} />
+            <div className="grid grid-cols-4 gap-2">
+              {MEAL_TYPES.map((t) => {
+                const Icon = MEAL_TYPE_ICON[t];
+                const active = mealType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setMealType(t)}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs font-medium transition-colors",
+                      active
+                        ? "border-brand-green bg-soft-sage text-deep-forest"
+                        : "border-charcoal-ink/10 text-charcoal-ink/70 hover:border-charcoal-ink/20",
+                    )}
+                  >
+                    <Icon className="h-5 w-5" strokeWidth={2} />
+                    {MEAL_TYPE_LABELS[t]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid gap-2">
@@ -277,8 +297,36 @@ function EntryCard({ entry, patientId }: { entry: NutritionEntry; patientId: str
   );
 }
 
+function lagosDateKey(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+}
+
+function dateGroupLabel(dateKey: string): string {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+  const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("en-CA", {
+    timeZone: "Africa/Lagos",
+  });
+  if (dateKey === today) return "Today";
+  if (dateKey === yesterday) return "Yesterday";
+  return new Date(dateKey).toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function MealHistorySection({ patientId }: { patientId: string }) {
   const { data: entries, isLoading } = useNutritionEntries(patientId);
+
+  const grouped = useMemo(() => {
+    const rows = entries ?? [];
+    const map = new Map<string, NutritionEntry[]>();
+    for (const row of rows) {
+      const key = lagosDateKey(row.logged_at);
+      map.set(key, [...(map.get(key) ?? []), row]);
+    }
+    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [entries]);
 
   return (
     <Card>
@@ -290,12 +338,19 @@ function MealHistorySection({ patientId }: { patientId: string }) {
         {!isLoading && (!entries || entries.length === 0) && (
           <p className="text-sm text-charcoal-ink/60">No meals logged yet.</p>
         )}
-        {entries && entries.length > 0 && (
-          <ul className="space-y-3">
-            {entries.map((entry) => (
-              <EntryCard key={entry.id} entry={entry} patientId={patientId} />
+        {grouped.length > 0 && (
+          <div className="space-y-5">
+            {grouped.map(([dateKey, rows]) => (
+              <div key={dateKey}>
+                <p className="mb-2 text-sm font-semibold text-charcoal-ink">{dateGroupLabel(dateKey)}</p>
+                <ul className="space-y-3">
+                  {rows.map((entry) => (
+                    <EntryCard key={entry.id} entry={entry} patientId={patientId} />
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </CardContent>
     </Card>

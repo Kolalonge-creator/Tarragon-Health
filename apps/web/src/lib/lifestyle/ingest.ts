@@ -91,6 +91,25 @@ export async function ingestMeasurement(params: IngestParams): Promise<IngestRes
   }
   const measurementId = stored.id;
 
+  // A weight check-in here would otherwise be invisible to the canonical
+  // weight chart (VitalsTrendChart / the weight-goal card), which reads only
+  // vitals_readings — that's a separate table from lpe_measurements, kept
+  // for ML plateau-detection. Mirror it there too, best-effort: this copy
+  // never blocks or fails the check-in itself, since lpe_measurements above
+  // is already the source of truth for coaching.
+  if (measurement.type === "weight" && measurement.valueNum != null) {
+    const { error: mirrorErr } = await db.from("vitals_readings").insert({
+      organisation_id: organisationId,
+      patient_id: patientId,
+      vital_type: "weight",
+      weight_kg: measurement.valueNum,
+      taken_at: measurement.takenAt,
+    });
+    if (mirrorErr) {
+      console.error("lifestyle weight check-in: vitals_readings mirror failed", mirrorErr);
+    }
+  }
+
   // 3. Evaluate red flags BEFORE planning any reply (hard requirement).
   const adapter = getAdapter(conditionKey);
   const evaluation = evaluateRedFlags(

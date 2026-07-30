@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log_entries: {
+        Row: {
+          activity_name: string | null
+          created_at: string
+          duration_minutes: number | null
+          entry_type: Database["public"]["Enums"]["activity_entry_type"]
+          id: string
+          is_favorite: boolean
+          logged_at: string
+          logged_on: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          step_count: number | null
+        }
+        Insert: {
+          activity_name?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          entry_type: Database["public"]["Enums"]["activity_entry_type"]
+          id?: string
+          is_favorite?: boolean
+          logged_at?: string
+          logged_on?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          step_count?: number | null
+        }
+        Update: {
+          activity_name?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          entry_type?: Database["public"]["Enums"]["activity_entry_type"]
+          id?: string
+          is_favorite?: boolean
+          logged_at?: string
+          logged_on?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          step_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_entries_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_log_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       add_ons: {
         Row: {
           code: string
@@ -7128,6 +7188,48 @@ export type Database = {
           },
         ]
       }
+      patient_activity_goals: {
+        Row: {
+          created_at: string
+          daily_step_goal: number
+          id: string
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          daily_step_goal?: number
+          id?: string
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          daily_step_goal?: number
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_activity_goals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_activity_goals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_allergies: {
         Row: {
           allergen: string
@@ -7947,6 +8049,54 @@ export type Database = {
           },
           {
             foreignKeyName: "patient_timeline_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_weight_goals: {
+        Row: {
+          created_at: string
+          goal_weight_kg: number
+          id: string
+          organisation_id: string
+          patient_id: string
+          started_at: string
+          starting_weight_kg: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          goal_weight_kg: number
+          id?: string
+          organisation_id: string
+          patient_id: string
+          started_at?: string
+          starting_weight_kg: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          goal_weight_kg?: number
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          started_at?: string
+          starting_weight_kg?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_weight_goals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_weight_goals_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -12609,6 +12759,7 @@ export type Database = {
       }
     }
     Enums: {
+      activity_entry_type: "steps" | "workout"
       alert_level:
         | "routine"
         | "clinician_review"
@@ -13195,6 +13346,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      activity_entry_type: ["steps", "workout"],
       alert_level: [
         "routine",
         "clinician_review",
