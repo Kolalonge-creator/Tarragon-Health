@@ -6,6 +6,7 @@ import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { StartVirtualReviewButton } from "./start-virtual-review-button";
+import { AlertOverrideControl } from "./alert-override-control";
 import { NotesPanel } from "./notes-panel";
 import { ResolveForm } from "./resolve-form";
 
@@ -23,7 +24,7 @@ export default async function DoctorEscalationPage({
   const { data: escalation } = await supabase
     .from("escalations")
     .select(
-      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
+      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
     )
     .eq("id", escalationId)
     .maybeSingle();
@@ -44,7 +45,7 @@ export default async function DoctorEscalationPage({
   }
 
   const levelBadge = escalation.clinician_alert
-    ? LEVEL_BADGE[escalation.clinician_alert.level]
+    ? LEVEL_BADGE[escalation.clinician_alert.override_level ?? escalation.clinician_alert.level]
     : null;
   const resultBadge = escalation.clinician_alert?.screening_result
     ? RESULT_STATUS_BADGE[escalation.clinician_alert.screening_result.result_status]
@@ -80,6 +81,15 @@ export default async function DoctorEscalationPage({
           )}
           <p className="text-sm text-charcoal-ink">Reason: {escalation.reason}</p>
           <StartVirtualReviewButton escalationId={escalation.id} />
+          {escalation.clinician_alert_id && (
+            <AlertOverrideControl
+              alertId={escalation.clinician_alert_id}
+              overrideLevel={escalation.clinician_alert?.override_level ?? null}
+              overrideReason={escalation.clinician_alert?.override_reason ?? null}
+              overriddenAt={escalation.clinician_alert?.overridden_at ?? null}
+              overriddenByName={escalation.clinician_alert?.overridden_by_staff?.full_name ?? null}
+            />
+          )}
         </CardContent>
       </Card>
 

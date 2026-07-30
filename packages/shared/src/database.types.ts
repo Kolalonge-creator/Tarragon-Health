@@ -1804,6 +1804,10 @@ export type Database = {
           id: string
           level: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
+          overridden_at: string | null
+          overridden_by: string | null
+          override_level: Database["public"]["Enums"]["alert_level"] | null
+          override_reason: string | null
           patient_id: string
           screening_result_id: string | null
           sla_due_at: string | null
@@ -1821,6 +1825,10 @@ export type Database = {
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_level?: Database["public"]["Enums"]["alert_level"] | null
+          override_reason?: string | null
           patient_id: string
           screening_result_id?: string | null
           sla_due_at?: string | null
@@ -1838,6 +1846,10 @@ export type Database = {
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id?: string
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_level?: Database["public"]["Enums"]["alert_level"] | null
+          override_reason?: string | null
           patient_id?: string
           screening_result_id?: string | null
           sla_due_at?: string | null
@@ -1859,6 +1871,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_overridden_by_fkey"
+            columns: ["overridden_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
           {
@@ -2627,6 +2646,47 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_slas: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_slas_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
         ]
@@ -11562,6 +11622,7 @@ export type Database = {
       }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
+      sign_escalation_slas: { Args: { p_id: string }; Returns: string }
       sign_vaccination_schedule: { Args: { p_signoff_id: string }; Returns: string }
       start_care_thread: {
         Args: {
@@ -11951,6 +12012,7 @@ export type Database = {
         | "admission_recorded"
         | "discharge_recorded"
         | "message_posted"
+        | "medication_dispensed"
       upgrade_condition:
         | "hypertension"
         | "diabetes"
@@ -12552,6 +12614,7 @@ export const Constants = {
         "admission_recorded",
         "discharge_recorded",
         "message_posted",
+        "medication_dispensed",
       ],
       upgrade_condition: [
         "hypertension",

@@ -29,15 +29,24 @@
 --   npx supabase db query --linked -f packages/db/tests/i1_i10_invariants_platform.sql
 --
 -- Mapping summary (see each section for the full reasoning):
---   I1  no clinical content on an open rail            -> GAP  (notifications has no content-class column at all)
+--   I1  no clinical content on an open rail            -> PASS (fixed 20260730094515 -- notifications.
+--                                                                 content_class + a CHECK reject
+--                                                                 clinical + whatsapp/sms/email; see
+--                                                                 packages/db/tests/i1_notifications_
+--                                                                 content_class.sql for the full proof)
 --   I2  every reading resolves to exactly one           -> N/A (platform has no rigid classification-join
 --       classification                                        table; the abnormal-result pipeline is the
 --                                                               functional analogue but a different shape)
 --   I3  no unknown source path on a reading              -> PASS (vitals_readings.source is NOT NULL)
 --   I4  consent checked at query time, revoke is          -> PASS (profile_access + RLS; DELETE the grant,
 --       immediate, no cache                                     the very next query sees nothing)
---   I5  urgent/emergency cannot be closed by a            -> GAP  (escalations has no synchronous-contact
---       text-only note                                          gate on resolution at all)
+--   I5  urgent/emergency cannot be closed by a            -> PASS (fixed 20260730092804 -- escalations_
+--       text-only note                                          enforce_emergency_synchronous_contact
+--                                                                 blocks resolve on an emergency-level
+--                                                                 escalation with no linked video_
+--                                                                 consultations contact; see
+--                                                                 packages/db/tests/i5_emergency_escalation_
+--                                                                 synchronous_contact.sql for the full proof)
 --   I6  escalation counts never compensation-reachable    -> N/A (no compensation model exists on the
 --                                                                 platform tying pay to escalation counts)
 --   I7  export always available regardless of             -> VERIFIED SEPARATELY (an app-layer absence-of-
@@ -226,57 +235,73 @@ begin
 end $$;
 
 -- ===========================================================================
--- I1 — no clinical content on an open rail (whatsapp/sms/email). GAP.
--- v3 enforces this with a CHECK on notification_templates/notification_sends
--- keyed to a content_class column. The platform's public.notifications table
--- has NO content_class column and no equivalent CHECK at all — this is
--- structural, not a missing row, so the "test" is proving the column's
--- absence rather than inserting a bad row. Confirmed live via
--- information_schema, not assumed from a migration diff.
+-- I1 — no clinical content on an open rail (whatsapp/sms/email). FIXED
+-- 20260730094515_i1_notifications_content_class.sql.
 --
--- This IS enforced today by CONVENTION (Non-Negotiable Business Rules: every
--- WhatsApp/SMS/email template in this codebase is deliberately non-clinical —
--- confirmations, reminders, alerts). What's missing is the DB-level backstop
--- CLAUDE.md's pivot banner names explicitly: "I1 ... as a real DB CHECK
--- rather than a convention." Fixed = a content_class column (or equivalent)
--- with a CHECK forbidding clinical + (whatsapp|sms|email) on this table.
+-- notifications.content_class ('clinical'/'non_clinical', default
+-- 'non_clinical') + a CHECK (notifications_no_clinical_on_open_rail) now
+-- reject content_class='clinical' on whatsapp/sms/email at the DB level —
+-- a real backstop, not just the prior CONVENTION (Non-Negotiable Business
+-- Rules: every WhatsApp/SMS/email template in this codebase is
+-- deliberately non-clinical — confirmations, reminders, alerts). All 28
+-- live templates in supabase/functions/send-pending-notifications were
+-- read before this migration; the two nuances found (broadcast_
+-- announcement's admin free text, referral_specialist_alert's email-only
+-- referral_reason to a receiving specialist) are documented in the
+-- migration's own header, not silently resolved. Proven live: an insert
+-- with content_class='clinical' now fails a real check_violation on all
+-- three open channels; content_class='clinical' + in_app succeeds; every
+-- EXISTING insert pattern (no content_class specified) still succeeds and
+-- defaults to 'non_clinical', so zero of the ~25 pre-existing notification
+-- trigger functions needed to change. Full 5-case proof in
+-- packages/db/tests/i1_notifications_content_class.sql.
 -- ===========================================================================
 do $$
 declare
-  v_has_content_class boolean;
+  v_org      uuid := '00000000-0000-0000-0000-000000000001';
+  v_pat      uuid;
+  v_blocked  boolean := false;
 begin
-  select exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='notifications'
-      and column_name in ('content_class', 'clinical_content')
-  ) into v_has_content_class;
+  select id into v_pat from public.profiles where role='patient' and organisation_id=v_org limit 1;
+
+  begin
+    insert into public.notifications (organisation_id, recipient_id, channel, template, content_class)
+    values (v_org, v_pat, 'whatsapp', 'I1 PASS-PROOF FIXTURE', 'clinical');
+  exception when check_violation then
+    v_blocked := true;
+  end;
 
   insert into invariant_result values (
-    1, 'I1', case when v_has_content_class then 'PASS' else 'GAP' end,
-    'notifications carries a content-class distinction enforced by a CHECK',
-    'a content_class column + CHECK exists',
-    case when v_has_content_class then 'exists' else 'NO SUCH COLUMN — enforced by convention only, not by the DB' end
+    1, 'I1', case when v_blocked then 'PASS' else 'GAP' end,
+    'a content_class=clinical row on channel=whatsapp is rejected',
+    'rejected (check_violation)',
+    case when v_blocked then 'rejected' else 'ACCEPTED — REGRESSION, was fixed 20260730094515' end
   );
 end $$;
 
 -- ===========================================================================
 -- I5 — urgent/emergency classification cannot be closed by a text-only note;
 -- closure requires a linked synchronous contact (voice call / video
--- consult). GAP.
+-- consult). FIXED 20260730092804_i5_emergency_escalation_synchronous_
+-- contact.sql.
 --
 -- Platform equivalent of "urgent/emergency": clinician_alerts.level =
 -- 'emergency' (the highest of routine/clinician_review/urgent_escalation/
--- emergency). Platform equivalent of "closed by a text-only note":
--- escalations.status -> 'resolved' with only resolution_note set. There is
--- no trigger or CHECK on escalations requiring a linked video_consultations
--- row (the platform's synchronous-contact table) before that transition is
--- allowed — proven live: the resolve succeeds with nothing but a note.
+-- emergency — 'urgent_escalation' is deliberately NOT gated by this fix,
+-- flagged not guessed at, see the migration's own header). Platform
+-- equivalent of "closed by a text-only note": escalations.status ->
+-- 'resolved' with only resolution_note set.
 --
--- Fixed = a BEFORE UPDATE trigger on escalations, mirroring
--- enforce_medication_confirm_only's shape, that raises when status is being
--- set to 'resolved' on an escalation linked to an 'emergency'-level alert
--- unless a video_consultations row for the same patient exists with
--- started_at between the escalation's creation and now.
+-- private.enforce_emergency_escalation_synchronous_contact (a BEFORE UPDATE
+-- trigger on escalations, mirroring enforce_medication_confirm_only's
+-- shape) now raises 23514 when status is being set to 'resolved' on an
+-- escalation linked to an 'emergency'-level alert unless a video_
+-- consultations row exists that is either linked via escalation_id or, for
+-- the same patient, has started_at between the escalation's creation and
+-- now — in both cases with status in ('started','completed'). Full 4-case
+-- proof (blocked / allowed-with-contact / referred-not-gated / non-
+-- emergency-not-gated) in packages/db/tests/i5_emergency_escalation_
+-- synchronous_contact.sql.
 -- ===========================================================================
 do $$
 declare
@@ -285,36 +310,38 @@ declare
   v_clin        uuid;
   v_alert_id    uuid;
   v_esc_id      uuid;
-  v_resolved    boolean := false;
+  v_blocked     boolean := false;
 begin
   select id into v_pat  from public.profiles where role='patient'   and organisation_id=v_org limit 1;
   select id into v_clin from public.profiles where role='clinician' and organisation_id=v_org limit 1;
 
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title)
-  values (v_org, v_pat, 'emergency', 'open', 'I5 GAP-PROOF FIXTURE — emergency alert')
+  values (v_org, v_pat, 'emergency', 'open', 'I5 PASS-PROOF FIXTURE — emergency alert')
   returning id into v_alert_id;
 
   insert into public.escalations
     (organisation_id, patient_id, clinician_alert_id, status, raised_by, reason)
-  values (v_org, v_pat, v_alert_id, 'open', v_clin, 'I5 gap-proof fixture')
+  values (v_org, v_pat, v_alert_id, 'open', v_clin, 'I5 pass-proof fixture')
   returning id into v_esc_id;
 
   -- The forbidden path: close a text-only note on an EMERGENCY escalation,
-  -- with zero linked synchronous contact of any kind.
-  update public.escalations
-  set status = 'resolved',
-      resolution_note = 'Text-only closure with no call, no video consult, nothing synchronous',
-      reviewed_by = v_clin,
-      reviewed_at = now()
-  where id = v_esc_id;
-
-  select (status = 'resolved') into v_resolved from public.escalations where id = v_esc_id;
+  -- with zero linked synchronous contact of any kind. Must now be rejected.
+  begin
+    update public.escalations
+    set status = 'resolved',
+        resolution_note = 'Text-only closure with no call, no video consult, nothing synchronous',
+        reviewed_by = v_clin,
+        reviewed_at = now()
+    where id = v_esc_id;
+  exception when sqlstate '23514' then
+    v_blocked := true;
+  end;
 
   insert into invariant_result values (
-    5, 'I5', case when v_resolved then 'GAP' else 'PASS' end,
+    5, 'I5', case when v_blocked then 'PASS' else 'GAP' end,
     'an emergency-level escalation can be resolved by a text-only note with no synchronous contact',
     'rejected (requires a linked voice/video contact)',
-    case when v_resolved then 'ACCEPTED — REAL GAP, matches CLAUDE.md PORT IT IN list' else 'rejected' end
+    case when v_blocked then 'rejected (23514)' else 'ACCEPTED — REGRESSION, was fixed 20260730092804' end
   );
 end $$;
 
