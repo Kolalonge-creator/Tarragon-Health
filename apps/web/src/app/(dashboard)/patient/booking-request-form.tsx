@@ -48,7 +48,7 @@ export function BookingRequestForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-md bg-charcoal-ink/5 p-3">
       <p className="text-xs text-charcoal-ink/60">
-        This sends a request to {facility.name} — they&apos;ll confirm the date directly with you.
+        This sends a request to {facility.name}, they&apos;ll confirm the date directly with you.
       </p>
       <div className="space-y-1.5">
         <Label htmlFor={`service_type_${facility.id}`}>What do you need?</Label>

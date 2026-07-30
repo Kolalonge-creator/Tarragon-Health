@@ -20,7 +20,7 @@ export default async function VitalsRemindersSettingsPage() {
           Vitals reminder cadence
         </h1>
         <p className="text-charcoal-ink/60">
-          How often patients are nudged to log vitals — global default, per condition, or
+          How often patients are nudged to log vitals: global default, per condition, or
           per patient.
         </p>
       </div>

@@ -27,7 +27,7 @@ export default async function NutritionPage() {
         </Link>
       </div>
       <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Log what you eat — with a photo if you like. We&apos;ll estimate the portions and carbs to
+        Log what you eat, with a photo if you like. We&apos;ll estimate the portions and carbs to
         help you and your care team spot patterns. It&apos;s a coaching guide, not a medical
         measurement.
       </p>

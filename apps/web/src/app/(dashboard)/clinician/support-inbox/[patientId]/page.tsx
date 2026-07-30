@@ -69,7 +69,7 @@ export default function SupportThreadPage() {
         <CardContent className="space-y-3">
           <Textarea
             rows={3}
-            placeholder="Your reply — signed automatically with your name"
+            placeholder="Your reply, signed automatically with your name"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
           />
@@ -78,7 +78,7 @@ export default function SupportThreadPage() {
           )}
           {sendReply.isSuccess && !sendReply.data.ok && (
             <p className="text-sm text-amber-600">
-              Saved, but the WhatsApp send didn&apos;t go through ({sendReply.data.error}) — the
+              Saved, but the WhatsApp send didn&apos;t go through ({sendReply.data.error}); the
               patient may not have received this yet.
             </p>
           )}

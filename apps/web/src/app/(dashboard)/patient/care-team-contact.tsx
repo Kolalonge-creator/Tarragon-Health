@@ -26,7 +26,7 @@ export function CareTeamContact({ patientId }: { patientId: string }) {
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
           Your care team checks in with you on the schedule your plan sets out, and you can
-          message them here, in the app, any time you have a question — a real person on the
+          message them here, in the app, any time you have a question. A real person on the
           team replies, and every message stays on your record.
         </p>
         <MessagesFlow patientId={patientId} />

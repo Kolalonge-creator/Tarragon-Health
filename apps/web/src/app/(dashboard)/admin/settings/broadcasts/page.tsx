@@ -18,7 +18,7 @@ export default async function BroadcastsSettingsPage() {
           Broadcasts &amp; announcements
         </h1>
         <p className="text-charcoal-ink/60">
-          Send a one-off announcement by email, WhatsApp, or SMS to a targeted audience —
+          Send a one-off announcement by email, WhatsApp, or SMS to a targeted audience:
           all patients, patients in a state, subscribers on a plan, all partners, or a
           specific partner group. Messages are queued into the notification pipeline and
           delivered as its credentials allow; this is an outbound announcement only.

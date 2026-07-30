@@ -33,7 +33,7 @@ export function FootAssessmentForm({ patientId }: { patientId: string }) {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="sensation_left">Sensation — left (10g monofilament)</Label>
+              <Label htmlFor="sensation_left">Left sensation (10g monofilament)</Label>
               <Select id="sensation_left" name="sensation_left" defaultValue="">
                 <option value="">Not tested</option>
                 <option value="normal">Normal</option>
@@ -42,7 +42,7 @@ export function FootAssessmentForm({ patientId }: { patientId: string }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="sensation_right">Sensation — right</Label>
+              <Label htmlFor="sensation_right">Right sensation</Label>
               <Select id="sensation_right" name="sensation_right" defaultValue="">
                 <option value="">Not tested</option>
                 <option value="normal">Normal</option>

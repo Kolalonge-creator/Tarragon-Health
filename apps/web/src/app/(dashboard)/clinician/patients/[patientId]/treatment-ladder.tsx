@@ -30,7 +30,7 @@ const STEPS: { step: string; regimen: string; note: string }[] = [
   {
     step: "Any step",
     regimen: "Insulin now if catabolic / ketotic / very high",
-    note: "Marked hyperglycaemia with weight loss or ketones — do not delay insulin; exclude type 1 and involve a specialist.",
+    note: "Marked hyperglycaemia with weight loss or ketones: do not delay insulin; exclude type 1 and involve a specialist.",
   },
 ];
 
@@ -38,11 +38,11 @@ export function TreatmentLadder() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Type 2 treatment ladder — reference (§13.2)</CardTitle>
+        <CardTitle>Type 2 treatment ladder: reference (§13.2)</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-charcoal-ink/60">
-          WHO / Nigeria FMOH stepped approach. Reference only — confirm the current partner
+          WHO / Nigeria FMOH stepped approach. Reference only; confirm the current partner
           formulary and individualise; this is not a signed protocol or an auto-prescription.
         </p>
         <div className="divide-y divide-charcoal-ink/10">

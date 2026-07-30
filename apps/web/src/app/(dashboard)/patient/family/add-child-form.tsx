@@ -62,7 +62,7 @@ export function AddChildForm() {
       <CardHeader>
         <CardTitle>Add a child</CardTitle>
         <CardDescription>
-          Keep your child&apos;s vaccination card here — the same schedule, reminders, and
+          Keep your child&apos;s vaccination card here: the same schedule, reminders, and
           Tarragon-verified certificates as your own, since they&apos;re too young to have their
           own account.
         </CardDescription>

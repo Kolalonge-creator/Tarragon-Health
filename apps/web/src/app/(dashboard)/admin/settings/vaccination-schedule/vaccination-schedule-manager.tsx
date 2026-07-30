@@ -55,14 +55,14 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Review the current schedule — version {nextVersion}</CardTitle>
+        <CardTitle className="text-base">Review the current schedule: version {nextVersion}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={action} className="space-y-3">
           <p className="text-sm text-charcoal-ink/70">
             Creating a draft snapshots every active vaccination_catalog entry below exactly as it
             stands right now. Once you sign it, that snapshot is the permanent record of what was
-            reviewed and approved — a later catalog change needs a fresh draft and a fresh signature.
+            reviewed and approved. A later catalog change needs a fresh draft and a fresh signature.
           </p>
           <div className="space-y-1">
             <label htmlFor="notes" className="text-sm font-medium text-charcoal-ink">
@@ -93,7 +93,7 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
           </Button>
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">Draft created — sign it below to bring it into force.</p>
+            <p className="text-sm text-brand-green">Draft created. Sign it below to bring it into force.</p>
           )}
         </form>
       </CardContent>
@@ -108,7 +108,7 @@ function CatalogList({ catalog }: { catalog: VaccinationCatalogRow[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Current schedule — {catalog.length} active entries</CardTitle>
+        <CardTitle className="text-base">Current schedule: {catalog.length} active entries</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="max-h-96 overflow-auto rounded-md border border-mist-grey/40">
@@ -156,7 +156,7 @@ export function VaccinationScheduleManager({
       {activeSignoff ? (
         <Card>
           <CardContent className="pt-6">
-            <Badge variant="green">Signed — version {activeSignoff.version}</Badge>
+            <Badge variant="green">Signed, version {activeSignoff.version}</Badge>
             <p className="mt-2 text-sm text-charcoal-ink/70">
               In force since{" "}
               {activeSignoff.approved_at
@@ -171,7 +171,7 @@ export function VaccinationScheduleManager({
           <CardContent className="pt-6">
             <Badge variant="grey">No signed version on file</Badge>
             <p className="mt-2 text-sm text-charcoal-ink/70">
-              The schedule below is live and driving reminders today regardless — this record is a
+              The schedule below is live and driving reminders today regardless. This record is a
               Clinical Director&apos;s confirmation that it has been reviewed, not a gate on whether
               it works.
             </p>
@@ -191,9 +191,9 @@ export function VaccinationScheduleManager({
                 <CardTitle className="flex items-center gap-2 text-base">
                   Version {s.version}
                   {s.is_active ? (
-                    <Badge variant="green">Active — signed</Badge>
+                    <Badge variant="green">Active, signed</Badge>
                   ) : (
-                    <Badge variant="grey">Draft — not in force</Badge>
+                    <Badge variant="grey">Draft, not in force</Badge>
                   )}
                 </CardTitle>
               </CardHeader>

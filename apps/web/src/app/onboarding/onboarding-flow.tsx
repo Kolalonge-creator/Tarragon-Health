@@ -85,7 +85,7 @@ export function OnboardingFlow({
           How your care works here
         </h2>
         <p className="text-sm text-charcoal-ink">
-          Doctors on our care team follow your readings and check in with you — coverage is
+          Doctors on our care team follow your readings and check in with you. Coverage is
           shared across the team so you&apos;re never waiting on one person&apos;s availability,
           and you can message the team any time in the app.
         </p>

@@ -20,7 +20,7 @@ export function AdultsYouManageList() {
       <CardHeader>
         <CardTitle>People whose care you manage</CardTitle>
         <CardDescription>
-          Adults who&apos;ve agreed to let you book, log and manage their care alongside your own —
+          Adults who&apos;ve agreed to let you book, log and manage their care alongside your own;
           they keep their own account, and can withdraw this at any time.
         </CardDescription>
       </CardHeader>

@@ -20,7 +20,7 @@ export default async function MedicationRefillsSettingsPage() {
           Medication refill reminders
         </h1>
         <p className="text-charcoal-ink/60">
-          How many days before a refill date patients get reminded — global default or per
+          How many days before a refill date patients get reminded: global default or per
           patient.
         </p>
       </div>

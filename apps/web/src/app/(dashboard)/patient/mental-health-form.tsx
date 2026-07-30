@@ -58,7 +58,7 @@ export function MentalHealthScreenForm({ patientId }: { patientId: string }) {
           <p>Your answers are saved and your care team can see them.</p>
           {state.crisis && (
             <p className="rounded-md bg-red-50 p-3 text-red-700">
-              You told us you have had thoughts of harming yourself. You are not alone — a member
+              You told us you have had thoughts of harming yourself. You are not alone. A member
               of your care team will reach out. If you are in immediate danger, please contact
               emergency services or go to the nearest hospital now.
             </p>
@@ -76,7 +76,7 @@ export function MentalHealthScreenForm({ patientId }: { patientId: string }) {
       <CardContent>
         <p className="mb-4 text-sm text-charcoal-ink/70">
           Over the last two weeks, how often have you been bothered by the following? This is a
-          normal part of a whole-body check — your answers stay private to your care team.
+          normal part of a whole-body check, and your answers stay private to your care team.
         </p>
         <form action={formAction} className="space-y-6">
           <div className="space-y-4">

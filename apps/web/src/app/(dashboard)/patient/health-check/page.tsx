@@ -97,7 +97,7 @@ export default async function HealthCheckPage() {
       title: "4. Screenings",
       done: (screeningsDue ?? 0) === 0,
       doneLabel: "Up to date",
-      toDoLabel: `${screeningsDue ?? 0} screening${(screeningsDue ?? 0) === 1 ? "" : "s"} due — book now`,
+      toDoLabel: `${screeningsDue ?? 0} screening${(screeningsDue ?? 0) === 1 ? "" : "s"} due, book now`,
       href: "/patient/prevention#screenings",
     },
     {
@@ -115,7 +115,7 @@ export default async function HealthCheckPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your Health Check</h1>
         <p className="mt-1 text-sm text-charcoal-ink/70">
-          A yearly, whole-body check — the right checks for you, and a plan to keep you well.
+          A yearly, whole-body check: the right checks for you, and a plan to keep you well.
           Work through each step; your care team reviews everything at the end.
         </p>
       </div>

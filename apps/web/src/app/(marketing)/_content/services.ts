@@ -70,7 +70,7 @@ export const PROOF_STATS = [
   {
     value: "1",
     label: "place to message your care team",
-    detail: "Send a message any time in the app and a real person on your care team replies there — no separate number to remember.",
+    detail: "Send a message any time in the app and a real person on your care team replies there, no separate number to remember.",
   },
   {
     value: "4",

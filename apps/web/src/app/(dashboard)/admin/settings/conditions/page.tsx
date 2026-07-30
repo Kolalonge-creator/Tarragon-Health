@@ -18,7 +18,7 @@ export default async function ConditionsSettingsPage() {
         </h1>
         <p className="text-charcoal-ink/60">
           Every chronic-disease programme lives here. All seven are built; each is dormant until a
-          Clinical Director signs its WHO-based protocol and you switch it on — no redeploy. The
+          Clinical Director signs its WHO-based protocol and you switch it on. No redeploy. The
           platform launches with hypertension and diabetes; activate the rest (asthma, COPD, heart
           failure, CKD, obesity) as the programme scales. A dormant condition cannot be enrolled,
           enforced at the database.

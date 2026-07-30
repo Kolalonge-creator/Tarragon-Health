@@ -73,7 +73,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
             }
             redeem.mutate(points, {
               onSuccess: (res) => {
-                setMessage(`Redeemed — ₦${((res.kobo_credited ?? 0) / 100).toLocaleString()} added to your wallet.`);
+                setMessage(`Redeemed: ₦${((res.kobo_credited ?? 0) / 100).toLocaleString()} added to your wallet.`);
                 setAmount("");
               },
               onError: (err) => setMessage(err instanceof Error ? err.message : "Something went wrong."),

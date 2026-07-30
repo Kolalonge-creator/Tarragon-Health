@@ -90,7 +90,7 @@ export function InvestorDashboard() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         Board / diligence view. NRR, GRR and the MRR waterfall build from monthly snapshots (they
-        accrue over time). CAC, LTV, burn, runway and Rule of 40 use the finance inputs below —
+        accrue over time). CAC, LTV, burn, runway and Rule of 40 use the finance inputs below:
         modeled figures, not audited.
       </p>
 

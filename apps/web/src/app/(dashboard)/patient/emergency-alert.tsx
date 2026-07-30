@@ -86,7 +86,7 @@ export function EmergencyAlert({
             <Hospital className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
             <p>
               Go to the nearest hospital&apos;s emergency department. Don&apos;t wait for a reply from
-              your care team — your care team has also been notified and will follow up.
+              your care team; your care team has also been notified and will follow up.
             </p>
           </div>
 

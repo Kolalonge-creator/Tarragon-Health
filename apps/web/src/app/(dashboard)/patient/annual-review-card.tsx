@@ -96,7 +96,7 @@ function ConsultScheduler({
   return (
     <div className="rounded-md border border-charcoal-ink/10 p-3 text-sm">
       <p className="mb-2 font-medium text-charcoal-ink">
-        Your doctor offered these times for your annual review call — pick one:
+        Your doctor offered these times for your annual review call, pick one:
       </p>
       <div className="flex flex-wrap gap-2">
         {slots.map((slot) => (
@@ -144,7 +144,7 @@ export function AnnualReviewCard({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
-          A once-a-year whole-body check that looks beyond your ongoing condition care — general
+          A once-a-year whole-body check that looks beyond your ongoing condition care: general
           bloods, heart and other screening, then a short video call with your Tarragon doctor to
           talk through your whole year and the plan ahead.
         </p>

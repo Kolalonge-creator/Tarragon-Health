@@ -71,7 +71,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithPatient }) {
         <Textarea
           name="answer"
           rows={3}
-          placeholder="Your answer to the patient — written for them, not for the chart."
+          placeholder="Your answer to the patient, written for them, not for the chart."
         />
         {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
         {state?.message && <p className="text-xs text-brand-green">{state.message}</p>}
@@ -100,13 +100,13 @@ export default function AsyncConsultsPage() {
         <CardContent>
           <p className="mb-3 text-xs text-charcoal-ink/60">
             Written patient questions with a 24-hour response promise, soonest deadline
-            first. Your answer is stamped with your own clinical record — it renders to the
+            first. Your answer is stamped with your own clinical record; it renders to the
             patient as &quot;Answered by Dr. you&quot;.
           </p>
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
           {isError && <p className="text-sm text-red-600">Could not load consults.</p>}
           {data && data.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">Nothing waiting — no open questions.</p>
+            <p className="text-sm text-charcoal-ink/60">Nothing waiting, no open questions.</p>
           )}
           {data && data.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">

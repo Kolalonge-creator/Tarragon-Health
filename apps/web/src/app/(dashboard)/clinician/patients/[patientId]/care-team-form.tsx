@@ -35,7 +35,7 @@ export function CareTeamForm({
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading doctors…</p>}
         {!isLoading && assignable.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            No active doctors on file for this organisation yet — add one to clinical_staff
+            No active doctors on file for this organisation yet. Add one to clinical_staff
             first.
           </p>
         )}
@@ -53,7 +53,7 @@ export function CareTeamForm({
                   {c.full_name}
                   {c.staff_number ? ` (${c.staff_number})` : ""}
                   {c.credential_type && c.credential_number
-                    ? ` — ${c.credential_type} ${c.credential_number}`
+                    ? `: ${c.credential_type} ${c.credential_number}`
                     : ""}
                 </option>
               ))}

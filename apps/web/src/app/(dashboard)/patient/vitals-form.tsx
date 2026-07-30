@@ -144,7 +144,7 @@ export function VitalsForm({ patientId }: { patientId: string }) {
                   </Select>
                 </div>
                 <p className="text-xs text-charcoal-ink/60">
-                  {glucoseUnit === "mmol_l" ? "e.g. 5.6 mmol/L" : "e.g. 100 mg/dL"} — check
+                  {glucoseUnit === "mmol_l" ? "e.g. 5.6 mmol/L" : "e.g. 100 mg/dL"}; check
                   your glucometer&apos;s display unit before entering.
                 </p>
               </div>
@@ -168,7 +168,7 @@ export function VitalsForm({ patientId }: { patientId: string }) {
           {vitalType === "ketones" && (
             <div className="space-y-4">
               <p className="rounded-md bg-brand-green/5 p-3 text-xs text-charcoal-ink/70">
-                Ketone testing is <strong>optional</strong> — only if you have a blood ketone
+                Ketone testing is <strong>optional</strong>: only if you have a blood ketone
                 meter or urine strips. Most people don&apos;t, and that&apos;s fine. If your
                 sugar is high and you can&apos;t test ketones, just log your glucose reading and
                 your care team will contact you to check how you&apos;re feeling and guide you.
@@ -196,7 +196,7 @@ export function VitalsForm({ patientId }: { patientId: string }) {
                     required
                   />
                   <p className="text-xs text-charcoal-ink/60">
-                    Test your ketones if your glucose stays high or you feel unwell —
+                    Test your ketones if your glucose stays high or you feel unwell,
                     especially if you have type 1 diabetes.
                   </p>
                 </div>
@@ -292,7 +292,7 @@ export function VitalsForm({ patientId }: { patientId: string }) {
               </ul>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button type="button" size="sm" disabled={pending} onClick={confirmAndSave}>
-                  {pending ? "Saving…" : "Yes, this reading is correct — save it"}
+                  {pending ? "Saving…" : "Yes, this reading is correct: save it"}
                 </Button>
                 <Button
                   type="button"

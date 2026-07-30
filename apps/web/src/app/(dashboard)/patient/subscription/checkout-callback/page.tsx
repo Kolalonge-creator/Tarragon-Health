@@ -42,7 +42,7 @@ export default async function SubscriptionCheckoutCallbackPage({
         </h1>
         <p className="text-sm text-charcoal-ink/70">
           {succeeded
-            ? "We're activating this now — it usually takes a few seconds."
+            ? "We're activating this now; it usually takes a few seconds."
             : "We're confirming your payment. If it succeeded, this will activate automatically within a minute or two."}
         </p>
         <Button asChild className="w-full">

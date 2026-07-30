@@ -76,7 +76,7 @@ function AssignHomeVisitForm({ order }: { order: LabOrderWithDetails }) {
               <option value="">Select a provider</option>
               {providers!.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — ₦{koboToNaira(p.home_visit_fee_kobo).toLocaleString()}
+                  {p.name}: ₦{koboToNaira(p.home_visit_fee_kobo).toLocaleString()}
                 </option>
               ))}
             </Select>
@@ -140,7 +140,7 @@ function LabOrdersWorklist() {
                     <p className="text-xs text-charcoal-ink/60">
                       Home visit: {order.home_visit_provider.name}
                       {order.home_visit_scheduled_at &&
-                        ` — ${new Date(order.home_visit_scheduled_at).toLocaleString("en-GB", {
+                        `, ${new Date(order.home_visit_scheduled_at).toLocaleString("en-GB", {
                           dateStyle: "medium",
                           timeStyle: "short",
                         })}`}
@@ -194,7 +194,7 @@ function AssignLogisticsForm({ order }: { order: PharmacyOrderWithLogistics }) {
               <option value="">Select a courier</option>
               {partners!.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — ₦{koboToNaira(p.delivery_fee_kobo).toLocaleString()}
+                  {p.name}: ₦{koboToNaira(p.delivery_fee_kobo).toLocaleString()}
                   {p.estimated_delivery_hours ? ` · ~${p.estimated_delivery_hours}h` : ""}
                 </option>
               ))}
@@ -303,7 +303,7 @@ export default function ClinicianOrdersPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Home visits &amp; deliveries</h1>
         <p className="text-charcoal-ink/60">
-          Assign a home-visit provider or courier once an order is paid — this is the mechanism
+          Assign a home-visit provider or courier once an order is paid. This is the mechanism
           that moves a pharmacy order through confirmed → out for delivery → delivered.
         </p>
       </div>

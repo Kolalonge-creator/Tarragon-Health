@@ -51,7 +51,7 @@ export async function LabResults({ patientId }: { patientId: string }) {
                 <p className="shrink-0 text-xs text-charcoal-ink/50">{formatDate(result.created_at)}</p>
               </div>
               <p className="text-sm text-charcoal-ink">
-                {interpretation?.summary ?? "Results available — ask your care team for details."}
+                {interpretation?.summary ?? "Results available, ask your care team for details."}
               </p>
             </div>
           );

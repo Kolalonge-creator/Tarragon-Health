@@ -62,7 +62,7 @@ export function AddOnsManager() {
         <CardHeader>
           <CardTitle>Add-ons</CardTitle>
           <CardDescription>
-            Same price-lock rule as plans — clone instead of editing price once an add-on has
+            Same price-lock rule as plans; clone instead of editing price once an add-on has
             active subscribers.
           </CardDescription>
         </CardHeader>

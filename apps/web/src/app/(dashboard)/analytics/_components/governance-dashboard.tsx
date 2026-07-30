@@ -48,7 +48,7 @@ export function GovernanceDashboard() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         Governance readiness evidence. Certifications (SOC 2 / ISO 27001 / ISO 27701) require an
-        external audit — this tab tracks readiness, not a certificate.
+        external audit: this tab tracks readiness, not a certificate.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

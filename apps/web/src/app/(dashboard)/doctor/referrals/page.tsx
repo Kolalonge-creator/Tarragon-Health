@@ -12,7 +12,7 @@ const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["varia
   confirmed: { variant: "blue", label: "Confirmed" },
   completed: { variant: "green", label: "Completed" },
   declined: { variant: "grey", label: "Declined" },
-  waitlisted: { variant: "amber", label: "Waitlisted — no specialist available" },
+  waitlisted: { variant: "amber", label: "Waitlisted, no specialist available" },
 };
 
 /**
@@ -59,7 +59,7 @@ export default async function DoctorReferralsPage() {
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium text-charcoal-ink">
                           {referral.patient?.full_name ?? "Unnamed patient"}
-                          {referral.specialist_type ? ` — ${referral.specialist_type}` : ""}
+                          {referral.specialist_type ? `: ${referral.specialist_type}` : ""}
                         </span>
                         <span className="block text-xs text-charcoal-ink/50">
                           {referral.referral_number}

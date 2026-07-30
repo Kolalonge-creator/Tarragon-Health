@@ -211,7 +211,7 @@ function IndemnityExemptionsSection() {
       <CardHeader>
         <CardTitle>Indemnity requirement exemptions</CardTitle>
         <CardDescription>
-          Waives the indemnity/malpractice cover requirement for activation — for a whole tier or
+          Waives the indemnity/malpractice cover requirement for activation, for a whole tier or
           all Clinical Directors org-wide, or the whole organisation. To exempt a single named
           person instead, use the checkbox under their record above. Every exemption here is
           admin-granted and visible to all staff for transparency.
@@ -324,7 +324,7 @@ export function ClinicalStaffManager() {
           <CardTitle>Add clinical staff</CardTitle>
           <CardDescription>
             Starts inactive and unverified. Link an existing login by phone number if this person
-            needs to act in the system (sign escalations, sign protocols) — leave it blank for a
+            needs to act in the system (sign escalations, sign protocols); leave it blank for a
             bio-only Clinical Director record.
           </CardDescription>
         </CardHeader>
@@ -358,7 +358,7 @@ export function ClinicalStaffManager() {
               checked={isClinicalDirector}
               onChange={(e) => setIsClinicalDirector(e.target.checked)}
             />
-            Clinical Director (org-governance flag — protocol signing, staff verification;
+            Clinical Director (org-governance flag: protocol signing, staff verification;
             independent of tier)
           </label>
           <div className="grid gap-4 md:grid-cols-2">
@@ -456,9 +456,9 @@ export function ClinicalStaffManager() {
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-sm font-medium text-charcoal-ink">
-                          {s.full_name}{" "}
+                          {s.full_name}
                           <span className="text-charcoal-ink/60">
-                            — {s.is_clinical_director ? `Clinical Director · ${tierLabel}` : tierLabel}
+                            , {s.is_clinical_director ? `Clinical Director · ${tierLabel}` : tierLabel}
                           </span>
                         </p>
                         <p className="text-xs text-charcoal-ink/60">

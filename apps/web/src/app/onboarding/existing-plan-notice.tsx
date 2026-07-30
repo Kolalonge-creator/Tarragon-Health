@@ -31,7 +31,7 @@ export function ExistingPlanNotice({ planName, status }: { planName: string; sta
           {planName}
           {status === "trialing" ? " (trial)" : ""}
         </strong>{" "}
-        active. You won&apos;t be asked to choose or pay for a plan again — this just finishes
+        active. You won&apos;t be asked to choose or pay for a plan again: this just finishes
         setting up your account with the plan you already have.
       </p>
       <form
@@ -50,7 +50,7 @@ export function ExistingPlanNotice({ planName, status }: { planName: string; sta
               String((err as { digest?: unknown }).digest ?? "").startsWith("NEXT_REDIRECT");
             if (!isRedirect) {
               setPending(false);
-              setError("Couldn't continue — please try again, or refresh the page.");
+              setError("Couldn't continue. Please try again, or refresh the page.");
             }
           }
         }}

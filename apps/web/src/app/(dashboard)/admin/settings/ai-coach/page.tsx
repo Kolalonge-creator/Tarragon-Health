@@ -19,11 +19,11 @@ export default async function AiCoachSettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          AI Health Coach — internal testing
+          AI Health Coach: internal testing
         </h1>
         <p className="text-charcoal-ink/60">
-          Same LangGraph + Claude flow patients get, running against your own admin profile —
-          each message is a real Claude API call, so it&apos;s billed the same as a patient
+          Same LangGraph + Claude flow patients get, running against your own admin profile.
+          Each message is a real Claude API call, so it&apos;s billed the same as a patient
           conversation. Use the controls below to grant it to specific patients or open it to
           everyone once you&apos;re ready.
         </p>

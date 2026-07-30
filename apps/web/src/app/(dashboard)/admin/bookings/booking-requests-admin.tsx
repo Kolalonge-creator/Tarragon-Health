@@ -52,7 +52,7 @@ export function BookingRequestsAdmin() {
                         </span>
                       </p>
                       <p className="text-xs text-charcoal-ink/60">
-                        {request.service_type} — requested for{" "}
+                        {request.service_type}, requested for{" "}
                         {new Date(request.requested_date).toLocaleDateString()}
                         {request.patient?.phone ? ` · ${request.patient.phone}` : ""}
                       </p>

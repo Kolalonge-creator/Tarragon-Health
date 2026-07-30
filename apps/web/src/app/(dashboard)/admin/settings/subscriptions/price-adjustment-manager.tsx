@@ -26,9 +26,9 @@ function formatMinor(minor: number, currency: Currency): string {
 
 const STATUS_LABEL: Record<BulkAdjustmentPreviewRow["status"], string> = {
   adjust: "Will adjust",
-  locked: "Kept for subscribers — clone to reprice",
-  free: "Free — never adjusted",
-  inactive_skipped: "Inactive — skipped",
+  locked: "Kept for subscribers, clone to reprice",
+  free: "Free, never adjusted",
+  inactive_skipped: "Inactive, skipped",
   unchanged: "No change after rounding",
 };
 
@@ -95,11 +95,11 @@ export function PriceAdjustmentManager() {
       <CardHeader>
         <CardTitle>Bulk price adjustment (annual review)</CardTitle>
         <CardDescription>
-          Apply a percentage change across plans and add-ons — e.g. the yearly inflation review.
+          Apply a percentage change across plans and add-ons, e.g. the yearly inflation review.
           Rows with active subscribers are never changed (clone them as new plans instead), NGN
           prices round to the nearest ₦500, and adjusted rows are re-synced to Paystack/Stripe
           automatically. Remember: the No-Hidden-Cost Promise commits us to telling patients at
-          least 30 days before a Naira change takes effect — send a broadcast before applying.
+          least 30 days before a Naira change takes effect; send a broadcast before applying.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -234,7 +234,7 @@ export function PriceAdjustmentManager() {
             </p>
             {result.syncFailures.length > 0 && (
               <p className="text-red-600">
-                Sync failed for {result.syncFailures.map((f) => f.code).join(", ")} — these rows are
+                Sync failed for {result.syncFailures.map((f) => f.code).join(", ")}. These rows are
                 repriced but inactive until synced (use &quot;Sync to Paystack/Stripe&quot; above).
               </p>
             )}

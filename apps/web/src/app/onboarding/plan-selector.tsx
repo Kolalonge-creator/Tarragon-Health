@@ -157,7 +157,7 @@ export function PlanSelector() {
       </Button>
       {pending && stuck && (
         <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
-          This is taking longer than expected. Nothing has been charged yet — you can wait a
+          This is taking longer than expected. Nothing has been charged yet: you can wait a
           little longer, or{" "}
           <button
             type="button"
