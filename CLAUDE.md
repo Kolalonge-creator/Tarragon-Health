@@ -1213,6 +1213,52 @@ Founder asked how AI/ML could safely help one doctor cover more patients. Agreed
 - **Verified live, not just unit-tested** (Supabase MCP flapped between down/up again this pass — CLI fallback used throughout): a clinician acknowledging a fresh fixture alert auto-generated a correctly-grounded brief with zero manual step; a second fixture's inline "AI summary" → "Generate summary" flow updated in place with no page reload; escalating the first (already-acknowledged, already-summarized) fixture and reading it back as a doctor via RLS simulation returned the identical `generated_at` timestamp, confirming reuse rather than regeneration. All fixtures deleted afterward.
 - `pnpm --filter web typecheck`/`lint` (0 errors)/`test` (485) all green — no new unit tests this pass (the wiring changes are covered by the existing `snapshot.test.ts`, updated for the now-optional `escalationReason`; the reuse/RLS/hydration guarantees were proven live instead, matching this feature's existing verification posture).
 - **Next:** none blocking. The doctor-efficiency initiative (Phases 1–3, plus this extension) is fully shipped and founder-confirmed end to end.
+### 2026-07-30 — The 90-Day Health Reset, built for real (branch `feat/health-reset-90-day`)
+The pricing page has long promised "The Tarragon 90-Day Health Reset" as **INCLUDED** on every plan, plus
+a milestone free trial on completion, with nothing behind either promise. This makes both real, on the
+same discipline as every other derived-read-model feature in this codebase (`patient_timeline`,
+`patient_care_gaps`): no invented progress, no new source of truth for anything the platform already
+tracks. Migration `20260730120518_health_reset_90_day.sql` applied and recorded.
+- **`patient_health_resets`** — one row per patient, started automatically the instant onboarding
+  completes (`private.start_health_reset_on_onboarding`, `AFTER INSERT OR UPDATE OF onboarding_completed_at`
+  on `profiles`), dated from the real `onboarding_completed_at`, never from "now". Backfilled for every
+  patient who'd already onboarded before this migration, dated from their real completion, not today —
+  an existing patient doesn't lose progress they've already made. RLS is select-only (patient's own row
+  or org staff); no direct insert/update grant to anyone — the row is entirely system-managed.
+- **`patient_health_reset_progress()`** — live, read-time-only progress (day count + 3 milestones),
+  computed from `prevention_risk_scores`/`vitals_readings` (baseline), `care_plans`/`screening_schedules`/
+  `preventive_programme_enrolments` (programme set, any one of the three), and 4+ distinct logging weeks
+  OR 2+ `health_education_progress` rows (consistency) — never a stored flag that could drift from
+  reality.
+- **Nightly completion sweep** (`private.run_health_reset_completion`, `health-reset-completion-daily`
+  cron, 06:55) — completes a reset only when BOTH milestones are true AND it is genuinely ≥90 days old;
+  a reset that's overdue on the clock but hasn't actually engaged just stays open and is re-checked
+  tomorrow, never marked complete on time alone. Queues exactly one in-app nudge (`health_reset_complete`
+  — never WhatsApp/SMS/email, matching the founder's engagement-nudges-stay-in-app-only correction from
+  the education-unlock work) on the transition, and is a no-op on re-run for an already-completed reset.
+- **`claim_health_reset_trial()`** — grants the promised 30-day Complete Care trial once complete:
+  guards on no-reset / not-complete / already-claimed / already-on-a-paid-plan (all four independently
+  proven), and the success path creates a real `status='trialing'`, `amount_minor=0`,
+  `cancel_at_period_end=true` subscription in the caller's own currency — the existing
+  `expire-cancelled-subscriptions-daily` sweeper (2026-07-24) naturally reverts them to Free at the end
+  with zero new expiry logic needed.
+- **UI:** `HealthResetCard` on `/patient` (checklist + day count + claim button once complete);
+  `NotificationBell` renders the completion nudge.
+- **Verified:** `packages/db/tests/health_reset_90_day.sql` — a rolled-back-transaction test covering
+  the onboarding auto-start (incl. no duplicate on a re-save), each milestone flipping independently
+  from real data (baseline requires BOTH a risk score AND a vitals reading, not either alone), the sweep
+  completing only the reset that is both fully engaged and genuinely 90+ days old (three fixtures: ready,
+  partial-engagement, too-young — only the first completes), the one-nudge-only queueing, and all four
+  `claim_health_reset_trial` guard rails plus the success path's real subscription shape — run live
+  against the linked project and confirmed passing. `pnpm typecheck`/`lint` (0 errors)/`test` (465) and
+  a full production build all clean.
+- **Not yet done:** authenticated browser click-through (card render, milestone checkmarks, the claim
+  flow, the "already on a paid plan" rejection). Push + open a PR when ready.
+
+### 2026-07-30 — Domain verification: `tarragonhealth.ng`/`.com.ng` already attached and live, correcting the stale 2026-07-21 note above
+User flagged the 2026-07-21 "attaching real domains to the Vercel project is an owner step" line (see the corrected annotation on it, further up this section) as a to-do. Checked live rather than trusting either note: `get_project` on Vercel project `tarragon-health-web` (`prj_mhUTlvnSc6a2JdJvnIOmn7fMjEw4`) shows `tarragonhealth.ng`, `www.tarragonhealth.ng`, and `app.tarragonhealth.ng` are all already attached, alongside the `.vercel.app` fallbacks. This matches `project_domain_email_golive` (memory) — the real domains were registered and attached 2026-07-22, one day after the stale note above was written; the "owner step" it describes was already completed by the time it was written, just never corrected in this file.
+- **Live-fetched all three, not just checked the Vercel API list:** `https://tarragonhealth.ng` serves the real marketing site; `https://app.tarragonhealth.ng` serves the real login page; `https://tarragonhealth.com.ng` (not itself a Vercel-attached domain — it 301-redirects at the DNS/Cloudflare layer per the memory's own "301 → .ng, path-preserving" note) correctly redirects to `https://tarragonhealth.ng/`. All three resolve to the live app, not a placeholder — nothing was broken, nothing needed fixing.
+- **No action taken beyond verification + this correction** — the domains were never actually unattached; the only real gap was this file not being updated after the 2026-07-22 work landed. `tarragonhealth.com` (no `.ng`, third-party/Squarespace-owned per the annotation above) remains a separate, unrelated matter — still not Tarragon's, not blocking anything (production is reachable at the real `.ng` domains regardless).
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

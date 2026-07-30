@@ -64,6 +64,7 @@ import { CareCircleCard } from "./care-circle-card";
 import { AnnualReviewCard } from "./annual-review-card";
 import { ObesitySummary } from "./obesity-summary";
 import { WellnessPointsSummary } from "./wellness-points-summary";
+import { HealthResetCard } from "./health-reset-card";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -129,6 +130,7 @@ export default async function PatientPage() {
         icon={NAV_ICON.dashboard}
       >
         <NextBestAction patientId={profile.id} />
+        <HealthResetCard patientId={profile.id} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both
             states read the same shared record — nothing is hidden, only led
