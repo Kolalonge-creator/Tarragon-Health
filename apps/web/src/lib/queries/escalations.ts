@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { compareByAlert } from "@/lib/worklist/priority";
 import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
@@ -13,6 +14,7 @@ export type EscalationWithDetails = Tables<"escalations"> & {
         override_reason: string | null;
         overridden_at: string | null;
         overridden_by_staff: { full_name: string } | null;
+        sla_due_at: string | null;
         screening_result: { result_status: ScreeningResultStatus } | null;
       }
     | null;
@@ -20,7 +22,7 @@ export type EscalationWithDetails = Tables<"escalations"> & {
 };
 
 const ESCALATION_SELECT =
-  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
+  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
 
 /** All escalations in the caller's org, newest first — clinician tracking view. */
 export function useOrgEscalations() {
@@ -38,7 +40,15 @@ export function useOrgEscalations() {
   });
 }
 
-/** Open/under-review escalations — doctor worklist (unclaimed or claimed by anyone). */
+/**
+ * Open/under-review escalations — doctor worklist (unclaimed or claimed by
+ * anyone). Fetched oldest-first, then re-ranked by effective severity
+ * (clinician_alert.override_level ?? level) and SLA breach so a doctor's
+ * limited minutes hit the highest-value case first — same
+ * compareAlerts/effectiveAlertLevel discipline as the clinician worklist
+ * (lib/worklist/priority.ts). Array.sort is stable, so escalations tied on
+ * severity+SLA keep the oldest-first order they were fetched in.
+ */
 export function useDoctorEscalations() {
   return useQuery({
     queryKey: ["escalations", "doctor-worklist"],
@@ -50,7 +60,7 @@ export function useDoctorEscalations() {
         .in("status", ["open", "under_review"])
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as EscalationWithDetails[];
+      return (data as EscalationWithDetails[]).slice().sort(compareByAlert);
     },
     refetchInterval: 60_000,
   });

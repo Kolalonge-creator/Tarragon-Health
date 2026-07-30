@@ -4,13 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useClinicianAlerts, useAcknowledgeAlert } from "@/lib/queries/clinician-alerts";
 import { useEscalateAlert } from "@/lib/queries/escalations";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LEVEL_BADGE } from "@/lib/worklist/level-badge";
 import { SEVERITY_TILE_TINT } from "@/lib/worklist/severity-tile-tint";
+import { effectiveAlertLevel } from "@/lib/worklist/priority";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationLevel } from "@tarragon/shared";
 
@@ -25,7 +26,8 @@ export function Worklist() {
 
   const countsByLevel = (data ?? []).reduce(
     (acc, alert) => {
-      acc[alert.level] = (acc[alert.level] ?? 0) + 1;
+      const level = effectiveAlertLevel(alert);
+      acc[level] = (acc[level] ?? 0) + 1;
       return acc;
     },
     {} as Partial<Record<EscalationLevel, number>>
@@ -54,6 +56,9 @@ export function Worklist() {
       <Card>
         <CardHeader>
           <CardTitle>Worklist</CardTitle>
+          <CardDescription>
+            Ranked by severity, then by how close each case is to breaching its SLA.
+          </CardDescription>
         </CardHeader>
         <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
@@ -66,7 +71,9 @@ export function Worklist() {
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((alert) => {
-              const badge = LEVEL_BADGE[alert.level];
+              const level = effectiveAlertLevel(alert);
+              const badge = LEVEL_BADGE[level];
+              const isOverridden = !!alert.override_level;
               const isOverdue =
                 !!alert.sla_due_at && new Date(alert.sla_due_at) < new Date();
 
@@ -75,6 +82,7 @@ export function Worklist() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Badge variant={badge.variant}>{badge.label}</Badge>
+                      {isOverridden && <Badge variant="grey">Overridden</Badge>}
                       {isOverdue && <Badge variant="red">Overdue</Badge>}
                     </div>
                     <p className="text-sm font-medium text-charcoal-ink">
@@ -102,7 +110,7 @@ export function Worklist() {
                       >
                         Acknowledge
                       </Button>
-                      {ESCALATABLE_LEVELS.has(alert.level) && (
+                      {ESCALATABLE_LEVELS.has(level) && (
                         <Button
                           size="sm"
                           variant="outline"
