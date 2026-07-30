@@ -60,9 +60,18 @@ and Meta.
 
 1. `20260706033358` revoked EXECUTE on `public.rls_auto_enable()` — **a function no committed
    migration ever creates.** It was made directly against the old database. Now guarded on
-   `pg_proc`. ⚠️ **A rebuilt database therefore has no `rls_auto_enable` event trigger**, so the
-   auto-enable-RLS-on-new-table safety net does not exist and never has in migration history.
-   Write it properly as a real migration; do not reconstruct it from that file's comment.
+   `pg_proc`. ⚠️ **A rebuilt database therefore had no `rls_auto_enable` event trigger** from
+   2026-07-06 through 2026-07-29, so the auto-enable-RLS-on-new-table safety net did not exist
+   and had never existed in migration history for that whole window. **Fixed 2026-07-29 evening**
+   by `20260729235803_rls_auto_enable_event_trigger` — a real `create event trigger` on
+   `ddl_command_end` for `CREATE TABLE`/`CREATE TABLE AS`/`SELECT INTO` in the `public` schema,
+   auto-enabling RLS (no policy — that still has to be written per table) the instant a table is
+   created, with zero explicit `alter table ... enable row level security` needed. Verified live:
+   a bare `CREATE TABLE` with no follow-up ALTER came up `relrowsecurity = true` in a rolled-back
+   transaction. `anon`/`PUBLIC` EXECUTE revoked on the function in the same migration this time
+   (no follow-up needed, unlike the original out-of-band version). Every table created before
+   this timestamp still needed — and got, per migration history — its own explicit
+   `enable row level security` line; this only protects tables created from here forward.
 2. **Seven version numbers were claimed by more than one migration** (`20260720120000` by six
    files), from parallel sessions hand-typing round-number timestamps.
    `supabase_migrations.version` is the PK, so the second file of each group could never record.
@@ -81,11 +90,19 @@ true — that assertion is what caught the wrong form being applied here.
 
 ### ▶ NEXT ACTIONS — start here
 
-**State: all four founder-approved removals are done, and both pricing decisions that were
-blocking them are answered.** 287/287 migrations on `koiplnmbgnqnbywhpjlf`, matching
-`supabase/migrations/` exactly (verified by diffing the applied version list against the
-filenames, not by counting). typecheck, lint (0 errors, 2 pre-existing warnings), 444 web + 47
-shared tests and the production build all green. Nothing is half-finished.
+**State: all four founder-approved removals are done, both pricing decisions that were blocking
+them are answered, and the four follow-up items from the same evening (lab_partner merge,
+rls_auto_enable, the I1–I10 invariant port, config.toml) are also done.** `supabase/migrations/`
+has 293 files, matching every migration this session applied (287 base + the 5 lab_partner +
+`rls_auto_enable_event_trigger`), verified by diffing the applied version list against the
+filenames, not by counting. typecheck, lint (0 errors, 2 pre-existing warnings), 444 web + 47
+shared tests and the production build all green. Nothing from this session is half-finished.
+⚠️ **The live database has a 294th applied migration, `20260730000555_vaccination_schedule_signoffs`,
+with no local file** — a concurrent session's in-flight work, not part of this pass and
+deliberately not reconciled here per the shared-working-directory hazard (don't touch another
+session's uncommitted work). Whoever picks it up next should pull it from
+`supabase_migrations.schema_migrations.statements` and commit the file, same as every prior
+reconciliation in this log.
 
 `main-dev` is pushed and reproduces the live database. Removals 1-3 were merged as a single
 fast-forward — they were a linear stack, not three parallel branches — along with
@@ -99,14 +116,59 @@ fast-forward — they were a linear stack, not three parallel branches — along
 | 4 | ~~**Individual enrolment only**~~ ✅ | `20260729143514` |
 | + | ~~**GBP + Diaspora Premium retired, USD rate set**~~ ✅ | `20260729143814` |
 
-⚠️ **`claude/lab-partner-role` (PR #159) is NOT merged, deliberately.** Its five migrations are
-timestamped `20260727*` but have never been applied to the database, and one of them
-(`20260727004500_harden_is_org_staff_exclude_partner_employees`) rewrites `is_org_staff`. Applying
-it now would run *after* `20260729194127` in wall-clock time but sort *before* it, so its older
-definition of `is_org_staff` would overwrite the newer one and silently re-admit `pharmacist`,
-`lab_liaison`, `finance` and `analyst` to 110 patient-scoped tables. Renumber it past
-`20260729194127` and compose the two hardenings before merging. It was merged and reverted once
-here for exactly this reason.
+✅ **`claude/lab-partner-role` (PR #159) is now merged — deliberately NOT as the raw branch.**
+Its five migrations were timestamped `20260727*` and one of them
+(`harden_is_org_staff_exclude_partner_employees`) rewrites `is_org_staff`. Applying it as-is would
+have run *after* `20260729194127` in wall-clock time but sorted *before* it, so its older
+definition would have overwritten the newer one and silently re-admitted `pharmacist`,
+`lab_liaison`, `finance` and `analyst` to 314 policies across 110 patient-scoped tables — it was
+merged and reverted once here for exactly this reason. Fixed 2026-07-29 evening: renumbered all
+five to `20260729234443`–`234618` (after `20260729194127`) and rewrote the hardening migration to
+COMPOSE with the two prior exclusions rather than replace them — net effect one role,
+`lab_partner`, added; every prior exclusion preserved and proven by assertion block. Verified with
+a rolled-back RLS test including a clinician control and a deliberate-sabotage run
+(`packages/db/tests/lab_partner_rls.sql` — sabotaged, a lab partner reads 2 lab_orders + 30
+profiles; fixed, 0 + 1).
+
+✅ **`rls_auto_enable` written for real, 2026-07-29 evening** —
+`20260729235803_rls_auto_enable_event_trigger`. The rebuilt database had no auto-enable-RLS-on-
+new-table safety net from 2026-07-06 through 2026-07-29 (see bug 1 below); now a real
+`create event trigger` on `ddl_command_end` auto-enables RLS the instant any `CREATE TABLE` runs
+in the `public` schema, proven live in a rolled-back transaction (a bare `CREATE TABLE` with zero
+`ALTER TABLE` statements came up `relrowsecurity = true`). `anon`/`PUBLIC` EXECUTE revoked on the
+function in the same migration.
+
+✅ **The I1–I10 invariant suite ported, 2026-07-29 evening** —
+`packages/db/tests/i1_i10_invariants_platform.sql`, adapted from
+`reference/tarragon-control/supabase/tests/invariants_test.sql` onto the platform's real tables
+(the two schemas share no table names). 7 of 11 checks are genuine, live-proven **PASS** (I3, I4×2,
+I8, I9×4). **3 are genuine, live-proven GAPS — real findings, not hypothetical:**
+- **I1 — no clinical content on WhatsApp/SMS/email.** `public.notifications` has no
+  `content_class` column and no CHECK at all. Enforced today by convention only (every template in
+  this codebase is deliberately non-clinical), not by the database. This is the exact item the
+  pivot banner above already named under "PORT IT IN" — now a concrete, rerunnable regression check
+  instead of banner text.
+- **I5 — urgent/emergency escalations can be closed by a text-only note.** `escalations` has no
+  trigger requiring a linked synchronous contact (voice/video) before a `clinician_alerts.level =
+  'emergency'`-linked escalation resolves. Proven live: the resolve succeeds with nothing but
+  `resolution_note`. Also already named under "PORT IT IN" above.
+- **I14 — a patient can edit their own device-sourced vitals reading.** New finding, not
+  previously flagged anywhere in this file. `vitals_readings_update`'s RLS policy is source-blind
+  (`patient_id = auth.uid() OR is_org_staff(...)`) — nothing stops a patient from directly editing
+  a `source = 'device'` row after the fact, which matters because device readings already feed the
+  BP/glucose red-flag and abnormal-result pipelines. **This is a product decision, not purely an
+  engineering one** — tightening it changes real patient-facing behaviour (can a patient edit ANY
+  vitals row, or only manual ones?) — flag to the founder before building the fix.
+None of the three were fixed in this pass — the suite's job was to prove and document them
+precisely, matching the source file's own "a fake pass is worse than no test" discipline. Building
+the actual DB-level enforcement for each is real, separate, higher-blast-radius engineering work
+(I1 needs a content-classification audit of every live template; I5 needs the synchronous-contact
+trigger designed; I14 needs the founder's call above) — do not build any of the three without an
+explicit ask.
+
+✅ **`supabase/config.toml`'s stale region comment fixed, 2026-07-29 evening.** It previously and
+incorrectly claimed production must be `af-south-1`; corrected to `eu-west-1`, matching the real
+live project and the rest of this file.
 
 **Removal 3 changed meaning mid-flight — do not re-read the old wording.** "One naira price list"
 does NOT mean naira only. It means **one price, payable in naira or dollars**: the naira price is
@@ -194,15 +256,6 @@ tables at once.**
 7. **Deleting the row is not deleting the product.** Check the provider. Paystack has no
    delete-or-deactivate for a plan, so the mitigation is that no `subscription_plans` row and no
    payment page reference it — verify both rather than assuming.
-
-**Also worth doing, not yet done:**
-- **Write `rls_auto_enable` properly** as a real migration — see bug 1 above. The rebuilt database
-  has no auto-enable-RLS-on-new-table safety net, and never did in migration history.
-- **Port the I1–I10 invariant suite** from `reference/tarragon-control/supabase/tests/invariants_test.sql`
-  into `packages/db/tests/`. This is the single highest-value item from the v3 port and it already
-  exists — it just needs adapting to the platform schema.
-- **`supabase/config.toml`** still says `project_id = "tarragon-health"` and carries a stale comment
-  claiming production must be `af-south-1`. Real region is `eu-west-1`.
 
 **Founder decisions — all three answered 2026-07-29, recorded here so they are not re-asked:**
 1. **The FX reference rate.** USD only, "as it is the universal currency", at **₦1,365 to the
