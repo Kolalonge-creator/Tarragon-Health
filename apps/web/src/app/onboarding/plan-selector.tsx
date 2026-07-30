@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useActivePatientPlans, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
 import { startCheckout } from "./actions";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
@@ -45,6 +45,27 @@ export function PlanSelector() {
   const [intervalByTier, setIntervalByTier] = useState<Record<string, "monthly" | "yearly">>({});
   // No prior plan to infer from at this point in the flow — always start on NGN.
   const [currency, setCurrency] = useState<Currency>("NGN");
+
+  // A patient about to pay should never stare at a frozen "Starting…" button
+  // with zero feedback. This can't cancel an in-flight server action (no
+  // client abort primitive for that), but it guarantees visible, honest
+  // feedback plus a real way forward if the request really has stalled.
+  const [stuck, setStuck] = useState(false);
+  // Reset at the start of every new submission — state-adjust-during-render
+  // pattern (matches app-shell.tsx's drawer-close-on-route-change), not a
+  // synchronous setState in an effect body.
+  const [prevPending, setPrevPending] = useState(pending);
+  if (prevPending !== pending) {
+    setPrevPending(pending);
+    if (pending && stuck) setStuck(false);
+  }
+  useEffect(() => {
+    if (!pending) return;
+    // setStuck is called from inside the timer callback, not synchronously
+    // in the effect body — the sanctioned pattern (react-hooks/set-state-in-effect).
+    const timer = setTimeout(() => setStuck(true), 10_000);
+    return () => clearTimeout(timer);
+  }, [pending]);
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading plans…</p>;
   if (isError || !plans) {
@@ -134,6 +155,21 @@ export function PlanSelector() {
       <Button type="submit" className="w-full" disabled={pending || !selectedCode}>
         {pending ? "Starting…" : "Continue"}
       </Button>
+      {pending && stuck && (
+        <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+          This is taking longer than expected. Nothing has been charged yet — you can wait a
+          little longer, or{" "}
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => window.location.reload()}
+          >
+            refresh the page and try again
+          </button>
+          . If a charge does go through after a refresh, it will show on your Subscription page
+          and we&apos;ll never charge you twice for the same plan.
+        </p>
+      )}
       <p className="text-center text-xs text-charcoal-ink/50">
         You can change or cancel your plan any time from your dashboard.
       </p>

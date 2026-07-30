@@ -10,8 +10,8 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
  */
 const TRUST_ITEMS = [
   {
-    title: "Named, registered doctors",
-    body: "Care is delivered by MDCN-registered doctors, and a doctor review always carries the doctor's name, never an anonymous system.",
+    title: "A real care team, always accountable",
+    body: "Care is delivered by a team of MDCN-registered doctors — whoever's covering reviews your case, and every review always carries that doctor's real name, never an anonymous system.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />

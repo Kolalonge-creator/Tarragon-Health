@@ -331,7 +331,7 @@ values
      'Self-tracking, reminders, education, Health Passport. No doctor review on this plan.',
      0, 'NGN', 'monthly', array['tracking', 'reminders', 'education']),
   ('essential', 'Essential Care',
-     'One condition: monthly doctor review, monthly doctor check-in, WhatsApp care team access.',
+     'One condition: monthly doctor review, monthly doctor check-in, care team messaging in the app.',
      800000, 'NGN', 'monthly',
      array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills']),
   ('essential_yearly', 'Essential Care (yearly)',
@@ -389,7 +389,7 @@ values
      'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
      2500000, 'NGN', 'yearly', array['prevention_coordination'], null),
   ('care-coordinator', 'Dedicated Care Coordinator',
-     'One named doctor coordinator, a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
+     'One dedicated care coordinator (not a rotating queue), a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
      3000000, 'NGN', 'monthly', array['dedicated_coordinator'], 'complete'),
   ('expedited-response', 'Expedited Doctor Response',
      'Doctor response time for non-emergency questions moves to under 2 hours.',
@@ -408,7 +408,7 @@ on conflict (code) do nothing;
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features, is_active)
 values
-  ('essential_usd', 'Essential Care', 'One condition: monthly doctor review, monthly doctor check-in, WhatsApp care team access.',
+  ('essential_usd', 'Essential Care', 'One condition: monthly doctor review, monthly doctor check-in, care team messaging in the app.',
      1900, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
   ('essential_yearly_usd', 'Essential Care (yearly)', 'Essential Care billed annually — 2 months free.',
      19000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
@@ -424,7 +424,7 @@ values
      'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
      1500, 'USD', 'yearly', array['prevention_coordination'], null, false),
   ('care-coordinator_usd', 'Dedicated Care Coordinator',
-     'One named clinician coordinator, a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
+     'One dedicated care coordinator (not a rotating queue), a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
      2000, 'USD', 'monthly', array['dedicated_coordinator'], 'complete_usd', false),
   ('expedited-response_usd', 'Expedited Clinician Response',
      'Clinician response time for non-emergency questions moves to under 2 hours.',

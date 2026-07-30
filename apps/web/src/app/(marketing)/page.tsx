@@ -264,7 +264,7 @@ export default function MarketingHomePage() {
               {[
                 "Track BP, glucose, and weight trends at a glance",
                 "Get reminders for medication, screenings, and reviews",
-                "Message your care team on WhatsApp for support",
+                "Message your care team any time, right in the app",
                 "Share your Health Passport with any doctor",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-sm text-charcoal-ink/75">

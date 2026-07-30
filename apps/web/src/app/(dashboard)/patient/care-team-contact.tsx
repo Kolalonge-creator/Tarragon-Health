@@ -1,29 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { MessagesFlow } from "./messages-flow";
 
 /**
  * Gated under 'doctor_checkin' (see RequiresEntitlement usage in page.tsx).
- * No phone number is hardcoded here — WhatsApp is a human-routed support
- * channel (CLAUDE.md), so the actual thread is whatever number sent the
- * patient a reminder/notification, or one their doctor initiates for a
- * scheduled check-in; inventing a fixed "contact us" number here would risk
- * it drifting from the org's real WhatsApp Business number.
+ *
+ * Founder direction 2026-07-30: this used to promise a WhatsApp thread
+ * ("your care team reaches out on WhatsApp... reply directly on that
+ * thread"). Two problems with that: (1) it implied one continuous WhatsApp
+ * conversation with no record on the platform itself, and (2) WhatsApp is a
+ * notifications-only channel per CLAUDE.md's Non-Negotiable Business Rules —
+ * two-way patient<->care-team conversation now happens exclusively in-app,
+ * via care_messages (see messages-flow.tsx). WhatsApp/SMS may still *notify*
+ * that a reply is waiting; the conversation itself always lives here.
  */
-export function CareTeamContact() {
+export function CareTeamContact({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-          Doctor check-ins
+          Your care team
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
-          Your care team reaches out on WhatsApp for your scheduled check-ins — you can also
-          reply directly on that thread any time with a question, and a real person on your care
-          team will get back to you.
+          Your care team checks in with you on the schedule your plan sets out, and you can
+          message them here, in the app, any time you have a question — a real person on the
+          team replies, and every message stays on your record.
         </p>
+        <MessagesFlow patientId={patientId} />
       </CardContent>
     </Card>
   );

@@ -68,9 +68,9 @@ export const PROOF_STATS = [
     detail: "Hypertension, diabetes, weight management, and preventive health.",
   },
   {
-    value: "2",
-    label: "ways to reach your care team",
-    detail: "Message on WhatsApp or use the app/web dashboard, so support is never far away.",
+    value: "1",
+    label: "place to message your care team",
+    detail: "Send a message any time in the app and a real person on your care team replies there — no separate number to remember.",
   },
   {
     value: "4",
@@ -288,7 +288,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "How do I log my blood pressure, glucose, or weight?",
     answer:
-      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team on WhatsApp for support. Logging itself happens on app or web.",
+      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team any time in the app for support. Logging itself happens on app or web.",
   },
   {
     question: "What about preventive checks and screening results?",
@@ -298,7 +298,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "Do I need a smartphone?",
     answer:
-      "You need a smartphone or computer to use the app or web dashboard, where your health record and care actions live. WhatsApp and SMS still bring you reminders, alerts, and a way to message your care team for support.",
+      "You need a smartphone or computer to use the app or web dashboard, where your health record, care actions, and messages with your care team all live. WhatsApp and SMS still bring you reminders and alerts.",
   },
   {
     question: "Is there a Tarragon app?",

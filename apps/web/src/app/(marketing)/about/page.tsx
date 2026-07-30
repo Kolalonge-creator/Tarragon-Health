@@ -105,7 +105,7 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="The thesis"
           title="Continuity, not just monitoring"
-          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same doctor follow a person from a routine screening through an ongoing condition, and the story never resets."
+          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same care team follow a person from a routine screening through an ongoing condition, and the story never resets."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {[
