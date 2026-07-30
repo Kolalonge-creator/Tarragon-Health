@@ -1,0 +1,13 @@
+-- Notification delivery-state + forced-channel fallback, part 1/6.
+--
+-- New enum type only (own migration — a freshly-added enum value can't be
+-- used in the same transaction that adds it, same split this codebase always
+-- uses, e.g. video_consultations' context enum / annual_review_video_link).
+--
+-- 'critical' marks a notification that is part of a clinical safety pathway
+-- (abnormal-result doctor alert, urgent/emergency escalation) and is subject
+-- to delivery-confirmation tracking + the forced-channel escalation ladder
+-- (see 20260730130400_critical_notification_engine.sql). 'routine' is every
+-- other notification today (reminders, confirmations) — unconfirmed routine
+-- notifications are never force-escalated.
+create type public.notification_priority as enum ('routine', 'critical');

@@ -6609,13 +6609,25 @@ export type Database = {
         Row: {
           attempts: number
           channel: Database["public"]["Enums"]["notification_channel"]
+          content_class: Database["public"]["Enums"]["notification_content_class"]
           created_at: string
+          delivered_at: string | null
+          escalated_from_id: string | null
+          escalation_alert_tier: Database["public"]["Enums"]["alert_level"] | null
+          escalation_hop: number
+          escalation_pathway: string | null
+          failed_at: string | null
           id: string
           last_error: string | null
+          opened_at: string | null
           organisation_id: string | null
           payload: Json
+          priority: Database["public"]["Enums"]["notification_priority"]
+          provider_message_id: string | null
           recipient_id: string
           sent_at: string | null
+          source_id: string | null
+          source_table: string | null
           status: Database["public"]["Enums"]["notification_status"]
           template: string | null
           updated_at: string
@@ -6623,13 +6635,25 @@ export type Database = {
         Insert: {
           attempts?: number
           channel?: Database["public"]["Enums"]["notification_channel"]
+          content_class?: Database["public"]["Enums"]["notification_content_class"]
           created_at?: string
+          delivered_at?: string | null
+          escalated_from_id?: string | null
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"] | null
+          escalation_hop?: number
+          escalation_pathway?: string | null
+          failed_at?: string | null
           id?: string
           last_error?: string | null
+          opened_at?: string | null
           organisation_id?: string | null
           payload?: Json
+          priority?: Database["public"]["Enums"]["notification_priority"]
+          provider_message_id?: string | null
           recipient_id: string
           sent_at?: string | null
+          source_id?: string | null
+          source_table?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
           template?: string | null
           updated_at?: string
@@ -6637,18 +6661,37 @@ export type Database = {
         Update: {
           attempts?: number
           channel?: Database["public"]["Enums"]["notification_channel"]
+          content_class?: Database["public"]["Enums"]["notification_content_class"]
           created_at?: string
+          delivered_at?: string | null
+          escalated_from_id?: string | null
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"] | null
+          escalation_hop?: number
+          escalation_pathway?: string | null
+          failed_at?: string | null
           id?: string
           last_error?: string | null
+          opened_at?: string | null
           organisation_id?: string | null
           payload?: Json
+          priority?: Database["public"]["Enums"]["notification_priority"]
+          provider_message_id?: string | null
           recipient_id?: string
           sent_at?: string | null
+          source_id?: string | null
+          source_table?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
           template?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_escalated_from_id_fkey"
+            columns: ["escalated_from_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -6659,6 +6702,111 @@ export type Database = {
           {
             foreignKeyName: "notifications_recipient_id_fkey"
             columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_escalation_failures: {
+        Row: {
+          channel_sequence_exhausted: Database["public"]["Enums"]["notification_channel"][]
+          created_at: string
+          escalation_alert_tier: Database["public"]["Enums"]["alert_level"]
+          escalation_pathway: string
+          id: string
+          notification_id: string
+          organisation_id: string | null
+          source_id: string | null
+          source_table: string | null
+        }
+        Insert: {
+          channel_sequence_exhausted: Database["public"]["Enums"]["notification_channel"][]
+          created_at?: string
+          escalation_alert_tier: Database["public"]["Enums"]["alert_level"]
+          escalation_pathway: string
+          id?: string
+          notification_id: string
+          organisation_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Update: {
+          channel_sequence_exhausted?: Database["public"]["Enums"]["notification_channel"][]
+          created_at?: string
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"]
+          escalation_pathway?: string
+          id?: string
+          notification_id?: string
+          organisation_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_escalation_failures_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: true
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_escalation_failures_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string
+          disabled_at: string | null
+          endpoint: string
+          id: string
+          last_seen_at: string
+          organisation_id: string
+          p256dh_key: string
+          profile_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string
+          disabled_at?: string | null
+          endpoint: string
+          id?: string
+          last_seen_at?: string
+          organisation_id: string
+          p256dh_key: string
+          profile_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string
+          disabled_at?: string | null
+          endpoint?: string
+          id?: string
+          last_seen_at?: string
+          organisation_id?: string
+          p256dh_key?: string
+          profile_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -8851,6 +8999,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          app_last_active_at: string | null
           area: string | null
           city: string | null
           created_at: string
@@ -8884,6 +9033,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          app_last_active_at?: string | null
           area?: string | null
           city?: string | null
           created_at?: string
@@ -8917,6 +9067,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          app_last_active_at?: string | null
           area?: string | null
           city?: string | null
           created_at?: string
@@ -12741,6 +12892,7 @@ export type Database = {
         }
         Returns: string
       }
+      touch_last_active: { Args: never; Returns: undefined }
       wallet_pay_booking_order: {
         Args: { p_order_id: string; p_order_type: string }
         Returns: Json
@@ -12989,6 +13141,8 @@ export type Database = {
         | "whatsapp"
         | "push"
         | "voice"
+      notification_content_class: "clinical" | "non_clinical"
+      notification_priority: "routine" | "critical"
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
       obesity_bmi_category:
         | "underweight"
@@ -13601,6 +13755,8 @@ export const Constants = {
         "push",
         "voice",
       ],
+      notification_content_class: ["clinical", "non_clinical"],
+      notification_priority: ["routine", "critical"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],
       obesity_bmi_category: [
         "underweight",

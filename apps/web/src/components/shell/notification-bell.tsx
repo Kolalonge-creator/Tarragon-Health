@@ -51,6 +51,18 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/family",
     };
   }
+  if (n.template === "critical_notification_escalation_exhausted") {
+    // From private.escalate_unconfirmed_critical_notifications() —
+    // every channel in a critical alert's ladder (push -> whatsapp -> sms)
+    // ran out with nobody confirming it. Admin-only visibility surface;
+    // the underlying clinical SLA/worklist safety net is unaffected either
+    // way, this is purely "a notification chain needs a human look."
+    const sourceTable = String(payload.source_table ?? "");
+    return {
+      text: "A critical alert went unconfirmed on every channel — needs a look",
+      href: sourceTable === "clinician_alerts" ? "/doctor/escalations" : "/admin",
+    };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 

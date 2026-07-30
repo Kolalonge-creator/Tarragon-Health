@@ -8,9 +8,19 @@
 // row with its 4-hour SLA in the same transaction — that DB-level safety
 // net is unconditional and does not depend on this function running at all.
 // This function owns the rest of the flow: draft a care_plan or
-// specialist_referral for clinician review, and send the clinician + patient
-// WhatsApp alerts immediately (60-second launch gate), falling back to
-// Termii SMS.
+// specialist_referral for clinician review, and alert the org's clinicians
+// (60-second launch gate) + send the patient a follow-up message.
+//
+// 2026-07-30: the clinician alert is no longer a raw, untracked WhatsApp API
+// call — it now goes through private.enqueue_critical_notification (via the
+// public.* service-role wrapper), which starts each clinician's alert on
+// escalation_slas' configured first channel (push) and, if nobody confirms
+// it, force-escalates through whatsapp -> sms
+// (see critical_notification_engine.sql). This closes the exact gap this
+// pathway used to have: nothing previously confirmed a clinician actually
+// received or opened the alert, and nothing re-tried on a different channel
+// if the WhatsApp send silently failed. The patient follow-up message below
+// is unchanged — a simple reassurance send, not a safety-critical alert.
 //
 // ML /interpret/screening is deliberately not called here — Sprint 4 (the ML
 // microservice) is on hold (CLAUDE.md "Current Sprint") and ml-client.ts has
@@ -192,7 +202,7 @@ Deno.serve(async (req) => {
       event,
     });
 
-  const [{ data: patient }, { data: clinicians }] = await Promise.all([
+  const [{ data: patient }, { data: clinicians }, { data: alert }] = await Promise.all([
     supabase
       .from("profiles")
       .select("full_name, phone")
@@ -206,6 +216,19 @@ Deno.serve(async (req) => {
       .eq("role", "clinician")
       .not("phone", "is", null)
       .returns<Array<{ id: string; phone: string }>>(),
+    // The trigger already inserted exactly one clinician_alerts row for this
+    // screening result, synchronously, in the same transaction — its `level`
+    // (emergency|urgent_escalation) is what selects the right escalation_slas
+    // channel ladder below, and its id is the source_id every notification in
+    // this alert's chain traces back to.
+    supabase
+      .from("clinician_alerts")
+      .select("id, level")
+      .eq("screening_result_id", screeningResultId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .returns<{ id: string; level: "clinician_review" | "urgent_escalation" | "emergency" | "routine" } | null>(),
   ]);
 
   const patientName = patient?.full_name ?? "A patient";
@@ -278,15 +301,24 @@ Deno.serve(async (req) => {
 
   // Clinician alert(s) — broadcast to the org's pooled clinician worklist
   // (patients aren't assigned a fixed clinician until one claims the alert).
+  // Each clinician's alert is enqueued as a tracked, critical-priority
+  // notification starting on escalation_slas' configured first channel
+  // (push today) — private.escalate_unconfirmed_critical_notifications()
+  // force-escalates it through whatsapp -> sms if nobody confirms it, rather
+  // than this function firing one untracked WhatsApp blast and hoping.
   const clinicianList = clinicians ?? [];
-  let clinicianAlertsSent = 0;
+  let clinicianAlertsQueued = 0;
   let clinicianAlertsFailed = 0;
 
   if (clinicianList.length === 0) {
     await auditEvent("abnormal_result.no_clinician_available", "screening_results", screeningResultId, {
       organisation_id: organisationId,
     });
-  } else {
+  } else if (!alert) {
+    // Should be structurally impossible — the trigger inserts this row in
+    // the same transaction that invokes this function — but never silently
+    // drop a Priority 1 alert on an unexpected gap; fall back to the direct
+    // send this pathway used before the tracked pipeline existed.
     const results = await Promise.all(
       clinicianList.map((clinician) =>
         sendWithFallback(
@@ -298,12 +330,35 @@ Deno.serve(async (req) => {
         )
       ),
     );
-    clinicianAlertsSent = results.filter((r) => r.ok).length;
-    clinicianAlertsFailed = results.length - clinicianAlertsSent;
-    await auditEvent("abnormal_result.clinician_alerts_sent", "screening_results", screeningResultId, {
-      sent: clinicianAlertsSent,
+    clinicianAlertsQueued = results.filter((r) => r.ok).length;
+    clinicianAlertsFailed = results.length - clinicianAlertsQueued;
+    await auditEvent("abnormal_result.clinician_alert_row_missing_fallback_direct_send", "screening_results", screeningResultId, {
+      sent: clinicianAlertsQueued,
       failed: clinicianAlertsFailed,
       recipients: clinicianList.length,
+    });
+  } else {
+    const results = await Promise.all(
+      clinicianList.map((clinician) =>
+        supabase.rpc("enqueue_critical_notification", {
+          p_organisation_id: organisationId,
+          p_recipient_id: clinician.id,
+          p_template: "abnormal_result_clinician_alert",
+          p_payload: { patient_name: patientName, condition_label: conditionLabel },
+          p_pathway: "screening_abnormal_result",
+          p_alert_tier: alert.level,
+          p_source_table: "clinician_alerts",
+          p_source_id: alert.id,
+        })
+      ),
+    );
+    clinicianAlertsQueued = results.filter((r) => !r.error).length;
+    clinicianAlertsFailed = results.length - clinicianAlertsQueued;
+    await auditEvent("abnormal_result.clinician_alerts_queued", "screening_results", screeningResultId, {
+      queued: clinicianAlertsQueued,
+      failed: clinicianAlertsFailed,
+      recipients: clinicianList.length,
+      alert_level: alert.level,
     });
   }
 
@@ -340,7 +395,7 @@ Deno.serve(async (req) => {
     ok: true,
     condition,
     drafted: draftedEntity,
-    clinician_alerts_sent: clinicianAlertsSent,
+    clinician_alerts_queued: clinicianAlertsQueued,
     clinician_alerts_failed: clinicianAlertsFailed,
     patient_notified: patientNotified,
     patient_notification_suppressed_sensitive: Boolean(sensitive),
