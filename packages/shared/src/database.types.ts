@@ -11026,6 +11026,10 @@ export type Database = {
         }
         Returns: number
       }
+      admin_broadcast_content_check: {
+        Args: { p_text: string }
+        Returns: string[]
+      }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
