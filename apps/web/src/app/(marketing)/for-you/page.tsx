@@ -121,7 +121,7 @@ export default function ForYouPage() {
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link href="/signup">Start monitoring</Link>
+                <Link href="/signup">Get started</Link>
               </Button>
               <Button asChild variant="outline" size="lg">
                 <Link href={MARKETING_ROUTES.pricing}>Find your plan</Link>
@@ -255,9 +255,9 @@ export default function ForYouPage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Start monitoring today; it takes minutes to set up."
+          description="Get started today; it takes minutes to set up."
           primaryHref="/signup"
-          primaryLabel="Start monitoring"
+          primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}
           secondaryLabel="View pricing"
         />

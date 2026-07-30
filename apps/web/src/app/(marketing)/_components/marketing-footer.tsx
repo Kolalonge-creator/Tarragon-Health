@@ -42,7 +42,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.corporate, label: "Corporate Health" },
     { href: MARKETING_ROUTES.hmo, label: "HMO Support" },
     { href: "/login", label: "Sign in" },
-    { href: "/signup", label: "Start monitoring" },
+    { href: "/signup", label: "Get started" },
   ],
   legal: [
     { href: MARKETING_ROUTES.privacy, label: "Privacy" },

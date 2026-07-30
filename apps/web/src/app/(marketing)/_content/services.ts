@@ -28,7 +28,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
     key: "obesity",
     href: MARKETING_ROUTES.obesity,
     title: "Weight Health",
-    description: "A structured, doctor-reviewed programme to manage weight and related conditions.",
+    description: "Weight tracking, a lifestyle plan, and doctor review, together on one record.",
     built: true,
   },
   {

@@ -67,7 +67,7 @@ export default async function PricingPage() {
         <PricingTable priceOverrides={priceOverrides} />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
-            <Link href="/signup">Start monitoring</Link>
+            <Link href="/signup">Get started</Link>
           </Button>
           <Button asChild variant="outline" size="lg">
             <Link href={MARKETING_ROUTES.contact}>Talk to us first</Link>
