@@ -19,6 +19,8 @@ import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { getPatientSummaryStats, getPatientPreventionStats } from "./summary";
 import Link from "next/link";
 import { NextBestAction } from "./next-best-action";
+import { RiskSignalsCard } from "./risk-signals-card";
+import { CareScheduleCard } from "./care-schedule-card";
 import { AskADoctor } from "./ask-a-doctor";
 import { BookVideoVisit } from "./book-video-visit";
 import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
@@ -132,6 +134,8 @@ export default async function PatientPage() {
       >
         <NextBestAction patientId={profile.id} />
         <HealthResetCard patientId={profile.id} />
+        <RiskSignalsCard patientId={profile.id} />
+        <CareScheduleCard patientId={profile.id} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both
             states read the same shared record — nothing is hidden, only led

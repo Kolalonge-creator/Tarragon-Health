@@ -11,25 +11,45 @@ import {
   SLEEP_HOURS,
 } from "@/lib/validation/risk-assessment";
 import { useVitalsReadings } from "@/lib/queries/vitals";
+import { useCarePlans } from "@/lib/queries/care-plans";
+import { useRiskAssessmentResponses } from "@/lib/queries/risk-assessment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Enums } from "@tarragon/shared";
 
 const STEP_COUNT = 4;
 const STEP_LABELS = ["Family history", "Lifestyle", "Medical history", "Vaccination & screening"];
+
+/** Best-effort care_plan_condition → EXISTING_DIAGNOSES mapping. Only the
+ * conditions with an obvious equivalent map; obesity/ckd/asthma/copd/
+ * heart_failure/other have no EXISTING_DIAGNOSES counterpart and are
+ * deliberately left unmapped rather than forced into "other". */
+const CONDITION_TO_DIAGNOSIS: Partial<Record<Enums<"care_plan_condition">, string>> = {
+  hypertension: "hypertension",
+  diabetes: "diabetes",
+  cardiovascular: "heart_disease",
+};
 
 function CheckboxGroup({
   legend,
   name,
   options,
   onChange,
+  checkedValues,
+  onToggle,
 }: {
   legend: string;
   name: string;
   options: readonly { value: string; label: string }[];
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** When provided, checkboxes become controlled (checked reflects this
+   * list) so a prefill computed after data loads actually shows up —
+   * mirrors the height/weight "adjust state during render" prefill below. */
+  checkedValues?: string[];
+  onToggle?: (value: string, checked: boolean) => void;
 }) {
   return (
     <fieldset className="space-y-1.5">
@@ -37,7 +57,19 @@ function CheckboxGroup({
       <div className="flex flex-wrap gap-x-4 gap-y-1" onChange={onChange}>
         {options.map(({ value, label }) => (
           <label key={value} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80">
-            <input type="checkbox" name={name} value={value} className="h-4 w-4" />
+            <input
+              type="checkbox"
+              name={name}
+              value={value}
+              className="h-4 w-4"
+              {...(checkedValues
+                ? {
+                    checked: checkedValues.includes(value),
+                    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+                      onToggle?.(value, e.target.checked),
+                  }
+                : {})}
+            />
             {label}
           </label>
         ))}
@@ -61,6 +93,8 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
   const [state, formAction, pending] = useActionState(submitRiskAssessment, undefined);
   const queryClient = useQueryClient();
   const { data: vitalsReadings } = useVitalsReadings(patientId);
+  const { data: carePlans } = useCarePlans(patientId);
+  const { data: priorResponses } = useRiskAssessmentResponses(patientId);
 
   const [step, setStep] = useState(1);
   const [showCancerOther, setShowCancerOther] = useState(false);
@@ -68,6 +102,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
   const [smokingStatus, setSmokingStatus] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
+  const [existingDiagnoses, setExistingDiagnoses] = useState<string[]>([]);
   // Adjust state during render (React's endorsed pattern for "prefill once
   // a query result arrives") rather than in an effect, so it can't cascade
   // an extra render — see https://react.dev/learn/you-might-not-need-an-effect.
@@ -77,6 +112,37 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
     const latestWeightRow = vitalsReadings?.find((v) => v.vital_type === "weight");
     if (weightKg === "" && latestWeightRow?.weight_kg != null) {
       setWeightKg(String(latestWeightRow.weight_kg));
+    }
+  }
+  // Same pattern, for the patient's own most recent answers + what their
+  // care team already knows — don't make them re-declare a height they
+  // already told us, or a condition their own active care plan proves.
+  const [diagnosesPrefillSource, setDiagnosesPrefillSource] = useState<{
+    priorResponses: typeof priorResponses;
+    carePlans: typeof carePlans;
+  }>({ priorResponses: undefined, carePlans: undefined });
+  if (
+    priorResponses !== diagnosesPrefillSource.priorResponses ||
+    carePlans !== diagnosesPrefillSource.carePlans
+  ) {
+    setDiagnosesPrefillSource({ priorResponses, carePlans });
+
+    const priorHeight = priorResponses?.find((r) => r.question_key === "height_cm");
+    if (heightCm === "" && typeof priorHeight?.response === "number") {
+      setHeightCm(String(priorHeight.response));
+    }
+
+    const priorDiagnoses = priorResponses?.find((r) => r.question_key === "existing_diagnoses");
+    const fromPriorAnswer = Array.isArray(priorDiagnoses?.response)
+      ? (priorDiagnoses.response as string[])
+      : [];
+    const fromCarePlans = (carePlans ?? [])
+      .map((plan) => CONDITION_TO_DIAGNOSIS[plan.condition])
+      .filter((v): v is string => v != null);
+    const merged = [...new Set([...fromPriorAnswer, ...fromCarePlans])];
+    if (existingDiagnoses.length === 0 && merged.length > 0) {
+      setExistingDiagnoses(merged);
+      if (merged.includes("other")) setShowDiagnosesOther(true);
     }
   }
 
@@ -284,6 +350,12 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             <h3 className="text-sm font-semibold text-charcoal-ink">
               Past medical history &amp; medications
             </h3>
+            {existingDiagnoses.length > 0 && (
+              <p className="text-xs text-charcoal-ink/50">
+                Pre-filled from your care team&apos;s records and your last assessment —
+                remove anything that&apos;s no longer right.
+              </p>
+            )}
             <CheckboxGroup
               legend="Existing diagnoses (select any)"
               name="existing_diagnoses"
@@ -291,8 +363,12 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                 value,
                 label: value.split("_").join(" "),
               }))}
-              onChange={(e) => {
-                if (e.target.value === "other") setShowDiagnosesOther(e.target.checked);
+              checkedValues={existingDiagnoses}
+              onToggle={(value, checked) => {
+                setExistingDiagnoses((prev) =>
+                  checked ? [...new Set([...prev, value])] : prev.filter((v) => v !== value)
+                );
+                if (value === "other") setShowDiagnosesOther(checked);
               }}
             />
             {showDiagnosesOther && (
