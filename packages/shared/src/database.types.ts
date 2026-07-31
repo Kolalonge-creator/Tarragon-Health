@@ -1097,6 +1097,7 @@ export type Database = {
       care_messages: {
         Row: {
           actor_clinical_staff_id: string | null
+          author_display: string | null
           author_profile_id: string | null
           author_role: Database["public"]["Enums"]["care_message_author"]
           body: string
@@ -1108,6 +1109,7 @@ export type Database = {
         }
         Insert: {
           actor_clinical_staff_id?: string | null
+          author_display?: string | null
           author_profile_id?: string | null
           author_role: Database["public"]["Enums"]["care_message_author"]
           body: string
@@ -1119,6 +1121,7 @@ export type Database = {
         }
         Update: {
           actor_clinical_staff_id?: string | null
+          author_display?: string | null
           author_profile_id?: string | null
           author_role?: Database["public"]["Enums"]["care_message_author"]
           body?: string
@@ -8947,6 +8950,8 @@ export type Database = {
       }
       profile_access: {
         Row: {
+          clinical_access: boolean
+          clinical_access_updated_at: string | null
           created_at: string
           granted_by: string
           grantee_user_id: string
@@ -8956,6 +8961,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          clinical_access?: boolean
+          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by: string
           grantee_user_id: string
@@ -8965,6 +8972,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          clinical_access?: boolean
+          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by?: string
           grantee_user_id?: string
@@ -12996,7 +13005,7 @@ export type Database = {
         | "accepted"
         | "declined"
         | "cancelled"
-      care_message_author: "patient" | "care_team"
+      care_message_author: "patient" | "care_team" | "sponsor"
       care_message_thread_status: "open" | "closed"
       care_plan_condition:
         | "hypertension"
@@ -13593,7 +13602,7 @@ export const Constants = {
         "declined",
         "cancelled",
       ],
-      care_message_author: ["patient", "care_team"],
+      care_message_author: ["patient", "care_team", "sponsor"],
       care_message_thread_status: ["open", "closed"],
       care_plan_condition: [
         "hypertension",

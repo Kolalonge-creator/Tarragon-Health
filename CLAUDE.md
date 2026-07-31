@@ -1438,6 +1438,87 @@ quietly declining) is stated as a limit rather than papered over.
 - **Next / founder:** decision (2) above is still open and still deliberately unbuilt: whether a
   sponsor should ever see clinical data, not just cost.
 
+### 2026-07-31 — FOUNDER DECISION: a sponsor may see clinical data, never edit it, and only with the patient's own consent. Three-way care conversations built on the same switch (same branch)
+Answers the question this branch's previous entry left open ("whether a sponsor should ever see
+clinical data, not just cost"), and adds the founder's own mechanism for it, verbatim: "patient will
+need to approve this on the platform and remove their consent also via the app by just clicking on
+the sponsor name and clicking yes to consent or no." Plus: "the conversation should be able to be
+three way in which the doctor, sponsor and patient will use the same chat but with time stamp and
+showing who asked the question. This helps with parental care for people abroad with family in
+Nigeria." Five migrations applied via `apply_migration` (recorded: `20260731181143`, `143055`,
+`143140`, `143612`, `145030`). typecheck / lint (0 errors, the same 2 pre-existing warnings) / 539
+web tests / full production build all green.
+- **Consent is a SECOND switch, not the grant.** `profile_access.clinical_access` + a
+  `clinical_access_updated_at` stamp. Deliberately not keyed off the grant itself: someone named
+  next of kin so they can be *reached* in an emergency has not thereby agreed to be a *reader* of
+  the record, and several existing grants predate this question entirely. New grants are created
+  with it off no matter what the caller asks for — the trigger overwrites an explicit
+  `clinical_access = true` on INSERT, proven in the test.
+- **Only the record owner may flip it — not even a superadmin.** This is the check that matters:
+  `profile_access_update` already admits `private.is_admin()`, so without
+  `private.enforce_clinical_access_consent_owner` whoever runs the platform could appoint a reader
+  of any patient's record. A sponsor trying to grant themselves access is refused the row by RLS
+  (assert on state, no exception); an admin trying it gets a real `42501` from the trigger. Both
+  directions are in the test.
+- **Read, never write.** Six SELECT policies gained one clause each via `private.can_read_clinical`
+  (`vitals_readings`, `care_plans`, `medications`, `screening_schedules`, `lab_orders`,
+  `patient_risk_scores`). No INSERT/UPDATE/DELETE policy anywhere was touched, and the migration's
+  own assertion block **fails if `can_read_clinical` ever appears in a write policy** — so "can see
+  it, cannot change it" is structural rather than a convention the UI happens to follow. Proven
+  live: the sponsor's UPDATE of a reading changes nothing, their medication INSERT raises `42501`.
+- **Deliberately NOT included, flagged rather than guessed at:** `screening_results` and
+  `escalations`/`clinician_alerts`. Those carry raw abnormal-result detail and escalation
+  reasoning — a heavier disclosure than "here is her blood pressure and what she is taking", and a
+  separate call for the founder.
+- **Three-way conversation on the same switch.** `care_message_author` gains `sponsor` (own
+  migration, the enum-add-then-use split); thread/message SELECT and INSERT extended to a consented
+  supporter; `start_care_thread` lets them open one for the person they support.
+  `care_message_threads_update` is deliberately untouched, so a sponsor **cannot close** a
+  conversation the patient is still having. Revoking consent removes them from the record and the
+  conversation in the same click — there is no second thing to remember to turn off.
+- **`care_messages.author_display`, frozen server-side at insert.** Not a nicety: `profiles_select`
+  lets a sponsor read the patient but never the reverse, so resolving names at render time would
+  have shown the mother "someone" against her own daughter's question. Also means a later name
+  change cannot silently rewrite who appears to have said what (the v3 proof_log `actor_display`
+  discipline). Care-team attribution stays null-gated — "Care team" unless a real `clinical_staff`
+  row backs it.
+- **Everyone in the room is told, nobody else is.** The patient is notified of every message they
+  did not write themselves — including a supporter's question, so consent to be in the conversation
+  is never consent to speak for them unseen. `in_app` only (a supporter abroad often has no
+  Nigerian number), payload carries no clinical content, and a follow-up migration stamps
+  `recipient_kind` so the bell sends a patient to `/patient/messages` and a supporter to
+  `/patient/supporting` — the row itself cannot work that out at render time.
+- **A real gap found and closed on the way:** `profiles_select` was asymmetric, so a patient could
+  not read the name of someone they had granted access to — the "click the sponsor name" screen had
+  no name to click. New **separate permissive** policy `profiles_select_my_grantees` rather than an
+  edit to `profiles_select`, which carries live assertion checks over its exact clauses
+  (`20260729194127`).
+- **UI:** patient gets "Who can see your health information" on `/patient/family` (tap a name →
+  Yes/No, current state on a badge, copy that says up front that yes also puts them in care-team
+  conversations). Sponsor gets, only when consented, a "How they are doing" block on
+  `/patient/supporting` (last BP, last reading, checks due, conditions, current medications —
+  numbers shown, never judged; interpretation stays with the care team) and the shared thread with
+  an "Ask a question" composer. `care-message-thread.tsx` now names every author and labels the seat
+  they speak from.
+- **Verified live, 10 checks in one rolled-back transaction**
+  (`packages/db/tests/sponsor_clinical_consent_and_three_way_chat.sql`), with controls throughout: an
+  unconsented next of kin and a stranger must see nothing at every point the consented sponsor sees
+  something, so the gate is proven to be the consent and not the grant. **Then deliberately
+  sabotaged** — removing only the patient's consent step makes it fail at "consented sponsor can
+  read 0 of 6 clinical surfaces", confirming the test discriminates rather than passing on a
+  blocked-everything grant. `get_advisors` (security): zero ERRORs, and the only WARN touching any
+  of this is the accepted `authenticated_security_definer_function_executable` on
+  `start_care_thread`, which it already carried.
+- **Not browser-verified** — composition over the live-proven DB primitives + a green production
+  build. Would need two accounts (a patient and a supporter) and a credential reset, per
+  [[feedback_credential_reset_scope]].
+- **CLI note:** `npx supabase db query --linked` failed with `LegacyProjectNotLinkedError` when run
+  from inside the worktree and worked immediately from the main checkout, matching
+  `reference_supabase_cli_sql_access.md`. Run it from the main checkout.
+- **Next / founder:** decide whether `screening_results` and escalation detail join the consented
+  read set; a browser click-through of consent → three-way thread → revoke once a test credential is
+  approved.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed

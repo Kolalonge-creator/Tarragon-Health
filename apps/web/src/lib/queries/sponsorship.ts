@@ -17,6 +17,8 @@ export type SupportedPerson = {
   profileId: string;
   fullName: string | null;
   permissionLevel: "view" | "manage";
+  /** The record owner has said this person may see their health information. */
+  clinicalAccess: boolean;
   isDependentAccount: boolean;
   walletId: string | null;
   balanceKobo: number;
@@ -42,14 +44,15 @@ const CREDIT_TYPES: WalletEntryType[] = [
 /**
  * Everyone the caller supports, with the money side of each relationship.
  *
- * Deliberately built only from what a grantee is already entitled to read.
- * health_wallets and wallet_ledger both carry a profile_access clause in their
- * SELECT policy, so a sponsor has always been able to see a balance and a
- * ledger; nothing here widens access by a single row. vitals_readings,
- * screening_schedules and medication_reviews do NOT carry that clause, so a
- * sponsor cannot see clinical data and this hook does not pretend otherwise.
- * Whether they should is a real product decision, not something to slip in
- * behind a dashboard.
+ * Money only, still. health_wallets and wallet_ledger have always carried a
+ * profile_access clause in their SELECT policy, so nothing here widens access
+ * by a single row.
+ *
+ * Clinical data is a separate question and now has a separate answer: since
+ * 20260731181143 a record owner may consent, per person, to being read, and
+ * clinicalAccess on each row below reports whether they have. The health
+ * itself is fetched by useSupportedPersonHealth, and only for someone who
+ * said yes.
  *
  * Four queries total no matter how many people are supported: the grants, then
  * wallets, ledgers and goals fetched in one batch each and stitched in memory.
@@ -67,7 +70,7 @@ export function useSupportedPeople() {
       const { data: grants, error: grantsError } = await supabase
         .from("profile_access")
         .select(
-          "permission_level, profile:profiles!profile_access_profile_id_fkey(id, full_name, is_dependent_account)"
+          "permission_level, clinical_access, profile:profiles!profile_access_profile_id_fkey(id, full_name, is_dependent_account)"
         )
         .eq("grantee_user_id", user.id);
       if (grantsError) throw grantsError;
@@ -82,6 +85,7 @@ export function useSupportedPeople() {
               fullName: profile.full_name,
               isDependentAccount: profile.is_dependent_account === true,
               permissionLevel: row.permission_level as "view" | "manage",
+              clinicalAccess: row.clinical_access === true,
             },
           ];
         })
@@ -143,6 +147,7 @@ export function useSupportedPeople() {
           profileId: person.profileId,
           fullName: person.fullName,
           permissionLevel: person.permissionLevel,
+          clinicalAccess: person.clinicalAccess,
           isDependentAccount: person.isDependentAccount,
           walletId: wallet?.id ?? null,
           balanceKobo: wallet?.balance_kobo ?? 0,
@@ -163,6 +168,102 @@ export function useSupportedPeople() {
           goal: goal ? { name: goal.name, targetKobo: goal.target_kobo } : null,
         };
       });
+    },
+  });
+}
+
+export type SupportedPersonHealth = {
+  latestBloodPressure: { systolic: number | null; diastolic: number | null; takenAt: string } | null;
+  latestReadingAt: string | null;
+  activeConditions: string[];
+  medications: { id: string; drugName: string; dose: string | null }[];
+  nextScreeningDue: string | null;
+  screeningsDue: number;
+  riskLevel: string | null;
+};
+
+/**
+ * How the person you support is actually doing.
+ *
+ * Every table read here gained a consent-gated clause in the same migration
+ * that created the consent (20260731181143), so this hook needs no special
+ * privilege and no service-role client: if the patient has not said yes, these
+ * queries return nothing at all, and the card simply does not render. `enabled`
+ * mirrors that in the client so a revoked sponsor does not fire six pointless
+ * requests, but it is not what enforces it.
+ *
+ * Read-only by construction. There is deliberately no mutation anywhere in this
+ * file that touches a clinical table.
+ */
+export function useSupportedPersonHealth(profileId: string, hasConsent: boolean) {
+  return useQuery({
+    queryKey: ["sponsorship", "health", profileId],
+    enabled: Boolean(profileId) && hasConsent,
+    queryFn: async (): Promise<SupportedPersonHealth> => {
+      const supabase = createClient();
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [bp, latest, plans, meds, screenings, risk] = await Promise.all([
+        supabase
+          .from("vitals_readings")
+          .select("systolic, diastolic, taken_at")
+          .eq("patient_id", profileId)
+          .eq("vital_type", "blood_pressure")
+          .order("taken_at", { ascending: false })
+          .limit(1),
+        supabase
+          .from("vitals_readings")
+          .select("taken_at")
+          .eq("patient_id", profileId)
+          .order("taken_at", { ascending: false })
+          .limit(1),
+        supabase
+          .from("care_plans")
+          .select("condition")
+          .eq("patient_id", profileId)
+          .eq("status", "active"),
+        supabase
+          .from("medications")
+          .select("id, drug_name, dose")
+          .eq("patient_id", profileId)
+          .eq("is_active", true)
+          .order("drug_name"),
+        supabase
+          .from("screening_schedules")
+          .select("due_date")
+          .eq("patient_id", profileId)
+          .in("status", ["pending", "booked", "overdue"])
+          .order("due_date", { ascending: true }),
+        supabase
+          .from("patient_risk_scores")
+          .select("risk_level")
+          .eq("patient_id", profileId)
+          .order("computed_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      const firstBp = bp.data?.[0] ?? null;
+      const due = (screenings.data ?? []).filter((row) => row.due_date <= today);
+
+      return {
+        latestBloodPressure: firstBp
+          ? {
+              systolic: firstBp.systolic,
+              diastolic: firstBp.diastolic,
+              takenAt: firstBp.taken_at,
+            }
+          : null,
+        latestReadingAt: latest.data?.[0]?.taken_at ?? null,
+        activeConditions: (plans.data ?? []).map((row) => row.condition),
+        medications: (meds.data ?? []).map((row) => ({
+          id: row.id,
+          drugName: row.drug_name,
+          dose: row.dose,
+        })),
+        nextScreeningDue: screenings.data?.[0]?.due_date ?? null,
+        screeningsDue: due.length,
+        riskLevel: risk.data?.[0]?.risk_level ?? null,
+      };
     },
   });
 }

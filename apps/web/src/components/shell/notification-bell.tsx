@@ -29,6 +29,25 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient#prevention",
     };
   }
+  if (n.template === "new_care_message") {
+    // The same message reaches two different screens: the patient replies at
+    // /patient/messages, a supporter replies inside that person's card on
+    // /patient/supporting. recipient_kind is stamped by the trigger, since only
+    // it knows which seat the reader is in.
+    const supporter = payload.recipient_kind === "supporter";
+    const who = String(payload.author_display ?? "").trim();
+    const role = payload.author_role;
+    const from =
+      role === "care_team"
+        ? "the care team"
+        : role === "sponsor"
+          ? who || "someone who supports them"
+          : who || "the patient";
+    return {
+      text: `New message from ${from}`,
+      href: supporter ? "/patient/supporting" : "/patient/messages",
+    };
+  }
   if (n.template === "health_reset_complete") {
     return {
       text: "Your 90-Day Health Reset is complete — claim your free trial",

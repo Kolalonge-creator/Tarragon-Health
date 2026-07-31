@@ -9,12 +9,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
+import { CareMessageThread } from "@/components/care-message-thread";
+import { useCareThreads, useStartThread } from "@/lib/queries/care-messages";
+import { Textarea } from "@/components/ui/textarea";
 import {
   useSponsorBookCare,
   useSponsorPayOrder,
   useSponsorPayableOrders,
   useSponsorSetBasics,
   useSupportedPeople,
+  useSupportedPersonHealth,
   type SupportedPerson,
 } from "@/lib/queries/sponsorship";
 import { topUpWallet, type TopUpWalletState } from "../wallet/actions";
@@ -47,12 +51,11 @@ const ORDER_LABEL: Record<string, string> = {
  * was absorbed into the general run of a household. What is on offer here is
  * the receipt: money in, money turned into a named booking on a named date.
  *
- * Everything shown is money, deliberately. Balances and ledgers already carry a
- * profile_access clause in their RLS, so nothing here is newly exposed. Vitals,
- * screenings and reviews do not, and are not shown: a sponsor being allowed to
- * pay for care is a different question from a sponsor being allowed to read it,
- * and conflating the two inside a dashboard would answer the second question by
- * accident.
+ * Money is unconditional here, because paying for someone's care tells you
+ * nothing about their health. Everything clinical is conditional on that person
+ * having said yes to this specific supporter, in their own app — a sponsor
+ * being allowed to pay for care and a sponsor being allowed to read it are two
+ * different questions with two different answers, and they are kept that way.
  */
 export function SupportedPeople({ payerEmailKnown }: { payerEmailKnown: boolean }) {
   const { data: people, isLoading, isError } = useSupportedPeople();
@@ -270,12 +273,268 @@ function PersonCard({
           </div>
         )}
 
-        <p className="text-xs text-charcoal-ink/50">
-          You can see what their care costs and what it paid for. You cannot see their readings,
-          results or notes: those stay between them and their care team.
-        </p>
+        {person.clinicalAccess ? (
+          <>
+            <HealthSummary person={person} />
+            <SupporterConversation person={person} />
+          </>
+        ) : (
+          <p className="text-xs text-charcoal-ink/50">
+            You can see what their care costs and what it paid for, and nothing else. If they want
+            you to follow how they are doing, they can turn that on themselves under &ldquo;Who can
+            see your health information&rdquo;.
+          </p>
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+const CONDITION_LABEL: Record<string, string> = {
+  hypertension: "High blood pressure",
+  diabetes: "Diabetes",
+  obesity: "Weight",
+  cardiovascular: "Heart health",
+  asthma: "Asthma",
+  ckd: "Kidney health",
+  heart_failure: "Heart failure",
+};
+
+function humanCondition(condition: string): string {
+  return CONDITION_LABEL[condition] ?? condition.replace(/_/g, " ");
+}
+
+/**
+ * How they are doing, for someone who has been told they may look.
+ *
+ * Rendered only when person.clinicalAccess is true, but that flag is a
+ * courtesy, not the control: every query behind this reads a table whose RLS
+ * checks the same consent live, so a revoked supporter gets an empty card
+ * rather than stale data even if this component were somehow rendered anyway.
+ *
+ * Numbers are shown, never judged. There is no "her blood pressure is too
+ * high" anywhere in here: interpretation belongs to the care team, and the
+ * conversation below is how a supporter asks for it.
+ */
+function HealthSummary({ person }: { person: SupportedPerson }) {
+  const { data, isLoading } = useSupportedPersonHealth(person.profileId, person.clinicalAccess);
+  const name = person.fullName ?? "They";
+
+  if (isLoading) {
+    return <p className="text-sm text-charcoal-ink/60">Loading how they are doing…</p>;
+  }
+  if (!data) return null;
+
+  const nothingYet =
+    !data.latestBloodPressure &&
+    data.activeConditions.length === 0 &&
+    data.medications.length === 0 &&
+    !data.nextScreeningDue;
+
+  return (
+    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
+      <p className="text-xs font-medium text-charcoal-ink">How they are doing</p>
+
+      {nothingYet ? (
+        <p className="text-sm text-charcoal-ink/60">
+          {name} has not logged anything yet. There is nothing to show until they do.
+        </p>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-charcoal-ink/60">Last blood pressure</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+                {data.latestBloodPressure
+                  ? `${data.latestBloodPressure.systolic ?? "?"}/${data.latestBloodPressure.diastolic ?? "?"}`
+                  : "Not logged yet"}
+              </p>
+              {data.latestBloodPressure && (
+                <p className="text-xs text-charcoal-ink/50">
+                  {shortDate(data.latestBloodPressure.takenAt)}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-charcoal-ink/60">Last reading of any kind</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+                {data.latestReadingAt ? shortDate(data.latestReadingAt) : "None yet"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-charcoal-ink/60">Checks due</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+                {data.screeningsDue}
+              </p>
+              {data.nextScreeningDue && (
+                <p className="text-xs text-charcoal-ink/50">
+                  Next {shortDate(data.nextScreeningDue)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {data.activeConditions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-charcoal-ink/60">Being looked after for</span>
+              {data.activeConditions.map((condition) => (
+                <Badge key={condition} variant="grey">
+                  {humanCondition(condition)}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {data.medications.length > 0 && (
+            <div>
+              <p className="text-xs text-charcoal-ink/60">Currently taking</p>
+              <ul className="mt-1 space-y-1">
+                {data.medications.map((medication) => (
+                  <li key={medication.id} className="text-sm text-charcoal-ink/70">
+                    {medication.drugName}
+                    {medication.dose ? ` · ${medication.dose}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+
+      <p className="text-xs text-charcoal-ink/50">
+        {name} shared this with you and can stop sharing it at any time. You can read it; you
+        cannot change any of it.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The three-way conversation, from the supporter's side.
+ *
+ * One thread, not a side channel: the same rows the patient and the care team
+ * read, and the patient is notified of anything written here. That is what
+ * makes it usable for a daughter in London — she can ask the question once,
+ * the doctor answers once, and her mother in Enugu sees both, instead of an
+ * answer being relayed down a phone line and half-remembered.
+ */
+function SupporterConversation({ person }: { person: SupportedPerson }) {
+  const { data: threads, isLoading } = useCareThreads(person.profileId);
+  const start = useStartThread();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const name = person.fullName ?? "them";
+
+  const ask = () => {
+    setError(null);
+    start.mutate(
+      { subject, body, patientId: person.profileId },
+      {
+        onSuccess: (id) => {
+          setSubject("");
+          setBody("");
+          setComposing(false);
+          setOpenId(id);
+        },
+        onError: (cause) =>
+          setError(cause instanceof Error ? cause.message : "That did not send. Try again."),
+      }
+    );
+  };
+
+  return (
+    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium text-charcoal-ink">Conversations with their care team</p>
+        <Button type="button" size="sm" onClick={() => setComposing((open) => !open)}>
+          {composing ? "Cancel" : "Ask a question"}
+        </Button>
+      </div>
+
+      <p className="text-xs text-charcoal-ink/60">
+        You, {name} and their care team all see the same thread, with who said what and when.
+      </p>
+
+      {composing && (
+        <div className="space-y-3 rounded-lg bg-charcoal-ink/5 p-4">
+          <div className="grid gap-2">
+            <label
+              className="text-xs font-medium text-charcoal-ink"
+              htmlFor={`ask-subject-${person.profileId}`}
+            >
+              What is it about?
+            </label>
+            <Input
+              id={`ask-subject-${person.profileId}`}
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              placeholder="e.g. Her blood pressure readings"
+              maxLength={150}
+            />
+          </div>
+          <div className="grid gap-2">
+            <label
+              className="text-xs font-medium text-charcoal-ink"
+              htmlFor={`ask-body-${person.profileId}`}
+            >
+              Your question
+            </label>
+            <Textarea
+              id={`ask-body-${person.profileId}`}
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+              rows={3}
+              maxLength={4000}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              size="sm"
+              disabled={start.isPending || subject.trim().length < 3 || body.trim().length === 0}
+              onClick={ask}
+            >
+              {start.isPending ? "Sending…" : "Send"}
+            </Button>
+            {error && <span className="text-sm text-red-600">{error}</span>}
+          </div>
+        </div>
+      )}
+
+      {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {!isLoading && (threads ?? []).length === 0 && !composing && (
+        <p className="text-sm text-charcoal-ink/60">No conversations yet.</p>
+      )}
+
+      <ul className="divide-y divide-charcoal-ink/10">
+        {(threads ?? []).map((thread) => (
+          <li key={thread.id} className="py-3">
+            <button
+              type="button"
+              className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+              onClick={() => setOpenId(openId === thread.id ? null : thread.id)}
+            >
+              <span className="font-medium text-charcoal-ink">{thread.subject}</span>
+              <span className="flex items-center gap-2">
+                {thread.status === "closed" && <Badge variant="grey">Closed</Badge>}
+                <span className="text-xs text-charcoal-ink/50">
+                  {shortDate(thread.last_message_at)}
+                </span>
+              </span>
+            </button>
+            {openId === thread.id && (
+              <div className="mt-3">
+                <CareMessageThread threadId={thread.id} closed={thread.status === "closed"} />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
