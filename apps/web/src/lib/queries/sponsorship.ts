@@ -180,6 +180,10 @@ export type SupportedPersonHealth = {
   nextScreeningDue: string | null;
   screeningsDue: number;
   riskLevel: string | null;
+  /** Most recent screening result, status only — never the underlying values. */
+  latestResult: { status: string; recordedAt: string } | null;
+  /** Escalations still open or under review: "someone is on it", not what it is. */
+  openFollowUps: number;
 };
 
 /**
@@ -203,7 +207,7 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
       const supabase = createClient();
       const today = new Date().toISOString().slice(0, 10);
 
-      const [bp, latest, plans, meds, screenings, risk] = await Promise.all([
+      const [bp, latest, plans, meds, screenings, risk, results, followUps] = await Promise.all([
         supabase
           .from("vitals_readings")
           .select("systolic, diastolic, taken_at")
@@ -240,6 +244,17 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
           .eq("patient_id", profileId)
           .order("computed_at", { ascending: false })
           .limit(1),
+        supabase
+          .from("screening_results")
+          .select("result_status, created_at")
+          .eq("patient_id", profileId)
+          .order("created_at", { ascending: false })
+          .limit(1),
+        supabase
+          .from("escalations")
+          .select("id")
+          .eq("patient_id", profileId)
+          .in("status", ["open", "under_review"]),
       ]);
 
       const firstBp = bp.data?.[0] ?? null;
@@ -263,6 +278,13 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
         nextScreeningDue: screenings.data?.[0]?.due_date ?? null,
         screeningsDue: due.length,
         riskLevel: risk.data?.[0]?.risk_level ?? null,
+        latestResult: results.data?.[0]
+          ? {
+              status: results.data[0].result_status,
+              recordedAt: results.data[0].created_at,
+            }
+          : null,
+        openFollowUps: (followUps.data ?? []).length,
       };
     },
   });

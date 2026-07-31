@@ -37,6 +37,8 @@ declare
   v_screen    uuid;
   v_sched     uuid;
   v_bundle    uuid;
+  v_alert     uuid;
+  v_child     uuid := 'a1e10000-0000-4000-8000-000000000007';
   v_thread    uuid;
   v_vital     uuid;
   v_n         int;
@@ -98,6 +100,21 @@ begin
   insert into public.patient_risk_scores (organisation_id, patient_id, score_type, risk_level)
   values (v_org, v_patient, 'bp_control', 'high');
 
+  -- The heavier disclosures the founder added on 2026-07-31: a result, and the
+  -- reasoning attached to an escalation.
+  -- Deliberately a NORMAL result: an abnormal one would fire the whole Cat 2->1
+  -- pipeline and its notifications, which would muddy the notification counts in
+  -- step 9. What is being tested here is whether the row is readable at all.
+  insert into public.screening_results (organisation_id, patient_id, result_status)
+  values (v_org, v_patient, 'normal');
+  insert into public.clinician_alerts (organisation_id, patient_id, level, title, status)
+  values (v_org, v_patient, 'clinician_review', 'Review the latest reading', 'open')
+  returning id into v_alert;
+  insert into public.escalations (organisation_id, patient_id, clinician_alert_id, status, reason)
+  values (v_org, v_patient, v_alert, 'open', 'Blood pressure trending up over three readings');
+  insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at)
+  values (v_org, v_patient, 'total_cholesterol', 6.2, 'mmol/L', now());
+
   -- ---- 2. Before consent, the sponsor sees nothing clinical -----------------
   set local role authenticated;
   perform set_config('request.jwt.claims',
@@ -156,23 +173,35 @@ begin
   -- Count surfaces that return at least one row, not rows: activating a
   -- hypertension care plan legitimately schedules an extra lipid screening
   -- (ensure_chronic_lipid_schedule), so a fixed row total would be brittle.
-  select (case when exists (select 1 from public.vitals_readings     where patient_id = v_patient) then 1 else 0 end)
-       + (case when exists (select 1 from public.care_plans          where patient_id = v_patient) then 1 else 0 end)
-       + (case when exists (select 1 from public.medications         where patient_id = v_patient) then 1 else 0 end)
-       + (case when exists (select 1 from public.screening_schedules where patient_id = v_patient) then 1 else 0 end)
-       + (case when exists (select 1 from public.lab_orders          where patient_id = v_patient) then 1 else 0 end)
-       + (case when exists (select 1 from public.patient_risk_scores where patient_id = v_patient) then 1 else 0 end)
+  select (case when exists (select 1 from public.vitals_readings      where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.care_plans           where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.medications          where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.screening_schedules  where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.lab_orders           where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.patient_risk_scores  where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.screening_results    where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.escalations          where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.clinician_alerts     where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.lab_analyte_readings where patient_id = v_patient) then 1 else 0 end)
+       + (case when exists (select 1 from public.patient_timeline     where patient_id = v_patient) then 1 else 0 end)
     into v_n;
-  if v_n <> 6 then
-    raise exception 'FAIL: consented sponsor can read % of 6 clinical surfaces', v_n;
+  if v_n <> 11 then
+    raise exception 'FAIL: consented sponsor can read % of 11 clinical surfaces', v_n;
   end if;
-  raise notice 'PASS  consented sponsor reads all six clinical surfaces';
+  raise notice 'PASS  consented sponsor reads all eleven clinical surfaces, results and escalations included';
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_kin, 'role', 'authenticated')::text, true);
-  select (select count(*) from public.vitals_readings     where patient_id = v_patient)
-       + (select count(*) from public.medications         where patient_id = v_patient)
-       + (select count(*) from public.patient_risk_scores where patient_id = v_patient)
+  -- lab_analyte_readings and patient_timeline are the two that admitted ANY
+  -- grantee before 20260731185243. If either ever returns a row here again, the
+  -- consent switch has been made a fiction.
+  select (select count(*) from public.vitals_readings      where patient_id = v_patient)
+       + (select count(*) from public.medications          where patient_id = v_patient)
+       + (select count(*) from public.patient_risk_scores  where patient_id = v_patient)
+       + (select count(*) from public.screening_results    where patient_id = v_patient)
+       + (select count(*) from public.escalations          where patient_id = v_patient)
+       + (select count(*) from public.lab_analyte_readings where patient_id = v_patient)
+       + (select count(*) from public.patient_timeline     where patient_id = v_patient)
     into v_n;
   if v_n <> 0 then
     raise exception 'FAIL: an unconsented next of kin sees % clinical row(s)', v_n;
@@ -295,6 +324,37 @@ begin
   end if;
   raise notice 'PASS  the patient sees every message they did not write, the sponsor is never notified of their own, and none of it leaves the app';
 
+  -- ---- 9b. A child with no login cannot be asked, so 'manage' stands in ------
+  -- Without this branch, tightening lab_analyte_readings/patient_timeline would
+  -- have silently cut a parent off from their own child's record.
+  reset role;
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_child, 'sponsor-test-child@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles
+     set organisation_id = v_org, role = 'patient', full_name = 'Small Child',
+         is_dependent_account = true
+   where id = v_child;
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
+  values (v_child, v_patient, 'manage', v_patient);
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, temperature_c)
+  values (v_org, v_child, 'temperature', 38.4);
+
+  set local role authenticated;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  select count(*) into v_n from public.vitals_readings where patient_id = v_child;
+  if v_n <> 1 then
+    raise exception 'FAIL: a guardian reads % of their own child''s readings', v_n;
+  end if;
+
+  -- ...and that standing-in applies ONLY to a dependent account. The kin below
+  -- holds no grant on the child at all, so this also proves the join is real.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_kin, 'role', 'authenticated')::text, true);
+  select count(*) into v_n from public.vitals_readings where patient_id = v_child;
+  if v_n <> 0 then raise exception 'FAIL: an unrelated person reads the child''s record'; end if;
+  raise notice 'PASS  a guardian still reads their no-login child, whom nobody could have asked';
+
   -- ---- 10. Withdrawing consent takes effect immediately ----------------------
   set local role authenticated;
   perform set_config('request.jwt.claims',
@@ -305,8 +365,12 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_sponsor, 'role', 'authenticated')::text, true);
   select (select count(*) from public.vitals_readings      where patient_id = v_patient)
-       + (select count(*) from public.care_messages        where thread_id = v_thread)
-       + (select count(*) from public.care_message_threads where id = v_thread)
+       + (select count(*) from public.screening_results     where patient_id = v_patient)
+       + (select count(*) from public.escalations           where patient_id = v_patient)
+       + (select count(*) from public.lab_analyte_readings  where patient_id = v_patient)
+       + (select count(*) from public.patient_timeline      where patient_id = v_patient)
+       + (select count(*) from public.care_messages         where thread_id = v_thread)
+       + (select count(*) from public.care_message_threads  where id = v_thread)
     into v_n;
   if v_n <> 0 then
     raise exception 'FAIL: a revoked sponsor still reads % row(s)', v_n;

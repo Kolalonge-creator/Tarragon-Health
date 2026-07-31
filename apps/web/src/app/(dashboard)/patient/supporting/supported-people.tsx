@@ -329,7 +329,9 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
     !data.latestBloodPressure &&
     data.activeConditions.length === 0 &&
     data.medications.length === 0 &&
-    !data.nextScreeningDue;
+    !data.nextScreeningDue &&
+    !data.latestResult &&
+    data.openFollowUps === 0;
 
   return (
     <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
@@ -382,6 +384,27 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
                   {humanCondition(condition)}
                 </Badge>
               ))}
+            </div>
+          )}
+
+          {(data.latestResult || data.openFollowUps > 0) && (
+            <div className="space-y-1 rounded-lg bg-charcoal-ink/5 p-3">
+              {data.latestResult && (
+                <p className="text-sm text-charcoal-ink/70">
+                  Last test result recorded {shortDate(data.latestResult.recordedAt)}
+                  {data.latestResult.status === "normal"
+                    ? " — nothing flagged."
+                    : " — flagged for their care team."}
+                </p>
+              )}
+              {data.openFollowUps > 0 && (
+                <p className="text-sm text-charcoal-ink/70">
+                  {data.openFollowUps === 1
+                    ? "One follow-up is open with their care team."
+                    : `${data.openFollowUps} follow-ups are open with their care team.`}{" "}
+                  You can ask about it below.
+                </p>
+              )}
             </div>
           )}
 
