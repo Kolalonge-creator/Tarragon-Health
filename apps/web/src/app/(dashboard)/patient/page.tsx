@@ -46,6 +46,7 @@ import { VaccinationForFamily } from "./vaccination-for-family";
 import { FacilityDirectory } from "./facility-directory";
 import { PatientLocationForm } from "./patient-location-form";
 import { ReminderPreferenceForm } from "./reminder-preference-form";
+import { AiUsageDisclosure } from "./ai-usage-disclosure";
 import { WearableConnectSection } from "./wearable-connect-section";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
@@ -440,6 +441,7 @@ export default async function PatientPage() {
             next_of_kin_phone: profile.next_of_kin_phone,
           }}
         />
+        <AiUsageDisclosure />
       </DashboardSection>
     </DashboardPlaceholder>
   );

@@ -4,7 +4,10 @@ import { z } from "zod";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
+import { createMeeting } from "@/lib/zoom/meetings";
+import { isZoomConfigured } from "@/lib/zoom/client";
 import type { Currency } from "@tarragon/shared";
 
 const requestSchema = z.object({
@@ -107,4 +110,66 @@ export async function cancelVideoVisitRequest(requestId: string): Promise<void> 
     .delete()
     .eq("id", parsed.data)
     .in("status", ["requested", "pending_payment"]);
+}
+
+export type SelectAlternateSlotState = { error: string } | undefined;
+
+/**
+ * Patient picks one of the doctor's proposed alternate times
+ * (select_video_visit_alternate_slot RPC) — the atomic booking + ownership
+ * check both live in the RPC itself, this is a thin wrapper that also fires
+ * the Zoom meeting + patient/doctor confirmation, mirroring acceptVideoVisit.
+ */
+export async function selectVideoVisitAlternateSlot(
+  _prev: SelectAlternateSlotState,
+  formData: FormData
+): Promise<SelectAlternateSlotState> {
+  const requestId = z.string().uuid().safeParse(String(formData.get("request_id") ?? ""));
+  const slotId = z.string().uuid().safeParse(String(formData.get("slot_id") ?? ""));
+  if (!requestId.success || !slotId.success) return { error: "Pick a time first" };
+
+  const supabase = await createClient();
+  const { data: consultId, error } = await supabase.rpc("select_video_visit_alternate_slot", {
+    p_request_id: requestId.data,
+    p_slot_id: slotId.data,
+  });
+  if (error || !consultId) {
+    return { error: error?.message ?? "Could not book that time." };
+  }
+
+  const { data: consult } = await supabase
+    .from("video_consultations")
+    .select("id, organisation_id, patient_id, scheduled_at")
+    .eq("id", consultId)
+    .maybeSingle();
+
+  if (consult) {
+    const service = createServiceRoleClient();
+    if (consult.scheduled_at && isZoomConfigured()) {
+      const meeting = await createMeeting({
+        topic: "Tarragon Health: Video visit",
+        startTime: consult.scheduled_at,
+      });
+      if (meeting.ok) {
+        await service
+          .from("video_consultations")
+          .update({
+            zoom_meeting_id: meeting.data.meetingId,
+            join_url: meeting.data.joinUrl,
+            host_start_url: meeting.data.hostStartUrl,
+          })
+          .eq("id", consult.id);
+      }
+    }
+    await service.from("notifications").insert({
+      organisation_id: consult.organisation_id,
+      recipient_id: consult.patient_id,
+      channel: "whatsapp",
+      status: "pending",
+      template: "video_consult_booked",
+      payload: { scheduled_at: consult.scheduled_at },
+    });
+  }
+
+  return undefined;
 }

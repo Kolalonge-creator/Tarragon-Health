@@ -10967,6 +10967,9 @@ export type Database = {
           payment_provider: string | null
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
+          proposed_at: string | null
+          proposed_by: string | null
+          proposed_slot_ids: string[] | null
           refund_ref: string | null
           refund_status: string | null
           slot_id: string | null
@@ -10989,6 +10992,9 @@ export type Database = {
           payment_provider?: string | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          proposed_at?: string | null
+          proposed_by?: string | null
+          proposed_slot_ids?: string[] | null
           refund_ref?: string | null
           refund_status?: string | null
           slot_id?: string | null
@@ -11011,6 +11017,9 @@ export type Database = {
           payment_provider?: string | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          proposed_at?: string | null
+          proposed_by?: string | null
+          proposed_slot_ids?: string[] | null
           refund_ref?: string | null
           refund_status?: string | null
           slot_id?: string | null
@@ -11038,6 +11047,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_visit_requests_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
           {
@@ -12364,6 +12380,14 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      propose_video_visit_alternate_slots: {
+        Args: { p_request_id: string; p_slot_ids: string[] }
+        Returns: undefined
+      }
+      select_video_visit_alternate_slot: {
+        Args: { p_request_id: string; p_slot_id: string }
+        Returns: string
+      }
       finance_accounts_list: { Args: never; Returns: Json }
       finance_ap_aging: { Args: never; Returns: Json }
       finance_approval_history: { Args: { p_limit?: number }; Returns: Json }
@@ -13339,6 +13363,7 @@ export type Database = {
         | "expired"
         | "cancelled"
         | "refunded"
+        | "alternate_proposed"
       vital_source: "manual" | "device" | "wearable" | "cgm"
       vital_type:
         | "blood_pressure"
@@ -13974,6 +13999,7 @@ export const Constants = {
         "expired",
         "cancelled",
         "refunded",
+        "alternate_proposed",
       ],
       vital_source: ["manual", "device", "wearable", "cgm"],
       vital_type: [

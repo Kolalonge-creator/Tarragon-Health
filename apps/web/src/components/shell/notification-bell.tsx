@@ -35,6 +35,12 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient#overview",
     };
   }
+  if (n.template === "video_visit_alternate_proposed") {
+    return {
+      text: "Your doctor offered a different time for your video visit — pick one",
+      href: "/patient#care",
+    };
+  }
   if (n.template === "care_access_view_request" || n.template === "care_access_manage_request") {
     const name = String(payload.initiator_name ?? "Someone");
     const level = payload.permission_level === "manage" ? "manage" : "view";
@@ -49,6 +55,27 @@ function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text: `${name} ${accepted ? "accepted" : "declined"} your care access request`,
       href: "/patient/family",
+    };
+  }
+  if (n.template === "medication_refill_reminder") {
+    const drug = String(payload.drug_name ?? "your medication");
+    return {
+      text: `Refill reminder: ${drug} is due soon`,
+      href: "/patient#medications",
+    };
+  }
+  if (n.template === "medication_adherence_checkin") {
+    const drug = String(payload.drug_name ?? "your medication");
+    const checkinCopy: Record<string, string> = {
+      started: `Have you started taking ${drug}?`,
+      side_effects: `Any side effects from ${drug}?`,
+      missed_doses: `How many doses of ${drug} have you missed?`,
+      lab_review: `Time for a follow-up on ${drug}`,
+    };
+    const checkinType = String(payload.checkin_type ?? "");
+    return {
+      text: checkinCopy[checkinType] ?? `A check-in for ${drug} is due`,
+      href: "/patient#medications",
     };
   }
   if (n.template === "critical_notification_escalation_exhausted") {

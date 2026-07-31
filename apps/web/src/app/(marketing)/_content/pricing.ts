@@ -359,7 +359,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦10,000/visit",
     label: "BOOK & PAY",
     description:
-      "A 15-minute video consultation with a doctor, never an in-person visit. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a doctor accepts your specific slot, which is also when your time is confirmed. If no doctor can take it within 48 hours, you're refunded in full. Not a substitute for emergency care.",
+      "A 15-minute video consultation with a doctor, never an in-person visit. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed — a doctor accepts your slot or offers a different one that works, within 24 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
     availability: "Available on any plan, priced per visit rather than as a subscription.",
   },
   {

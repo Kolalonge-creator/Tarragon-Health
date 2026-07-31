@@ -342,9 +342,22 @@ const TEMPLATE_MAP: Record<
         `The join link is in the app. — Tarragon Health`,
     };
   },
-  // Sent when a doctor declines a paid video-visit request, or no doctor
-  // accepted it within 48h (decline action / video-visit-refunds cron). The
-  // refund is automatic; this just tells the patient honestly what happened.
+  // Sent when a doctor offers alternate times instead of the patient's
+  // original request (propose_video_visit_alternate_slots) — the patient
+  // picks one in the app within 24h or the payment is refunded. Confirmation
+  // only; the actual times to choose from live in the app, not this message.
+  video_visit_alternate_proposed: () => {
+    return {
+      metaTemplateName: "video_visit_alternate_proposed",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText:
+        "Your doctor offered different times for your video visit. Pick one in the app within 24 hours, or you'll be refunded in full. — Tarragon Health",
+    };
+  },
+  // Sent when a doctor declines a paid video-visit request, or nobody
+  // confirmed a time within 24h (decline action / video-visit-refunds cron).
+  // The refund is automatic; this just tells the patient honestly what happened.
   video_visit_declined: (payload) => {
     const reason = String(payload.reason ?? "").trim();
     return {

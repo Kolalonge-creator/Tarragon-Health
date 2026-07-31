@@ -55,6 +55,27 @@ export function useVideoVisitPrice() {
   });
 }
 
+export type ProposedSlot = { id: string; slot_start: string };
+
+/**
+ * proposed_slot_ids is a plain uuid[], not a foreign key PostgREST can
+ * embed-join — resolved with one follow-up query against whatever ids
+ * actually appear across the fetched rows, mapped back onto each request.
+ */
+async function resolveProposedSlots(
+  supabase: ReturnType<typeof createClient>,
+  rows: { proposed_slot_ids: string[] | null }[]
+): Promise<Map<string, ProposedSlot>> {
+  const ids = [...new Set(rows.flatMap((r) => r.proposed_slot_ids ?? []))];
+  if (ids.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from("consult_availability_slots")
+    .select("id, slot_start")
+    .in("id", ids);
+  if (error) throw error;
+  return new Map((data ?? []).map((s) => [s.id, s]));
+}
+
 /** The patient's own video-visit requests, newest first. */
 export function useMyVideoVisitRequests(patientId: string) {
   return useQuery({
@@ -68,12 +89,22 @@ export function useMyVideoVisitRequests(patientId: string) {
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
-      return data as (VideoVisitRequest & { slot: { slot_start: string } | null })[];
+      const rows = data as (VideoVisitRequest & { slot: { slot_start: string } | null })[];
+      const bySlotId = await resolveProposedSlots(supabase, rows);
+      return rows.map((r) => ({
+        ...r,
+        proposedSlots: (r.proposed_slot_ids ?? [])
+          .map((id) => bySlotId.get(id))
+          .filter((s): s is ProposedSlot => !!s),
+      }));
     },
   });
 }
 
-/** Doctor-side: paid requests waiting for acceptance (the held-payment queue). */
+/** Doctor-side: paid requests waiting for acceptance or a picked time (the
+ * held-payment queue) — includes requests the doctor already proposed
+ * alternate times for, so the queue shows what's still awaiting the
+ * patient rather than dropping it once proposed. */
 export function useOrgVideoVisitRequests() {
   return useQuery({
     queryKey: consultSlotKeys.orgRequests,
@@ -84,10 +115,17 @@ export function useOrgVideoVisitRequests() {
         .select(
           "*, patient:profiles!video_visit_requests_patient_id_fkey(full_name, patient_number), slot:consult_availability_slots!video_visit_requests_slot_id_fkey(slot_start)"
         )
-        .eq("status", "payment_confirmed")
+        .in("status", ["payment_confirmed", "alternate_proposed"])
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as VideoVisitRequestWithPatient[];
+      const rows = data as VideoVisitRequestWithPatient[];
+      const bySlotId = await resolveProposedSlots(supabase, rows);
+      return rows.map((r) => ({
+        ...r,
+        proposedSlots: (r.proposed_slot_ids ?? [])
+          .map((id) => bySlotId.get(id))
+          .filter((s): s is ProposedSlot => !!s),
+      }));
     },
   });
 }

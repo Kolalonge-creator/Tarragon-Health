@@ -11,7 +11,9 @@ import {
 } from "@/lib/queries/consult-slots";
 import {
   requestVideoVisit,
+  selectVideoVisitAlternateSlot,
   type RequestVideoVisitState,
+  type SelectAlternateSlotState,
 } from "./video-visit-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +44,12 @@ const REQUEST_STATUS: Record<
   payment_confirmed: {
     label: "Paid, waiting for a doctor to accept",
     tone: "amber",
-    note: "Your payment is held by Tarragon and only goes through when a doctor accepts. If no doctor can take it within 48 hours, you're refunded in full.",
+    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time — or offer a different one that works — within 24 hours. If nobody can, you're refunded in full.",
+  },
+  alternate_proposed: {
+    label: "Your doctor offered different times",
+    tone: "amber",
+    note: "Your original time didn't work, so your doctor offered these instead — pick one below within 24 hours or you're refunded in full.",
   },
   accepted: { label: "Booked", tone: "green" },
   declined: {
@@ -53,11 +60,51 @@ const REQUEST_STATUS: Record<
   expired: {
     label: "Not accepted in time",
     tone: "red",
-    note: "No doctor could take this within 48 hours. Your payment will be refunded in full.",
+    note: "Nobody was able to confirm a time within 24 hours. Your payment will be refunded in full.",
   },
   cancelled: { label: "Cancelled", tone: "grey" },
   refunded: { label: "Refunded", tone: "grey" },
 };
+
+/**
+ * One form, one submit button per offered time — the button that was
+ * actually clicked contributes its own name/value pair to the FormData
+ * (standard HTML submit-button semantics), so the server action reads
+ * exactly which of the doctor's proposed times the patient picked.
+ */
+function AlternateSlotPicker({
+  requestId,
+  slots,
+}: {
+  requestId: string;
+  slots: { id: string; slot_start: string }[];
+}) {
+  const queryClient = useQueryClient();
+  const [state, formAction, isPending] = useActionState<SelectAlternateSlotState, FormData>(
+    selectVideoVisitAlternateSlot,
+    undefined
+  );
+
+  useEffect(() => {
+    if (state === undefined) return;
+    queryClient.invalidateQueries({ queryKey: ["video-visit-requests"] });
+    queryClient.invalidateQueries({ queryKey: ["consult-slots"] });
+  }, [state, queryClient]);
+
+  return (
+    <form action={formAction} className="space-y-2">
+      <input type="hidden" name="request_id" value={requestId} />
+      <div className="flex flex-wrap gap-2">
+        {slots.map((slot) => (
+          <Button key={slot.id} type="submit" name="slot_id" value={slot.id} size="sm" disabled={isPending}>
+            {isPending ? "Booking…" : formatSlot(slot.slot_start)}
+          </Button>
+        ))}
+      </div>
+      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+    </form>
+  );
+}
 
 /**
  * Paid, doctor-accepted video visits (founder-specified flow, 2026-07-23):
@@ -103,10 +150,10 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
         <p className="text-sm text-charcoal-ink/70">
           A paid, self-serve 15-minute video consultation with a Tarragon doctor, not an
           in-person visit. Pick a time and pay: your payment is{" "}
-          <span className="font-medium">held by Tarragon</span> and only goes through when a
-          doctor accepts your request; that&apos;s also when your time is confirmed. Visits
-          depend on doctor availability and are not guaranteed until accepted. If no doctor can
-          take your request, you get a full refund.
+          <span className="font-medium">held by Tarragon</span> and only goes through once a
+          time is confirmed — either your doctor accepts the time you picked, or offers a
+          different time that works better for them, within 24 hours. If nobody can take it,
+          you get a full refund.
         </p>
 
         {hasUpcoming && (
@@ -182,6 +229,9 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                   </div>
                   {status.note && (
                     <p className="text-xs text-charcoal-ink/60">{status.note}</p>
+                  )}
+                  {req.status === "alternate_proposed" && req.proposedSlots.length > 0 && (
+                    <AlternateSlotPicker requestId={req.id} slots={req.proposedSlots} />
                   )}
                   {req.status === "declined" && req.declined_reason && (
                     <p className="text-xs text-charcoal-ink/60">

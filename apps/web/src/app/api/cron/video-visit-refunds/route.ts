@@ -3,14 +3,23 @@ import { isPaystackConfigured } from "@/lib/paystack/client";
 import { refundTransaction } from "@/lib/paystack/refunds";
 
 /**
- * Daily sweep for the video-visit held-payment model (Vercel Cron, see
- * vercel.json). Two passes:
- *   1. Expiry — paid requests no doctor accepted within 48h flip to
- *      'expired' with refund_status='due' and the patient is told (the
- *      "held until a doctor accepts" promise has a deadline).
- *   2. Refunds — every declined/expired request with refund_status='due' and
+ * Sweep for the video-visit held-payment model (Vercel Cron, see
+ * vercel.json — runs every 4 hours so the 24h SLA below is actually close to
+ * true, not "24-48h depending on time of day" the way a once-daily sweep
+ * against a 24h cutoff would silently allow). Three passes:
+ *   1. Doctor-engagement expiry — paid requests no doctor accepted OR
+ *      proposed alternate times for within 24h flip to 'expired' with
+ *      refund_status='due' (founder ask 2026-07-31, tightened from 48h: "a
+ *      doctor will accept within 24 hours").
+ *   2. Patient-selection expiry — once a doctor proposes alternate times
+ *      (status='alternate_proposed'), the patient gets their own 24h window
+ *      to pick one before it also expires+refunds. Same cutoff, different
+ *      clock (proposed_at, not the request's original updated_at) — a
+ *      doctor engaging on time must not be undone by the patient simply not
+ *      choosing yet.
+ *   3. Refunds — every declined/expired request with refund_status='due' and
  *      a real Paystack charge gets a full refund via the Refunds API;
- *      success marks it 'refunded'. Failures stay 'due' and retry tomorrow —
+ *      success marks it 'refunded'. Failures stay 'due' and retry next run —
  *      nothing is ever silently dropped. (Stripe-charged requests, if any
  *      appear once diaspora pricing exists, stay 'due' for manual handling —
  *      flagged in the response payload.)
@@ -25,10 +34,10 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const supabase = createServiceRoleClient();
-  const cutoff = new Date(Date.now() - 48 * 3600_000).toISOString();
+  const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
 
-  // Pass 1: expire unaccepted paid requests older than 48h.
-  const { data: expired } = await supabase
+  // Pass 1: expire unaccepted, un-proposed paid requests older than 24h.
+  const { data: expiredUnaccepted } = await supabase
     .from("video_visit_requests")
     .update({ status: "expired", refund_status: "due" })
     .eq("status", "payment_confirmed")
@@ -36,7 +45,7 @@ export async function GET(request: Request): Promise<Response> {
     .not("payment_provider_ref", "is", null)
     .select("id, organisation_id, patient_id");
 
-  for (const row of expired ?? []) {
+  for (const row of expiredUnaccepted ?? []) {
     await supabase.from("notifications").insert({
       organisation_id: row.organisation_id,
       recipient_id: row.patient_id,
@@ -56,7 +65,36 @@ export async function GET(request: Request): Promise<Response> {
     .lt("updated_at", cutoff)
     .is("payment_provider_ref", null);
 
-  // Pass 2: process due refunds.
+  // Pass 2: expire proposals the patient never picked a time from.
+  const { data: expiredUnselected } = await supabase
+    .from("video_visit_requests")
+    .update({ status: "expired", refund_status: "due" })
+    .eq("status", "alternate_proposed")
+    .lt("proposed_at", cutoff)
+    .not("payment_provider_ref", "is", null)
+    .select("id, organisation_id, patient_id");
+
+  for (const row of expiredUnselected ?? []) {
+    await supabase.from("notifications").insert({
+      organisation_id: row.organisation_id,
+      recipient_id: row.patient_id,
+      channel: "whatsapp",
+      status: "pending",
+      template: "video_visit_declined",
+      payload: { reason: "None of the offered times were picked in time — you will be refunded in full." },
+    });
+  }
+
+  await supabase
+    .from("video_visit_requests")
+    .update({ status: "expired" })
+    .eq("status", "alternate_proposed")
+    .lt("proposed_at", cutoff)
+    .is("payment_provider_ref", null);
+
+  const expired = [...(expiredUnaccepted ?? []), ...(expiredUnselected ?? [])];
+
+  // Pass 3: process due refunds.
   const { data: due } = await supabase
     .from("video_visit_requests")
     .select("id, payment_provider, payment_provider_ref")
@@ -88,7 +126,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   return Response.json({
-    expired: (expired ?? []).length,
+    expired: expired.length,
     refunded,
     refund_failures: failed,
     needs_manual_refund: manual,
