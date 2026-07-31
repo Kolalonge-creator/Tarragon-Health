@@ -10,7 +10,9 @@ import {
   useAllLabProviders,
   useCreateLabProvider,
   useSetLabProviderActive,
+  useUpdateLabProviderLicense,
 } from "@/lib/queries/partner-catalogues";
+import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
 
 function parseRegions(raw: string): string[] {
   return raw.split(",").map((r) => r.trim()).filter(Boolean);
@@ -20,6 +22,7 @@ export function LabsManager() {
   const { data: labs, isLoading } = useAllLabProviders();
   const create = useCreateLabProvider();
   const toggle = useSetLabProviderActive();
+  const updateLicense = useUpdateLabProviderLicense();
 
   const [name, setName] = useState("");
   const [regions, setRegions] = useState("");
@@ -91,22 +94,35 @@ export function LabsManager() {
             <p className="text-sm text-charcoal-ink/60">No labs yet.</p>
           ) : (
             (labs ?? []).map((lab) => (
-              <div key={lab.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium text-charcoal-ink">{lab.name}</span>
-                  <Badge variant={lab.is_active ? "green" : "grey"}>{lab.is_active ? "Active" : "Inactive"}</Badge>
-                  {lab.home_collection && <Badge variant="blue">Home collection</Badge>}
-                  {lab.regions.length > 0 && (
-                    <span className="text-xs text-charcoal-ink/50">{lab.regions.join(", ")}</span>
-                  )}
+              <div key={lab.id} className="rounded-md border border-charcoal-ink/10 px-4 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium text-charcoal-ink">{lab.name}</span>
+                    <Badge variant={lab.is_active ? "green" : "grey"}>{lab.is_active ? "Active" : "Inactive"}</Badge>
+                    {lab.home_collection && <Badge variant="blue">Home collection</Badge>}
+                    <PartnerLicenseBadge expiresAt={lab.license_expires_at} />
+                    {lab.regions.length > 0 && (
+                      <span className="text-xs text-charcoal-ink/50">{lab.regions.join(", ")}</span>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    disabled={toggle.isPending}
+                    onClick={() => toggle.mutate({ id: lab.id, isActive: !lab.is_active })}
+                  >
+                    {lab.is_active ? "Deactivate" : "Activate"}
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  disabled={toggle.isPending}
-                  onClick={() => toggle.mutate({ id: lab.id, isActive: !lab.is_active })}
-                >
-                  {lab.is_active ? "Deactivate" : "Activate"}
-                </Button>
+                {lab.license_number && (
+                  <p className="mt-1 text-xs text-charcoal-ink/50">
+                    {lab.license_type ?? "License"}: {lab.license_number}
+                  </p>
+                )}
+                <PartnerLicenseEditor
+                  values={lab}
+                  saving={updateLicense.isPending}
+                  onSave={(next) => updateLicense.mutate({ id: lab.id, ...next })}
+                />
               </div>
             ))
           )}

@@ -10,7 +10,9 @@ import {
   useAllPharmacyPartners,
   useCreatePharmacyPartner,
   useSetPharmacyPartnerActive,
+  useUpdatePharmacyPartnerLicense,
 } from "@/lib/queries/partner-catalogues";
+import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
 
 function parseRegions(raw: string): string[] {
   return raw.split(",").map((r) => r.trim()).filter(Boolean);
@@ -20,6 +22,7 @@ export function PharmaciesManager() {
   const { data: pharmacies, isLoading } = useAllPharmacyPartners();
   const create = useCreatePharmacyPartner();
   const toggle = useSetPharmacyPartnerActive();
+  const updateLicense = useUpdatePharmacyPartnerLicense();
 
   const [name, setName] = useState("");
   const [regions, setRegions] = useState("");
@@ -126,22 +129,35 @@ export function PharmaciesManager() {
             <p className="text-sm text-charcoal-ink/60">No pharmacies yet.</p>
           ) : (
             (pharmacies ?? []).map((ph) => (
-              <div key={ph.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium text-charcoal-ink">{ph.name}</span>
-                  <Badge variant={ph.is_active ? "green" : "grey"}>{ph.is_active ? "Active" : "Inactive"}</Badge>
-                  {ph.delivery && <Badge variant="blue">Delivery</Badge>}
-                  {(ph.state || ph.city) && (
-                    <span className="text-xs text-charcoal-ink/50">{[ph.city, ph.state].filter(Boolean).join(", ")}</span>
-                  )}
+              <div key={ph.id} className="rounded-md border border-charcoal-ink/10 px-4 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium text-charcoal-ink">{ph.name}</span>
+                    <Badge variant={ph.is_active ? "green" : "grey"}>{ph.is_active ? "Active" : "Inactive"}</Badge>
+                    {ph.delivery && <Badge variant="blue">Delivery</Badge>}
+                    <PartnerLicenseBadge expiresAt={ph.license_expires_at} />
+                    {(ph.state || ph.city) && (
+                      <span className="text-xs text-charcoal-ink/50">{[ph.city, ph.state].filter(Boolean).join(", ")}</span>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    disabled={toggle.isPending}
+                    onClick={() => toggle.mutate({ id: ph.id, isActive: !ph.is_active })}
+                  >
+                    {ph.is_active ? "Deactivate" : "Activate"}
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  disabled={toggle.isPending}
-                  onClick={() => toggle.mutate({ id: ph.id, isActive: !ph.is_active })}
-                >
-                  {ph.is_active ? "Deactivate" : "Activate"}
-                </Button>
+                {ph.license_number && (
+                  <p className="mt-1 text-xs text-charcoal-ink/50">
+                    {ph.license_type ?? "License"}: {ph.license_number}
+                  </p>
+                )}
+                <PartnerLicenseEditor
+                  values={ph}
+                  saving={updateLicense.isPending}
+                  onSave={(next) => updateLicense.mutate({ id: ph.id, ...next })}
+                />
               </div>
             ))
           )}

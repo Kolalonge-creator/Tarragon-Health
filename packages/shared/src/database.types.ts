@@ -2465,6 +2465,113 @@ export type Database = {
           },
         ]
       }
+      data_breach_deadline_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          incident_id: string
+          notified_on: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          incident_id: string
+          notified_on?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          incident_id?: string
+          notified_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_breach_deadline_notifications_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "data_breach_incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_breach_incidents: {
+        Row: {
+          affected_data_categories: string[]
+          closed_at: string | null
+          closed_by: string | null
+          containment_actions: string | null
+          created_at: string
+          description: string
+          discovered_at: string
+          estimated_affected_patients: number | null
+          follow_up_actions: string | null
+          id: string
+          ndpc_notification_reference: string | null
+          ndpc_notified_at: string | null
+          patients_notified_at: string | null
+          reported_by: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          affected_data_categories?: string[]
+          closed_at?: string | null
+          closed_by?: string | null
+          containment_actions?: string | null
+          created_at?: string
+          description: string
+          discovered_at: string
+          estimated_affected_patients?: number | null
+          follow_up_actions?: string | null
+          id?: string
+          ndpc_notification_reference?: string | null
+          ndpc_notified_at?: string | null
+          patients_notified_at?: string | null
+          reported_by?: string | null
+          severity: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          affected_data_categories?: string[]
+          closed_at?: string | null
+          closed_by?: string | null
+          containment_actions?: string | null
+          created_at?: string
+          description?: string
+          discovered_at?: string
+          estimated_affected_patients?: number | null
+          follow_up_actions?: string | null
+          id?: string
+          ndpc_notification_reference?: string | null
+          ndpc_notified_at?: string | null
+          patients_notified_at?: string | null
+          reported_by?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_breach_incidents_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_breach_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diabetes_complication_checks: {
         Row: {
           abnormal: boolean
@@ -4207,6 +4314,11 @@ export type Database = {
           home_visit_fee_kobo: number
           id: string
           is_active: boolean
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          license_verified_by: string | null
           name: string
           regions: string[]
           sample_types: string[]
@@ -4216,6 +4328,11 @@ export type Database = {
           home_visit_fee_kobo?: number
           id?: string
           is_active?: boolean
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           name: string
           regions?: string[]
           sample_types?: string[]
@@ -4225,11 +4342,24 @@ export type Database = {
           home_visit_fee_kobo?: number
           id?: string
           is_active?: boolean
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           name?: string
           regions?: string[]
           sample_types?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "home_visit_providers_license_verified_by_fkey"
+            columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       identity_verifications: {
         Row: {
@@ -4539,6 +4669,11 @@ export type Database = {
           home_collection: boolean
           id: string
           is_active: boolean
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          license_verified_by: string | null
           name: string
           regions: string[]
         }
@@ -4549,6 +4684,11 @@ export type Database = {
           home_collection?: boolean
           id?: string
           is_active?: boolean
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           name: string
           regions?: string[]
         }
@@ -4559,10 +4699,23 @@ export type Database = {
           home_collection?: boolean
           id?: string
           is_active?: boolean
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           name?: string
           regions?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lab_providers_license_verified_by_fkey"
+            columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lab_result_documents: {
         Row: {
@@ -4809,6 +4962,11 @@ export type Database = {
           estimated_delivery_hours: number | null
           id: string
           is_active: boolean
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          license_verified_by: string | null
           name: string
           regions: string[]
         }
@@ -4818,6 +4976,11 @@ export type Database = {
           estimated_delivery_hours?: number | null
           id?: string
           is_active?: boolean
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           name: string
           regions?: string[]
         }
@@ -4827,10 +4990,23 @@ export type Database = {
           estimated_delivery_hours?: number | null
           id?: string
           is_active?: boolean
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           name?: string
           regions?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "logistics_partners_license_verified_by_fkey"
+            columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lpe_consents: {
         Row: {
@@ -8608,6 +8784,11 @@ export type Database = {
           id: string
           is_active: boolean
           latitude: number | null
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          license_verified_by: string | null
           longitude: number | null
           name: string
           regions: string[]
@@ -8625,6 +8806,11 @@ export type Database = {
           id?: string
           is_active?: boolean
           latitude?: number | null
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           longitude?: number | null
           name: string
           regions?: string[]
@@ -8642,13 +8828,26 @@ export type Database = {
           id?: string
           is_active?: boolean
           latitude?: number | null
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           longitude?: number | null
           name?: string
           regions?: string[]
           state?: string | null
           uses_platform_login?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_partners_license_verified_by_fkey"
+            columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       platform_currency_settings: {
         Row: {
@@ -9968,6 +10167,11 @@ export type Database = {
           id: string
           is_active: boolean
           languages: string[]
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          license_verified_by: string | null
           location: string | null
           name: string
           specialist_type: Database["public"]["Enums"]["specialist_type"]
@@ -9989,6 +10193,11 @@ export type Database = {
           id?: string
           is_active?: boolean
           languages?: string[]
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           location?: string | null
           name: string
           specialist_type: Database["public"]["Enums"]["specialist_type"]
@@ -10010,6 +10219,11 @@ export type Database = {
           id?: string
           is_active?: boolean
           languages?: string[]
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          license_verified_at?: string | null
+          license_verified_by?: string | null
           location?: string | null
           name?: string
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
@@ -10017,7 +10231,15 @@ export type Database = {
           supports_in_person?: boolean
           supports_telemedicine?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "specialist_providers_license_verified_by_fkey"
+            columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       specialist_referrals: {
         Row: {
@@ -11243,6 +11465,103 @@ export type Database = {
             foreignKeyName: "vitals_reminder_state_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_compliance_flags: {
+        Row: {
+          created_at: string
+          detail: Json
+          flag_type: string
+          id: string
+          ledger_entry_id: string | null
+          organisation_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          wallet_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          flag_type: string
+          id?: string
+          ledger_entry_id?: string | null
+          organisation_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          wallet_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          flag_type?: string
+          id?: string
+          ledger_entry_id?: string | null
+          organisation_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_compliance_flags_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_compliance_flags_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_compliance_flags_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_compliance_flags_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "health_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_kyc_tier_limits: {
+        Row: {
+          max_balance_kobo: number | null
+          tier: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          max_balance_kobo?: number | null
+          tier: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          max_balance_kobo?: number | null
+          tier?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_kyc_tier_limits_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -12896,6 +13215,10 @@ export type Database = {
       wallet_pay_booking_order: {
         Args: { p_order_id: string; p_order_type: string }
         Returns: Json
+      }
+      wallet_kyc_balance_headroom: {
+        Args: { p_profile: string }
+        Returns: number | null
       }
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }

@@ -133,6 +133,8 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
             { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
+            { label: "Wallet compliance", href: "/admin/settings/wallet-compliance", icon: "payables" },
+            { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
           ],
         },
         {

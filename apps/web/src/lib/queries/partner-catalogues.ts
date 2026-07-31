@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables, Enums } from "@tarragon/shared";
+import type { PartnerLicenseValues } from "@/components/admin/partner-license-fields";
 
 export type LabProvider = Tables<"lab_providers">;
 export type PharmacyPartner = Tables<"pharmacy_partners">;
@@ -45,6 +46,18 @@ export function useSetLabProviderActive() {
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const supabase = createClient();
       const { error } = await supabase.from("lab_providers").update({ is_active: isActive }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
+  });
+}
+
+export function useUpdateLabProviderLicense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("lab_providers").update(license).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
@@ -108,6 +121,18 @@ export function useSetPharmacyPartnerActive() {
   });
 }
 
+export function useUpdatePharmacyPartnerLicense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("pharmacy_partners").update(license).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-partners"] }),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Specialists
 // ---------------------------------------------------------------------------
@@ -155,6 +180,18 @@ export function useSetSpecialistProviderActive() {
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const supabase = createClient();
       const { error } = await supabase.from("specialist_providers").update({ is_active: isActive }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
+  });
+}
+
+export function useUpdateSpecialistProviderLicense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("specialist_providers").update(license).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),

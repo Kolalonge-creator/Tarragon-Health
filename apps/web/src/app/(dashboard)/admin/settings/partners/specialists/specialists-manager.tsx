@@ -11,8 +11,10 @@ import {
   useAllSpecialistProviders,
   useCreateSpecialistProvider,
   useSetSpecialistProviderActive,
+  useUpdateSpecialistProviderLicense,
   type SpecialistType,
 } from "@/lib/queries/partner-catalogues";
+import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
 
 const SPECIALIST_TYPES: SpecialistType[] = [
   "urologist",
@@ -31,6 +33,7 @@ export function SpecialistsManager() {
   const { data: specialists, isLoading } = useAllSpecialistProviders();
   const create = useCreateSpecialistProvider();
   const toggle = useSetSpecialistProviderActive();
+  const updateLicense = useUpdateSpecialistProviderLicense();
 
   const [name, setName] = useState("");
   const [specialistType, setSpecialistType] = useState<SpecialistType>("cardiology");
@@ -127,21 +130,34 @@ export function SpecialistsManager() {
             <p className="text-sm text-charcoal-ink/60">No specialists yet.</p>
           ) : (
             (specialists ?? []).map((sp) => (
-              <div key={sp.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium text-charcoal-ink">{sp.name}</span>
-                  <Badge variant="grey">{sp.specialist_type.replace(/_/g, " ")}</Badge>
-                  <Badge variant={sp.is_active ? "green" : "grey"}>{sp.is_active ? "Active" : "Inactive"}</Badge>
-                  {sp.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
-                  {sp.state && <span className="text-xs text-charcoal-ink/50">{sp.state}</span>}
+              <div key={sp.id} className="rounded-md border border-charcoal-ink/10 px-4 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium text-charcoal-ink">{sp.name}</span>
+                    <Badge variant="grey">{sp.specialist_type.replace(/_/g, " ")}</Badge>
+                    <Badge variant={sp.is_active ? "green" : "grey"}>{sp.is_active ? "Active" : "Inactive"}</Badge>
+                    {sp.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
+                    <PartnerLicenseBadge expiresAt={sp.license_expires_at} />
+                    {sp.state && <span className="text-xs text-charcoal-ink/50">{sp.state}</span>}
+                  </div>
+                  <Button
+                    variant="outline"
+                    disabled={toggle.isPending}
+                    onClick={() => toggle.mutate({ id: sp.id, isActive: !sp.is_active })}
+                  >
+                    {sp.is_active ? "Deactivate" : "Activate"}
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  disabled={toggle.isPending}
-                  onClick={() => toggle.mutate({ id: sp.id, isActive: !sp.is_active })}
-                >
-                  {sp.is_active ? "Deactivate" : "Activate"}
-                </Button>
+                {sp.license_number && (
+                  <p className="mt-1 text-xs text-charcoal-ink/50">
+                    {sp.license_type ?? "License"}: {sp.license_number}
+                  </p>
+                )}
+                <PartnerLicenseEditor
+                  values={sp}
+                  saving={updateLicense.isPending}
+                  onSave={(next) => updateLicense.mutate({ id: sp.id, ...next })}
+                />
               </div>
             ))
           )}

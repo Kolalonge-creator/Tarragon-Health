@@ -213,6 +213,13 @@ export function SubscriptionManager() {
           <CurrencyTabs value={currency} onChange={setCurrencyOverride} />
           {changeState?.error && <p className="text-sm text-red-600">{changeState.error}</p>}
           {changeState?.message && <p className="text-sm text-charcoal-ink/70">{changeState.message}</p>}
+          {otherPlans.length > 0 && (
+            <p className="text-xs text-charcoal-ink/60">
+              Switching charges the new plan&apos;s price immediately and renews automatically
+              every {otherPlans[0]?.interval === "yearly" ? "year" : "billing period"} until you
+              cancel. Payments aren&apos;t refundable.
+            </p>
+          )}
           {otherPlans.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No other {currency} plans available.</p>
           ) : (
@@ -281,17 +288,23 @@ export function SubscriptionManager() {
               No add-ons available for your current plan.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {attachableAddOns.map((addOn) => (
-                <form key={addOn.id} action={attachAction}>
-                  <input type="hidden" name="subscriptionId" value={subscription.id} />
-                  <input type="hidden" name="addOnCode" value={addOn.code} />
-                  <Button type="submit" size="sm" disabled={attachPending}>
-                    Add {addOn.name} ({formatPrice(addOn.price_minor, addOn.currency as Currency, addOn.interval)})
-                  </Button>
-                </form>
-              ))}
-            </div>
+            <>
+              <p className="text-xs text-charcoal-ink/60">
+                Add-ons are charged immediately and renew automatically with your plan until you
+                remove them. Payments aren&apos;t refundable.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {attachableAddOns.map((addOn) => (
+                  <form key={addOn.id} action={attachAction}>
+                    <input type="hidden" name="subscriptionId" value={subscription.id} />
+                    <input type="hidden" name="addOnCode" value={addOn.code} />
+                    <Button type="submit" size="sm" disabled={attachPending}>
+                      Add {addOn.name} ({formatPrice(addOn.price_minor, addOn.currency as Currency, addOn.interval)})
+                    </Button>
+                  </form>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
