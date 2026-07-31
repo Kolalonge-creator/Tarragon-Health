@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { koboToNaira, type LabOrderStatus } from "@tarragon/shared";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
-import { PayWithWalletButton } from "@/components/pay-with-wallet-button";
+import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { HomeCollectionAvailability } from "@/components/home-collection-availability";
 import { ChooseLabFacility } from "./choose-lab-facility";
 import type { PatientLocation } from "./facility-selector";
@@ -61,11 +61,12 @@ export function LabOrdersList({
                   (order.facility_id ? (
                     <>
                       <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
-                      <PayWithWalletButton
+                      <RedeemVoucherButton
                         orderType="lab"
                         orderId={order.id}
-                        amountKobo={order.total_kobo}
                         patientId={patientId}
+                        panelBundleId={order.panel_bundle_id}
+                        payableKobo={order.payable_kobo ?? order.total_kobo}
                       />
                     </>
                   ) : (

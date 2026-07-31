@@ -95,7 +95,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "Small habits earn real rewards",
-    body: "Logging a reading, finishing a lesson, or completing a challenge earns wellness points, free on every plan. Collect badges along the way, and redeem points any time for real Health Wallet balance you can spend on care.",
+    body: "Logging a reading, finishing a lesson, or completing a challenge earns wellness points, free on every plan. Collect badges along the way, and redeem points any time for a reward voucher that comes off the price of your care.",
   },
   {
     title: "Escalation only when it's needed",

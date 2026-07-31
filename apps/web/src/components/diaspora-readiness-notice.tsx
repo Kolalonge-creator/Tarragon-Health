@@ -89,7 +89,7 @@ export function DiasporaReadinessNotice() {
           <p className="text-xs text-charcoal-ink/60">
             One more thing worth knowing: each person keeps their own account and their own
             plan. If you are paying for a parent, you can also fund their care directly through
-            their Health Wallet and see what every payment bought.
+            a named check for them and see when it was used.
           </p>
           <TwoLists anywhere={anywhere} inNigeria={inNigeria} />
         </div>

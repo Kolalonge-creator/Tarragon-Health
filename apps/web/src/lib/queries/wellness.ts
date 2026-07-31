@@ -5,10 +5,10 @@ import type { Tables } from "@tarragon/shared";
 /**
  * Wellness gamification (points, badges, challenges, classes). An engagement
  * layer, free to every patient regardless of plan — points reward logging
- * habits and never duplicate the real Wallet cash prevention_reward already
+ * habits and never duplicate the real reward vouchers prevention_reward already
  * pays for screening/vaccination/health-check events (see
  * 20260730120000_wellness_points_and_badges.sql). Redemption converts points
- * into real Health Wallet balance via the redeem_wellness_points RPC.
+ * into a real reward voucher via the redeem_wellness_points RPC.
  */
 
 export type WellnessPointsBalance = Tables<"wellness_points_balances">;
@@ -98,8 +98,7 @@ export function useRedeemWellnessPoints(patientId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pointsBalanceKey(patientId) });
       queryClient.invalidateQueries({ queryKey: pointsLedgerKey(patientId) });
-      queryClient.invalidateQueries({ queryKey: ["wallet", patientId] });
-      queryClient.invalidateQueries({ queryKey: ["wallet-ledger", patientId] });
+      queryClient.invalidateQueries({ queryKey: ["care-vouchers", patientId] });
     },
   });
 }

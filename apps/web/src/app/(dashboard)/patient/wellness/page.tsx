@@ -33,7 +33,7 @@ export default async function WellnessHubPage() {
         <p className="mt-1 text-sm text-charcoal-ink/70">
           Small, everyday habits add up. Earn points for logging, learning, and finishing
           challenges, collect badges along the way, and redeem points any time for real Health
-          Wallet balance you can spend on care.
+          reward voucher you can put toward your care.
         </p>
       </div>
 

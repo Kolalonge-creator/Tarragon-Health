@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
-import { PayWithWalletButton } from "@/components/pay-with-wallet-button";
+import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
@@ -191,11 +191,12 @@ export function AnnualHealthCheckBooking({
                 {order.status === "pending_payment" && (
                   <>
                     <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
-                    <PayWithWalletButton
+                    <RedeemVoucherButton
                       orderType="lab"
                       orderId={order.id}
-                      amountKobo={order.total_kobo}
                       patientId={patientId}
+                      panelBundleId={order.panel_bundle_id}
+                      payableKobo={order.payable_kobo ?? order.total_kobo}
                     />
                   </>
                 )}

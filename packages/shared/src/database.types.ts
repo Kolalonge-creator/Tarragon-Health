@@ -1524,6 +1524,286 @@ export type Database = {
           },
         ]
       }
+      care_voucher_config: {
+        Row: {
+          extension_months: number
+          id: boolean
+          max_extensions: number
+          min_instalment_kobo: number
+          updated_at: string
+          updated_by: string | null
+          validity_months: number
+        }
+        Insert: {
+          extension_months?: number
+          id?: boolean
+          max_extensions?: number
+          min_instalment_kobo?: number
+          updated_at?: string
+          updated_by?: string | null
+          validity_months?: number
+        }
+        Update: {
+          extension_months?: number
+          id?: boolean
+          max_extensions?: number
+          min_instalment_kobo?: number
+          updated_at?: string
+          updated_by?: string | null
+          validity_months?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_voucher_config_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_voucher_events: {
+        Row: {
+          actor_profile_id: string | null
+          amount_kobo: number | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["care_voucher_event_type"]
+          id: string
+          note: string | null
+          organisation_id: string
+          voucher_id: string
+        }
+        Insert: {
+          actor_profile_id?: string | null
+          amount_kobo?: number | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["care_voucher_event_type"]
+          id?: string
+          note?: string | null
+          organisation_id: string
+          voucher_id: string
+        }
+        Update: {
+          actor_profile_id?: string | null
+          amount_kobo?: number | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["care_voucher_event_type"]
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          voucher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_voucher_events_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_voucher_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_voucher_events_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_voucher_payments: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          credit_kobo: number
+          currency: string
+          id: string
+          organisation_id: string
+          payer_profile_id: string
+          payment_transaction_id: string | null
+          pending_provider_ref: string | null
+          provider: Database["public"]["Enums"]["payment_provider"] | null
+          status: string
+          voucher_id: string
+        }
+        Insert: {
+          amount_minor: number
+          created_at?: string
+          credit_kobo: number
+          currency?: string
+          id?: string
+          organisation_id: string
+          payer_profile_id: string
+          payment_transaction_id?: string | null
+          pending_provider_ref?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"] | null
+          status?: string
+          voucher_id: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          credit_kobo?: number
+          currency?: string
+          id?: string
+          organisation_id?: string
+          payer_profile_id?: string
+          payment_transaction_id?: string | null
+          pending_provider_ref?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"] | null
+          status?: string
+          voucher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_voucher_payments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_voucher_payments_payer_profile_id_fkey"
+            columns: ["payer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_voucher_payments_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_voucher_payments_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_vouchers: {
+        Row: {
+          activated_at: string | null
+          amount_paid_kobo: number
+          beneficiary_profile_id: string
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          created_at: string
+          expires_at: string | null
+          extension_count: number
+          face_value_kobo: number
+          gift_message: string | null
+          id: string
+          kind: Database["public"]["Enums"]["care_voucher_kind"]
+          organisation_id: string
+          panel_bundle_id: string | null
+          purchaser_profile_id: string | null
+          redeemed_at: string | null
+          redeemed_order_id: string | null
+          redeemed_order_type:
+            | Database["public"]["Enums"]["commission_type"]
+            | null
+          sku_code: string | null
+          sku_name: string | null
+          status: Database["public"]["Enums"]["care_voucher_status"]
+          updated_at: string
+          voucher_number: string
+        }
+        Insert: {
+          activated_at?: string | null
+          amount_paid_kobo?: number
+          beneficiary_profile_id: string
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          created_at?: string
+          expires_at?: string | null
+          extension_count?: number
+          face_value_kobo: number
+          gift_message?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["care_voucher_kind"]
+          organisation_id: string
+          panel_bundle_id?: string | null
+          purchaser_profile_id?: string | null
+          redeemed_at?: string | null
+          redeemed_order_id?: string | null
+          redeemed_order_type?:
+            | Database["public"]["Enums"]["commission_type"]
+            | null
+          sku_code?: string | null
+          sku_name?: string | null
+          status?: Database["public"]["Enums"]["care_voucher_status"]
+          updated_at?: string
+          voucher_number: string
+        }
+        Update: {
+          activated_at?: string | null
+          amount_paid_kobo?: number
+          beneficiary_profile_id?: string
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          created_at?: string
+          expires_at?: string | null
+          extension_count?: number
+          face_value_kobo?: number
+          gift_message?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["care_voucher_kind"]
+          organisation_id?: string
+          panel_bundle_id?: string | null
+          purchaser_profile_id?: string | null
+          redeemed_at?: string | null
+          redeemed_order_id?: string | null
+          redeemed_order_type?:
+            | Database["public"]["Enums"]["commission_type"]
+            | null
+          sku_code?: string | null
+          sku_name?: string | null
+          status?: Database["public"]["Enums"]["care_voucher_status"]
+          updated_at?: string
+          voucher_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_vouchers_beneficiary_profile_id_fkey"
+            columns: ["beneficiary_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_vouchers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_vouchers_panel_bundle_id_fkey"
+            columns: ["panel_bundle_id"]
+            isOneToOne: false
+            referencedRelation: "panel_bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_vouchers_purchaser_profile_id_fkey"
+            columns: ["purchaser_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_briefs: {
         Row: {
           clinician_alert_id: string
@@ -4269,48 +4549,6 @@ export type Database = {
           },
         ]
       }
-      health_wallets: {
-        Row: {
-          balance_kobo: number
-          created_at: string
-          id: string
-          organisation_id: string
-          profile_id: string
-          updated_at: string
-        }
-        Insert: {
-          balance_kobo?: number
-          created_at?: string
-          id?: string
-          organisation_id: string
-          profile_id: string
-          updated_at?: string
-        }
-        Update: {
-          balance_kobo?: number
-          created_at?: string
-          id?: string
-          organisation_id?: string
-          profile_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "health_wallets_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "health_wallets_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       home_visit_providers: {
         Row: {
           created_at: string
@@ -4525,6 +4763,7 @@ export type Database = {
       }
       lab_orders: {
         Row: {
+          applied_voucher_id: string | null
           courier_reference: string | null
           created_at: string
           facility_id: string | null
@@ -4539,6 +4778,7 @@ export type Database = {
           origin: Database["public"]["Enums"]["booking_origin"]
           panel_bundle_id: string | null
           patient_id: string
+          payable_kobo: number | null
           payment_confirmed_at: string | null
           payment_provider:
             | Database["public"]["Enums"]["payment_provider"]
@@ -4551,8 +4791,10 @@ export type Database = {
           status: Database["public"]["Enums"]["lab_order_status"]
           total_kobo: number
           updated_at: string
+          voucher_covered_kobo: number
         }
         Insert: {
+          applied_voucher_id?: string | null
           courier_reference?: string | null
           created_at?: string
           facility_id?: string | null
@@ -4567,6 +4809,7 @@ export type Database = {
           origin?: Database["public"]["Enums"]["booking_origin"]
           panel_bundle_id?: string | null
           patient_id: string
+          payable_kobo?: number | null
           payment_confirmed_at?: string | null
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
@@ -4579,8 +4822,10 @@ export type Database = {
           status?: Database["public"]["Enums"]["lab_order_status"]
           total_kobo?: number
           updated_at?: string
+          voucher_covered_kobo?: number
         }
         Update: {
+          applied_voucher_id?: string | null
           courier_reference?: string | null
           created_at?: string
           facility_id?: string | null
@@ -4595,6 +4840,7 @@ export type Database = {
           origin?: Database["public"]["Enums"]["booking_origin"]
           panel_bundle_id?: string | null
           patient_id?: string
+          payable_kobo?: number | null
           payment_confirmed_at?: string | null
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
@@ -4607,6 +4853,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["lab_order_status"]
           total_kobo?: number
           updated_at?: string
+          voucher_covered_kobo?: number
         }
         Relationships: [
           {
@@ -8740,6 +8987,7 @@ export type Database = {
       }
       pharmacy_orders: {
         Row: {
+          applied_voucher_id: string | null
           courier_reference: string | null
           created_at: string
           delivered_at: string | null
@@ -8755,6 +9003,7 @@ export type Database = {
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payable_kobo: number | null
           payment_provider:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -8765,8 +9014,10 @@ export type Database = {
           status: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo: number
           updated_at: string
+          voucher_covered_kobo: number
         }
         Insert: {
+          applied_voucher_id?: string | null
           courier_reference?: string | null
           created_at?: string
           delivered_at?: string | null
@@ -8782,6 +9033,7 @@ export type Database = {
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payable_kobo?: number | null
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -8792,8 +9044,10 @@ export type Database = {
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
           updated_at?: string
+          voucher_covered_kobo?: number
         }
         Update: {
+          applied_voucher_id?: string | null
           courier_reference?: string | null
           created_at?: string
           delivered_at?: string | null
@@ -8809,6 +9063,7 @@ export type Database = {
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id?: string
+          payable_kobo?: number | null
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -8819,6 +9074,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
           updated_at?: string
+          voucher_covered_kobo?: number
         }
         Relationships: [
           {
@@ -10392,6 +10648,7 @@ export type Database = {
       }
       specialist_referrals: {
         Row: {
+          applied_voucher_id: string | null
           appointment_date: string | null
           booking_confirmed_at: string | null
           clinical_summary: Json | null
@@ -10401,6 +10658,7 @@ export type Database = {
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payable_kobo: number | null
           payment_provider:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -10419,9 +10677,11 @@ export type Database = {
           treatment_plan_received_at: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["referral_urgency"] | null
+          voucher_covered_kobo: number
           waitlisted_at: string | null
         }
         Insert: {
+          applied_voucher_id?: string | null
           appointment_date?: string | null
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
@@ -10431,6 +10691,7 @@ export type Database = {
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payable_kobo?: number | null
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -10449,9 +10710,11 @@ export type Database = {
           treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
+          voucher_covered_kobo?: number
           waitlisted_at?: string | null
         }
         Update: {
+          applied_voucher_id?: string | null
           appointment_date?: string | null
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
@@ -10461,6 +10724,7 @@ export type Database = {
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
           patient_id?: string
+          payable_kobo?: number | null
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -10479,6 +10743,7 @@ export type Database = {
           treatment_plan_received_at?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["referral_urgency"] | null
+          voucher_covered_kobo?: number
           waitlisted_at?: string | null
         }
         Relationships: [
@@ -11635,325 +11900,6 @@ export type Database = {
           },
         ]
       }
-      wallet_compliance_flags: {
-        Row: {
-          created_at: string
-          detail: Json
-          flag_type: string
-          id: string
-          ledger_entry_id: string | null
-          organisation_id: string
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          wallet_id: string
-        }
-        Insert: {
-          created_at?: string
-          detail?: Json
-          flag_type: string
-          id?: string
-          ledger_entry_id?: string | null
-          organisation_id: string
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-          wallet_id: string
-        }
-        Update: {
-          created_at?: string
-          detail?: Json
-          flag_type?: string
-          id?: string
-          ledger_entry_id?: string | null
-          organisation_id?: string
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-          wallet_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wallet_compliance_flags_ledger_entry_id_fkey"
-            columns: ["ledger_entry_id"]
-            isOneToOne: false
-            referencedRelation: "wallet_ledger"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_compliance_flags_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_compliance_flags_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_compliance_flags_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "health_wallets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wallet_kyc_tier_limits: {
-        Row: {
-          max_balance_kobo: number | null
-          tier: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          max_balance_kobo?: number | null
-          tier: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          max_balance_kobo?: number | null
-          tier?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wallet_kyc_tier_limits_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wallet_ledger: {
-        Row: {
-          actor_profile_id: string | null
-          amount_kobo: number
-          balance_after_kobo: number
-          booking_order_id: string | null
-          booking_order_type:
-            | Database["public"]["Enums"]["commission_type"]
-            | null
-          created_at: string
-          entry_type: Database["public"]["Enums"]["wallet_entry_type"]
-          id: string
-          note: string | null
-          organisation_id: string
-          payment_transaction_id: string | null
-          topup_id: string | null
-          wallet_id: string
-        }
-        Insert: {
-          actor_profile_id?: string | null
-          amount_kobo: number
-          balance_after_kobo: number
-          booking_order_id?: string | null
-          booking_order_type?:
-            | Database["public"]["Enums"]["commission_type"]
-            | null
-          created_at?: string
-          entry_type: Database["public"]["Enums"]["wallet_entry_type"]
-          id?: string
-          note?: string | null
-          organisation_id: string
-          payment_transaction_id?: string | null
-          topup_id?: string | null
-          wallet_id: string
-        }
-        Update: {
-          actor_profile_id?: string | null
-          amount_kobo?: number
-          balance_after_kobo?: number
-          booking_order_id?: string | null
-          booking_order_type?:
-            | Database["public"]["Enums"]["commission_type"]
-            | null
-          created_at?: string
-          entry_type?: Database["public"]["Enums"]["wallet_entry_type"]
-          id?: string
-          note?: string | null
-          organisation_id?: string
-          payment_transaction_id?: string | null
-          topup_id?: string | null
-          wallet_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wallet_ledger_actor_profile_id_fkey"
-            columns: ["actor_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_ledger_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_ledger_payment_transaction_id_fkey"
-            columns: ["payment_transaction_id"]
-            isOneToOne: false
-            referencedRelation: "payment_transactions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_ledger_topup_id_fkey"
-            columns: ["topup_id"]
-            isOneToOne: false
-            referencedRelation: "wallet_topups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_ledger_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "health_wallets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wallet_savings_goals: {
-        Row: {
-          completed_at: string | null
-          created_at: string
-          id: string
-          name: string
-          organisation_id: string
-          panel_bundle_id: string | null
-          status: string
-          target_kobo: number
-          wallet_id: string
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string
-          id?: string
-          name: string
-          organisation_id: string
-          panel_bundle_id?: string | null
-          status?: string
-          target_kobo: number
-          wallet_id: string
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string
-          id?: string
-          name?: string
-          organisation_id?: string
-          panel_bundle_id?: string | null
-          status?: string
-          target_kobo?: number
-          wallet_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wallet_savings_goals_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_savings_goals_panel_bundle_id_fkey"
-            columns: ["panel_bundle_id"]
-            isOneToOne: false
-            referencedRelation: "panel_bundles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_savings_goals_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "health_wallets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wallet_topups: {
-        Row: {
-          amount_minor: number
-          created_at: string
-          credit_kobo: number
-          currency: string
-          id: string
-          organisation_id: string
-          payer_profile_id: string
-          payment_transaction_id: string | null
-          pending_provider_ref: string | null
-          provider: Database["public"]["Enums"]["payment_provider"] | null
-          status: string
-          wallet_id: string
-        }
-        Insert: {
-          amount_minor: number
-          created_at?: string
-          credit_kobo: number
-          currency?: string
-          id?: string
-          organisation_id: string
-          payer_profile_id: string
-          payment_transaction_id?: string | null
-          pending_provider_ref?: string | null
-          provider?: Database["public"]["Enums"]["payment_provider"] | null
-          status?: string
-          wallet_id: string
-        }
-        Update: {
-          amount_minor?: number
-          created_at?: string
-          credit_kobo?: number
-          currency?: string
-          id?: string
-          organisation_id?: string
-          payer_profile_id?: string
-          payment_transaction_id?: string | null
-          pending_provider_ref?: string | null
-          provider?: Database["public"]["Enums"]["payment_provider"] | null
-          status?: string
-          wallet_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wallet_topups_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_topups_payer_profile_id_fkey"
-            columns: ["payer_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_topups_payment_transaction_id_fkey"
-            columns: ["payment_transaction_id"]
-            isOneToOne: false
-            referencedRelation: "payment_transactions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wallet_topups_wallet_id_fkey"
-            columns: ["wallet_id"]
-            isOneToOne: false
-            referencedRelation: "health_wallets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       wearable_connections: {
         Row: {
           access_token: string | null
@@ -12464,7 +12410,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           points_redeemed: number
-          wallet_ledger_id: string | null
+          voucher_id: string | null
         }
         Insert: {
           created_at?: string
@@ -12473,7 +12419,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           points_redeemed: number
-          wallet_ledger_id?: string | null
+          voucher_id?: string | null
         }
         Update: {
           created_at?: string
@@ -12482,7 +12428,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           points_redeemed?: number
-          wallet_ledger_id?: string | null
+          voucher_id?: string | null
         }
         Relationships: [
           {
@@ -12497,6 +12443,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wellness_points_redemptions_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
             referencedColumns: ["id"]
           },
         ]
@@ -12735,6 +12688,10 @@ export type Database = {
       }
       analytics_user_segments: { Args: never; Returns: Json }
       bp_secondary_flags: { Args: { p_patient: string }; Returns: Json }
+      cancel_care_voucher: {
+        Args: { p_reason: string; p_voucher: string }
+        Returns: Json
+      }
       claim_employer_roster_member: {
         Args: { target_roster_id: string }
         Returns: boolean
@@ -12794,6 +12751,10 @@ export type Database = {
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }
         Returns: string
+      }
+      extend_care_voucher: {
+        Args: { p_reason?: string; p_voucher: string }
+        Returns: Json
       }
       finance_accounts_list: { Args: never; Returns: Json }
       finance_ap_aging: { Args: never; Returns: Json }
@@ -13036,8 +12997,6 @@ export type Database = {
       }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       get_or_create_my_referral_code: { Args: never; Returns: string }
-      get_or_create_my_wallet: { Args: never; Returns: string }
-      get_or_create_wallet_for: { Args: { p_profile: string }; Returns: string }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
       hbpm_summary: { Args: { p_patient: string }; Returns: Json }
@@ -13184,6 +13143,29 @@ export type Database = {
       }
       public_response_commitments: { Args: never; Returns: Json }
       public_service_coverage: { Args: never; Returns: Json }
+      purchase_care_voucher: {
+        Args: {
+          p_beneficiary: string
+          p_gift_message?: string
+          p_panel_bundle_id: string
+        }
+        Returns: Json
+      }
+      record_voucher_payment_intent: {
+        Args: {
+          p_amount_minor: number
+          p_credit_kobo: number
+          p_currency: string
+          p_provider: Database["public"]["Enums"]["payment_provider"]
+          p_reference: string
+          p_voucher: string
+        }
+        Returns: string
+      }
+      redeem_care_voucher: {
+        Args: { p_order_id: string; p_order_type: string; p_voucher: string }
+        Returns: Json
+      }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
       redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
       region_service_available: {
@@ -13254,6 +13236,7 @@ export type Database = {
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }
         Returns: {
+          applied_voucher_id: string | null
           courier_reference: string | null
           created_at: string
           facility_id: string | null
@@ -13268,6 +13251,7 @@ export type Database = {
           origin: Database["public"]["Enums"]["booking_origin"]
           panel_bundle_id: string | null
           patient_id: string
+          payable_kobo: number | null
           payment_confirmed_at: string | null
           payment_provider:
             | Database["public"]["Enums"]["payment_provider"]
@@ -13280,6 +13264,7 @@ export type Database = {
           status: Database["public"]["Enums"]["lab_order_status"]
           total_kobo: number
           updated_at: string
+          voucher_covered_kobo: number
         }
         SetofOptions: {
           from: "*"
@@ -13295,6 +13280,7 @@ export type Database = {
       set_referral_specialist_provider: {
         Args: { p_referral_id: string; p_specialist_provider_id: string }
         Returns: {
+          applied_voucher_id: string | null
           appointment_date: string | null
           booking_confirmed_at: string | null
           clinical_summary: Json | null
@@ -13304,6 +13290,7 @@ export type Database = {
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          payable_kobo: number | null
           payment_provider:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -13322,6 +13309,7 @@ export type Database = {
           treatment_plan_received_at: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["referral_urgency"] | null
+          voucher_covered_kobo: number
           waitlisted_at: string | null
         }
         SetofOptions: {
@@ -13343,14 +13331,6 @@ export type Database = {
           p_beneficiary: string
           p_bundle_code: string
           p_facility_id?: string
-        }
-        Returns: Json
-      }
-      sponsor_pay_booking_order: {
-        Args: {
-          p_beneficiary: string
-          p_order_id: string
-          p_order_type: string
         }
         Returns: Json
       }
@@ -13377,14 +13357,6 @@ export type Database = {
       }
       touch_last_active: { Args: never; Returns: undefined }
       video_visit_acceptance_stats: { Args: never; Returns: Json }
-      wallet_kyc_balance_headroom: {
-        Args: { p_profile: string }
-        Returns: number
-      }
-      wallet_pay_booking_order: {
-        Args: { p_order_id: string; p_order_type: string }
-        Returns: Json
-      }
       wellness_challenge_progress: {
         Args: { p_enrolment_id: string }
         Returns: Json
@@ -13471,6 +13443,21 @@ export type Database = {
         | "risk_tier_change"
         | "hospital_discharge"
       care_plan_status: "draft" | "active" | "completed" | "cancelled"
+      care_voucher_event_type:
+        | "created"
+        | "payment_applied"
+        | "activated"
+        | "redeemed"
+        | "expired"
+        | "extended"
+        | "cancelled"
+      care_voucher_kind: "prepaid_service" | "reward_discount"
+      care_voucher_status:
+        | "reserved"
+        | "active"
+        | "redeemed"
+        | "expired"
+        | "cancelled"
       case_brief_status: "generated" | "failed"
       chronic_enrolment_source: "recommended" | "staff" | "clinician"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
@@ -13667,7 +13654,7 @@ export type Database = {
         | "scale"
         | "thermometer"
         | "pulse_oximeter"
-      payment_provider: "paystack" | "stripe" | "wallet"
+      payment_provider: "paystack" | "stripe" | "wallet" | "voucher"
       payment_transaction_type:
         | "charge.success"
         | "charge.failed"
@@ -13838,15 +13825,6 @@ export type Database = {
         | "spo2"
         | "waist_circumference"
         | "ketones"
-      wallet_entry_type:
-        | "topup"
-        | "sponsor_topup"
-        | "referral_reward"
-        | "prevention_reward"
-        | "spend"
-        | "refund"
-        | "adjustment"
-        | "points_redemption"
       wearable_connection_status: "active" | "disconnected" | "error"
       wearable_provider:
         | "apple_health"
@@ -14086,6 +14064,23 @@ export const Constants = {
         "hospital_discharge",
       ],
       care_plan_status: ["draft", "active", "completed", "cancelled"],
+      care_voucher_event_type: [
+        "created",
+        "payment_applied",
+        "activated",
+        "redeemed",
+        "expired",
+        "extended",
+        "cancelled",
+      ],
+      care_voucher_kind: ["prepaid_service", "reward_discount"],
+      care_voucher_status: [
+        "reserved",
+        "active",
+        "redeemed",
+        "expired",
+        "cancelled",
+      ],
       case_brief_status: ["generated", "failed"],
       chronic_enrolment_source: ["recommended", "staff", "clinician"],
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
@@ -14304,7 +14299,7 @@ export const Constants = {
         "thermometer",
         "pulse_oximeter",
       ],
-      payment_provider: ["paystack", "stripe", "wallet"],
+      payment_provider: ["paystack", "stripe", "wallet", "voucher"],
       payment_transaction_type: [
         "charge.success",
         "charge.failed",
@@ -14492,16 +14487,6 @@ export const Constants = {
         "spo2",
         "waist_circumference",
         "ketones",
-      ],
-      wallet_entry_type: [
-        "topup",
-        "sponsor_topup",
-        "referral_reward",
-        "prevention_reward",
-        "spend",
-        "refund",
-        "adjustment",
-        "points_redemption",
       ],
       wearable_connection_status: ["active", "disconnected", "error"],
       wearable_provider: [

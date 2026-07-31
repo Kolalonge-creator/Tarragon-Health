@@ -23,13 +23,13 @@ type Recommendation = {
  * "who" no longer changes which plan is recommended — it changes whose plan it
  * is. Everyone enrols individually, so the answer for someone looking after a
  * parent is the plan that suits that parent, on that parent's own account,
- * paid for by funding their Health Wallet. The question is kept because it is
+ * paid for by buying their checks for them. The question is kept because it is
  * the one people arrive with, and answering it plainly is more useful than
  * hiding it.
  */
 export function recommendPlan(who: Who, health: Health, from: From): Recommendation {
   const forSomeoneElse =
-    "They hold their own Tarragon account and their own subscription. Name each other as next of kin and you can follow their care and top up their Health Wallet to pay for it.";
+    "They hold their own Tarragon account and their own subscription. Name each other as next of kin and you can follow their care and buy the checks they need.";
 
   const rec: Recommendation =
     health === "none"

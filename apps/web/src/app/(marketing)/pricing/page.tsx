@@ -80,7 +80,7 @@ export default async function PricingPage() {
         <p className="mt-6 text-center text-sm text-charcoal-ink/70">
           Want the full picture first? Read our{" "}
           <Link href={MARKETING_ROUTES.howPricingWorks} className="font-semibold text-brand-green underline underline-offset-2">
-            No-Hidden-Cost Promise, free trials, the Health Wallet, and how we compare to your HMO
+            No-Hidden-Cost Promise, free trials, care vouchers, and how we compare to your HMO
           </Link>
           .
         </p>

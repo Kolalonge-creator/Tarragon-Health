@@ -65,10 +65,10 @@ export function useAdultsIManage() {
 }
 
 /**
- * Everyone whose wallet the caller may top up: any profile_access grant, at
- * either level. Mirrors private.can_fund_wallet exactly — money may flow in
+ * Everyone the caller may buy care for: any profile_access grant, at
+ * either level. Mirrors private.can_purchase_voucher_for exactly — money may flow in
  * from anyone the record owner has consented to, while spending stays with the
- * account holder alone (public.wallet_pay_booking_order refuses any wallet but
+ * account holder alone, or a 'manage' grantee (public.redeem_care_voucher refuses any voucher but
  * the caller's own).
  *
  * Not a diaspora feature. A son in Lagos funding his mother in Enugu uses the

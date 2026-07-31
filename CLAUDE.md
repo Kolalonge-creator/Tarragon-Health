@@ -1694,6 +1694,142 @@ web tests / full production build all green.
   read set; a browser click-through of consent → three-way thread → revoke once a test credential is
   approved.
 
+### 2026-07-31 — Release: seven parallel branches integrated + migration history reconciled ([PR #191](https://github.com/Kolalonge-creator/Tarragon-Health/pull/191))
+Seven branches sitting in clean worktrees were integrated into `main-dev` and released to
+production. `main` and `main-dev` are now **fully reconciled (0/0)** and `supabase/migrations/`
+matches the **377** applied migrations exactly — verified by parsing
+`supabase migration list --linked`, not by counting files.
+- **Integrated (in this order):** `claude/marketing-site-10-of-10`, `worktree-lab-partner-readiness`,
+  `worktree-patient-experience-overhaul`, `worktree-healthy-patient-10-of-10`,
+  `worktree-nigeria-regulatory-hardening`, `worktree-diaspora-sponsor-build`,
+  `worktree-obesity-patient-experience-10x`.
+- **A real duplicate-version bug, exactly the class this file already warns about.**
+  `20260730120000` was claimed by **both** `provenance_fk_hardening` and
+  `wellness_points_and_badges`. `supabase_migrations.version` is the PK, so only the first could
+  ever record — the wellness work had actually been applied as **seven** migrations at
+  `20260730025552`–`025803`, recovered here from `schema_migrations.statements`. Four further files
+  whose hand-typed round-number timestamps never matched what recorded were renamed
+  (`i14_vitals_reading_source_lock`, `partner_regulatory_license_tracking`,
+  `wallet_kyc_tiers_and_aml_flags`, `data_breach_incidents`). Two migrations existing on no branch
+  (`complete_care_unbundle`/`rebundle_annual_review`) were pulled in. **Never hand-type a
+  round-number migration timestamp.**
+- **One genuinely-unapplied migration applied to production:**
+  `20260730223500_condition_language_preference` (additive column, default preserves prior
+  behaviour) — the merged `ConditionLanguageForm` depends on it.
+- **Founder decision — wellness points redemption stays ₦0.50/point.** Two sessions had
+  independently "fixed" the degenerate rate to different numbers; the unapplied ₦1.00 variant was
+  deleted (its assertion block would have failed the deploy, since live was no longer 1).
+- **Removed the Dedicated Care Coordinator add-on from marketing.** Both `add_ons` rows were
+  already `is_active = false` and `seed.sql` had dropped it, but `/pricing` still advertised it at
+  +₦30,000/month — selling a product nobody could buy. The stale reference in the "never promise
+  one named doctor" rule above was corrected in the same pass.
+- **⚠️ The release was blocked once, and the cause is worth remembering:** tightening the
+  video-visit refund cron to `0 */4 * * *` (the 24h-SLA pass) makes Vercel **refuse to create a
+  deployment at all** on this account's plan — no build object exists, so there are no build logs,
+  and the only signal is a `vercel.link` short URL that redirects to `cron-jobs/usage-and-pricing`.
+  Reverted to daily (`30 5 * * *`), which deploys. The 24h expiry semantics in the DB are unchanged;
+  only sweep frequency is, so a request expiring just after a sweep can wait up to roughly another
+  day for its refund to execute. **To genuinely honour the 24h SLA, move this sweep to pg_cron**
+  (~20 jobs already run there with no plan-imposed frequency limit; `20260706091332` is the
+  existing pg_net precedent) or raise the Vercel plan — founder's call, flagged not silently shipped.
+- **Verified:** typecheck clean, lint 0 errors (same 2 pre-existing warnings), **555 web + 47
+  shared tests**, full production build (221 static pages), all four CI checks green, and the live
+  site confirmed after deploy — `/pricing`, the new `/pricing/how-it-works`, `/coverage` and
+  `/accountability` all 200 with no console errors, `/coverage` correctly reading real data
+  ("live in Lagos"), and zero occurrences of the withdrawn add-on. `get_advisors` security shows no
+  regression: the three "Public Can Execute SECURITY DEFINER" findings are the intentional
+  `public_price_list`/`public_service_coverage`/`public_response_commitments` marketing endpoints
+  (aggregate only, no PHI, `SET search_path TO ''`).
+
+### 2026-07-31 — Health Wallet retired, replaced by Care Vouchers (CBN structuring, founder-directed)
+Founder asked whether the Health Wallet could be restructured as "a Tarragon coupon" to avoid needing
+CBN approval. **The honest answer, and the one this build acts on: renaming it does not help, because
+a regulator reads substance.** A "coupon" that holds a fungible naira balance, is fundable by a third
+party, and never expires is stored value with a different word on it. What actually moves the needle
+is changing the mechanics, so the mechanics changed.
+
+**Row counts checked FIRST (CLAUDE.md removals rule 1), and they decided the whole shape of the
+work:** `health_wallets` 0 · `wallet_topups` 0 · `wallet_ledger` 0 · `wallet_savings_goals` 0 ·
+`referrals` 0 · total balance ₦0.00. Nothing had ever flowed through the wallet, so this is a purely
+structural change with **no customer money to unwind and no refunds owed** — which is exactly why it
+could be a clean DROP with no conversion step anywhere. That window closes the moment one real person
+pays in.
+
+**The model.** A patient buys a **named service at a fixed price** and holds an entitlement to that
+service, not an amount of spending power. Nine migrations, `20260731214826`–`20260731220052`
+(applied via `apply_migration`, recorded, local files pulled back from
+`schema_migrations.statements`).
+- **Single-purpose, enforced where it counts.** `redeem_care_voucher` asks *"is this order FOR THE
+  SERVICE THIS VOUCHER IS"* and refuses otherwise. It is not a balance comparison and there is no
+  code path that makes it one. Proven live: an Annual Health Check voucher is refused against a
+  **cheaper** Basic Check order, which a balance model would obviously have allowed.
+- **Non-transferable, structurally.** `beneficiary_profile_id` is immutable via
+  `private.enforce_care_voucher_immutability`; there is no transfer column, RPC, or policy anywhere.
+  Proven live that even a **superuser** UPDATE moving a voucher to another person is rejected, as is
+  rewriting an issued voucher's price or SKU.
+- **Never cash-redeemable.** No payout/withdraw/cash-out path exists, and the redemption migration
+  ends in an assertion block that greps `pg_proc` and fails if one is ever added. Cancellation
+  deliberately moves no money: a refund is a provider refund against the original charge, so it goes
+  back to the card that paid.
+- **24-month expiry** (`care_voucher_config`, admin-editable), clock starting at **full payment**, not
+  at reservation, so a long instalment plan never eats the validity window. 30-day warning in-app and
+  by email. Extendable by staff, and extension works on an already-expired voucher because the common
+  case is somebody asking after the fact.
+- **Layaway is per-voucher, not a balance.** Instalments attach to one `voucher_id`; the voucher stays
+  `reserved` and unusable until fully paid. **A part-paid voucher is NEVER swept at expiry** —
+  silently forfeiting money already taken toward a named service is exactly the behaviour the FCCPC
+  would take an interest in. Founder should confirm whether a long-abandoned reserved voucher is ever
+  closed out, and on what terms; it is deliberately left open rather than guessed at.
+- **Sponsor buys a named service for a named beneficiary**, not a balance. This is also the better
+  product per `project_diaspora_is_sponsor_not_patient` (sell the receipt, not the subscription): the
+  purchaser sees that they bought it and later that it was used, and **nothing about results**.
+- **Rewards are separate liabilities.** Referral/prevention/wellness credit now issues
+  `kind = 'reward_discount'` vouchers with `purchaser_profile_id` NULL **by constraint** — that null
+  is what lets the finance layer keep promotional credit out of customer-money accounting. Amounts
+  unchanged (₦500 referral each side, ₦500/₦500/₦1,000 prevention, ₦5,000 annual cap).
+- **Accounting: 2100 renamed "Customer prepayments — care vouchers", new 2600 "Reward vouchers
+  outstanding".** Money in is a liability, revenue is recognised only at redemption. **Breakage is
+  deliberately NOT recognised** — an expired voucher keeps its liability standing, because expiry
+  here is extendable on request and booking revenue for care never given, on a balance a patient can
+  still ask us to reinstate, would be dishonest. Founder and accountant can revisit once there is
+  real data on how many get reinstated. Proven live that 2100 and 2600 never share a journal entry.
+- **Terms of Service `2026-07-31-v2`** states all four guarantees in the contract the patient actually
+  agrees to, replacing the Health Wallet section and the referral paragraph that promised wallet
+  credit. `data_processing`/`telehealth` untouched, so prior acceptances stay valid.
+- **The wallet was deleted, not merely stopped.** Six tables, twelve functions, the `wallet_entry_type`
+  enum. `sponsor_book_care`, the spend receipt and the monthly sponsor report were **rewritten** onto
+  vouchers rather than dropped, because the sponsor product survives the wallet. (`payment_provider`
+  keeps a now-unwritten `wallet` value only because Postgres cannot remove an enum value in place.)
+- **Found in passing:** `private.can_fund_wallet` referenced `family_plan_members`, dropped by the
+  2026-07-29 individual-enrolment removal — removal 4 had already rewritten it to `profile_access`
+  only, so the new `can_purchase_voucher_for` matches that deliberately rather than inventing a second
+  answer.
+- **Verified, and the suite was proven to discriminate.** `packages/db/tests/care_vouchers.sql`, 23
+  checks in one rolled-back transaction, every negative paired with a positive control (a stranger is
+  refused, then the consented sponsor completes the same purchase). Then **deliberately sabotaged**:
+  with the SKU check replaced by the old wallet-style behaviour, exactly check 4a fails. Zero residue
+  after rollback, SKU check confirmed intact afterward. `get_advisors`: the 5 new RPCs carry only the
+  accepted `authenticated_security_definer_function_executable` WARN every sibling RPC carries, none
+  are anon-executable, no policy gaps on any voucher table.
+- **App + marketing rewritten in lockstep:** `CareVouchersCard` (deliberately shows no total or
+  combined figure anywhere — presenting several vouchers as an amount of money would misdescribe the
+  thing), `RedeemVoucherButton` on lab/pharmacy/referral/AHC, layaway UI, sponsor dashboard, admin
+  `/admin/settings/vouchers`, `/gift` rewritten, pricing/products/services/plan-finder copy. Marketing
+  copy written without em dashes per the standing rule.
+- typecheck / lint (0 errors, the same 2 pre-existing warnings) / **555 web + 47 shared tests** / full
+  production build all green. `/gift` and `/pricing/how-it-works` browser-verified live on a worktree
+  dev server with zero console errors and no stale wallet copy anywhere in the app.
+- **NOT browser-verified:** the authenticated voucher surfaces (buy, layaway, redeem, sponsor view,
+  admin). Composition over the 23-check DB proof plus a green production build, consistent with this
+  codebase's posture when no test credential is at hand.
+- **⚠️ This is structuring, not legal advice, and it is not a licensing opinion.** CBN has no crisp
+  published closed-loop safe harbour the way the EU's limited-network exclusion does, so "we are not
+  issuing e-money" is a position, not a certainty. **Get a Nigerian fintech counsel opinion.** What
+  this build does is make that opinion easy to give favourably: the mechanics now match the claim.
+  It bolts onto the Schedules A-D counsel brief already queued rather than being a new engagement.
+- **Next / founder:** counsel opinion; decide the abandoned-layaway policy; confirm whether breakage
+  should ever be recognised; browser click-through once a test credential is approved.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
@@ -1714,7 +1850,7 @@ web tests / full production build all green.
 - Never infer or default a `doctor_tier` in code — an unset tier means the record needs an admin to assign one; same null-gating principle as `reviewed_by`/`reviewed_at`
 - Never rebuild the Annual Health Review as a parallel review record that re-does the condition reviews — it is an orchestration layer that **adopts + rolls** the patient's existing `medication_reviews` (and reuses `patient_risk_scores`/`care_plans`/Zoom `video_consultations`); condition-specific reviews must stay intact and running on their own cadence (see 2026-07-17 Current Sprint entry)
 - Never build functional code (not just schema scaffolding) for the full referral-matching pipeline, patient-initiated wellness testing, or Employer/HMO risk dashboards without an explicit ask — see Clinical Tier Ladder above. (Home sample collection and medication delivery logistics were the same kind of guardrail until pulled forward on explicit ask 2026-07-16 — see Current Sprint.)
-- **Superseded 2026-07-15, then corrected 2026-07-30 — Tarragon employs its own doctors, but never promise ONE continuous named doctor.** The 2026-07-15 wording ("a named doctor is the default face of the day-to-day patient relationship") is retired: patient feedback flagged that a real, shift-covered care team can't honestly promise the same individual every time without either lying or overloading one person. Care is delivered by a **team** of MDCN-registered doctors with coverage shared across the team for effective staffing (see the onboarding "How your care works here" copy and `trust-band.tsx`'s "A real care team, always accountable" for the current patient-facing wording) — never describe it as one named doctor following a patient. **What does NOT change:** per-case attribution stays real and mandatory — every doctor review, escalation resolution, or verified certificate still carries the real reviewing doctor's name via the null-gated `ReviewedByDoctor` pattern (see the rule below), and the Dedicated Care Coordinator add-on's genuine continuity promise ("not a rotating queue") is unaffected, just reworded off "named doctor coordinator." `docs/CLINICAL_TRUST_MODEL_SPEC.md` §1, §9 still needs a follow-up pass to match this correction — flagged, not yet done.
+- **Superseded 2026-07-15, then corrected 2026-07-30 — Tarragon employs its own doctors, but never promise ONE continuous named doctor.** The 2026-07-15 wording ("a named doctor is the default face of the day-to-day patient relationship") is retired: patient feedback flagged that a real, shift-covered care team can't honestly promise the same individual every time without either lying or overloading one person. Care is delivered by a **team** of MDCN-registered doctors with coverage shared across the team for effective staffing (see the onboarding "How your care works here" copy and `trust-band.tsx`'s "A real care team, always accountable" for the current patient-facing wording) — never describe it as one named doctor following a patient. **What does NOT change:** per-case attribution stays real and mandatory — every doctor review, escalation resolution, or verified certificate still carries the real reviewing doctor's name via the null-gated `ReviewedByDoctor` pattern (see the rule below), and the per-case rule below is untouched. **The Dedicated Care Coordinator add-on referenced by the earlier version of this bullet no longer exists** — it was withdrawn 2026-07-31 as mis-selling (the operating model will not include dedicated per-patient staff), its `add_ons` rows are `is_active = false`, and its marketing card was removed in the same release. `docs/CLINICAL_TRUST_MODEL_SPEC.md` §1, §9 were rewritten to match this correction (PR #186).
 
 ## Where to Look
 - System architecture, topology, RLS model, event pipelines, infra → `docs/ARCHITECTURE.md`

@@ -97,35 +97,44 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient#medications",
     };
   }
-  if (n.template === "sponsor_spend_receipt") {
-    // From private.notify_sponsors_of_wallet_spend(). The receipt a person who
-    // funded someone else's care gets when that money actually becomes care.
-    // Names the service category and the amount, never a result: paying for
-    // care and being allowed to read it are separate permissions.
+  if (n.template === "voucher_gift_used") {
+    // From private.notify_purchaser_of_voucher_use(). The receipt somebody who
+    // bought care for another person gets when it is actually used. Names the
+    // service and the amount, never a result: paying for care and being
+    // allowed to read it are separate permissions.
     const name = String(payload.beneficiary_name ?? "Someone you support");
-    const what = String(payload.what ?? "care");
-    const amount = Number(payload.amount_kobo ?? 0) / 100;
+    const label = String(payload.label ?? "the check you bought");
     return {
-      text: `₦${amount.toLocaleString("en-NG")} you funded paid for ${what} for ${name}`,
+      text: `${name} used ${label} that you bought for them`,
       href: "/patient/supporting",
+    };
+  }
+  if (n.template === "care_voucher_expiring") {
+    const label = String(payload.label ?? "A care voucher");
+    const on = String(payload.expires_on ?? "soon");
+    return {
+      text: `${label} runs out on ${on}. Use it, or ask us and we will extend it.`,
+      href: "/patient#care",
+    };
+  }
+  if (n.template === "reward_voucher_issued") {
+    const label = String(payload.label ?? "A reward");
+    const value = String(payload.value_naira ?? "");
+    return {
+      text: value ? `${label}: a ₦${value} voucher toward your care` : `${label} added to your account`,
+      href: "/patient#care",
     };
   }
   if (n.template === "sponsor_monthly_report") {
     // From private.queue_sponsor_monthly_reports(). The standing monthly
-    // summary to whoever is paying for someone else's care: money, bills
-    // outstanding and whether anything has gone quiet. Never clinical content,
+    // summary to whoever is paying for someone else's care: what they have
+    // bought, what has been used and what is still waiting. Never clinical content,
     // for the same reason as the spend receipt above.
-    const people = Array.isArray(payload.people) ? payload.people : [];
-    const spent = people.reduce(
-      (sum: number, person: unknown) =>
-        sum + Number((person as Record<string, unknown>)?.spent_kobo ?? 0),
-      0
-    );
+    const name = String(payload.beneficiary_name ?? "Someone you support");
+    const ready = Number(payload.ready_count ?? 0);
+    const used = Number(payload.used_this_month ?? 0);
     return {
-      text:
-        people.length === 0
-          ? "Your monthly summary is ready"
-          : `Monthly summary: ₦${(spent / 100).toLocaleString("en-NG")} became care across ${people.length} ${people.length === 1 ? "person" : "people"}`,
+      text: `Monthly summary for ${name}: ${used} used this month, ${ready} still waiting`,
       href: "/patient/supporting",
     };
   }

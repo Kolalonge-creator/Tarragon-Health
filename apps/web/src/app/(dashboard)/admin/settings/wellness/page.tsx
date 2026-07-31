@@ -19,7 +19,7 @@ export default async function WellnessSettingsPage() {
         </h1>
         <p className="text-charcoal-ink/60">
           The points/badges/challenges engagement layer, free to every patient. Toggle catalogue
-          items live or hidden here, set the points-to-wallet conversion rate, and manage the
+          items live or hidden here, set the points-to-voucher conversion rate, and manage the
           workout-class partner catalogue. New badges/challenges/classes are authored via seed/
           migration for now, same as the health education library.
         </p>

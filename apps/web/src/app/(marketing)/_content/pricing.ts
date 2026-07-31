@@ -14,7 +14,7 @@
  *   one subscription. Looking after somebody else is now a consent
  *   relationship rather than a shared bill: they hold their own account, name
  *   you as next of kin so you can follow their care, and you can fund their
- *   Health Wallet. Nothing here may advertise a household plan again without a
+ *   care vouchers. Nothing here may advertise a household plan again without a
  *   migration reversing 20260729143514.
  * - ONE DIASPORA CURRENCY, AND ONE PRICE. Pounds are retired, along with
  *   Diaspora Premium (which had no naira counterpart and so could never sit on
@@ -247,11 +247,11 @@ export const USD_TIERS: PricingTier[] = [
  */
 export const DIASPORA_SPONSOR_PITCH = {
   title: "You already send money home for health",
-  body: "What you do not get back is any way of knowing what it paid for. Fund a relative's Health Wallet instead and every naira is accounted for: what was booked, on what date, at which partner, and what is left over.",
+  body: "What you do not get back is any way of knowing what it paid for. Buy a relative a specific check instead and there is nothing to wonder about: you know exactly what you bought, and you are told when they use it.",
   points: [
     {
       title: "A receipt, not a transfer",
-      body: "When their wallet pays for a lab test or a prescription, you are told what it bought and what the balance is now. You do not have to ask, and they do not have to remember to tell you.",
+      body: "You are buying a named check, not sending an amount. When they use it, you are told. You do not have to ask, and they do not have to remember to tell you.",
     },
     {
       title: "You fund the care without holding the account",
@@ -269,7 +269,7 @@ export const DIASPORA_SPONSOR_PITCH = {
 };
 
 export const DIASPORA_ONE_PRICE_NOTE =
-  "The dollar price is the naira price, converted. Tarragon runs one price list, so the same plan costs the same whether it is paid for from Lagos or from London. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you can fund it from their Health Wallet.";
+  "The dollar price is the naira price, converted. Tarragon runs one price list, so the same plan costs the same whether it is paid for from Lagos or from London. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you buy their checks for them.";
 
 /**
  * Honesty note for diaspora buyers subscribing for THEMSELVES: monitoring
@@ -280,24 +280,28 @@ export const DIASPORA_ONE_PRICE_NOTE =
 export const DIASPORA_SELF_USE_NOTE =
   "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, in-app care team messaging, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
-/** The Health Wallet: one balance, topped up by yourself, a family member, or
- * a referral reward, spent on any Tarragon lab test, health check, pharmacy
- * order, or fee. Never cashed out. */
-export const HEALTH_WALLET_INTRO =
-  "Every Tarragon account has a Health Wallet: one balance you top up whenever suits you and spend on any lab test, health check, pharmacy order, or Tarragon fee. It's never cashed out, and it works alongside every plan above.";
+/** Care vouchers: you buy a named service at a fixed price and hold an
+ * entitlement to that service. Deliberately not a balance. Non-transferable,
+ * single-purpose, never exchangeable for cash, valid 24 months. */
+export const CARE_VOUCHER_INTRO =
+  "You can pay for a health check ahead of time and use it whenever you are ready. You get a care voucher for that specific check, valid for two years. It is not an account balance and it is never exchangeable for cash: it is the check itself, already paid for.";
 
-export const HEALTH_WALLET_POINTS: { title: string; body: string }[] = [
+export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
     title: "Pay a little at a time",
-    body: "Top up in whatever amounts work for you and save toward something specific, like your Annual Health Check, instead of paying the full price in one go.",
+    body: "Pay for a check in as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying toward it.",
   },
   {
-    title: "Let someone else fund it",
-    body: "A family member, in Nigeria or abroad, can top up your wallet directly, so a parent's care can be funded by whoever's able to, without sharing a card.",
+    title: "Let someone else buy it",
+    body: "A family member, in Nigeria or abroad, can buy a check for you. They see that they bought it and later that it was used, and nothing about your results.",
   },
   {
     title: "Refer a friend",
-    body: "Share your referral link from your dashboard. Once your friend completes their first paid order, you both get ₦500 wallet credit.",
+    body: "Share your referral link from your dashboard. Once your friend completes their first paid order, you both get a ₦500 reward voucher toward your care.",
+  },
+  {
+    title: "It does not quietly disappear",
+    body: "A voucher lasts two years and we remind you 30 days before it runs out. If it lapses unused, ask us and we will normally put it back.",
   },
 ];
 
@@ -551,7 +555,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What are wellness points, and are they real money?",
     answer:
-      "You earn points for everyday habits, logging a reading, finishing a lesson, or completing a challenge, free on every plan including Free. Collect badges as you go, and redeem points any time for real Health Wallet balance you can spend on labs, refills, and other Tarragon care. Points aren't a separate voucher scheme; the wallet credit they become is real.",
+      "You earn points for everyday habits, logging a reading, finishing a lesson, or completing a challenge, free on every plan including Free. Collect badges as you go, and redeem points any time for a reward voucher that comes straight off the price of your care. A reward voucher is a discount, not cash, and cannot be exchanged for money.",
   },
   {
     question: "Does Tarragon Free ever expire?",
@@ -618,9 +622,9 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
       "Tap the relevant button in the app (“Book a Test,” “Request Refill,” “Add a Service”). You'll always see the price before confirming; if your clinician flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
   },
   {
-    question: "What is the Health Wallet?",
+    question: "What is a care voucher?",
     answer:
-      "A balance on your account that you top up whenever suits you and spend on any lab test, health check, pharmacy order, or Tarragon fee, and it's never cashed out. A family member can fund it directly for you, and referring a friend earns you both ₦500 in wallet credit once they complete their first paid order.",
+      "When you pay for a health check ahead of time, you get a care voucher for that exact check. It is for that service and for you alone: it cannot be transferred, and it is never exchangeable for cash. You can pay for it in instalments, a family member can buy one for you, and it lasts two years. Referring a friend earns you both a ₦500 reward voucher once they complete their first paid order.",
   },
   {
     question: "Can I track my children's vaccinations too?",
