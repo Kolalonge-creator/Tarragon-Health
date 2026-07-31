@@ -276,7 +276,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦65,000/year",
     label: "ADD-ON",
     description:
-      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a doctor consultation to walk you through your results. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge.",
+      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a doctor consultation to walk you through your results. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge. Not the same product as the Annual Doctor Review (₦70,000/year): this is a day of screening tests, the Review is a sit-down about your whole year of care.",
     availability: "Available to anyone, on any plan, including Tarragon Free.",
   },
   {
@@ -293,7 +293,8 @@ export const ADD_ONS: PricingAddOn[] = [
       { feature: "Tracking of your results over time", label: "INCLUDED" },
       { feature: "The actual test itself, every time it's due", label: "BOOK & PAY" },
     ],
-    availability: "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go.",
+    availability:
+      "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Tarragon Prevent and above — this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
   },
   {
     id: "care-coordinator",
@@ -350,7 +351,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦70,000/year",
     label: "ADD-ON",
     description:
-      "Once a year, your doctor sits down with your whole year of care: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short video consultation to talk through the year behind you and the plan ahead. Different from the Annual Health Check above: the Check is a day of screening tests; the Doctor Review is your whole year of care, reviewed with your doctor.",
+      "Once a year, your doctor sits down with your whole year of care: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short video consultation to talk through the year behind you and the plan ahead. Not the same product as the Annual Health Check (₦65,000): the Check is a day of screening tests; this Review is your whole year of care, talked through with your doctor.",
     availability: "Included on Complete Care. Available as an add-on on lower plans.",
   },
   {
@@ -379,9 +380,9 @@ export const ADD_ONS: PricingAddOn[] = [
  * shown before booking.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
-  { item: "Health Check: Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
-  { item: "Annual Health Check (adds your cancer screening)", price: "₦65,000" },
-  { item: "Health Check: Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
+  { item: "Health Check tier 1 of 3 — Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
+  { item: "Health Check tier 2 of 3 — Annual Health Check (adds your cancer screening)", price: "₦65,000" },
+  { item: "Health Check tier 3 of 3 — Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
   { item: "Kidney function (U&E + eGFR)", price: "from ₦8,000" },
@@ -405,7 +406,7 @@ export const TYPICAL_PRICES_NOTE =
  * that works alongside them.
  */
 export const HMO_COMPARE_INTRO =
-  "A common question: “Why pay ₦8,000/month for Tarragon when a basic HMO plan costs ₦3,500?” Because they do different jobs, and they work best together.";
+  "A common question: “Why pay for Tarragon when I already have a basic HMO plan?” Because they do different jobs, and they work best together.";
 
 export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }[] = [
   { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },

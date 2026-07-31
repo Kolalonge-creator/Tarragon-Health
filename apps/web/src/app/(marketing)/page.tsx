@@ -67,15 +67,12 @@ export default function MarketingHomePage() {
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
-              <Link href="/signup">Start monitoring</Link>
+              <Link href="/signup">Get started</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/signup">Start preventing</Link>
+              <Link href={MARKETING_ROUTES.services}>See how it works</Link>
             </Button>
           </div>
-          <p className="mt-3 text-sm text-charcoal-ink/55">
-            Same signup either way; we build the right calendar around you once you&apos;re in.
-          </p>
         </MarketingHero>
         <ContinuityPath />
       </Section>
@@ -279,7 +276,7 @@ export default function MarketingHomePage() {
               </Button>
             </div>
             <p className="mt-3 text-sm text-charcoal-ink/55">
-              Already have an account? Open tarragonhealth.com on your phone, then tap Share →
+              Already have an account? Open tarragonhealth.ng on your phone, then tap Share →
               Add to Home Screen on iPhone, or Install app when Chrome prompts you on Android.
             </p>
           </div>
@@ -342,17 +339,6 @@ export default function MarketingHomePage() {
       </Section>
 
       <TestimonialsSection />
-
-      <Section>
-        <CtaBand
-          title="Simple, transparent pricing"
-          description="See what's included in each plan, with no hidden costs."
-          primaryHref={MARKETING_ROUTES.pricing}
-          primaryLabel="View pricing"
-          secondaryHref="/signup"
-          secondaryLabel="Get started"
-        />
-      </Section>
 
       <Section>
         <EmergencyNotice />
