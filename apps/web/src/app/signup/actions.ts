@@ -25,6 +25,7 @@ export async function signUp(
     phone: formData.get("phone"),
     state: formData.get("state"),
     refCode: formData.get("refCode"),
+    intent: formData.get("intent"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
@@ -48,6 +49,7 @@ export async function signUp(
         phone: parsed.data.phone,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
+        ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
       },
     },
   });

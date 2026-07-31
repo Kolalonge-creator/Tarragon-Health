@@ -6,6 +6,21 @@
 -- plans.
 -- Idempotent: safe to run repeatedly. Money is in minor units (kobo for NGN,
 -- cents for USD). Real partner names per CLAUDE.md / FEATURE_SPEC §8.
+--
+-- ⚠️ THIS FILE ONLY RUNS ON A LOCAL `supabase db reset`. It is never applied
+-- to a remote project. On 2026-07-29 the platform database was rebuilt from
+-- migrations and every catalogue that lived only here vanished from
+-- production: lab_providers, lab_tests, facilities and pharmacy_partners went
+-- to zero rows, screen_types to one, and the flagship annual_health_check
+-- panel_bundle disappeared entirely, which silently made the Annual Health
+-- Check and every confidential screening unbookable.
+--
+-- The clinical catalogue is therefore ALSO carried by
+-- supabase/migrations/20260730231822_restore_clinical_catalogue.sql, which is
+-- what governs deployed environments. That migration runs before this file on
+-- a local reset, so the inserts below simply no-op via their existing
+-- `on conflict do nothing`. Keep the two consistent, and when you add a new
+-- catalogue row that production needs, put it in a migration, not only here.
 
 -- ---------------------------------------------------------------------------
 -- screen_types (>= 12) — commission_rate is a fraction (0.20 = 20%)

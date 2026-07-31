@@ -1432,6 +1432,78 @@ Founder role-played "as a diabetic patient" reviewing the platform, listed 11 co
 - **Reconciliation note (same recurring drift class as every prior entry in this file):** the live DB had ~15 migrations applied by concurrent sessions during this pass (wellness-points follow-ups, wallet KYC tiers, video-visit alternate-time proposals, public service coverage, data-breach-incident tracking, legal-consent v3, etc.) — none touched, per the shared-working-directory-hazard discipline; this session's own 4 migrations were pulled back from `list_migrations` and committed under their real assigned timestamps.
 - **Verified:** `pnpm --filter web typecheck`/`lint` (0 errors, the same 2 pre-existing warnings)/`test` (522, +1 — a new parameterized case in the existing `oauth-providers.test.ts` from adding `dexcom` to its provider list, no new test files written this pass) and a full production build all green. **Found and fixed a real build-breaking bug in the same pass:** `VITAL_TYPES` was originally a plain constant inside `vitals-form.tsx` (a `"use client"` file) — importing it from the new server-rendered quick-log page turned it into an opaque RSC client reference at build time (`f.VITAL_TYPES.map is not a function`), caught by `next build`, not `typecheck`. Fixed by extracting `VITAL_TYPES`/`VitalType` into a new plain module, `lib/vitals/vital-types.ts`, imported by both the client form and the server page — the general lesson (a named non-component export from a `"use client"` file is unsafe to import into a Server Component) is worth remembering for any future client/server-shared-constant work in this codebase.
 - **Not browser-verified** this session (composition over DB-verified primitives + a green production build + a fixed, confirmed-clean production build error, consistent with this codebase's own posture on recent similar passes). **Next / owner steps:** authenticated click-through of `/patient/quick-log/glucose` end-to-end (including a real push-notification tap once a device is available), register a real Dexcom developer app to light up the CGM connect flow, decide whether Libre needs a manual partnership-intake form now that the schema exists for it, confirm the 5-sample floor / 30-day window on `video_visit_acceptance_stats` are the right thresholds once real volume exists to judge them against.
+### 2026-07-30 — Healthy-patient path: catalogue restored to production, plus the friction/honesty fixes around it (branch `worktree-healthy-patient-10-of-10`)
+Walked the platform as a fit, healthy, first-time visitor and fixed every blocker that walk found. The
+headline finding is not a UX one.
+- **⚠️ THE CLINICAL CATALOGUE WAS EMPTY IN PRODUCTION, and had been since the 2026-07-29 rebuild.**
+  Measured live, not inferred: `lab_providers` 0, `lab_tests` 0, `facilities` 0, `pharmacy_partners` 0,
+  `screen_types` 1 (of 20). All of it lived only in `seed.sql`, which runs on a local `db reset` and is
+  never applied to a remote project — a hazard this file already documented as rule 6 of the removals
+  pattern ("anything data-only dies in a rebuild") and which then happened anyway, to the whole
+  catalogue, unnoticed for a day. Consequences were total, not cosmetic: every self-bookable
+  `panel_bundle` referenced `lab_tests` rows that no longer existed, `FacilitySelector` had zero rows to
+  offer so the "pick a lab near you" step was an empty dropdown, and the screening engine had one
+  screen type to build a calendar from. **Worse, `annual_health_check` — the flagship ₦65,000 product
+  advertised on `/annual-health-check`, on `/pricing` and in the three-package ladder — did not exist as
+  a row at all**, because migration `20260723150205`'s
+  `update panel_bundles set self_bookable = true where code = 'annual_health_check'` matched ZERO rows
+  on the rebuilt database and failed silently. Restored by
+  `20260730231822_restore_clinical_catalogue` **as a migration, not a seed edit**, so it replays with
+  the schema on any future rebuild. Fully idempotent; ends in an assertion block that checks the real
+  invariant (every self-bookable bundle's `test_codes` resolve to an active `lab_tests` row behind an
+  active provider) rather than just counting rows. `seed.sql` keeps its copies for local resets and now
+  carries a header explaining which file governs deployed environments.
+- **Proven end to end in a real browser, not just by row counts:** as `patient.essential.test`, the
+  prevention hub rendered all 8 bookable items (correctly sex-filtered — cervical smear shown, PSA
+  correctly package-only), picking Synlab Nigeria — Ikeja enabled Confirm (so the facility→provider
+  derivation works), and confirming created a genuine `LAB-000012` / `patient_initiated` /
+  `annual_health_check` / ₦65,000 order, which also proves `enforce_lab_order_origin`'s self-bookable
+  branch accepts the AHC. That whole path was dead before this pass. Fixture and its 2 notification rows
+  deleted afterward.
+- **Three surviving "named doctor" over-promises fixed.** `onboarding-flow.tsx` promised every new
+  signup "a named doctor follows your readings and checks in with you" *before plan selection*, which is
+  false for Free. `upgrade-prompt.tsx` promised "a named doctor" on upgrade. `pricing.ts` billed the Care
+  Coordinator add-on as "one named **doctor** coordinator" — a Care Coordinator is explicitly
+  **non-clinical** under the Clinical Tier Ladder, so that one conflated the two roles outright.
+- **A real strength was being undersold, and is now stated.** Checked rather than assumed:
+  `private.handle_abnormal_screening_result` has **no entitlement check whatsoever**, so an abnormal
+  result raises a real doctor alert on every plan including Free. The Free-tier copy previously said only
+  that we would "encourage you to see a doctor". It now says we do not hold an abnormal result behind a
+  paywall, which is both true and the single best reason a healthy sceptic would try the platform.
+- **New `ConfidentialResultNotice`**, on the booking card and `/annual-health-check`. Every claim is
+  enforced somewhere real and the component's docstring says where: sensitive results are never
+  auto-messaged at all (`abnormal-result-handler` suppresses the patient message so a doctor delivers
+  it), I1's DB CHECK physically cannot queue clinical content to WhatsApp/SMS/email, and I9 keeps it away
+  from an employer or HMO — each verified live before the copy was written.
+- **Onboarding cut from 8 surfaces to 6 for a first-time visitor.** Emergency contact and identity
+  verification (a government ID, asked before you have done anything) were removed from the pre-purchase
+  path; both were already on the patient dashboard, and `IdentityVerificationCard` moved there too.
+  The DB gate `enforce_onboarding_prereqs` is untouched, so nothing structural weakened.
+- **A no-subscription front door.** `/signup?intent=health_check` carries intent through auth metadata
+  (same vehicle as `ref_code`, no new column), retitles the signup page to "Book your Health Check" with
+  no-subscription framing, and lands the patient on the new `/patient/prevention#health-check` anchor
+  instead of the generic dashboard. `proxy.ts` honours the same intent for an **already logged-in**
+  patient, closing the class of gap previously accepted for the referral link. Intent is a closed enum
+  and every unrecognised value falls back to `/patient`.
+- **Two advertised prices were for tests nobody could book.** "Kidney function ₦8,000" and "Urinalysis
+  ₦3,000" had no `lab_tests` row at all, under a note claiming "these are the current prices at our
+  partner labs". Removed, the two panel descriptions corrected to their real `test_codes`, and every
+  remaining line re-derived from the live catalogue. Added a named **`LAB_PARTNERS`** block to `/pricing`
+  (Synlab Nigeria · Cerba Lancet · Healthtracka · Afriglobal Medicare) — for a young brand asking for a
+  blood sample, a recognised lab name does more than any amount of process copy.
+- **An early exit on `/pricing`** for the visitor who did not come to shop for a plan, since a one-off
+  check genuinely is pay-once on any tier.
+- **Checked and deliberately left alone, reported rather than "fixed":** the gamification layer is
+  already sound (streaks require "logged something", not a device reading; nothing penalises inactivity),
+  the ParentCare page content had already been correctly rewritten to the individual-enrolment model
+  (only a stale "ParentCare" brand link on `/gift` remained, now fixed), and `ADD_ONS` does render, so
+  the No-Hidden-Cost Promise is kept.
+- typecheck / lint (0 errors, same 2 pre-existing warnings) / 521 tests / production build all green.
+- **Next / owner steps:** the restored partner contacts are `.example` addresses and fake `+234` numbers
+  by design — ops replaces them when a partner is genuinely contracted, and until then the lab-facing
+  notification silently no-ops while the patient confirmation still sends. `patient.free.test`'s state is
+  the typo `"lahos"`, so RegionGate blocks that fixture; worth fixing in the QA roster. Real testimonials
+  and a real subscriber count remain genuinely absent — nothing was fabricated to fill them.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

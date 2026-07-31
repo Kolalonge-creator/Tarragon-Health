@@ -103,7 +103,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings on this plan; if something looks concerning, we'll encourage you to see a doctor and show you how to upgrade.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings routinely on this plan. But if a test you book through us comes back abnormal, that still raises a real alert to our doctors on every plan, including this one: we do not hold back an abnormal result behind a paywall.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -385,10 +385,8 @@ export const TYPICAL_PRICES: { item: string; price: string }[] = [
   { item: "Health Check tier 3 of 3 — Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
-  { item: "Kidney function (U&E + eGFR)", price: "from ₦8,000" },
-  { item: "Urinalysis", price: "from ₦3,000" },
-  { item: "Diabetes panel (HbA1c + kidney + urine)", price: "from ₦18,500" },
-  { item: "Hypertension panel (kidney + cholesterol + urine)", price: "from ₦22,000" },
+  { item: "Diabetes panel (HbA1c + cholesterol)", price: "from ₦18,500" },
+  { item: "Hypertension panel (cholesterol + HbA1c)", price: "from ₦22,000" },
   { item: "PSA (prostate screening)", price: "from ₦12,000" },
   { item: "Cervical smear", price: "from ₦18,000" },
   { item: "HIV screening", price: "from ₦6,000" },
@@ -397,8 +395,26 @@ export const TYPICAL_PRICES: { item: string; price: string }[] = [
   { item: "Blood group & genotype", price: "from ₦6,500" },
 ];
 
+/**
+ * The labs these prices are actually quoted from. Named deliberately: for a
+ * first-time visitor deciding whether a young brand can be trusted with a
+ * blood test, a recognised lab name does more work than any amount of copy
+ * about our process.
+ *
+ * Must stay a true reflection of the live lab_providers table. Do not add a
+ * partner here to look bigger than we are; if a partnership ends, this list
+ * shrinks. Every price in TYPICAL_PRICES above is the cheapest live
+ * lab_tests row across exactly these four.
+ */
+export const LAB_PARTNERS = [
+  "Synlab Nigeria",
+  "Cerba Lancet",
+  "Healthtracka",
+  "Afriglobal Medicare",
+];
+
 export const TYPICAL_PRICES_NOTE =
-  "These are the current prices at our partner labs, so you can budget before you ever book. Your exact price (including your chosen lab and location) is always shown before you confirm. If it ever differs from what you see here, the price at booking is the one that counts, and you can simply decline.";
+  "Every price here is the lowest current price across our partner labs, so you can budget before you ever book. Your exact price, for the lab you pick, is always shown before you confirm. If it ever differs from what you see here, the price at booking is the one that counts, and you can simply decline.";
 
 /**
  * "Tarragon vs your HMO": complementary positioning, never disparaging. HMOs

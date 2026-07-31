@@ -10,7 +10,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   clinician_review: {
     title: "Doctor review is part of a paid plan",
-    body: "On Tarragon Free, no doctor reviews your readings. Upgrade to Essential Care or higher to get a doctor on your care team following your numbers.",
+    body: "On Tarragon Free, no doctor reviews your readings. On Essential Care and above, your readings are reviewed against care protocols and a doctor follows them, and you'll see who reviewed each one and when.",
   },
   doctor_checkin: {
     title: "Doctor check-ins are part of a paid plan",

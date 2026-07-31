@@ -80,6 +80,18 @@ export const signupSchema = z
       .toUpperCase()
       .nullish()
       .transform((v) => (v && v.length > 0 ? v : undefined)),
+    // Why the visitor signed up, carried from ?intent= on /signup, so
+    // completeOnboarding can land them on the thing they actually came for
+    // instead of the generic dashboard. Same hidden-field mechanism as
+    // refCode above, so .nullish() is required for the same reason. Kept to a
+    // closed set: an unrecognised value is dropped here rather than trusted,
+    // and completeOnboarding falls back to /patient regardless, so this can
+    // never be used to push a new patient at an arbitrary route.
+    intent: z
+      .enum(["health_check"])
+      .nullish()
+      .catch(undefined)
+      .transform((v) => v ?? undefined),
     password: z.string().min(8, "Password must be at least 8 characters"),
   })
   .transform((data) => ({
