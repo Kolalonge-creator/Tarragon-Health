@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { CommissionRateEditor } from "@/components/admin/commission-rate-editor";
 import {
   useAllSpecialistProviders,
   useCreateSpecialistProvider,
   useSetSpecialistProviderActive,
+  useUpdateSpecialistProviderCommission,
   type SpecialistType,
 } from "@/lib/queries/partner-catalogues";
 
@@ -31,6 +33,9 @@ export function SpecialistsManager() {
   const { data: specialists, isLoading } = useAllSpecialistProviders();
   const create = useCreateSpecialistProvider();
   const toggle = useSetSpecialistProviderActive();
+  const updateCommission = useUpdateSpecialistProviderCommission();
+  const [savingCommissionId, setSavingCommissionId] = useState<string | null>(null);
+  const [commissionErrorId, setCommissionErrorId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [specialistType, setSpecialistType] = useState<SpecialistType>("cardiology");
@@ -38,6 +43,7 @@ export function SpecialistsManager() {
   const [feeNaira, setFeeNaira] = useState("");
   const [telemedicine, setTelemedicine] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [commissionPercent, setCommissionPercent] = useState("15");
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -62,6 +68,9 @@ export function SpecialistsManager() {
                   consultationFeeKobo: Math.round(naira * 100),
                   supportsTelemedicine: telemedicine,
                   isActive,
+                  commissionRateType: "percentage",
+                  commissionRate: Number(commissionPercent || "0") / 100,
+                  commissionFlatKobo: null,
                 },
                 {
                   onSuccess: () => {
@@ -70,6 +79,7 @@ export function SpecialistsManager() {
                     setFeeNaira("");
                     setTelemedicine(false);
                     setIsActive(true);
+                    setCommissionPercent("15");
                   },
                   onError: (err) => setError(err instanceof Error ? err.message : "Could not save"),
                 }
@@ -97,6 +107,21 @@ export function SpecialistsManager() {
             <div className="space-y-1">
               <Label htmlFor="sp-fee">Consultation fee (₦)</Label>
               <Input id="sp-fee" type="number" min="0" value={feeNaira} onChange={(e) => setFeeNaira(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sp-commission">Commission (%)</Label>
+              <Input
+                id="sp-commission"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={commissionPercent}
+                onChange={(e) => setCommissionPercent(e.target.value)}
+              />
+              <p className="text-xs text-charcoal-ink/50">
+                Flat-fee commissions and rate changes for existing specialists can be set below.
+              </p>
             </div>
             <label className="flex items-center gap-2 text-sm text-charcoal-ink/80">
               <input type="checkbox" checked={telemedicine} onChange={(e) => setTelemedicine(e.target.checked)} />
@@ -127,21 +152,41 @@ export function SpecialistsManager() {
             <p className="text-sm text-charcoal-ink/60">No specialists yet.</p>
           ) : (
             (specialists ?? []).map((sp) => (
-              <div key={sp.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium text-charcoal-ink">{sp.name}</span>
-                  <Badge variant="grey">{sp.specialist_type.replace(/_/g, " ")}</Badge>
-                  <Badge variant={sp.is_active ? "green" : "grey"}>{sp.is_active ? "Active" : "Inactive"}</Badge>
-                  {sp.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
-                  {sp.state && <span className="text-xs text-charcoal-ink/50">{sp.state}</span>}
+              <div key={sp.id} className="space-y-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium text-charcoal-ink">{sp.name}</span>
+                    <Badge variant="grey">{sp.specialist_type.replace(/_/g, " ")}</Badge>
+                    <Badge variant={sp.is_active ? "green" : "grey"}>{sp.is_active ? "Active" : "Inactive"}</Badge>
+                    {sp.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
+                    {sp.state && <span className="text-xs text-charcoal-ink/50">{sp.state}</span>}
+                  </div>
+                  <Button
+                    variant="outline"
+                    disabled={toggle.isPending}
+                    onClick={() => toggle.mutate({ id: sp.id, isActive: !sp.is_active })}
+                  >
+                    {sp.is_active ? "Deactivate" : "Activate"}
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  disabled={toggle.isPending}
-                  onClick={() => toggle.mutate({ id: sp.id, isActive: !sp.is_active })}
-                >
-                  {sp.is_active ? "Deactivate" : "Activate"}
-                </Button>
+                <CommissionRateEditor
+                  idPrefix={`specialist-${sp.id}`}
+                  value={{
+                    commissionRateType: sp.commission_rate_type,
+                    commissionRate: sp.commission_rate,
+                    commissionFlatKobo: sp.commission_flat_kobo,
+                  }}
+                  isSaving={updateCommission.isPending && savingCommissionId === sp.id}
+                  error={commissionErrorId === sp.id ? (updateCommission.error as Error)?.message : null}
+                  onSave={(value) => {
+                    setSavingCommissionId(sp.id);
+                    setCommissionErrorId(null);
+                    updateCommission.mutate(
+                      { id: sp.id, ...value },
+                      { onError: () => setCommissionErrorId(sp.id), onSettled: () => setSavingCommissionId(null) }
+                    );
+                  }}
+                />
               </div>
             ))
           )}

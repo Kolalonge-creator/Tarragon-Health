@@ -6,14 +6,77 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CommissionRateEditor } from "@/components/admin/commission-rate-editor";
 import {
   useAllPharmacyPartners,
   useCreatePharmacyPartner,
   useSetPharmacyPartnerActive,
+  useAllPharmacyMedications,
+  useUpdatePharmacyMedicationCommission,
 } from "@/lib/queries/partner-catalogues";
+import { koboToNaira } from "@tarragon/shared";
 
 function parseRegions(raw: string): string[] {
   return raw.split(",").map((r) => r.trim()).filter(Boolean);
+}
+
+function PharmacyCommissionRates() {
+  const { data: medications, isLoading } = useAllPharmacyMedications();
+  const updateCommission = useUpdatePharmacyMedicationCommission();
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Pharmacy medications — commission rates</CardTitle>
+        <CardDescription>
+          This is what actually drives every &quot;pharmacy&quot; commission on the Commissions
+          dashboard — computed per medication at order time, not from the pharmacy partner
+          itself. Changing a rate here only affects orders placed after the change.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {medications && medications.length === 0 && (
+          <p className="text-sm text-charcoal-ink/60">No pharmacy medications yet.</p>
+        )}
+        {(medications ?? []).map((med) => (
+          <div key={med.id} className="space-y-2 rounded-md border border-charcoal-ink/10 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-medium text-charcoal-ink">
+                {med.drug_name}
+                {med.pack_size && <span className="text-charcoal-ink/60"> · {med.pack_size}</span>}
+              </span>
+              <Badge variant={med.is_active ? "green" : "grey"}>{med.is_active ? "Active" : "Inactive"}</Badge>
+              {med.pharmacy_partner_name && <Badge variant="blue">{med.pharmacy_partner_name}</Badge>}
+              <span className="text-xs text-charcoal-ink/50">
+                Price ₦{koboToNaira(med.price_kobo).toLocaleString()}
+              </span>
+            </div>
+            <CommissionRateEditor
+              idPrefix={`med-${med.id}`}
+              value={{
+                commissionRateType: med.commission_rate_type,
+                commissionRate: med.commission_rate,
+                commissionFlatKobo: med.commission_flat_kobo,
+              }}
+              isSaving={updateCommission.isPending && savingId === med.id}
+              error={errorId === med.id ? (updateCommission.error as Error)?.message : null}
+              onSave={(value) => {
+                setSavingId(med.id);
+                setErrorId(null);
+                updateCommission.mutate(
+                  { id: med.id, ...value },
+                  { onError: () => setErrorId(med.id), onSettled: () => setSavingId(null) }
+                );
+              }}
+            />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 export function PharmaciesManager() {
@@ -147,6 +210,8 @@ export function PharmaciesManager() {
           )}
         </CardContent>
       </Card>
+
+      <PharmacyCommissionRates />
     </div>
   );
 }

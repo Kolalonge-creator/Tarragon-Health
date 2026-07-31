@@ -77,6 +77,25 @@ function AttestationBadge({ expiresAt }: { expiresAt: string | null }) {
   return <Badge variant="green">Attested until {formatDate(expiresAt)}</Badge>;
 }
 
+/** True when neither a credential type nor a credential number is on file —
+ * e.g. a record provisioned via an activation/indemnity exemption instead of
+ * a real verified MDCN/NMCN number. Distinct from license_verified_at, which
+ * only records that *something* was marked verified, not that a real
+ * credential backs it — this badge is what keeps that distinction visible
+ * instead of silently reading as "Verified" either way. */
+function hasCredentialOnFile(staff: Pick<ClinicalStaff, "credential_type" | "credential_number">): boolean {
+  return Boolean(staff.credential_type?.trim() && staff.credential_number?.trim());
+}
+
+function MissingCredentialBadge({ staff }: { staff: ClinicalStaff }) {
+  const consequential = staff.active || staff.is_clinical_director;
+  return (
+    <Badge variant={consequential ? "red" : "grey"}>
+      No credential number on file
+    </Badge>
+  );
+}
+
 function IndemnityBadge({ expiresAt }: { expiresAt: string | null }) {
   if (!expiresAt) return <Badge variant="grey">No cover on file</Badge>;
   const days = daysUntil(expiresAt);
@@ -471,6 +490,7 @@ export function ClinicalStaffManager() {
                             : "Not verified"}
                         </p>
                         <div className="mt-1 flex flex-wrap gap-1.5">
+                          {!hasCredentialOnFile(s) && <MissingCredentialBadge staff={s} />}
                           {s.license_verified_at && (
                             <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
                           )}

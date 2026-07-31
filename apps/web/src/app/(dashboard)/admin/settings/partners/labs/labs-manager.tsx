@@ -6,14 +6,77 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CommissionRateEditor } from "@/components/admin/commission-rate-editor";
 import {
   useAllLabProviders,
   useCreateLabProvider,
   useSetLabProviderActive,
+  useAllPanelBundles,
+  useUpdatePanelBundleCommission,
 } from "@/lib/queries/partner-catalogues";
+import { koboToNaira } from "@tarragon/shared";
 
 function parseRegions(raw: string): string[] {
   return raw.split(",").map((r) => r.trim()).filter(Boolean);
+}
+
+function LabCommissionRates() {
+  const { data: bundles, isLoading } = useAllPanelBundles();
+  const updateCommission = useUpdatePanelBundleCommission();
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Lab tests &amp; bundles — commission rates</CardTitle>
+        <CardDescription>
+          This is what actually drives every &quot;lab&quot; commission on the Commissions
+          dashboard — a lab order&apos;s commission is computed from the bundle it books, not
+          from the lab provider itself. Changing a rate here only affects orders placed after
+          the change.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {bundles && bundles.length === 0 && (
+          <p className="text-sm text-charcoal-ink/60">No lab bundles yet.</p>
+        )}
+        {(bundles ?? []).map((bundle) => (
+          <div key={bundle.id} className="space-y-2 rounded-md border border-charcoal-ink/10 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-medium text-charcoal-ink">{bundle.name}</span>
+              <Badge variant="grey">{bundle.code}</Badge>
+              <Badge variant={bundle.is_active ? "green" : "grey"}>
+                {bundle.is_active ? "Active" : "Inactive"}
+              </Badge>
+              <span className="text-xs text-charcoal-ink/50">
+                Price ₦{koboToNaira(bundle.price_kobo).toLocaleString()}
+              </span>
+            </div>
+            <CommissionRateEditor
+              idPrefix={`bundle-${bundle.id}`}
+              value={{
+                commissionRateType: bundle.commission_rate_type,
+                commissionRate: bundle.commission_rate,
+                commissionFlatKobo: bundle.commission_flat_kobo,
+              }}
+              isSaving={updateCommission.isPending && savingId === bundle.id}
+              error={errorId === bundle.id ? (updateCommission.error as Error)?.message : null}
+              onSave={(value) => {
+                setSavingId(bundle.id);
+                setErrorId(null);
+                updateCommission.mutate(
+                  { id: bundle.id, ...value },
+                  { onError: () => setErrorId(bundle.id), onSettled: () => setSavingId(null) }
+                );
+              }}
+            />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 export function LabsManager() {
@@ -112,6 +175,8 @@ export function LabsManager() {
           )}
         </CardContent>
       </Card>
+
+      <LabCommissionRates />
     </div>
   );
 }

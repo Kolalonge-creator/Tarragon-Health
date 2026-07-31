@@ -1,11 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables, Enums } from "@tarragon/shared";
+import type { CommissionRateValue } from "@/components/admin/commission-rate-editor";
 
 export type LabProvider = Tables<"lab_providers">;
 export type PharmacyPartner = Tables<"pharmacy_partners">;
 export type SpecialistProvider = Tables<"specialist_providers">;
 export type SpecialistType = Enums<"specialist_type">;
+export type PanelBundle = Tables<"panel_bundles">;
+export type PharmacyMedication = Tables<"pharmacy_medications"> & { pharmacy_partner_name: string | null };
+
+function commissionRateUpdate(value: CommissionRateValue) {
+  return {
+    commission_rate_type: value.commissionRateType,
+    commission_rate: value.commissionRate,
+    commission_flat_kobo: value.commissionFlatKobo,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Labs
@@ -48,6 +59,37 @@ export function useSetLabProviderActive() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Lab tests & bundles — the catalogue rows record_lab_commission() actually
+// reads (panel_bundles.commission_rate), not lab_providers itself.
+// ---------------------------------------------------------------------------
+export function useAllPanelBundles() {
+  return useQuery({
+    queryKey: ["panel-bundles", "admin", "all"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("panel_bundles").select("*").order("name");
+      if (error) throw error;
+      return data as PanelBundle[];
+    },
+  });
+}
+
+export function useUpdatePanelBundleCommission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...value }: { id: string } & CommissionRateValue) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("panel_bundles")
+        .update(commissionRateUpdate(value))
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["panel-bundles"] }),
   });
 }
 
@@ -109,6 +151,45 @@ export function useSetPharmacyPartnerActive() {
 }
 
 // ---------------------------------------------------------------------------
+// Pharmacy medications — the catalogue rows record_pharmacy_commission()
+// actually reads (pharmacy_medications.commission_rate per item).
+// ---------------------------------------------------------------------------
+export function useAllPharmacyMedications() {
+  return useQuery({
+    queryKey: ["pharmacy-medications", "admin", "all"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_medications")
+        .select("*, pharmacy_partners(name)")
+        .order("drug_name");
+      if (error) throw error;
+      return (data ?? []).map((row) => {
+        const { pharmacy_partners, ...rest } = row as typeof row & {
+          pharmacy_partners: { name: string } | null;
+        };
+        return { ...rest, pharmacy_partner_name: pharmacy_partners?.name ?? null };
+      }) as PharmacyMedication[];
+    },
+  });
+}
+
+export function useUpdatePharmacyMedicationCommission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...value }: { id: string } & CommissionRateValue) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("pharmacy_medications")
+        .update(commissionRateUpdate(value))
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-medications"] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Specialists
 // ---------------------------------------------------------------------------
 export function useAllSpecialistProviders() {
@@ -126,14 +207,16 @@ export function useAllSpecialistProviders() {
 export function useCreateSpecialistProvider() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      name: string;
-      specialistType: SpecialistType;
-      state: string | null;
-      consultationFeeKobo: number;
-      supportsTelemedicine: boolean;
-      isActive: boolean;
-    }) => {
+    mutationFn: async (
+      input: {
+        name: string;
+        specialistType: SpecialistType;
+        state: string | null;
+        consultationFeeKobo: number;
+        supportsTelemedicine: boolean;
+        isActive: boolean;
+      } & CommissionRateValue
+    ) => {
       const supabase = createClient();
       const { error } = await supabase.from("specialist_providers").insert({
         name: input.name,
@@ -142,6 +225,7 @@ export function useCreateSpecialistProvider() {
         consultation_fee_kobo: input.consultationFeeKobo,
         supports_telemedicine: input.supportsTelemedicine,
         is_active: input.isActive,
+        ...commissionRateUpdate(input),
       });
       if (error) throw error;
     },
@@ -155,6 +239,21 @@ export function useSetSpecialistProviderActive() {
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const supabase = createClient();
       const { error } = await supabase.from("specialist_providers").update({ is_active: isActive }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
+  });
+}
+
+export function useUpdateSpecialistProviderCommission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...value }: { id: string } & CommissionRateValue) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("specialist_providers")
+        .update(commissionRateUpdate(value))
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
