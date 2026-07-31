@@ -63,7 +63,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
 
 export const PROOF_STATS = [
   {
-    value: "5",
+    value: "4",
     label: "priority programmes",
     detail: "Hypertension, diabetes, weight management, and preventive health.",
   },

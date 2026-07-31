@@ -73,6 +73,13 @@ export default async function ChronicCarePage() {
           into the same review that watches your blood pressure and blood sugar, because they
           drive the same underlying risk.
         </p>
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
+          Managing a chronic condition can weigh on you too. Try our free, two-minute{" "}
+          <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="font-medium text-deep-forest hover:underline">
+            mental well-being check
+          </Link>
+          , no sign-up required.
+        </p>
       </Section>
 
       {cholesterolArticles.length > 0 ? (

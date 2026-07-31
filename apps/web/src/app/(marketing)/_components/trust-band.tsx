@@ -66,14 +66,18 @@ export function TrustBand() {
       </div>
       <p className="mt-8 text-center text-sm text-white/60">
         Read the full{" "}
-        <Link href={MARKETING_ROUTES.pricing} className="font-medium text-white/85 underline-offset-2 hover:underline">
+        <Link href={MARKETING_ROUTES.howPricingWorks} className="font-medium text-white/85 underline-offset-2 hover:underline">
           No-Hidden-Cost Promise
         </Link>{" "}
         and{" "}
         <Link href={MARKETING_ROUTES.about} className="font-medium text-white/85 underline-offset-2 hover:underline">
           how we work
         </Link>
-        .
+        , or see{" "}
+        <Link href={MARKETING_ROUTES.impact} className="font-medium text-white/85 underline-offset-2 hover:underline">
+          our impact
+        </Link>{" "}
+        in numbers.
       </p>
     </div>
   );
