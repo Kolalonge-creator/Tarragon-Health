@@ -150,9 +150,9 @@ export const NGN_TIERS: PricingTier[] = [
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
       { feature: "Monthly doctor review of your BP, glucose, or weight readings", label: "INCLUDED" },
-      { feature: "Monthly doctor check-in over WhatsApp", label: "INCLUDED" },
+      { feature: "Monthly doctor check-in", label: "INCLUDED" },
       { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
-      { feature: "Direct WhatsApp access to your care team", label: "INCLUDED" },
+      { feature: "Message your care team directly in the app", label: "INCLUDED" },
       { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "BOOK & PAY" },
       { feature: "Medication refills through partner pharmacies", label: "BOOK & PAY" },
     ],
@@ -236,7 +236,7 @@ export const DIASPORA_ONE_PRICE_NOTE =
  * conversions and buys the thing a new platform needs most: trust.
  */
 export const DIASPORA_SELF_USE_NOTE =
-  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, WhatsApp access, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
+  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, in-app care team messaging, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
 /** The Health Wallet: one balance, topped up by yourself, a family member, or
  * a referral reward, spent on any Tarragon lab test, health check, pharmacy
@@ -303,7 +303,7 @@ export const ADD_ONS: PricingAddOn[] = [
     description:
       "Turns Complete Care (₦15,000/month) into a fully dedicated service at ₦45,000/month total. Built for a parent or relative who needs closer, more personal attention, especially popular with diaspora families. Add it to their own subscription: everyone enrols individually, and you can pay for it by funding their Health Wallet.",
     items: [
-      { feature: "One named doctor coordinator (not a rotating team)", label: "INCLUDED" },
+      { feature: "One dedicated care coordinator (not a rotating queue)", label: "INCLUDED" },
       { feature: "A scheduled, booked monthly doctor appointment", label: "INCLUDED" },
       { feature: "Quarterly PDF health report sent to the family", label: "INCLUDED" },
       { feature: "Priority escalation", label: "INCLUDED" },
