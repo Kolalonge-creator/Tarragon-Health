@@ -1417,10 +1417,26 @@ quietly declining) is stated as a limit rather than papered over.
   `/patient/supporting` all compile.
 - **Not browser-verified** — no test credential was reset for this pass, per
   [[feedback_credential_reset_scope]].
-- **Next / founder:** the `send-pending-notifications` redeploy is now overdue for two templates
-  (`sponsor_spend_receipt` and `sponsor_monthly_report`); both in-app halves already work without
-  it. Decision (2) above is still open and still deliberately unbuilt: whether a sponsor should
-  ever see clinical data, not just cost.
+- ✅ **`send-pending-notifications` redeployed, v22 → v24**, carrying both new email templates.
+  **⚠️ The deployed function was four versions ahead of this repo**, and the live v22 contained
+  work committed nowhere: an `appUrl()` helper, a `pushUrl` field on the template contract, and
+  real deep links in the vitals/medication/adherence reminders (before which a push notification
+  opened the homepage regardless of what it was about) — a concurrent session's patient-experience
+  work, deployed but never committed. **Deploying this branch's file would have silently reverted
+  all of it.** Handled the same way this repo handles out-of-band migrations: pulled the deployed
+  source in as the base, added only the two sponsor templates on top, and committed the result so
+  source and production finally agree. Verified by diff that v24 is v22 plus exactly the 100-line
+  sponsor block with **zero** lines removed. **The deep-link work is now committed on this branch
+  as a side effect** — whoever owns that session may hit a conflict when they commit theirs.
+  Note also that a **v23 briefly existed and served one cron request** during the deploy window;
+  most likely an artifact of the CLI's own upload-then-activate, but if anyone deliberately
+  deployed in that window their change is not in v24 and needs redeploying.
+- **macOS gotcha worth remembering:** the Supabase CLI stores its access token in the **Keychain**,
+  not `~/.supabase/access-token`. Checking for that file reports "not logged in" when the CLI
+  actually is; a non-interactive shell then fails with "Access token not provided" because it
+  cannot show the keychain prompt. Approving the keychain item once (Always Allow) is enough.
+- **Next / founder:** decision (2) above is still open and still deliberately unbuilt: whether a
+  sponsor should ever see clinical data, not just cost.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
