@@ -1741,6 +1741,95 @@ matches the **377** applied migrations exactly — verified by parsing
   `public_price_list`/`public_service_coverage`/`public_response_commitments` marketing endpoints
   (aggregate only, no PHI, `SET search_path TO ''`).
 
+### 2026-07-31 — Health Wallet retired, replaced by Care Vouchers (CBN structuring, founder-directed)
+Founder asked whether the Health Wallet could be restructured as "a Tarragon coupon" to avoid needing
+CBN approval. **The honest answer, and the one this build acts on: renaming it does not help, because
+a regulator reads substance.** A "coupon" that holds a fungible naira balance, is fundable by a third
+party, and never expires is stored value with a different word on it. What actually moves the needle
+is changing the mechanics, so the mechanics changed.
+
+**Row counts checked FIRST (CLAUDE.md removals rule 1), and they decided the whole shape of the
+work:** `health_wallets` 0 · `wallet_topups` 0 · `wallet_ledger` 0 · `wallet_savings_goals` 0 ·
+`referrals` 0 · total balance ₦0.00. Nothing had ever flowed through the wallet, so this is a purely
+structural change with **no customer money to unwind and no refunds owed** — which is exactly why it
+could be a clean DROP with no conversion step anywhere. That window closes the moment one real person
+pays in.
+
+**The model.** A patient buys a **named service at a fixed price** and holds an entitlement to that
+service, not an amount of spending power. Nine migrations, `20260731214826`–`20260731220052`
+(applied via `apply_migration`, recorded, local files pulled back from
+`schema_migrations.statements`).
+- **Single-purpose, enforced where it counts.** `redeem_care_voucher` asks *"is this order FOR THE
+  SERVICE THIS VOUCHER IS"* and refuses otherwise. It is not a balance comparison and there is no
+  code path that makes it one. Proven live: an Annual Health Check voucher is refused against a
+  **cheaper** Basic Check order, which a balance model would obviously have allowed.
+- **Non-transferable, structurally.** `beneficiary_profile_id` is immutable via
+  `private.enforce_care_voucher_immutability`; there is no transfer column, RPC, or policy anywhere.
+  Proven live that even a **superuser** UPDATE moving a voucher to another person is rejected, as is
+  rewriting an issued voucher's price or SKU.
+- **Never cash-redeemable.** No payout/withdraw/cash-out path exists, and the redemption migration
+  ends in an assertion block that greps `pg_proc` and fails if one is ever added. Cancellation
+  deliberately moves no money: a refund is a provider refund against the original charge, so it goes
+  back to the card that paid.
+- **24-month expiry** (`care_voucher_config`, admin-editable), clock starting at **full payment**, not
+  at reservation, so a long instalment plan never eats the validity window. 30-day warning in-app and
+  by email. Extendable by staff, and extension works on an already-expired voucher because the common
+  case is somebody asking after the fact.
+- **Layaway is per-voucher, not a balance.** Instalments attach to one `voucher_id`; the voucher stays
+  `reserved` and unusable until fully paid. **A part-paid voucher is NEVER swept at expiry** —
+  silently forfeiting money already taken toward a named service is exactly the behaviour the FCCPC
+  would take an interest in. Founder should confirm whether a long-abandoned reserved voucher is ever
+  closed out, and on what terms; it is deliberately left open rather than guessed at.
+- **Sponsor buys a named service for a named beneficiary**, not a balance. This is also the better
+  product per `project_diaspora_is_sponsor_not_patient` (sell the receipt, not the subscription): the
+  purchaser sees that they bought it and later that it was used, and **nothing about results**.
+- **Rewards are separate liabilities.** Referral/prevention/wellness credit now issues
+  `kind = 'reward_discount'` vouchers with `purchaser_profile_id` NULL **by constraint** — that null
+  is what lets the finance layer keep promotional credit out of customer-money accounting. Amounts
+  unchanged (₦500 referral each side, ₦500/₦500/₦1,000 prevention, ₦5,000 annual cap).
+- **Accounting: 2100 renamed "Customer prepayments — care vouchers", new 2600 "Reward vouchers
+  outstanding".** Money in is a liability, revenue is recognised only at redemption. **Breakage is
+  deliberately NOT recognised** — an expired voucher keeps its liability standing, because expiry
+  here is extendable on request and booking revenue for care never given, on a balance a patient can
+  still ask us to reinstate, would be dishonest. Founder and accountant can revisit once there is
+  real data on how many get reinstated. Proven live that 2100 and 2600 never share a journal entry.
+- **Terms of Service `2026-07-31-v2`** states all four guarantees in the contract the patient actually
+  agrees to, replacing the Health Wallet section and the referral paragraph that promised wallet
+  credit. `data_processing`/`telehealth` untouched, so prior acceptances stay valid.
+- **The wallet was deleted, not merely stopped.** Six tables, twelve functions, the `wallet_entry_type`
+  enum. `sponsor_book_care`, the spend receipt and the monthly sponsor report were **rewritten** onto
+  vouchers rather than dropped, because the sponsor product survives the wallet. (`payment_provider`
+  keeps a now-unwritten `wallet` value only because Postgres cannot remove an enum value in place.)
+- **Found in passing:** `private.can_fund_wallet` referenced `family_plan_members`, dropped by the
+  2026-07-29 individual-enrolment removal — removal 4 had already rewritten it to `profile_access`
+  only, so the new `can_purchase_voucher_for` matches that deliberately rather than inventing a second
+  answer.
+- **Verified, and the suite was proven to discriminate.** `packages/db/tests/care_vouchers.sql`, 23
+  checks in one rolled-back transaction, every negative paired with a positive control (a stranger is
+  refused, then the consented sponsor completes the same purchase). Then **deliberately sabotaged**:
+  with the SKU check replaced by the old wallet-style behaviour, exactly check 4a fails. Zero residue
+  after rollback, SKU check confirmed intact afterward. `get_advisors`: the 5 new RPCs carry only the
+  accepted `authenticated_security_definer_function_executable` WARN every sibling RPC carries, none
+  are anon-executable, no policy gaps on any voucher table.
+- **App + marketing rewritten in lockstep:** `CareVouchersCard` (deliberately shows no total or
+  combined figure anywhere — presenting several vouchers as an amount of money would misdescribe the
+  thing), `RedeemVoucherButton` on lab/pharmacy/referral/AHC, layaway UI, sponsor dashboard, admin
+  `/admin/settings/vouchers`, `/gift` rewritten, pricing/products/services/plan-finder copy. Marketing
+  copy written without em dashes per the standing rule.
+- typecheck / lint (0 errors, the same 2 pre-existing warnings) / **555 web + 47 shared tests** / full
+  production build all green. `/gift` and `/pricing/how-it-works` browser-verified live on a worktree
+  dev server with zero console errors and no stale wallet copy anywhere in the app.
+- **NOT browser-verified:** the authenticated voucher surfaces (buy, layaway, redeem, sponsor view,
+  admin). Composition over the 23-check DB proof plus a green production build, consistent with this
+  codebase's posture when no test credential is at hand.
+- **⚠️ This is structuring, not legal advice, and it is not a licensing opinion.** CBN has no crisp
+  published closed-loop safe harbour the way the EU's limited-network exclusion does, so "we are not
+  issuing e-money" is a position, not a certainty. **Get a Nigerian fintech counsel opinion.** What
+  this build does is make that opinion easy to give favourably: the mechanics now match the claim.
+  It bolts onto the Schedules A-D counsel brief already queued rather than being a new engagement.
+- **Next / founder:** counsel opinion; decide the abandoned-layaway policy; confirm whether breakage
+  should ever be recognised; browser click-through once a test credential is approved.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed

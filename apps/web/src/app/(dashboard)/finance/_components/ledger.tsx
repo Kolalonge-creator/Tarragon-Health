@@ -15,7 +15,7 @@ import {
 } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
-const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "wallet", "manual", "adjustment"];
+const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "voucher", "manual", "adjustment"];
 const CURRENCIES = ["NGN", "GBP", "USD"];
 const today = () => new Date().toISOString().slice(0, 10);
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);

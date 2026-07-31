@@ -4,7 +4,7 @@ import { Stepper } from "@/components/ui/stepper";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import type { ReferralStatus } from "@tarragon/shared";
 import { PayForReferralButton } from "./pay-for-referral-button";
-import { PayWithWalletButton } from "@/components/pay-with-wallet-button";
+import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { ChooseReferralSpecialist } from "./choose-referral-specialist";
 
 // Patient-facing status copy — deliberately not the staff worklist labels
@@ -43,7 +43,7 @@ export async function YourReferrals({
   const { data: referrals } = await supabase
     .from("specialist_referrals")
     .select(
-      "id, referral_number, specialist_type, status, urgency, referral_fee_kobo, appointment_date, booking_confirmed_at, specialist_provider_id, treatment_plan_received_at, shared_care_handback_at, created_at, specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name)",
+      "id, referral_number, specialist_type, status, urgency, referral_fee_kobo, payable_kobo, appointment_date, booking_confirmed_at, specialist_provider_id, treatment_plan_received_at, shared_care_handback_at, created_at, specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name)",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -92,11 +92,11 @@ export async function YourReferrals({
                   referralId={referral.id}
                   feeKobo={referral.referral_fee_kobo}
                 />
-                <PayWithWalletButton
+                <RedeemVoucherButton
                   orderType="referral"
                   orderId={referral.id}
-                  amountKobo={referral.referral_fee_kobo}
                   patientId={patientId}
+                  payableKobo={referral.payable_kobo ?? referral.referral_fee_kobo}
                 />
               </>
             )}

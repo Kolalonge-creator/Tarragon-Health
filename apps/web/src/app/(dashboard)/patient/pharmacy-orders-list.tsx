@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { koboToNaira, type PharmacyOrderStatus } from "@tarragon/shared";
 import { PayForPharmacyOrderButton } from "@/components/pay-for-pharmacy-order-button";
-import { PayWithWalletButton } from "@/components/pay-with-wallet-button";
+import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { DeliveryAvailability } from "@/components/delivery-availability";
 import { DeliveryAddressForm } from "@/components/delivery-address-form";
 
@@ -180,11 +180,11 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                 {order.status === "pending_payment" && (
                   <>
                     <PayForPharmacyOrderButton orderId={order.id} amountKobo={order.total_kobo} />
-                    <PayWithWalletButton
+                    <RedeemVoucherButton
                       orderType="pharmacy"
                       orderId={order.id}
-                      amountKobo={order.total_kobo}
                       patientId={patientId}
+                      payableKobo={order.payable_kobo ?? order.total_kobo}
                     />
                   </>
                 )}

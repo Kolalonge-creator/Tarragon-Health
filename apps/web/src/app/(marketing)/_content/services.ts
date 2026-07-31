@@ -278,7 +278,7 @@ export const HOMEPAGE_FAQS = [
   {
     question: "Can I use Tarragon for my parent while I live abroad?",
     answer:
-      "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for it by topping up their Health Wallet from anywhere.",
+      "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for it by buying the checks they need from anywhere.",
   },
   {
     question: "How much does it cost?",

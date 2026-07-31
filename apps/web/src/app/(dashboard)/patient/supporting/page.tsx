@@ -13,7 +13,7 @@ import { SupportedPeople } from "./supported-people";
  *
  * That question is not diaspora-specific, and this page is not gated to anyone
  * abroad. A daughter in Lagos funding her mother in Enugu lands here in exactly
- * the same place, in the same currency, through the same wallet. It is simply
+ * the same place, in the same currency, as named checks you buy for them. It is simply
  * felt hardest at distance, because distance is what removes every other way of
  * checking.
  */

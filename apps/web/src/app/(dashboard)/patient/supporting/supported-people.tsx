@@ -21,7 +21,8 @@ import {
   useSupportedPersonHealth,
   type SupportedPerson,
 } from "@/lib/queries/sponsorship";
-import { topUpWallet, type TopUpWalletState } from "../wallet/actions";
+import { buyCareVoucher, type VoucherActionState } from "../vouchers/actions";
+import { useVoucherCatalogue } from "@/lib/queries/vouchers";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -34,13 +35,6 @@ function shortDate(iso: string): string {
     year: "numeric",
   });
 }
-
-const ORDER_LABEL: Record<string, string> = {
-  lab: "Lab test",
-  pharmacy: "Medication",
-  referral: "Specialist referral",
-  video_visit: "Video visit",
-};
 
 /**
  * Everyone this person supports, and what their money actually did.
@@ -90,8 +84,8 @@ export function SupportedPeople({ payerEmailKnown }: { payerEmailKnown: boolean 
     );
   }
 
-  const totalBalance = people.reduce((sum, p) => sum + p.balanceKobo, 0);
-  const totalSpent = people.reduce((sum, p) => sum + p.spentKobo, 0);
+  const totalReady = people.reduce((sum, p) => sum + p.readyVouchers.length, 0);
+  const totalUsed = people.reduce((sum, p) => sum + p.usedVouchers.length, 0);
   const totalFunded = people.reduce((sum, p) => sum + p.fundedKobo, 0);
 
   return (
@@ -107,18 +101,15 @@ export function SupportedPeople({ payerEmailKnown }: { payerEmailKnown: boolean 
             </p>
           </div>
           <div>
-            <p className="font-heading text-2xl font-semibold text-brand-green">
-              {naira(totalSpent)}
-            </p>
+            <p className="font-heading text-2xl font-semibold text-brand-green">{totalUsed}</p>
             <p className="text-sm text-charcoal-ink/60">
-              has become care{totalFunded > 0 ? ` of ${naira(totalFunded)} funded` : ""}
+              {totalUsed === 1 ? "check has been used" : "checks have been used"}
+              {totalFunded > 0 ? ` of ${naira(totalFunded)} you have paid` : ""}
             </p>
           </div>
           <div>
-            <p className="font-heading text-2xl font-semibold text-charcoal-ink">
-              {naira(totalBalance)}
-            </p>
-            <p className="text-sm text-charcoal-ink/60">still waiting to be used</p>
+            <p className="font-heading text-2xl font-semibold text-charcoal-ink">{totalReady}</p>
+            <p className="text-sm text-charcoal-ink/60">paid for and waiting to be used</p>
           </div>
         </CardContent>
       </Card>
@@ -137,17 +128,14 @@ function PersonCard({
   person: SupportedPerson;
   payerEmailKnown: boolean;
 }) {
-  const [state, formAction, pending] = useActionState<TopUpWalletState, FormData>(
-    topUpWallet,
+  const [state, formAction, pending] = useActionState<VoucherActionState, FormData>(
+    buyCareVoucher,
     undefined
   );
-  const [showTopUp, setShowTopUp] = useState(false);
+  const [showBuy, setShowBuy] = useState(false);
+  const { data: catalogue } = useVoucherCatalogue();
 
   const name = person.fullName ?? "This person";
-  const goalProgress =
-    person.goal && person.goal.targetKobo > 0
-      ? Math.min(100, Math.round((person.balanceKobo / person.goal.targetKobo) * 100))
-      : null;
 
   return (
     <Card>
@@ -161,111 +149,128 @@ function PersonCard({
         </div>
         <CardDescription>
           {person.lastFundedAt
-            ? `Last funded ${shortDate(person.lastFundedAt)}.`
-            : "No money has been added yet."}{" "}
-          {person.spentKobo > 0
-            ? `${naira(person.spentKobo)} of what has gone in has been spent on care.`
-            : "Nothing has been spent yet."}
+            ? `You last bought care for them ${shortDate(person.lastFundedAt)}.`
+            : "You have not bought anything for them yet."}{" "}
+          {person.usedVouchers.length > 0
+            ? `${person.usedVouchers.length} of what you bought has been used.`
+            : "Nothing has been used yet."}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs text-charcoal-ink/60">Health Wallet balance</p>
+            <p className="text-xs text-charcoal-ink/60">Paid for and waiting to be used</p>
             <p className="font-heading text-2xl font-semibold text-charcoal-ink">
-              {naira(person.balanceKobo)}
+              {person.readyVouchers.length}
             </p>
           </div>
-          <Button type="button" variant="outline" onClick={() => setShowTopUp((open) => !open)}>
-            {showTopUp ? "Cancel" : "Add money"}
+          <Button type="button" variant="outline" onClick={() => setShowBuy((open) => !open)}>
+            {showBuy ? "Cancel" : "Buy a check for them"}
           </Button>
         </div>
 
-        {person.goal && goalProgress !== null && (
-          <div>
+        {person.readyVouchers.length > 0 && (
+          <ul className="space-y-1.5">
+            {person.readyVouchers.map((v) => (
+              <li
+                key={v.id}
+                className="flex items-center justify-between gap-3 text-sm text-charcoal-ink/70"
+              >
+                <span>
+                  {v.label}
+                  <span className="text-charcoal-ink/40"> · {v.voucherNumber}</span>
+                </span>
+                <Badge variant="green">Ready</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {person.savingVouchers.map((v) => (
+          <div key={v.id}>
             <div className="flex items-center justify-between text-xs text-charcoal-ink/60">
-              <span>Saving toward {person.goal.name}</span>
+              <span>Still paying for {v.label}</span>
               <span>
-                {naira(person.balanceKobo)} of {naira(person.goal.targetKobo)}
+                {naira(v.amountPaidKobo)} of {naira(v.faceValueKobo)}
               </span>
             </div>
             <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
               <div
                 className="h-full rounded-full bg-brand-green"
-                style={{ width: `${goalProgress}%` }}
+                style={{
+                  width: `${Math.min(100, Math.round((v.amountPaidKobo / v.faceValueKobo) * 100))}%`,
+                }}
               />
             </div>
           </div>
-        )}
+        ))}
 
-        {showTopUp && (
+        {showBuy && (
           <form action={formAction} className="space-y-3 rounded-lg bg-charcoal-ink/5 p-4">
             <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label
-                  className="block text-xs font-medium text-charcoal-ink"
-                  htmlFor={`amount-${person.profileId}`}
-                >
-                  Amount to add, in naira
-                </label>
-                <Input
-                  id={`amount-${person.profileId}`}
-                  name="amountNaira"
-                  inputMode="decimal"
-                  placeholder="10000"
-                  required
-                />
-              </div>
-              <div>
-                <label
-                  className="block text-xs font-medium text-charcoal-ink"
-                  htmlFor={`currency-${person.profileId}`}
-                >
-                  Pay in
-                </label>
-                <Select id={`currency-${person.profileId}`} name="currency" defaultValue="NGN">
-                  <option value="NGN">Naira</option>
-                  <option value="USD">US dollars</option>
-                </Select>
-              </div>
+            <div>
+              <label
+                className="block text-xs font-medium text-charcoal-ink"
+                htmlFor={`bundle-${person.profileId}`}
+              >
+                Which check?
+              </label>
+              <Select id={`bundle-${person.profileId}`} name="panelBundleId" required>
+                <option value="">Choose a check</option>
+                {(catalogue ?? []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} — {naira(b.price_kobo ?? 0)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label
+                className="block text-xs font-medium text-charcoal-ink"
+                htmlFor={`note-${person.profileId}`}
+              >
+                Add a note (optional)
+              </label>
+              <Input id={`note-${person.profileId}`} name="giftMessage" placeholder="Thinking of you" />
             </div>
             <p className="text-xs text-charcoal-ink/60">
-              They receive the naira amount either way. Paying in dollars converts at the
-              reference rate on the day, and the wallet is credited the moment payment clears.
+              You are buying one named check for {name}, not adding money to an account. Reserving
+              is free; you pay next, in one go or bit by bit. It belongs to them, cannot be moved to
+              anyone else, and is never exchangeable for cash.
             </p>
             {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+            {state?.message && <p className="text-sm text-emerald-700">{state.message}</p>}
             {!payerEmailKnown && (
               <p className="text-sm text-amber-700">
                 Your account needs an email address on file before you can check out.
               </p>
             )}
             <Button type="submit" disabled={pending || !payerEmailKnown}>
-              {pending ? "Opening checkout…" : "Continue to payment"}
+              {pending ? "Reserving…" : "Reserve this check"}
             </Button>
           </form>
         )}
 
         {person.permissionLevel === "manage" && <ManageActions person={person} />}
 
-        {person.recentSpends.length > 0 && (
+        {person.usedVouchers.length > 0 && (
           <div>
             <p className="text-xs font-medium text-charcoal-ink">What it has paid for</p>
             <ul className="mt-2 space-y-1.5">
-              {person.recentSpends.map((entry) => (
+              {person.usedVouchers.map((v) => (
                 <li
-                  key={entry.id}
+                  key={v.id}
                   className="flex items-center justify-between gap-3 text-sm text-charcoal-ink/70"
                 >
                   <span>
-                    {entry.orderType
-                      ? (ORDER_LABEL[entry.orderType] ?? "Care")
-                      : (entry.note ?? "Care")}
-                    <span className="text-charcoal-ink/40"> · {shortDate(entry.createdAt)}</span>
+                    {v.label}
+                    <span className="text-charcoal-ink/40">
+                      {v.redeemedAt ? ` · ${shortDate(v.redeemedAt)}` : ""}
+                    </span>
                   </span>
                   <span className="shrink-0 font-medium text-charcoal-ink">
-                    {naira(entry.amountKobo)}
+                    {naira(v.faceValueKobo)}
                   </span>
                 </li>
               ))}
@@ -610,19 +615,20 @@ function ManageActions({ person }: { person: SupportedPerson }) {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={payOrder.isPending || bill.amount_kobo > person.balanceKobo}
+                  disabled={payOrder.isPending || person.readyVouchers.length === 0}
                   onClick={() =>
                     run(async () => {
                       await payOrder.mutateAsync({
                         beneficiaryId: person.profileId,
+                        voucherId: person.readyVouchers[0].id,
                         orderType: bill.order_type,
                         orderId: bill.order_id,
                       });
-                      return "Paid from their balance.";
+                      return "Paid with their voucher.";
                     })
                   }
                 >
-                  {bill.amount_kobo > person.balanceKobo ? "Not enough balance" : "Pay from balance"}
+                  {person.readyVouchers.length === 0 ? "No voucher for this" : "Use their voucher"}
                 </Button>
               </li>
             ))}
@@ -663,8 +669,8 @@ function ManageActions({ person }: { person: SupportedPerson }) {
                   });
                   setBundleCode("");
                   return result.paid
-                    ? "Booked and paid from their balance."
-                    : `Booked. Add ${naira(result.shortfall_kobo)} to their wallet to pay for it.`;
+                    ? "Booked, and paid with a voucher they already had."
+                    : `Booked for ${naira(result.price_kobo)}. Buy them a voucher for it, or they can pay when they go.`;
                 })
               }
             >

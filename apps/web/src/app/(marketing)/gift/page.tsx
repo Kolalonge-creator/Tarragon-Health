@@ -8,18 +8,18 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "Give the Gift of Health",
   description:
-    "Fund a parent or family member's Health Wallet, or invite them with your referral link, both grow the same balance they can spend on any Tarragon lab test, health check, or pharmacy order.",
+    "Buy a parent or family member a named health check they can use whenever suits them. Not a balance, not a gift card, a real appointment already paid for.",
   alternates: { canonical: MARKETING_ROUTES.gift },
 };
 
 const WAYS_TO_GIVE = [
   {
-    title: "Fund their Health Wallet",
-    body: "For a parent, spouse, or family member you already look after on Tarragon: top up their Health Wallet directly from your own dashboard. It's one NGN balance they can spend, at their own pace, on any lab test, Annual Health Check, pharmacy order, or referral fee. It never expires and is never cashed out, so nothing goes to waste.",
+    title: "Buy them a specific check",
+    body: "For a parent, spouse, or family member already linked to you on Tarragon: choose the check you want them to have and pay for it. They get a care voucher for that exact service, valid for two years, that they book whenever suits them. It belongs to them and nobody else can use it.",
   },
   {
-    title: "Invite them, you both get credit",
-    body: "If they're not on Tarragon yet, share your personal referral link. Signing up is free. Once they complete their first paid order, you both receive ₦500 in Health Wallet credit, a small gift built into every invite, not just a one-way favour.",
+    title: "Invite them, you both get a reward",
+    body: "If they are not on Tarragon yet, share your personal referral link. Signing up is free. Once they complete their first paid order, you both receive a ₦500 reward voucher toward your care. It is a discount, not cash, and it cannot be exchanged for money.",
   },
 ];
 
@@ -27,17 +27,17 @@ const GIFT_IDEAS = [
   {
     title: "An Annual Health Check",
     price: "₦65,000",
-    body: "Blood sugar, cholesterol, blood pressure, BMI, and the cancer screening that fits their age and sex, all reviewed by a doctor. Top up their wallet by this amount and they can book it whenever suits them.",
+    body: "Blood sugar, cholesterol, blood pressure, BMI, and the cancer screening that fits their age and sex, all reviewed by a doctor. Buy it once and they book it when they are ready.",
   },
   {
-    title: "A year of Tarragon Prevent",
-    price: "₦35,000/year",
-    body: "The stay-healthy plan: a personal screening and vaccination calendar, booked automatically, with a doctor stepping in the same day if anything ever needs attention.",
+    title: "A Basic Health Check",
+    price: "₦15,000",
+    body: "HbA1c and a lipid panel, the two numbers that matter most for the conditions we see most. A good first gift for someone who has not been checked in a while.",
   },
   {
-    title: "Just a top-up",
-    price: "Any amount",
-    body: "Let them decide what they need most. Whatever you add sits in their wallet until they're ready to spend it.",
+    title: "A Comprehensive Check",
+    price: "₦75,000",
+    body: "Everything in the annual check plus HIV, hepatitis B and hepatitis C. Results go to them and their doctor, never to you.",
   },
 ];
 
@@ -45,22 +45,22 @@ const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Add them as family",
-    body: "If they're not already linked to you, add them as a next of kin or family member from your Family page, one time, and the connection carries a consent grant.",
+    body: "If they are not already linked to you, add them as a next of kin or family member from your Family page. It happens once, and the connection carries a consent grant.",
   },
   {
     step: 2,
-    title: "Open your Health Wallet",
-    body: "From your dashboard, choose Top up and select who you're funding: yourself, or someone you look after.",
+    title: "Choose the check",
+    body: "From your dashboard, pick the check you want them to have and who it is for. Reserving it is free.",
   },
   {
     step: 3,
-    title: "Pay, and it's in their balance",
-    body: "The amount lands straight in their Health Wallet. No gift card, no code to lose, nothing to redeem.",
+    title: "Pay for it, all at once or bit by bit",
+    body: "You can pay the whole amount, or spread it over as many instalments as you like. Nothing expires while you are still paying.",
   },
   {
     step: 4,
-    title: "They spend it whenever",
-    body: "On any lab test, health check, pharmacy order, or referral fee, at their own pace, on their own record.",
+    title: "They book it whenever suits them",
+    body: "The voucher sits on their account for two years, and we remind them before it runs out. If it does lapse, we will normally put it back.",
   },
 ];
 
@@ -76,20 +76,20 @@ export default function GiftPage() {
             Give the Gift of Health
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Fund a parent or loved one&apos;s Health Wallet, or invite them with your referral
-            link. Either way, the credit lands in one balance they can spend on real care: lab
-            tests, health checks, medication, and more, whenever they need it.
+            Buy someone a real health check, already paid for, waiting on their account until they
+            are ready. Not a balance to manage, not a gift card to lose. A specific appointment
+            with their name on it.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href="/login">Fund a loved one&apos;s wallet</Link>
+              <Link href="/login">Buy a check for someone</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href="/signup">New here? Get started</Link>
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Already a member? Open the Health Wallet card on your dashboard to top up or share
+            Already a member? Open the care vouchers card on your dashboard to buy one or share
             your referral link.
           </p>
         </div>
@@ -98,8 +98,8 @@ export default function GiftPage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="Two ways to give"
-          title="The Health Wallet is the mechanism"
-          description="One NGN balance, fed from more than one direction, spent only on Tarragon care, never cashed out."
+          title="A named check, not a balance"
+          description="You are buying a service, not topping up an account. That is a real difference, and it is the one that makes the gift worth something."
         />
         <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
           {WAYS_TO_GIVE.map((item) => (
@@ -145,19 +145,25 @@ export default function GiftPage() {
             Honest expectations
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Wallet funding works today for people already connected to you on Tarragon, a next
-            of kin or a family member you look after. If the person you want to give to isn&apos;t
-            on Tarragon yet, use your referral link instead: it&apos;s free for them to join, and
-            you both get ₦500 in wallet credit the moment they complete their first paid order.
+            You can buy a check for someone already connected to you on Tarragon, a next of kin or
+            a family member you look after. If the person you want to give to is not on Tarragon
+            yet, use your referral link instead. It is free for them to join, and you both get a
+            ₦500 reward voucher the moment they complete their first paid order.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+            A care voucher is for the service named on it and for the person named on it. It cannot
+            be transferred, and it is never exchangeable for cash. It lasts two years, we remind
+            them before it runs out, and if it does lapse unused they only have to ask and we will
+            normally put it back. You will be told when it is used, and nothing about their results.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Looking after a parent day to day?{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">
               Caring for a parent
             </Link>{" "}
-            is the year-round version of this: they keep their own account and name you as next
-            of kin, so you can follow their care and we call you first if something urgent comes
-            up, rather than it being a one-off top-up.
+            is the year-round version of this: they keep their own account and name you as next of
+            kin, so you can follow their care and we call you first if something urgent comes up,
+            rather than it being a one-off gift.
           </p>
         </div>
       </Section>
@@ -166,9 +172,9 @@ export default function GiftPage() {
         <CtaBand
           variant="gradient"
           title="Give someone the gift of being looked after."
-          description="Fund their Health Wallet, or send them your referral link. Either way, it's real care, not a card that expires."
+          description="Buy them a real check, or send them your referral link. Either way it is care, not a card that expires."
           primaryHref="/login"
-          primaryLabel="Fund a loved one's wallet"
+          primaryLabel="Buy a check for someone"
           secondaryHref="/signup"
           secondaryLabel="Get started"
         />

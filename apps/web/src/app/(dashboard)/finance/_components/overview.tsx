@@ -32,7 +32,7 @@ export function FinanceOverview() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        This is the platform&apos;s live double-entry general ledger. Payments, refunds, wallet
+        This is the platform&apos;s live double-entry general ledger. Payments, refunds, voucher
         top-ups and commissions post automatically; subscription revenue is deferred and recognised
         over each billing period. Figures below are NGN; diaspora currencies are shown per statement.
       </p>
@@ -76,7 +76,7 @@ export function FinanceOverview() {
         <StatTile icon={FileText} label="Receivables" value={formatMinor(data?.receivables_ngn ?? 0, "NGN")} />
         <StatTile icon={Receipt} label="VAT payable" value={formatMinor(data?.vat_payable_ngn ?? 0, "NGN")} />
         <StatTile icon={Landmark} label="WHT payable" value={formatMinor(data?.wht_payable_ngn ?? 0, "NGN")} />
-        <StatTile icon={Wallet} label="Wallet liability" value={formatMinor(data?.wallet_liability_ngn ?? 0, "NGN")} />
+        <StatTile icon={Wallet} label="Customer prepayments" value={formatMinor(data?.wallet_liability_ngn ?? 0, "NGN")} />
         <StatTile
           icon={AlertCircle}
           label="Unreconciled payments"
