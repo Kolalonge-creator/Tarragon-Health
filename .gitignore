@@ -17,7 +17,15 @@ node_modules/
 .pnpm-store/
 
 # testing
-coverage/
+# Scoped to real coverage-report output rather than a bare `coverage/`, which
+# matched ANY directory of that name at any depth. That silently swallowed
+# apps/web/src/app/(marketing)/coverage/ (the public state-coverage page) and
+# apps/web/src/lib/coverage/ — both built fine locally, because the files were
+# on disk, and would have reached CI as a 404.
+/coverage/
+apps/*/coverage/
+packages/*/coverage/
+services/*/coverage/
 
 # next.js
 .next/

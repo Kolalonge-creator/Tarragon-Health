@@ -403,9 +403,12 @@ values
   ('prevention-screening', 'Prevention Screening Add-on',
      'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
      2500000, 'NGN', 'yearly', array['prevention_coordination'], null),
-  ('care-coordinator', 'Dedicated Care Coordinator',
-     'One dedicated care coordinator (not a rotating queue), a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
-     3000000, 'NGN', 'monthly', array['dedicated_coordinator'], 'complete'),
+  -- 'care-coordinator' (Dedicated Care Coordinator, ₦30,000/mo) removed
+  -- 2026-07-31. It sold a named human assigned to one patient, and the founder
+  -- confirmed the operating model will not include dedicated per-patient staff.
+  -- Its feature key was also read by nothing, so it charged for an entitlement
+  -- that gated no code path. Withdrawn rather than left seeded inactive so a
+  -- fresh environment never resurrects it. See the migration of the same date.
   ('expedited-response', 'Expedited Doctor Response',
      'Doctor response time for non-emergency questions moves to under 2 hours.',
      500000, 'NGN', 'monthly', array['expedited_response'], null)
@@ -438,9 +441,7 @@ values
   ('prevention-screening_usd', 'Prevention Screening Add-on',
      'Personalised screening calendar, WhatsApp reminders, booking coordination, results tracking. Does not prepay for the tests themselves.',
      1500, 'USD', 'yearly', array['prevention_coordination'], null, false),
-  ('care-coordinator_usd', 'Dedicated Care Coordinator',
-     'One dedicated care coordinator (not a rotating queue), a scheduled monthly doctor appointment, quarterly PDF report, priority escalation.',
-     2000, 'USD', 'monthly', array['dedicated_coordinator'], 'complete_usd', false),
+  -- 'care-coordinator_usd' removed 2026-07-31, same reason as its naira parent.
   ('expedited-response_usd', 'Expedited Clinician Response',
      'Clinician response time for non-emergency questions moves to under 2 hours.',
      300, 'USD', 'monthly', array['expedited_response'], null, false)

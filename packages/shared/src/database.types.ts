@@ -1097,6 +1097,7 @@ export type Database = {
       care_messages: {
         Row: {
           actor_clinical_staff_id: string | null
+          author_display: string | null
           author_profile_id: string | null
           author_role: Database["public"]["Enums"]["care_message_author"]
           body: string
@@ -1108,6 +1109,7 @@ export type Database = {
         }
         Insert: {
           actor_clinical_staff_id?: string | null
+          author_display?: string | null
           author_profile_id?: string | null
           author_role: Database["public"]["Enums"]["care_message_author"]
           body: string
@@ -1119,6 +1121,7 @@ export type Database = {
         }
         Update: {
           actor_clinical_staff_id?: string | null
+          author_display?: string | null
           author_profile_id?: string | null
           author_role?: Database["public"]["Enums"]["care_message_author"]
           body?: string
@@ -9205,6 +9208,8 @@ export type Database = {
       }
       profile_access: {
         Row: {
+          clinical_access: boolean
+          clinical_access_updated_at: string | null
           created_at: string
           granted_by: string
           grantee_user_id: string
@@ -9214,6 +9219,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          clinical_access?: boolean
+          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by: string
           grantee_user_id: string
@@ -9223,6 +9230,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          clinical_access?: boolean
+          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by?: string
           grantee_user_id?: string
@@ -13319,6 +13328,31 @@ export type Database = {
       wallet_kyc_balance_headroom: {
         Args: { p_profile: string }
         Returns: number | null
+      sponsor_pay_booking_order: {
+        Args: { p_beneficiary: string; p_order_id: string; p_order_type: string }
+        Returns: Json
+      }
+      sponsor_book_care: {
+        Args: { p_beneficiary: string; p_bundle_code: string; p_facility_id?: string | null }
+        Returns: Json
+      }
+      sponsor_payable_orders: {
+        Args: { p_beneficiary: string }
+        Returns: Json
+      }
+      sponsor_set_dependent_basics: {
+        Args: {
+          p_beneficiary: string
+          p_city?: string | null
+          p_date_of_birth?: string | null
+          p_sex?: string | null
+          p_state?: string | null
+        }
+        Returns: Json
+      }
+      public_service_coverage: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }
@@ -13393,7 +13427,7 @@ export type Database = {
         | "accepted"
         | "declined"
         | "cancelled"
-      care_message_author: "patient" | "care_team"
+      care_message_author: "patient" | "care_team" | "sponsor"
       care_message_thread_status: "open" | "closed"
       care_plan_condition:
         | "hypertension"
@@ -13999,7 +14033,7 @@ export const Constants = {
         "declined",
         "cancelled",
       ],
-      care_message_author: ["patient", "care_team"],
+      care_message_author: ["patient", "care_team", "sponsor"],
       care_message_thread_status: ["open", "closed"],
       care_plan_condition: [
         "hypertension",

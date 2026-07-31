@@ -1515,6 +1515,184 @@ Founder asked for a Nigeria-government-agency-lens review of the platform, then 
 - **`docs/legal/nigeria-regulatory-compliance-status.md`** consolidates every item across NDPC, CBN, MDCN, PCN/NAFDAC, state telehealth registration, and FCCPC as Code-complete / Documentation-complete / Requires-external-action — deliberately never claims "compliant" or "regulator-approved" anywhere, matching this codebase's standing rule.
 - **Not built, correctly left as external-action items:** DPO appointment, NDPC registration, the Supabase eu-west-1 lawful-transfer mechanism, an Anthropic DPA, a CBN legal opinion on the wallet's licensing status, MDCN confirmation of the tier-authority split, state-level telehealth registration, a formal data-retention schedule, and the FCCPC refund-policy question — none of these are code problems.
 - **Committed locally, not yet pushed or opened as a PR** — pending the founder's go-ahead, since pushing/opening a PR is a visible-to-others action this session didn't take unilaterally.
+### 2026-07-31 — Diaspora repositioning: sponsor product, coverage/accountability transparency, USD billing economics (branch `worktree-diaspora-sponsor-build`, isolated worktree)
+Founder asked why a diaspora buyer would pay "considerably more" than a Nigerian one. **Checked the live database rather than the changelog, and the premise turned out to be out of date:** the 2026-07-29 one-price-list decision worked, every USD row carries `derived_from_code` and sits at exact parity (Essential ₦8,000 = $5.86/mo at ₦1,365), and there are **0 active USD subscriptions** — so the diaspora market is entirely untested and the real problem is the inverse of the one asked about. At $2.56–$10.99 a month, card processing takes roughly 8–14.5% of a monthly USD charge versus ~3.4% annually, and the price signals worthlessness to a UK/US buyer. Conclusion recorded here so it is not re-litigated: **the diaspora buyer is a sponsor, not a patient — the competitor is an untracked remittance, not a Nigerian health app** — and the product was repositioned accordingly rather than repriced (no reversal of the one-price-list decision).
+- **Found and fixed a live bug nobody had hit: `/admin/settings/diaspora-pricing` could never save.** `saveCurrencyRates` called `set_usd_reference_rate` through `createServiceRoleClient()`, but the RPC gates on `private.is_admin()`, which resolves `auth.uid()` against `profiles`. A service-role client carries no uid, so every attempt raised `42501: only a superadmin may change the reference rate`. Proven live via a role-simulated rolled-back call, and corroborated by the data: `platform_currency_settings.updated_by` was NULL and `updated_at` matched migration `20260729143814`, not a human. Fixed by calling the RPC with the caller's own session client; the service-role client stays for `resyncDerivedRows`, which writes `is_active`/provider ids no ordinary session may touch.
+- **FX review cadence** (`lib/billing/fx-review.ts`, 13 tests): the rate is not a live feed, so a rate nobody looks at leaks margin one way silently. The admin page now shows days since review, warns at 30 and escalates at 90, and a new `confirmRateReviewed` action records "looked at it, still right" without moving a price. Safe by construction, verified against the live trigger: `private.on_currency_rate_change` only recomputes `if new.ngn_per_usd is distinct from old.ngn_per_usd`. Also fixed a bare `toLocaleString()` on the same page (the hydration-mismatch class this file has flagged twice) by formatting server-side.
+- **USD defaults to annual.** Onboarding plan selector opens on yearly for dollars, monthly for naira; `/patient/subscription` leads with yearly rows on the dollar tab. Monthly stays one tap away. **Also fixed a real pre-existing bug found while doing it:** switching currency did not clear `selectedCode`, so picking a naira plan then switching to dollars left the hidden input carrying the naira row with Continue still enabled — a cross-currency checkout, hitting only the people who use that tab.
+- **`/coverage`, public and no-login** (migration `20260731014200_public_service_coverage`): `region_service_available` and `service_regions` were both authenticated-only, so "does any of this work where my mother lives?" could only be answered after signing up. New anon-callable RPC reads through the existing predicate (so the public answer can never drift from what the app enforces) and exposes only where the company operates — one boolean per service per state, no counts, no partner identities, no patient-derived data. Verified live as `anon`: Lagos is the only active state, with lab/pharmacy/specialist live and home-visit/delivery dark, matching the dormant logistics partners exactly.
+- **`/accountability`, response times read out of the signed config** (migration `20260731015335_public_response_commitments`): publishes per-tier **ceilings** (the slowest commitment across pathways, not the best case) from the active `escalation_slas` row, joined on `approved_by` so an unsigned config publishes no numbers at all. Live state is version 2, signed by Kola Longe on 2026-07-30, rendering as "within 2 hours / 24 hours / 3 days". Note this supersedes the earlier "still not signed" line in the escalation-SLA entry above. Same page states the hosting region honestly (Ireland, no African region exists yet) rather than leaving it to be found in a policy document.
+- **`/patient/supporting`, the sponsor's home screen:** every person you fund, their balance, what their money actually paid for, and one-tap top-up in naira or dollars. **Deliberately money-only.** `health_wallets` and `wallet_ledger` already carry a `profile_access` clause in their SELECT policies, so nothing here widens access by a row; `vitals_readings`, `screening_schedules` and `medication_reviews` do NOT, and are not shown. Whether a sponsor should ever see clinical data is a real product decision and is flagged, not slipped in behind a dashboard. Four queries regardless of how many people are supported.
+- **Sponsor spend receipts** (migration `20260731015001_sponsor_spend_receipts`): an `AFTER INSERT` trigger on `wallet_ledger` notifies everyone who actually funded that specific wallet (read from `sponsor_topup` entries, not everyone holding a grant) when money becomes care. Names the service category and amount, never a result — rows stay `content_class = 'non_clinical'` and satisfy the I1 CHECK. `in_app` plus `email` only: a sponsor abroad often has no Nigerian number, and the in-app half needs no sender, so it works from the moment the migration landed. Exception-guarded, because a lost receipt is a nuisance and a lost payment is a broken product. Proven live in a rolled-back transaction (`packages/db/tests/sponsor_spend_receipts.sql`, 6 cases) and confirmed to produce real rows with the right payload, not just to pass assertions.
+- **Marketing reframe:** the dollar tab of `/pricing` now leads with "You already send money home for health" and sells the receipt, cross-linking `/coverage` and `/accountability`. The in-app plan picker asks, before payment, whether the plan is for the buyer abroad or someone in Nigeria, and shows the honest split either way (`lib/coverage/what-works-where.ts` is the single source both surfaces read, so the promise made to a visitor cannot drift from the one made to a subscriber).
+- **Verified:** `pnpm --filter web typecheck` / `lint` (0 errors, the same 2 pre-existing warnings) / `test` (539, +18 new) / full production build with all three new routes, all green. Both new RPCs confirmed `anon`-allowed by design and proven live under a simulated anon session. `/coverage` and `/accountability` browser-verified end to end against real signed data, including selecting Lagos and getting "3 of 5 partner services are live"; the `/pricing` dollar tab verified rendered and laid out (1152x444, no horizontal overflow at 375px). **Not browser-verified:** the onboarding plan selector, `/patient/supporting`, and the admin pricing fix all sit behind a login, and no test credential was reset for this pass per [[feedback_credential_reset_scope]].
+- **Next / founder decisions:** (1) whether to price a **sponsor service layer** (coordinator-managed care, concierge onboarding for an elderly parent) as the honest way to charge diaspora buyers more without reintroducing a premium on the same thing — recommended, not built; (2) whether a sponsor should ever see clinical data, not just cost; (3) `send-pending-notifications` needs a redeploy to pick up the new `sponsor_spend_receipt` email template (the in-app receipt already works without it). **Deliberately NOT done:** any multi-parent bundle or ParentCare reinstatement, since that reverses the founder's own 2026-07-29 individual-enrolment decision.
+
+### 2026-07-31 — FOUNDER DECISION: no dedicated per-patient staff. Sponsor layer built as software instead (same branch)
+Follow-up to decision (1) directly above. The sponsor service layer was costed out as a human
+service (a Care Coordinator doing bookings, chasing results, a monthly call and a written summary)
+and the founder rejected it outright: **"I don't want personal physical staff present."** Recorded
+here so it is not re-proposed. It was also the wrong shape to have suggested at all for a
+near-solo operation, per [[user_founder_context]] — every other thing the platform sells has
+near-zero marginal cost, and that one was capped by headcount.
+
+**A live mis-selling exposure was found while costing it.** The `care-coordinator` add-on
+(₦30,000/mo, USD $21.98, restricted to Complete Care) was **active and purchasable**, promising
+"one named coordinator" — and its feature key `dedicated_coordinator` was read by **exactly
+nothing**: the only occurrence anywhere in the codebase was a placeholder string in an admin form.
+Anyone buying it would have been billed monthly for an entitlement gating no code path at all,
+the same dead-key class as `prevention_coordination` (found 2026-07-23). Zero subscriptions
+existed, so nothing needed unwinding. Withdrawn in `20260731023014` (deactivated, not deleted, to
+keep the price history and the provider objects traceable) and **removed from `seed.sql` outright**
+so a rebuilt environment never resurrects it.
+
+**What replaced it, all staff-free.** Of the six jobs a coordinator would have done, five are
+substantially automatable and one is not; the one that is not (noticing that an elderly person is
+quietly declining) is stated as a limit rather than papered over.
+- **`sponsor_pay_booking_order`** (`20260731023128`) — the core unblock. `wallet_pay_booking_order`
+  refuses any wallet but the caller's own, so a sponsor could fund a wallet and then never spend
+  from it; the money sat there waiting for the one person least likely to complete a checkout.
+  **`manage` only, never `view`** — settling a bill is acting on a record, and a next of kin
+  naming themselves must not thereby gain the ability to move someone's balance.
+- **`sponsor_payable_orders`** (`20260731112407`) — the pay path had no door: `lab_orders`,
+  `pharmacy_orders` and `specialist_referrals` are readable only by the patient or org staff, so a
+  sponsor could not discover an order id. Returns **category only** ("A lab test, ₦18,000"), never
+  the item, because "Cervical smear, ₦18,000" is a health disclosure to somebody consented to act
+  on care, not to read it.
+- **`sponsor_book_care` + `sponsor_set_dependent_basics`** (`20260731023501`) — one-tap booking of a
+  self-bookable check (paying immediately when the balance covers it, leaving a real pending bill
+  when it does not), and co-pilot onboarding so an adult child fills in date of birth, sex and
+  location from their own phone. Booking is confined to the `self_bookable` catalogue, so a sponsor
+  is not a way around the clinician-originated-orders guardrail; the co-pilot path deliberately
+  cannot touch consent or `onboarding_completed_at` (`enforce_onboarding_prereqs` still gates it),
+  so it shortens the parent's remaining step without making it skippable.
+- **`queue_sponsor_monthly_reports`** (`20260731023543`, corrected in `…023625`, cron
+  `sponsor-monthly-report` monthly at 07:00 on the 1st) — the deliverable a sponsor actually wants
+  and a transfer app structurally cannot produce. **Money, logistics and engagement only, never
+  clinical content**: balances and spend categories are already visible to a grantee via RLS, and
+  "nothing logged in N days" is a statement about activity, not health. Sponsors are defined the
+  same way the spend-receipt trigger defines them (people who actually funded a wallet they hold a
+  grant on), so a next of kin who has never paid for anything is not sent a money summary.
+- ⚠️ **`…023543` shipped with a real bug**: it referenced `vitals_readings.recorded_at`, which does
+  not exist (the column is `taken_at`). A plpgsql body is not parsed at creation time, so it
+  created cleanly and would have failed silently on the first cron run a month later with nobody
+  watching. Caught only by running the function against real data. **Create success is not evidence
+  a scheduled function works** — run it.
+- UI: sponsor dashboard gained a `manage`-gated actions block (settle a bill, book a check, fill in
+  their details); `NotificationBell` renders `sponsor_monthly_report`; the email template was added
+  to `send-pending-notifications` source.
+- **Verified:** rolled-back live SQL across all four session types (`manage` pays, `view` refused
+  42501, stranger refused, mismatched beneficiary refused, double-pay refused) plus a
+  **deliberate-sabotage run** confirming that downgrading the payer from `manage` to `view` blocks
+  the payment, so the gate is genuinely what does the work. Report proven to queue exactly two rows
+  (`in_app` + `email`), `content_class = 'non_clinical'`, and to be idempotent on a second run
+  inside its window. Tests in `packages/db/tests/sponsor_pay_booking_order.sql` and
+  `…/sponsor_acting_and_report.sql`. typecheck / lint (0 errors, the same 2 pre-existing warnings) /
+  539 web tests / full production build all green; `/coverage`, `/accountability` and
+  `/patient/supporting` all compile.
+- **Not browser-verified** — no test credential was reset for this pass, per
+  [[feedback_credential_reset_scope]].
+- ✅ **`send-pending-notifications` redeployed, v22 → v24**, carrying both new email templates.
+  **⚠️ The deployed function was four versions ahead of this repo**, and the live v22 contained
+  work committed nowhere: an `appUrl()` helper, a `pushUrl` field on the template contract, and
+  real deep links in the vitals/medication/adherence reminders (before which a push notification
+  opened the homepage regardless of what it was about) — a concurrent session's patient-experience
+  work, deployed but never committed. **Deploying this branch's file would have silently reverted
+  all of it.** Handled the same way this repo handles out-of-band migrations: pulled the deployed
+  source in as the base, added only the two sponsor templates on top, and committed the result so
+  source and production finally agree. Verified by diff that v24 is v22 plus exactly the 100-line
+  sponsor block with **zero** lines removed. **The deep-link work is now committed on this branch
+  as a side effect** — whoever owns that session may hit a conflict when they commit theirs.
+  Note also that a **v23 briefly existed and served one cron request** during the deploy window;
+  most likely an artifact of the CLI's own upload-then-activate, but if anyone deliberately
+  deployed in that window their change is not in v24 and needs redeploying.
+- **macOS gotcha worth remembering:** the Supabase CLI stores its access token in the **Keychain**,
+  not `~/.supabase/access-token`. Checking for that file reports "not logged in" when the CLI
+  actually is; a non-interactive shell then fails with "Access token not provided" because it
+  cannot show the keychain prompt. Approving the keychain item once (Always Allow) is enough.
+- **Next / founder:** decision (2) above is still open and still deliberately unbuilt: whether a
+  sponsor should ever see clinical data, not just cost.
+
+### 2026-07-31 — FOUNDER DECISION: a sponsor may see clinical data, never edit it, and only with the patient's own consent. Three-way care conversations built on the same switch (same branch)
+Answers the question this branch's previous entry left open ("whether a sponsor should ever see
+clinical data, not just cost"), and adds the founder's own mechanism for it, verbatim: "patient will
+need to approve this on the platform and remove their consent also via the app by just clicking on
+the sponsor name and clicking yes to consent or no." Plus: "the conversation should be able to be
+three way in which the doctor, sponsor and patient will use the same chat but with time stamp and
+showing who asked the question. This helps with parental care for people abroad with family in
+Nigeria." Five migrations applied via `apply_migration` (recorded: `20260731181143`, `143055`,
+`143140`, `143612`, `145030`). typecheck / lint (0 errors, the same 2 pre-existing warnings) / 539
+web tests / full production build all green.
+- **Consent is a SECOND switch, not the grant.** `profile_access.clinical_access` + a
+  `clinical_access_updated_at` stamp. Deliberately not keyed off the grant itself: someone named
+  next of kin so they can be *reached* in an emergency has not thereby agreed to be a *reader* of
+  the record, and several existing grants predate this question entirely. New grants are created
+  with it off no matter what the caller asks for — the trigger overwrites an explicit
+  `clinical_access = true` on INSERT, proven in the test.
+- **Only the record owner may flip it — not even a superadmin.** This is the check that matters:
+  `profile_access_update` already admits `private.is_admin()`, so without
+  `private.enforce_clinical_access_consent_owner` whoever runs the platform could appoint a reader
+  of any patient's record. A sponsor trying to grant themselves access is refused the row by RLS
+  (assert on state, no exception); an admin trying it gets a real `42501` from the trigger. Both
+  directions are in the test.
+- **Read, never write.** Six SELECT policies gained one clause each via `private.can_read_clinical`
+  (`vitals_readings`, `care_plans`, `medications`, `screening_schedules`, `lab_orders`,
+  `patient_risk_scores`). No INSERT/UPDATE/DELETE policy anywhere was touched, and the migration's
+  own assertion block **fails if `can_read_clinical` ever appears in a write policy** — so "can see
+  it, cannot change it" is structural rather than a convention the UI happens to follow. Proven
+  live: the sponsor's UPDATE of a reading changes nothing, their medication INSERT raises `42501`.
+- **Deliberately NOT included, flagged rather than guessed at:** `screening_results` and
+  `escalations`/`clinician_alerts`. Those carry raw abnormal-result detail and escalation
+  reasoning — a heavier disclosure than "here is her blood pressure and what she is taking", and a
+  separate call for the founder.
+- **Three-way conversation on the same switch.** `care_message_author` gains `sponsor` (own
+  migration, the enum-add-then-use split); thread/message SELECT and INSERT extended to a consented
+  supporter; `start_care_thread` lets them open one for the person they support.
+  `care_message_threads_update` is deliberately untouched, so a sponsor **cannot close** a
+  conversation the patient is still having. Revoking consent removes them from the record and the
+  conversation in the same click — there is no second thing to remember to turn off.
+- **`care_messages.author_display`, frozen server-side at insert.** Not a nicety: `profiles_select`
+  lets a sponsor read the patient but never the reverse, so resolving names at render time would
+  have shown the mother "someone" against her own daughter's question. Also means a later name
+  change cannot silently rewrite who appears to have said what (the v3 proof_log `actor_display`
+  discipline). Care-team attribution stays null-gated — "Care team" unless a real `clinical_staff`
+  row backs it.
+- **Everyone in the room is told, nobody else is.** The patient is notified of every message they
+  did not write themselves — including a supporter's question, so consent to be in the conversation
+  is never consent to speak for them unseen. `in_app` only (a supporter abroad often has no
+  Nigerian number), payload carries no clinical content, and a follow-up migration stamps
+  `recipient_kind` so the bell sends a patient to `/patient/messages` and a supporter to
+  `/patient/supporting` — the row itself cannot work that out at render time.
+- **A real gap found and closed on the way:** `profiles_select` was asymmetric, so a patient could
+  not read the name of someone they had granted access to — the "click the sponsor name" screen had
+  no name to click. New **separate permissive** policy `profiles_select_my_grantees` rather than an
+  edit to `profiles_select`, which carries live assertion checks over its exact clauses
+  (`20260729194127`).
+- **UI:** patient gets "Who can see your health information" on `/patient/family` (tap a name →
+  Yes/No, current state on a badge, copy that says up front that yes also puts them in care-team
+  conversations). Sponsor gets, only when consented, a "How they are doing" block on
+  `/patient/supporting` (last BP, last reading, checks due, conditions, current medications —
+  numbers shown, never judged; interpretation stays with the care team) and the shared thread with
+  an "Ask a question" composer. `care-message-thread.tsx` now names every author and labels the seat
+  they speak from.
+- **Verified live, 10 checks in one rolled-back transaction**
+  (`packages/db/tests/sponsor_clinical_consent_and_three_way_chat.sql`), with controls throughout: an
+  unconsented next of kin and a stranger must see nothing at every point the consented sponsor sees
+  something, so the gate is proven to be the consent and not the grant. **Then deliberately
+  sabotaged** — removing only the patient's consent step makes it fail at "consented sponsor can
+  read 0 of 6 clinical surfaces", confirming the test discriminates rather than passing on a
+  blocked-everything grant. `get_advisors` (security): zero ERRORs, and the only WARN touching any
+  of this is the accepted `authenticated_security_definer_function_executable` on
+  `start_care_thread`, which it already carried.
+- **Not browser-verified** — composition over the live-proven DB primitives + a green production
+  build. Would need two accounts (a patient and a supporter) and a credential reset, per
+  [[feedback_credential_reset_scope]].
+- **CLI note:** `npx supabase db query --linked` failed with `LegacyProjectNotLinkedError` when run
+  from inside the worktree and worked immediately from the main checkout, matching
+  `reference_supabase_cli_sql_access.md`. Run it from the main checkout.
+- **Next / founder:** decide whether `screening_results` and escalation detail join the consented
+  read set; a browser click-through of consent → three-way thread → revoke once a test credential is
+  approved.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
