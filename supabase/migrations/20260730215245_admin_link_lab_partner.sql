@@ -1,3 +1,21 @@
+-- Tarragon Health — admin action to link a lab_partner login to a lab.
+--
+-- Gap: /admin/settings/members already lets an admin provision a
+-- 'lab_partner'-role login (USER_ROLES already includes it), but nothing
+-- lets an admin then link that profile to a specific lab_providers row —
+-- profiles.lab_provider_id (20260729234509) has never had a write path.
+-- profiles_update RLS (id = auth.uid() OR (organisation_id is not null and
+-- is_org_staff(organisation_id))) can't cover this either: a lab_partner
+-- profile deliberately has organisation_id = null (it is not org-scoped),
+-- so an admin editing SOMEONE ELSE's profile fails that clause outright.
+-- Previously this was "no admin UI for either FK yet ... set lab_provider_id
+-- via direct SQL" (see the 2026-07-27 lab_partner_role_build entry).
+--
+-- Fix: one SECURITY DEFINER RPC, gated the same way the Labs admin page
+-- already is (is_admin() OR has_permission('partners.labs.manage')),
+-- narrowly scoped to updating exactly one column on a 'lab_partner'-role
+-- profile. Not a general profile-editing backdoor.
+
 create or replace function public.admin_link_lab_partner(
   p_profile_id uuid,
   p_lab_provider_id uuid

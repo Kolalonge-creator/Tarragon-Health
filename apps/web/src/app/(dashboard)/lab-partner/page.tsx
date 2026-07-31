@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { LabPartnerWorklist } from "./lab-partner-worklist";
+import { LabPartnerTurnaroundCard } from "./lab-partner-turnaround-card";
+import { LabPartnerFacilities } from "./lab-partner-facilities";
 
 export default async function LabPartnerPage() {
   const profile = await getCurrentProfile();
@@ -20,11 +22,13 @@ export default async function LabPartnerPage() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="mb-4 font-heading text-xl font-semibold text-brand-green">
+    <div className="mx-auto max-w-3xl space-y-6 p-6">
+      <h1 className="font-heading text-xl font-semibold text-brand-green">
         Lab dashboard
       </h1>
+      <LabPartnerTurnaroundCard />
       <LabPartnerWorklist />
+      <LabPartnerFacilities />
     </div>
   );
 }

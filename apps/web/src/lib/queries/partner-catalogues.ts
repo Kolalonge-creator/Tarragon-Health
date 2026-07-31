@@ -62,6 +62,139 @@ export function useSetLabProviderActive() {
   });
 }
 
+/** Fixes the real gap where the 4 seeded real-name partners had .example placeholder contacts forever. */
+export function useUpdateLabProviderContact() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      contactEmail,
+      contactPhone,
+    }: {
+      id: string;
+      contactEmail: string | null;
+      contactPhone: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("lab_providers")
+        .update({ contact_email: contactEmail, contact_phone: contactPhone })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
+  });
+}
+
+export type LabTurnaroundStats = {
+  provider_id: string;
+  provider_name: string;
+  orders_resulted: number;
+  avg_turnaround_hours: number | null;
+  median_turnaround_hours: number | null;
+  pct_over_72h: number | null;
+  suppressed: boolean;
+};
+
+/** Admin/RBAC-delegate scorecard across every lab provider (last 90 days). */
+export function useLabProviderTurnaroundStats() {
+  return useQuery({
+    queryKey: ["lab-providers", "turnaround-stats", "admin"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("lab_provider_turnaround_stats");
+      if (error) throw error;
+      return (data ?? []) as LabTurnaroundStats[];
+    },
+  });
+}
+
+export type Facility = Tables<"facilities">;
+
+/** Admin view of one lab's branches/addresses — admin already holds RLS write on facilities (is_admin() OR partners.facilities.manage), this just scopes the read to one lab. */
+export function useLabFacilities(labProviderId: string) {
+  return useQuery({
+    queryKey: ["lab-facilities", "admin", labProviderId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("facilities")
+        .select("*")
+        .eq("lab_provider_id", labProviderId)
+        .order("state")
+        .order("city");
+      if (error) throw error;
+      return data as Facility[];
+    },
+  });
+}
+
+export function useCreateLabFacility() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      labProviderId: string;
+      name: string;
+      state: string;
+      city: string;
+      area?: string;
+      address?: string;
+      contactPhone?: string;
+      contactEmail?: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("facilities").insert({
+        type: "lab",
+        lab_provider_id: input.labProviderId,
+        name: input.name,
+        state: input.state,
+        city: input.city,
+        area: input.area || null,
+        address: input.address || null,
+        contact_phone: input.contactPhone || null,
+        contact_email: input.contactEmail || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-facilities"] }),
+  });
+}
+
+export function useSetLabFacilityActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("facilities").update({ is_active: isActive }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-facilities"] }),
+  });
+}
+
+export type LabPartnerLoginRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  lab_provider_id: string | null;
+};
+
+/** Link (or unlink, pass null) an existing lab_partner-role login to a lab_providers row. */
+export function useLinkLabPartner() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ profileId, labProviderId }: { profileId: string; labProviderId: string | null }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("admin_link_lab_partner", {
+        p_profile_id: profileId,
+        p_lab_provider_id: labProviderId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-partner-logins"] }),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Lab tests & bundles — the catalogue rows record_lab_commission() actually
 // reads (panel_bundles.commission_rate), not lab_providers itself.
