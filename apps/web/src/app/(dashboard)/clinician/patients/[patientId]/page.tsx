@@ -25,6 +25,7 @@ import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
+import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
 export default async function ClinicianPatientPage({
   params,
@@ -114,6 +115,109 @@ export default async function ClinicianPatientPage({
     .eq("patient_id", patient.id)
     .maybeSingle();
 
+  const tabs: PatientRecordTab[] = [
+          {
+            id: "overview",
+            label: "Overview",
+            content: (
+              <>
+                <PreVisitSummary patientId={patient.id} />
+                <PatientTimeline patientId={patient.id} />
+                {patient.organisation_id && (
+                  <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
+                )}
+              </>
+            ),
+          },
+          {
+            id: "medications",
+            label: "Medications",
+            content: (
+              <>
+                {/* Clinician view is never gated by the patient's own subscription
+                    tier — refill coordination is a staff-visible clinical detail
+                    regardless of what the patient's plan does or doesn't unlock for
+                    them on their own dashboard. */}
+                <MedicationsList
+                  patientId={patient.id}
+                  refillCoordinationEnabled
+                  canConfirmRefill={canConfirmRefill}
+                />
+                {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
+                    continues existing prescriptions but has no new-prescribing
+                    authority — the DB RLS policy is the real gate
+                    (private.has_prescribing_authority), this just explains it
+                    instead of surfacing a raw RLS error. */}
+                {canPrescribe ? (
+                  <AddMedicationForm patientId={patient.id} source="clinician" pregnant={isPregnant} />
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Add a medication</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-charcoal-ink/60">
+                        Tier 1 doctors confirm and continue existing stable prescriptions under
+                        protocol; starting a new medication needs a Tier 2+ doctor or the Clinical
+                        Director. Use &quot;Confirm &amp; continue&quot; on a prescribed medication
+                        above to extend its refill date.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+                <TreatmentLadder />
+              </>
+            ),
+          },
+          {
+            id: "vitals-chronic-care",
+            label: "Vitals & chronic care",
+            content: (
+              <>
+                <BpLadderPanel patientId={patient.id} />
+                <VitalsTrendChart patientId={patient.id} />
+                <LipidProfileCard patientId={patient.id} />
+                <CardiovascularRiskPanel
+                  patientId={patient.id}
+                  assessment={cvAssessment}
+                  initialProfile={cvProfile ?? null}
+                />
+                {/* Foot-risk classification is a clinical act — only an active
+                    clinical_staff member (not a Care Coordinator) sees the form. */}
+                {callerStaff && <GlucoseTargetForm patientId={patient.id} />}
+                {callerStaff && <FootAssessmentForm patientId={patient.id} />}
+                {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
+              </>
+            ),
+          },
+          {
+            id: "screening-prevention",
+            label: "Screening & prevention",
+            content: (
+              <>
+                <ResultDocumentsSection patientId={patient.id} />
+                <MentalHealthSummary patientId={patient.id} showScores />
+                <ScreeningResultForm patientId={patient.id} />
+                <HealthCheckReview
+                  patientId={patient.id}
+                  reviewedAt={healthCheck?.reviewed_at ?? null}
+                  reviewedByName={reviewedByName}
+                />
+                {patient.organisation_id && (
+                  <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
+                )}
+                {/* Obesity pathway (TH-CP-OB-001): attestation gate, structured
+                    assessment (classification + staging + screens), and the
+                    mandatory ED/mental-health screen that auto-pauses weight-loss
+                    on a positive. */}
+                <ObesityAttestationCard />
+                <ObesityAssessmentPanel patientId={patient.id} patientSex={patient.sex} />
+                <ObesityEdScreenForm patientId={patient.id} />
+              </>
+            ),
+          },
+        ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -132,73 +236,7 @@ export default async function ClinicianPatientPage({
           </div>
         )}
       </div>
-      <PreVisitSummary patientId={patient.id} />
-      <PatientTimeline patientId={patient.id} />
-      {/* Clinician view is never gated by the patient's own subscription
-          tier — refill coordination is a staff-visible clinical detail
-          regardless of what the patient's plan does or doesn't unlock for
-          them on their own dashboard. */}
-      <MedicationsList
-        patientId={patient.id}
-        refillCoordinationEnabled
-        canConfirmRefill={canConfirmRefill}
-      />
-      <BpLadderPanel patientId={patient.id} />
-      {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
-          continues existing prescriptions but has no new-prescribing
-          authority — the DB RLS policy is the real gate
-          (private.has_prescribing_authority), this just explains it
-          instead of surfacing a raw RLS error. */}
-      {canPrescribe ? (
-        <AddMedicationForm patientId={patient.id} source="clinician" pregnant={isPregnant} />
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Add a medication</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-charcoal-ink/60">
-              Tier 1 doctors confirm and continue existing stable prescriptions under protocol;
-              starting a new medication needs a Tier 2+ doctor or the Clinical Director. Use
-              &quot;Confirm &amp; continue&quot; on a prescribed medication above to extend its refill
-              date.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-      <TreatmentLadder />
-      <VitalsTrendChart patientId={patient.id} />
-      <LipidProfileCard patientId={patient.id} />
-      <CardiovascularRiskPanel
-        patientId={patient.id}
-        assessment={cvAssessment}
-        initialProfile={cvProfile ?? null}
-      />
-      {/* Foot-risk classification is a clinical act — only an active
-          clinical_staff member (not a Care Coordinator) sees the form. */}
-      {callerStaff && <GlucoseTargetForm patientId={patient.id} />}
-      {callerStaff && <FootAssessmentForm patientId={patient.id} />}
-      {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
-      <ResultDocumentsSection patientId={patient.id} />
-      <MentalHealthSummary patientId={patient.id} showScores />
-      <ScreeningResultForm patientId={patient.id} />
-      <HealthCheckReview
-        patientId={patient.id}
-        reviewedAt={healthCheck?.reviewed_at ?? null}
-        reviewedByName={reviewedByName}
-      />
-      {patient.organisation_id && (
-        <>
-          <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
-          <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
-        </>
-      )}
-      {/* Obesity pathway (TH-CP-OB-001): attestation gate, structured
-          assessment (classification + staging + screens), and the mandatory
-          ED/mental-health screen that auto-pauses weight-loss on a positive. */}
-      <ObesityAttestationCard />
-      <ObesityAssessmentPanel patientId={patient.id} patientSex={patient.sex} />
-      <ObesityEdScreenForm patientId={patient.id} />
+      <PatientRecordTabs tabs={tabs} />
     </div>
   );
 }

@@ -52,3 +52,45 @@ export function hasPrescribingAuthority(staff: PrescribingAuthority | null): boo
     (staff.doctor_tier !== null && PRESCRIBING_TIERS.includes(staff.doctor_tier))
   );
 }
+
+/**
+ * Same tier list as PRESCRIBING_TIERS today, deliberately a separate
+ * constant: these gate different clinical acts (initiating a medication vs.
+ * closing an emergency case) and should be free to diverge without one
+ * silently changing the other. The DB keeps the same separation —
+ * private.has_prescribing_authority and
+ * private.can_handle_emergency_escalation are two functions, not one.
+ */
+const EMERGENCY_ESCALATION_TIERS: DoctorTier[] = [
+  "tier_2",
+  "tier_3",
+  "tier_4_senior_registrar",
+  "tier_5_partner_specialist",
+];
+
+/**
+ * Mirrors private.can_handle_emergency_escalation(org)
+ * (20260731021500_emergency_escalation_tier_gate.sql) — an emergency-level
+ * escalation can only be CLAIMED or RESOLVED by Tier 2+ or the org's
+ * Clinical Director. Everything else about the case (reading it, notes,
+ * starting a virtual review, overriding the classification, referring it on)
+ * is open to every tier.
+ *
+ * Introduced alongside the doctor->clinician account role merge
+ * (20260731020000): before that merge only a Tier 4/5 'doctor'-role account
+ * could reach the escalation queue at all, so the account-role split was
+ * acting as an authority gate by accident. Unifying page access without this
+ * would have newly let a Tier 1 close an emergency.
+ *
+ * This copy only gates the UI so a Tier 1 gets a friendly explanation rather
+ * than a raw RLS/trigger error — exactly the hasPrescribingAuthority
+ * pattern. The DB trigger (escalations_enforce_emergency_authority) is the
+ * real enforcement boundary.
+ */
+export function canHandleEmergencyEscalation(staff: PrescribingAuthority | null): boolean {
+  if (!staff) return false;
+  return (
+    staff.is_clinical_director ||
+    (staff.doctor_tier !== null && EMERGENCY_ESCALATION_TIERS.includes(staff.doctor_tier))
+  );
+}

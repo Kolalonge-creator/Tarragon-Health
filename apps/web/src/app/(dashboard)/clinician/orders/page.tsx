@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useOrgLabOrders, type LabOrderWithDetails } from "@/lib/queries/lab-orders";
 import { useOrgPharmacyOrders, type PharmacyOrderWithLogistics } from "@/lib/queries/pharmacy-orders";
 import {
@@ -300,6 +301,11 @@ function PharmacyOrdersWorklist() {
 export default function ClinicianOrdersPage() {
   return (
     <div className="space-y-6">
+      <div>
+        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
+          ← Back to dashboard
+        </Link>
+      </div>
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Home visits &amp; deliveries</h1>
         <p className="text-charcoal-ink/60">

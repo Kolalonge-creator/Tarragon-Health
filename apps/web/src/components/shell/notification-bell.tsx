@@ -60,7 +60,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     const sourceTable = String(payload.source_table ?? "");
     return {
       text: "A critical alert went unconfirmed on every channel — needs a look",
-      href: sourceTable === "clinician_alerts" ? "/doctor/escalations" : "/admin",
+      href: sourceTable === "clinician_alerts" ? "/clinician/escalations" : "/admin",
     };
   }
   return { text: "You have an update", href: "/patient" };

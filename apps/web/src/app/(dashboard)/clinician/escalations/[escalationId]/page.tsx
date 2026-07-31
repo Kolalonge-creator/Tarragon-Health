@@ -1,17 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canHandleEmergencyEscalation } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
 import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
+import { requiresEmergencyAuthority } from "@/lib/worklist/priority";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { CaseBriefCard } from "@/components/case-brief-card";
+import { PatientTimeline } from "@/components/patient-timeline";
+import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { StartVirtualReviewButton } from "./start-virtual-review-button";
 import { AlertOverrideControl } from "./alert-override-control";
 import { NotesPanel } from "./notes-panel";
 import { ResolveForm } from "./resolve-form";
 
-export default async function DoctorEscalationPage({
+export default async function EscalationDetailPage({
   params,
 }: {
   params: Promise<{ escalationId: string }>;
@@ -55,13 +60,35 @@ export default async function DoctorEscalationPage({
       ).data
     : null;
 
-  const levelBadge = escalation.clinician_alert
-    ? LEVEL_BADGE[escalation.clinician_alert.override_level ?? escalation.clinician_alert.level]
+  const effectiveLevel = escalation.clinician_alert
+    ? (escalation.clinician_alert.override_level ?? escalation.clinician_alert.level)
     : null;
+  const levelBadge = effectiveLevel ? LEVEL_BADGE[effectiveLevel] : null;
   const resultBadge = escalation.clinician_alert?.screening_result
     ? RESULT_STATUS_BADGE[escalation.clinician_alert.screening_result.result_status]
     : null;
   const statusBadge = ESCALATION_STATUS_BADGE[escalation.status];
+
+  // Every doctor tier can view and work this case (unified access,
+  // 2026-07-31) — but RESOLVING an emergency-level case needs a Tier 2+
+  // doctor or the Clinical Director; see canHandleEmergencyEscalation.
+  // requiresEmergencyAuthority (not the coalesced effectiveLevel used for
+  // the badge above) is the same "level OR override_level is emergency"
+  // predicate the DB trigger uses, so a Tier 1 who overrides an emergency
+  // DOWN to routine cannot thereby unlock their own resolve on it.
+  //
+  // DELIBERATELY STRICTER THAN THE DB on one point: the trigger permits
+  // status -> 'referred' at any tier (forwarding a case on is not closing
+  // it), but this hides the whole ResolveForm, which offers Resolved and
+  // Referred from one control. That is intentional — setting a specialist
+  // referral's urgency is Tier 4 authority under the Clinical Tier Ladder,
+  // so a Tier 1 should not be driving it either. The hand-off a Tier 1
+  // SHOULD use is the note + virtual review the panel below points them at,
+  // which leaves the case open for a senior colleague.
+  const staff = await getCurrentClinicalStaff();
+  const canResolveEmergency = canHandleEmergencyEscalation(staff);
+  const resolveLocked =
+    requiresEmergencyAuthority(escalation.clinician_alert) && !canResolveEmergency;
 
   return (
     <div className="space-y-6">
@@ -122,11 +149,43 @@ export default async function DoctorEscalationPage({
 
       <ReviewedByDoctor escalationId={escalation.id} />
 
-      {escalation.patient?.id && <VitalsTrendChart patientId={escalation.patient.id} />}
+      {escalation.patient?.id && (
+        <div className="space-y-6">
+          <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
+            Patient context
+          </h2>
+          {/*
+            The AI brief above is grounded in a snapshot of this same data
+            (see lib/case-briefs/snapshot.ts) — a doctor resolving or
+            referring a case needs the real, current record next to it, not
+            just the AI's summary of an earlier read of it. Read-only here
+            (refill/stop actions stay on the clinician patient page) since
+            resolving an escalation is not a medication-management moment.
+          */}
+          <VitalsTrendChart patientId={escalation.patient.id} />
+          <MedicationsList patientId={escalation.patient.id} refillCoordinationEnabled />
+          <PatientTimeline patientId={escalation.patient.id} limit={10} />
+        </div>
+      )}
 
       <NotesPanel escalationId={escalation.id} organisationId={escalation.organisation_id} />
 
-      <ResolveForm escalationId={escalation.id} />
+      {resolveLocked ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Resolve escalation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-charcoal-ink/60">
+              This is an emergency-level case. Only a Tier 2+ doctor or the Clinical Director can
+              claim or resolve it. Use &quot;Start virtual review&quot; above and flag it to a
+              senior colleague — the case stays open until they act on it.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <ResolveForm escalationId={escalation.id} />
+      )}
     </div>
   );
 }

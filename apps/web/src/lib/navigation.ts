@@ -97,16 +97,6 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
               ],
             },
           ];
-    case "doctor":
-      return [
-        {
-          items: [
-            { label: "Dashboard", href: "/doctor", icon: "dashboard", exact: true },
-            { label: "Escalations", href: "/doctor/escalations", icon: "escalation" },
-            { label: "Referrals", href: "/doctor/referrals", icon: "referral" },
-          ],
-        },
-      ];
     case "admin":
       return [
         {
