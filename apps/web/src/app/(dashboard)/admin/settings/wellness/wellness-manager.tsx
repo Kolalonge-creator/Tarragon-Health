@@ -36,9 +36,9 @@ function PointsConfigCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Points-to-wallet conversion rate</CardTitle>
+        <CardTitle>Points-to-voucher conversion rate</CardTitle>
         <CardDescription>
-          What one wellness point is worth when a patient redeems it for Health Wallet balance.
+          What one wellness point is worth when a patient redeems it for a reward voucher.
           Current rate: {currentNaira !== null ? `₦${currentNaira} per point` : "…"}
           {exampleValue !== null ? `; 100 points = ₦${exampleValue}.` : ""}
         </CardDescription>

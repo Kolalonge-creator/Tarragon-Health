@@ -1,16 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
 
-export type WalletEntryType = Tables<"wallet_ledger">["entry_type"];
-
-export type SupportedPersonActivity = {
+export type SupportedPersonVoucher = {
   id: string;
-  createdAt: string;
-  entryType: WalletEntryType;
-  amountKobo: number;
-  note: string | null;
-  orderType: string | null;
+  voucherNumber: string;
+  label: string;
+  status: string;
+  faceValueKobo: number;
+  amountPaidKobo: number;
+  expiresAt: string | null;
+  redeemedAt: string | null;
+  boughtByMe: boolean;
 };
 
 export type SupportedPerson = {
@@ -20,42 +20,33 @@ export type SupportedPerson = {
   /** The record owner has said this person may see their health information. */
   clinicalAccess: boolean;
   isDependentAccount: boolean;
-  walletId: string | null;
-  balanceKobo: number;
-  /** Money put in by anyone, ever. */
+  /** Bought and fully paid, waiting to be used. */
+  readyVouchers: SupportedPersonVoucher[];
+  /** Still being paid for. */
+  savingVouchers: SupportedPersonVoucher[];
+  /** Already turned into care, newest first. The sponsor's receipts. */
+  usedVouchers: SupportedPersonVoucher[];
+  /** Money this person has put in across every voucher they bought. */
   fundedKobo: number;
-  /** Money that has actually turned into care. */
-  spentKobo: number;
   lastFundedAt: string | null;
-  /** Newest first, already filtered to entries a sponsor would call a receipt. */
-  recentSpends: SupportedPersonActivity[];
-  goal: { name: string; targetKobo: number } | null;
 };
-
-/** Ledger entry types that represent money going in. */
-const CREDIT_TYPES: WalletEntryType[] = [
-  "topup",
-  "sponsor_topup",
-  "referral_reward",
-  "prevention_reward",
-  "refund",
-];
 
 /**
  * Everyone the caller supports, with the money side of each relationship.
  *
- * Money only, still. health_wallets and wallet_ledger have always carried a
- * profile_access clause in their SELECT policy, so nothing here widens access
- * by a single row.
+ * Money only, still. care_vouchers has carried a profile_access clause in its
+ * SELECT policy since it was created, so nothing here widens access by a
+ * single row. A voucher names a service, so a sponsor sees "an Annual Health
+ * Check was bought and later used" and never a result.
  *
- * Clinical data is a separate question and now has a separate answer: since
+ * Clinical data is a separate question with a separate answer: since
  * 20260731181143 a record owner may consent, per person, to being read, and
  * clinicalAccess on each row below reports whether they have. The health
  * itself is fetched by useSupportedPersonHealth, and only for someone who
  * said yes.
  *
- * Four queries total no matter how many people are supported: the grants, then
- * wallets, ledgers and goals fetched in one batch each and stitched in memory.
+ * Two queries total no matter how many people are supported: the grants, then
+ * every voucher for all of them in one batch, stitched in memory.
  */
 export function useSupportedPeople() {
   return useQuery({
@@ -93,55 +84,35 @@ export function useSupportedPeople() {
 
       if (people.length === 0) return [];
 
-      const profileIds = people.map((p) => p.profileId);
-
-      const { data: wallets } = await supabase
-        .from("health_wallets")
-        .select("id, profile_id, balance_kobo")
-        .in("profile_id", profileIds);
-
-      const walletByProfile = new Map((wallets ?? []).map((w) => [w.profile_id, w]));
-      const walletIds = (wallets ?? []).map((w) => w.id);
-
-      const [{ data: ledger }, { data: goals }] = await Promise.all([
-        walletIds.length
-          ? supabase
-              .from("wallet_ledger")
-              .select("id, wallet_id, entry_type, amount_kobo, note, booking_order_type, created_at")
-              .in("wallet_id", walletIds)
-              .order("created_at", { ascending: false })
-          : Promise.resolve({ data: [] as never[] }),
-        walletIds.length
-          ? supabase
-              .from("wallet_savings_goals")
-              .select("wallet_id, name, target_kobo")
-              .in("wallet_id", walletIds)
-              .eq("status", "active")
-          : Promise.resolve({ data: [] as never[] }),
-      ]);
-
-      const goalByWallet = new Map((goals ?? []).map((g) => [g.wallet_id, g]));
+      const { data: vouchers } = await supabase
+        .from("care_vouchers")
+        .select(
+          "id, beneficiary_profile_id, purchaser_profile_id, voucher_number, sku_name, kind, status, face_value_kobo, amount_paid_kobo, expires_at, redeemed_at, created_at"
+        )
+        .in(
+          "beneficiary_profile_id",
+          people.map((p) => p.profileId)
+        )
+        .order("created_at", { ascending: false });
 
       return people.map((person) => {
-        const wallet = walletByProfile.get(person.profileId) ?? null;
-        const entries = (ledger ?? []).filter((e) => e.wallet_id === wallet?.id);
+        const mine = (vouchers ?? []).filter((v) => v.beneficiary_profile_id === person.profileId);
 
-        let fundedKobo = 0;
-        let spentKobo = 0;
-        let lastFundedAt: string | null = null;
+        const shape = (v: (typeof mine)[number]): SupportedPersonVoucher => ({
+          id: v.id,
+          voucherNumber: v.voucher_number,
+          label: v.sku_name ?? (v.kind === "reward_discount" ? "Reward voucher" : "Care voucher"),
+          status: v.status,
+          faceValueKobo: v.face_value_kobo,
+          amountPaidKobo: v.amount_paid_kobo,
+          expiresAt: v.expires_at,
+          redeemedAt: v.redeemed_at,
+          boughtByMe: v.purchaser_profile_id === user.id,
+        });
 
-        for (const entry of entries) {
-          const amount = Math.abs(entry.amount_kobo);
-          if (CREDIT_TYPES.includes(entry.entry_type)) {
-            fundedKobo += amount;
-            // Entries arrive newest first, so the first credit seen is the latest.
-            if (lastFundedAt === null) lastFundedAt = entry.created_at;
-          } else if (entry.entry_type === "spend") {
-            spentKobo += amount;
-          }
-        }
-
-        const goal = wallet ? (goalByWallet.get(wallet.id) ?? null) : null;
+        const boughtByMe = mine.filter((v) => v.purchaser_profile_id === user.id);
+        const fundedKobo = boughtByMe.reduce((sum, v) => sum + v.amount_paid_kobo, 0);
+        const lastFunded = boughtByMe.find((v) => v.amount_paid_kobo > 0);
 
         return {
           profileId: person.profileId,
@@ -149,23 +120,14 @@ export function useSupportedPeople() {
           permissionLevel: person.permissionLevel,
           clinicalAccess: person.clinicalAccess,
           isDependentAccount: person.isDependentAccount,
-          walletId: wallet?.id ?? null,
-          balanceKobo: wallet?.balance_kobo ?? 0,
-          fundedKobo,
-          spentKobo,
-          lastFundedAt,
-          recentSpends: entries
-            .filter((e) => e.entry_type === "spend")
+          readyVouchers: mine.filter((v) => v.status === "active").map(shape),
+          savingVouchers: mine.filter((v) => v.status === "reserved").map(shape),
+          usedVouchers: mine
+            .filter((v) => v.status === "redeemed")
             .slice(0, 5)
-            .map((e) => ({
-              id: e.id,
-              createdAt: e.created_at,
-              entryType: e.entry_type,
-              amountKobo: Math.abs(e.amount_kobo),
-              note: e.note,
-              orderType: e.booking_order_type,
-            })),
-          goal: goal ? { name: goal.name, targetKobo: goal.target_kobo } : null,
+            .map(shape),
+          fundedKobo,
+          lastFundedAt: lastFunded?.created_at ?? null,
         };
       });
     },
@@ -332,18 +294,26 @@ export function useSponsorPayableOrders(profileId: string | null, canManage: boo
   });
 }
 
-/** Settles one pending bill from the balance the sponsor funded. */
+/**
+ * Settles one pending bill with a voucher the person already holds.
+ *
+ * A sponsor with a 'manage' grant can press this, which is the point of the
+ * whole arrangement: the person least likely to complete a checkout is often
+ * the one the care is for. The voucher can still only ever become care for its
+ * own named beneficiary, so there is nothing here to redirect.
+ */
 export function useSponsorPayOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
       beneficiaryId: string;
+      voucherId: string;
       orderType: SponsorPayableOrder["order_type"];
       orderId: string;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase.rpc("sponsor_pay_booking_order", {
-        p_beneficiary: input.beneficiaryId,
+      const { error } = await supabase.rpc("redeem_care_voucher", {
+        p_voucher: input.voucherId,
         p_order_type: input.orderType,
         p_order_id: input.orderId,
       });
@@ -354,9 +324,10 @@ export function useSponsorPayOrder() {
 }
 
 /**
- * Books a self-bookable check for someone you manage, paying immediately when
- * the wallet already covers it. A short balance leaves a real pending bill
- * rather than failing, which then shows up in useSponsorPayableOrders.
+ * Books a self-bookable check for someone you manage. If they already hold a
+ * paid voucher for that exact check it is used immediately; otherwise the
+ * booking is created as a real pending bill, which then shows up in
+ * useSponsorPayableOrders.
  */
 export function useSponsorBookCare() {
   const queryClient = useQueryClient();
@@ -368,7 +339,7 @@ export function useSponsorBookCare() {
         p_bundle_code: input.bundleCode,
       });
       if (error) throw error;
-      return data as { ok: boolean; paid: boolean; price_kobo: number; shortfall_kobo: number };
+      return data as { ok: boolean; paid: boolean; price_kobo: number; voucher_id: string | null };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sponsorship"] }),
   });

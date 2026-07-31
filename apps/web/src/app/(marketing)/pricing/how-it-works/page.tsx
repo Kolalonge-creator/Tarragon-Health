@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import {
   BOOKING_STEPS,
-  HEALTH_WALLET_INTRO,
-  HEALTH_WALLET_POINTS,
+  CARE_VOUCHER_INTRO,
+  CARE_VOUCHER_POINTS,
   HMO_COMPARE_INTRO,
   HMO_COMPARE_NOTE,
   HMO_COMPARE_ROWS,
@@ -23,7 +23,7 @@ import {
 export const metadata: Metadata = {
   title: "How pricing works",
   description:
-    "Our No-Hidden-Cost Promise, free trials of real clinical care, the Health Wallet, how Tarragon compares to your HMO, booking step-by-step, and typical prices for book & pay items.",
+    "Our No-Hidden-Cost Promise, free trials of real clinical care, care vouchers, how Tarragon compares to your HMO, booking step-by-step, and typical prices for book & pay items.",
   alternates: { canonical: MARKETING_ROUTES.howPricingWorks },
 };
 
@@ -36,7 +36,7 @@ export default function HowPricingWorksPage() {
         <SectionHeading
           eyebrow="Pricing, in detail"
           title="How pricing works"
-          description="The promise behind every price, how free trials work, the Health Wallet, how we compare to your HMO, and exactly what happens each time you book something."
+          description="The promise behind every price, how free trials work, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."
         />
         <div className="mx-auto flex max-w-3xl justify-center">
           <Button asChild variant="outline">
@@ -88,11 +88,11 @@ export default function HowPricingWorksPage() {
       <Section>
         <SectionHeading
           eyebrow="Flexible payment"
-          title="The Health Wallet"
-          description={HEALTH_WALLET_INTRO}
+          title="Care vouchers"
+          description={CARE_VOUCHER_INTRO}
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
-          {HEALTH_WALLET_POINTS.map((point) => (
+          {CARE_VOUCHER_POINTS.map((point) => (
             <div
               key={point.title}
               className="rounded-xl border border-charcoal-ink/10 bg-white p-5"

@@ -55,7 +55,7 @@ import { WearableConnectSection } from "./wearable-connect-section";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
 import { HospitalAdmissionsCard } from "./hospital-admissions-card";
-import { WalletCard } from "@/components/wallet-card";
+import { CareVouchersCard } from "@/components/care-vouchers-card";
 import { TestimonialForm } from "@/components/testimonial-form";
 import { EmergencyAlert } from "./emergency-alert";
 import { LabCatalogue } from "./lab-catalogue";
@@ -407,7 +407,7 @@ export default async function PatientPage() {
       >
         {/* Clinical and functional cards first — this is where a patient
             checking in on their care actually needs to land. Messaging
-            itself now lives in Overview (see above); wellness/wallet/
+            itself now lives in Overview (see above); wellness/vouchers/
             testimonial cards, being discretionary rather than clinical, sit
             below everything here so they never compete with care content
             (2026-07-30 patient-experience pass). */}
@@ -447,7 +447,7 @@ export default async function PatientPage() {
 
         {/* Discretionary / engagement surfaces — real features, deliberately
             lower priority than anything above. */}
-        <WalletCard patientId={profile.id} />
+        <CareVouchersCard patientId={profile.id} />
         <WellnessPointsSummary patientId={profile.id} />
         <TestimonialForm />
       </DashboardSection>

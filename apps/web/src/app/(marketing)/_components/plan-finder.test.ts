@@ -50,7 +50,7 @@ describe("recommendPlan", () => {
   it("explains individual enrolment when caring for someone else", () => {
     const rec = recommendPlan("someone-else", "one", "abroad");
     expect(rec.secondary).toContain("their own Tarragon account");
-    expect(rec.secondary).toContain("Health Wallet");
+    expect(rec.secondary).toContain("buy the checks they need");
   });
 
   it("never recommends a plan that no longer exists", () => {

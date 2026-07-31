@@ -20,7 +20,7 @@ const REASON_LABEL: Record<string, string> = {
   lpe_goal_achieved: "Achieved a lifestyle goal",
   challenge_completed: "Completed a challenge",
   wellness_class_attended: "Attended a class",
-  redeemed_to_wallet: "Redeemed to wallet",
+  redeemed_to_voucher: "Redeemed for a voucher",
 };
 
 function reasonLabel(reason: string): string {
@@ -45,7 +45,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
         </CardTitle>
         <CardDescription>
           Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting
-          challenges. Redeem any time for real Health Wallet balance you can spend on care.
+          challenges. Redeem any time for a reward voucher you can put toward your care.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -73,7 +73,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
             }
             redeem.mutate(points, {
               onSuccess: (res) => {
-                setMessage(`Redeemed: ₦${((res.kobo_credited ?? 0) / 100).toLocaleString()} added to your wallet.`);
+                setMessage(`Redeemed: a ₦${((res.kobo_credited ?? 0) / 100).toLocaleString()} reward voucher is now on your account.`);
                 setAmount("");
               },
               onError: (err) => setMessage(err instanceof Error ? err.message : "Something went wrong."),
@@ -82,7 +82,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
         >
           <div className="grid gap-1">
             <label htmlFor="redeem-points" className="text-xs font-medium text-charcoal-ink/70">
-              Redeem to wallet
+              Redeem for a voucher
             </label>
             <Input
               id="redeem-points"

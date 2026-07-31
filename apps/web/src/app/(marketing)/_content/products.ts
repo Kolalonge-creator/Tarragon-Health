@@ -116,13 +116,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Know how your parent is doing, even when you are not there every day.",
     campaignLine: "Your parents looked after you. Now help look after them.",
     intro:
-      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can pay for their care by topping up their Health Wallet, from Lagos or from anywhere.",
+      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can pay for their care by buying the checks they need, from Lagos or from anywhere.",
     included: [
       "Their own plan and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
       "Next of kin access: you see their care, you cannot change it, and they can withdraw it whenever they want",
       "We contact you first if something urgent comes up",
-      "Pay for their care by funding their Health Wallet, in naira or dollars",
+      "Pay for their care by buying their checks outright, in naira or dollars",
       "Doctor follow-up when readings or care gaps need attention",
     ],
     howItWorks: [
@@ -136,13 +136,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You cover the cost, if you want to",
-        body: "Top up their Health Wallet whenever suits you. It pays for lab tests, refills, health checks and Tarragon fees, and is never cashed out.",
+        body: "Buy the checks they need whenever suits you, in one go or in instalments. Each one is for that service and for them alone, and is never exchangeable for cash.",
       },
     ],
     metadata: {
       title: "Caring for a parent",
       description:
-        "Follow a parent's care without taking it over: their own account, you as next of kin, and a Health Wallet you can fund from anywhere.",
+        "Follow a parent's care without taking it over: their own account, you as next of kin, and checks you can buy for them from anywhere.",
     },
   },
   prevention: {

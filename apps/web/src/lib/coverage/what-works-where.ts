@@ -90,10 +90,10 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
     gatedBy: null,
   },
   {
-    key: "wallet",
+    key: "vouchers",
     label: "Funding someone else's care",
     detail:
-      "Top up a relative's Health Wallet from abroad and see exactly what each payment was spent on.",
+      "Buy a relative a named check from abroad and see exactly when it was used.",
     locality: "anywhere",
     gatedBy: null,
   },
