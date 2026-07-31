@@ -1,5 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
-import { computeHealthScore, getHealthScoreTips, type HealthScoreInputs } from "./health-score";
+import {
+  computeHealthScore,
+  getHealthScoreTips,
+  computeHealthScoreTrend,
+  describeHealthScoreTrend,
+  type HealthScoreInputs,
+  type HealthScoreTrendPoint,
+} from "./health-score";
 
 const allUnavailable: HealthScoreInputs = {
   bpControlPercent: null,
@@ -135,5 +142,94 @@ describe("getHealthScoreTips", () => {
     expect(tips).toHaveLength(2);
     expect(tips.some((t) => t.toLowerCase().includes("blood pressure"))).toBe(true);
     expect(tips.some((t) => t.toLowerCase().includes("smoking"))).toBe(true);
+  });
+});
+
+describe("computeHealthScoreTrend", () => {
+  it("returns null with fewer than two data points — never fabricates a trend", () => {
+    const single: HealthScoreTrendPoint[] = [
+      { score: 60, inputs: {}, computed_at: "2026-01-01T00:00:00Z" },
+    ];
+    expect(computeHealthScoreTrend([])).toBeNull();
+    expect(computeHealthScoreTrend(single)).toBeNull();
+  });
+
+  it("computes score delta and bmi sub-score delta from the earliest vs latest real snapshots", () => {
+    const history: HealthScoreTrendPoint[] = [
+      {
+        score: 55,
+        inputs: { components: [{ key: "bmi", value: 40, weight: 15 }] },
+        computed_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        score: 58,
+        inputs: { components: [{ key: "bmi", value: 45, weight: 15 }] },
+        computed_at: "2026-02-01T00:00:00Z",
+      },
+      {
+        score: 70,
+        inputs: { components: [{ key: "bmi", value: 60, weight: 15 }] },
+        computed_at: "2026-03-01T00:00:00Z",
+      },
+    ];
+    const trend = computeHealthScoreTrend(history)!;
+    expect(trend.firstScore).toBe(55);
+    expect(trend.lastScore).toBe(70);
+    expect(trend.scoreDelta).toBe(15);
+    expect(trend.bmiSubScoreDelta).toBe(20);
+  });
+
+  it("leaves bmiSubScoreDelta null when either snapshot has no bmi component", () => {
+    const history: HealthScoreTrendPoint[] = [
+      { score: 50, inputs: { components: [] }, computed_at: "2026-01-01T00:00:00Z" },
+      {
+        score: 60,
+        inputs: { components: [{ key: "bmi", value: 80, weight: 15 }] },
+        computed_at: "2026-02-01T00:00:00Z",
+      },
+    ];
+    expect(computeHealthScoreTrend(history)!.bmiSubScoreDelta).toBeNull();
+  });
+});
+
+describe("describeHealthScoreTrend", () => {
+  it("describes an improving score without alarm and credits weight movement", () => {
+    const line = describeHealthScoreTrend({
+      firstScore: 55,
+      lastScore: 70,
+      firstDate: "2026-01-01T00:00:00Z",
+      lastDate: "2026-03-01T00:00:00Z",
+      scoreDelta: 15,
+      bmiSubScoreDelta: 20,
+    });
+    expect(line).toContain("moved up from 55 to 70");
+    expect(line.toLowerCase()).toContain("real, measurable progress");
+  });
+
+  it("describes a dip gently, with no fear-based language", () => {
+    const line = describeHealthScoreTrend({
+      firstScore: 70,
+      lastScore: 60,
+      firstDate: "2026-01-01T00:00:00Z",
+      lastDate: "2026-03-01T00:00:00Z",
+      scoreDelta: -10,
+      bmiSubScoreDelta: -5,
+    });
+    expect(line).toContain("moved from 70 to 60");
+    expect(line.toLowerCase()).not.toContain("warning");
+    expect(line.toLowerCase()).not.toContain("fail");
+    expect(line).toContain("nothing to panic about");
+  });
+
+  it("omits any weight-specific line when bmiSubScoreDelta is null or negligible", () => {
+    const steady = describeHealthScoreTrend({
+      firstScore: 60,
+      lastScore: 60,
+      firstDate: "2026-01-01T00:00:00Z",
+      lastDate: "2026-03-01T00:00:00Z",
+      scoreDelta: 0,
+      bmiSubScoreDelta: null,
+    });
+    expect(steady).toBe("Since your first check, your Health Score has held steady at 60.");
   });
 });

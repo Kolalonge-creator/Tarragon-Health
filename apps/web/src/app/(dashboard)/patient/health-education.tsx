@@ -17,15 +17,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "Blood pressure",
   diabetes: "Diabetes",
-  obesity: "Weight",
   ckd: "Kidney health",
   cardiovascular: "Heart health",
   other: "General",
 };
+
+function conditionLabelFor(
+  condition: string,
+  preference: string | null | undefined,
+): string {
+  return condition === "obesity" ? obesityLabelTitleCase(preference) : (CONDITION_LABEL[condition] ?? condition);
+}
 
 function KnowledgeCheck({
   questions,
@@ -112,10 +119,12 @@ function EducationItem({
   item,
   patientId,
   organisationId,
+  conditionLanguagePreference,
 }: {
   item: HealthEducationFeedItem;
   patientId: string;
   organisationId: string;
+  conditionLanguagePreference?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const mark = useMarkContentProgress(patientId, organisationId);
@@ -142,7 +151,7 @@ function EducationItem({
           {item.title}
         </button>
         {item.condition && (
-          <Badge variant="grey">{CONDITION_LABEL[item.condition] ?? item.condition}</Badge>
+          <Badge variant="grey">{conditionLabelFor(item.condition, conditionLanguagePreference)}</Badge>
         )}
         {item.content_type === "video" && <Badge variant="grey">Video</Badge>}
         {item.status === "needs_review" && <Badge variant="blue">Revisit</Badge>}
@@ -212,9 +221,11 @@ function EducationItem({
 export function HealthEducation({
   patientId,
   organisationId,
+  conditionLanguagePreference,
 }: {
   patientId: string;
   organisationId: string;
+  conditionLanguagePreference?: string | null;
 }) {
   const { data, isLoading, isError } = useHealthEducationFeed(patientId);
   const { data: lockedCount } = useHealthEducationLockedCount(patientId);
@@ -246,6 +257,7 @@ export function HealthEducation({
                 item={item}
                 patientId={patientId}
                 organisationId={organisationId}
+                conditionLanguagePreference={conditionLanguagePreference}
               />
             ))}
           </ul>
