@@ -22,7 +22,37 @@ export const consultSlotKeys = {
   price: ["video-visit-price"] as const,
   myRequests: (patientId: string) => ["video-visit-requests", "mine", patientId] as const,
   orgRequests: ["video-visit-requests", "org"] as const,
+  acceptanceStats: ["video-visit-requests", "acceptance-stats"] as const,
 };
+
+export type VideoVisitAcceptanceStats =
+  | { suppressed: true; sample_size: number }
+  | {
+      suppressed: false;
+      sample_size: number;
+      accepted_count: number;
+      acceptance_rate_pct: number;
+      median_minutes_to_accept: number;
+    };
+
+/**
+ * Rolling-30-day, org-scoped acceptance signal shown before a patient pays —
+ * "how likely/fast is this usually accepted", not a per-doctor promise.
+ * `suppressed: true` under a 5-sample floor (small-cell suppression, same
+ * posture as elsewhere in this codebase) — the card renders a neutral
+ * message rather than a misleadingly precise stat off a tiny sample.
+ */
+export function useVideoVisitAcceptanceStats() {
+  return useQuery({
+    queryKey: consultSlotKeys.acceptanceStats,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("video_visit_acceptance_stats");
+      if (error) throw error;
+      return data as unknown as VideoVisitAcceptanceStats;
+    },
+  });
+}
 
 /** The price a video visit costs the caller (org override, else platform default). */
 export function useVideoVisitPrice() {

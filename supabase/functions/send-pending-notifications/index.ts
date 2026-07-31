@@ -41,6 +41,24 @@ const EXTERNAL_TIMEOUT_MS = 5_000;
 // (often multi-sentence) smsText down to something that reads cleanly there.
 const PUSH_BODY_MAX_CHARS = 160;
 
+// Patient-experience review 2026-07-31: several reminder templates only ever
+// said "open the app" with no actual link — real friction for a patient
+// trying to act on a WhatsApp/SMS/push nudge. This builds a real deep link
+// into smsText (shared by SMS, push, and voice — see the dispatch loop
+// below), never into the WhatsApp structured template's body params (those
+// are pre-approved fixed slots; a URL there needs its own Meta template
+// approval, out of scope here). Deliberately its own APP_BASE_URL, distinct
+// from the marketing site's NEXT_PUBLIC_SITE_URL (root domain) — these
+// links point at the platform's `app.` subdomain. Set on BOTH .env.local
+// (local dev) and this function's own Supabase Edge Function secrets store
+// — they do not share a source, per the Stripe-webhook lesson elsewhere in
+// this codebase. Falls back to the production app domain so a missing
+// secret still produces a working link rather than a broken one.
+function appUrl(path: string): string {
+  const base = Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng";
+  return `${base}${path}`;
+}
+
 interface NotificationRow {
   id: string;
   recipient_id: string;
@@ -70,6 +88,13 @@ interface TemplateRender {
   // for the legacy reminder templates, which are WhatsApp/SMS only — an email
   // row referencing a template without this is failed with a clear reason.
   email?: { subject: string; html: string; text: string };
+  // Present only where a template author has bothered to compute a specific
+  // in-app destination (see the push-channel dispatch below, which otherwise
+  // falls back to the bare "/" every push notification used before
+  // 2026-07-31 — tapping a reminder just opened the homepage regardless of
+  // what it was about). Deliberately opt-in per template rather than a
+  // blanket default, so untouched templates keep their exact prior behavior.
+  pushUrl?: string;
 }
 
 // Meta-approved WhatsApp template names must match these keys exactly once
@@ -81,6 +106,13 @@ const TEMPLATE_MAP: Record<
 > = {
   vitals_reminder: (payload) => {
     const dueDate = String(payload.due_date ?? "soon");
+    // suggested_vital_type is a best-effort hint from queue_vitals_reminders
+    // (set when the patient's active care_plans condition maps cleanly to
+    // one vital type) — absent for most patients, who get the generic
+    // vitals section link instead of a fictitious specific type.
+    const suggestedType =
+      typeof payload.suggested_vital_type === "string" ? payload.suggested_vital_type : null;
+    const path = suggestedType ? `/patient/quick-log/${suggestedType}` : "/patient#vitals";
     return {
       metaTemplateName: "vitals_reminder",
       languageCode: "en",
@@ -89,12 +121,14 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, it's time to log your vitals (due ${dueDate}). ` +
-        `Reply on WhatsApp or open the app. — Tarragon Health`,
+        `Tap to log it: ${appUrl(path)} — Tarragon Health`,
+      pushUrl: path,
     };
   },
   medication_refill_reminder: (payload) => {
     const drugName = String(payload.drug_name ?? "your medication");
     const refillDate = String(payload.refill_date ?? "soon");
+    const path = "/patient#medications";
     return {
       metaTemplateName: "medication_refill_reminder",
       languageCode: "en",
@@ -109,7 +143,8 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, your ${drugName} refill is due ${refillDate}. ` +
-        `Reply on WhatsApp or open the app. — Tarragon Health`,
+        `Sort it here: ${appUrl(path)} — Tarragon Health`,
+      pushUrl: path,
     };
   },
   booking_reminder: (payload) => {
@@ -150,6 +185,7 @@ const TEMPLATE_MAP: Record<
           : type === "missed_doses"
             ? `How many doses of ${drugName} have you missed?`
             : `Time for a quick review of ${drugName}.`;
+    const path = "/patient#medications";
     return {
       metaTemplateName: "medication_adherence_checkin",
       languageCode: "en",
@@ -162,7 +198,8 @@ const TEMPLATE_MAP: Record<
           ],
         },
       ],
-      smsText: `${prompt} Open the Tarragon Health app to answer. — Tarragon Health`,
+      smsText: `${prompt} Answer here: ${appUrl(path)} — Tarragon Health`,
+      pushUrl: path,
     };
   },
   // Sent to the patient as a scheduled medication review comes due (see
@@ -1312,7 +1349,7 @@ Deno.serve(async () => {
       const pushResult = await sendWebPush(subs, {
         title: "Tarragon Health",
         body: pushBody,
-        url: "/",
+        url: render.pushUrl ?? "/",
         notificationId: row.id,
       });
 

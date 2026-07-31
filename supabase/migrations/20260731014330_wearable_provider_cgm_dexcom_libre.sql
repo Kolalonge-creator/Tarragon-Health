@@ -1,0 +1,23 @@
+-- Tarragon Health
+-- Adds CGM providers to public.wearable_provider ahead of building the
+-- dormant "Connect a CGM" scaffold (patient-experience review 2026-07-31,
+-- CGM was the single biggest gap flagged: "I use a Libre/Dexcom-style
+-- sensor... zero cloud integration for it"). Mirrors the existing
+-- Oura/WHOOP/Garmin/Fitbit precedent: schema-ready, no real developer
+-- credentials registered yet, so the connect flow stays inert until they
+-- are (per CLAUDE.md's Device & Wearable Integration section).
+--
+-- dexcom: a real, self-serve OAuth2 developer program exists
+-- (developer.dexcom.com) -- wired into oauth-providers.ts/token-exchange.ts
+-- as a genuine CloudOAuthWearableProvider, same shape as the other four.
+--
+-- libre: Abbott/LibreView has NO public self-serve OAuth developer API --
+-- integration requires a direct partnership/data-sharing agreement, a
+-- structurally different relationship (same reasoning that already
+-- excludes Apple Health from CloudOAuthWearableProvider -- see that type's
+-- own doc comment). Added to this enum for schema completeness / future
+-- partnership-based ingestion, but deliberately NOT added to
+-- CloudOAuthWearableProvider or given a Connect button -- building one
+-- would misrepresent a partnership as a self-serve flow.
+alter type public.wearable_provider add value if not exists 'dexcom';
+alter type public.wearable_provider add value if not exists 'libre';

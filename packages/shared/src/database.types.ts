@@ -12364,6 +12364,7 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      video_visit_acceptance_stats: { Args: never; Returns: Json }
       finance_accounts_list: { Args: never; Returns: Json }
       finance_ap_aging: { Args: never; Returns: Json }
       finance_approval_history: { Args: { p_limit?: number }; Returns: Json }
@@ -13359,7 +13360,7 @@ export type Database = {
         | "adjustment"
         | "points_redemption"
       wearable_connection_status: "active" | "disconnected" | "error"
-      wearable_provider: "apple_health" | "oura" | "whoop" | "garmin" | "fitbit"
+      wearable_provider: "apple_health" | "oura" | "whoop" | "garmin" | "fitbit" | "dexcom" | "libre"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -13997,7 +13998,15 @@ export const Constants = {
         "points_redemption",
       ],
       wearable_connection_status: ["active", "disconnected", "error"],
-      wearable_provider: ["apple_health", "oura", "whoop", "garmin", "fitbit"],
+      wearable_provider: [
+        "apple_health",
+        "oura",
+        "whoop",
+        "garmin",
+        "fitbit",
+        "dexcom",
+        "libre",
+      ],
       wellness_challenge_metric: [
         "vitals_logs",
         "meal_logs",

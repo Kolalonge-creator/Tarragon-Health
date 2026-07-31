@@ -7,6 +7,7 @@ import {
   useUpcomingVideoVisits,
   useMyVideoVisitRequests,
   useVideoVisitPrice,
+  useVideoVisitAcceptanceStats,
   consultSlotKeys,
 } from "@/lib/queries/consult-slots";
 import {
@@ -33,6 +34,14 @@ function formatPrice(amountMinor: number, currency: string): string {
   return `${symbol}${koboToNaira(amountMinor).toLocaleString()}`;
 }
 
+/** "45 minutes" / "2 hours" — median_minutes_to_accept reads oddly as a raw
+ * number once it crosses an hour, so round to the coarser unit above 90. */
+function formatMinutes(minutes: number): string {
+  if (minutes < 90) return `${Math.max(minutes, 1)} minute${minutes === 1 ? "" : "s"}`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
+}
+
 const REQUEST_STATUS: Record<
   string,
   { label: string; tone: "blue" | "amber" | "green" | "red" | "grey"; note?: string }
@@ -48,12 +57,12 @@ const REQUEST_STATUS: Record<
   declined: {
     label: "Not available",
     tone: "red",
-    note: "A doctor couldn't take this visit. Your payment will be refunded in full.",
+    note: "A doctor couldn't take this visit. Your payment is being refunded in full automatically — you don't need to do anything or contact support.",
   },
   expired: {
     label: "Not accepted in time",
     tone: "red",
-    note: "No doctor could take this within 48 hours. Your payment will be refunded in full.",
+    note: "No doctor could take this within 48 hours. Your payment is being refunded in full automatically — you don't need to do anything or contact support.",
   },
   cancelled: { label: "Cancelled", tone: "grey" },
   refunded: { label: "Refunded", tone: "grey" },
@@ -71,6 +80,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
   const { data: upcoming } = useUpcomingVideoVisits(patientId);
   const { data: requests } = useMyVideoVisitRequests(patientId);
   const { data: price } = useVideoVisitPrice();
+  const { data: acceptanceStats } = useVideoVisitAcceptanceStats();
   const queryClient = useQueryClient();
   const [selectedSlot, setSelectedSlot] = useState<string>("");
   const [state, formAction, isPending] = useActionState<RequestVideoVisitState, FormData>(
@@ -138,6 +148,13 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
 
         {hasSlots && (
           <form action={formAction} className="space-y-3">
+            {acceptanceStats && (
+              <p className="text-xs text-charcoal-ink/60">
+                {acceptanceStats.suppressed
+                  ? "Not enough recent requests here yet to show a reliable acceptance estimate."
+                  : `In the last 30 days, ${acceptanceStats.acceptance_rate_pct}% of requests like this were accepted, usually within about ${formatMinutes(acceptanceStats.median_minutes_to_accept)}.`}
+              </p>
+            )}
             <p className="text-sm font-medium text-charcoal-ink">
               Request a time: {formatPrice(price!.amount_minor, price!.currency)} per visit
             </p>

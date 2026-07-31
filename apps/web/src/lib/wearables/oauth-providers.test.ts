@@ -10,6 +10,7 @@ const PROVIDER_ENV_VARS: Record<CloudOAuthWearableProvider, [string, string]> = 
   whoop: ["WHOOP_CLIENT_ID", "WHOOP_CLIENT_SECRET"],
   garmin: ["GARMIN_CLIENT_ID", "GARMIN_CLIENT_SECRET"],
   fitbit: ["FITBIT_CLIENT_ID", "FITBIT_CLIENT_SECRET"],
+  dexcom: ["DEXCOM_CLIENT_ID", "DEXCOM_CLIENT_SECRET"],
 };
 
 const ALL_ENV_VARS = Object.values(PROVIDER_ENV_VARS).flat();
