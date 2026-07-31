@@ -20,3 +20,27 @@ export function useLatestHealthScore(patientId: string) {
     enabled: !!patientId,
   });
 }
+
+/**
+ * Ascending Health Score history, oldest first — powers the "since you
+ * started" trend narrative. Every score is a real write from
+ * assessHealthScoreBestEffort; nothing here is synthesised or interpolated.
+ */
+export function useHealthScoreHistory(patientId: string) {
+  return useQuery({
+    queryKey: ["health-score-history", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("patient_risk_scores")
+        .select("score, inputs, computed_at")
+        .eq("patient_id", patientId)
+        .eq("score_type", "health_score")
+        .order("computed_at", { ascending: true })
+        .limit(60);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
+}

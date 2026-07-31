@@ -46,6 +46,7 @@ import { VaccinationForFamily } from "./vaccination-for-family";
 import { FacilityDirectory } from "./facility-directory";
 import { PatientLocationForm } from "./patient-location-form";
 import { ReminderPreferenceForm } from "./reminder-preference-form";
+import { ConditionLanguageForm } from "./condition-language-form";
 import { WearableConnectSection } from "./wearable-connect-section";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
@@ -64,6 +65,7 @@ import { CareCircleCard } from "./care-circle-card";
 import { AnnualReviewCard } from "./annual-review-card";
 import { ObesitySummary } from "./obesity-summary";
 import { WellnessPointsSummary } from "./wellness-points-summary";
+import { LifestyleProgressSummary } from "./lifestyle-progress-summary";
 import { HealthResetCard } from "./health-reset-card";
 
 const SECTIONS = [
@@ -290,7 +292,10 @@ export default async function PatientPage() {
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
         <RiskAssessmentForm patientId={profile.id} />
-        <CareProgrammeRecommendations patientId={profile.id} />
+        <CareProgrammeRecommendations
+          patientId={profile.id}
+          conditionLanguagePreference={profile.condition_language_preference}
+        />
         <PreventiveProgrammes
           patientId={profile.id}
           ageYears={ageFromDateOfBirth(profile.date_of_birth)}
@@ -329,6 +334,7 @@ export default async function PatientPage() {
             <HealthEducation
               patientId={profile.id}
               organisationId={profile.organisation_id}
+              conditionLanguagePreference={profile.condition_language_preference}
             />
           </RequiresEntitlement>
         )}
@@ -388,7 +394,10 @@ export default async function PatientPage() {
           fallback={<UpgradePrompt feature="clinician_review" />}
         >
           <CarePlanDisplay patientId={profile.id} />
-          <ObesitySummary patientId={profile.id} />
+          <ObesitySummary
+            patientId={profile.id}
+            conditionLanguagePreference={profile.condition_language_preference}
+          />
         </RequiresEntitlement>
         <RequiresEntitlement
           feature="async_doctor_visit"
@@ -402,6 +411,12 @@ export default async function PatientPage() {
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
         <WalletCard patientId={profile.id} />
+        <RequiresEntitlement
+          feature="lifestyle_coaching"
+          fallback={<UpgradePrompt feature="lifestyle_coaching" />}
+        >
+          <LifestyleProgressSummary patientId={profile.id} />
+        </RequiresEntitlement>
         <WellnessPointsSummary patientId={profile.id} />
         <YourReferrals
           patientId={profile.id}
@@ -429,6 +444,9 @@ export default async function PatientPage() {
         />
         <ReminderPreferenceForm
           initial={{ preferred_reminder_channel: profile.preferred_reminder_channel }}
+        />
+        <ConditionLanguageForm
+          initial={{ condition_language_preference: profile.condition_language_preference }}
         />
         <EmergencyContactForm
           initial={{

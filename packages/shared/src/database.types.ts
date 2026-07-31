@@ -9002,6 +9002,7 @@ export type Database = {
           app_last_active_at: string | null
           area: string | null
           city: string | null
+          condition_language_preference: string
           created_at: string
           custom_role_id: string | null
           date_of_birth: string | null
@@ -9036,6 +9037,7 @@ export type Database = {
           app_last_active_at?: string | null
           area?: string | null
           city?: string | null
+          condition_language_preference?: string
           created_at?: string
           custom_role_id?: string | null
           date_of_birth?: string | null
@@ -9070,6 +9072,7 @@ export type Database = {
           app_last_active_at?: string | null
           area?: string | null
           city?: string | null
+          condition_language_preference?: string
           created_at?: string
           custom_role_id?: string | null
           date_of_birth?: string | null

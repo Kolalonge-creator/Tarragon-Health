@@ -2,12 +2,12 @@
 
 import { useCareProgrammeRecommendations } from "@/lib/queries/care-plan-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "Blood pressure care",
   diabetes: "Diabetes care",
   cardiovascular: "Heart health care",
-  obesity: "Weight & metabolic care",
   ckd: "Kidney care",
   other: "Care programme",
 };
@@ -18,10 +18,21 @@ const CONDITION_LABEL: Record<string, string> = {
  * has reviewed it (docs/CLINICAL_TRUST_MODEL_SPEC.md). Null-gated: renders
  * nothing when there are no open recommendations.
  */
-export function CareProgrammeRecommendations({ patientId }: { patientId: string }) {
+export function CareProgrammeRecommendations({
+  patientId,
+  conditionLanguagePreference,
+}: {
+  patientId: string;
+  conditionLanguagePreference?: string | null;
+}) {
   const { data: recommendations } = useCareProgrammeRecommendations(patientId);
 
   if (!recommendations || recommendations.length === 0) return null;
+
+  const labelFor = (condition: string) =>
+    condition === "obesity"
+      ? `${obesityLabelTitleCase(conditionLanguagePreference)} & metabolic care`
+      : (CONDITION_LABEL[condition] ?? condition);
 
   return (
     <Card>
@@ -41,7 +52,7 @@ export function CareProgrammeRecommendations({ patientId }: { patientId: string 
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-charcoal-ink">
-                  {CONDITION_LABEL[rec.condition] ?? rec.condition}
+                  {labelFor(rec.condition)}
                 </span>
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                   Pending review

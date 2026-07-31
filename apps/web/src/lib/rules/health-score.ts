@@ -185,3 +185,73 @@ const COMPONENT_TIP: Record<HealthScoreComponent["key"], string> = {
 export function getHealthScoreTips(components: HealthScoreComponent[]): string[] {
   return components.filter((c) => c.value < TIP_THRESHOLD).map((c) => COMPONENT_TIP[c.key]);
 }
+
+export interface HealthScoreTrendPoint {
+  score: number;
+  inputs: unknown;
+  computed_at: string;
+}
+
+export interface HealthScoreTrend {
+  firstScore: number;
+  lastScore: number;
+  firstDate: string;
+  lastDate: string;
+  scoreDelta: number;
+  /** The bmi component's own 0-100 sub-score delta, only when both the
+   * earliest and latest snapshot actually have a bmi component — never
+   * inferred or estimated. */
+  bmiSubScoreDelta: number | null;
+}
+
+function bmiSubScoreOf(inputs: unknown): number | null {
+  const components = (inputs as { components?: HealthScoreComponent[] } | null)?.components;
+  return components?.find((c) => c.key === "bmi")?.value ?? null;
+}
+
+/**
+ * Turns raw ascending Health Score history into the "since you started"
+ * trend a patient can actually read on their own progress — never fabricated
+ * from a single point. Returns null with fewer than two real data points,
+ * since there is nothing honest to say about a trend from one score.
+ */
+export function computeHealthScoreTrend(
+  history: HealthScoreTrendPoint[],
+): HealthScoreTrend | null {
+  if (history.length < 2) return null;
+  const first = history[0];
+  const last = history[history.length - 1];
+  const firstBmi = bmiSubScoreOf(first.inputs);
+  const lastBmi = bmiSubScoreOf(last.inputs);
+  return {
+    firstScore: first.score,
+    lastScore: last.score,
+    firstDate: first.computed_at,
+    lastDate: last.computed_at,
+    scoreDelta: last.score - first.score,
+    bmiSubScoreDelta: firstBmi !== null && lastBmi !== null ? lastBmi - firstBmi : null,
+  };
+}
+
+/**
+ * Plain-language line for the trend above — non-alarming either direction,
+ * matching the brand voice's "doctor who knows your name" rule (no
+ * fear-based urgency for a dip, no overclaiming for a rise).
+ */
+export function describeHealthScoreTrend(trend: HealthScoreTrend): string {
+  const { scoreDelta, firstScore, lastScore, bmiSubScoreDelta } = trend;
+  const direction =
+    scoreDelta > 0
+      ? `moved up from ${firstScore} to ${lastScore}`
+      : scoreDelta < 0
+        ? `moved from ${firstScore} to ${lastScore}`
+        : `held steady at ${lastScore}`;
+  let line = `Since your first check, your Health Score has ${direction}.`;
+  if (bmiSubScoreDelta !== null && Math.abs(bmiSubScoreDelta) >= 1) {
+    line +=
+      bmiSubScoreDelta > 0
+        ? " Your weight component moved in the right direction over the same period — that's real, measurable progress."
+        : " Your weight component moved the other way over the same period — nothing to panic about, just something to revisit with your care team.";
+  }
+  return line;
+}
