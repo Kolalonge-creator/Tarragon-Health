@@ -19,7 +19,17 @@
  * are registered with each provider.
  */
 
-export type CloudOAuthWearableProvider = "oura" | "whoop" | "garmin" | "fitbit";
+/**
+ * "libre" (Abbott/LibreView) is deliberately NOT in this union, for the same
+ * reason Apple Health is excluded (see the module doc comment above): Abbott
+ * has no public self-serve OAuth developer program — real-world Libre data
+ * access requires a direct partnership/data-sharing agreement with Abbott,
+ * not an app registration. It still exists as a `wearable_provider` DB enum
+ * value for schema completeness, but the patient-facing card shows it as
+ * "requires a partnership" rather than a Connect button — building a fake
+ * OAuth flow for it would misrepresent the real integration path.
+ */
+export type CloudOAuthWearableProvider = "oura" | "whoop" | "garmin" | "fitbit" | "dexcom";
 
 interface OAuthProviderConfig {
   clientIdEnvVar: string;
@@ -34,6 +44,16 @@ const OAUTH_PROVIDER_CONFIG: Record<CloudOAuthWearableProvider, OAuthProviderCon
     clientSecretEnvVar: "OURA_CLIENT_SECRET",
     authorizeUrl: "https://cloud.ouraring.com/oauth/authorize",
     scope: "daily heartrate workout",
+  },
+  // Dexcom's real, official developer OAuth2 program (developer.dexcom.com).
+  // `offline_access` is required by Dexcom to receive a refresh_token — the
+  // 4 other providers' scopes are all read-data scopes with no analog to
+  // this one, so it can't be omitted the way an empty scope (Garmin) can.
+  dexcom: {
+    clientIdEnvVar: "DEXCOM_CLIENT_ID",
+    clientSecretEnvVar: "DEXCOM_CLIENT_SECRET",
+    authorizeUrl: "https://api.dexcom.com/v2/oauth2/login",
+    scope: "offline_access",
   },
   whoop: {
     clientIdEnvVar: "WHOOP_CLIENT_ID",

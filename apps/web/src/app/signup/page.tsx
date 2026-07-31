@@ -10,12 +10,26 @@ const BENEFITS = [
   "Add a parent or next of kin at no extra cost",
 ];
 
+/**
+ * Shown instead of the general list when somebody arrives from a "book a
+ * check" call to action (/signup?intent=health_check). They are not shopping
+ * for a subscription, so the page should not read like a plan pitch: it should
+ * confirm the thing they clicked is real, unsubscribed, and a few steps away.
+ */
+const HEALTH_CHECK_BENEFITS = [
+  "No subscription needed: the Health Check is pay-once, on any plan including the free one",
+  "You see the exact price and confirm before anything is charged",
+  "Pick a partner lab near you; results land in a record that stays yours",
+  "A doctor reviews your results with you, including the all-clear ones",
+];
+
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; intent?: string }>;
 }) {
-  const { ref } = await searchParams;
+  const { ref, intent } = await searchParams;
+  const bookingCheck = intent === "health_check";
 
   return (
     <div className="flex flex-1 items-center justify-center bg-warm-ivory px-4 py-12 sm:py-16">
@@ -30,16 +44,18 @@ export default async function SignupPage({
 
         <div className="text-center">
           <h1 className="font-heading text-xl font-semibold text-charcoal-ink sm:text-2xl">
-            Create your account
+            {bookingCheck ? "Book your Health Check" : "Create your account"}
           </h1>
           <p className="mt-2 text-sm text-charcoal-ink/60">
-            A couple of minutes to set up. Your care team takes it from there.
+            {bookingCheck
+              ? "We need an account to hold your results and book the lab. Three short steps, then you pick your lab and pay."
+              : "A couple of minutes to set up. Your care team takes it from there."}
           </p>
         </div>
 
         <div className="rounded-2xl border border-brand-green/15 bg-soft-sage/50 p-5">
           <ul className="space-y-2.5">
-            {BENEFITS.map((benefit) => (
+            {(bookingCheck ? HEALTH_CHECK_BENEFITS : BENEFITS).map((benefit) => (
               <li key={benefit} className="flex items-start gap-2.5 text-sm text-charcoal-ink/80">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-green" strokeWidth={2.5} />
                 <span>{benefit}</span>
@@ -49,7 +65,7 @@ export default async function SignupPage({
         </div>
 
         <div className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-7">
-          <SignupForm refCode={ref} />
+          <SignupForm refCode={ref} intent={bookingCheck ? "health_check" : undefined} />
         </div>
 
         <p className="text-center text-sm text-charcoal-ink/60">

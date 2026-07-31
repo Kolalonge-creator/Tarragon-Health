@@ -136,7 +136,13 @@ export async function completeOnboarding() {
     .update({ onboarding_completed_at: new Date().toISOString() })
     .eq("id", user.id);
 
-  redirect("/patient");
+  // Land somebody where they were actually trying to go. `signup_intent` is
+  // carried through auth metadata from /signup?intent=..., the same vehicle
+  // phone/state/ref_code already use, so this needs no new column and no new
+  // table. Anything unrecognised falls through to the normal dashboard, so a
+  // stale or hand-typed value can never strand a new patient on a bad route.
+  const intent = user.user_metadata?.signup_intent;
+  redirect(intent === "health_check" ? "/patient/prevention#health-check" : "/patient");
 }
 
 export type IdentityVerificationState =
@@ -269,6 +275,24 @@ export async function startCheckout(
     .single();
   if (!profile?.organisation_id) {
     return { error: "This account has no organisation on file" };
+  }
+
+  // Hard safeguard, independent of whatever the UI shows: never create a
+  // second subscription (and never initiate a second charge) for an account
+  // that already has one active or trialing. This is the actual
+  // money-charging code path, so it has to be safe on its own even if
+  // onboarding's reconciliation screen (existing-plan-notice.tsx) is ever
+  // reached in a state where a plan somehow got resubmitted anyway.
+  const { data: existing } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("subscriber_id", user.id)
+    .in("status", ["active", "trialing"])
+    .limit(1)
+    .maybeSingle();
+  if (existing) {
+    await completeOnboarding();
+    return;
   }
 
   const { data: plan } = await supabase

@@ -49,7 +49,7 @@ export function LabCatalogue() {
             </ul>
             <p className="text-sm text-charcoal-ink/70">
               Due screenings can be booked directly from your screening calendar below. For
-              anything else here, message your care team on WhatsApp and they&apos;ll arrange it.
+              anything else here, message your care team in the app and they&apos;ll arrange it.
             </p>
           </>
         )}

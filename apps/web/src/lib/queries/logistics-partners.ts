@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
+import type { PartnerLicenseValues } from "@/components/admin/partner-license-fields";
 
 export type HomeVisitProvider = Tables<"home_visit_providers">;
 export type LogisticsPartner = Tables<"logistics_partners">;
@@ -293,5 +294,29 @@ export function useSetLogisticsPartnerActive() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["logistics-partners"] });
     },
+  });
+}
+
+export function useUpdateHomeVisitProviderLicense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("home_visit_providers").update(license).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["home-visit-providers"] }),
+  });
+}
+
+export function useUpdateLogisticsPartnerLicense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("logistics_partners").update(license).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["logistics-partners"] }),
   });
 }

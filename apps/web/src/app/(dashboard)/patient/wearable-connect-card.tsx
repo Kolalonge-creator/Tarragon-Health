@@ -12,9 +12,16 @@ const PROVIDER_LABEL: Record<CloudOAuthWearableProvider, string> = {
   whoop: "WHOOP",
   garmin: "Garmin",
   fitbit: "Fitbit",
+  dexcom: "Dexcom (CGM)",
 };
 
-const ALL_PROVIDERS: CloudOAuthWearableProvider[] = ["oura", "whoop", "garmin", "fitbit"];
+const ALL_PROVIDERS: CloudOAuthWearableProvider[] = [
+  "oura",
+  "whoop",
+  "garmin",
+  "fitbit",
+  "dexcom",
+];
 
 /**
  * Patient-facing "Connect a wearable" card — the real gap CLAUDE.md flags
@@ -22,6 +29,13 @@ const ALL_PROVIDERS: CloudOAuthWearableProvider[] = ["oura", "whoop", "garmin", 
  * it). Sync only starts once the provider relationship + webhook are fully
  * live (see api/wearables/webhook/[provider]); this card only proves the
  * OAuth handshake and records the connection.
+ *
+ * Libre (Abbott) is shown as its own row below the OAuth providers, not as
+ * a Connect button — Abbott has no self-serve OAuth developer program, so
+ * "requires a partnership" is the honest state, not "not yet available"
+ * (which would wrongly imply the same fix as the others: just register a
+ * developer app). See oauth-providers.ts's CloudOAuthWearableProvider doc
+ * comment for the full reasoning.
  */
 export function WearableConnectCard({
   patientId,
@@ -45,7 +59,8 @@ export function WearableConnectCard({
           Connect a wearable
         </CardTitle>
         <CardDescription>
-          Sync steps, sleep, and heart rate from your Oura, WHOOP, Garmin, or Fitbit device.
+          Sync steps, sleep, heart rate, or continuous glucose from your Oura, WHOOP,
+          Garmin, Fitbit, or Dexcom device.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -80,6 +95,18 @@ export function WearableConnectCard({
               </li>
             );
           })}
+          <li className="flex items-center justify-between py-2.5">
+            <div>
+              <span className="text-sm font-medium text-charcoal-ink">
+                FreeStyle Libre (Abbott)
+              </span>
+              <p className="text-xs text-charcoal-ink/50">
+                Abbott requires a direct data-sharing partnership for Libre access —
+                it isn&apos;t a self-serve connection like the others above.
+              </p>
+            </div>
+            <Badge variant="grey">Requires partnership</Badge>
+          </li>
         </ul>
       </CardContent>
     </Card>

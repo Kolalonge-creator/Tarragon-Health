@@ -7,7 +7,13 @@ import {
 } from "@/lib/wearables/oauth-providers";
 import { createWearableOAuthState } from "@/lib/wearables/state-token";
 
-const VALID_PROVIDERS: CloudOAuthWearableProvider[] = ["oura", "whoop", "garmin", "fitbit"];
+const VALID_PROVIDERS: CloudOAuthWearableProvider[] = [
+  "oura",
+  "whoop",
+  "garmin",
+  "fitbit",
+  "dexcom",
+];
 
 function isValidProvider(value: string): value is CloudOAuthWearableProvider {
   return (VALID_PROVIDERS as string[]).includes(value);

@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { saveCurrencyRates, type DiasporaPricingState } from "./actions";
+import { fxReviewMessage, fxReviewStatus } from "@/lib/billing/fx-review";
+import { confirmRateReviewed, saveCurrencyRates, type DiasporaPricingState } from "./actions";
 
 export type DerivedRow = {
   code: string;
@@ -38,12 +39,17 @@ function money(minor: number, symbol: string) {
 
 export function CurrencyRateManager({
   initialUsd,
-  updatedAt,
+  updatedAtLabel,
+  daysSinceReview,
   rows,
   unlinked,
 }: {
   initialUsd: number | null;
-  updatedAt: string | null;
+  /** Preformatted on the server: a bare toLocaleString() here renders one
+   * locale during SSR and another in the browser, which is a real hydration
+   * mismatch this codebase has already been bitten by twice. */
+  updatedAtLabel: string | null;
+  daysSinceReview: number | null;
   rows: DerivedRow[];
   unlinked: { code: string; name: string; isActive: boolean }[];
 }) {
@@ -52,6 +58,11 @@ export function CurrencyRateManager({
     saveCurrencyRates,
     undefined
   );
+  const [confirming, startConfirm] = useTransition();
+  const [confirmResult, setConfirmResult] = useState<DiasporaPricingState>(undefined);
+
+  const reviewStatus = fxReviewStatus(daysSinceReview);
+  const reviewNeedsAttention = reviewStatus === "due" || reviewStatus === "overdue" || reviewStatus === "never";
 
   const usdRate = Number(usd);
 
@@ -110,14 +121,53 @@ export function CurrencyRateManager({
             {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
             {state?.message && <p className="text-sm text-deep-forest">{state.message}</p>}
 
-            <div className="flex items-center gap-3">
-              <Button type="submit" disabled={pending}>
-                {pending ? "Saving and rebuilding prices…" : "Save rates and update everywhere"}
+            <div
+              className={`rounded-md p-3 text-sm ${
+                reviewStatus === "overdue"
+                  ? "bg-red-50 text-red-900"
+                  : reviewNeedsAttention
+                    ? "bg-amber-50 text-amber-900"
+                    : "bg-charcoal-ink/5 text-charcoal-ink/70"
+              }`}
+            >
+              <p className="font-medium">{fxReviewMessage(daysSinceReview)}</p>
+              {reviewNeedsAttention && (
+                <p className="mt-1">
+                  This is not a live market feed, so it only moves when you move it. If the number
+                  above is still the one you want, say so and the clock resets. Nothing is charged
+                  and no price changes.
+                </p>
+              )}
+              {updatedAtLabel && (
+                <p className="mt-1 text-xs opacity-70">Last touched {updatedAtLabel}</p>
+              )}
+            </div>
+
+            {(confirmResult?.error || confirmResult?.message) && (
+              <p
+                className={`text-sm ${confirmResult.error ? "text-red-600" : "text-deep-forest"}`}
+              >
+                {confirmResult.error ?? confirmResult.message}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" disabled={pending || confirming}>
+                {pending ? "Saving and rebuilding prices…" : "Save rate and update everywhere"}
               </Button>
-              {updatedAt && (
-                <span className="text-xs text-charcoal-ink/50">
-                  Last changed {new Date(updatedAt).toLocaleString()}
-                </span>
+              {rateSet && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending || confirming}
+                  onClick={() =>
+                    startConfirm(async () => {
+                      setConfirmResult(await confirmRateReviewed());
+                    })
+                  }
+                >
+                  {confirming ? "Recording…" : "Still correct, mark as reviewed"}
+                </Button>
               )}
             </div>
           </CardContent>

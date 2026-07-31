@@ -19,6 +19,8 @@ import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { getPatientSummaryStats, getPatientPreventionStats } from "./summary";
 import Link from "next/link";
 import { NextBestAction } from "./next-best-action";
+import { RiskSignalsCard } from "./risk-signals-card";
+import { CareScheduleCard } from "./care-schedule-card";
 import { AskADoctor } from "./ask-a-doctor";
 import { BookVideoVisit } from "./book-video-visit";
 import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
@@ -44,8 +46,11 @@ import { HealthEducation } from "./health-education";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationForFamily } from "./vaccination-for-family";
 import { FacilityDirectory } from "./facility-directory";
+import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { PatientLocationForm } from "./patient-location-form";
 import { ReminderPreferenceForm } from "./reminder-preference-form";
+import { AiUsageDisclosure } from "./ai-usage-disclosure";
+import { ConditionLanguageForm } from "./condition-language-form";
 import { WearableConnectSection } from "./wearable-connect-section";
 import { EmergencyContactForm } from "./emergency-contact-form";
 import { DangerSymptomCheck } from "./danger-symptom-check";
@@ -64,6 +69,7 @@ import { CareCircleCard } from "./care-circle-card";
 import { AnnualReviewCard } from "./annual-review-card";
 import { ObesitySummary } from "./obesity-summary";
 import { WellnessPointsSummary } from "./wellness-points-summary";
+import { LifestyleProgressSummary } from "./lifestyle-progress-summary";
 import { HealthResetCard } from "./health-reset-card";
 
 const SECTIONS = [
@@ -131,6 +137,8 @@ export default async function PatientPage() {
       >
         <NextBestAction patientId={profile.id} />
         <HealthResetCard patientId={profile.id} />
+        <RiskSignalsCard patientId={profile.id} />
+        <CareScheduleCard patientId={profile.id} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both
             states read the same shared record — nothing is hidden, only led
@@ -212,6 +220,16 @@ export default async function PatientPage() {
         )}
         <HealthScoreCard patientId={profile.id} />
         <YourCareTeam patientId={profile.id} />
+        {/* Messaging your care team sits right here, not buried in Care &
+            support — it's the primary way to reach someone, so it needs to
+            be visible without scrolling (see 2026-07-30 patient-experience
+            pass in CLAUDE.md). */}
+        <RequiresEntitlement
+          feature="doctor_checkin"
+          fallback={<UpgradePrompt feature="doctor_checkin" />}
+        >
+          <CareTeamContact patientId={profile.id} />
+        </RequiresEntitlement>
         <PatientTimeline patientId={profile.id} />
       </DashboardSection>
 
@@ -290,7 +308,10 @@ export default async function PatientPage() {
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
         <RiskAssessmentForm patientId={profile.id} />
-        <CareProgrammeRecommendations patientId={profile.id} />
+        <CareProgrammeRecommendations
+          patientId={profile.id}
+          conditionLanguagePreference={profile.condition_language_preference}
+        />
         <PreventiveProgrammes
           patientId={profile.id}
           ageYears={ageFromDateOfBirth(profile.date_of_birth)}
@@ -329,6 +350,7 @@ export default async function PatientPage() {
             <HealthEducation
               patientId={profile.id}
               organisationId={profile.organisation_id}
+              conditionLanguagePreference={profile.condition_language_preference}
             />
           </RequiresEntitlement>
         )}
@@ -380,15 +402,24 @@ export default async function PatientPage() {
       <DashboardSection
         id="care"
         title="Care & support"
-        description="Your care plan, reviews, referrals, and ways to reach your care team."
+        description="Your care plan, reviews, and referrals."
         icon={SEMANTIC_ICON.clinicianFollowUp}
       >
+        {/* Clinical and functional cards first — this is where a patient
+            checking in on their care actually needs to land. Messaging
+            itself now lives in Overview (see above); wellness/wallet/
+            testimonial cards, being discretionary rather than clinical, sit
+            below everything here so they never compete with care content
+            (2026-07-30 patient-experience pass). */}
         <RequiresEntitlement
           feature="clinician_review"
           fallback={<UpgradePrompt feature="clinician_review" />}
         >
           <CarePlanDisplay patientId={profile.id} />
-          <ObesitySummary patientId={profile.id} />
+          <ObesitySummary
+            patientId={profile.id}
+            conditionLanguagePreference={profile.condition_language_preference}
+          />
         </RequiresEntitlement>
         <RequiresEntitlement
           feature="async_doctor_visit"
@@ -401,20 +432,23 @@ export default async function PatientPage() {
         <BookVideoVisit patientId={profile.id} />
         <PatientEscalations patientId={profile.id} />
         <HospitalAdmissionsCard patientId={profile.id} />
-        <WalletCard patientId={profile.id} />
-        <WellnessPointsSummary patientId={profile.id} />
+        <RequiresEntitlement
+          feature="lifestyle_coaching"
+          fallback={<UpgradePrompt feature="lifestyle_coaching" />}
+        >
+          <LifestyleProgressSummary patientId={profile.id} />
+        </RequiresEntitlement>
         <YourReferrals
           patientId={profile.id}
           patientLocation={{ state: profile.state, city: profile.city }}
         />
-        <RequiresEntitlement
-          feature="doctor_checkin"
-          fallback={<UpgradePrompt feature="doctor_checkin" />}
-        >
-          <CareTeamContact />
-        </RequiresEntitlement>
-        <CareCircleCard />
         {coachAccess && <AiCoachChat patientId={profile.id} />}
+        <CareCircleCard />
+
+        {/* Discretionary / engagement surfaces — real features, deliberately
+            lower priority than anything above. */}
+        <WalletCard patientId={profile.id} />
+        <WellnessPointsSummary patientId={profile.id} />
         <TestimonialForm />
       </DashboardSection>
 
@@ -424,11 +458,19 @@ export default async function PatientPage() {
         description="Keep your location and emergency contacts up to date."
         icon={NAV_ICON.settings}
       >
+        {/* Identity verification lives here rather than in onboarding: it is
+            optional and non-blocking, and asking a first-time visitor for a
+            government ID before they have done anything is the single most
+            off-putting step in the signup path. */}
+        <IdentityVerificationCard patientId={profile.id} />
         <PatientLocationForm
           initial={{ state: profile.state, city: profile.city, area: profile.area }}
         />
         <ReminderPreferenceForm
           initial={{ preferred_reminder_channel: profile.preferred_reminder_channel }}
+        />
+        <ConditionLanguageForm
+          initial={{ condition_language_preference: profile.condition_language_preference }}
         />
         <EmergencyContactForm
           initial={{
@@ -440,6 +482,7 @@ export default async function PatientPage() {
             next_of_kin_phone: profile.next_of_kin_phone,
           }}
         />
+        <AiUsageDisclosure />
       </DashboardSection>
     </DashboardPlaceholder>
   );

@@ -13,7 +13,15 @@ import { Select } from "@/components/ui/select";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
-export function SignupForm({ refCode }: { refCode?: string }) {
+export function SignupForm({
+  refCode,
+  intent,
+}: {
+  refCode?: string;
+  /** Carried through auth metadata so onboarding can land the visitor on what
+   *  they came for. Hidden field, same mechanism as refCode. */
+  intent?: "health_check";
+}) {
   const [state, formAction, pending] = useActionState(signUp, undefined);
 
   if (state?.success) {
@@ -31,6 +39,7 @@ export function SignupForm({ refCode }: { refCode?: string }) {
 
   return (
     <form action={formAction} className="space-y-5">
+      {intent && <input type="hidden" name="intent" value={intent} />}
       {refCode && (
         <>
           <input type="hidden" name="refCode" value={refCode} />

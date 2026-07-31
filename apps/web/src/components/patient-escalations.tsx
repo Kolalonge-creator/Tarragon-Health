@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
+import { whatHappensNext } from "@/lib/escalations/what-happens-next";
 import type { EscalationStatus } from "@tarragon/shared";
 
 // Patient-facing status copy — deliberately not the staff worklist labels
@@ -30,7 +31,7 @@ export async function PatientEscalations({ patientId }: { patientId: string }) {
 
   const { data: escalations } = await supabase
     .from("escalations")
-    .select("id, reason, status, created_at")
+    .select("id, reason, status, created_at, clinician_alert:clinician_alerts(sla_due_at)")
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
 
@@ -58,6 +59,15 @@ export async function PatientEscalations({ patientId }: { patientId: string }) {
             <p className="text-xs text-charcoal-ink/60">
               {PATIENT_STATUS_COPY[escalation.status]}
             </p>
+            {(() => {
+              const nextStep = whatHappensNext(
+                escalation.status,
+                escalation.clinician_alert?.sla_due_at ?? null
+              );
+              return nextStep ? (
+                <p className="text-xs text-charcoal-ink/50">{nextStep}</p>
+              ) : null;
+            })()}
             <ReviewedByDoctor escalationId={escalation.id} />
           </div>
         ))}

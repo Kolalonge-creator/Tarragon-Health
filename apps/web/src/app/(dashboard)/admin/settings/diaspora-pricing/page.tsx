@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { daysSince } from "@/lib/billing/fx-review";
 import { CurrencyRateManager, type DerivedRow } from "./diaspora-pricing-manager";
 
 type PriceRow = {
@@ -26,6 +27,8 @@ export default async function DiasporaPricingPage() {
     .select("ngn_per_usd, updated_at")
     .eq("id", true)
     .maybeSingle();
+
+  const updatedAt = settings?.updated_at ?? null;
 
   const [{ data: plans }, { data: addOns }] = await Promise.all([
     supabase
@@ -83,7 +86,15 @@ export default async function DiasporaPricingPage() {
       </div>
       <CurrencyRateManager
         initialUsd={settings?.ngn_per_usd == null ? null : Number(settings.ngn_per_usd)}
-        updatedAt={settings?.updated_at ?? null}
+        updatedAtLabel={
+          updatedAt
+            ? new Date(updatedAt).toLocaleString("en-GB", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })
+            : null
+        }
+        daysSinceReview={daysSince(updatedAt)}
         rows={rows}
         unlinked={unlinked}
       />

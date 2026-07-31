@@ -34,9 +34,10 @@
  * earlier "clinician is the default face" rule in
  * docs/CLINICAL_TRUST_MODEL_SPEC.md §9) are back to "doctor" everywhere in
  * this file, matching the docx and the current spec. Escalation-triggered
- * doctor review (Priority doctor escalation) and explicitly paid/booked
- * doctor appointments (Dedicated Care Coordinator) were already correctly
- * attributed to "doctor" and are unchanged.
+ * doctor review (Priority doctor escalation) was already correctly attributed
+ * to "doctor" and is unchanged. (The Dedicated Care Coordinator add-on, also
+ * named here previously, was withdrawn 2026-07-31 — see the note further down
+ * where its card used to sit.)
  */
 
 export type PricingLabel = "INCLUDED" | "BOOK & PAY" | "FREE ELSEWHERE" | "ADD-ON";
@@ -103,7 +104,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings on this plan; if something looks concerning, we'll encourage you to see a doctor and show you how to upgrade.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings routinely on this plan. But if a test you book through us comes back abnormal, that still raises a real alert to our doctors on every plan, including this one: we do not hold back an abnormal result behind a paywall.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -150,9 +151,9 @@ export const NGN_TIERS: PricingTier[] = [
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
       { feature: "Monthly doctor review of your BP, glucose, or weight readings", label: "INCLUDED" },
-      { feature: "Monthly doctor check-in over WhatsApp", label: "INCLUDED" },
+      { feature: "Monthly doctor check-in", label: "INCLUDED" },
       { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
-      { feature: "Direct WhatsApp access to your care team", label: "INCLUDED" },
+      { feature: "Message your care team directly in the app", label: "INCLUDED" },
       { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "BOOK & PAY" },
       { feature: "Medication refills through partner pharmacies", label: "BOOK & PAY" },
     ],
@@ -226,6 +227,47 @@ export const USD_TIERS: PricingTier[] = [
   },
 ];
 
+/**
+ * The diaspora pitch, reframed.
+ *
+ * The old framing sold a health subscription to someone abroad and then had to
+ * explain why half of it would not work for them. That is a weak sale and an
+ * awkward one, and it competes on the wrong axis: against a Nigerian health app
+ * for a buyer who is not in Nigeria.
+ *
+ * The actual job is different. Money already goes home for health, constantly,
+ * and it arrives with no receipt and no way to know it reached care rather than
+ * general upkeep. The competitor is not another health platform, it is a
+ * transfer app plus hope. That is what this block sells, and it is the one
+ * thing a transfer app structurally cannot do.
+ *
+ * Deliberately makes no claim about price being lower, higher or better value
+ * than anything else. The plans cost the same everywhere; the reason to buy is
+ * not the number.
+ */
+export const DIASPORA_SPONSOR_PITCH = {
+  title: "You already send money home for health",
+  body: "What you do not get back is any way of knowing what it paid for. Fund a relative's Health Wallet instead and every naira is accounted for: what was booked, on what date, at which partner, and what is left over.",
+  points: [
+    {
+      title: "A receipt, not a transfer",
+      body: "When their wallet pays for a lab test or a prescription, you are told what it bought and what the balance is now. You do not have to ask, and they do not have to remember to tell you.",
+    },
+    {
+      title: "You fund the care without holding the account",
+      body: "They keep their own account, their own plan and their own privacy. You see what their care costs. You do not see their readings, results or notes unless they give you that access themselves.",
+    },
+    {
+      title: "Somebody is watching between visits",
+      body: "The gap where things go wrong is the months between appointments, which is exactly the stretch you cannot cover from another time zone. A flagged reading reaches a doctor whether or not you are awake.",
+    },
+    {
+      title: "You do not need your own plan to do it",
+      body: "Funding someone else's care is not a paid feature and never has been. If a plan for yourself is not much use where you live, do not buy one.",
+    },
+  ],
+};
+
 export const DIASPORA_ONE_PRICE_NOTE =
   "The dollar price is the naira price, converted. Tarragon runs one price list, so the same plan costs the same whether it is paid for from Lagos or from London. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you can fund it from their Health Wallet.";
 
@@ -236,7 +278,7 @@ export const DIASPORA_ONE_PRICE_NOTE =
  * conversions and buys the thing a new platform needs most: trust.
  */
 export const DIASPORA_SELF_USE_NOTE =
-  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, WhatsApp access, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
+  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, in-app care team messaging, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
 /** The Health Wallet: one balance, topped up by yourself, a family member, or
  * a referral reward, spent on any Tarragon lab test, health check, pharmacy
@@ -276,7 +318,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦65,000/year",
     label: "ADD-ON",
     description:
-      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a doctor consultation to walk you through your results. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge.",
+      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a doctor consultation to walk you through your results. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge. Not the same product as the Annual Doctor Review (₦70,000/year): this is a day of screening tests, the Review is a sit-down about your whole year of care.",
     availability: "Available to anyone, on any plan, including Tarragon Free.",
   },
   {
@@ -293,23 +335,16 @@ export const ADD_ONS: PricingAddOn[] = [
       { feature: "Tracking of your results over time", label: "INCLUDED" },
       { feature: "The actual test itself, every time it's due", label: "BOOK & PAY" },
     ],
-    availability: "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go.",
+    availability:
+      "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Tarragon Prevent and above — this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
   },
-  {
-    id: "care-coordinator",
-    name: "Dedicated Care Coordinator",
-    price: "+₦30,000/month",
-    label: "ADD-ON",
-    description:
-      "Turns Complete Care (₦15,000/month) into a fully dedicated service at ₦45,000/month total. Built for a parent or relative who needs closer, more personal attention, especially popular with diaspora families. Add it to their own subscription: everyone enrols individually, and you can pay for it by funding their Health Wallet.",
-    items: [
-      { feature: "One named doctor coordinator (not a rotating team)", label: "INCLUDED" },
-      { feature: "A scheduled, booked monthly doctor appointment", label: "INCLUDED" },
-      { feature: "Quarterly PDF health report sent to the family", label: "INCLUDED" },
-      { feature: "Priority escalation", label: "INCLUDED" },
-    ],
-    availability: "Added to Complete Care.",
-  },
+  // 'care-coordinator' (Dedicated Care Coordinator, +₦30,000/month) removed
+  // 2026-07-31, matching the same-date withdrawal in seed.sql and the
+  // withdraw_dedicated_care_coordinator_addon migration. It advertised a named
+  // human assigned to one patient; the founder confirmed the operating model
+  // will not include dedicated per-patient staff. Both add_ons rows are
+  // is_active = false in production, so leaving the card up would have sold a
+  // product that cannot be bought.
   {
     id: "starter-kit",
     name: "BP Monitor & Glucometer Starter Kit",
@@ -350,7 +385,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦70,000/year",
     label: "ADD-ON",
     description:
-      "Once a year, your doctor sits down with your whole year of care: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short video consultation to talk through the year behind you and the plan ahead. Different from the Annual Health Check above: the Check is a day of screening tests; the Doctor Review is your whole year of care, reviewed with your doctor.",
+      "Once a year, your doctor sits down with your whole year of care: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short video consultation to talk through the year behind you and the plan ahead. Not the same product as the Annual Health Check (₦65,000): the Check is a day of screening tests; this Review is your whole year of care, talked through with your doctor.",
     availability: "Included on Complete Care. Available as an add-on on lower plans.",
   },
   {
@@ -359,7 +394,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦10,000/visit",
     label: "BOOK & PAY",
     description:
-      "A 15-minute video consultation with a doctor, never an in-person visit. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a doctor accepts your specific slot, which is also when your time is confirmed. If no doctor can take it within 48 hours, you're refunded in full. Not a substitute for emergency care.",
+      "A 15-minute video consultation with a doctor, never an in-person visit. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed — a doctor accepts your slot or offers a different one that works, within 24 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
     availability: "Available on any plan, priced per visit rather than as a subscription.",
   },
   {
@@ -379,15 +414,13 @@ export const ADD_ONS: PricingAddOn[] = [
  * shown before booking.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
-  { item: "Health Check: Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
-  { item: "Annual Health Check (adds your cancer screening)", price: "₦65,000" },
-  { item: "Health Check: Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
+  { item: "Health Check tier 1 of 3 — Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
+  { item: "Health Check tier 2 of 3 — Annual Health Check (adds your cancer screening)", price: "₦65,000" },
+  { item: "Health Check tier 3 of 3 — Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
-  { item: "Kidney function (U&E + eGFR)", price: "from ₦8,000" },
-  { item: "Urinalysis", price: "from ₦3,000" },
-  { item: "Diabetes panel (HbA1c + kidney + urine)", price: "from ₦18,500" },
-  { item: "Hypertension panel (kidney + cholesterol + urine)", price: "from ₦22,000" },
+  { item: "Diabetes panel (HbA1c + cholesterol)", price: "from ₦18,500" },
+  { item: "Hypertension panel (cholesterol + HbA1c)", price: "from ₦22,000" },
   { item: "PSA (prostate screening)", price: "from ₦12,000" },
   { item: "Cervical smear", price: "from ₦18,000" },
   { item: "HIV screening", price: "from ₦6,000" },
@@ -396,8 +429,26 @@ export const TYPICAL_PRICES: { item: string; price: string }[] = [
   { item: "Blood group & genotype", price: "from ₦6,500" },
 ];
 
+/**
+ * The labs these prices are actually quoted from. Named deliberately: for a
+ * first-time visitor deciding whether a young brand can be trusted with a
+ * blood test, a recognised lab name does more work than any amount of copy
+ * about our process.
+ *
+ * Must stay a true reflection of the live lab_providers table. Do not add a
+ * partner here to look bigger than we are; if a partnership ends, this list
+ * shrinks. Every price in TYPICAL_PRICES above is the cheapest live
+ * lab_tests row across exactly these four.
+ */
+export const LAB_PARTNERS = [
+  "Synlab Nigeria",
+  "Cerba Lancet",
+  "Healthtracka",
+  "Afriglobal Medicare",
+];
+
 export const TYPICAL_PRICES_NOTE =
-  "These are the current prices at our partner labs, so you can budget before you ever book. Your exact price (including your chosen lab and location) is always shown before you confirm. If it ever differs from what you see here, the price at booking is the one that counts, and you can simply decline.";
+  "Every price here is the lowest current price across our partner labs, so you can budget before you ever book. Your exact price, for the lab you pick, is always shown before you confirm. If it ever differs from what you see here, the price at booking is the one that counts, and you can simply decline.";
 
 /**
  * "Tarragon vs your HMO": complementary positioning, never disparaging. HMOs
@@ -405,7 +456,7 @@ export const TYPICAL_PRICES_NOTE =
  * that works alongside them.
  */
 export const HMO_COMPARE_INTRO =
-  "A common question: “Why pay ₦8,000/month for Tarragon when a basic HMO plan costs ₦3,500?” Because they do different jobs, and they work best together.";
+  "A common question: “Why pay for Tarragon when I already have a basic HMO plan?” Because they do different jobs, and they work best together.";
 
 export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }[] = [
   { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },

@@ -23,9 +23,10 @@ type NextAction = {
  *   1. overdue/pending screening past due     → book it
  *   2. a video-consult slot offer awaiting me → pick a time
  *   3. an open medicines check-in             → answer it
- *   4. a refill due within 7 days             → sort the refill
- *   5. no vitals reading in the last 7 days   → log today's reading
- *   6. everything current                     → gentle "you're up to date"
+ *   4. a medication review is due             → book the review
+ *   5. a refill due within 7 days             → sort the refill
+ *   6. no vitals reading in the last 7 days   → log today's reading
+ *   7. everything current                     → gentle "you're up to date"
  */
 /** Data + date work lives outside the component body (react-hooks/purity). */
 async function resolveNextAction(patientId: string): Promise<NextAction> {
@@ -34,7 +35,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
   const in7days = new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10);
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
 
-  const [screening, consult, checkin, refill, recentVital] = await Promise.all([
+  const [screening, consult, checkin, review, refill, recentVital] = await Promise.all([
     supabase
       .from("screening_schedules")
       .select("id, due_date, screen_type:screen_types(name)")
@@ -59,6 +60,15 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       .eq("patient_id", patientId)
       .eq("status", "pending")
       .lte("due_date", today)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("medication_reviews")
+      .select("id, due_date")
+      .eq("patient_id", patientId)
+      .eq("status", "pending")
+      .lte("due_date", today)
+      .order("due_date", { ascending: true })
       .limit(1)
       .maybeSingle(),
     supabase
@@ -105,6 +115,14 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       body: "Tell us how the medicine is going; it helps your care team spot problems early.",
       href: "#medications",
       cta: "Answer now",
+    };
+  } else if (review.data) {
+    action = {
+      icon: "medication",
+      title: "Your medication review is due",
+      body: "A quick review with your care team keeps your treatment on track — book it when you're ready.",
+      href: "#medications",
+      cta: "See my review",
     };
   } else if (refill.data) {
     action = {

@@ -31,6 +31,11 @@ const TOKEN_ENDPOINT_CONFIG: Record<CloudOAuthWearableProvider, TokenEndpointCon
     clientSecretEnvVar: "OURA_CLIENT_SECRET",
     tokenUrl: "https://api.ouraring.com/oauth/token",
   },
+  dexcom: {
+    clientIdEnvVar: "DEXCOM_CLIENT_ID",
+    clientSecretEnvVar: "DEXCOM_CLIENT_SECRET",
+    tokenUrl: "https://api.dexcom.com/v2/oauth2/token",
+  },
   whoop: {
     clientIdEnvVar: "WHOOP_CLIENT_ID",
     clientSecretEnvVar: "WHOOP_CLIENT_SECRET",

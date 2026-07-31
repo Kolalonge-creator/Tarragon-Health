@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   DIASPORA_ONE_PRICE_NOTE,
   DIASPORA_SELF_USE_NOTE,
+  DIASPORA_SPONSOR_PITCH,
   NGN_TIERS,
   PRICING_LABELS,
   USD_TIERS,
@@ -108,6 +109,37 @@ export function PricingTable({
           Diaspora ($)
         </button>
       </div>
+
+      {currency === "USD" && (
+        <div className="mb-8 rounded-2xl border border-brand-green/25 bg-brand-green/5 p-6 sm:p-8">
+          <h3 className="font-heading text-xl font-semibold text-charcoal-ink">
+            {DIASPORA_SPONSOR_PITCH.title}
+          </h3>
+          <p className="mt-2 max-w-2xl text-charcoal-ink/70">{DIASPORA_SPONSOR_PITCH.body}</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            {DIASPORA_SPONSOR_PITCH.points.map((point) => (
+              <div key={point.title}>
+                <p className="text-sm font-semibold text-deep-forest">{point.title}</p>
+                <p className="mt-1 text-sm text-charcoal-ink/70">{point.body}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 flex flex-wrap gap-3 text-sm">
+            <Link
+              href="/coverage"
+              className="rounded-full border border-brand-green px-4 py-2 font-medium text-brand-green"
+            >
+              Check their state first
+            </Link>
+            <Link
+              href="/accountability"
+              className="rounded-full border border-charcoal-ink/20 px-4 py-2 font-medium text-charcoal-ink/70"
+            >
+              How we hold ourselves accountable
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {tiers.map((tier) => (

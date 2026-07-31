@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  obesityLabelTitleCase,
+} from "@/lib/copy/condition-language";
 
 /**
  * Patient-facing obesity summary, person-first and health-focused (§1.6/§23).
@@ -16,7 +19,13 @@ const STATUS_COPY: Record<string, string> = {
     "Your care team is managing this as an ongoing condition, with your lifestyle programme at the centre of your plan.",
 };
 
-export async function ObesitySummary({ patientId }: { patientId: string }) {
+export async function ObesitySummary({
+  patientId,
+  conditionLanguagePreference,
+}: {
+  patientId: string;
+  conditionLanguagePreference?: string | null;
+}) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("obesity_assessments")
@@ -31,7 +40,7 @@ export async function ObesitySummary({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your weight &amp; health</CardTitle>
+        <CardTitle>Your {obesityLabelTitleCase(conditionLanguagePreference).toLowerCase()} &amp; health</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/70">

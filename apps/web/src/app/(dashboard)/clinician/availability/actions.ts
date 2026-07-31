@@ -69,6 +69,65 @@ export async function acceptVideoVisit(
 }
 
 /**
+ * Doctor proposes up to 3 alternate times instead of accepting the patient's
+ * exact requested slot outright — the founder-specified "arrange a
+ * convenient time" middle path between a flat accept and a flat decline.
+ * The atomic validation (doctor-tier gate, slot availability) lives in the
+ * propose_video_visit_alternate_slots RPC; this just notifies the patient
+ * that times are waiting on them (in_app is the guaranteed leg — a patient
+ * has a live 24h clock to pick one, so this can't wait on WhatsApp template
+ * approval the way a routine reminder safely can).
+ */
+export async function proposeVideoVisitAlternates(
+  _prev: VideoVisitDecisionState,
+  formData: FormData
+): Promise<VideoVisitDecisionState> {
+  const requestId = z.string().uuid().safeParse(String(formData.get("request_id") ?? ""));
+  const slotIds = formData.getAll("slot_ids").map(String).filter(Boolean);
+  const parsedSlotIds = z.array(z.string().uuid()).min(1).max(3).safeParse(slotIds);
+  if (!requestId.success) return { error: "Invalid request" };
+  if (!parsedSlotIds.success) return { error: "Pick 1 to 3 alternate times" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("propose_video_visit_alternate_slots", {
+    p_request_id: requestId.data,
+    p_slot_ids: parsedSlotIds.data,
+  });
+  if (error) {
+    return { error: error.message };
+  }
+
+  const { data: request } = await supabase
+    .from("video_visit_requests")
+    .select("organisation_id, patient_id")
+    .eq("id", requestId.data)
+    .maybeSingle();
+  if (request) {
+    const service = createServiceRoleClient();
+    await service.from("notifications").insert([
+      {
+        organisation_id: request.organisation_id,
+        recipient_id: request.patient_id,
+        channel: "whatsapp",
+        status: "pending",
+        template: "video_visit_alternate_proposed",
+        payload: {},
+      },
+      {
+        organisation_id: request.organisation_id,
+        recipient_id: request.patient_id,
+        channel: "in_app",
+        status: "pending",
+        template: "video_visit_alternate_proposed",
+        payload: {},
+      },
+    ]);
+  }
+
+  return { message: "Times offered — the patient will pick one, or you can still decline." };
+}
+
+/**
  * Doctor declines a paid request — the RPC flags the payment for a full
  * refund (processed by the refund cron), and the patient is notified with
  * the reason. Same doctor-tier structural gate as acceptance.

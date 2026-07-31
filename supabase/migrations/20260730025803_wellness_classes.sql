@@ -1,15 +1,5 @@
 -- Wellness gamification, part 4: workout classes & health workshops.
--- Dormant-until-real, same pattern as home_visit_providers/logistics_partners
--- (20260715230120): a global, admin-managed catalogue seeded with zero real
--- ACTIVE rows. The patient-facing "nothing scheduled yet" state is simply
--- what renders with no active provider/class — no feature flag, no separate
--- launch step. Flipping a real partner's row to active is the entire
--- mechanism that turns the booking UI on.
---
--- Attendance is patient self-reported (register -> mark attended), the same
--- trust level already given to lpe_measurements/lifestyle telemetry — this is
--- an engagement layer, not a clinical record, so it doesn't need staff
--- verification to award the modest points_reward attached to a class.
+-- Dormant-until-real, same pattern as home_visit_providers/logistics_partners.
 
 do $$ begin
   if not exists (select 1 from pg_type where typname = 'wellness_class_type') then
@@ -67,9 +57,6 @@ create trigger wellness_class_registrations_set_updated_at
   before update on public.wellness_class_registrations
   for each row execute function private.set_updated_at();
 
--- ---------------------------------------------------------------------------
--- Points on self-reported attendance.
--- ---------------------------------------------------------------------------
 create or replace function private.wellness_points_on_class_attended()
 returns trigger
 language plpgsql
@@ -94,11 +81,6 @@ create trigger wellness_class_registrations_wellness_points
   after update on public.wellness_class_registrations
   for each row execute function private.wellness_points_on_class_attended();
 
--- ---------------------------------------------------------------------------
--- RLS — providers/classes: authenticated read (active-or-admin), admin write.
--- Registrations: patient self-manages own (register, self-report attended);
--- org staff read + can also mark attended/no_show.
--- ---------------------------------------------------------------------------
 alter table public.wellness_class_providers enable row level security;
 alter table public.wellness_classes enable row level security;
 alter table public.wellness_class_registrations enable row level security;
@@ -128,11 +110,6 @@ grant select, insert, update, delete on public.wellness_class_providers to authe
 grant select, insert, update, delete on public.wellness_classes to authenticated;
 grant select, insert, update on public.wellness_class_registrations to authenticated;
 
--- ---------------------------------------------------------------------------
--- Documentation/testing placeholder rows — is_active = false throughout, so
--- nothing surfaces the real booking UI until ops contracts a real instructor/
--- studio partner and flips a row (or adds a new one).
--- ---------------------------------------------------------------------------
 insert into public.wellness_class_providers (name, regions, is_active) values
   ('[Placeholder] Community Wellness Studio', array['Lagos'], false)
 on conflict (name) do nothing;
@@ -142,3 +119,4 @@ select id, 'Morning Movement (sample)', 'A gentle guided movement session.', 'vi
        now() + interval '14 days', 45, 30, null, 20, false
 from public.wellness_class_providers where name = '[Placeholder] Community Wellness Studio'
 on conflict do nothing;
+;

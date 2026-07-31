@@ -6,28 +6,29 @@ import { logVital } from "./actions";
 import type { GlucoseUnit } from "@/lib/validation/vitals";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { crosscheckVital, type VitalCrosscheck } from "@/lib/vitals/plausibility";
+import { VITAL_TYPES, type VitalType } from "@/lib/vitals/vital-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const VITAL_TYPES = [
-  { value: "blood_pressure", label: "Blood pressure" },
-  { value: "glucose", label: "Glucose" },
-  { value: "ketones", label: "Ketones" },
-  { value: "weight", label: "Weight" },
-  { value: "waist_circumference", label: "Waist circumference" },
-  { value: "pulse", label: "Pulse" },
-  { value: "temperature", label: "Temperature" },
-  { value: "spo2", label: "SpO2" },
-] as const;
-
-type VitalType = (typeof VITAL_TYPES)[number]["value"];
 type KetoneKind = "blood" | "urine";
 
-export function VitalsForm({ patientId }: { patientId: string }) {
-  const [vitalType, setVitalType] = useState<VitalType>("blood_pressure");
+export function VitalsForm({
+  patientId,
+  lockedType,
+  title,
+}: {
+  patientId: string;
+  /** When set, hides the reading-type selector and locks the form to this
+   * type — powers the /patient/quick-log/[type] deep-link pages so a
+   * WhatsApp/SMS reminder can link straight to "log glucose" with no extra
+   * taps, instead of landing on the full dashboard and hunting for it. */
+  lockedType?: VitalType;
+  title?: string;
+}) {
+  const [vitalType, setVitalType] = useState<VitalType>(lockedType ?? "blood_pressure");
   const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>("mmol_l");
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
   const [state, formAction, pending] = useActionState(logVital, undefined);
@@ -80,7 +81,7 @@ export function VitalsForm({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log a reading</CardTitle>
+        <CardTitle>{title ?? "Log a reading"}</CardTitle>
       </CardHeader>
       <CardContent>
         <form
@@ -91,20 +92,22 @@ export function VitalsForm({ patientId }: { patientId: string }) {
           className="space-y-4"
         >
           <input type="hidden" name="vital_type" value={vitalType} />
-          <div className="space-y-1.5">
-            <Label htmlFor="vital_type_select">Reading type</Label>
-            <Select
-              id="vital_type_select"
-              value={vitalType}
-              onChange={(event) => setVitalType(event.target.value as VitalType)}
-            >
-              {VITAL_TYPES.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </div>
+          {!lockedType && (
+            <div className="space-y-1.5">
+              <Label htmlFor="vital_type_select">Reading type</Label>
+              <Select
+                id="vital_type_select"
+                value={vitalType}
+                onChange={(event) => setVitalType(event.target.value as VitalType)}
+              >
+                {VITAL_TYPES.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
 
           {vitalType === "blood_pressure" && (
             <div className="grid grid-cols-2 gap-4">

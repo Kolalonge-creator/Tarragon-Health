@@ -124,8 +124,12 @@ export function MedicationsList({
                   )}
                   {medication.last_confirmed_at && (
                     <p className="text-xs text-charcoal-ink/60">
-                      Confirmed by your care team ·{" "}
+                      Refill checked and still valid ·{" "}
                       {new Date(medication.last_confirmed_at).toLocaleDateString()}
+                      <span className="text-charcoal-ink/40">
+                        {" "}
+                        (an administrative check, not a new dose review)
+                      </span>
                     </p>
                   )}
                   {canConfirmRefill && medication.source === "clinician" && (
@@ -221,6 +225,10 @@ function ConfirmRefillForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 pt-1">
+      <p className="basis-full text-xs text-charcoal-ink/50">
+        This confirms your prescription is still valid for pickup. It is an
+        administrative check, not a new medical review of your dose.
+      </p>
       <div className="space-y-1">
         <Label htmlFor={`confirm_refill_date_${medication.id}`} className="text-xs">
           Refill date
@@ -234,7 +242,7 @@ function ConfirmRefillForm({
         />
       </div>
       <Button type="submit" variant="outline" size="sm" disabled={confirmRefill.isPending}>
-        {confirmRefill.isPending ? "Confirming…" : "Confirm & continue"}
+        {confirmRefill.isPending ? "Confirming…" : "Confirm refill is still needed"}
       </Button>
       {confirmRefill.isError && (
         <p className="text-xs text-red-600 basis-full">
@@ -242,7 +250,9 @@ function ConfirmRefillForm({
         </p>
       )}
       {success && !confirmRefill.isPending && (
-        <p className="text-xs text-brand-green basis-full">Confirmed and continued.</p>
+        <p className="text-xs text-brand-green basis-full">
+          Refill confirmed as still valid.
+        </p>
       )}
     </form>
   );

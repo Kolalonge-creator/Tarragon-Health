@@ -83,7 +83,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "Reminders keep you consistent",
-    body: "WhatsApp and SMS nudges arrive when a dose, reading, or check is due, so consistency stops depending on memory. You can also message your care team on WhatsApp whenever you have a question.",
+    body: "WhatsApp and SMS nudges arrive when a dose, reading, or check is due, so consistency stops depending on memory. You can also message your care team any time, right in the app, whenever you have a question.",
   },
   {
     title: "A doctor actually reviews your numbers",

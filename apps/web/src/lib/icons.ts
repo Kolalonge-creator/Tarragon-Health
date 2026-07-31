@@ -90,6 +90,10 @@ export const SEMANTIC_ICON = {
   carePlan: ClipboardList,
   aiCoach: Sparkles,
   upgrade: Lock,
+  /** Confidentiality of a result, not a paywall. Shares the lock glyph with
+      `upgrade` deliberately: both mean "closed", and this is the stronger of
+      the two meanings for a patient deciding whether to test. */
+  privacy: Lock,
   billing: CreditCard,
   commission: Percent,
   logistics: Truck,

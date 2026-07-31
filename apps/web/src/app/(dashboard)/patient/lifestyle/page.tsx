@@ -29,10 +29,22 @@ export default async function LifestylePage() {
     );
   }
 
-  const [enrollments, pastGoals] = await Promise.all([
+  const [enrollments, pastGoals, { data: profile }] = await Promise.all([
     getLifestyleState(supabase, user.id),
     getPastLifestyleGoals(supabase, user.id),
+    supabase
+      .from("profiles")
+      .select("condition_language_preference")
+      .eq("id", user.id)
+      .single(),
   ]);
 
-  return <LifestyleClient enrollments={enrollments} pastGoals={pastGoals} />;
+  return (
+    <LifestyleClient
+      patientId={user.id}
+      enrollments={enrollments}
+      pastGoals={pastGoals}
+      conditionLanguagePreference={profile?.condition_language_preference}
+    />
+  );
 }

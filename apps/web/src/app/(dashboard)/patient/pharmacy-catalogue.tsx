@@ -215,8 +215,8 @@ export function PharmacyCatalogue({
 
                   {!canBook && (
                     <p className="text-xs text-charcoal-ink/70">
-                      Not currently on your prescribed medications. Message your care team on
-                      WhatsApp and they&apos;ll arrange it.
+                      Not currently on your prescribed medications. Message your care team in the
+                      app and they&apos;ll arrange it.
                     </p>
                   )}
 
