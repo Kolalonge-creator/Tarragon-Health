@@ -7,6 +7,7 @@ import { NextOfKinForm, type NextOfKinState } from "./next-of-kin-form";
 import { DependantsList } from "./dependants-list";
 import { AdultsYouManageList } from "./adults-you-manage-list";
 import { CareAccessRequestsList, type CareAccessRequestRow } from "./care-access-requests-list";
+import { CareVisibilityList } from "./care-visibility-list";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -115,6 +116,8 @@ export default async function CareCirclePage() {
       <CareAccessRequestsList requests={requests} currentUserId={profile.id} />
 
       <NextOfKinForm current={nextOfKin} />
+
+      <CareVisibilityList />
 
       <Card>
         <CardHeader>

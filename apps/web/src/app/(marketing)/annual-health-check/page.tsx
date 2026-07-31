@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -11,6 +12,43 @@ export const metadata: Metadata = {
     "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex, reviewed by a doctor, at a partner lab near you. ₦65,000, available to anyone on any plan.",
   alternates: { canonical: MARKETING_ROUTES.annualHealthCheck },
 };
+
+/**
+ * The trust block for the page where somebody actually decides to hand over
+ * money and a blood sample. Deliberately narrower than the homepage TrustBand:
+ * every line below is something the database or the payment integration
+ * enforces, checked live before it was written.
+ *
+ *  - Licence check: clinical_staff carries two CHECK constraints,
+ *    clinical_staff_active_requires_verification (a record cannot be `active`
+ *    unless license_verified_at is set) and clinical_staff_no_self_verification
+ *    (verified_by can never equal the record's own profile_id).
+ *  - Price: lab_orders are created pending_payment at the bundle's own
+ *    price_kobo, and no charge happens until the patient completes hosted
+ *    checkout, so "nothing is taken before you confirm" is structurally true.
+ *  - Card details: checkout is hosted by Paystack/Stripe; the platform never
+ *    receives or stores a card number.
+ *
+ * NOTE: this block intentionally does NOT repeat the homepage TrustBand's
+ * "MDCN-registered doctors" wording. At the time of writing the only active
+ * clinical_staff record has credential_number null (the founder deferred
+ * recording it, see CLAUDE.md 2026-07-30), so that claim is not currently
+ * backed by data and must not be spread to a second page until it is.
+ */
+const BOOKING_ASSURANCES = [
+  {
+    title: "A verified doctor reads it",
+    body: "No one can review results here until someone else has verified their licence. The database refuses to make a clinician active otherwise, and nobody can verify their own.",
+  },
+  {
+    title: "You confirm the price first",
+    body: "You pick the lab, see its exact price, and confirm before anything is charged. Nothing is taken while your booking sits unpaid, and you can simply walk away.",
+  },
+  {
+    title: "We never see your card",
+    body: "Payment is handled by Paystack or Stripe on their own checkout. Your card number never reaches Tarragon, so it is not ours to lose.",
+  },
+];
 
 const WHATS_INCLUDED = [
   {
@@ -85,7 +123,7 @@ export default function AnnualHealthCheckPage() {
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href="/signup">Book your check</Link>
+              <Link href="/signup?intent=health_check">Book your check</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={MARKETING_ROUTES.prevention}>Explore preventive health</Link>
@@ -161,9 +199,12 @@ export default function AnnualHealthCheckPage() {
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Need just one thing? The WHO-recommended screenings (cervical screening, HIV,
           Hepatitis B, and Hepatitis C) can each be booked on their own, confidentially, from
-          ₦6,000. Results go only to you and the reviewing doctor. Don&apos;t know your blood
-          group and genotype yet? You can book that directly too, from ₦6,500.
+          ₦6,000. Don&apos;t know your blood group and genotype yet? You can book that directly
+          too, from ₦6,500.
         </p>
+        <div className="mx-auto mt-6 max-w-2xl">
+          <ConfidentialResultNotice />
+        </div>
       </Section>
 
       <Section variant="sage">
@@ -205,12 +246,32 @@ export default function AnnualHealthCheckPage() {
         </div>
       </Section>
 
+      <Section>
+        <SectionHeading
+          eyebrow="Before you book"
+          title="What we can actually promise you"
+        />
+        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
+          {BOOKING_ASSURANCES.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-5"
+            >
+              <h3 className="font-heading text-base font-semibold text-charcoal-ink">
+                {item.title}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
           title="Book this year's check."
-          description="One morning, once a year, and a doctor who tells you where you stand."
-          primaryHref="/signup"
+          description="One morning, once a year, and a doctor who tells you where you stand. No subscription needed: it is pay-once, on any plan including the free one."
+          primaryHref="/signup?intent=health_check"
           primaryLabel="Book your check"
         />
       </Section>

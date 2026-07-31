@@ -1,7 +1,13 @@
 import { isWearableProviderConfigured, type CloudOAuthWearableProvider } from "@/lib/wearables/oauth-providers";
 import { WearableConnectCard } from "./wearable-connect-card";
 
-const PROVIDERS: CloudOAuthWearableProvider[] = ["oura", "whoop", "garmin", "fitbit"];
+const PROVIDERS: CloudOAuthWearableProvider[] = [
+  "oura",
+  "whoop",
+  "garmin",
+  "fitbit",
+  "dexcom",
+];
 
 /**
  * Server wrapper so the "which providers are actually configured" check

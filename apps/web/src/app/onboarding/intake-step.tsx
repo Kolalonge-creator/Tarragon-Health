@@ -30,7 +30,7 @@ export function IntakeStep({
         </h2>
         <p className="mt-1 text-sm text-charcoal-ink/60">
           Two minutes here builds your personal prevention plan: a screening and vaccination
-          calendar matched to your age, sex, and history — whether you&apos;re managing a
+          calendar matched to your age, sex, and history, whether you&apos;re managing a
           condition or perfectly healthy and want to stay that way. You can also do this
           later from your dashboard.
         </p>
@@ -64,7 +64,8 @@ export function IntakeStep({
           Continue to choose your plan →
         </Button>
         <p className="mt-1 text-xs text-charcoal-ink/50">
-          Skipping is fine — but your screening calendar stays empty until this is done.
+          Skipping is fine. Your screening calendar stays empty until this is done, and you can
+          fill it in whenever you like.
         </p>
       </div>
     </div>

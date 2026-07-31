@@ -10,8 +10,8 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
  */
 const TRUST_ITEMS = [
   {
-    title: "Named, registered doctors",
-    body: "Care is delivered by MDCN-registered doctors, and a doctor review always carries the doctor's name, never an anonymous system.",
+    title: "A real care team, always accountable",
+    body: "Care is delivered by a team of MDCN-registered doctors. Whoever's covering reviews your case, and every review always carries that doctor's real name, never an anonymous system.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
@@ -66,14 +66,18 @@ export function TrustBand() {
       </div>
       <p className="mt-8 text-center text-sm text-white/60">
         Read the full{" "}
-        <Link href={MARKETING_ROUTES.pricing} className="font-medium text-white/85 underline-offset-2 hover:underline">
+        <Link href={MARKETING_ROUTES.howPricingWorks} className="font-medium text-white/85 underline-offset-2 hover:underline">
           No-Hidden-Cost Promise
         </Link>{" "}
         and{" "}
         <Link href={MARKETING_ROUTES.about} className="font-medium text-white/85 underline-offset-2 hover:underline">
           how we work
         </Link>
-        .
+        , or see{" "}
+        <Link href={MARKETING_ROUTES.impact} className="font-medium text-white/85 underline-offset-2 hover:underline">
+          our impact
+        </Link>{" "}
+        in numbers.
       </p>
     </div>
   );

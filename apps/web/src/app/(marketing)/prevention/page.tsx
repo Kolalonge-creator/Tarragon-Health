@@ -88,8 +88,9 @@ export default async function PreventionPage() {
   if (!content) notFound();
 
   const articles = await loadResourceArticles();
-  const screeningArticles = articles.filter((a) => a.category === "Screening");
-  const nutritionArticles = articles.filter((a) => a.category === "Nutrition");
+  const preventionArticles = articles.filter(
+    (a) => a.category === "Screening" || a.category === "Nutrition"
+  );
 
   return (
     <ProductPageTemplate content={content}>
@@ -176,18 +177,12 @@ export default async function PreventionPage() {
         </div>
       </Section>
 
-      {screeningArticles.length > 0 ? (
+      {preventionArticles.length > 0 ? (
         <Section>
           <ResourceCarousel
-            title="Explore more Prevention & Screening resources"
-            articles={screeningArticles}
+            title="Explore more Prevention & Nutrition resources"
+            articles={preventionArticles}
           />
-        </Section>
-      ) : null}
-
-      {nutritionArticles.length > 0 ? (
-        <Section>
-          <ResourceCarousel title="Explore more Nutrition resources" articles={nutritionArticles} />
         </Section>
       ) : null}
     </ProductPageTemplate>

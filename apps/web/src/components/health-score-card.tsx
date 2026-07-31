@@ -1,11 +1,13 @@
 "use client";
 
-import { useLatestHealthScore } from "@/lib/queries/health-score";
+import { useLatestHealthScore, useHealthScoreHistory } from "@/lib/queries/health-score";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import {
   getHealthScoreTips,
+  computeHealthScoreTrend,
+  describeHealthScoreTrend,
   type HealthScoreComponent,
   type HealthScoreRiskLevel,
 } from "@/lib/rules/health-score";
@@ -31,8 +33,13 @@ const COMPONENT_LABEL: Record<HealthScoreComponent["key"], string> = {
 
 export function HealthScoreCard({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useLatestHealthScore(patientId);
+  const { data: history } = useHealthScoreHistory(patientId);
   const components = (data?.inputs as { components?: HealthScoreComponent[] } | null)?.components ?? [];
   const tips = getHealthScoreTips(components);
+  const scoredHistory = history?.filter(
+    (h): h is { score: number; inputs: typeof h.inputs; computed_at: string } => h.score !== null,
+  );
+  const trend = scoredHistory ? computeHealthScoreTrend(scoredHistory) : null;
 
   return (
     <Card>
@@ -65,6 +72,11 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
               A non-diagnostic summary of a few everyday habits and numbers we already have on
               file — not a medical diagnosis. Updated {new Date(data.computed_at).toLocaleDateString()}.
             </p>
+            {trend && (
+              <p className="rounded-md bg-soft-sage px-3 py-2 text-sm text-deep-forest">
+                {describeHealthScoreTrend(trend)}
+              </p>
+            )}
             {components.length > 0 && (
               <ul className="space-y-1 pt-2 text-sm text-charcoal-ink">
                 {components.map((component) => (

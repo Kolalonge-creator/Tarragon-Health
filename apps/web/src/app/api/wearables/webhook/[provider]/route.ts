@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { CloudOAuthWearableProvider } from "@/lib/wearables/oauth-providers";
 
+// Dexcom deliberately excluded: its real v3 API is pull-only (a stored
+// access_token fetches /v3/users/self/egvs on a schedule) with no webhook
+// push mechanism to receive here — unlike Fitbit/WHOOP's notify-then-fetch
+// subscriptions. Nothing will ever POST to this route for Dexcom.
 const VALID_PROVIDERS: CloudOAuthWearableProvider[] = ["oura", "whoop", "garmin", "fitbit"];
 
 function isValidProvider(value: string): value is CloudOAuthWearableProvider {

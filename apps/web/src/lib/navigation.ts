@@ -25,12 +25,15 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
         {
           items: [
             { label: "Dashboard", href: "/patient", icon: "dashboard", exact: true },
+            { label: "Messages", href: "/patient/messages", icon: "messages" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Messages", href: "/patient/messages", icon: "messages" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
             { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
             { label: "Your people", href: "/patient/family", icon: "family" },
+            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
           ],
         },
@@ -133,6 +136,8 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
             { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
+            { label: "Wallet compliance", href: "/admin/settings/wallet-compliance", icon: "payables" },
+            { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
           ],
         },
         {

@@ -61,8 +61,11 @@
 --                                                                 hospital admissions, obesity ED screens —
 --                                                                 write audit_log automatically; this is not
 --                                                                 yet the universal guarantee v3 envisioned)
---   I14 a device-linked reading cannot be edited by a      -> GAP  (vitals_readings_update lets a patient
---       patient (tested in the source file alongside I1-I9)      edit ANY of their own rows, source-blind)
+--   I14 a device-linked reading cannot be edited by a      -> PASS (fixed 20260730220512 -- private.enforce_
+--       patient (tested in the source file alongside I1-I9)      vitals_reading_source_lock blocks a patient
+--                                                                 session from editing a non-'manual'-sourced
+--                                                                 row; manual entries and org-staff edits are
+--                                                                 unaffected)
 -- ---------------------------------------------------------------------------
 
 begin;
@@ -346,31 +349,29 @@ begin
 end $$;
 
 -- ===========================================================================
--- I14 — a device-linked reading cannot be edited by a patient (tested
--- alongside I1-I9 in the source file, same "no unknown mutation path"
--- family as I3). GAP, and a genuine new finding — not previously named in
--- CLAUDE.md.
+-- I14 — a device-linked reading cannot be edited by a patient. FIXED
+-- 20260730220512_i14_vitals_reading_source_lock.sql, founder-approved scope
+-- (2026-07-30): lock automatically-captured sources (device/wearable/cgm),
+-- leave 'manual' self-reported entries freely patient-editable, org staff
+-- unaffected on any source.
 --
--- v3 has no UPDATE policy for patients on readings at all (a correction is
--- always a new row). The platform's vitals_readings_update RLS policy is
--- source-blind: `patient_id = auth.uid() OR is_org_staff(...)`, with no
--- clause distinguishing source='device' from source='manual'. Proven live: a
--- patient session can flip the systolic value on their own device-sourced
--- reading.
---
--- Fixed = either (a) tighten vitals_readings_update's WITH CHECK to also
--- require source = 'manual' (or NOT be updating a device/wearable-sourced
--- row), or (b) a founder decision that patient edit of device readings is
--- intentional platform behaviour and I14 does not apply here — this is a
--- product question, not purely an engineering one, since it changes real
--- patient-facing behaviour rather than closing a pure oversight.
+-- private.enforce_vitals_reading_source_lock (a BEFORE UPDATE trigger on
+-- vitals_readings, mirroring enforce_medication_confirm_only's "RLS admits
+-- broadly, trigger narrows" shape) raises 42501 when a non-org-staff caller
+-- attempts to update a row whose source is anything other than 'manual'.
+-- vitals_readings_update's RLS policy itself is untouched (still source-
+-- blind by design — the trigger is what narrows it). Full proof (patient
+-- blocked on device/wearable/cgm, patient allowed on manual, org staff
+-- unaffected on a device row) run live via a rolled-back transaction at fix
+-- time; no separate standalone test file was added for this one since the
+-- check below already exercises the exact live-blocked case end to end.
 -- ===========================================================================
 do $$
 declare
   v_org      uuid := '00000000-0000-0000-0000-000000000001';
   v_pat      uuid;
   v_dev_id   uuid;
-  v_affected int;
+  v_blocked  boolean := false;
 begin
   select id into v_pat from public.profiles where role='patient' and organisation_id=v_org limit 1;
 
@@ -381,16 +382,21 @@ begin
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role','authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
-  update public.vitals_readings set systolic = 999 where id = v_dev_id;
-  get diagnostics v_affected = row_count;
+
+  begin
+    update public.vitals_readings set systolic = 999 where id = v_dev_id;
+  exception when sqlstate '42501' then
+    v_blocked := true;
+  end;
+
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
   insert into invariant_result values (
-    14, 'I14', case when v_affected = 0 then 'PASS' else 'GAP' end,
+    14, 'I14', case when v_blocked then 'PASS' else 'GAP' end,
     'a patient can directly edit their own device-sourced vitals_readings row',
-    '0 rows affected (device readings immutable by the patient)',
-    case when v_affected = 0 then '0 rows affected' else v_affected::text || ' row(s) affected — REAL GAP, product decision needed' end
+    'rejected (device/wearable/cgm readings are patient-immutable)',
+    case when v_blocked then 'rejected (42501)' else 'ACCEPTED — REGRESSION, was fixed 20260730220512' end
   );
 end $$;
 

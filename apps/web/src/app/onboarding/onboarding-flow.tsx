@@ -2,13 +2,12 @@
 
 import { useState, type ReactNode } from "react";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
-import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contact-form";
 import { ConsentStep } from "./consent-step";
 import { DemographicsForm } from "./demographics-form";
-import { IdentityVerificationCard } from "./identity-verification-card";
 import { IntakeStep } from "./intake-step";
 import { PlanPreview } from "./plan-preview";
 import { PlanSelector } from "./plan-selector";
+import { ExistingPlanNotice } from "./existing-plan-notice";
 
 function DoneRow({ label }: { label: string }) {
   return (
@@ -27,20 +26,34 @@ function DoneRow({ label }: { label: string }) {
 
 /**
  * Client-side onboarding orchestrator. Steps reveal in order:
- *   1. Consent (required)   2. About you — DOB/sex (required)
- *   3. Health profile (skippable)   4. Choose your plan
+ *   1. Consent (required)   2. About you, DOB/sex (required)
+ *   3. Where you are (finds labs near you)
+ *   4. Health profile (skippable)   5. Choose your plan
  * Required steps gate the plan step both here and structurally in the DB
  * (private.enforce_onboarding_prereqs), so this ordering can't be bypassed to
  * finish onboarding without consent + demographics.
+ *
+ * Emergency contacts and identity verification were deliberately removed from
+ * this flow and now live on the patient dashboard under Profile & settings.
+ * Neither is required to start, both are already rendered there, and asking a
+ * first-time visitor for next-of-kin details and a government ID number before
+ * they have done anything was the heaviest friction in the signup path,
+ * especially for a healthy person who only came to book one test.
  */
 export function OnboardingFlow({
   profile,
   careTeamSlot,
+  existingPlan,
   initial,
 }: {
   profile: { id: string; fullName: string | null };
   /** Server-rendered <YourCareTeam/> passed in — it's an async server component. */
   careTeamSlot: ReactNode;
+  /** Set when the caller already has an active/trialing subscription — see
+   * onboarding/page.tsx. Skips "choose your plan" entirely in favour of a
+   * reconciliation notice, so a returning paying patient is never asked to
+   * pick and pay for a plan a second time. */
+  existingPlan: { name: string; status: string } | null;
   initial: {
     consentDone: boolean;
     demographicsDone: boolean;
@@ -48,14 +61,6 @@ export function OnboardingFlow({
     dateOfBirth: string | null;
     sex: "male" | "female" | null;
     location: { state: string | null; city: string | null; area: string | null };
-    emergencyContact: {
-      emergency_contact_name: string | null;
-      emergency_contact_phone: string | null;
-      emergency_contact_relationship: string | null;
-      emergency_contact_consent: boolean | null;
-      next_of_kin_name: string | null;
-      next_of_kin_phone: string | null;
-    };
   };
 }) {
   const [consentDone, setConsentDone] = useState(initial.consentDone);
@@ -78,17 +83,19 @@ export function OnboardingFlow({
           How your care works here
         </h2>
         <p className="text-sm text-charcoal-ink">
-          A named doctor on our care team follows your readings, checks in with you, and
-          documents your care as it happens — they&apos;re the person you&apos;ll actually hear
-          from.
+          Most of what Tarragon does is keep track: your screening and vaccination dates, any
+          readings you log, and the results that come back. Plenty of people here have nothing
+          wrong with them and use it to stay that way.
         </p>
         <p className="text-sm text-charcoal-ink">
-          Your care protocols — the thresholds and rules your doctor follows — are designed and
-          supervised by our Clinical Director.
+          The thresholds and rules behind all of it are designed and supervised by our Clinical
+          Director, so what counts as worth acting on is not decided case by case.
         </p>
         <p className="text-sm text-charcoal-ink">
-          If a reading or symptom meets specific clinical criteria, your case gets a doctor
-          review, and you&apos;ll see exactly who reviewed it and when.
+          If a result or symptom meets those criteria, it goes to a doctor for review, and
+          you&apos;ll see exactly who reviewed it and when. That escalation runs on every plan,
+          including the free one. Routine review of readings when nothing is flagged is part of
+          the paid plans.
         </p>
       </div>
 
@@ -112,16 +119,13 @@ export function OnboardingFlow({
           />
         ))}
 
+      {/* Location stays in the flow because it is the one answer that changes
+          what we can show you next: it is how we find labs and clinics near
+          you. Emergency contacts and identity verification used to sit here
+          too; both are optional, neither is needed to start, and both now live
+          on the dashboard under Profile & settings instead. */}
       {consentDone && demographicsDone && (
         <PatientLocationForm initial={initial.location} />
-      )}
-
-      {consentDone && demographicsDone && (
-        <EmergencyContactForm initial={initial.emergencyContact} />
-      )}
-
-      {consentDone && demographicsDone && (
-        <IdentityVerificationCard patientId={profile.id} />
       )}
 
       {/* Step 3 — Health profile (skippable) */}
@@ -129,9 +133,14 @@ export function OnboardingFlow({
         <IntakeStep patientId={profile.id} onSkip={() => setIntakeCollapsed(true)} />
       )}
 
-      {/* Step 4 — what the intake produced (honest plan preview), then plan choice */}
-      {readyForPlan && intakeCollapsed && <PlanPreview patientId={profile.id} />}
-      {readyForPlan && intakeCollapsed && (
+      {/* Step 4 — already-subscribed patients skip choosing/paying for a
+          plan entirely; everyone else sees the honest intake-driven preview
+          then chooses a plan. */}
+      {readyForPlan && intakeCollapsed && existingPlan && (
+        <ExistingPlanNotice planName={existingPlan.name} status={existingPlan.status} />
+      )}
+      {readyForPlan && intakeCollapsed && !existingPlan && <PlanPreview patientId={profile.id} />}
+      {readyForPlan && intakeCollapsed && !existingPlan && (
         <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
           <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
             Choose your plan

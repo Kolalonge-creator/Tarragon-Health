@@ -63,6 +63,30 @@ export async function initiateWalletTopupCheckout(args: {
     .single();
   if (!wallet) return { ok: false, error: "Wallet not found" };
 
+  // CBN tiered-KYC balance ceiling, checked here (before any charge is
+  // created) rather than inside private.wallet_apply — that function is also
+  // called from an AFTER INSERT trigger on payment_transactions with no
+  // exception handler, so rejecting a credit there would abort the webhook's
+  // own audit-log write for a charge that already succeeded at the payment
+  // provider. See supabase/migrations/20260731020000_wallet_kyc_tiers_and_aml_flags.sql.
+  const { data: headroomKobo, error: headroomError } = await supabase.rpc(
+    "wallet_kyc_balance_headroom",
+    { p_profile: args.beneficiaryProfileId }
+  );
+  if (headroomError) {
+    return { ok: false, error: "Could not check top-up limits — try again shortly." };
+  }
+  if (headroomKobo !== null && args.creditKobo > headroomKobo) {
+    const headroomNaira = (headroomKobo / 100).toLocaleString();
+    return {
+      ok: false,
+      error:
+        headroomKobo <= 0
+          ? "This wallet has reached its top-up limit. Verify identity in Settings to raise the limit, or contact support."
+          : `This top-up would exceed the wallet's current limit — up to ₦${headroomNaira} is available right now. Verify identity in Settings to raise the limit.`,
+    };
+  }
+
   let chargeAmountMinor = args.creditKobo;
   if (args.payerCurrency !== "NGN") {
     const { data: fx } = await supabase

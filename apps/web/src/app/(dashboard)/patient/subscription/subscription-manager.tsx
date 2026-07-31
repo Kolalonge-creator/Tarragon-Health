@@ -76,9 +76,23 @@ export function SubscriptionManager() {
   const status = STATUS_BADGE[subscription.status] ?? { label: subscription.status, variant: "grey" as const };
   const currentPlanCode = subscription.plan?.code ?? null;
   const currency = currencyOverride ?? ((subscription.plan?.currency as Currency | undefined) ?? "NGN");
-  const otherPlans = (plans ?? []).filter(
+  const switchablePlans = (plans ?? []).filter(
     (p) => p.code !== currentPlanCode && (p.code === "free" || p.currency === currency),
   );
+  /**
+   * Dollars lead with the yearly row, naira keeps its natural order.
+   *
+   * Same reasoning as the onboarding plan selector: a dollar plan is the naira
+   * price converted, so buying it monthly is twelve small card charges a year
+   * and each one loses a flat processing fee. Only the order changes here;
+   * every monthly row is still listed and still switchable.
+   */
+  const otherPlans =
+    currency === "USD"
+      ? [...switchablePlans].sort(
+          (a, b) => (a.interval === "yearly" ? 0 : 1) - (b.interval === "yearly" ? 0 : 1),
+        )
+      : switchablePlans;
   const attachedCodes = new Set((addOns ?? []).map((a) => a.add_on?.code).filter(Boolean));
   const attachableAddOns = (catalogue ?? []).filter(
     (a) =>
@@ -213,6 +227,13 @@ export function SubscriptionManager() {
           <CurrencyTabs value={currency} onChange={setCurrencyOverride} />
           {changeState?.error && <p className="text-sm text-red-600">{changeState.error}</p>}
           {changeState?.message && <p className="text-sm text-charcoal-ink/70">{changeState.message}</p>}
+          {otherPlans.length > 0 && (
+            <p className="text-xs text-charcoal-ink/60">
+              Switching charges the new plan&apos;s price immediately and renews automatically
+              every {otherPlans[0]?.interval === "yearly" ? "year" : "billing period"} until you
+              cancel. Payments aren&apos;t refundable.
+            </p>
+          )}
           {otherPlans.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No other {currency} plans available.</p>
           ) : (
@@ -281,17 +302,23 @@ export function SubscriptionManager() {
               No add-ons available for your current plan.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {attachableAddOns.map((addOn) => (
-                <form key={addOn.id} action={attachAction}>
-                  <input type="hidden" name="subscriptionId" value={subscription.id} />
-                  <input type="hidden" name="addOnCode" value={addOn.code} />
-                  <Button type="submit" size="sm" disabled={attachPending}>
-                    Add {addOn.name} ({formatPrice(addOn.price_minor, addOn.currency as Currency, addOn.interval)})
-                  </Button>
-                </form>
-              ))}
-            </div>
+            <>
+              <p className="text-xs text-charcoal-ink/60">
+                Add-ons are charged immediately and renew automatically with your plan until you
+                remove them. Payments aren&apos;t refundable.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {attachableAddOns.map((addOn) => (
+                  <form key={addOn.id} action={attachAction}>
+                    <input type="hidden" name="subscriptionId" value={subscription.id} />
+                    <input type="hidden" name="addOnCode" value={addOn.code} />
+                    <Button type="submit" size="sm" disabled={attachPending}>
+                      Add {addOn.name} ({formatPrice(addOn.price_minor, addOn.currency as Currency, addOn.interval)})
+                    </Button>
+                  </form>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
