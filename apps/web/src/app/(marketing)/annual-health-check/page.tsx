@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -85,7 +86,7 @@ export default function AnnualHealthCheckPage() {
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href="/signup">Book your check</Link>
+              <Link href="/signup?intent=health_check">Book your check</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={MARKETING_ROUTES.prevention}>Explore preventive health</Link>
@@ -161,9 +162,12 @@ export default function AnnualHealthCheckPage() {
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Need just one thing? The WHO-recommended screenings (cervical screening, HIV,
           Hepatitis B, and Hepatitis C) can each be booked on their own, confidentially, from
-          ₦6,000. Results go only to you and the reviewing doctor. Don&apos;t know your blood
-          group and genotype yet? You can book that directly too, from ₦6,500.
+          ₦6,000. Don&apos;t know your blood group and genotype yet? You can book that directly
+          too, from ₦6,500.
         </p>
+        <div className="mx-auto mt-6 max-w-2xl">
+          <ConfidentialResultNotice />
+        </div>
       </Section>
 
       <Section variant="sage">
@@ -209,8 +213,8 @@ export default function AnnualHealthCheckPage() {
         <CtaBand
           variant="gradient"
           title="Book this year's check."
-          description="One morning, once a year, and a doctor who tells you where you stand."
-          primaryHref="/signup"
+          description="One morning, once a year, and a doctor who tells you where you stand. No subscription needed: it is pay-once, on any plan including the free one."
+          primaryHref="/signup?intent=health_check"
           primaryLabel="Book your check"
         />
       </Section>

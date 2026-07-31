@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { PayWithWalletButton } from "@/components/pay-with-wallet-button";
+import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
 import { cn } from "@/lib/utils";
@@ -221,9 +222,10 @@ export function AnnualHealthCheckBooking({
                 Confidential screenings
               </p>
               <p className="text-xs text-charcoal-ink/60">
-                Recommended by the World Health Organization for everyone; booked privately,
-                results shared only with you and the reviewing doctor.
+                Recommended by the World Health Organization for everyone, and booked without
+                having to explain yourself to anybody.
               </p>
+              <ConfidentialResultNotice />
               {confidential.map(bundleRow)}
             </div>
           )}

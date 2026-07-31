@@ -19,6 +19,7 @@ import {
   HMO_COMPARE_INTRO,
   HMO_COMPARE_NOTE,
   HMO_COMPARE_ROWS,
+  LAB_PARTNERS,
   TYPICAL_PRICES,
   TYPICAL_PRICES_NOTE,
   FREE_TRIAL_INTRO,
@@ -63,6 +64,23 @@ export default async function PricingPage() {
           title="Simple, transparent plans"
           description="Every line item carries exactly one label: included, book & pay, free elsewhere, or add-on. No hidden costs."
         />
+        {/* The early exit for somebody who did not come here to shop for a
+            subscription at all. A healthy visitor who wants one blood test has
+            very little patience for a plan comparison, and the Health Check is
+            genuinely pay-once on any plan, so sending them straight out of
+            this page is the honest thing to do rather than a leak. */}
+        <div className="mx-auto mb-10 max-w-2xl rounded-xl border border-clinical-navy/15 bg-clinical-navy/[0.04] px-5 py-4 text-center">
+          <p className="text-sm font-semibold text-clinical-navy">
+            Not looking for a plan? You do not need one.
+          </p>
+          <p className="mt-1.5 text-sm text-charcoal-ink/75">
+            A one-off Health Check is pay-once, from ₦15,000, on any plan including the free one.
+            So are HIV, hepatitis, cervical and blood group screenings, from ₦6,000.
+          </p>
+          <Button asChild variant="outline" size="sm" className="mt-3">
+            <Link href={MARKETING_ROUTES.annualHealthCheck}>Book a one-off check instead</Link>
+          </Button>
+        </div>
         <PlanFinder />
         <PricingTable priceOverrides={priceOverrides} />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
@@ -252,6 +270,19 @@ export default async function PricingPage() {
               <span className="shrink-0 text-sm font-semibold text-clinical-navy">{entry.price}</span>
             </div>
           ))}
+        </div>
+        <div className="mx-auto mt-8 max-w-4xl rounded-xl border border-charcoal-ink/10 bg-white px-5 py-4 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+            Where your sample is actually processed
+          </p>
+          <p className="mt-2 text-sm text-charcoal-ink/80">
+            {LAB_PARTNERS.join(" · ")}
+          </p>
+          <p className="mt-2 text-xs text-charcoal-ink/60">
+            You choose which one, and at which of their collection centres, before you pay. We do
+            not run our own labs, which is why the price you see is theirs and not a markup we
+            invented.
+          </p>
         </div>
       </Section>
 

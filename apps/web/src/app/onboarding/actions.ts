@@ -136,7 +136,13 @@ export async function completeOnboarding() {
     .update({ onboarding_completed_at: new Date().toISOString() })
     .eq("id", user.id);
 
-  redirect("/patient");
+  // Land somebody where they were actually trying to go. `signup_intent` is
+  // carried through auth metadata from /signup?intent=..., the same vehicle
+  // phone/state/ref_code already use, so this needs no new column and no new
+  // table. Anything unrecognised falls through to the normal dashboard, so a
+  // stale or hand-typed value can never strand a new patient on a bad route.
+  const intent = user.user_metadata?.signup_intent;
+  redirect(intent === "health_check" ? "/patient/prevention#health-check" : "/patient");
 }
 
 export type IdentityVerificationState =

@@ -151,9 +151,13 @@ export default function GiftPage() {
             you both get ₦500 in wallet credit the moment they complete their first paid order.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Looking after a parent day to day? <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">ParentCare</Link> is
-            the year-round version of this, a dedicated care coordinator and shared visibility
-            into their care, not just a wallet top-up.
+            Looking after a parent day to day?{" "}
+            <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">
+              Caring for a parent
+            </Link>{" "}
+            is the year-round version of this: they keep their own account and name you as next
+            of kin, so you can follow their care and we call you first if something urgent comes
+            up, rather than it being a one-off top-up.
           </p>
         </div>
       </Section>

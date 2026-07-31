@@ -59,6 +59,17 @@ export async function proxy(request: NextRequest) {
 
   // Auth-only public paths (login/signup) — not marketing pages
   if (isPublicPath(pathname) && pathname !== "/" && !isMarketingPath(pathname)) {
+    // Somebody already signed in who clicks a "book a check" call to action
+    // still meant to book a check. Sending them to their generic dashboard
+    // silently drops that, so honour the intent for patients, who are the
+    // only role the booking surface exists for. Any other role, or any
+    // unrecognised intent, falls through to the normal role home.
+    const intent = request.nextUrl.searchParams.get("intent");
+    if (intent === "health_check" && profile.role === "patient") {
+      return NextResponse.redirect(
+        new URL("/patient/prevention#health-check", request.url)
+      );
+    }
     return NextResponse.redirect(new URL(home, request.url));
   }
 

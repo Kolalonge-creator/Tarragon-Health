@@ -72,12 +72,17 @@ export default async function PreventionHubPage() {
         </CardContent>
       </Card>
 
-      <AnnualHealthCheckBooking
-        patientId={profile.id}
-        organisationId={profile.organisation_id}
-        patientLocation={location}
-        sex={profile.sex}
-      />
+      {/* #health-check is where somebody who signed up specifically to book a
+          one-off check is sent after onboarding (see completeOnboarding), so
+          the first thing they see is the thing they came for. */}
+      <div id="health-check" className="scroll-mt-24">
+        <AnnualHealthCheckBooking
+          patientId={profile.id}
+          organisationId={profile.organisation_id}
+          patientLocation={location}
+          sex={profile.sex}
+        />
+      </div>
 
       <ResultsTrendsCard patientId={profile.id} />
 

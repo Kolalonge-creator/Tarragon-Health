@@ -44,6 +44,7 @@ import { HealthEducation } from "./health-education";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationForFamily } from "./vaccination-for-family";
 import { FacilityDirectory } from "./facility-directory";
+import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { PatientLocationForm } from "./patient-location-form";
 import { ReminderPreferenceForm } from "./reminder-preference-form";
 import { WearableConnectSection } from "./wearable-connect-section";
@@ -424,6 +425,11 @@ export default async function PatientPage() {
         description="Keep your location and emergency contacts up to date."
         icon={NAV_ICON.settings}
       >
+        {/* Identity verification lives here rather than in onboarding: it is
+            optional and non-blocking, and asking a first-time visitor for a
+            government ID before they have done anything is the single most
+            off-putting step in the signup path. */}
+        <IdentityVerificationCard patientId={profile.id} />
         <PatientLocationForm
           initial={{ state: profile.state, city: profile.city, area: profile.area }}
         />
