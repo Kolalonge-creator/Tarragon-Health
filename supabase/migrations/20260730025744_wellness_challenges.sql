@@ -1,9 +1,6 @@
--- Wellness gamification, part 3: time-boxed challenges. Scoped to metrics the
--- platform can actually measure today from logged activity — deliberately
--- NOT step-count/MVPA challenges, since consumer wearables are still
--- schema-scaffolded/dormant (no real provider credentials — see the Device &
--- Wearable Integration section of CLAUDE.md). When wearables go live, a
--- 'wearable_steps' metric can be added the same way as any other.
+-- Wellness gamification, part 3: time-boxed challenges scoped to metrics the
+-- platform can already measure from logged activity (not step-count/MVPA —
+-- consumer wearables are still schema-scaffolded/dormant).
 
 do $$ begin
   if not exists (select 1 from pg_type where typname = 'wellness_challenge_metric') then
@@ -43,7 +40,6 @@ create table public.patient_challenge_enrolments (
 );
 create index patient_challenge_enrolments_patient_idx
   on public.patient_challenge_enrolments (patient_id, status);
--- At most one active enrolment per patient per challenge at a time.
 create unique index patient_challenge_enrolments_one_active
   on public.patient_challenge_enrolments (patient_id, challenge_id) where status = 'active';
 
@@ -52,11 +48,6 @@ create trigger wellness_challenges_set_updated_at
   before update on public.wellness_challenges
   for each row execute function private.set_updated_at();
 
--- ---------------------------------------------------------------------------
--- Shared progress counter — used by both the patient-facing progress RPC and
--- the nightly completion sweep, so there is exactly one place metric ->
--- source-table mapping lives.
--- ---------------------------------------------------------------------------
 create or replace function private.wellness_challenge_metric_count(
   p_patient uuid,
   p_metric public.wellness_challenge_metric,
@@ -96,10 +87,6 @@ begin
   return coalesce(v_count, 0);
 end;
 $$;
-
--- ---------------------------------------------------------------------------
--- Public RPCs
--- ---------------------------------------------------------------------------
 
 create or replace function public.enrol_in_wellness_challenge(p_challenge_id uuid)
 returns uuid
@@ -161,12 +148,6 @@ revoke execute on function public.wellness_challenge_progress(uuid) from public,
 grant execute on function public.enrol_in_wellness_challenge(uuid) to authenticated;
 grant execute on function public.wellness_challenge_progress(uuid) to authenticated;
 
--- ---------------------------------------------------------------------------
--- Nightly sweep: complete or expire every active enrolment. Completion pays
--- the challenge's points + (if set) its badge directly — challenge_completions
--- criteria badges still pick it up too via check_and_award_wellness_badges,
--- called inside award_wellness_points.
--- ---------------------------------------------------------------------------
 create or replace function private.evaluate_wellness_challenges()
 returns void
 language plpgsql
@@ -215,9 +196,6 @@ select cron.schedule(
   $$select private.evaluate_wellness_challenges();$$
 );
 
--- ---------------------------------------------------------------------------
--- RLS
--- ---------------------------------------------------------------------------
 alter table public.wellness_challenges enable row level security;
 alter table public.patient_challenge_enrolments enable row level security;
 
@@ -226,8 +204,6 @@ create policy wellness_challenges_select on public.wellness_challenges
 create policy wellness_challenges_write on public.wellness_challenges
   for all to authenticated using (private.is_admin()) with check (private.is_admin());
 
--- Read-only for authenticated; every write happens inside the definer RPCs/
--- cron above (no INSERT/UPDATE policy — a patient can't hand-edit progress).
 create policy patient_challenge_enrolments_select on public.patient_challenge_enrolments
   for select to authenticated
   using (patient_id = (select auth.uid()) or private.is_org_staff(organisation_id));
@@ -235,11 +211,9 @@ create policy patient_challenge_enrolments_select on public.patient_challenge_en
 grant select, insert, update, delete on public.wellness_challenges to authenticated;
 grant select on public.patient_challenge_enrolments to authenticated;
 
--- ---------------------------------------------------------------------------
--- Seed: 3 starter challenges built from metrics the platform already logs.
--- ---------------------------------------------------------------------------
 insert into public.wellness_challenges (code, title, description, metric, target_count, duration_days, points_reward) values
   ('vitals_week',   '5-Day Vitals Streak', 'Log a vitals reading on 5 different days this week.', 'vitals_logs', 5, 7, 100),
   ('meal_week',     'Meal Log Week',       'Log 5 meals this week.',                                'meal_logs', 5, 7, 100),
   ('learn_3',       'Learn 3 Lessons',     'Complete 3 health education lessons.',                  'education_lessons', 3, 14, 150)
 on conflict (code) do nothing;
+;

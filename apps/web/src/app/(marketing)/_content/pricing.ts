@@ -34,9 +34,10 @@
  * earlier "clinician is the default face" rule in
  * docs/CLINICAL_TRUST_MODEL_SPEC.md §9) are back to "doctor" everywhere in
  * this file, matching the docx and the current spec. Escalation-triggered
- * doctor review (Priority doctor escalation) and explicitly paid/booked
- * doctor appointments (Dedicated Care Coordinator) were already correctly
- * attributed to "doctor" and are unchanged.
+ * doctor review (Priority doctor escalation) was already correctly attributed
+ * to "doctor" and is unchanged. (The Dedicated Care Coordinator add-on, also
+ * named here previously, was withdrawn 2026-07-31 — see the note further down
+ * where its card used to sit.)
  */
 
 export type PricingLabel = "INCLUDED" | "BOOK & PAY" | "FREE ELSEWHERE" | "ADD-ON";
@@ -337,21 +338,13 @@ export const ADD_ONS: PricingAddOn[] = [
     availability:
       "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Tarragon Prevent and above — this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
   },
-  {
-    id: "care-coordinator",
-    name: "Dedicated Care Coordinator",
-    price: "+₦30,000/month",
-    label: "ADD-ON",
-    description:
-      "Turns Complete Care (₦15,000/month) into a fully dedicated service at ₦45,000/month total. Built for a parent or relative who needs closer, more personal attention, especially popular with diaspora families. Add it to their own subscription: everyone enrols individually, and you can pay for it by funding their Health Wallet.",
-    items: [
-      { feature: "One dedicated care coordinator (not a rotating queue)", label: "INCLUDED" },
-      { feature: "A scheduled, booked monthly doctor appointment", label: "INCLUDED" },
-      { feature: "Quarterly PDF health report sent to the family", label: "INCLUDED" },
-      { feature: "Priority escalation", label: "INCLUDED" },
-    ],
-    availability: "Added to Complete Care.",
-  },
+  // 'care-coordinator' (Dedicated Care Coordinator, +₦30,000/month) removed
+  // 2026-07-31, matching the same-date withdrawal in seed.sql and the
+  // withdraw_dedicated_care_coordinator_addon migration. It advertised a named
+  // human assigned to one patient; the founder confirmed the operating model
+  // will not include dedicated per-patient staff. Both add_ons rows are
+  // is_active = false in production, so leaving the card up would have sold a
+  // product that cannot be bought.
   {
     id: "starter-kit",
     name: "BP Monitor & Glucometer Starter Kit",

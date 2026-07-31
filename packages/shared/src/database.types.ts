@@ -7422,6 +7422,30 @@ export type Database = {
           },
         ]
       }
+      partner_license_expiry_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          notified_on: string
+          partner_id: string
+          partner_table: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notified_on?: string
+          partner_id: string
+          partner_table: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notified_on?: string
+          partner_id?: string
+          partner_table?: string
+        }
+        Relationships: []
+      }
       pathway_attestations: {
         Row: {
           attested_at: string
@@ -12754,14 +12778,6 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
-      propose_video_visit_alternate_slots: {
-        Args: { p_request_id: string; p_slot_ids: string[] }
-        Returns: undefined
-      }
-      select_video_visit_alternate_slot: {
-        Args: { p_request_id: string; p_slot_id: string }
-        Returns: string
-      }
       enqueue_critical_notification: {
         Args: {
           p_alert_tier: Database["public"]["Enums"]["alert_level"]
@@ -12779,7 +12795,6 @@ export type Database = {
         Args: { p_challenge_id: string }
         Returns: string
       }
-      video_visit_acceptance_stats: { Args: never; Returns: Json }
       finance_accounts_list: { Args: never; Returns: Json }
       finance_ap_aging: { Args: never; Returns: Json }
       finance_approval_history: { Args: { p_limit?: number }; Returns: Json }
@@ -13057,12 +13072,12 @@ export type Database = {
         Args: never
         Returns: {
           order_id: string
-          order_number: string | null
+          order_number: string
           ordered_at: string
-          panel_name: string | null
-          patient_name: string | null
-          patient_number: string | null
-          resulted_at: string | null
+          panel_name: string
+          patient_name: string
+          patient_number: string
+          resulted_at: string
           status: string
         }[]
       }
@@ -13081,7 +13096,7 @@ export type Database = {
           p_file_path: string
           p_file_size_bytes: number
           p_mime_type: string
-          p_note?: string | null
+          p_note: string | null
           p_order_id: string
           p_original_filename: string
         }
@@ -13104,13 +13119,13 @@ export type Database = {
         Args: never
         Returns: {
           baseline_done: boolean
-          completed_at: string | null
+          completed_at: string
           consistency_done: boolean
           day_number: number
           programme_set_done: boolean
           reset_id: string
           started_at: string
-          trial_claimed_at: string | null
+          trial_claimed_at: string
         }[]
       }
       pharmacist_order_allergies: {
@@ -13154,6 +13169,10 @@ export type Database = {
         Args: { p_body: string; p_thread_id: string }
         Returns: string
       }
+      propose_video_visit_alternate_slots: {
+        Args: { p_request_id: string; p_slot_ids: string[] }
+        Returns: undefined
+      }
       public_price_list: {
         Args: never
         Returns: {
@@ -13163,6 +13182,8 @@ export type Database = {
           price_minor: number
         }[]
       }
+      public_response_commitments: { Args: never; Returns: Json }
+      public_service_coverage: { Args: never; Returns: Json }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
       redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
       region_service_available: {
@@ -13225,6 +13246,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      select_video_visit_alternate_slot: {
+        Args: { p_request_id: string; p_slot_id: string }
+        Returns: string
       }
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }
@@ -13313,6 +13338,33 @@ export type Database = {
         Args: { p_signoff_id: string }
         Returns: string
       }
+      sponsor_book_care: {
+        Args: {
+          p_beneficiary: string
+          p_bundle_code: string
+          p_facility_id?: string
+        }
+        Returns: Json
+      }
+      sponsor_pay_booking_order: {
+        Args: {
+          p_beneficiary: string
+          p_order_id: string
+          p_order_type: string
+        }
+        Returns: Json
+      }
+      sponsor_payable_orders: { Args: { p_beneficiary: string }; Returns: Json }
+      sponsor_set_dependent_basics: {
+        Args: {
+          p_beneficiary: string
+          p_city?: string | null
+          p_date_of_birth?: string | null
+          p_sex?: string | null
+          p_state?: string | null
+        }
+        Returns: Json
+      }
       start_care_thread: {
         Args: {
           p_body: string
@@ -13324,45 +13376,13 @@ export type Database = {
         Returns: string
       }
       touch_last_active: { Args: never; Returns: undefined }
-      wallet_pay_booking_order: {
-        Args: { p_order_id: string; p_order_type: string }
-        Returns: Json
-      }
+      video_visit_acceptance_stats: { Args: never; Returns: Json }
       wallet_kyc_balance_headroom: {
         Args: { p_profile: string }
-        Returns: number | null
-      sponsor_pay_booking_order: {
-        Args: { p_beneficiary: string; p_order_id: string; p_order_type: string }
-        Returns: Json
+        Returns: number
       }
-      sponsor_book_care: {
-        Args: { p_beneficiary: string; p_bundle_code: string; p_facility_id?: string | null }
-        Returns: Json
-      }
-      sponsor_payable_orders: {
-        Args: { p_beneficiary: string }
-        Returns: Json
-      }
-      sponsor_set_dependent_basics: {
-        Args: {
-          p_beneficiary: string
-          p_city?: string | null
-          p_date_of_birth?: string | null
-          p_sex?: string | null
-          p_state?: string | null
-        }
-        Returns: Json
-      }
-      public_service_coverage: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      enrol_in_wellness_challenge: {
-        Args: { p_challenge_id: string }
-        Returns: string
-      }
-      redeem_wellness_points: {
-        Args: { p_points: number }
+      wallet_pay_booking_order: {
+        Args: { p_order_id: string; p_order_type: string }
         Returns: Json
       }
       wellness_challenge_progress: {
@@ -13828,7 +13848,14 @@ export type Database = {
         | "adjustment"
         | "points_redemption"
       wearable_connection_status: "active" | "disconnected" | "error"
-      wearable_provider: "apple_health" | "oura" | "whoop" | "garmin" | "fitbit" | "dexcom" | "libre"
+      wearable_provider:
+        | "apple_health"
+        | "oura"
+        | "whoop"
+        | "garmin"
+        | "fitbit"
+        | "dexcom"
+        | "libre"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"

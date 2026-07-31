@@ -210,6 +210,7 @@ export function PlanSelector() {
           . If a charge does go through after a refresh, it will show on your Subscription page
           and we&apos;ll never charge you twice for the same plan.
         </p>
+      )}
       <p className="text-center text-xs text-charcoal-ink/50">
         You can change or cancel your plan any time from your dashboard.
       </p>

@@ -95,6 +95,8 @@ function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text: checkinCopy[checkinType] ?? `A check-in for ${drug} is due`,
       href: "/patient#medications",
+    };
+  }
   if (n.template === "sponsor_spend_receipt") {
     // From private.notify_sponsors_of_wallet_spend(). The receipt a person who
     // funded someone else's care gets when that money actually becomes care.
