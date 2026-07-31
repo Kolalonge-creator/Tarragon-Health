@@ -76,9 +76,23 @@ export function SubscriptionManager() {
   const status = STATUS_BADGE[subscription.status] ?? { label: subscription.status, variant: "grey" as const };
   const currentPlanCode = subscription.plan?.code ?? null;
   const currency = currencyOverride ?? ((subscription.plan?.currency as Currency | undefined) ?? "NGN");
-  const otherPlans = (plans ?? []).filter(
+  const switchablePlans = (plans ?? []).filter(
     (p) => p.code !== currentPlanCode && (p.code === "free" || p.currency === currency),
   );
+  /**
+   * Dollars lead with the yearly row, naira keeps its natural order.
+   *
+   * Same reasoning as the onboarding plan selector: a dollar plan is the naira
+   * price converted, so buying it monthly is twelve small card charges a year
+   * and each one loses a flat processing fee. Only the order changes here;
+   * every monthly row is still listed and still switchable.
+   */
+  const otherPlans =
+    currency === "USD"
+      ? [...switchablePlans].sort(
+          (a, b) => (a.interval === "yearly" ? 0 : 1) - (b.interval === "yearly" ? 0 : 1),
+        )
+      : switchablePlans;
   const attachedCodes = new Set((addOns ?? []).map((a) => a.add_on?.code).filter(Boolean));
   const attachableAddOns = (catalogue ?? []).filter(
     (a) =>

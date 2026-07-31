@@ -484,6 +484,55 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Sent to whoever funded someone else's Health Wallet, when that money
+  // actually becomes care (private.notify_sponsors_of_wallet_spend). Queued on
+  // in_app and email only: a sponsor abroad often has no Nigerian number, and
+  // email needs no template approval to reach them. Names the service category
+  // and the amount and nothing else — funding care does not entitle anyone to
+  // read it, so there is deliberately no result, test name or clinician here.
+  sponsor_spend_receipt: (payload) => {
+    const beneficiary = String(payload.beneficiary_name ?? "someone you support");
+    const what = String(payload.what ?? "care");
+    const amount = (Number(payload.amount_kobo ?? 0) / 100).toLocaleString("en-NG");
+    const balance = (Number(payload.balance_kobo ?? 0) / 100).toLocaleString("en-NG");
+    const spentOn = String(payload.spent_on ?? "");
+    const smsText =
+      `Tarragon Health: ₦${amount} you funded paid for ${what} for ${beneficiary}` +
+      `${spentOn ? ` on ${spentOn}` : ""}. Remaining balance ₦${balance}.`;
+    return {
+      metaTemplateName: "sponsor_spend_receipt",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: amount },
+            { type: "text", text: what },
+            { type: "text", text: beneficiary },
+            { type: "text", text: balance },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your ₦${amount} paid for ${what} for ${beneficiary}`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Money you put into ${beneficiary}&rsquo;s Health Wallet has been used.</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Paid for</td><td style="padding:4px 0"><strong>${what}</strong></td></tr>` +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Amount</td><td style="padding:4px 0"><strong>&#8358;${amount}</strong></td></tr>` +
+          (spentOn
+            ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Date</td><td style="padding:4px 0">${spentOn}</td></tr>`
+            : "") +
+          `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Balance left</td><td style="padding:4px 0">&#8358;${balance}</td></tr>` +
+          `</table>` +
+          `<p style="color:#5b6b78;font-size:13px">You can see everything you have funded, and what it paid for, under People you support in your dashboard. Their readings, results and notes stay between them and their care team.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+      },
+    };
+  },
   // Sent to the patient on the lab_orders payment_confirmed transition (see
   // enqueue_lab_order_lab_notifications) — the lab_orders equivalent of
   // pharmacy_order_patient_confirmation. lab_name prefers the chosen physical

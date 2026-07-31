@@ -51,6 +51,19 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/family",
     };
   }
+  if (n.template === "sponsor_spend_receipt") {
+    // From private.notify_sponsors_of_wallet_spend(). The receipt a person who
+    // funded someone else's care gets when that money actually becomes care.
+    // Names the service category and the amount, never a result: paying for
+    // care and being allowed to read it are separate permissions.
+    const name = String(payload.beneficiary_name ?? "Someone you support");
+    const what = String(payload.what ?? "care");
+    const amount = Number(payload.amount_kobo ?? 0) / 100;
+    return {
+      text: `₦${amount.toLocaleString("en-NG")} you funded paid for ${what} for ${name}`,
+      href: "/patient/supporting",
+    };
+  }
   if (n.template === "critical_notification_escalation_exhausted") {
     // From private.escalate_unconfirmed_critical_notifications() —
     // every channel in a critical alert's ladder (push -> whatsapp -> sms)

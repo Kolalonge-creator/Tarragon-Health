@@ -31,6 +31,7 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
             { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
             { label: "Your people", href: "/patient/family", icon: "family" },
+            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
           ],
         },

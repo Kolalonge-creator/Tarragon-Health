@@ -226,6 +226,47 @@ export const USD_TIERS: PricingTier[] = [
   },
 ];
 
+/**
+ * The diaspora pitch, reframed.
+ *
+ * The old framing sold a health subscription to someone abroad and then had to
+ * explain why half of it would not work for them. That is a weak sale and an
+ * awkward one, and it competes on the wrong axis: against a Nigerian health app
+ * for a buyer who is not in Nigeria.
+ *
+ * The actual job is different. Money already goes home for health, constantly,
+ * and it arrives with no receipt and no way to know it reached care rather than
+ * general upkeep. The competitor is not another health platform, it is a
+ * transfer app plus hope. That is what this block sells, and it is the one
+ * thing a transfer app structurally cannot do.
+ *
+ * Deliberately makes no claim about price being lower, higher or better value
+ * than anything else. The plans cost the same everywhere; the reason to buy is
+ * not the number.
+ */
+export const DIASPORA_SPONSOR_PITCH = {
+  title: "You already send money home for health",
+  body: "What you do not get back is any way of knowing what it paid for. Fund a relative's Health Wallet instead and every naira is accounted for: what was booked, on what date, at which partner, and what is left over.",
+  points: [
+    {
+      title: "A receipt, not a transfer",
+      body: "When their wallet pays for a lab test or a prescription, you are told what it bought and what the balance is now. You do not have to ask, and they do not have to remember to tell you.",
+    },
+    {
+      title: "You fund the care without holding the account",
+      body: "They keep their own account, their own plan and their own privacy. You see what their care costs. You do not see their readings, results or notes unless they give you that access themselves.",
+    },
+    {
+      title: "Somebody is watching between visits",
+      body: "The gap where things go wrong is the months between appointments, which is exactly the stretch you cannot cover from another time zone. A flagged reading reaches a doctor whether or not you are awake.",
+    },
+    {
+      title: "You do not need your own plan to do it",
+      body: "Funding someone else's care is not a paid feature and never has been. If a plan for yourself is not much use where you live, do not buy one.",
+    },
+  ],
+};
+
 export const DIASPORA_ONE_PRICE_NOTE =
   "The dollar price is the naira price, converted. Tarragon runs one price list, so the same plan costs the same whether it is paid for from Lagos or from London. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you can fund it from their Health Wallet.";
 

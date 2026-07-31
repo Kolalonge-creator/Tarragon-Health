@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { syncPlanToStripe } from "@/lib/stripe/plans";
 import { syncPlanToPaystack } from "@/lib/paystack/plans";
@@ -56,9 +57,26 @@ export async function saveCurrencyRates(
     return { error: parsed.error.issues[0]?.message ?? "The rate must be a positive number" };
   }
 
+  /**
+   * The rate move goes through the caller's OWN session, not the service role.
+   *
+   * set_usd_reference_rate gates on private.is_admin(), which resolves
+   * auth.uid() against profiles. A service-role client carries no uid at all,
+   * so is_admin() was returning false and this RPC raised
+   * "only a superadmin may change the reference rate" on every single attempt.
+   * The form had therefore never once saved: platform_currency_settings still
+   * showed updated_by = null and an updated_at matching the migration that
+   * seeded the rate (20260729143814), not a human.
+   *
+   * requireAdmin() above is still the app-layer gate; this just stops us
+   * throwing away the identity the database gate needs. The service-role client
+   * is still the right tool further down, where resyncDerivedRows writes
+   * is_active and provider ids that no ordinary session may touch.
+   */
+  const asCaller = await createClient();
   const supabase = createServiceRoleClient();
 
-  const { error: rpcError } = await supabase.rpc("set_usd_reference_rate", {
+  const { error: rpcError } = await asCaller.rpc("set_usd_reference_rate", {
     p_ngn_per_usd: parsed.data.ngn_per_usd,
   });
   if (rpcError) return { error: rpcError.message };
@@ -84,6 +102,41 @@ export async function saveCurrencyRates(
         ? "Rate saved. No prices changed."
         : `Rate saved. ${synced.ok} price${synced.ok === 1 ? "" : "s"} rebuilt at Paystack/Stripe and switched back on.`,
   };
+}
+
+/**
+ * Records that a person looked at the rate and it is still right.
+ *
+ * "Reviewed" and "changed" are different outcomes, and the common one is
+ * reviewed-and-unchanged. Without a way to record that, the only way to clear
+ * the review clock would be to move a price nobody wanted moved.
+ *
+ * Safe by construction, not by care: private.on_currency_rate_change only calls
+ * recompute_derived_prices `if new.ngn_per_usd is distinct from old.ngn_per_usd`.
+ * Re-saving the same number therefore moves updated_at and updated_by and
+ * touches no price, no provider object, and nothing that is on sale. Verified
+ * against the live trigger definition rather than assumed.
+ */
+export async function confirmRateReviewed(): Promise<DiasporaPricingState> {
+  await requireAdmin();
+  const supabase = await createClient();
+
+  const { data: settings } = await supabase
+    .from("platform_currency_settings")
+    .select("ngn_per_usd")
+    .eq("id", true)
+    .maybeSingle();
+
+  const rate = settings?.ngn_per_usd == null ? null : Number(settings.ngn_per_usd);
+  if (rate === null) {
+    return { error: "There is no rate to confirm yet. Set one above first." };
+  }
+
+  const { error } = await supabase.rpc("set_usd_reference_rate", { p_ngn_per_usd: rate });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/settings/diaspora-pricing");
+  return { message: `Marked as reviewed today at ₦${rate.toLocaleString()} to $1. No price changed.` };
 }
 
 /** Retries the provider sync without touching the rate. */
