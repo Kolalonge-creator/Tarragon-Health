@@ -1694,6 +1694,53 @@ web tests / full production build all green.
   read set; a browser click-through of consent → three-way thread → revoke once a test credential is
   approved.
 
+### 2026-07-31 — Release: seven parallel branches integrated + migration history reconciled ([PR #191](https://github.com/Kolalonge-creator/Tarragon-Health/pull/191))
+Seven branches sitting in clean worktrees were integrated into `main-dev` and released to
+production. `main` and `main-dev` are now **fully reconciled (0/0)** and `supabase/migrations/`
+matches the **377** applied migrations exactly — verified by parsing
+`supabase migration list --linked`, not by counting files.
+- **Integrated (in this order):** `claude/marketing-site-10-of-10`, `worktree-lab-partner-readiness`,
+  `worktree-patient-experience-overhaul`, `worktree-healthy-patient-10-of-10`,
+  `worktree-nigeria-regulatory-hardening`, `worktree-diaspora-sponsor-build`,
+  `worktree-obesity-patient-experience-10x`.
+- **A real duplicate-version bug, exactly the class this file already warns about.**
+  `20260730120000` was claimed by **both** `provenance_fk_hardening` and
+  `wellness_points_and_badges`. `supabase_migrations.version` is the PK, so only the first could
+  ever record — the wellness work had actually been applied as **seven** migrations at
+  `20260730025552`–`025803`, recovered here from `schema_migrations.statements`. Four further files
+  whose hand-typed round-number timestamps never matched what recorded were renamed
+  (`i14_vitals_reading_source_lock`, `partner_regulatory_license_tracking`,
+  `wallet_kyc_tiers_and_aml_flags`, `data_breach_incidents`). Two migrations existing on no branch
+  (`complete_care_unbundle`/`rebundle_annual_review`) were pulled in. **Never hand-type a
+  round-number migration timestamp.**
+- **One genuinely-unapplied migration applied to production:**
+  `20260730223500_condition_language_preference` (additive column, default preserves prior
+  behaviour) — the merged `ConditionLanguageForm` depends on it.
+- **Founder decision — wellness points redemption stays ₦0.50/point.** Two sessions had
+  independently "fixed" the degenerate rate to different numbers; the unapplied ₦1.00 variant was
+  deleted (its assertion block would have failed the deploy, since live was no longer 1).
+- **Removed the Dedicated Care Coordinator add-on from marketing.** Both `add_ons` rows were
+  already `is_active = false` and `seed.sql` had dropped it, but `/pricing` still advertised it at
+  +₦30,000/month — selling a product nobody could buy. The stale reference in the "never promise
+  one named doctor" rule above was corrected in the same pass.
+- **⚠️ The release was blocked once, and the cause is worth remembering:** tightening the
+  video-visit refund cron to `0 */4 * * *` (the 24h-SLA pass) makes Vercel **refuse to create a
+  deployment at all** on this account's plan — no build object exists, so there are no build logs,
+  and the only signal is a `vercel.link` short URL that redirects to `cron-jobs/usage-and-pricing`.
+  Reverted to daily (`30 5 * * *`), which deploys. The 24h expiry semantics in the DB are unchanged;
+  only sweep frequency is, so a request expiring just after a sweep can wait up to roughly another
+  day for its refund to execute. **To genuinely honour the 24h SLA, move this sweep to pg_cron**
+  (~20 jobs already run there with no plan-imposed frequency limit; `20260706091332` is the
+  existing pg_net precedent) or raise the Vercel plan — founder's call, flagged not silently shipped.
+- **Verified:** typecheck clean, lint 0 errors (same 2 pre-existing warnings), **555 web + 47
+  shared tests**, full production build (221 static pages), all four CI checks green, and the live
+  site confirmed after deploy — `/pricing`, the new `/pricing/how-it-works`, `/coverage` and
+  `/accountability` all 200 with no console errors, `/coverage` correctly reading real data
+  ("live in Lagos"), and zero occurrences of the withdrawn add-on. `get_advisors` security shows no
+  regression: the three "Public Can Execute SECURITY DEFINER" findings are the intentional
+  `public_price_list`/`public_service_coverage`/`public_response_commitments` marketing endpoints
+  (aggregate only, no PHI, `SET search_path TO ''`).
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
@@ -1714,7 +1761,7 @@ web tests / full production build all green.
 - Never infer or default a `doctor_tier` in code — an unset tier means the record needs an admin to assign one; same null-gating principle as `reviewed_by`/`reviewed_at`
 - Never rebuild the Annual Health Review as a parallel review record that re-does the condition reviews — it is an orchestration layer that **adopts + rolls** the patient's existing `medication_reviews` (and reuses `patient_risk_scores`/`care_plans`/Zoom `video_consultations`); condition-specific reviews must stay intact and running on their own cadence (see 2026-07-17 Current Sprint entry)
 - Never build functional code (not just schema scaffolding) for the full referral-matching pipeline, patient-initiated wellness testing, or Employer/HMO risk dashboards without an explicit ask — see Clinical Tier Ladder above. (Home sample collection and medication delivery logistics were the same kind of guardrail until pulled forward on explicit ask 2026-07-16 — see Current Sprint.)
-- **Superseded 2026-07-15, then corrected 2026-07-30 — Tarragon employs its own doctors, but never promise ONE continuous named doctor.** The 2026-07-15 wording ("a named doctor is the default face of the day-to-day patient relationship") is retired: patient feedback flagged that a real, shift-covered care team can't honestly promise the same individual every time without either lying or overloading one person. Care is delivered by a **team** of MDCN-registered doctors with coverage shared across the team for effective staffing (see the onboarding "How your care works here" copy and `trust-band.tsx`'s "A real care team, always accountable" for the current patient-facing wording) — never describe it as one named doctor following a patient. **What does NOT change:** per-case attribution stays real and mandatory — every doctor review, escalation resolution, or verified certificate still carries the real reviewing doctor's name via the null-gated `ReviewedByDoctor` pattern (see the rule below), and the Dedicated Care Coordinator add-on's genuine continuity promise ("not a rotating queue") is unaffected, just reworded off "named doctor coordinator." `docs/CLINICAL_TRUST_MODEL_SPEC.md` §1, §9 still needs a follow-up pass to match this correction — flagged, not yet done.
+- **Superseded 2026-07-15, then corrected 2026-07-30 — Tarragon employs its own doctors, but never promise ONE continuous named doctor.** The 2026-07-15 wording ("a named doctor is the default face of the day-to-day patient relationship") is retired: patient feedback flagged that a real, shift-covered care team can't honestly promise the same individual every time without either lying or overloading one person. Care is delivered by a **team** of MDCN-registered doctors with coverage shared across the team for effective staffing (see the onboarding "How your care works here" copy and `trust-band.tsx`'s "A real care team, always accountable" for the current patient-facing wording) — never describe it as one named doctor following a patient. **What does NOT change:** per-case attribution stays real and mandatory — every doctor review, escalation resolution, or verified certificate still carries the real reviewing doctor's name via the null-gated `ReviewedByDoctor` pattern (see the rule below), and the per-case rule below is untouched. **The Dedicated Care Coordinator add-on referenced by the earlier version of this bullet no longer exists** — it was withdrawn 2026-07-31 as mis-selling (the operating model will not include dedicated per-patient staff), its `add_ons` rows are `is_active = false`, and its marketing card was removed in the same release. `docs/CLINICAL_TRUST_MODEL_SPEC.md` §1, §9 were rewritten to match this correction (PR #186).
 
 ## Where to Look
 - System architecture, topology, RLS model, event pipelines, infra → `docs/ARCHITECTURE.md`
