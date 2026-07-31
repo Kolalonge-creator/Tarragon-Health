@@ -136,9 +136,34 @@ export function useSupportedPeople() {
 
 export type SupportedPersonHealth = {
   latestBloodPressure: { systolic: number | null; diastolic: number | null; takenAt: string } | null;
+  /**
+   * The reading before the latest one, so a number can be shown as moving
+   * rather than floating. "156/96, up from 148/90" is a fact about two
+   * readings; it is not a judgement about either.
+   */
+  previousBloodPressure: { systolic: number | null; diastolic: number | null } | null;
+  /**
+   * The blood-pressure target on this person's own care plan, quoted rather
+   * than computed. Showing "their care team's target is under 140/90" repeats
+   * what a clinician already wrote down; it does not interpret anything, and
+   * without it a sponsor is looking at a number with no scale.
+   */
+  bloodPressureTarget: { systolic: number; diastolic: number } | null;
   latestReadingAt: string | null;
   activeConditions: string[];
-  medications: { id: string; drugName: string; dose: string | null }[];
+  medications: {
+    id: string;
+    drugName: string;
+    dose: string | null;
+    /** When the current supply runs out, so a sponsor can settle it early. */
+    refillDate: string | null;
+    /**
+     * Computed here rather than at render time: reading the clock during
+     * render is impure and the lint rule that catches it is correct — the
+     * value would differ between server and client passes.
+     */
+    daysUntilRefill: number | null;
+  }[];
   nextScreeningDue: string | null;
   screeningsDue: number;
   riskLevel: string | null;
@@ -147,6 +172,75 @@ export type SupportedPersonHealth = {
   /** Escalations still open or under review: "someone is on it", not what it is. */
   openFollowUps: number;
 };
+
+/**
+ * Whether anyone is actually doing anything about it.
+ *
+ * This is the gap that mattered most. A sponsor could be shown a blood
+ * pressure of 156/96 as a flat number while the platform had ALREADY raised a
+ * doctor alert with a review deadline three days out — and never said so. The
+ * alert lives in clinician_alerts, which carries the same consent clause as
+ * everything else here, so the sponsor was permitted to know all along; the
+ * page just queried escalations, which was empty.
+ *
+ * Deliberately an RPC rather than a direct read. clinician_alerts holds
+ * `title` and `detail` — real clinical reasoning — and going through
+ * sponsor_care_status means the interpretation cannot reach this client even
+ * by accident. Counts and dates only, enforced in the function body and
+ * asserted over in its own migration.
+ */
+export type SupportedPersonCareStatus = {
+  openCount: number;
+  nextReviewDue: string | null;
+  reviewOverdue: boolean;
+  lastReviewedAt: string | null;
+};
+
+export function useSupportedPersonCareStatus(profileId: string, hasConsent: boolean) {
+  return useQuery({
+    queryKey: ["sponsorship", "care-status", profileId],
+    enabled: Boolean(profileId) && hasConsent,
+    queryFn: async (): Promise<SupportedPersonCareStatus> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("sponsor_care_status", {
+        p_beneficiary: profileId,
+      });
+      if (error) throw error;
+      const row = (data ?? {}) as Record<string, unknown>;
+      return {
+        openCount: typeof row.open_count === "number" ? row.open_count : 0,
+        nextReviewDue: typeof row.next_review_due === "string" ? row.next_review_due : null,
+        reviewOverdue: row.review_overdue === true,
+        lastReviewedAt: typeof row.last_reviewed_at === "string" ? row.last_reviewed_at : null,
+      };
+    },
+  });
+}
+
+/**
+ * Turns a due refill into a bill the sponsor can settle.
+ *
+ * A medication with a refill date five days out was visible on this page and
+ * completely unactionable: there was no pharmacy order to pay, and no way to
+ * create one. The RPC underneath refuses anything that is not already an
+ * active clinician-prescribed medication, so this asks a pharmacy to dispense
+ * what a doctor already decided — it never becomes a route to a new
+ * prescription.
+ */
+export function useSponsorRequestRefill() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { beneficiaryId: string; medicationId: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("sponsor_request_refill", {
+        p_beneficiary: input.beneficiaryId,
+        p_medication_id: input.medicationId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sponsorship"] }),
+  });
+}
 
 /**
  * How the person you support is actually doing.
@@ -176,7 +270,9 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
           .eq("patient_id", profileId)
           .eq("vital_type", "blood_pressure")
           .order("taken_at", { ascending: false })
-          .limit(1),
+          // Two, so the latest reading can be shown as moving rather than
+          // floating on its own with no scale.
+          .limit(2),
         supabase
           .from("vitals_readings")
           .select("taken_at")
@@ -185,12 +281,12 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
           .limit(1),
         supabase
           .from("care_plans")
-          .select("condition")
+          .select("condition, target_ranges")
           .eq("patient_id", profileId)
           .eq("status", "active"),
         supabase
           .from("medications")
-          .select("id, drug_name, dose")
+          .select("id, drug_name, dose, refill_date")
           .eq("patient_id", profileId)
           .eq("is_active", true)
           .order("drug_name"),
@@ -220,7 +316,24 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
       ]);
 
       const firstBp = bp.data?.[0] ?? null;
+      const priorBp = bp.data?.[1] ?? null;
       const due = (screenings.data ?? []).filter((row) => row.due_date <= today);
+
+      // Quoted straight off whichever active care plan records one. This is
+      // the clinician's own number, not a guideline this file has opinions
+      // about — if no plan sets a target, none is shown.
+      const bpTarget = (() => {
+        for (const plan of plans.data ?? []) {
+          const ranges = plan.target_ranges as Record<string, unknown> | null;
+          const bpRange = ranges?.blood_pressure as Record<string, unknown> | undefined;
+          const sys = bpRange?.systolic_max ?? bpRange?.systolic;
+          const dia = bpRange?.diastolic_max ?? bpRange?.diastolic;
+          if (typeof sys === "number" && typeof dia === "number") {
+            return { systolic: sys, diastolic: dia };
+          }
+        }
+        return null;
+      })();
 
       return {
         latestBloodPressure: firstBp
@@ -230,12 +343,20 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
               takenAt: firstBp.taken_at,
             }
           : null,
+        previousBloodPressure: priorBp
+          ? { systolic: priorBp.systolic, diastolic: priorBp.diastolic }
+          : null,
+        bloodPressureTarget: bpTarget,
         latestReadingAt: latest.data?.[0]?.taken_at ?? null,
         activeConditions: (plans.data ?? []).map((row) => row.condition),
         medications: (meds.data ?? []).map((row) => ({
           id: row.id,
           drugName: row.drug_name,
           dose: row.dose,
+          refillDate: row.refill_date,
+          daysUntilRefill: row.refill_date
+            ? Math.ceil((new Date(row.refill_date).getTime() - Date.now()) / 86_400_000)
+            : null,
         })),
         nextScreeningDue: screenings.data?.[0]?.due_date ?? null,
         screeningsDue: due.length,
@@ -254,19 +375,26 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
 
 export type SponsorPayableOrder = {
   order_id: string;
-  order_type: "lab" | "pharmacy" | "referral";
+  /**
+   * `video_visit` was the one order type missing, and the one most likely to
+   * need somebody else to settle it: an elderly parent asked to pay up front
+   * for a doctor call is exactly where a sponsor should be able to step in.
+   */
+  order_type: "lab" | "pharmacy" | "referral" | "video_visit";
   /** Category only. Never the specific test or drug: see sponsor_payable_orders. */
   label: string;
   amount_kobo: number;
   created_at: string;
 };
 
+const PAYABLE_ORDER_TYPES = ["lab", "pharmacy", "referral", "video_visit"] as const;
+
 function isPayableOrder(value: unknown): value is SponsorPayableOrder {
   if (typeof value !== "object" || value === null) return false;
   const row = value as Record<string, unknown>;
   return (
     typeof row.order_id === "string" &&
-    (row.order_type === "lab" || row.order_type === "pharmacy" || row.order_type === "referral") &&
+    PAYABLE_ORDER_TYPES.includes(row.order_type as (typeof PAYABLE_ORDER_TYPES)[number]) &&
     typeof row.label === "string" &&
     typeof row.amount_kobo === "number"
   );

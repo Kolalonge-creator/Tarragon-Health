@@ -20,7 +20,7 @@ export function SignupForm({
   refCode?: string;
   /** Carried through auth metadata so onboarding can land the visitor on what
    *  they came for. Hidden field, same mechanism as refCode. */
-  intent?: "health_check";
+  intent?: "health_check" | "support";
 }) {
   const [state, formAction, pending] = useActionState(signUp, undefined);
 

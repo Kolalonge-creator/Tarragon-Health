@@ -26,14 +26,16 @@ export function getNavSections(role: string | null | undefined): NavSection[] {
           items: [
             { label: "Dashboard", href: "/patient", icon: "dashboard", exact: true },
             { label: "Messages", href: "/patient/messages", icon: "messages" },
+            // Somebody funding a parent's care is here for this and nothing
+            // else. It used to sit tenth, below the caller's own wellness
+            // points, which buried the entire reason a sponsor logs in.
+            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
-            { label: "Messages", href: "/patient/messages", icon: "messages" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
             { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
             { label: "Your people", href: "/patient/family", icon: "family" },
-            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
           ],
         },

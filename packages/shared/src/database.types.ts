@@ -9569,6 +9569,7 @@ export type Database = {
           metadata: Json
           next_of_kin_name: string | null
           next_of_kin_phone: string | null
+          account_purpose: Database["public"]["Enums"]["account_purpose"]
           onboarding_completed_at: string | null
           organisation_id: string | null
           patient_number: string | null
@@ -9604,6 +9605,7 @@ export type Database = {
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
+          account_purpose?: Database["public"]["Enums"]["account_purpose"]
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -9639,6 +9641,7 @@ export type Database = {
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
+          account_purpose?: Database["public"]["Enums"]["account_purpose"]
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -10938,6 +10941,7 @@ export type Database = {
         Row: {
           amount_minor: number
           cancel_at_period_end: boolean
+          paid_by_profile_id: string | null
           cancelled_at: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
@@ -10958,6 +10962,7 @@ export type Database = {
         Insert: {
           amount_minor?: number
           cancel_at_period_end?: boolean
+          paid_by_profile_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -10978,6 +10983,7 @@ export type Database = {
         Update: {
           amount_minor?: number
           cancel_at_period_end?: boolean
+          paid_by_profile_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -13334,7 +13340,12 @@ export type Database = {
         }
         Returns: Json
       }
+      sponsor_care_status: { Args: { p_beneficiary: string }; Returns: Json }
       sponsor_payable_orders: { Args: { p_beneficiary: string }; Returns: Json }
+      sponsor_request_refill: {
+        Args: { p_beneficiary: string; p_medication_id: string }
+        Returns: string
+      }
       sponsor_set_dependent_basics: {
         Args: {
           p_beneficiary: string
@@ -13363,6 +13374,7 @@ export type Database = {
       }
     }
     Enums: {
+      account_purpose: "care" | "support"
       activity_entry_type: "steps" | "workout"
       alert_level:
         | "routine"

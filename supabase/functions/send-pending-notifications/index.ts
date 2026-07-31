@@ -540,6 +540,89 @@ const TEMPLATE_MAP: Record<
   // email needs no template approval to reach them. Names the service category
   // and the amount and nothing else — funding care does not entitle anyone to
   // read it, so there is deliberately no result, test name or clinician here.
+  // The three below are the "somebody will tell me" half of supporting
+  // someone's care from a distance. Each is deliberately status-only, which is
+  // what makes them honestly non_clinical and safe on an open rail: a
+  // supporter is told THAT a doctor looked, never what was found.
+  sponsor_care_reviewed: (payload) => {
+    const person = String(payload.person_name ?? "someone you support");
+    const smsText =
+      `Tarragon Health: a doctor has reviewed something for ${person}. ` +
+      `They will discuss what was found with ${person} directly.`;
+    return {
+      metaTemplateName: "sponsor_care_reviewed",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: person }] }],
+      smsText,
+      pushUrl: "/patient/supporting",
+      email: {
+        subject: `A doctor has reviewed something for ${person}`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>A doctor on ${person}&rsquo;s care team has reviewed something flagged on their record.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">We tell you that a review happened, not what was found. That conversation belongs to ${person} and their doctor first. If you want to ask about it, you can do that in the shared thread under People you support.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+      },
+    };
+  },
+  sponsor_person_quiet: (payload) => {
+    const person = String(payload.person_name ?? "someone you support");
+    const days = String(payload.quiet_days ?? "several");
+    const smsText =
+      `Tarragon Health: ${person} has not logged a reading in ${days} days. A call from you often does more than a reminder from us.`;
+    return {
+      metaTemplateName: "sponsor_person_quiet",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: person }, { type: "text", text: days }] },
+      ],
+      smsText,
+      pushUrl: "/patient/supporting",
+      email: {
+        subject: `${person} has been quiet for ${days} days`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${person} is on a care plan that works best with regular readings, and has not logged one in ${days} days.</p>` +
+          `<p>Nothing is wrong as far as we know. People simply drift, and a call from family tends to do more than another reminder from us.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+      },
+    };
+  },
+  sponsored_plan_started: (payload) => {
+    const isPayer = payload.is_payer === true;
+    const plan = String(payload.plan_name ?? "a plan");
+    const person = String(payload.person_name ?? "someone");
+    const sponsor = String(payload.sponsor_name ?? "someone");
+    const smsText = isPayer
+      ? `Tarragon Health: you are now paying for ${person}'s ${plan}. They keep their own account and can cancel any time.`
+      : `Tarragon Health: ${sponsor} is now paying for your ${plan}. Your account and your records stay yours, and you can cancel any time.`;
+    return {
+      metaTemplateName: "sponsored_plan_started",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [{ type: "text", text: isPayer ? person : sponsor }, { type: "text", text: plan }],
+        },
+      ],
+      smsText,
+      pushUrl: isPayer ? "/patient/supporting" : "/patient/subscription",
+      email: {
+        subject: isPayer ? `You are now paying for ${person}'s ${plan}` : `${sponsor} is paying for your ${plan}`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          (isPayer
+            ? `<p>${person} is now on <strong>${plan}</strong>, billed to your card.</p>` +
+              `<p style="color:#5b6b78;font-size:13px">They keep their own account, their own records and their own control. You are paying for it; you are not holding it. Either of you can stop it at any time.</p>`
+            : `<p><strong>${sponsor}</strong> has put you on <strong>${plan}</strong> and is paying for it.</p>` +
+              `<p style="color:#5b6b78;font-size:13px">Nothing about your account changes. Your readings, results and notes stay between you and your care team, and you can cancel this at any time from your subscription page.</p>`) +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+      },
+    };
+  },
   sponsor_spend_receipt: (payload) => {
     const beneficiary = String(payload.beneficiary_name ?? "someone you support");
     const what = String(payload.what ?? "care");
@@ -568,7 +651,7 @@ const TEMPLATE_MAP: Record<
         subject: `Your ₦${amount} paid for ${what} for ${beneficiary}`,
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-          `<p>Money you put into ${beneficiary}&rsquo;s Health Wallet has been used.</p>` +
+          `<p>Care you paid for ${beneficiary} has been used.</p>` +
           `<table style="border-collapse:collapse;margin:16px 0">` +
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Paid for</td><td style="padding:4px 0"><strong>${what}</strong></td></tr>` +
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Amount</td><td style="padding:4px 0"><strong>&#8358;${amount}</strong></td></tr>` +

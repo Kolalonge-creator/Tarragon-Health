@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
+import { Button } from "@/components/ui/button";
+import { completeOnboarding } from "./actions";
 import { ConsentStep } from "./consent-step";
 import { DemographicsForm } from "./demographics-form";
 import { IntakeStep } from "./intake-step";
@@ -45,8 +47,17 @@ export function OnboardingFlow({
   careTeamSlot,
   existingPlan,
   initial,
+  accountPurpose = "care",
 }: {
   profile: { id: string; fullName: string | null };
+  /**
+   * 'support' means this person came to pay for someone else's care, not to
+   * receive care. Being asked to consent to telehealth for themselves, hand
+   * over their date of birth and pick their own plan before they could give us
+   * money for their mother was the first thing a sponsor hit, and it is a hard
+   * stop at the highest-intent moment the product has.
+   */
+  accountPurpose?: "care" | "support";
   /** Server-rendered <YourCareTeam/> passed in — it's an async server component. */
   careTeamSlot: ReactNode;
   /** Set when the caller already has an active/trialing subscription — see
@@ -68,6 +79,10 @@ export function OnboardingFlow({
   const [intakeCollapsed, setIntakeCollapsed] = useState(initial.intakeDone);
 
   const readyForPlan = consentDone && demographicsDone;
+
+  if (accountPurpose === "support") {
+    return <SupporterOnboarding profile={profile} done={consentDone} onDone={setConsentDone} />;
+  }
 
   return (
     <div className="w-full max-w-lg space-y-6">
@@ -157,6 +172,85 @@ export function OnboardingFlow({
         <p className="text-center text-xs text-charcoal-ink/50">
           Complete the steps above to choose your plan.
         </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The whole of setup for somebody who came to pay for a relative's care.
+ *
+ * One step: the terms they are transacting under. No telehealth consent, no
+ * health-data consent, no date of birth, no plan for themselves — none of it
+ * applies to a person who is not being treated, and asking for it was both
+ * friction at the worst possible moment and a request for consent that would
+ * not have been truthful.
+ *
+ * If they ever do want care for themselves, the rest is collected then;
+ * private.enforce_care_purpose_switch makes that non-optional, so nothing is
+ * skipped for anyone actually receiving care.
+ */
+function SupporterOnboarding({
+  profile,
+  done,
+  onDone,
+}: {
+  profile: { id: string; fullName: string | null };
+  done: boolean;
+  onDone: (value: boolean) => void;
+}) {
+  const [finishing, setFinishing] = useState(false);
+
+  return (
+    <div className="w-full max-w-lg space-y-6">
+      <div className="text-center">
+        <h1 className="font-heading text-2xl font-semibold text-brand-green">
+          Welcome{profile.fullName ? `, ${profile.fullName}` : ""}
+        </h1>
+        <p className="mt-1 text-sm text-charcoal-ink/60">Care that stays with you.</p>
+      </div>
+
+      <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
+        <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
+          Supporting someone&apos;s care
+        </h2>
+        <p className="text-sm text-charcoal-ink">
+          You can pay for their plan, their checks and their refills, and see exactly what your
+          money paid for. That part starts working as soon as you finish here.
+        </p>
+        <p className="text-sm text-charcoal-ink">
+          What you cannot do is read their record by default. They keep their own account, and they
+          decide whether you can follow how they are doing — from their side, and they can stop at
+          any time. If they have not linked you yet, ask them to add you under &ldquo;Your
+          people&rdquo;.
+        </p>
+        <p className="text-sm text-charcoal-ink/60">
+          We are not asking you any health questions, because this account is not for treating you.
+          If you ever want your own care here, you can set that up later.
+        </p>
+      </div>
+
+      {done ? (
+        <DoneRow label="Your agreement" />
+      ) : (
+        <ConsentStep
+          onlyTypes={["terms_of_service"]}
+          description="The terms you are paying under. Nothing here signs you up for care yourself."
+          onComplete={() => onDone(true)}
+        />
+      )}
+
+      {done && (
+        <form
+          action={async () => {
+            setFinishing(true);
+            await completeOnboarding();
+          }}
+        >
+          <Button type="submit" disabled={finishing} className="w-full">
+            {finishing ? "Setting up…" : "Go to the people you support"}
+          </Button>
+        </form>
       )}
     </div>
   );

@@ -52,6 +52,7 @@ export default async function OnboardingPage() {
     <div className="flex flex-1 items-center justify-center bg-charcoal-ink/[0.02] px-4 py-16">
       <OnboardingFlow
         profile={{ id: profile.id, fullName: profile.full_name }}
+        accountPurpose={profile.account_purpose === "support" ? "support" : "care"}
         careTeamSlot={<YourCareTeam patientId={profile.id} />}
         existingPlan={
           existingSubscription

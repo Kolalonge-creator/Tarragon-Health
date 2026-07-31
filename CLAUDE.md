@@ -1830,6 +1830,88 @@ service, not an amount of spending power. Nine migrations, `20260731214826`–`2
 - **Next / founder:** counsel opinion; decide the abandoned-layaway policy; confirm whether breakage
   should ever be recognised; browser click-through once a test credential is approved.
 
+### 2026-08-01 — Sponsor surface rebuilt after walking it as a diaspora son (branch `worktree-sponsor-10-of-10`)
+Founder asked for an in-character review of `/patient/supporting` as somebody abroad supporting a
+parent in Lagos, then to build every gap it found. Fixture: a 68-year-old mother in Ikeja on
+Amlodipine with BP trending 148/90 → 156/96. Three migrations `20260801090000`–`093000`; typecheck /
+lint (0 errors, the same 2 pre-existing warnings) / 555 web tests / full production build all green.
+- **⚠️ THE BIG ONE — every table a migration creates in `public` was born unreachable, and had been
+  for the life of the project.** Confirmed against `pg_default_acl`, not guessed: default privileges
+  for tables created by `postgres` in `public` are `{postgres, service_role}` with **`authenticated`
+  absent**, where Supabase's own `storage` schema includes it. So a table created in the dashboard at
+  bootstrap is reachable and a table created by `create table` in a migration is not. RLS restricts
+  *rows*; it does not grant *table access*, so a carefully written policy on such a table governs
+  nothing and PostgREST returns `42501`, which supabase-js surfaces as an **empty result** — the UI
+  then renders a confident, wrong zero rather than an error. **30 tables were affected**, including
+  every Health Wallet table (the review found ₦65,000 of real money displaying as ₦0 with "No money
+  has been added yet") and all 13 `lpe_*` Lifestyle Programme Engine tables. Fixed at the root in
+  `20260801090000`: one `alter default privileges … grant … to authenticated` so every future table
+  is born reachable, plus a data-driven backfill granting each existing table exactly what its own
+  policies imply (a SELECT-only policy gets only SELECT — it cannot over-grant). **`anon` deliberately
+  excluded**; public exposure here is always a specific decision. Paired with the existing
+  `rls_auto_enable` event trigger, a new table is now both RLS-protected *and* reachable. Proven live
+  by creating a throwaway table and asserting all three properties. **This is the third time this
+  class was fixed one table at a time (M1 sprint, then `case_briefs`) — it is fixed at the root now,
+  with `packages/db/tests/authenticated_table_grants.sql` as the standing guard.**
+  ⚠️ **Note the wallet half was overtaken mid-session**: a concurrent session retired the Health
+  Wallet for Care Vouchers (PR #192) while the review was being written, and the voucher tables *do*
+  carry grants. The wallet finding is therefore historical; the other 26 tables were real and are now
+  fixed.
+- **"A frightening number and apparently nobody has noticed."** The mother's 156/96 rendered as a
+  flat neutral figure while the platform had **already** raised `clinician_review` with a review
+  deadline three days out — and `clinician_alerts` already carried the `can_read_clinical` clause, so
+  the sponsor was permitted to know. The page simply queried `escalations` (empty) and never
+  `clinician_alerts`. New `sponsor_care_status` RPC returns **counts and dates only** — `title`/
+  `detail` are never selected, asserted over in the migration — so the card can say "their care team
+  is looking at something · a doctor reviews it by 4 Aug" and structurally cannot leak a clinician's
+  reasoning to a family member before the patient hears it. Also added BP movement ("up from 148/90")
+  and the care plan's own target quoted back ("under 140/90"), so the number finally has a scale.
+- **The sponsor could not buy the one thing they came for.** No path at any price to "put my mother
+  on Complete Care and bill my card monthly" — only one-off vouchers. New
+  `subscriptions.paid_by_profile_id` + `initiateSponsoredSubscriptionCheckout` + a
+  `sponsored_subscription` metadata kind read by `private.activate_sponsored_subscription`, an AFTER
+  INSERT trigger on `payment_transactions` — the same no-redeploy pattern the wallet top-up used, so
+  neither webhook Edge Function had to change. The grant is **re-checked when the money lands**, so a
+  grant revoked mid-checkout buys nothing (proven). Both parties are notified: nobody should discover
+  they were put on a paid plan by noticing new features.
+- **A refill due in five days was visible and unactionable.** `sponsor_request_refill` turns it into
+  a real priced bill (idempotent — a second press returns the same order, never a duplicate), refusing
+  anything that is not already an active clinician-prescribed medication, so it is never a route to a
+  new prescription. `sponsor_payable_orders` also gained `video_visit`, the order type most likely to
+  need somebody else to settle it.
+- **Silence was the product.** The only notification the sponsor had ever received was a
+  health-education lesson for their *own* account. Added `sponsor_care_reviewed` (a doctor has looked
+  at it), `sponsor_person_quiet` (21 days silent, only for someone on an active care plan, one nudge
+  a month) and `sponsored_plan_started`, all `in_app` + `email`, all hard-coded `non_clinical` with an
+  assertion that keeps them that way.
+- **A payer had to become a patient to pay.** Full patient onboarding — consent to how *their own*
+  health data is used, consent to receive *remote care themselves*, DOB and sex — stood between
+  someone and giving us money for their mother, enforced in the DB. New `profiles.account_purpose`
+  ('care' | 'support'): a supporter accepts the terms of service and nothing else, because a person
+  who will never receive care here has no telehealth relationship to consent to and no health data we
+  have a basis to hold. `enforce_care_purpose_switch` re-imposes every prerequisite if they later want
+  their own care, so the requirement **moved rather than weakened**.
+- **Two real bugs found only by walking it in a browser.** (1) The supporter consent checkbox still
+  read "…and to receive remote care", which would have recorded a consent never asked for — the exact
+  untruth the split exists to remove. (2) My own `enforce_onboarding_prereqs` referenced
+  `patient_consents.profile_id`; the column is `patient_id`. A plpgsql body is not resolved until it
+  runs, so it created cleanly and threw on the first real supporter. Both fixed and re-verified live.
+- **Also fixed, pre-existing and unrelated:** `risk-signals-card.tsx` (from commit `e6b4c99`) was
+  missing `"use client"` while calling a `useQuery` hook — **this was throwing a 500 on `/patient`,
+  the main patient dashboard, for every user**. One line. Plus the duplicate "Messages" nav entry
+  (`navigation.ts:28`/`:31`, a live React duplicate-key error) removed, "People you support" moved
+  from tenth to third, and a stale "Health Wallet" reference left in the spend-receipt email.
+- **Verified:** `packages/db/tests/sponsor_care_status_and_funding.sql` — **19/19 pass**, every
+  negative paired with a positive control, then deliberately sabotaged (consent removed) to confirm it
+  discriminates rather than passing vacuously. Full browser walk as the sponsor confirmed the care-team
+  band, BP movement and target, a real refill turning into a "Medication ₦4,500" bill labelled by
+  category not drug, the plan picker, the one-step supporter onboarding, and the fixed nav. All
+  fixtures deleted afterward and both QA accounts restored.
+- **Next / founder:** Meta approval for the three new WhatsApp templates (the `in_app` leg works now
+  regardless) and a `send-pending-notifications` redeploy to pick up their email bodies; a real
+  Paystack round-trip of sponsored-plan checkout in a non-sandboxed browser, the same known gap every
+  payment pass in this file carries.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
