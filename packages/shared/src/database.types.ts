@@ -12897,6 +12897,32 @@ export type Database = {
         Args: { p_order_id: string; p_order_type: string }
         Returns: Json
       }
+      sponsor_pay_booking_order: {
+        Args: { p_beneficiary: string; p_order_id: string; p_order_type: string }
+        Returns: Json
+      }
+      sponsor_book_care: {
+        Args: { p_beneficiary: string; p_bundle_code: string; p_facility_id?: string | null }
+        Returns: Json
+      }
+      sponsor_payable_orders: {
+        Args: { p_beneficiary: string }
+        Returns: Json
+      }
+      sponsor_set_dependent_basics: {
+        Args: {
+          p_beneficiary: string
+          p_city?: string | null
+          p_date_of_birth?: string | null
+          p_sex?: string | null
+          p_state?: string | null
+        }
+        Returns: Json
+      }
+      public_service_coverage: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }
         Returns: string

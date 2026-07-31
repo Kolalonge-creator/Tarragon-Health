@@ -64,6 +64,25 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/supporting",
     };
   }
+  if (n.template === "sponsor_monthly_report") {
+    // From private.queue_sponsor_monthly_reports(). The standing monthly
+    // summary to whoever is paying for someone else's care: money, bills
+    // outstanding and whether anything has gone quiet. Never clinical content,
+    // for the same reason as the spend receipt above.
+    const people = Array.isArray(payload.people) ? payload.people : [];
+    const spent = people.reduce(
+      (sum: number, person: unknown) =>
+        sum + Number((person as Record<string, unknown>)?.spent_kobo ?? 0),
+      0
+    );
+    return {
+      text:
+        people.length === 0
+          ? "Your monthly summary is ready"
+          : `Monthly summary: ₦${(spent / 100).toLocaleString("en-NG")} became care across ${people.length} ${people.length === 1 ? "person" : "people"}`,
+      href: "/patient/supporting",
+    };
+  }
   if (n.template === "critical_notification_escalation_exhausted") {
     // From private.escalate_unconfirmed_critical_notifications() —
     // every channel in a critical alert's ladder (push -> whatsapp -> sms)

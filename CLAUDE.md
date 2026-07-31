@@ -1353,6 +1353,75 @@ Founder asked why a diaspora buyer would pay "considerably more" than a Nigerian
 - **Verified:** `pnpm --filter web typecheck` / `lint` (0 errors, the same 2 pre-existing warnings) / `test` (539, +18 new) / full production build with all three new routes, all green. Both new RPCs confirmed `anon`-allowed by design and proven live under a simulated anon session. `/coverage` and `/accountability` browser-verified end to end against real signed data, including selecting Lagos and getting "3 of 5 partner services are live"; the `/pricing` dollar tab verified rendered and laid out (1152x444, no horizontal overflow at 375px). **Not browser-verified:** the onboarding plan selector, `/patient/supporting`, and the admin pricing fix all sit behind a login, and no test credential was reset for this pass per [[feedback_credential_reset_scope]].
 - **Next / founder decisions:** (1) whether to price a **sponsor service layer** (coordinator-managed care, concierge onboarding for an elderly parent) as the honest way to charge diaspora buyers more without reintroducing a premium on the same thing — recommended, not built; (2) whether a sponsor should ever see clinical data, not just cost; (3) `send-pending-notifications` needs a redeploy to pick up the new `sponsor_spend_receipt` email template (the in-app receipt already works without it). **Deliberately NOT done:** any multi-parent bundle or ParentCare reinstatement, since that reverses the founder's own 2026-07-29 individual-enrolment decision.
 
+### 2026-07-31 — FOUNDER DECISION: no dedicated per-patient staff. Sponsor layer built as software instead (same branch)
+Follow-up to decision (1) directly above. The sponsor service layer was costed out as a human
+service (a Care Coordinator doing bookings, chasing results, a monthly call and a written summary)
+and the founder rejected it outright: **"I don't want personal physical staff present."** Recorded
+here so it is not re-proposed. It was also the wrong shape to have suggested at all for a
+near-solo operation, per [[user_founder_context]] — every other thing the platform sells has
+near-zero marginal cost, and that one was capped by headcount.
+
+**A live mis-selling exposure was found while costing it.** The `care-coordinator` add-on
+(₦30,000/mo, USD $21.98, restricted to Complete Care) was **active and purchasable**, promising
+"one named coordinator" — and its feature key `dedicated_coordinator` was read by **exactly
+nothing**: the only occurrence anywhere in the codebase was a placeholder string in an admin form.
+Anyone buying it would have been billed monthly for an entitlement gating no code path at all,
+the same dead-key class as `prevention_coordination` (found 2026-07-23). Zero subscriptions
+existed, so nothing needed unwinding. Withdrawn in `20260731023014` (deactivated, not deleted, to
+keep the price history and the provider objects traceable) and **removed from `seed.sql` outright**
+so a rebuilt environment never resurrects it.
+
+**What replaced it, all staff-free.** Of the six jobs a coordinator would have done, five are
+substantially automatable and one is not; the one that is not (noticing that an elderly person is
+quietly declining) is stated as a limit rather than papered over.
+- **`sponsor_pay_booking_order`** (`20260731023128`) — the core unblock. `wallet_pay_booking_order`
+  refuses any wallet but the caller's own, so a sponsor could fund a wallet and then never spend
+  from it; the money sat there waiting for the one person least likely to complete a checkout.
+  **`manage` only, never `view`** — settling a bill is acting on a record, and a next of kin
+  naming themselves must not thereby gain the ability to move someone's balance.
+- **`sponsor_payable_orders`** (`20260731112407`) — the pay path had no door: `lab_orders`,
+  `pharmacy_orders` and `specialist_referrals` are readable only by the patient or org staff, so a
+  sponsor could not discover an order id. Returns **category only** ("A lab test, ₦18,000"), never
+  the item, because "Cervical smear, ₦18,000" is a health disclosure to somebody consented to act
+  on care, not to read it.
+- **`sponsor_book_care` + `sponsor_set_dependent_basics`** (`20260731023501`) — one-tap booking of a
+  self-bookable check (paying immediately when the balance covers it, leaving a real pending bill
+  when it does not), and co-pilot onboarding so an adult child fills in date of birth, sex and
+  location from their own phone. Booking is confined to the `self_bookable` catalogue, so a sponsor
+  is not a way around the clinician-originated-orders guardrail; the co-pilot path deliberately
+  cannot touch consent or `onboarding_completed_at` (`enforce_onboarding_prereqs` still gates it),
+  so it shortens the parent's remaining step without making it skippable.
+- **`queue_sponsor_monthly_reports`** (`20260731023543`, corrected in `…023625`, cron
+  `sponsor-monthly-report` monthly at 07:00 on the 1st) — the deliverable a sponsor actually wants
+  and a transfer app structurally cannot produce. **Money, logistics and engagement only, never
+  clinical content**: balances and spend categories are already visible to a grantee via RLS, and
+  "nothing logged in N days" is a statement about activity, not health. Sponsors are defined the
+  same way the spend-receipt trigger defines them (people who actually funded a wallet they hold a
+  grant on), so a next of kin who has never paid for anything is not sent a money summary.
+- ⚠️ **`…023543` shipped with a real bug**: it referenced `vitals_readings.recorded_at`, which does
+  not exist (the column is `taken_at`). A plpgsql body is not parsed at creation time, so it
+  created cleanly and would have failed silently on the first cron run a month later with nobody
+  watching. Caught only by running the function against real data. **Create success is not evidence
+  a scheduled function works** — run it.
+- UI: sponsor dashboard gained a `manage`-gated actions block (settle a bill, book a check, fill in
+  their details); `NotificationBell` renders `sponsor_monthly_report`; the email template was added
+  to `send-pending-notifications` source.
+- **Verified:** rolled-back live SQL across all four session types (`manage` pays, `view` refused
+  42501, stranger refused, mismatched beneficiary refused, double-pay refused) plus a
+  **deliberate-sabotage run** confirming that downgrading the payer from `manage` to `view` blocks
+  the payment, so the gate is genuinely what does the work. Report proven to queue exactly two rows
+  (`in_app` + `email`), `content_class = 'non_clinical'`, and to be idempotent on a second run
+  inside its window. Tests in `packages/db/tests/sponsor_pay_booking_order.sql` and
+  `…/sponsor_acting_and_report.sql`. typecheck / lint (0 errors, the same 2 pre-existing warnings) /
+  539 web tests / full production build all green; `/coverage`, `/accountability` and
+  `/patient/supporting` all compile.
+- **Not browser-verified** — no test credential was reset for this pass, per
+  [[feedback_credential_reset_scope]].
+- **Next / founder:** the `send-pending-notifications` redeploy is now overdue for two templates
+  (`sponsor_spend_receipt` and `sponsor_monthly_report`); both in-app halves already work without
+  it. Decision (2) above is still open and still deliberately unbuilt: whether a sponsor should
+  ever see clinical data, not just cost.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed

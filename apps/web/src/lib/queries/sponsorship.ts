@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 
@@ -164,5 +164,118 @@ export function useSupportedPeople() {
         };
       });
     },
+  });
+}
+
+export type SponsorPayableOrder = {
+  order_id: string;
+  order_type: "lab" | "pharmacy" | "referral";
+  /** Category only. Never the specific test or drug: see sponsor_payable_orders. */
+  label: string;
+  amount_kobo: number;
+  created_at: string;
+};
+
+function isPayableOrder(value: unknown): value is SponsorPayableOrder {
+  if (typeof value !== "object" || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.order_id === "string" &&
+    (row.order_type === "lab" || row.order_type === "pharmacy" || row.order_type === "referral") &&
+    typeof row.label === "string" &&
+    typeof row.amount_kobo === "number"
+  );
+}
+
+/**
+ * Bills the caller may settle for someone they manage.
+ *
+ * Only reachable with a 'manage' grant, and the RPC returns a category rather
+ * than the item, so this can show "A lab test, ₦18,000" and never "Cervical
+ * smear". Disabled for 'view' grantees, who would simply be refused.
+ */
+export function useSponsorPayableOrders(profileId: string | null, canManage: boolean) {
+  return useQuery({
+    queryKey: ["sponsorship", "payable-orders", profileId],
+    enabled: Boolean(profileId) && canManage,
+    queryFn: async (): Promise<SponsorPayableOrder[]> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("sponsor_payable_orders", {
+        p_beneficiary: profileId as string,
+      });
+      if (error) throw error;
+      return Array.isArray(data) ? data.filter(isPayableOrder) : [];
+    },
+  });
+}
+
+/** Settles one pending bill from the balance the sponsor funded. */
+export function useSponsorPayOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      beneficiaryId: string;
+      orderType: SponsorPayableOrder["order_type"];
+      orderId: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("sponsor_pay_booking_order", {
+        p_beneficiary: input.beneficiaryId,
+        p_order_type: input.orderType,
+        p_order_id: input.orderId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sponsorship"] }),
+  });
+}
+
+/**
+ * Books a self-bookable check for someone you manage, paying immediately when
+ * the wallet already covers it. A short balance leaves a real pending bill
+ * rather than failing, which then shows up in useSponsorPayableOrders.
+ */
+export function useSponsorBookCare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { beneficiaryId: string; bundleCode: string }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("sponsor_book_care", {
+        p_beneficiary: input.beneficiaryId,
+        p_bundle_code: input.bundleCode,
+      });
+      if (error) throw error;
+      return data as { ok: boolean; paid: boolean; price_kobo: number; shortfall_kobo: number };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sponsorship"] }),
+  });
+}
+
+/**
+ * Fills in a managed person's non-clinical basics from the sponsor's own
+ * device. Consent stays theirs: this shortens their remaining step, it does not
+ * remove it.
+ */
+export function useSponsorSetBasics() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      beneficiaryId: string;
+      dateOfBirth?: string | null;
+      sex?: string | null;
+      state?: string | null;
+      city?: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("sponsor_set_dependent_basics", {
+        p_beneficiary: input.beneficiaryId,
+        p_date_of_birth: input.dateOfBirth ?? null,
+        p_sex: input.sex ?? null,
+        p_state: input.state ?? null,
+        p_city: input.city ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sponsorship"] }),
   });
 }

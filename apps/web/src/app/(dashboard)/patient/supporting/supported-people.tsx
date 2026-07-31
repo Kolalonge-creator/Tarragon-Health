@@ -8,7 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { useSupportedPeople, type SupportedPerson } from "@/lib/queries/sponsorship";
+import { useLabCatalogue } from "@/lib/queries/lab-orders";
+import {
+  useSponsorBookCare,
+  useSponsorPayOrder,
+  useSponsorPayableOrders,
+  useSponsorSetBasics,
+  useSupportedPeople,
+  type SupportedPerson,
+} from "@/lib/queries/sponsorship";
 import { topUpWallet, type TopUpWalletState } from "../wallet/actions";
 
 function naira(kobo: number): string {
@@ -236,6 +244,8 @@ function PersonCard({
           </form>
         )}
 
+        {person.permissionLevel === "manage" && <ManageActions person={person} />}
+
         {person.recentSpends.length > 0 && (
           <div>
             <p className="text-xs font-medium text-charcoal-ink">What it has paid for</p>
@@ -266,5 +276,192 @@ function PersonCard({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * What a 'manage' grantee can actually do, as opposed to merely see.
+ *
+ * These three replace the jobs a dedicated coordinator would otherwise have
+ * done by hand: settle the bill that is holding something up, book the check
+ * that is due, and fill in the boring half of setup so an elderly parent is not
+ * left alone with a wizard. None of them needs a person on the payroll, and
+ * none of them is available to a 'view' next of kin.
+ */
+function ManageActions({ person }: { person: SupportedPerson }) {
+  const { data: bills } = useSponsorPayableOrders(person.profileId, true);
+  const { data: bundles } = useLabCatalogue();
+  const payOrder = useSponsorPayOrder();
+  const bookCare = useSponsorBookCare();
+  const setBasics = useSponsorSetBasics();
+
+  const [bundleCode, setBundleCode] = useState("");
+  const [showBasics, setShowBasics] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const selfBookable = (bundles ?? []).filter((bundle) => bundle.self_bookable);
+  const outstanding = bills ?? [];
+
+  async function run(work: () => Promise<string>) {
+    setError(null);
+    setMessage(null);
+    try {
+      setMessage(await work());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "That did not go through. Try again.");
+    }
+  }
+
+  return (
+    <div className="space-y-4 rounded-lg border border-charcoal-ink/10 p-4">
+      {outstanding.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-charcoal-ink">Waiting to be paid for</p>
+          <ul className="mt-2 space-y-2">
+            {outstanding.map((bill) => (
+              <li key={bill.order_id} className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm text-charcoal-ink/70">
+                  {bill.label}{" "}
+                  <span className="font-medium text-charcoal-ink">{naira(bill.amount_kobo)}</span>
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={payOrder.isPending || bill.amount_kobo > person.balanceKobo}
+                  onClick={() =>
+                    run(async () => {
+                      await payOrder.mutateAsync({
+                        beneficiaryId: person.profileId,
+                        orderType: bill.order_type,
+                        orderId: bill.order_id,
+                      });
+                      return "Paid from their balance.";
+                    })
+                  }
+                >
+                  {bill.amount_kobo > person.balanceKobo ? "Not enough balance" : "Pay from balance"}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {selfBookable.length > 0 && (
+        <div>
+          <label
+            className="block text-xs font-medium text-charcoal-ink"
+            htmlFor={`book-${person.profileId}`}
+          >
+            Book a check for them
+          </label>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <Select
+              id={`book-${person.profileId}`}
+              value={bundleCode}
+              onChange={(event) => setBundleCode(event.target.value)}
+              className="max-w-xs"
+            >
+              <option value="">Choose a check</option>
+              {selfBookable.map((bundle) => (
+                <option key={bundle.code} value={bundle.code}>
+                  {bundle.name} ({naira(bundle.price_kobo)})
+                </option>
+              ))}
+            </Select>
+            <Button
+              type="button"
+              disabled={!bundleCode || bookCare.isPending}
+              onClick={() =>
+                run(async () => {
+                  const result = await bookCare.mutateAsync({
+                    beneficiaryId: person.profileId,
+                    bundleCode,
+                  });
+                  setBundleCode("");
+                  return result.paid
+                    ? "Booked and paid from their balance."
+                    : `Booked. Add ${naira(result.shortfall_kobo)} to their wallet to pay for it.`;
+                })
+              }
+            >
+              {bookCare.isPending ? "Booking…" : "Book"}
+            </Button>
+          </div>
+          <p className="mt-1 text-xs text-charcoal-ink/50">
+            They still choose where to go and when. Booking here just means it is paid for and
+            waiting.
+          </p>
+        </div>
+      )}
+
+      <div>
+        <Button type="button" variant="outline" onClick={() => setShowBasics((open) => !open)}>
+          {showBasics ? "Cancel" : "Help fill in their details"}
+        </Button>
+        {showBasics && (
+          <form
+            className="mt-3 space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = new FormData(event.currentTarget);
+              void run(async () => {
+                await setBasics.mutateAsync({
+                  beneficiaryId: person.profileId,
+                  dateOfBirth: (form.get("dateOfBirth") as string) || null,
+                  sex: (form.get("sex") as string) || null,
+                  state: (form.get("state") as string) || null,
+                  city: (form.get("city") as string) || null,
+                });
+                setShowBasics(false);
+                return "Saved. They still need to accept the consents themselves.";
+              });
+            }}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-charcoal-ink" htmlFor={`dob-${person.profileId}`}>
+                  Date of birth
+                </label>
+                <Input id={`dob-${person.profileId}`} name="dateOfBirth" type="date" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-charcoal-ink" htmlFor={`sex-${person.profileId}`}>
+                  Sex
+                </label>
+                <Select id={`sex-${person.profileId}`} name="sex" defaultValue="">
+                  <option value="">Leave as is</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-charcoal-ink" htmlFor={`state-${person.profileId}`}>
+                  State
+                </label>
+                <Input id={`state-${person.profileId}`} name="state" placeholder="Lagos" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-charcoal-ink" htmlFor={`city-${person.profileId}`}>
+                  City or town
+                </label>
+                <Input id={`city-${person.profileId}`} name="city" placeholder="Ikeja" />
+              </div>
+            </div>
+            <p className="text-xs text-charcoal-ink/60">
+              Anything you leave blank stays as it is. You cannot accept their consents for them:
+              that part has to be theirs.
+            </p>
+            <Button type="submit" disabled={setBasics.isPending}>
+              {setBasics.isPending ? "Saving…" : "Save their details"}
+            </Button>
+          </form>
+        )}
+      </div>
+
+      {message && <p className="text-sm text-deep-forest">{message}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
   );
 }
