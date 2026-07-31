@@ -15,12 +15,14 @@ import {
   useUpdateLabProviderContact,
   useLabProviderTurnaroundStats,
   useLinkLabPartner,
+  useUpdateLabProviderLicense,
   useAllPanelBundles,
   useUpdatePanelBundleCommission,
   type LabPartnerLoginRow,
   type LabProvider,
 } from "@/lib/queries/partner-catalogues";
 import { AdminLabFacilities } from "./admin-lab-facilities";
+import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
 import { koboToNaira } from "@tarragon/shared";
 
 function parseRegions(raw: string): string[] {
@@ -249,6 +251,7 @@ export function LabsManager({ labPartnerLogins }: { labPartnerLogins: LabPartner
   const { data: labs, isLoading } = useAllLabProviders();
   const create = useCreateLabProvider();
   const toggle = useSetLabProviderActive();
+  const updateLicense = useUpdateLabProviderLicense();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
@@ -332,6 +335,7 @@ export function LabsManager({ labPartnerLogins }: { labPartnerLogins: LabPartner
                       <span className="font-medium text-charcoal-ink">{lab.name}</span>
                       <Badge variant={lab.is_active ? "green" : "grey"}>{lab.is_active ? "Active" : "Inactive"}</Badge>
                       {lab.home_collection && <Badge variant="blue">Home collection</Badge>}
+                      <PartnerLicenseBadge expiresAt={lab.license_expires_at} />
                       {lab.regions.length > 0 && (
                         <span className="text-xs text-charcoal-ink/50">{lab.regions.join(", ")}</span>
                       )}
@@ -359,6 +363,16 @@ export function LabsManager({ labPartnerLogins }: { labPartnerLogins: LabPartner
                   {expanded && (
                     <div className="mt-3 space-y-3 border-t border-charcoal-ink/10 pt-3">
                       <ContactEditor lab={lab} />
+                      {lab.license_number && (
+                        <p className="text-xs text-charcoal-ink/50">
+                          {lab.license_type ?? "License"}: {lab.license_number}
+                        </p>
+                      )}
+                      <PartnerLicenseEditor
+                        values={lab}
+                        saving={updateLicense.isPending}
+                        onSave={(next) => updateLicense.mutate({ id: lab.id, ...next })}
+                      />
                       <AdminLabFacilities labProviderId={lab.id} />
                       <PartnerLoginLinker lab={lab} logins={labPartnerLogins} />
                     </div>

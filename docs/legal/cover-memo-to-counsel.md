@@ -2,79 +2,110 @@
 
 **To:** [Outside Counsel — Data Protection & Health Regulatory, to be confirmed]
 **From:** Dr Kola Longe, Founder, TarragonHealth
-**Date:** 30 July 2026 (v3 — see "What changed since v2" below)
-**Re:** Review requested — data protection, telehealth, and consumer terms ahead of public launch
+**Date:** 31 July 2026 (v3 — full rewrite; the previous version described a product we no longer build, see below)
+**Re:** Review requested — data protection, telehealth, consumer terms, and fintech/CBN posture ahead of public launch
 
-## What changed since v2 of this memo
-v2 of this memo (29 July 2026) was drafted against a founder-authored build specification (`docs/tarragon-build-spec-v3.md`) that described a narrower, cardiometabolic-only pivot of the platform. That pivot was reversed a few hours after it was adopted, the same day — the platform (`apps/web`) is the real, ongoing build target, and the narrower spec is now a reference/idea source only, not the product. v2 therefore described a product that was never actually launched. This version (v3) is rewritten against the platform as it is genuinely built and live today. The most consequential corrections: the platform covers five service areas (chronic disease management, preventive screening, care coordination, employer/HMO institutional programmes, and the platform infrastructure connecting them), not cardiometabolic conditions alone; clinical accountability runs through a five-tier doctor ladder with per-record attribution, not a company-wide "tech_layer/provider" toggle (that concept does not exist in the live platform); the abnormal-result response is a versioned, clinically-signed set of pathway-specific targets, not a flat four-tier table; and patients may message their care team for support over WhatsApp (human-routed, never parsed automatically), in addition to the primary in-app clinical conversation channel. The "no family/household plans" and "single naira price list" points from v2 turn out to still be substantially correct, for different and more specific reasons than v2 gave — see below.
+## What changed since v2 of this memo, and why it matters
 
-## Purpose
-We are preparing to launch TarragonHealth publicly and need your review of three consent/terms documents before they go live: a Data Processing Consent (Schedule A), a Telehealth Consent (Schedule B), and Terms of Service (Schedule C). All three are attached. This memo gives you the platform context you need to review them, and lists the specific legal questions we need answered — the first of which we consider the highest priority and a likely blocker for launch. (A separate Schedule D — a commercial agreement for lab partners, not a patient-facing document — exists alongside this package and can be reviewed on its own track; it is not part of the nine questions below.)
+Version 2 of this memo (29 July 2026) was written against `docs/tarragon-build-spec-v3.md` — a founder-authored specification for a narrower, cardiometabolic-only product ("Control"/"Concierge" service tiers, a "tech_layer"/"provider" accountability model, WHO HEARTS as the sole clinical protocol, field-screening-day consent capture). **That specification was superseded within a day of being written.** The actual platform we operate and are asking you to review — `apps/web`, live in production at `app.tarragonhealth.ng` — is a materially different and considerably broader product. If Schedules A, B, or C were sent to you in their prior form, please disregard that version: it describes a product we do not build. This memo and the attached schedules now describe what is actually live.
 
-## Platform context
-TarragonHealth (Tarragon Health Ltd, RC 9702108) operates a care coordination platform for Nigeria connecting patients with doctors, labs, pharmacies, and specialists across chronic disease management (hypertension and type 2 diabetes today, with further conditions planned), preventive screening, care coordination, and employer/HMO institutional programmes. We do not own or operate any hospital, clinic, or laboratory.
+**Four things from the narrower spec did survive**, because the founder separately confirmed them as real product decisions on their own merits, not because the narrower spec was adopted wholesale:
+1. **No capitation, ever.** We take no per-member premium and bear no insurance risk on any organisational contract.
+2. **Institutions get aggregate data only.** An employer or HMO that pays for its members' access sees only de-identified, small-cell-suppressed statistics about the group — never an individual member's record.
+3. **One price list.** We do not maintain a separate, higher foreign-currency price book. The Naira price is the only stored price; a dollar price is derived from it at an admin-set reference rate.
+4. **Individual enrolment.** There is no household or family subscription. Each person — including a minor, enrolled by their guardian — has their own account. A person may separately name a next of kin, who can be contacted in an emergency and can view (not edit) that person's record with consent.
 
-**Clinical staffing** runs through a five-tier structure, from a non-clinical Care Coordinator (logistics only, no clinical judgment) through increasingly senior Medical Officers to a Senior Registrar and Partner Specialist for complex or referral cases. Every clinical action is attributed to a real, named doctor and timestamped on the record — there is no configurable company-wide "who takes responsibility for the note" toggle in the live platform. We have not obtained MDCN or other regulatory confirmation that this tiered structure is compliant, and do not represent it as regulator-approved.
+Everything else about the platform's actual scope, clinical model, and communication design is different from what v2 described, as set out below.
 
-**Result classification and response** follow a versioned, clinically-signed set of targets that vary by what triggered the case, not one flat table: the fastest (as little as 15 minutes) applies to a positive self-harm/mental-health risk flag; a critical screening result or a reported danger symptom gets a 2-hour response on every channel at once, with a documented attempt to reach the patient's emergency contact if we cannot reach them directly; a red-range home reading or similar gets roughly 1 hour; a non-critical abnormal screening result gets 24 hours; and results needing a clinician's eyes but with no immediate danger get up to 3 days. A case classified as an emergency cannot be closed by a written note alone — our system enforces, at the database level, that a doctor must have had a real-time voice or video conversation with the patient first.
+## What TarragonHealth actually is
 
-**Automated processing.** Every reading is classified against a clinically-approved protocol, assisted by AI that can draft or flag but never diagnoses, prescribes, or closes a case — a doctor always makes the actual clinical decision.
+TarragonHealth (Tarragon Health Ltd, RC 9702108) is Nigeria's digital-first chronic disease, preventive health, and care-coordination platform — the coordination layer between patients, families, doctors, labs, pharmacies, HMOs, and employers. Five categories, commercially linked and sharing one patient record:
 
-**Communications** run on several channels with content rules enforced at the database level, not just by convention: the in-app conversation is the primary channel for clinical conversation and carries the full record; a phone or video call is how real-time clinical judgement is delivered when needed; SMS is urgent backup and the primary channel for patients without a smartphone; WhatsApp carries reminders/alerts/confirmations only — no clinical content is permitted on it, structurally — but a patient may separately message their care team for support over WhatsApp, with a human (never automation) replying there too; email carries documents and receipts.
+1. **Chronic disease management** — hypertension and type 2 diabetes as the core wedge; expanding to asthma, chronic kidney disease, heart failure.
+2. **Preventive medicine** — cancer, metabolic, infectious, and reproductive-health screening; vaccination tracking with doctor-verified certificates; an annual whole-body health check.
+3. **Care coordination** — a lab network, a pharmacy network, specialist referrals, and hospital-admission tracking.
+4. **B2B and institutional** — corporate wellness and HMO-funded access (aggregate-only, per Item 2 above; no capitation, per Item 1).
+5. **Platform infrastructure** — notification engine, clinical decision support, a longitudinal patient record, partner integrations, and analytics.
 
-**Data and hosting** are unchanged by any of this: our production database still runs on Supabase (Postgres) in AWS's eu-west-1 region (Dublin, Ireland), because Supabase has no data centre in Nigeria or elsewhere in Africa. This remains the highest-risk open item in our legal position, unresolved as of this version.
+We do not own or operate any hospital, clinic, or laboratory — every lab, pharmacy, and specialist a patient interacts with is an independent partner organisation.
 
-**Payments** run on Paystack (Nigeria) and Stripe (international card payments). There is one stored price, in Naira; a US Dollar amount is derived from it at a rate we set and can update, and we have retired Pounds Sterling pricing entirely. No UK, US, or other non-Nigerian market launch is currently in scope.
+## Clinical staffing: a five-tier ladder, not the two accountability models v2 described
 
-**No family or household plans, but real family involvement.** Every adult keeps their own individual account — we removed shared/discounted family plans as a deliberate commercial decision (not because family involvement wasn't considered). Within the individual-account model: an adult may enrol a child under 18 as a dependant; any patient may name a next of kin who can view (not edit) their care and be contacted in an emergency; and two adults may set up a "manage" arrangement for one to handle the other's bookings and records (for example, an adult child helping an elderly parent) — all three require the other party's active acceptance, not a unilateral grant.
+Every clinical judgement is made by an employed or contracted doctor; no case is ever closed by non-clinical staff. We do **not** operate the "tech_layer" vs. "provider" accountability-model switch v2 described — that mechanism does not exist in the live platform. Instead, clinical authority is layered by seniority:
 
-**No field/tablet screening-day consent capture exists.** v2 of this memo described field staff capturing consent on a tablet at in-person screening events. That described a feature from the abandoned narrow-pivot specification's future roadmap, not something built or live in `apps/web`. All screening today is booked and consented to by the patient themselves, in the app.
+- **Care Coordinator** (employed, non-clinical) — logistics only: check-ins, adherence tracking, booking. Cannot interpret a result, adjust medication, or close an escalation.
+- **Tier 1** — Medical Officer, under 3 years' experience. First-line review of routine/stable readings under protocol; may confirm an existing stable prescription's refill, never initiate a new one.
+- **Tier 2** — Medical Officer, 3+ years. Initiates new medications, adjusts doses, handles Tier 1 escalations.
+- **Tier 3** — Senior Medical Officer. Complex/multi-drug case management; audits Tiers 1–2.
+- **Tier 4** — Senior Registrar (part-time contract). Pre-referral consult, sets referral urgency, owns clinical protocols, supervises Tiers 1–3.
+- **Tier 5** — Partner Specialist (referral-only, per-consult contract). Complex or procedural input; hands routine follow-up back to Tier 3/4.
 
-**Research.** We support anonymised research use of patient data, strictly opt-in, governed by a documented lawful basis and a minimum group size per export, with re-identification keys held separately and never exported. A patient who withdraws consent is excluded from future exports, but we cannot recall an export already delivered before withdrawal. [This capability's current build status has not been re-confirmed for this v3 rewrite — counsel should ask us to reconfirm before relying on this paragraph.]
+Every doctor's MDCN registration is verified before they may see patients and checked continuously afterwards — a doctor whose registration or indemnity cover lapses is automatically suspended from the system overnight, no manual step required. **MDCN's own confirmation that this tier-authority split is compliant with Nigerian medical-practice regulation is an open item on our side, not yet obtained** — we do not represent the tier ladder as regulator-approved anywhere, and we would value your view on whether MDCN engagement is a prerequisite for public launch or can follow it.
+
+## How results are classified and escalated
+
+Every reading is classified automatically against a clinical protocol appropriate to its type (not solely WHO HEARTS — we run separate, clinically-reviewed protocols for hypertension, diabetes, obesity, and several preventive-screening pathways). An AI model may assist triage, but structurally can only draft a summary for a doctor's own review — it never diagnoses, never closes a case, and never substitutes for the doctor's own signed attribution on the record. **This AI assistance is new since v2 and needs your attention** — see "A new disclosure item" below.
+
+Response-time commitments are pathway-specific rather than one flat table, reflecting genuinely different clinical urgency across contexts (a routine screening abnormality is not the same urgency as a red-flagged home blood-pressure reading). The founder has confirmed this differentiation is deliberate, not an inconsistency to reconcile to one number. A case classified as an emergency cannot be closed on a written note alone — the system enforces, at the database level, that a closing doctor must have completed a real synchronous voice or video contact with the patient first.
+
+## Communications: five channels, WhatsApp is notification-only
+
+- **The app** carries the clinical record and every clinical conversation.
+- **A phone or video call** — increasingly via a masked-number system so neither party's real number is exposed to the other — is how clinical judgement is delivered.
+- **SMS** is urgent backup and the primary channel for patients without a smartphone.
+- **WhatsApp is notification-only.** It carries reminders, alerts, and confirmations — never a diagnosis, a specific result, or a medication name. This is enforced by a database constraint, not merely a policy: a notification row cannot be flagged as carrying clinical content and also be queued on WhatsApp, SMS, or email simultaneously. Patients may also message their doctor on WhatsApp for support, with the doctor replying there too — but that is a human-routed inbox, never an automated system parsing an inbound message into a platform action. **No feature on the platform requires a WhatsApp send to succeed** — signup and every core patient action happen via the app.
+- **Email** carries documents, receipts, and reports.
+
+## Money: subscriptions, a wallet, and a real fintech question for you
+
+Patients pay by subscription (Naira, one price list, derived-rate diaspora payment) or per booking. We also operate a **Health Wallet** — a real stored-value balance a patient (or a consented family member/sponsor, local or abroad) tops up via card, which can then be spent on bookings within the platform. **This is the item we most need your read on.** We have built CBN-tiered-KYC-shaped balance ceilings (a lower cap for an unverified wallet, a higher cap once a real identity check is on file) and non-blocking compliance flagging for unusual funding patterns, as risk controls — but we have not sought, and do not hold, any Central Bank of Nigeria payment-service-provider licence or equivalent authorisation, and we need your view on whether the wallet as designed requires one, or whether it can properly operate under Paystack's/Stripe's own licensed rails as a pass-through. See "Questions for your review," Question 1.
+
+## Where your data is stored, and international transfer
+
+Unchanged from v2: our database runs on Supabase Postgres in AWS's eu-west-1 region (Dublin), because our provider has no data centre in Nigeria or elsewhere in Africa. This remains the single highest-priority open item in our legal position — Nigerian law requires a specific lawful mechanism before personal data, including sensitive health data, is transferred outside Nigeria, and none has yet been confirmed.
+
+## A new disclosure item: AI processing of real patient data by a third party
+
+Since v2, we have begun using a third-party large-language-model API (Anthropic's Claude) to draft summaries of a patient's record for a doctor's own review before they act — never to diagnose, never to close a case, never to prescribe. As of a founder decision on 30 July 2026, this now runs against real patient data, not only test fixtures. This is a second international data transfer this memo did not previously disclose, to a different processor than Supabase, and needs its own assessment: a data-processing agreement with Anthropic, and a view on whether it needs separate patient disclosure beyond the general "automated processing" language already in Schedule A.
 
 ## Nine questions for your review
 
-**1. Cross-border data transfer (highest priority).** Because our database sits in eu-west-1, Nigerian patients' personal data, including sensitive health data, leaves Nigeria as an infrastructure fact, not a user choice. Our own build specification independently identifies this as the single highest-risk area in our legal position. The Nigeria Data Protection Act 2023 treats cross-border transfer as something requiring a specific lawful mechanism — an adequacy finding, appropriate contractual safeguards, or the data subject's informed consent to that specific transfer. We need your view on which mechanism we should rely on, and whether this is a hard blocker for public launch.
+**1. The Health Wallet and CBN.** Does the wallet, as described above, require a CBN payment-service-provider licence, tiered-KYC compliance beyond what we've built as a precaution, or AML/CFT transaction-monitoring obligations we haven't yet met? This is now our highest-priority open question, alongside cross-border transfer.
 
-**2. Sensitive personal data and lawful basis.** Is the consent-scope structure described in Schedule A — a general basis of care necessity, plus several specific, individually revocable consents (escalation contact, clinical share, family/next-of-kin access, wallet sponsor, institution aggregate, research anonymised) — the right architecture under the Act? Specifically, may account activation be lawfully conditioned on accepting the "escalation contact" consent, as our platform currently requires?
+**2. Cross-border data transfer (Supabase).** Which lawful mechanism should we rely on for the eu-west-1 transfer — an adequacy finding, contractual safeguards, or patient consent to that specific transfer — and is this a hard blocker for public launch?
 
-**3. Controller/processor status and registration.** Are we a data controller, a data processor, or both, depending on the relationship (direct patients vs. organisation-enrolled patients)? Do we need to register with the NDPC, or undergo a data protection compliance audit? Our own platform already refuses to accept live patients in production until NDPC registration is complete and a DPO is named — is that gate sufficient, or does registration itself need to happen earlier in our build/launch sequence?
+**3. The new AI processor (Anthropic).** Do we need a formal DPA with Anthropic, a supplementary DPIA, and/or new patient-facing disclosure specific to this processing, distinct from the general automated-processing language already in Schedule A?
 
-**4. Automated decision-making disclosure.** Every reading is automatically classified by a deterministic protocol engine, optionally assisted by an AI model that may only make a classification more cautious, never less, and a result classified emergency can only be closed after direct real-time contact with the patient (enforced at the database level, not just by policy). Does this design, as described, satisfy any right under the Act to avoid a decision based solely on automated processing, and is our current disclosure of it (Schedule A, "Automated processing") sufficient?
+**4. Sensitive personal data and lawful basis.** Is the consent-scope structure in Schedule A (general care necessity, plus named specific consents individually revocable) the right architecture under the Nigeria Data Protection Act 2023? May account activation be conditioned on the "escalation contact" consent, as our platform currently requires?
 
-**5. The clinical tier ladder and MDCN confirmation.** Our clinical staffing runs through a five-tier structure (a non-clinical Care Coordinator, three tiers of Medical Officer, a Senior Registrar, and a Partner Specialist), with authority to prescribe or adjust medication increasing by tier, and every action attributed to a named doctor. We have not obtained MDCN or other regulatory confirmation that this structure — specifically, a junior tier confirming a stable refill without independently prescribing it — is compliant. Can you advise on this, and on whether Schedule B's description of "your care team" needs to change as a result?
+**5. Controller/processor status and NDPC registration.** Are we controller, processor, or both, depending on whether a patient is self-enrolled or organisation-enrolled? What is our current NDPC registration status, and is DPO appointment a prerequisite for the live patients we already have, or can it follow?
 
-**6. Family, next-of-kin, and eldercare consent.** Beyond the guardian/dependant mechanism, patients can now name a next of kin (view-only access, contactable in an emergency) or set up a two-way "manage" arrangement with another adult (for example, an adult child helping an elderly parent), each requiring the other party's active acceptance rather than a unilateral grant. Is this consent architecture — described in Schedule A's "Family, guardian, and next-of-kin data" — an adequate basis under the Act for one adult accessing another adult's health data, and does it need a different disclosure than what we have drafted?
+**6. MDCN and the tier ladder.** Does the five-tier clinical-authority model described above (a Tier 1 doctor confirming an existing refill but never initiating a new prescription, for example) need MDCN's affirmative confirmation before we can rely on it, and if so, is that a launch blocker?
 
-**7. Tiered SLA, emergency carve-out, and liability.** Our current response targets (as fast as 15 minutes for a self-harm risk flag, up to 2 hours for a critical result or reported danger symptom, around 1 hour for other urgent findings, up to 24 hours for a non-critical abnormal screening result, and up to 3 days for a routine clinician review) are set out in Schedule B. Is this tiered, situation-dependent commitment adequately disclosed and legally defensible, or would a simpler patient-facing summary serve better? Should Schedule C carry a more specific limitation-of-liability and indemnity structure than the placeholder we have drafted?
+**7. Consumer protection (FCCPC).** Does our "cancel any time, access runs to the end of the paid period, no pro-rata refund" position meet the Federal Competition and Consumer Protection Act's requirements for a subscription service?
 
-**8. Consumer protection and organisational sales.** Does the FCCPC's consumer protection framework require a cooling-off period or refund right for our subscription model that our current "cancel at period end, no pro-rata refund" position does not provide? Separately: part of our sales motion is selling access to an organisation (an employer or HMO) for its covered members, rather than to the individual directly — does that relationship need a distinct commercial services agreement, separate from the individual-facing Schedule C, and if so, can you help us produce one? (A parallel document, Schedule D, already exists for a different kind of B2B relationship — our laboratory partners — and is a useful template if a similar organisational agreement is wanted here.)
+**8. Minors and dependants.** Does our guardian-enrols-a-child-under-18 mechanism (enforced as a database-level age constraint, one account per person, no shared family account) meet the Act's threshold for guardian consent to a minor's data?
 
-**9. Minors and dependant enrolment.** What is the Act's threshold for "child" data requiring guardian consent, and does our dependant-enrolment mechanism (an adult account holder enrols and manages a child under 18, enforced at the database level as a hard age constraint) satisfy the consent mechanism the Act requires?
+**9. Institutional commercial agreements.** Where we sell organisational access to an employer or HMO directly, does that relationship need a separate commercial services agreement distinct from the individual-facing terms of service, and can you help us produce one?
 
 ## Attached
 - Schedule A — Data Processing Consent
 - Schedule B — Telehealth Consent
 - Schedule C — Terms of Service
 
-A separate Schedule D (Lab Services Partnership Agreement + Data Processing Addendum) exists for our laboratory-partner relationships — a B2B commercial agreement, not a patient consent document — and can be reviewed on its own track alongside or after this package.
-
-Each schedule is marked, inline (in red), with the specific gaps we need you to close. A consolidated open items checklist appears at the end of this document.
+Each schedule has been rewritten to match the platform actually described above. Sections still requiring your input are marked in brackets, and repeated in the checklist below.
 
 ## Open items checklist
-These items are the concrete blanks only TarragonHealth and counsel, together, can close. Each is called out inline in the schedules above, and repeated here so nothing is missed in review. None of the three schedules should be treated as final or launched publicly until this checklist is closed and you have signed off on the marked sections.
-
-1. **Data Protection Officer** — appointment, name, and contact details; confirm whether the role is legally mandatory for us. (Our own platform will not go live with real patients until this is done — see item 2.)
-2. **NDPC registration status** — confirm current status; this is now a hard technical gate blocking production patient enrolment on our own systems until satisfied, so timing matters for our build schedule as well as for compliance.
-3. **Lawful mechanism for the eu-west-1 cross-border transfer** — see Question 1; this remains the highest-risk area in our legal position and is unresolved.
-4. **MDCN/regulatory confirmation of the five-tier clinical staffing structure** — see Question 5. We have not sought or received this confirmation, and do not represent the tier structure as regulator-approved anywhere on the platform.
-5. **Adequacy of the family/next-of-kin/eldercare consent mechanism** — see Question 6; this is a newer feature not covered by any earlier version of this memo.
-6. **Whether a separate institutional/organisational commercial agreement is needed** — see Question 8, second part. (Schedule D is a usable template if so, adapted from our lab-partner relationship to an employer/HMO one.)
-7. **Emergency contact number** — the exact number/instruction Schedule B's emergency carve-out should point to.
-8. **NDPC contact details** — for the complaints clause in Schedule A.
-9. **Refund/cooling-off policy** — see Question 8, first part; finalises Schedule C's cancellation clause.
-10. **Limitation-of-liability cap and structure** — see Question 7; finalises Schedule C.
-11. **Dispute-resolution venue and mechanism** — litigation vs. arbitration, and seat/venue, for Schedule C's governing-law clause.
-12. **Data retention schedule** — exact retention periods by data category (active enrolment, closed account, minimum clinical record retention, financial/tax records).
-13. **Guardian/dependant consent mechanism** — see Question 9.
-14. **How a bundled Bluetooth monitoring device is priced/provided** — see Schedule C's "Your subscription" section; the specific mechanic needs confirming against what the platform actually does before it is described definitively.
+1. **CBN posture for the Health Wallet** — see Question 1. New since v2, now the top priority alongside cross-border transfer.
+2. **Data Protection Officer** — appointment, name, and contact details.
+3. **NDPC registration status** — confirm current status and whether it gates the live patients already on the platform.
+4. **Lawful mechanism for the Supabase eu-west-1 cross-border transfer** — see Question 2.
+5. **Anthropic DPA and disclosure adequacy** — see Question 3, a new item since v2.
+6. **MDCN confirmation of the tier-authority model** — see Question 6.
+7. **NDPC contact details**, for the complaints clause in Schedule A.
+8. **Refund/cooling-off policy** under FCCPC — see Question 7.
+9. **Limitation-of-liability cap and structure**, for Schedule C.
+10. **Dispute-resolution venue and mechanism**, for Schedule C's governing-law clause.
+11. **Data retention schedule** — exact periods by data category.
+12. **Guardian/dependant consent mechanism sufficiency** — see Question 8.
+13. **Whether a separate institutional commercial agreement is needed** — see Question 9.

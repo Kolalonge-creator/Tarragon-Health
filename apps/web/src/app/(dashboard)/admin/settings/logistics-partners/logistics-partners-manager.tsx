@@ -8,9 +8,12 @@ import {
   useCreateLogisticsPartner,
   useSetHomeVisitProviderActive,
   useSetLogisticsPartnerActive,
+  useUpdateHomeVisitProviderLicense,
+  useUpdateLogisticsPartnerLicense,
   type HomeVisitProvider,
   type LogisticsPartner,
 } from "@/lib/queries/logistics-partners";
+import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +32,7 @@ function HomeVisitProvidersSection() {
   const { data: providers, isLoading, isError } = useAllHomeVisitProviders();
   const create = useCreateHomeVisitProvider();
   const setActive = useSetHomeVisitProviderActive();
+  const updateLicense = useUpdateHomeVisitProviderLicense();
 
   const [name, setName] = useState("");
   const [regions, setRegions] = useState("");
@@ -52,26 +56,39 @@ function HomeVisitProvidersSection() {
         {providers && providers.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {providers.map((p: HomeVisitProvider) => (
-              <li key={p.id} className="flex items-center justify-between gap-4 py-2.5">
-                <div>
-                  <p className="text-sm font-medium text-charcoal-ink">{p.name}</p>
-                  <p className="text-xs text-charcoal-ink/60">
-                    {p.regions.join(", ") || "No regions set"}
-                    {p.sample_types.length > 0 && ` · ${p.sample_types.join(", ")}`}, ₦
-                    {koboToNaira(p.home_visit_fee_kobo).toLocaleString()}
+              <li key={p.id} className="py-2.5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-charcoal-ink">{p.name}</p>
+                    <p className="text-xs text-charcoal-ink/60">
+                      {p.regions.join(", ") || "No regions set"}
+                      {p.sample_types.length > 0 && ` · ${p.sample_types.join(", ")}`}, ₦
+                      {koboToNaira(p.home_visit_fee_kobo).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={p.is_active ? "green" : "grey"}>{p.is_active ? "Active" : "Inactive"}</Badge>
+                    <PartnerLicenseBadge expiresAt={p.license_expires_at} />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={setActive.isPending}
+                      onClick={() => setActive.mutate({ id: p.id, isActive: !p.is_active })}
+                    >
+                      {p.is_active ? "Deactivate" : "Activate"}
+                    </Button>
+                  </div>
+                </div>
+                {p.license_number && (
+                  <p className="mt-1 text-xs text-charcoal-ink/50">
+                    {p.license_type ?? "License"}: {p.license_number}
                   </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={p.is_active ? "green" : "grey"}>{p.is_active ? "Active" : "Inactive"}</Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={setActive.isPending}
-                    onClick={() => setActive.mutate({ id: p.id, isActive: !p.is_active })}
-                  >
-                    {p.is_active ? "Deactivate" : "Activate"}
-                  </Button>
-                </div>
+                )}
+                <PartnerLicenseEditor
+                  values={p}
+                  saving={updateLicense.isPending}
+                  onSave={(next) => updateLicense.mutate({ id: p.id, ...next })}
+                />
               </li>
             ))}
           </ul>
@@ -152,6 +169,7 @@ function LogisticsPartnersSection() {
   const { data: partners, isLoading, isError } = useAllLogisticsPartners();
   const create = useCreateLogisticsPartner();
   const setActive = useSetLogisticsPartnerActive();
+  const updateLicense = useUpdateLogisticsPartnerLicense();
 
   const [name, setName] = useState("");
   const [regions, setRegions] = useState("");
@@ -175,26 +193,39 @@ function LogisticsPartnersSection() {
         {partners && partners.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {partners.map((p: LogisticsPartner) => (
-              <li key={p.id} className="flex items-center justify-between gap-4 py-2.5">
-                <div>
-                  <p className="text-sm font-medium text-charcoal-ink">{p.name}</p>
-                  <p className="text-xs text-charcoal-ink/60">
-                    {p.regions.join(", ") || "No regions set"}, ₦
-                    {koboToNaira(p.delivery_fee_kobo).toLocaleString()}
-                    {p.estimated_delivery_hours ? ` · ~${p.estimated_delivery_hours}h` : ""}
+              <li key={p.id} className="py-2.5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-charcoal-ink">{p.name}</p>
+                    <p className="text-xs text-charcoal-ink/60">
+                      {p.regions.join(", ") || "No regions set"}, ₦
+                      {koboToNaira(p.delivery_fee_kobo).toLocaleString()}
+                      {p.estimated_delivery_hours ? ` · ~${p.estimated_delivery_hours}h` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={p.is_active ? "green" : "grey"}>{p.is_active ? "Active" : "Inactive"}</Badge>
+                    <PartnerLicenseBadge expiresAt={p.license_expires_at} />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={setActive.isPending}
+                      onClick={() => setActive.mutate({ id: p.id, isActive: !p.is_active })}
+                    >
+                      {p.is_active ? "Deactivate" : "Activate"}
+                    </Button>
+                  </div>
+                </div>
+                {p.license_number && (
+                  <p className="mt-1 text-xs text-charcoal-ink/50">
+                    {p.license_type ?? "License"}: {p.license_number}
                   </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={p.is_active ? "green" : "grey"}>{p.is_active ? "Active" : "Inactive"}</Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={setActive.isPending}
-                    onClick={() => setActive.mutate({ id: p.id, isActive: !p.is_active })}
-                  >
-                    {p.is_active ? "Deactivate" : "Activate"}
-                  </Button>
-                </div>
+                )}
+                <PartnerLicenseEditor
+                  values={p}
+                  saving={updateLicense.isPending}
+                  onSave={(next) => updateLicense.mutate({ id: p.id, ...next })}
+                />
               </li>
             ))}
           </ul>

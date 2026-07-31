@@ -8,11 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { CommissionRateEditor } from "@/components/admin/commission-rate-editor";
+import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
 import {
   useAllSpecialistProviders,
   useCreateSpecialistProvider,
   useSetSpecialistProviderActive,
   useUpdateSpecialistProviderCommission,
+  useUpdateSpecialistProviderLicense,
   type SpecialistType,
 } from "@/lib/queries/partner-catalogues";
 
@@ -34,6 +36,7 @@ export function SpecialistsManager() {
   const create = useCreateSpecialistProvider();
   const toggle = useSetSpecialistProviderActive();
   const updateCommission = useUpdateSpecialistProviderCommission();
+  const updateLicense = useUpdateSpecialistProviderLicense();
   const [savingCommissionId, setSavingCommissionId] = useState<string | null>(null);
   const [commissionErrorId, setCommissionErrorId] = useState<string | null>(null);
 
@@ -159,6 +162,7 @@ export function SpecialistsManager() {
                     <Badge variant="grey">{sp.specialist_type.replace(/_/g, " ")}</Badge>
                     <Badge variant={sp.is_active ? "green" : "grey"}>{sp.is_active ? "Active" : "Inactive"}</Badge>
                     {sp.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
+                    <PartnerLicenseBadge expiresAt={sp.license_expires_at} />
                     {sp.state && <span className="text-xs text-charcoal-ink/50">{sp.state}</span>}
                   </div>
                   <Button
@@ -169,6 +173,16 @@ export function SpecialistsManager() {
                     {sp.is_active ? "Deactivate" : "Activate"}
                   </Button>
                 </div>
+                {sp.license_number && (
+                  <p className="text-xs text-charcoal-ink/50">
+                    {sp.license_type ?? "License"}: {sp.license_number}
+                  </p>
+                )}
+                <PartnerLicenseEditor
+                  values={sp}
+                  saving={updateLicense.isPending}
+                  onSave={(next) => updateLicense.mutate({ id: sp.id, ...next })}
+                />
                 <CommissionRateEditor
                   idPrefix={`specialist-${sp.id}`}
                   value={{

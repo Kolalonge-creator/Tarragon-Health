@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables, Enums } from "@tarragon/shared";
 import type { CommissionRateValue } from "@/components/admin/commission-rate-editor";
+import type { PartnerLicenseValues } from "@/components/admin/partner-license-fields";
 
 export type LabProvider = Tables<"lab_providers">;
 export type PharmacyPartner = Tables<"pharmacy_partners">;
@@ -387,6 +388,42 @@ export function useUpdateSpecialistProviderCommission() {
         .from("specialist_providers")
         .update(commissionRateUpdate(value))
         .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
+  });
+}
+
+export function useUpdateLabProviderLicense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("lab_providers").update(license).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
+  });
+}
+
+export function useUpdatePharmacyPartnerLicense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("pharmacy_partners").update(license).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-partners"] }),
+  });
+}
+
+export function useUpdateSpecialistProviderLicense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("specialist_providers").update(license).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
