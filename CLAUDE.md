@@ -1852,6 +1852,73 @@ service, not an amount of spending power. Nine migrations, `20260731214826`–`2
   work (nothing references the dropped wallet, every voucher object intact), but whoever owns that
   session still needs to commit them, same recurring drift class as every prior entry in this file.
 
+### 2026-08-01 — Clinical authority made monotonic: refill confirmation reachable at every tier ([PR #194](https://github.com/Kolalonge-creator/Tarragon-Health/pull/194), released via [PR #195](https://github.com/Kolalonge-creator/Tarragon-Health/pull/195))
+Founder requirement, stated directly: a higher tier must be able to see and do everything a lower
+tier can, so that when no lower tier is on shift the senior doctor can still handle everything.
+Formally: **`authority(tier N)` must be a subset of `authority(tier N+1)`.** Auditing that turned up
+one real violation and one design error behind it.
+- **The violation:** `private.can_confirm_medication_refill` was written as
+  `doctor_tier = 'tier_1'` — an **equality**, where every sibling gate in this codebase is a minimum
+  ("Tier 2 and above"). A floor expressed as a fence, which silently made a *lower* tier the only
+  holder of a capability. A Tier 4 Senior Registrar covering a shift with no Tier 1 on duty had no
+  route to confirm a routine refill. Fixed by `20260801001234`: all five clinical tiers plus the
+  Clinical Director. `care_coordinator` is excluded **by name**, not via `doctor_tier is not null` —
+  that is what keeps CLAUDE.md's own never-grant-a-Care-Coordinator-medication-write rule structural,
+  since a tier added to the enum later is then excluded by default rather than silently admitted.
+- **Why the DB fix alone was nearly a no-op, checked not assumed:** Tier 2+ already passed
+  `medications_update` via `has_prescribing_authority`, and the UI computes its own gate in
+  TypeScript without ever calling the function. So two app-layer halves were needed for the stated
+  requirement to actually hold. Confirmed by grep that `useConfirmMedicationRefill` is the **only**
+  write path to `refill_date` anywhere in the app — `AddMedicationForm` adds a medication and
+  `StopMedication` stops one, so neither substitutes and the capability was genuinely unreachable,
+  not merely inconvenient.
+- **UI gate:** new `canConfirmMedicationRefill()` in `lib/clinical/doctor-tier.ts` mirrors the DB
+  predicate (same convention as the existing `hasPrescribingAuthority` mirror), replacing
+  `!canPrescribe && doctor_tier === 'tier_1'` — an exclusion that by construction hid the control
+  from every prescriber.
+- **Attribution (`20260801001838`):** `last_confirmed_at`/`by` stamping sat *after* an unconditional
+  `if has_prescribing_authority then return new`, so a senior doctor's confirmation was written but
+  never credited and the patient-facing "Confirmed by your care team" line stayed blank. Moved out
+  from behind that early-return, but deliberately **not** "stamp for everyone": a prescriber makes
+  many kinds of write, so a dose change or a stop must never surface to the patient as a care-team
+  confirmation. Non-prescribers stamp unconditionally (their only permitted update *is* a
+  confirmation — byte-for-byte the prior behaviour, including re-confirming an unchanged date, which
+  a naive value-change test would have silently regressed); prescribers stamp only when
+  `refill_date` moved and no clinical field moved with it.
+- **`packages/db/tests/tier_authority_monotonicity.sql` — the durable part.** It **discovers** tier
+  gates dynamically (any `private` function taking a single org `uuid`, returning boolean, whose body
+  mentions `doctor_tier`) rather than listing them, so the next gate someone writes is covered without
+  anyone remembering to add it. Also asserts non-vacuity (some gate must deny some tier, else an
+  all-permissive system would pass trivially) and that `care_coordinator` is denied by every gate.
+- **Verified against the live database, and the suite proved itself:** the monotonicity test was run
+  **before** the fix and FAILED, naming the exact violation
+  (`can_confirm_medication_refill: tier_1=allowed but tier_2/3/4/5=denied`) — no deliberate sabotage
+  needed, the real bug tripped it. After: all cases pass, matrix
+  `can_confirm_medication_refill t1..t5=1 coord=0`, `has_prescribing_authority t1=0 t2..t5=1 coord=0`,
+  with case 2 still reporting a genuine denial so the suite is not vacuously green.
+  `packages/db/tests/refill_confirmation_attribution.sql` covers 5 cases: Tier 1 confirm stamps;
+  Tier 4 confirm stamps; Tier 4 dose change does NOT stamp *while the dose genuinely changes*;
+  patient edit never stamps; Tier 1 dose change still blocked `42501`.
+- **⚠️ Test trap worth remembering, it produced four wrong readings before being caught:**
+  `medications_update` is gated on `is_org_staff`, so a probe profile that is not clinician-role is
+  denied with **zero rows updated and no exception**. That reads as a failed assertion rather than a
+  blocked write, and it also makes "should not happen" cases pass for the wrong reason. Always assert
+  the write actually landed (here, `dose=20mg`), never only that the side effect is absent.
+- typecheck clean, lint 0 errors (same 2 pre-existing warnings), 65 suites / 563 tests. All CI green
+  on both PRs; production deployment `6435b88` confirmed **success** and both domains verified live.
+- **NOT browser-verified.** The change is user-visible (a Tier 2+ doctor now sees "Confirm &
+  continue"), but completing it requires signing in, and this session could not enter a password to
+  authenticate. No QA fixtures were left on production. To check it by hand: sign in as
+  `clinician.tier2.test@tarragon.test`, give that account an active `clinical_staff` row at
+  `doctor_tier='tier_2'`, add a `source='clinician'` medication to a QA patient, and open that
+  patient at `/clinician/patients/<id>` — the control should now render where previously it did not.
+- **Related, still open:** the **visibility** half of the same founder requirement is not fixed by
+  this. Tier 4/5 currently reach only 3 pages (`/doctor`) against Tier 1-3's 23, with no patient
+  directory at all, so the most senior doctors still cannot open a patient record. That is fixed only
+  by the parked doctor/clinician account-role merge on `worktree-doctor-ux-resolution` (commit
+  `9c01473`, both migrations deliberately unapplied pending an explicit go-ahead to rebuild
+  `user_role` on production).
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
