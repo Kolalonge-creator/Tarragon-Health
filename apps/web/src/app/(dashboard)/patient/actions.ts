@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveSubjectId } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
@@ -51,10 +52,21 @@ export async function logVital(
     return { error: "Not signed in" };
   }
 
+  // Whose reading this is. A supporter with a live 'manage' grant may have the
+  // account of somebody they support open, in which case the reading belongs to
+  // that person and not to the caller. resolveSubjectId re-checks the grant on
+  // the server every time, so a stale or forged cookie resolves back to the
+  // caller's own id rather than somebody else's record.
+  //
+  // Attribution is not this function's job and deliberately cannot be spoofed
+  // here: private.stamp_acting_supporter derives logged_by_profile_id from
+  // auth.uid() at insert time.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
     return { error: "No organisation on file" };
@@ -93,7 +105,7 @@ export async function logVital(
   const { error } = await supabase.from("vitals_readings").insert({
     ...row,
     taken_at: taken_at ? new Date(taken_at).toISOString() : undefined,
-    patient_id: user.id,
+    patient_id: subjectId,
     organisation_id: profile.organisation_id,
   });
   if (error) {
@@ -101,15 +113,15 @@ export async function logVital(
   }
 
   if (row.vital_type === "blood_pressure") {
-    await assessBpControlBestEffort(supabase, user.id, profile.organisation_id);
+    await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
   }
   if (row.vital_type === "pulse") {
-    await assessHeartRateBestEffort(supabase, user.id, profile.organisation_id);
+    await assessHeartRateBestEffort(supabase, subjectId, profile.organisation_id);
   }
   // Glucose OR ketones both re-run the glucose red-flag engine — a ketone log
   // pairs with the latest glucose to catch suspected DKA (§15.3).
   if (row.vital_type === "glucose" || row.vital_type === "ketones") {
-    await assessGlucoseBestEffort(supabase, user.id, profile.organisation_id);
+    await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
   }
   await assessHealthScoreBestEffort(supabase, user.id, profile.organisation_id);
 
@@ -188,10 +200,14 @@ export async function logSymptom(
     return { error: "Not signed in" };
   }
 
+  // Same subject resolution as logVital: a supporter with the account open
+  // is logging this for them, and the grant is re-checked server-side.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
     return { error: "No organisation on file" };
@@ -201,7 +217,7 @@ export async function logSymptom(
     symptom_type: parsed.data.symptom_type,
     severity: parsed.data.severity,
     description: parsed.data.description || null,
-    patient_id: user.id,
+    patient_id: subjectId,
     organisation_id: profile.organisation_id,
   });
   if (error) {

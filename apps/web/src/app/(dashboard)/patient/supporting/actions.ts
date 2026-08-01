@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { initiateSponsoredSubscriptionCheckout } from "@/lib/billing/sponsored-subscription-checkout";
 import { initiateSponsorBillCheckout } from "@/lib/billing/sponsor-bill-checkout";
+import { startActingFor, stopActingFor } from "@/lib/acting/acting-for";
 import type { Currency } from "@tarragon/shared";
 
 export type SponsorActionState = { error?: string; message?: string } | undefined;
@@ -110,4 +111,30 @@ export async function joinAsPatientToo(): Promise<void> {
     .eq("id", user.id);
 
   redirect("/onboarding");
+}
+
+/**
+ * Opens the account of somebody you support.
+ *
+ * The grant is re-checked here and again on every request that reads the
+ * resulting cookie, so this cannot outlive permission: the moment they revoke
+ * it, the next page load is their own account again.
+ */
+export async function openTheirAccount(
+  _prevState: SponsorActionState,
+  formData: FormData,
+): Promise<SponsorActionState> {
+  const beneficiaryProfileId = formData.get("beneficiaryProfileId") as string;
+  if (!beneficiaryProfileId) return { error: "Whose account?" };
+
+  const ok = await startActingFor(beneficiaryProfileId);
+  if (!ok) return { error: "You don't have permission to open this person's account." };
+
+  redirect("/patient");
+}
+
+/** Back to your own account. */
+export async function closeTheirAccount(): Promise<void> {
+  await stopActingFor();
+  redirect("/patient/supporting");
 }

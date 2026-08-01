@@ -66,7 +66,14 @@ export async function proxy(request: NextRequest) {
   //
   // This is the single choke point for it. A per-page guard would have to be
   // remembered sixteen times today and once more for every page added.
-  const supporterOnly = profile.role === "patient" && profile.receives_care === false;
+  // ...unless they have opened the account of somebody they support, which is
+  // the entire point of being here. The cookie only suppresses the redirect;
+  // the live 'manage' grant is what actually admits them, re-checked on the
+  // page itself via getActingFor, so a forged cookie reaches an empty account
+  // rather than somebody's record.
+  const hasOpenAccount = Boolean(request.cookies.get("th_acting_for")?.value);
+  const supporterOnly =
+    profile.role === "patient" && profile.receives_care === false && !hasOpenAccount;
   if (supporterOnly && pathname.startsWith("/patient")) {
     const allowed =
       pathname === "/patient/supporting" ||

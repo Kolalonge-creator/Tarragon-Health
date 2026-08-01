@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getActingFor } from "@/lib/acting/acting-for";
 import { createClient } from "@/lib/supabase/server";
 import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
@@ -19,6 +20,7 @@ import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { getPatientSummaryStats, getPatientPreventionStats } from "./summary";
 import Link from "next/link";
 import { NextBestAction } from "./next-best-action";
+import { ActingForBanner } from "./acting-for-banner";
 import { RiskSignalsCard } from "./risk-signals-card";
 import { CareScheduleCard } from "./care-schedule-card";
 import { AskADoctor } from "./ask-a-doctor";
@@ -87,22 +89,33 @@ export default async function PatientPage() {
   if (!profile) {
     redirect("/login");
   }
-  if (!profile.onboarding_completed_at) {
+  // Somebody with a 'manage' grant can open the account of the person they
+  // support and run it from here. The grant is re-checked on every request, so
+  // this ends the moment it is revoked.
+  const acting = await getActingFor();
+
+  if (!acting && !profile.onboarding_completed_at) {
     redirect("/onboarding");
   }
-  // Somebody here to fund a parent's care has no vitals, no screenings and no
-  // plan of their own, so this dashboard would be a page of empty prompts
+  // Somebody here only to fund a parent's care has no vitals, no screenings and
+  // no plan of their own, so this dashboard would be a page of empty prompts
   // about a body we are not looking after. Their home is the people they
-  // support. The single choke point for it: every route into /patient lands
-  // here, including the brand lockup and the "/" role-home redirect.
-  if (profile.receives_care === false) {
+  // support — unless they have opened somebody's account, which is the whole
+  // point of being here.
+  if (!acting && profile.receives_care === false) {
     redirect("/patient/supporting");
   }
 
+  // From here on, "whose dashboard is this" is the subject, not the caller.
+  // auth.uid() is still the supporter throughout: only the patient_id changes,
+  // and anything written is stamped with the supporter's own name by
+  // private.stamp_acting_supporter.
+  const subjectId = acting?.profileId ?? profile.id;
+
   const supabase = await createClient();
   const coachAccess = await hasCoachAccess(supabase);
-  const stats = await getPatientSummaryStats(profile.id);
-  const prevention = await getPatientPreventionStats(profile.id);
+  const stats = await getPatientSummaryStats(subjectId);
+  const prevention = await getPatientPreventionStats(subjectId);
   const { data: refillCoordinationEnabled } = await supabase.rpc("has_feature_access", {
     feature: "medication_refills",
   });
@@ -120,16 +133,25 @@ export default async function PatientPage() {
 
   return (
     <DashboardPlaceholder
-      greeting={`Hi${profile.full_name ? `, ${profile.full_name}` : ""}`}
-      roleLabel="Patient"
+      greeting={
+        acting
+          ? `${acting.fullName ?? "Their"}'s account`
+          : `Hi${profile.full_name ? `, ${profile.full_name}` : ""}`
+      }
+      roleLabel={acting ? "Acting for them" : "Patient"}
       comingUp={[]}
     >
+      {/* Whose account this is must never be in doubt. It sits above the
+          safety surfaces because mistaking one person's record for another is
+          itself the safety problem. */}
+      <ActingForBanner acting={acting} />
+
       {/* Safety surfaces stay above everything, outside any section. */}
       <EmergencyAlert
-        patientId={profile.id}
+        patientId={subjectId}
         hasEmergencyContact={!!profile.emergency_contact_phone}
       />
-      <DangerSymptomCheck patientId={profile.id} />
+      <DangerSymptomCheck patientId={subjectId} />
 
       <SectionNav items={SECTIONS} />
 
@@ -143,10 +165,10 @@ export default async function PatientPage() {
         }
         icon={NAV_ICON.dashboard}
       >
-        <NextBestAction patientId={profile.id} />
-        <HealthResetCard patientId={profile.id} />
-        <RiskSignalsCard patientId={profile.id} />
-        <CareScheduleCard patientId={profile.id} />
+        <NextBestAction patientId={subjectId} />
+        <HealthResetCard patientId={subjectId} />
+        <RiskSignalsCard patientId={subjectId} />
+        <CareScheduleCard patientId={subjectId} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both
             states read the same shared record — nothing is hidden, only led
@@ -226,8 +248,8 @@ export default async function PatientPage() {
             )}
           </>
         )}
-        <HealthScoreCard patientId={profile.id} />
-        <YourCareTeam patientId={profile.id} />
+        <HealthScoreCard patientId={subjectId} />
+        <YourCareTeam patientId={subjectId} />
         {/* Messaging your care team sits right here, not buried in Care &
             support — it's the primary way to reach someone, so it needs to
             be visible without scrolling (see 2026-07-30 patient-experience
@@ -236,9 +258,9 @@ export default async function PatientPage() {
           feature="doctor_checkin"
           fallback={<UpgradePrompt feature="doctor_checkin" />}
         >
-          <CareTeamContact patientId={profile.id} />
+          <CareTeamContact patientId={subjectId} />
         </RequiresEntitlement>
-        <PatientTimeline patientId={profile.id} />
+        <PatientTimeline patientId={subjectId} />
       </DashboardSection>
 
       <DashboardSection
@@ -247,13 +269,13 @@ export default async function PatientPage() {
         description="Log readings and symptoms, and see how they trend over time."
         icon={SEMANTIC_ICON.bp}
       >
-        <VitalsForm patientId={profile.id} />
-        <HbpmSummaryCard patientId={profile.id} />
-        <VitalsHistory patientId={profile.id} />
-        <VitalsTrendChart patientId={profile.id} />
-        <SymptomLogForm patientId={profile.id} />
-        <SymptomLogHistory patientId={profile.id} />
-        <WearableConnectSection patientId={profile.id} />
+        <VitalsForm patientId={subjectId} />
+        <HbpmSummaryCard patientId={subjectId} />
+        <VitalsHistory patientId={subjectId} />
+        <VitalsTrendChart patientId={subjectId} />
+        <SymptomLogForm patientId={subjectId} />
+        <SymptomLogHistory patientId={subjectId} />
+        <WearableConnectSection patientId={subjectId} />
       </DashboardSection>
 
       <DashboardSection
@@ -262,15 +284,15 @@ export default async function PatientPage() {
         description="Today's doses, your medicines cabinet, and pharmacy orders."
         icon={SEMANTIC_ICON.medication}
       >
-        <TodaysDoses patientId={profile.id} />
+        <TodaysDoses patientId={subjectId} />
         <MedicationsList
-          patientId={profile.id}
+          patientId={subjectId}
           refillCoordinationEnabled={refillCoordinationEnabled ?? false}
           canStop
         />
-        <AdherenceCheckins patientId={profile.id} />
-        <LabMonitoringCard patientId={profile.id} />
-        <AddMedicationForm patientId={profile.id} source="patient" />
+        <AdherenceCheckins patientId={subjectId} />
+        <LabMonitoringCard patientId={subjectId} />
+        <AddMedicationForm patientId={subjectId} source="patient" />
         <RequiresEntitlement
           feature="medication_refills"
           fallback={<UpgradePrompt feature="medication_refills" />}
@@ -278,11 +300,11 @@ export default async function PatientPage() {
           {profile.organisation_id && (
             <PharmacyCatalogue
               organisationId={profile.organisation_id}
-              patientId={profile.id}
+              patientId={subjectId}
               patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
             />
           )}
-          <PharmacyOrdersList patientId={profile.id} />
+          <PharmacyOrdersList patientId={subjectId} />
         </RequiresEntitlement>
       </DashboardSection>
 
@@ -304,37 +326,37 @@ export default async function PatientPage() {
           .
         </p>
         <AnnualHealthCheckBooking
-          patientId={profile.id}
+          patientId={subjectId}
           organisationId={profile.organisation_id}
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
           sex={profile.sex}
         />
         <PreventiveScreeningCalendar
-          patientId={profile.id}
+          patientId={subjectId}
           organisationId={profile.organisation_id}
           bookingEnabled={screeningBookingEnabled}
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
-        <RiskAssessmentForm patientId={profile.id} />
+        <RiskAssessmentForm patientId={subjectId} />
         <CareProgrammeRecommendations
-          patientId={profile.id}
+          patientId={subjectId}
           conditionLanguagePreference={profile.condition_language_preference}
         />
         <PreventiveProgrammes
-          patientId={profile.id}
+          patientId={subjectId}
           ageYears={ageFromDateOfBirth(profile.date_of_birth)}
           sex={profile.sex}
         />
         {profile.sex === "female" && profile.organisation_id && (
           <ReproductiveHealthCard
-            patientId={profile.id}
+            patientId={subjectId}
             organisationId={profile.organisation_id}
           />
         )}
-        <RiskAssessmentDisplay patientId={profile.id} />
+        <RiskAssessmentDisplay patientId={subjectId} />
         <VaccinationForFamily
           self={{
-            id: profile.id,
+            id: subjectId,
             label: "Me",
             ageYears: ageFromDateOfBirth(profile.date_of_birth),
             dateOfBirth: profile.date_of_birth,
@@ -348,7 +370,7 @@ export default async function PatientPage() {
           feature="annual_review"
           fallback={<UpgradePrompt feature="annual_review" />}
         >
-          <AnnualReviewCard patientId={profile.id} />
+          <AnnualReviewCard patientId={subjectId} />
         </RequiresEntitlement>
         {profile.organisation_id && (
           <RequiresEntitlement
@@ -356,7 +378,7 @@ export default async function PatientPage() {
             fallback={<UpgradePrompt feature="health_education" />}
           >
             <HealthEducation
-              patientId={profile.id}
+              patientId={subjectId}
               organisationId={profile.organisation_id}
               conditionLanguagePreference={profile.condition_language_preference}
             />
@@ -379,17 +401,17 @@ export default async function PatientPage() {
           <>
             <LabCatalogue />
             <LabOrdersList
-              patientId={profile.id}
+              patientId={subjectId}
               patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
             />
-            <ResultsTrendsCard patientId={profile.id} />
-            <LabResults patientId={profile.id} />
+            <ResultsTrendsCard patientId={subjectId} />
+            <LabResults patientId={subjectId} />
             {/* FacilityDirectory/BookingRequestsList stay scoped to types with
                 no priced catalogue (hospital, radiology, optician,
                 vaccination_centre) — lab now books through the catalogue above,
                 per the "sole transactional path" decision (see facility-directory.tsx). */}
-            <FacilityDirectory patientId={profile.id} />
-            <BookingRequestsList patientId={profile.id} />
+            <FacilityDirectory patientId={subjectId} />
+            <BookingRequestsList patientId={subjectId} />
           </>
         ) : (
           <>
@@ -398,11 +420,11 @@ export default async function PatientPage() {
                 Annual Health Check is purchasable on any plan — so the order
                 list, trends, and results stay visible below the prompt. */}
             <LabOrdersList
-              patientId={profile.id}
+              patientId={subjectId}
               patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
             />
-            <ResultsTrendsCard patientId={profile.id} />
-            <LabResults patientId={profile.id} />
+            <ResultsTrendsCard patientId={subjectId} />
+            <LabResults patientId={subjectId} />
           </>
         )}
       </DashboardSection>
@@ -423,9 +445,9 @@ export default async function PatientPage() {
           feature="clinician_review"
           fallback={<UpgradePrompt feature="clinician_review" />}
         >
-          <CarePlanDisplay patientId={profile.id} />
+          <CarePlanDisplay patientId={subjectId} />
           <ObesitySummary
-            patientId={profile.id}
+            patientId={subjectId}
             conditionLanguagePreference={profile.condition_language_preference}
           />
         </RequiresEntitlement>
@@ -433,30 +455,30 @@ export default async function PatientPage() {
           feature="async_doctor_visit"
           fallback={<UpgradePrompt feature="async_doctor_visit" />}
         >
-          <AskADoctor patientId={profile.id} organisationId={profile.organisation_id} />
+          <AskADoctor patientId={subjectId} organisationId={profile.organisation_id} />
         </RequiresEntitlement>
         {/* Paid per-visit service — no plan gate; the card itself carries the
             availability + not-for-emergencies copy. */}
-        <BookVideoVisit patientId={profile.id} />
-        <PatientEscalations patientId={profile.id} />
-        <HospitalAdmissionsCard patientId={profile.id} />
+        <BookVideoVisit patientId={subjectId} />
+        <PatientEscalations patientId={subjectId} />
+        <HospitalAdmissionsCard patientId={subjectId} />
         <RequiresEntitlement
           feature="lifestyle_coaching"
           fallback={<UpgradePrompt feature="lifestyle_coaching" />}
         >
-          <LifestyleProgressSummary patientId={profile.id} />
+          <LifestyleProgressSummary patientId={subjectId} />
         </RequiresEntitlement>
         <YourReferrals
-          patientId={profile.id}
+          patientId={subjectId}
           patientLocation={{ state: profile.state, city: profile.city }}
         />
-        {coachAccess && <AiCoachChat patientId={profile.id} />}
+        {coachAccess && <AiCoachChat patientId={subjectId} />}
         <CareCircleCard />
 
         {/* Discretionary / engagement surfaces — real features, deliberately
             lower priority than anything above. */}
-        <CareVouchersCard patientId={profile.id} />
-        <WellnessPointsSummary patientId={profile.id} />
+        <CareVouchersCard patientId={subjectId} />
+        <WellnessPointsSummary patientId={subjectId} />
         <TestimonialForm />
       </DashboardSection>
 
@@ -470,7 +492,7 @@ export default async function PatientPage() {
             optional and non-blocking, and asking a first-time visitor for a
             government ID before they have done anything is the single most
             off-putting step in the signup path. */}
-        <IdentityVerificationCard patientId={profile.id} />
+        <IdentityVerificationCard patientId={subjectId} />
         <PatientLocationForm
           initial={{ state: profile.state, city: profile.city, area: profile.area }}
         />

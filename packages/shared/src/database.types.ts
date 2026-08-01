@@ -11104,6 +11104,7 @@ export type Database = {
           description: string | null
           id: string
           is_red_flag: boolean
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           reported_at: string
@@ -11126,6 +11127,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_red_flag?: boolean
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           reported_at?: string
@@ -11727,6 +11729,7 @@ export type Database = {
           ketone_urine: string | null
           ketones_mmol_l: number | null
           note: string | null
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           pulse_bpm: number | null
@@ -11779,6 +11782,7 @@ export type Database = {
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
           note?: string | null
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           pulse_bpm?: number | null
@@ -13340,6 +13344,7 @@ export type Database = {
         }
         Returns: Json
       }
+      can_act_for: { Args: { p_beneficiary: string }; Returns: boolean }
       sponsor_care_status: { Args: { p_beneficiary: string }; Returns: Json }
       sponsor_payable_orders: { Args: { p_beneficiary: string }; Returns: Json }
       sponsor_request_refill: {

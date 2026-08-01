@@ -27,7 +27,12 @@ import {
 } from "@/lib/queries/sponsorship";
 import { buyCareVoucher, type VoucherActionState } from "../vouchers/actions";
 import { useVoucherCatalogue } from "@/lib/queries/vouchers";
-import { paySomeonesBill, paySomeonesPlan, type SponsorActionState } from "./actions";
+import {
+  openTheirAccount,
+  paySomeonesBill,
+  paySomeonesPlan,
+  type SponsorActionState,
+} from "./actions";
 import { useActivePatientPlans } from "@/lib/queries/subscription-plans";
 
 function naira(kobo: number): string {
@@ -258,6 +263,8 @@ function PersonCard({
           </form>
         )}
 
+        {person.permissionLevel === "manage" && <OpenTheirAccount person={person} />}
+
         {person.permissionLevel === "manage" && <PayTheirPlan person={person} />}
 
         {person.permissionLevel === "manage" && <ManageActions person={person} />}
@@ -331,6 +338,36 @@ function bpMovement(data: SupportedPersonHealth): string | null {
   if (now.systolic === before.systolic) return null;
   const direction = now.systolic > before.systolic ? "up" : "down";
   return `${direction} from ${before.systolic}/${before.diastolic ?? "?"}`;
+}
+
+/**
+ * Opens their account, so an errand can be run from inside it.
+ *
+ * The grant is checked here and re-checked on every request afterwards, so
+ * this cannot outlive permission: the moment they revoke it, the next page
+ * load is the supporter's own account again.
+ */
+function OpenTheirAccount({ person }: { person: SupportedPerson }) {
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    openTheirAccount,
+    undefined,
+  );
+  const name = (person.fullName ?? "").trim().split(/\s+/)[0] || "them";
+
+  return (
+    <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
+      <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
+      <p className="text-xs font-medium text-charcoal-ink">Open their account</p>
+      <p className="text-sm text-charcoal-ink/70">
+        Go into {name}&apos;s account to log a reading or book something for them, the way you would
+        if you were sitting next to them. Everything you do there is saved with your name on it.
+      </p>
+      <Button type="submit" variant="outline" disabled={pending}>
+        {pending ? "Opening…" : `Open ${name}'s account`}
+      </Button>
+      {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
+    </form>
+  );
 }
 
 /**

@@ -1949,6 +1949,41 @@ lint (0 errors, the same 2 pre-existing warnings) / 555 web tests / full product
   Paystack round-trip of sponsored-plan checkout in a non-sandboxed browser, the same known gap every
   payment pass in this file carries.
 
+### 2026-08-01 — A supporter can open the account they support, and pay from their own card
+Two founder asks on the same day, both built on `worktree-sponsor-10-of-10`.
+- **Paying directly.** The only settle path left after the Health Wallet was retired was redeeming a
+  Care Voucher the person already held, so the button read "No voucher for this" against a real,
+  itemised, unpaid bill; `sponsor_pay_booking_order` had been dropped by `20260731215735` and never
+  replaced. `initiateSponsorBillCheckout` now charges the supporter's own card for one named bill.
+  **The amount is never posted from the form and authorisation is not a second check that could
+  drift from the first** — both come from `sponsor_payable_orders`, which raises 42501 without a
+  manage grant, so a bill you cannot list is a bill you cannot pay. Verified live: a `view` grantee
+  is refused the listing outright, a `manage` grantee sees the real ₦4,500, and the bill still names
+  a category rather than the drug.
+- **Opening their account** (founder chose full act-as over a richer read-only view, and chose
+  "always name the supporter" for attribution). `20260801110000`: `private.can_act_for`,
+  `logged_by_profile_id` on `vitals_readings`/`symptoms`, INSERT policies for a manage grantee, and
+  `private.stamp_acting_supporter` deriving the author from `auth.uid()`.
+  **Acting for someone is deliberately NOT impersonation** — `auth.uid()` stays the supporter
+  throughout, because every RLS policy on this platform is built on it. Only the `patient_id` the app
+  is pointed at changes. The chosen person lives in a cookie that is **only a hint**: the live grant
+  is re-checked on every request, so a forged or stale cookie reaches nothing and a downgrade to
+  `view` ends access on the very next page load (both proven live).
+  **No UPDATE or DELETE policy exists**, so a supporter may add to the record and can never revise or
+  remove it, including their own earlier entry. `packages/db/tests/acting_for_someone.sql` (9/9)
+  covers all of it, including a deliberately spoofed author being overwritten with the real one.
+- **The bug that mattered, found only by walking it:** `logVital` hardcoded `patient_id: user.id` and
+  ignored the patient it was handed, so a reading logged inside someone else's open account silently
+  landed on the supporter's own record. Fixed for `logVital` and `logSymptom` via `resolveSubjectId`,
+  which re-checks the grant. Verified end to end: 134/84 saved to **Folake's** record, attributed to
+  **Tunde Adeyemi**.
+- **Not covered, deliberately:** the other four writes in `patient/actions.ts`
+  (`submitRiskAssessment`, `reportDangerSymptoms`, `logHospitalAdmission`) still write as the caller.
+  They have no supporter INSERT policy, so they fail closed rather than misfile — but a supporter
+  with an account open cannot use them yet, and wiring each needs its own policy + attribution
+  decision rather than a blanket change.
+- typecheck / lint (0 errors, same 2 pre-existing warnings) / 555 tests / production build green.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
