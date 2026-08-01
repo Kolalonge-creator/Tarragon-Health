@@ -1884,13 +1884,24 @@ lint (0 errors, the same 2 pre-existing warnings) / 555 web tests / full product
   at it), `sponsor_person_quiet` (21 days silent, only for someone on an active care plan, one nudge
   a month) and `sponsored_plan_started`, all `in_app` + `email`, all hard-coded `non_clinical` with an
   assertion that keeps them that way.
-- **A payer had to become a patient to pay.** Full patient onboarding — consent to how *their own*
-  health data is used, consent to receive *remote care themselves*, DOB and sex — stood between
-  someone and giving us money for their mother, enforced in the DB. New `profiles.account_purpose`
-  ('care' | 'support'): a supporter accepts the terms of service and nothing else, because a person
-  who will never receive care here has no telehealth relationship to consent to and no health data we
-  have a basis to hold. `enforce_care_purpose_switch` re-imposes every prerequisite if they later want
-  their own care, so the requirement **moved rather than weakened**.
+- **A payer had to become a patient to pay, and then had to live in a patient's app.** Two halves,
+  both closed. **(a) The questions:** full patient onboarding — consent to how *their own* health data
+  is used, consent to receive *remote care themselves*, DOB and sex — stood between someone and giving
+  us money for their mother, enforced in the DB. New `profiles.account_purpose` ('care' | 'support'):
+  a supporter accepts the terms of service and nothing else, because a person who will never receive
+  care here has no telehealth relationship to consent to and no health data we have a basis to hold.
+  **(b) The app itself:** reordering the patient menu was not enough — a supporter still landed on
+  `/patient`, a dashboard of empty prompts about a body we are not looking after, under a sidebar of
+  nine links about their own health, labelled "Patient". Now: `getNavSections` takes
+  `accountPurpose` and gives supporters their own four-item menu (People you support · Messages ·
+  Your people · Payments), the role chip reads **"Supporter"**, `completeOnboarding` and a guard on
+  `/patient` both send them to `/patient/supporting` as their real home, and a `setUpMyOwnCare`
+  action is the door if they ever do want care here.
+  **`enforce_care_purpose_switch` re-imposes every prerequisite if they take that door**, and
+  `setUpMyOwnCare` clears `onboarding_completed_at` in the same statement so they go back through the
+  full patient flow rather than around it — the requirement **moved rather than weakened**. Proven in
+  `packages/db/tests/supporter_accounts.sql` (7/7): an onboarded supporter **cannot** simply flip to
+  'care', and once restarted the full DOB + consent set is demanded exactly as for any new patient.
 - **Two real bugs found only by walking it in a browser.** (1) The supporter consent checkbox still
   read "…and to receive remote care", which would have recorded a consent never asked for — the exact
   untruth the split exists to remove. (2) My own `enforce_onboarding_prereqs` referenced

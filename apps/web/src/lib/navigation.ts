@@ -18,9 +18,34 @@ export interface NavSection {
 /** Role → sidebar navigation. Routes listed here must be real pages; pages
  * that gate on entitlement/permission still render a friendly gate, so a
  * link is safe even when the caller lacks the feature. */
-export function getNavSections(role: string | null | undefined): NavSection[] {
+export function getNavSections(
+  role: string | null | undefined,
+  /**
+   * 'support' means this account exists to fund and follow somebody else's
+   * care. Reordering the patient menu was not enough: a supporter was still
+   * handed a sidebar of Prevention, Health Check, Health Passport, Lifestyle
+   * coaching and Wellness rewards — nine links about a body we are not
+   * looking after — which is what makes the product feel like it was built for
+   * somebody else and lent to them. They get their own short menu instead.
+   */
+  accountPurpose?: "care" | "support" | null,
+): NavSection[] {
   switch (role) {
     case "patient":
+      if (accountPurpose === "support") {
+        return [
+          {
+            items: [
+              { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+              { label: "Messages", href: "/patient/messages", icon: "messages" },
+              { label: "Your people", href: "/patient/family", icon: "family" },
+              // Not "Subscription" — a supporter has no plan of their own. This
+              // is where they see what they are paying for other people.
+              { label: "Payments", href: "/patient/subscription", icon: "billing" },
+            ],
+          },
+        ];
+      }
       return [
         {
           items: [

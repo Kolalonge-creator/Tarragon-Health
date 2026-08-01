@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { initiateSponsoredSubscriptionCheckout } from "@/lib/billing/sponsored-subscription-checkout";
 import type { Currency } from "@tarragon/shared";
 
@@ -42,4 +42,27 @@ export async function paySomeonesPlan(
 
   if (!result.ok) return { error: result.error };
   redirect(result.checkoutUrl);
+}
+
+/**
+ * A supporter deciding they want care here themselves.
+ *
+ * Clearing onboarding_completed_at in the same statement is what makes this
+ * safe rather than a loophole: enforce_care_purpose_switch only permits the
+ * flip while onboarding is incomplete, so they are sent back through the full
+ * patient flow and enforce_onboarding_prereqs then demands date of birth, sex
+ * and the care consents exactly as it would for any new patient. Nothing is
+ * skipped — it is collected at the point it becomes true.
+ */
+export async function setUpMyOwnCare(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const supabase = await createClient();
+  await supabase
+    .from("profiles")
+    .update({ account_purpose: "care", onboarding_completed_at: null })
+    .eq("id", user.id);
+
+  redirect("/onboarding");
 }

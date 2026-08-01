@@ -90,6 +90,14 @@ export default async function PatientPage() {
   if (!profile.onboarding_completed_at) {
     redirect("/onboarding");
   }
+  // Somebody here to fund a parent's care has no vitals, no screenings and no
+  // plan of their own, so this dashboard would be a page of empty prompts
+  // about a body we are not looking after. Their home is the people they
+  // support. The single choke point for it: every route into /patient lands
+  // here, including the brand lockup and the "/" role-home redirect.
+  if (profile.account_purpose === "support") {
+    redirect("/patient/supporting");
+  }
 
   const supabase = await createClient();
   const coachAccess = await hasCoachAccess(supabase);

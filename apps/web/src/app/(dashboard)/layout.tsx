@@ -34,16 +34,22 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, organisation_id")
+    .select("full_name, role, organisation_id, account_purpose")
     .eq("id", user.id)
     .single();
+
+  const supporting = profile?.account_purpose === "support";
 
   return (
     <Providers>
       <AppShell
         userName={profile?.full_name ?? user.email ?? user.phone ?? "Account"}
-        roleLabel={profile ? (ROLE_LABEL[profile.role] ?? "—") : "—"}
-        navSections={getNavSections(profile?.role)}
+        // "Patient" is wrong for somebody who is not one, and it is the first
+        // word they see about themselves every time they sign in.
+        roleLabel={
+          supporting ? "Supporter" : profile ? (ROLE_LABEL[profile.role] ?? "—") : "—"
+        }
+        navSections={getNavSections(profile?.role, profile?.account_purpose)}
         signOutAction={signOut}
       >
         {children}

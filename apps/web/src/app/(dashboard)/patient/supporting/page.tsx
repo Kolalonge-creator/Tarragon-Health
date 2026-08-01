@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { SupportedPeople } from "./supported-people";
+import { setUpMyOwnCare } from "./actions";
 
 /**
  * The sponsor's home screen.
@@ -39,14 +40,31 @@ export default async function SupportingPage() {
 
       <SupportedPeople payerEmailKnown={Boolean(user?.email)} />
 
-      <p className="text-sm text-charcoal-ink/60">
-        Looking for who can follow <em>your</em> care, or the children whose records you keep?
-        That is on{" "}
-        <Link href="/patient/family" className="text-brand-green underline">
-          your people
-        </Link>
-        .
-      </p>
+      {profile.account_purpose === "support" ? (
+        // A supporter account has no care of its own, deliberately: we never
+        // asked them for a date of birth or a telehealth consent, because
+        // neither was true of them. This is the door if that ever changes,
+        // rather than leaving them permanently unable to become a patient.
+        <form action={setUpMyOwnCare}>
+          <p className="text-sm text-charcoal-ink/60">
+            This account is set up for supporting someone else, so we have not asked you anything
+            about your own health. If you want care here too,{" "}
+            <button type="submit" className="text-brand-green underline">
+              set that up
+            </button>{" "}
+            — it takes a couple of minutes.
+          </p>
+        </form>
+      ) : (
+        <p className="text-sm text-charcoal-ink/60">
+          Looking for who can follow <em>your</em> care, or the children whose records you keep?
+          That is on{" "}
+          <Link href="/patient/family" className="text-brand-green underline">
+            your people
+          </Link>
+          .
+        </p>
+      )}
     </div>
   );
 }
