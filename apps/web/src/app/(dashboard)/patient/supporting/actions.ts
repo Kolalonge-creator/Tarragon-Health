@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { initiateSponsoredSubscriptionCheckout } from "@/lib/billing/sponsored-subscription-checkout";
+import { initiateSponsorBillCheckout } from "@/lib/billing/sponsor-bill-checkout";
 import type { Currency } from "@tarragon/shared";
 
 export type SponsorActionState = { error?: string; message?: string } | undefined;
@@ -35,6 +36,43 @@ export async function paySomeonesPlan(
   const result = await initiateSponsoredSubscriptionCheckout({
     beneficiaryProfileId,
     planCode,
+    payerCurrency: currency,
+    email: user.email,
+    callbackUrl: `${origin}/patient/supporting`,
+  });
+
+  if (!result.ok) return { error: result.error };
+  redirect(result.checkoutUrl);
+}
+
+/**
+ * Settles one of their bills on your own card.
+ *
+ * Distinct from redeeming a Care Voucher, which only works when the person
+ * already holds a paid voucher for that exact named service. Most real bills
+ * are not like that: a refill, a video visit, a lab test a clinician ordered.
+ * Those had no payment path from this side at all.
+ */
+export async function paySomeonesBill(
+  _prevState: SponsorActionState,
+  formData: FormData,
+): Promise<SponsorActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+  if (!user.email) return { error: "Your account needs an email on file to check out." };
+
+  const beneficiaryProfileId = formData.get("beneficiaryProfileId") as string;
+  const orderId = formData.get("orderId") as string;
+  const currency = (formData.get("currency") as Currency) || "NGN";
+
+  if (!beneficiaryProfileId || !orderId) return { error: "Which bill are you paying?" };
+
+  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  // The amount is deliberately not read from this form. It is looked up
+  // server-side against the order itself — see initiateSponsorBillCheckout.
+  const result = await initiateSponsorBillCheckout({
+    beneficiaryProfileId,
+    orderId,
     payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,

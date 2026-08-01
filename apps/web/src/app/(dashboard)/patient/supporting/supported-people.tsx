@@ -21,12 +21,13 @@ import {
   useSupportedPeople,
   useSupportedPersonCareStatus,
   useSupportedPersonHealth,
+  type SponsorPayableOrder,
   type SupportedPerson,
   type SupportedPersonHealth,
 } from "@/lib/queries/sponsorship";
 import { buyCareVoucher, type VoucherActionState } from "../vouchers/actions";
 import { useVoucherCatalogue } from "@/lib/queries/vouchers";
-import { paySomeonesPlan, type SponsorActionState } from "./actions";
+import { paySomeonesBill, paySomeonesPlan, type SponsorActionState } from "./actions";
 import { useActivePatientPlans } from "@/lib/queries/subscription-plans";
 
 function naira(kobo: number): string {
@@ -330,6 +331,39 @@ function bpMovement(data: SupportedPersonHealth): string | null {
   if (now.systolic === before.systolic) return null;
   const direction = now.systolic > before.systolic ? "up" : "down";
   return `${direction} from ${before.systolic}/${before.diastolic ?? "?"}`;
+}
+
+/**
+ * One bill, paid on the supporter's own card.
+ *
+ * The amount is never posted from here: initiateSponsorBillCheckout reads it
+ * back off the order through sponsor_payable_orders, which is also what
+ * authorises the payment. So the price shown and the price charged cannot
+ * drift, and a tampered form cannot change either.
+ */
+function PayBillOnMyCard({
+  person,
+  bill,
+}: {
+  person: SupportedPerson;
+  bill: SponsorPayableOrder;
+}) {
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    paySomeonesBill,
+    undefined,
+  );
+
+  return (
+    <form action={action} className="inline-flex flex-col items-end gap-1">
+      <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
+      <input type="hidden" name="orderId" value={bill.order_id} />
+      <input type="hidden" name="currency" value="NGN" />
+      <Button type="submit" disabled={pending}>
+        {pending ? "Starting…" : `Pay ${naira(bill.amount_kobo)} on my card`}
+      </Button>
+      {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
+    </form>
+  );
 }
 
 /**
@@ -816,24 +850,36 @@ function ManageActions({ person }: { person: SupportedPerson }) {
                   {bill.label}{" "}
                   <span className="font-medium text-charcoal-ink">{naira(bill.amount_kobo)}</span>
                 </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={payOrder.isPending || person.readyVouchers.length === 0}
-                  onClick={() =>
-                    run(async () => {
-                      await payOrder.mutateAsync({
-                        beneficiaryId: person.profileId,
-                        voucherId: person.readyVouchers[0].id,
-                        orderType: bill.order_type,
-                        orderId: bill.order_id,
-                      });
-                      return "Paid with their voucher.";
-                    })
-                  }
-                >
-                  {person.readyVouchers.length === 0 ? "No voucher for this" : "Use their voucher"}
-                </Button>
+                <span className="flex flex-wrap items-center gap-2">
+                  {/* Paying on your own card is the ordinary case, so it leads.
+                      Redeeming a voucher only works when they already hold a
+                      paid one for that exact named service, which most real
+                      bills (a refill, a video visit, a test a clinician
+                      ordered) will never match — that used to be the ONLY
+                      option here, and it read "No voucher for this" against a
+                      bill the supporter could see and could not settle. */}
+                  <PayBillOnMyCard person={person} bill={bill} />
+                  {person.readyVouchers.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={payOrder.isPending}
+                      onClick={() =>
+                        run(async () => {
+                          await payOrder.mutateAsync({
+                            beneficiaryId: person.profileId,
+                            voucherId: person.readyVouchers[0].id,
+                            orderType: bill.order_type,
+                            orderId: bill.order_id,
+                          });
+                          return "Paid with their voucher.";
+                        })
+                      }
+                    >
+                      Use their voucher
+                    </Button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
