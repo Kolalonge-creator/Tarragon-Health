@@ -186,12 +186,16 @@ export function useStopMedication() {
 }
 
 /**
- * Tier 1 "confirm and continue" a stable, clinician-prescribed medication —
- * the other half of Tier 1's job alongside useAddMedication, which they
+ * "Confirm and continue" a stable, clinician-prescribed medication —
+ * characteristically Tier 1's job alongside useAddMedication, which they
  * cannot call (20260715181500_pharmacy_authority_by_tier.sql blocks org
  * staff without prescribing authority from inserting/updating medications
- * at all). This path is narrower: only medications_update's
- * can_confirm_medication_refill branch admits Tier 1, and
+ * at all). Since 20260801001234_refill_confirm_any_clinical_tier.sql this is
+ * NOT Tier-1-exclusive: every clinical tier and the Clinical Director satisfy
+ * can_confirm_medication_refill, so a senior doctor covering a shift with no
+ * Tier 1 on duty can still confirm a refill (clinical authority is monotonic —
+ * see packages/db/tests/tier_authority_monotonicity.sql). Tier 1 reaches this
+ * path via medications_update's can_confirm_medication_refill branch, and
  * private.enforce_medication_confirm_only (BEFORE UPDATE trigger) then
  * restricts the write to refill_date only — drug/dose/frequency/active
  * status are untouched no matter what the client sends. last_confirmed_by
