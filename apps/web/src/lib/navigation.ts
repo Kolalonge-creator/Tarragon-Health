@@ -21,18 +21,22 @@ export interface NavSection {
 export function getNavSections(
   role: string | null | undefined,
   /**
-   * 'support' means this account exists to fund and follow somebody else's
-   * care. Reordering the patient menu was not enough: a supporter was still
+   * False means this account funds somebody else's care and receives none
+   * here. Reordering the patient menu was not enough: such a person was still
    * handed a sidebar of Prevention, Health Check, Health Passport, Lifestyle
-   * coaching and Wellness rewards — nine links about a body we are not
-   * looking after — which is what makes the product feel like it was built for
+   * coaching and Wellness rewards — nine links about a body we are not looking
+   * after — which is what makes the product feel like it was built for
    * somebody else and lent to them. They get their own short menu instead.
+   *
+   * Somebody who is BOTH a supporter and a patient falls through to the full
+   * patient menu, which already carries People you support in third place. The
+   * two are independent, so there is no combined case to special-case.
    */
-  accountPurpose?: "care" | "support" | null,
+  receivesCare?: boolean | null,
 ): NavSection[] {
   switch (role) {
     case "patient":
-      if (accountPurpose === "support") {
+      if (receivesCare === false) {
         return [
           {
             items: [

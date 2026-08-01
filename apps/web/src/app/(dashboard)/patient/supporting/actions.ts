@@ -45,23 +45,30 @@ export async function paySomeonesPlan(
 }
 
 /**
- * A supporter deciding they want care here themselves.
+ * A supporter deciding to join as a patient too, on any plan including Free.
  *
- * Clearing onboarding_completed_at in the same statement is what makes this
- * safe rather than a loophole: enforce_care_purpose_switch only permits the
- * flip while onboarding is incomplete, so they are sent back through the full
- * patient flow and enforce_onboarding_prereqs then demands date of birth, sex
- * and the care consents exactly as it would for any new patient. Nothing is
- * skipped — it is collected at the point it becomes true.
+ * They keep supporting whoever they support: the two are independent, so this
+ * adds care rather than swapping one for the other.
+ *
+ * Clearing onboarding_completed_at in the same statement is what makes it safe
+ * rather than a loophole. enforce_receives_care_switch only permits the flip
+ * while onboarding is incomplete, so they are sent back through the *whole*
+ * patient flow — consents, date of birth, sex, and the intake questions — and
+ * enforce_onboarding_prereqs then demands all of it before they can finish.
+ *
+ * The intake questions are not paperwork: the screening calendar and the risk
+ * scoring are computed from them, so a half-answered patient silently gets a
+ * thinner schedule rather than an obviously empty one. That is why joining is
+ * the full flow and not a checkbox.
  */
-export async function setUpMyOwnCare(): Promise<void> {
+export async function joinAsPatientToo(): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const supabase = await createClient();
   await supabase
     .from("profiles")
-    .update({ account_purpose: "care", onboarding_completed_at: null })
+    .update({ receives_care: true, onboarding_completed_at: null })
     .eq("id", user.id);
 
   redirect("/onboarding");

@@ -47,17 +47,21 @@ export function OnboardingFlow({
   careTeamSlot,
   existingPlan,
   initial,
-  accountPurpose = "care",
+  receivesCare = true,
 }: {
   profile: { id: string; fullName: string | null };
   /**
-   * 'support' means this person came to pay for someone else's care, not to
+   * False means this person came to pay for someone else's care, not to
    * receive care. Being asked to consent to telehealth for themselves, hand
    * over their date of birth and pick their own plan before they could give us
    * money for their mother was the first thing a sponsor hit, and it is a hard
    * stop at the highest-intent moment the product has.
+   *
+   * When they later choose to join as a patient too, this flips true and they
+   * get the full flow below — including the intake questions, which is what
+   * the screening calendar and risk scoring are actually built from.
    */
-  accountPurpose?: "care" | "support";
+  receivesCare?: boolean;
   /** Server-rendered <YourCareTeam/> passed in — it's an async server component. */
   careTeamSlot: ReactNode;
   /** Set when the caller already has an active/trialing subscription — see
@@ -80,7 +84,7 @@ export function OnboardingFlow({
 
   const readyForPlan = consentDone && demographicsDone;
 
-  if (accountPurpose === "support") {
+  if (!receivesCare) {
     return <SupporterOnboarding profile={profile} done={consentDone} onDone={setConsentDone} />;
   }
 

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   // see the note in apps/web/src/app/signup/actions.ts).
   const metadataPhone = data.user.user_metadata?.phone;
   const metadataState = data.user.user_metadata?.state;
-  const backfill: { phone?: string; state?: string; account_purpose?: "care" | "support" } = {};
+  const backfill: { phone?: string; state?: string; receives_care?: boolean } = {};
   if (typeof metadataPhone === "string" && metadataPhone.length > 0) {
     backfill.phone = metadataPhone;
   }
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   // ever narrows what we ask of them; becoming a patient later re-imposes
   // every consent, enforced by enforce_care_purpose_switch.
   if (data.user.user_metadata?.account_purpose === "support") {
-    backfill.account_purpose = "support";
+    backfill.receives_care = false;
   }
   if (Object.keys(backfill).length > 0) {
     await supabase.from("profiles").update(backfill).eq("id", data.user.id);

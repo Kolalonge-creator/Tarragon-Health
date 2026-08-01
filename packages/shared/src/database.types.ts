@@ -9569,7 +9569,7 @@ export type Database = {
           metadata: Json
           next_of_kin_name: string | null
           next_of_kin_phone: string | null
-          account_purpose: Database["public"]["Enums"]["account_purpose"]
+          receives_care: boolean
           onboarding_completed_at: string | null
           organisation_id: string | null
           patient_number: string | null
@@ -9605,7 +9605,7 @@ export type Database = {
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
-          account_purpose?: Database["public"]["Enums"]["account_purpose"]
+          receives_care?: boolean
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -9641,7 +9641,7 @@ export type Database = {
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
-          account_purpose?: Database["public"]["Enums"]["account_purpose"]
+          receives_care?: boolean
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -13374,7 +13374,6 @@ export type Database = {
       }
     }
     Enums: {
-      account_purpose: "care" | "support"
       activity_entry_type: "steps" | "workout"
       alert_level:
         | "routine"

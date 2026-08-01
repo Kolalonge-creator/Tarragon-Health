@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { SupportedPeople } from "./supported-people";
-import { setUpMyOwnCare } from "./actions";
+import { joinAsPatientToo } from "./actions";
 
 /**
  * The sponsor's home screen.
@@ -40,20 +40,34 @@ export default async function SupportingPage() {
 
       <SupportedPeople payerEmailKnown={Boolean(user?.email)} />
 
-      {profile.account_purpose === "support" ? (
+      {profile.receives_care === false ? (
         // A supporter account has no care of its own, deliberately: we never
         // asked them for a date of birth or a telehealth consent, because
-        // neither was true of them. This is the door if that ever changes,
-        // rather than leaving them permanently unable to become a patient.
-        <form action={setUpMyOwnCare}>
-          <p className="text-sm text-charcoal-ink/60">
-            This account is set up for supporting someone else, so we have not asked you anything
-            about your own health. If you want care here too,{" "}
-            <button type="submit" className="text-brand-green underline">
-              set that up
-            </button>{" "}
-            — it takes a couple of minutes.
+        // neither was true of them. This is the door if that changes, and it
+        // is an ADDITION — they keep supporting whoever they support.
+        <form
+          action={joinAsPatientToo}
+          className="space-y-2 rounded-xl border border-brand-green/20 bg-brand-green/[0.04] p-5"
+        >
+          <p className="font-heading text-base font-semibold text-charcoal-ink">
+            Want care here yourself as well?
           </p>
+          <p className="text-sm text-charcoal-ink/70">
+            You can join as a patient too, starting on the free plan if you like, and carry on
+            supporting {profile.full_name ? "them" : "the people you support"} exactly as you do
+            now.
+          </p>
+          <p className="text-sm text-charcoal-ink/70">
+            It does mean answering the health questions we have not asked you: your date of birth,
+            the care consents and a short intake. Those answers are what build your screening
+            calendar and your risk scoring, so there is no useful shortcut past them.
+          </p>
+          <button
+            type="submit"
+            className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white"
+          >
+            Join as a patient too
+          </button>
         </form>
       ) : (
         <p className="text-sm text-charcoal-ink/60">

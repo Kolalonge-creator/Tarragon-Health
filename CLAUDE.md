@@ -1897,11 +1897,37 @@ lint (0 errors, the same 2 pre-existing warnings) / 555 web tests / full product
   Your people · Payments), the role chip reads **"Supporter"**, `completeOnboarding` and a guard on
   `/patient` both send them to `/patient/supporting` as their real home, and a `setUpMyOwnCare`
   action is the door if they ever do want care here.
-  **`enforce_care_purpose_switch` re-imposes every prerequisite if they take that door**, and
-  `setUpMyOwnCare` clears `onboarding_completed_at` in the same statement so they go back through the
-  full patient flow rather than around it — the requirement **moved rather than weakened**. Proven in
-  `packages/db/tests/supporter_accounts.sql` (7/7): an onboarded supporter **cannot** simply flip to
-  'care', and once restarted the full DOB + consent set is demanded exactly as for any new patient.
+  **`enforce_receives_care_switch` re-imposes every prerequisite if they take that door**, and
+  `joinAsPatientToo` clears `onboarding_completed_at` in the same statement so they go back through
+  the full patient flow rather than around it — the requirement **moved rather than weakened**.
+- **Founder correction, same day: supporting and being a patient are INDEPENDENT.**
+  `account_purpose` ('care' | 'support'), shipped hours earlier in `20260801093000`, encoded a false
+  exclusivity — it could not represent a daughter who funds her mother's care *and* uses Tarragon for
+  her own. Replaced in `20260801100000` by `profiles.receives_care boolean`; being a **supporter**
+  needs no column at all, because it is already fully expressed by holding a `profile_access` grant,
+  which is the thing that actually confers the ability and which the person supported can revoke. Two
+  independent facts, so all four combinations exist. Three rules, all founder-specified:
+  1. **A supporter may join as a patient, on any plan including Free** — and must then answer
+     everything. `joinAsPatientToo` sends them through the whole flow including the intake questions,
+     because the screening calendar and risk scoring are computed from those answers; a
+     half-answered patient silently gets a thinner schedule rather than an obviously empty one.
+     They keep supporting whoever they support — joining ADDS care, it does not swap.
+  2. **A supporter who has not joined must not reach the patient surfaces at all**, not merely have
+     them hidden. Enforced in `proxy.ts` as a single **default-deny** choke point: everything under
+     `/patient` is refused except four named supporter surfaces (`supporting`, `family`, `messages`,
+     `subscription`). Default-deny matters — the opposite would silently open each newly added
+     clinical page to accounts that never consented to care, and a per-page guard would have to be
+     remembered sixteen times today and once more per page forever.
+  3. **Both at once works**, and falls through to the full patient menu, which already carries
+     People you support in third place — no combined case to special-case.
+- **Verified in a browser, all fourteen `/patient` routes probed as a supporter-only account:** the
+  ten clinical ones (`/patient`, prevention, health-check, health-passport, lifestyle, wellness,
+  nutrition, activity, weight, quick-log) all redirect to `/patient/supporting`; the four supporter
+  ones are allowed. Then joined as a patient and re-probed: prevention now open, supporting still
+  open, chip back to "Patient", full menu with People you support retained.
+  `packages/db/tests/supporter_accounts.sql` (**9/9**) covers all of it, including the two that
+  matter most — an onboarded supporter **cannot** simply flip `receives_care` on, and once restarted
+  the full DOB + consent set is demanded exactly as for any new patient.
 - **Two real bugs found only by walking it in a browser.** (1) The supporter consent checkbox still
   read "…and to receive remote care", which would have recorded a consent never asked for — the exact
   untruth the split exists to remove. (2) My own `enforce_onboarding_prereqs` referenced

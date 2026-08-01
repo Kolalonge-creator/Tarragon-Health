@@ -34,11 +34,14 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, organisation_id, account_purpose")
+    .select("full_name, role, organisation_id, receives_care")
     .eq("id", user.id)
     .single();
 
-  const supporting = profile?.account_purpose === "support";
+  // Supporter-only: they fund somebody else's care and receive none here.
+  // Somebody who is BOTH keeps the full patient app, with People you support
+  // already sitting third in it.
+  const supporterOnly = profile?.receives_care === false;
 
   return (
     <Providers>
@@ -47,9 +50,9 @@ export default async function DashboardLayout({
         // "Patient" is wrong for somebody who is not one, and it is the first
         // word they see about themselves every time they sign in.
         roleLabel={
-          supporting ? "Supporter" : profile ? (ROLE_LABEL[profile.role] ?? "—") : "—"
+          supporterOnly ? "Supporter" : profile ? (ROLE_LABEL[profile.role] ?? "—") : "—"
         }
-        navSections={getNavSections(profile?.role, profile?.account_purpose)}
+        navSections={getNavSections(profile?.role, profile?.receives_care)}
         signOutAction={signOut}
       >
         {children}

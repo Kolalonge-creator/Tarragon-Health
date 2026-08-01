@@ -149,11 +149,11 @@ export async function completeOnboarding() {
   // being the thing they signed up for.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("account_purpose")
+    .select("receives_care")
     .eq("id", user.id)
     .single();
 
-  redirect(profile?.account_purpose === "support" ? "/patient/supporting" : "/patient");
+  redirect(profile?.receives_care === false ? "/patient/supporting" : "/patient");
 }
 
 export type IdentityVerificationState =
