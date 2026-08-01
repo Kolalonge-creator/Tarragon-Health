@@ -1829,6 +1829,28 @@ service, not an amount of spending power. Nine migrations, `20260731214826`–`2
   It bolts onto the Schedules A-D counsel brief already queued rather than being a new engagement.
 - **Next / founder:** counsel opinion; decide the abandoned-layaway policy; confirm whether breakage
   should ever be recognised; browser click-through once a test credential is approved.
+- ✅ **RELEASED TO PRODUCTION 2026-08-01** via [PR #192](https://github.com/Kolalonge-creator/Tarragon-Health/pull/192)
+  (→ `main-dev`) then [PR #193](https://github.com/Kolalonge-creator/Tarragon-Health/pull/193)
+  (`main-dev` → `main`). All CI green on both; Vercel production deployment `5699530830` succeeded and
+  was confirmed live by fetching `tarragonhealth.ng/gift`, `/pricing`, `/pricing/how-it-works` and
+  `app.tarragonhealth.ng/login` — all 200, **zero occurrences of "Health Wallet" anywhere**. Live DB
+  re-verified after deploy: 5 voucher RPCs and 5 triggers present, the SKU check intact, 0 functions
+  still referencing the dropped wallet, 0 wallet tables, terms `2026-07-31-v2` current, expiry cron
+  active, accounts 2100/2600 correctly named.
+- **Pre-release sweep, for the record:** every other worktree branch in the repo
+  (diaspora-sponsor-build, doctor-ux-resolution, healthy-patient-10-of-10, lab-partner-readiness,
+  marketing-site-10-of-10, nigeria-regulatory-hardening, obesity-patient-experience-10x,
+  patient-experience-fixes, patient-experience-overhaul) was confirmed **already merged into
+  `main-dev`** with zero unmerged commits; no open PRs existed; and applied migrations matched local
+  files exactly (386/386, no drift either direction). So this release carried the only outstanding work.
+- ⚠️ **Two things left deliberately untouched, both another session's in-flight work:**
+  (1) the `doctor-ux-resolution` worktree holds ~41 uncommitted/staged files consolidating the
+  `/doctor` route area into `/clinician` — a half-finished refactor, not mine to commit;
+  (2) two migrations landed on the live DB during this release with no local file on any branch —
+  `20260731232749_fix_missing_authenticated_table_grants` and
+  `20260801091000_sponsor_care_status_and_funding`. Confirmed they do NOT collide with the voucher
+  work (nothing references the dropped wallet, every voucher object intact), but whoever owns that
+  session still needs to commit them, same recurring drift class as every prior entry in this file.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

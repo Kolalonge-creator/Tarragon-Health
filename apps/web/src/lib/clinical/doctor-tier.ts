@@ -52,3 +52,46 @@ export function hasPrescribingAuthority(staff: PrescribingAuthority | null): boo
     (staff.doctor_tier !== null && PRESCRIBING_TIERS.includes(staff.doctor_tier))
   );
 }
+
+/**
+ * Every clinical tier, in ladder order. `care_coordinator` is deliberately
+ * absent: it is a doctor_tier value but is explicitly non-clinical and must
+ * never gain medication write access. Listing the clinical tiers rather than
+ * excluding the one non-clinical value means a tier added to the enum later is
+ * excluded by default instead of silently admitted.
+ */
+const CLINICAL_TIERS: DoctorTier[] = [
+  "tier_1",
+  "tier_2",
+  "tier_3",
+  "tier_4_senior_registrar",
+  "tier_5_partner_specialist",
+];
+
+/**
+ * Mirrors private.can_confirm_medication_refill()
+ * (20260801001234_refill_confirm_any_clinical_tier.sql) — any clinical tier or
+ * the Clinical Director may confirm and continue an existing
+ * clinician-prescribed medication.
+ *
+ * This is NOT Tier-1-exclusive, and the distinction is load-bearing: clinical
+ * authority is monotonic, so a higher tier can always do everything a lower
+ * tier can (packages/db/tests/tier_authority_monotonicity.sql). A Tier 4
+ * covering a shift with no Tier 1 on duty must still be able to confirm a
+ * routine refill, and useConfirmMedicationRefill is the only write path to
+ * refill_date anywhere in the app — AddMedicationForm creates new medications
+ * and StopMedication stops them, so without this the capability would simply
+ * be unreachable for a senior doctor.
+ *
+ * This copy only decides whether to render the control. medications_update's
+ * RLS policy plus private.enforce_medication_confirm_only remain the real
+ * enforcement boundary: confirming may only move refill_date, and changing
+ * drug/dose/frequency/status still requires prescribing authority.
+ */
+export function canConfirmMedicationRefill(staff: PrescribingAuthority | null): boolean {
+  if (!staff) return false;
+  return (
+    staff.is_clinical_director ||
+    (staff.doctor_tier !== null && CLINICAL_TIERS.includes(staff.doctor_tier))
+  );
+}
