@@ -1,6 +1,9 @@
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
-import { hasPrescribingAuthority } from "@/lib/clinical/doctor-tier";
+import {
+  canConfirmMedicationRefill,
+  hasPrescribingAuthority,
+} from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MaskedCallButton } from "@/components/masked-call-button";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
@@ -96,10 +99,14 @@ export default async function ClinicianPatientPage({
         .join(" · ");
     }
   }
-  // Tier 1's other half of the job (master plan §4/§8): confirm/continue an
-  // existing prescription without prescribing authority. Never Tier 2+/
-  // Director — they already get the unrestricted AddMedicationForm above.
-  const canConfirmRefill = !canPrescribe && callerStaff?.doctor_tier === "tier_1";
+  // Confirm/continue an existing prescription (master plan §4/§8) —
+  // characteristically Tier 1's half of the job, but NOT Tier-1-exclusive.
+  // Clinical authority is monotonic, so a senior doctor covering a shift with
+  // no Tier 1 on duty must be able to do this too. The previous
+  // `!canPrescribe` exclusion made it unreachable for them: AddMedicationForm
+  // adds a new medication and StopMedication stops one, so neither is a
+  // substitute for moving an existing medication's refill date.
+  const canConfirmRefill = canConfirmMedicationRefill(callerStaff);
 
   // Cardiovascular-risk assessment (lipids as one input to total CV risk) +
   // the patient's recorded CV history, for the CardiovascularRiskPanel.
