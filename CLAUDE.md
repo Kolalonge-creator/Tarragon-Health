@@ -1919,6 +1919,68 @@ one real violation and one design error behind it.
   `9c01473`, both migrations deliberately unapplied pending an explicit go-ahead to rebuild
   `user_role` on production).
 
+### 2026-08-02 — Screening calendar now refreshes off a recorded result, closing a gap flagged (not silently dropped) in the 57ea1be session (branch `worktree-screening-module-pricing`)
+The 57ea1be commit message ("Retire Quick Check tier, close screening clinical-workflow gaps") flagged
+one thing left open: "the auto-refresh of the screening calendar off an Advanced/Comprehensive result
+was deliberately not built (the generation logic lives embedded inside the large `submitRiskAssessment`
+server action, too risky to extract/re-trigger in this pass)". Closed without touching that action.
+- **The actual gap was broader than the flag implied, and worse than cosmetic.** Auditing before
+  writing anything found `screening_schedules` had **no write path anywhere** that ever set
+  `status = 'completed'` — the only existing trigger (`mark_screening_schedule_booked`,
+  `20260715125456`) flips `pending/overdue → booked` on `lab_orders` insert and stops there. So even
+  the *old*, single-screening booking flow left every completed schedule stuck at `booked` forever,
+  and `submitRiskAssessment`'s own `lastCompletedByScreenTypeId` map (which only reads
+  `status = 'completed'` rows) never saw it — meaning cadence tightening was already silently broken
+  for everyone, not just the new Screen-tier self-service path. Compounding it: a self-bookable
+  Core/Advanced/Comprehensive Screen order is deliberately booked with **no** `screening_schedule_id`
+  link at all (`enforce_lab_order_origin`'s self-bookable branch), so even a hypothetical
+  resulted-hooked-off-`lab_orders` fix would have missed exactly the case the flag named.
+- **Fixed with a narrow DB trigger, not an app-layer refactor.** Migration
+  `20260802232211_screening_schedule_refresh_on_result.sql`: `private.refresh_screening_schedule_on_result()`
+  (`AFTER INSERT` on `public.screening_results`, `security definer`/`set search_path = ''`, same shape
+  as `mark_screening_schedule_booked`) matches the inserted row's `screen_type_code` against
+  `screen_types`, closes any active (`pending`/`booked`/`overdue`) schedule row for that patient+screen
+  type as `completed`, and — mirroring `computeScreeningRecommendations`' own
+  `addMonths(lastCompleted, frequencyMonths)` branch — opens a fresh `pending` row dated
+  today + `frequency_months` for recurring screenings; a one-off screen type (`frequency_months` is
+  null) gets no follow-up row, matching that same function's `lastCompleted, frequencyMonths is null →
+  continue` branch. Matched on **patient + screen type**, not the `screening_schedule_id` FK, precisely
+  because the Screen-tier self-service path has no such link — this is the one thing that reconnects
+  it back to the calendar. Exception-guarded (`when others then return new`) so a calendar-refresh bug
+  can never block recording a clinical result, same best-effort discipline as
+  `generateVaccinationScheduleBestEffort`.
+- **`submitRiskAssessment` (`apps/web/src/app/(dashboard)/patient/actions.ts`) is untouched** — the
+  risk this session's predecessor correctly flagged (refactoring a large, already-tested, onboarding-
+  critical-path server action just to add a second call site) was avoided entirely by hooking the fix
+  at the DB layer, off the one place every `screening_results` row lands regardless of caller
+  (confirmed via grep — `screening-result-actions.ts`'s single insert statement is still the only
+  writer).
+- **Scope, stated not guessed at:** deliberately does not re-validate age/sex eligibility against
+  `screen_types` before scheduling the next cycle — a result already exists for this patient+test, so
+  its own next-due-date is correct regardless of whether the catalogue would freshly *recommend* it
+  (that's `computeScreeningRecommendations`'s job, not this narrower refresh). Deliberately does not
+  guard against recording the same `screen_type_code` twice in quick succession (e.g. a correction) —
+  it would close the row it just opened and open another; no dedupe/rate-limit exists, matching this
+  codebase's existing tolerance for the same class of edge case elsewhere (`screening_schedules` has
+  no one-active partial unique index the way `vaccination_schedules` does).
+- **Verified live**, `packages/db/tests/screening_schedule_refresh_on_result.sql`, 3 cases in one
+  rolled-back transaction: an existing active schedule on a recurring (36-month) screen type closes to
+  `completed` and a new `pending` row lands at exactly `today + 36 months`; a one-off screen type
+  closes to `completed` with zero follow-up rows; a patient with **no** prior schedule row for that
+  screen type still gets a correct `pending` next-cycle row, never an error. All 7 checks passed.
+  `get_advisors` (security): zero findings reference the new function/trigger — it lives in `private`
+  schema, never PostgREST-exposed, so it carries none of the accepted-WARN class the `public.*` RPCs
+  do.
+- **No TypeScript touched** — this is a pure DB-layer fix, so no typecheck/lint/test/build run was
+  needed beyond confirming `git status` showed only the migration + its test file.
+- **Not browser-verified** — no UI change; the effect is visible only in `screening_schedules` rows
+  and the patient-facing screening calendar's due dates, both already proven via the live SQL test
+  above.
+- **Next:** none blocking. Worth remembering for anyone touching `screening_schedules` next: it still
+  has no one-active partial unique index per (patient, screen_type) the way `vaccination_schedules`
+  does — fine for today's usage pattern, but the same class of duplicate-row edge case flagged above
+  would recur there too if this table ever needs the same tightening.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
