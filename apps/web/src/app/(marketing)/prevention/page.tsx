@@ -135,8 +135,8 @@ export default async function PreventionPage() {
             pricing page
           </Link>
           . The one-day{" "}
-          <span className="font-medium text-charcoal-ink">Annual Health Check</span> bundles the
-          core checks with a doctor consultation about your results.
+          <span className="font-medium text-charcoal-ink">Annual Health Check</span> is a ladder
+          from ₦15,000: pick how deep you want to go, and every tier is doctor-reviewed.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Not sure what applies to you specifically? Walk through the{" "}

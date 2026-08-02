@@ -31,10 +31,11 @@ const ALL_BANDS: AgeBand[] = ["18-24", "25-39", "40-49", "50-plus"];
  * (see /annual-health-check and /prevention, which already state these
  * exact prices and mechanisms) — nothing here is invented. Standalone
  * self-booking is only offered for the WHO-priority confidential screens,
- * blood group & genotype, and the Annual Health Check itself; breast,
- * prostate, and colorectal screening are part of the Annual Health Check /
- * Comprehensive package or ordered by a doctor, never a bare self-service
- * SKU, so their "book it" step says that plainly rather than overclaiming.
+ * blood group & genotype, and the Annual Health Check ladder itself;
+ * prostate and colorectal screening are part of Advanced Screen, breast
+ * imaging is part of Comprehensive Screen, or otherwise ordered by a
+ * doctor — never a bare self-service SKU, so their "book it" step says
+ * that plainly rather than overclaiming.
  */
 export const SCREENINGS: ScreeningItem[] = [
   {
@@ -98,7 +99,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
     summary: "Screening matched to your age, because catching breast cancer early changes almost everything about how treatable it is.",
-    price: "Included in the Annual Health Check",
+    price: "Included in Comprehensive Screen",
     steps: [
       {
         title: "Is this for you?",
@@ -106,7 +107,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Included as part of your Annual Health Check or arranged directly by your doctor if your history calls for it sooner, rather than sold as a stand-alone booking.",
+        body: "Included as part of Comprehensive Screen or arranged directly by your doctor if your history calls for it sooner, rather than sold as a stand-alone booking.",
       },
       {
         title: "Test day",
@@ -125,7 +126,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
     summary: "A blood test that helps your doctor judge prostate health, discussed with you rather than ordered blindly.",
-    price: "Included in the Annual Health Check",
+    price: "Included in Advanced Screen",
     steps: [
       {
         title: "Is this for you?",
@@ -133,11 +134,11 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Ordered by your doctor as part of the Annual Health Check, not sold as a stand-alone test; PSA isn't offered as a bare self-service booking because it genuinely needs that conversation first.",
+        body: "Ordered by your doctor as part of Advanced Screen, not sold as a stand-alone test; PSA isn't offered as a bare self-service booking because it genuinely needs that conversation first.",
       },
       {
         title: "Test day",
-        body: "A simple blood draw alongside your other Annual Health Check samples, same visit, no extra trip.",
+        body: "A simple blood draw alongside your other Advanced Screen samples, same visit, no extra trip.",
       },
       {
         title: "Results & what's next",
@@ -160,7 +161,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Your doctor orders the right first step for you as part of your Annual Health Check or a care-plan review, then coordinates the referral if further investigation is needed.",
+        body: "Your doctor orders the right first step for you as part of your Advanced Screen or a care-plan review, then coordinates the referral if further investigation is needed.",
       },
       {
         title: "Test day",

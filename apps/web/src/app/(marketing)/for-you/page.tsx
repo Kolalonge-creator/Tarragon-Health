@@ -41,7 +41,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A Health Check that matches you",
-      body: "From a ₦15,000 basic panel to a ₦75,000 comprehensive check, plus confidential screenings you can book yourself in minutes.",
+      body: "From a ₦15,000 Quick Check to a ₦149,000 Comprehensive Screen, plus confidential screenings you can book yourself in minutes.",
     },
   },
   {
