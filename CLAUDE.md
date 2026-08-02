@@ -1921,6 +1921,123 @@ one real violation and one design error behind it.
   `9c01473`, both migrations deliberately unapplied pending an explicit go-ahead to rebuild
   `user_role` on production).
 
+### 2026-08-02 — Patient AI explainer + Protocol API licensing (branch `worktree-ai-explainer-and-protocol-api`, isolated worktree, explicit ask)
+Founder asked what could make the platform innovative without more headcount; picked two of the
+proposed plays to build: (1) extend the "AI drafts, never decides" discipline from `case_briefs`
+(doctor-facing) to patients directly, multilingual and voice-capable; (2) license the
+escalation/risk/protocol machinery to smaller providers/PHCs/NGOs as a stateless API — "revenue that
+scales on API calls, not staff." Three migrations applied via `apply_migration` (recorded:
+`20260802205209_patient_result_explanations`, `20260802205326_protocol_partner_organisation_type`,
+`20260802205424_protocol_api_usage_log`); `pnpm --filter web typecheck`/`lint` (0 errors, same 2
+pre-existing warnings)/`test` (568, +5 new)/production build (all new routes compile) all green;
+`get_advisors` (security) shows only the accepted `authenticated_security_definer_function_executable`
+WARN on the 5 new RPCs, same advisory every sibling RPC in this codebase carries — zero findings
+reference either new table.
+- **Reconciliation first:** 8 migrations were live on remote with no local file
+  (`fix_missing_authenticated_table_grants` + 7 `sponsor_*`/`supporter_*` migrations) — confirmed
+  these belong to a concurrent session's in-flight sponsor/supporter-account work (matches
+  `project_sponsor_surface_rebuild` memory), not touched, per the shared-working-directory-hazard
+  discipline.
+- **Patient explainer ("Help me understand this"):** `patient_result_explanations` — same shape as
+  `case_briefs` (RLS select-only, patient-own-or-org-staff; **no insert/update/delete policy at
+  all**, every write goes through the service-role generator; explicit `grant select ... to
+  authenticated` with an assertion, the recurring M1-sprint-class gap this file has documented
+  repeatedly). Keyed by `(patient_id, kind, subject_key, language)` rather than a row id — always
+  explains the patient's LATEST value for that kind+key, matching how `RiskSignalsCard` already
+  presents "latest" data, which makes caching trivial (a past reading never changes, so a generated
+  explanation is reused indefinitely — no repeat Anthropic spend for a patient re-reading the same
+  card). `lib/patient-explainer/{snapshot,generate,actions}.ts` mirror `lib/case-briefs/*` almost
+  line for line: Claude Haiku 4.5, `withStructuredOutput`, never throws (persists a `failed` row and
+  degrades), system prompt hard-rules (ground only in the snapshot, never diagnose, never suggest a
+  medication, always close with "talk to your care team"). **New: language-aware.** `profiles.language`
+  (en/pcm/yo/ha/ig, added 2026-07-23 for voice reminders but explicitly commented "in-app UI stays
+  English for now") is now actually read for in-app content for the first time — the system prompt
+  is generated per-language, and each language caches as its own row so a patient can toggle to
+  English without losing the cached original. **`explainPatientResultAction` deliberately takes no
+  patientId parameter** — it always operates on the caller's own `auth.uid()`, so it can never be
+  pointed at another patient's data by construction, not just by RLS. Wired into `RiskSignalsCard`
+  (confirmed via grep to be patient-dashboard-only, safe to wire unconditionally) via a new
+  `<ResultExplainer>` component; **deliberately NOT wired into `LipidProfileCard`**, since that
+  component is also rendered on the clinician's patient-detail page for a DIFFERENT patient than the
+  viewer — wiring it there would have silently generated an explanation using the clinician's own
+  identity instead of the patient being viewed. Flagged as a real safety consideration this session
+  checked rather than assumed, not built around.
+  - **Voice, zero marginal cost:** "Read aloud" uses the browser's own Web Speech API
+    (`window.speechSynthesis`) — no vendor integration, no new secret, works today. Gracefully
+    hidden when no matching voice is installed for the language (Nigerian-language TTS voice
+    coverage varies a lot by OS/browser; Pidgin has no standard synthesis voice anywhere and
+    deliberately has no candidate mapping, so the control simply doesn't render for it). Honestly
+    flagged as a real gap, not pretended away: production-quality multilingual TTS for Nigerian
+    languages needs a real vendor (ElevenLabs or similar) as a follow-up, same "dormant until
+    real credentials exist" posture as the Dexcom/wearable connectors.
+  - **Real ESLint catch, fixed before commit:** the voice-availability check originally called
+    `setVoicesReady(true)` synchronously inside the effect body (flagged `react-hooks/set-state-in-
+    effect` — an actual error, not a warning). Fixed by moving the synchronous "is a voice already
+    loaded" read into the `useState` lazy initializer (a render-time read, not an effect-time
+    mutation) and leaving the effect to do ONLY what effects are for: subscribing to the
+    `voiceschanged` event. No hydration-mismatch risk — the branch that reads `voicesReady` only
+    renders after the patient has clicked to open the panel, never during the initial paint.
+  - `AiUsageDisclosure` (patient-facing, 2026-07-30) updated to name this second AI-drafted surface
+    alongside the doctor-facing case-brief one, same "AI drafts, never decides" line.
+- **Protocol API (the infrastructure/licensing play):** new `protocol_partner` `organisation_type`
+  enum value (own migration, the enum-add-then-use split) — a licensee org that has no patients, no
+  `clinical_staff`, no `lab_orders`, existing purely as the org-scoped billing/access boundary
+  `api_keys` already requires. New `protocol_api:classify` scope. Three genuinely stateless
+  classifier endpoints, each a thin, Zod-validated wrapper around an EXISTING pure, already-tested
+  `lib/rules/*` engine — no new clinical logic invented, real reuse of "genuinely hard to build and
+  validated" machinery:
+  - `POST /api/protocol-api/v1/bp-triage` wraps `classifyBpLevel` (the same bands the DB red-flag
+    trigger and every patient/clinician badge already use).
+  - `POST /api/protocol-api/v1/diabetes-risk` wraps `scoreFindrisc` (FINDRISC, Nigeria-validated
+    per the engine's own docstring — the platform's own onboarding screen).
+  - `POST /api/protocol-api/v1/cv-risk` wraps `assessCvRisk`, run on the exported
+    `PROVISIONAL_CV_RISK_CONFIG` (the same honestly-labelled provisional defaults this platform
+    itself falls back to with no signed config) — `config_signed` is always `false` in the
+    response; a licensee never sees Tarragon's live Medical-Director-signed `cv_risk_config`, which
+    is internal governance data specific to this platform's own patients.
+  - **Genuinely stateless — no patient record is read or written by any of the three calls, no
+    clinical values are persisted anywhere on this platform**, only the fact that a call happened
+    (org, key, endpoint, timestamp) is logged in the new `protocol_api_usage_log`, non-blocking
+    (`lib/protocol-api/log-usage.ts`, same "never awaited by the caller's response" discipline as
+    `api_keys.last_used_at`).
+  - **The real structural finding that shaped this design:** every existing `api_keys`/
+    `partner_integrations` RLS policy requires `organisation_id = current_org_id()` — correct for a
+    partner org's OWN staff self-serving their OWN integrations, but wrong here, since an external
+    NGO/PHC licensee typically has no Tarragon login at all. Built 5 narrowly-scoped SECURITY
+    DEFINER RPCs (`admin_create_protocol_partner_org`, `admin_list_protocol_partners`,
+    `admin_issue_protocol_api_key`, `admin_revoke_protocol_api_key`,
+    `admin_list_protocol_api_keys`) so Tarragon's own admin can act across the org boundary on a
+    licensee's behalf — same pattern as `admin_link_lab_partner` (2026-07-30). **Structural, not
+    just app-layer, containment:** `admin_issue_protocol_api_key` hardcodes
+    `scopes = array['protocol_api:classify']` — caller-supplied scopes are never accepted — and
+    verifies the target org's `type = 'protocol_partner'` before inserting, so this surface can
+    never become a general cross-org backdoor for minting a `device_readings:write` key or creating
+    a clinic/HMO org. Proven live, not assumed: a rolled-back-transaction test confirmed a
+    non-admin is blocked, an admin's org+key+listing round-trip works, and the issued key is only
+    ever visible through the scope-filtered listing RPC (proving the hardcoded scope actually
+    stuck).
+  - New `/admin/settings/protocol-api` (add a partner org, issue/revoke keys with the show-once
+    flow, per-partner 30-day call count) + a card on the admin index, both gated on the existing
+    `integrations.manage` permission — no new permission key needed.
+  - `docs/INTEGRATIONS_API.md` extended with a full Protocol API section (request/response examples
+    for all three endpoints, the statelessness guarantee stated explicitly, the never-prescribes
+    guardrail restated for a partner audience).
+- **Verified live, not assumed:** RLS on `patient_result_explanations` proven in 3 rolled-back-SQL
+  cases (patient sees own, stranger sees zero, direct authenticated insert blocked `42501` with no
+  insert policy to hit); the 5 protocol-api admin RPCs proven in 2 more (non-admin blocked with the
+  RPC's own exception; admin's full org→key→listing round-trip, with the scope-hardcoding confirmed
+  by the key only appearing in a query that filters on the exact hardcoded array). Learned (again)
+  that `execute_sql`'s unterminated transactions auto-rollback on connection close — confirmed no
+  residue from an early test that omitted an explicit `rollback`.
+- **NOT browser-verified** — composition over the DB-verified primitives + green production build,
+  consistent with this codebase's own posture on recent similar passes when no test credential is at
+  hand. **Next / founder steps:** a real TTS vendor for production-quality Nigerian-language voice
+  (currently Web Speech API only, English-strongest); wire the explainer into a vitals/lipid card on
+  a confirmed patient-only render path (deliberately not attempted here for `LipidProfileCard` — see
+  above); when a real protocol-partner licensee is ready, add them via `/admin/settings/protocol-api`
+  and hand them `docs/INTEGRATIONS_API.md`'s Protocol API section; consider per-key rate limiting once
+  real usage volume exists to judge a sane threshold against.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed

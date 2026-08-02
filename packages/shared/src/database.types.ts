@@ -8485,6 +8485,69 @@ export type Database = {
           },
         ]
       }
+      patient_result_explanations: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          explanation_text: string | null
+          generated_at: string
+          id: string
+          input_snapshot: Json
+          kind: string
+          language: string
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          status: string
+          subject_key: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          explanation_text?: string | null
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          kind: string
+          language?: string
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          status: string
+          subject_key: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          explanation_text?: string | null
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          kind?: string
+          language?: string
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          status?: string
+          subject_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_result_explanations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_result_explanations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_risk_scores: {
         Row: {
           computed_at: string
@@ -9680,6 +9743,45 @@ export type Database = {
             columns: ["pharmacy_partner_id"]
             isOneToOne: false
             referencedRelation: "pharmacy_partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_api_usage_log: {
+        Row: {
+          api_key_id: string
+          called_at: string
+          endpoint: string
+          id: string
+          organisation_id: string
+        }
+        Insert: {
+          api_key_id: string
+          called_at?: string
+          endpoint: string
+          id?: string
+          organisation_id: string
+        }
+        Update: {
+          api_key_id?: string
+          called_at?: string
+          endpoint?: string
+          id?: string
+          organisation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_api_usage_log_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_api_usage_log_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -12569,12 +12671,51 @@ export type Database = {
         Args: { p_text: string }
         Returns: string[]
       }
+      admin_create_protocol_partner_org: {
+        Args: { p_name: string }
+        Returns: string
+      }
+      admin_issue_protocol_api_key: {
+        Args: {
+          p_key_hash: string
+          p_key_prefix: string
+          p_name: string
+          p_organisation_id: string
+        }
+        Returns: string
+      }
       admin_link_lab_partner: {
         Args: { p_lab_provider_id: string | null; p_profile_id: string }
         Returns: undefined
       }
+      admin_list_protocol_api_keys: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          key_prefix: string
+          last_used_at: string
+          name: string
+          revoked_at: string
+        }[]
+      }
+      admin_list_protocol_partners: {
+        Args: never
+        Returns: {
+          active_key_count: number
+          calls_last_30_days: number
+          created_at: string
+          last_called_at: string
+          name: string
+          organisation_id: string
+        }[]
+      }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_refresh_public_impact_metrics: { Args: never; Returns: undefined }
+      admin_revoke_protocol_api_key: {
+        Args: { p_key_id: string }
+        Returns: undefined
+      }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
@@ -13639,6 +13780,7 @@ export type Database = {
         | "lab"
         | "pharmacy"
         | "direct_consumer"
+        | "protocol_partner"
       outcomes_contract_type: "fee_at_risk" | "flat"
       outreach_task_status:
         | "open"
@@ -14280,6 +14422,7 @@ export const Constants = {
         "lab",
         "pharmacy",
         "direct_consumer",
+        "protocol_partner",
       ],
       outcomes_contract_type: ["fee_at_risk", "flat"],
       outreach_task_status: [

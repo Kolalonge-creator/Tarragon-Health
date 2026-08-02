@@ -11,7 +11,11 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  * Deliberately states the safety line plainly rather than burying it in
  * legal copy — "AI drafts, never decides" is the actual guardrail on
  * case_briefs (no diagnosis, no prescribing, no closing an escalation; a
- * doctor's own reviewed_by/reviewed_at is what makes anything official).
+ * doctor's own reviewed_by/reviewed_at is what makes anything official) —
+ * and the same rule now governs the second AI surface added 2026-08-02,
+ * patient_result_explanations ("Help me understand this" on risk signals):
+ * it explains a number in the patient's own language, never diagnoses,
+ * never substitutes for a conversation with the care team.
  */
 export function AiUsageDisclosure() {
   return (
@@ -27,6 +31,11 @@ export function AiUsageDisclosure() {
           To help your doctor review your case faster, we sometimes use an AI tool to draft a
           short summary of your recent record — things like your readings, medications, and past
           follow-ups.
+        </p>
+        <p>
+          When you tap &quot;Help me understand this&quot; on a reading or risk signal, the same
+          kind of AI tool drafts a short, plain-language explanation in your own language — never
+          a diagnosis, just a way to understand the number in front of you.
         </p>
         <p>
           The AI only ever drafts. It never diagnoses, never prescribes, and never closes a case —
