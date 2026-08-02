@@ -7,15 +7,25 @@ import { Badge } from "@/components/ui/badge";
 import { MentalHealthScreenForm } from "../mental-health-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
+import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
+import { RiskSignalsCard } from "../risk-signals-card";
 
 /**
- * The Health Check — Tarragon's guided preventive journey (AHC pathway §5:
- * Prepare → Measure → Screen → Review → Act). It COMPOSES the surfaces that
- * already own each stage (risk profile, vitals, screening calendar,
- * vaccination registry) rather than rebuilding them, tracked on the
- * annual_health_checks row. Open to everyone — the prevention front door,
- * distinct from the paid Annual Review.
+ * Stage 3 ("Your measurements") requires a real spread of readings taken
+ * SINCE this year's check opened, not just any one reading ever logged —
+ * a single stray blood-pressure log from January shouldn't tick the box for
+ * a check opened in July. Two BP readings (the platform's own rest-interval
+ * convention elsewhere) plus one each of weight/waist/pulse.
  */
+const REQUIRED_SINGLE_VITALS = ["weight", "waist_circumference", "pulse"] as const;
+const MIN_BP_READINGS = 2;
+const VITAL_LABEL: Record<string, string> = {
+  blood_pressure: "blood pressure",
+  weight: "weight",
+  waist_circumference: "waist circumference",
+  pulse: "pulse",
+};
+
 export default async function HealthCheckPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
@@ -27,12 +37,24 @@ export default async function HealthCheckPage() {
   const year = new Date().getFullYear();
   const yearStart = `${year}-01-01T00:00:00.000Z`;
 
+  const { data: check } = await supabase
+    .from("annual_health_checks")
+    .select(
+      "created_at, reviewed_at, reviewed_by, review_summary, status, lab_order_id, lab_order:lab_orders!annual_health_checks_lab_order_id_fkey(panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name))"
+    )
+    .eq("patient_id", profile.id)
+    .eq("year", year)
+    .maybeSingle();
+
+  // Vitals only count toward THIS check once it's genuinely open — a reading
+  // logged in January doesn't retroactively complete a check opened in July.
+  const vitalsWindowStart = check?.created_at ?? yearStart;
+
   const [
     { count: riskCount },
     { count: wellbeingCount },
-    { count: vitalsCount },
+    { data: vitalsRows },
     { count: screeningsDue },
-    { data: check },
   ] = await Promise.all([
     supabase
       .from("prevention_risk_scores")
@@ -45,21 +67,26 @@ export default async function HealthCheckPage() {
       .gte("created_at", yearStart),
     supabase
       .from("vitals_readings")
-      .select("id", { count: "exact", head: true })
+      .select("vital_type")
       .eq("patient_id", profile.id)
-      .gte("taken_at", yearStart),
+      .gte("taken_at", vitalsWindowStart),
     supabase
       .from("screening_schedules")
       .select("id", { count: "exact", head: true })
       .eq("patient_id", profile.id)
       .in("status", ["pending", "overdue"]),
-    supabase
-      .from("annual_health_checks")
-      .select("reviewed_at, reviewed_by, review_summary, status")
-      .eq("patient_id", profile.id)
-      .eq("year", year)
-      .maybeSingle(),
   ]);
+
+  const vitalTypeCounts = (vitalsRows ?? []).reduce<Record<string, number>>((acc, row) => {
+    acc[row.vital_type] = (acc[row.vital_type] ?? 0) + 1;
+    return acc;
+  }, {});
+  const bpCount = vitalTypeCounts.blood_pressure ?? 0;
+  const missingVitalKinds = [
+    ...(bpCount < MIN_BP_READINGS ? ["blood_pressure"] : []),
+    ...REQUIRED_SINGLE_VITALS.filter((kind) => (vitalTypeCounts[kind] ?? 0) < 1),
+  ];
+  const vitalsComplete = missingVitalKinds.length === 0;
 
   let reviewerName: string | null = null;
   if (check?.reviewed_by) {
@@ -70,6 +97,8 @@ export default async function HealthCheckPage() {
       .maybeSingle();
     reviewerName = reviewer?.full_name ? `Dr. ${reviewer.full_name}` : null;
   }
+
+  const tierName = check?.lab_order?.panel_bundle?.name ?? null;
 
   const stages = [
     {
@@ -88,9 +117,18 @@ export default async function HealthCheckPage() {
     },
     {
       title: "3. Your measurements",
-      done: (vitalsCount ?? 0) > 0,
-      doneLabel: "Readings logged this year",
-      toDoLabel: "Log blood pressure, weight, waist",
+      done: vitalsComplete,
+      doneLabel: "All readings logged for this check",
+      toDoLabel:
+        missingVitalKinds.length === 0
+          ? "Log blood pressure (×2), weight, waist and pulse"
+          : `Still need: ${missingVitalKinds
+              .map((kind) =>
+                kind === "blood_pressure"
+                  ? `blood pressure (${bpCount}/${MIN_BP_READINGS})`
+                  : VITAL_LABEL[kind]
+              )
+              .join(", ")}`,
       href: "/patient#vitals",
     },
     {
@@ -118,6 +156,11 @@ export default async function HealthCheckPage() {
           A yearly, whole-body check: the right checks for you, and a plan to keep you well.
           Work through each step; your care team reviews everything at the end.
         </p>
+        {tierName && (
+          <p className="mt-2 text-sm text-charcoal-ink/70">
+            You&apos;re completing the <span className="font-medium">{tierName}</span> this year.
+          </p>
+        )}
       </div>
 
       <Card>
@@ -156,6 +199,11 @@ export default async function HealthCheckPage() {
         patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         sex={profile.sex}
       />
+
+      {/* Lipid results + the CV-risk gloss they feed — both self-hide until
+          there's real data, so nothing renders until a lipid panel lands. */}
+      <LipidProfileCard patientId={profile.id} />
+      <RiskSignalsCard patientId={profile.id} />
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>

@@ -25,11 +25,6 @@ const WAYS_TO_GIVE = [
 
 const GIFT_IDEAS = [
   {
-    title: "A Quick Check",
-    price: "₦15,000",
-    body: "HbA1c and a lipid panel, the two numbers that matter most for the conditions we see most. A good first gift for someone who has not been checked in a while.",
-  },
-  {
     title: "A Core Screen",
     price: "₦65,000",
     body: "A full cardiometabolic and organ-baseline workup, plus HIV, hepatitis B, and hepatitis C, genotype and blood group, all reviewed by a doctor. Buy it once and they book it when they are ready.",
@@ -113,7 +108,7 @@ export default function GiftPage() {
 
       <Section>
         <SectionHeading eyebrow="Ideas" title="What to gift" />
-        <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
+        <div className="mx-auto grid max-w-2xl gap-6 md:grid-cols-2">
           {GIFT_IDEAS.map((item) => (
             <div key={item.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
               <h3 className="font-heading text-lg font-semibold text-charcoal-ink">{item.title}</h3>

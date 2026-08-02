@@ -40,7 +40,11 @@ class LabInterpretationRequest(BaseModel):
         default=None, description="For positive/negative screens: HIV, hepatitis, TB, malaria RDT."
     )
     genotype: str | None = Field(
-        default=None, max_length=32, description="For screen_type_code='sickle_cell_genotype'."
+        default=None,
+        max_length=32,
+        description="For screen_type_code='sickle_cell_genotype' (classified AA/AS/SS "
+        "etc.) or screen_type_code='blood_group' (recorded verbatim as normal, e.g. "
+        "'O+' — never itself an abnormal finding).",
     )
     procedural_status: ResultStatus | None = Field(
         default=None,

@@ -418,7 +418,6 @@ export const ADD_ONS: PricingAddOn[] = [
  * shown before booking.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
-  { item: "Quick Check (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
   { item: "Core Screen (cardiometabolic + organ baseline + HIV/Hep B/Hep C)", price: "₦65,000" },
   { item: "Advanced Screen (Core + cancer screening + ECG)", price: "₦95,000" },
   { item: "Comprehensive Screen (Advanced + imaging + doctor video consult)", price: "₦149,000" },

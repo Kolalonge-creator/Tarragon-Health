@@ -69,6 +69,12 @@ export async function submitScreeningResult(
   if (input.screen_type_code === "psa" && input.psa_value !== undefined) {
     analytes.push({ code: "psa", value: input.psa_value });
   }
+  if (input.screen_type_code === "ogtt_fpg" && input.ogtt_fpg_value !== undefined) {
+    // OGTT/fasting plasma glucose is the same measurement, same canonical
+    // unit, as the platform's existing 'fasting_glucose' analyte code —
+    // reused rather than adding a new ML-side AnalyteCode.
+    analytes.push({ code: "fasting_glucose", value: input.ogtt_fpg_value });
+  }
   if (input.screen_type_code === "lipid_panel") {
     if (input.total_cholesterol_mg_dl !== undefined) {
       analytes.push({ code: "total_cholesterol", value: input.total_cholesterol_mg_dl });
@@ -111,6 +117,11 @@ export async function submitScreeningResult(
     // Drives the abnormal-result trigger's sensitive-positive gate — a
     // positive HIV/hep/cancer result is doctor-delivered, never auto-messaged.
     screen_type_code: input.screen_type_code,
+    // Ties this result to a specific Screen-tier order when recorded via the
+    // order-scoped checklist; null for the standalone "record a result"
+    // form. Drives private.check_screen_order_completeness — see the
+    // lab_order_id comment on screeningResultSchema.
+    lab_order_id: input.lab_order_id ?? null,
   });
   if (insertError) {
     return { error: insertError.message };
@@ -182,6 +193,60 @@ export async function submitScreeningResult(
       // A missing config or transient error must not fail result recording.
     }
   }
+
+  return { success: true };
+}
+
+export type SetFollowUpActionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Records the clinician's named next step for a result — separate from
+ * submitScreeningResult because the result's abnormal/critical status isn't
+ * known until the ML interpretation above has already run; this is a
+ * deliberate second step taken once the clinician has seen the outcome, same
+ * shape as markResultDocumentReviewed's own review-note field.
+ *
+ * Gated on an active clinical_staff record, not just is_org_staff — deciding
+ * what should happen next about a result is a clinical judgement call under
+ * the Clinical Tier Ladder (CLAUDE.md), so a Care Coordinator must not be
+ * able to set this even though screening_results_update's RLS admits any
+ * org-staff session. App-layer gate, matching the established
+ * Care-Coordinator-write-access convention.
+ */
+export async function setScreeningResultFollowUpAction(
+  resultId: string,
+  _prevState: SetFollowUpActionState,
+  formData: FormData
+): Promise<SetFollowUpActionState> {
+  const followUpAction = String(formData.get("follow_up_action") ?? "").trim();
+  if (!followUpAction) {
+    return { error: "Enter a follow-up action" };
+  }
+  if (followUpAction.length > 500) {
+    return { error: "Keep the follow-up action under 500 characters" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("id")
+    .eq("profile_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
+  if (!staff) {
+    return { error: "Only an active Tarragon care-team doctor can set a follow-up action." };
+  }
+
+  const { error } = await supabase
+    .from("screening_results")
+    .update({ follow_up_action: followUpAction })
+    .eq("id", resultId);
+  if (error) return { error: error.message };
 
   return { success: true };
 }

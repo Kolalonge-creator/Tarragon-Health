@@ -45,7 +45,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ALL_BANDS,
     category: "Heart & metabolic",
     summary: "Blood sugar (HbA1c), cholesterol, blood pressure, and BMI: the numbers behind diabetes and heart disease, years before symptoms show.",
-    price: "From ₦15,000",
+    price: "From ₦65,000",
     steps: [
       {
         title: "Is this for you?",

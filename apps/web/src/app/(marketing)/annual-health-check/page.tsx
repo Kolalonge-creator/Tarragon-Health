@@ -118,7 +118,7 @@ export default function AnnualHealthCheckPage() {
             record.
           </p>
           <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
-            From ₦15,000
+            From ₦65,000
             <span className="text-base font-normal text-charcoal-ink/60"> · once a year · anyone, on any plan (even Free)</span>
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -160,16 +160,11 @@ export default function AnnualHealthCheckPage() {
       <Section>
         <SectionHeading
           eyebrow="Pick your level"
-          title="Four tiers, one discipline"
+          title="Three tiers, one discipline"
           description="Each tier includes everything in the one before it, and every one ends with a doctor talking you through your results. Active subscribers get 15% off any Screen tier."
         />
-        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3">
           {[
-            {
-              name: "Quick Check",
-              price: "₦15,000",
-              body: "The cardiometabolic essentials: HbA1c, full cholesterol panel, blood pressure, and BMI. These are the WHO's core adult checks.",
-            },
             {
               name: "Core Screen",
               price: "₦65,000",

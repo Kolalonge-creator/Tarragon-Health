@@ -235,6 +235,7 @@ export type Database = {
           created_at: string
           gender_screens_completed: Json
           id: string
+          lab_order_id: string | null
           organisation_id: string
           patient_id: string
           review_summary: string | null
@@ -251,6 +252,7 @@ export type Database = {
           created_at?: string
           gender_screens_completed?: Json
           id?: string
+          lab_order_id?: string | null
           organisation_id: string
           patient_id: string
           review_summary?: string | null
@@ -267,6 +269,7 @@ export type Database = {
           created_at?: string
           gender_screens_completed?: Json
           id?: string
+          lab_order_id?: string | null
           organisation_id?: string
           patient_id?: string
           review_summary?: string | null
@@ -279,6 +282,13 @@ export type Database = {
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "annual_health_checks_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "annual_health_checks_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -10279,6 +10289,7 @@ export type Database = {
         Row: {
           abnormal_flags: string[]
           created_at: string
+          follow_up_action: string | null
           id: string
           lab_order_id: string | null
           organisation_id: string
@@ -10291,6 +10302,7 @@ export type Database = {
         Insert: {
           abnormal_flags?: string[]
           created_at?: string
+          follow_up_action?: string | null
           id?: string
           lab_order_id?: string | null
           organisation_id: string
@@ -10303,6 +10315,7 @@ export type Database = {
         Update: {
           abnormal_flags?: string[]
           created_at?: string
+          follow_up_action?: string | null
           id?: string
           lab_order_id?: string | null
           organisation_id?: string
