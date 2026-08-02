@@ -3034,6 +3034,7 @@ export type Database = {
           followed_up_at: string | null
           followed_up_by: string | null
           id: string
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           source: Database["public"]["Enums"]["emergency_source"]
@@ -3072,6 +3073,7 @@ export type Database = {
           followed_up_at?: string | null
           followed_up_by?: string | null
           id?: string
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           source?: Database["public"]["Enums"]["emergency_source"]
@@ -8295,6 +8297,7 @@ export type Database = {
           facility_name: string | null
           id: string
           is_current: boolean | null
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           reason: string | null
@@ -8335,6 +8338,7 @@ export type Database = {
           facility_name?: string | null
           id?: string
           is_current?: boolean | null
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           reason?: string | null
@@ -10118,6 +10122,7 @@ export type Database = {
           category: Database["public"]["Enums"]["risk_assessment_category"]
           created_at: string
           id: string
+          logged_by_profile_id: string | null
           organisation_id: string
           profile_id: string
           question_key: string
@@ -10136,6 +10141,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["risk_assessment_category"]
           created_at?: string
           id?: string
+          logged_by_profile_id?: string | null
           organisation_id?: string
           profile_id?: string
           question_key?: string

@@ -1977,11 +1977,32 @@ Two founder asks on the same day, both built on `worktree-sponsor-10-of-10`.
   landed on the supporter's own record. Fixed for `logVital` and `logSymptom` via `resolveSubjectId`,
   which re-checks the grant. Verified end to end: 134/84 saved to **Folake's** record, attributed to
   **Tunde Adeyemi**.
-- **Not covered, deliberately:** the other four writes in `patient/actions.ts`
-  (`submitRiskAssessment`, `reportDangerSymptoms`, `logHospitalAdmission`) still write as the caller.
-  They have no supporter INSERT policy, so they fail closed rather than misfile — but a supporter
-  with an account open cannot use them yet, and wiring each needs its own policy + attribution
-  decision rather than a blanket change.
+- **The remaining three writes wired, 2026-08-01** (`20260801120000`, `20260801121000`). Founder
+  confirmed a family member SHOULD be able to raise a danger-symptom alert for someone, which is
+  the case the whole feature exists for: an elderly parent having chest pain is often not the person
+  holding the phone. `submitRiskAssessment`, `reportDangerSymptoms` and `logHospitalAdmission` now
+  resolve the subject the same way, with INSERT policies and `logged_by_profile_id` on
+  `risk_assessment_responses`/`emergency_events`/`patient_hospital_admissions`.
+  **That made attribution clinical rather than cosmetic.** Both alert bodies asserted the patient had
+  spoken ("Priority 1 ... source", "patient reported a hospital admission", "Self-reported by the
+  patient"), which is simply false when a son files it, and a doctor ringing about a Priority-1
+  emergency needs to know whether the patient described their own chest pain or somebody else did.
+  Both alerts now name the reporter and stop claiming the patient spoke; the `audit_log` rows were
+  also recording `actor_id = patient_id` and now record who actually acted.
+- **⚠️ THE TRAP, worth reading before writing another acting-for policy:** `insert ... returning` is
+  checked against the **SELECT** policy as well as the INSERT one, and when SELECT rejects the new row
+  Postgres raises `42501: new row violates row-level security policy` — **the same message as a WITH
+  CHECK failure**, pointing at the wrong half. supabase-js `.insert(...).select("id")` compiles to
+  exactly that, so a plain `insert` in a test passes while the real button fails in the browser, which
+  is precisely what happened. Closed by `20260801121000`: a supporter may read a row **because they
+  wrote it** (`logged_by_profile_id = auth.uid()`), which adds no visibility over anything the patient
+  recorded themselves. The migration asserts every table a supporter can write has a matching
+  read-back policy, and the test now uses `returning` deliberately.
+- **Verified live end to end:** as Tunde with Folake's account open, the real danger-symptom button
+  raised a Priority-1 emergency on **her** record reading *"Reported by Tunde Adeyemi on the patient's
+  behalf, not by the patient themselves."* `packages/db/tests/supporter_reporting.sql` (14/14) covers
+  it, including the two controls that matter — her own report stays unattributed and her own alert
+  never names a third party.
 - typecheck / lint (0 errors, same 2 pre-existing warnings) / 555 tests / production build green.
 
 ## Definition of Done

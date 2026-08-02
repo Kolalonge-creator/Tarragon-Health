@@ -35,12 +35,17 @@ insert into ids
 select 'viewer', id from public.profiles
  where id in (select id from auth.users where email = 'patient.free.test@tarragon.test');
 
+-- Idempotent: a browser fixture may already have left a real grant here.
 insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
 select (select v from ids where k='mum'), (select v from ids where k='supporter'), 'manage',
-       (select v from ids where k='mum');
+       (select v from ids where k='mum')
+on conflict (profile_id, grantee_user_id)
+do update set permission_level = 'manage';
 insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
 select (select v from ids where k='mum'), (select v from ids where k='viewer'), 'view',
-       (select v from ids where k='mum');
+       (select v from ids where k='mum')
+on conflict (profile_id, grantee_user_id)
+do update set permission_level = 'view';
 
 ------------------------------------------------------------------
 -- As the supporter ('manage')
