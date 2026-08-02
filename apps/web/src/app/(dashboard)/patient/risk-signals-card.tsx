@@ -1,6 +1,7 @@
 import { usePatientRiskSignals } from "@/lib/queries/health-score";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { ResultExplainer } from "@/components/result-explainer";
 import type { Enums } from "@tarragon/shared";
 
 const SCORE_TYPE_LABEL: Record<string, string> = {
@@ -27,7 +28,7 @@ const RISK_LEVEL_COPY: Record<Enums<"risk_level">, string | null> = {
  * roughly what's shaping your care" gloss, framed as informational context
  * rather than a precise causal explanation for any one contact.
  */
-export function RiskSignalsCard({ patientId }: { patientId: string }) {
+export function RiskSignalsCard({ patientId, language }: { patientId: string; language: string }) {
   const { data } = usePatientRiskSignals(patientId);
 
   if (!data || data.length === 0) return null;
@@ -59,15 +60,22 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
               If your care team reaches out, this is usually part of why.
             </p>
             <ul className="space-y-1.5">
-              {elevated.map((row) => (
-                <li key={row.score_type} className="text-sm text-charcoal-ink">
-                  <span className="font-medium">
-                    {SCORE_TYPE_LABEL[row.score_type] ?? row.score_type}
-                  </span>
-                  {": "}
-                  {RISK_LEVEL_COPY[row.risk_level]}
-                </li>
-              ))}
+              {elevated.map((row) => {
+                const label = SCORE_TYPE_LABEL[row.score_type] ?? row.score_type;
+                return (
+                  <li key={row.score_type} className="text-sm text-charcoal-ink">
+                    <span className="font-medium">{label}</span>
+                    {": "}
+                    {RISK_LEVEL_COPY[row.risk_level]}
+                    <ResultExplainer
+                      kind="risk_score"
+                      subjectKey={row.score_type}
+                      label={label}
+                      language={language}
+                    />
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}

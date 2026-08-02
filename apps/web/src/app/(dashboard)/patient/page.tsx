@@ -137,7 +137,7 @@ export default async function PatientPage() {
       >
         <NextBestAction patientId={profile.id} />
         <HealthResetCard patientId={profile.id} />
-        <RiskSignalsCard patientId={profile.id} />
+        <RiskSignalsCard patientId={profile.id} language={profile.language} />
         <CareScheduleCard patientId={profile.id} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both

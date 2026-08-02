@@ -1,0 +1,12 @@
+-- New organisation_type for the Protocol API licensing play (founder ask,
+-- 2026-07-31): a "protocol_partner" org is a licensee -- a small clinic,
+-- state PHC, or NGO consuming Tarragon's validated stateless classifiers
+-- (BP triage, FINDRISC diabetes screen, CV-risk stratification) via API,
+-- WITHOUT becoming a Tarragon patient-serving tenant. It has no patients,
+-- no clinical_staff, no lab_orders -- it exists purely as the org-scoped
+-- billing/access boundary api_keys already requires.
+--
+-- Own migration: Postgres forbids using a freshly-added enum value in the
+-- same transaction that adds it (the same split this codebase uses
+-- throughout, e.g. video_visit_alternate_proposed_status_enum).
+alter type public.organisation_type add value if not exists 'protocol_partner';
