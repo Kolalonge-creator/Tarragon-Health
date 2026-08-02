@@ -16,6 +16,9 @@ const rateSchema = z.object({
   // Naira per dollar. The bounds are deliberately wide — a sanity check
   // against a missing or extra zero, not a forecast.
   ngn_per_usd: z.coerce.number().gt(0).lt(100_000),
+  // Percentage (10 means 10%), converted to the 0-1 fraction the database
+  // stores just before the RPC call below.
+  usd_processing_fee_pct: z.coerce.number().gte(0).lt(100),
 });
 
 async function requireAdmin() {
@@ -52,9 +55,14 @@ export async function saveCurrencyRates(
 
   const parsed = rateSchema.safeParse({
     ngn_per_usd: formData.get("ngn_per_usd"),
+    usd_processing_fee_pct: formData.get("usd_processing_fee_pct"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "The rate must be a positive number" };
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "The rate and processing fee must both be positive numbers",
+    };
   }
 
   /**
@@ -80,6 +88,16 @@ export async function saveCurrencyRates(
     p_ngn_per_usd: parsed.data.ngn_per_usd,
   });
   if (rpcError) return { error: rpcError.message };
+
+  // Same gate, same reason: set_usd_processing_fee also resolves auth.uid()
+  // against profiles, so it goes through the caller's own session too. Both
+  // RPCs fire private.recompute_derived_prices() on their own trigger, so
+  // calling them one after another is safe — the second run is cheap and
+  // touches only rows the first one didn't already move.
+  const { error: feeError } = await asCaller.rpc("set_usd_processing_fee", {
+    p_fee_pct: parsed.data.usd_processing_fee_pct / 100,
+  });
+  if (feeError) return { error: feeError.message };
 
   const synced = await resyncDerivedRows(supabase);
 
@@ -158,6 +176,13 @@ type ServiceClient = ReturnType<typeof createServiceRoleClient>;
  * Mints a provider price for every derived row missing one, switching each
  * back on as its own sync succeeds. Deliberately row-by-row: one failing
  * Stripe call must not strand the other forty-three.
+ *
+ * A derived row is skipped outright — never synced, never switched on — when
+ * its own naira parent (`derived_from_code`) is itself off sale. That is a
+ * deliberate product decision (a withdrawn or unbundled plan/add-on), not a
+ * byproduct of the currency-rate change, and this function has no business
+ * silently resurrecting it in another currency just because its Stripe price
+ * happens to be missing too.
  */
 async function resyncDerivedRows(
   supabase: ServiceClient
@@ -165,18 +190,30 @@ async function resyncDerivedRows(
   let ok = 0;
   const failed: string[] = [];
 
-  const [{ data: plans }, { data: addOns }] = await Promise.all([
-    supabase
-      .from("subscription_plans")
-      .select("id, code, name, price_minor, currency, interval, paystack_plan_code, stripe_price_id, stripe_product_id")
-      .not("derived_from_code", "is", null)
-      .is("stripe_price_id", null),
-    supabase
-      .from("add_ons")
-      .select("id, code, name, price_minor, currency, interval, paystack_plan_code, stripe_price_id, stripe_product_id")
-      .not("derived_from_code", "is", null)
-      .is("stripe_price_id", null),
-  ]);
+  const [{ data: plans }, { data: addOns }, { data: activePlanCodes }, { data: activeAddOnCodes }] =
+    await Promise.all([
+      supabase
+        .from("subscription_plans")
+        .select(
+          "id, code, name, price_minor, currency, interval, paystack_plan_code, stripe_price_id, stripe_product_id, derived_from_code"
+        )
+        .not("derived_from_code", "is", null)
+        .is("stripe_price_id", null),
+      supabase
+        .from("add_ons")
+        .select(
+          "id, code, name, price_minor, currency, interval, paystack_plan_code, stripe_price_id, stripe_product_id, derived_from_code"
+        )
+        .not("derived_from_code", "is", null)
+        .is("stripe_price_id", null),
+      supabase.from("subscription_plans").select("code").eq("is_active", true).is("derived_from_code", null),
+      supabase.from("add_ons").select("code").eq("is_active", true).is("derived_from_code", null),
+    ]);
+
+  const activeParentCodes = {
+    subscription_plans: new Set((activePlanCodes ?? []).map((r) => r.code)),
+    add_ons: new Set((activeAddOnCodes ?? []).map((r) => r.code)),
+  };
 
   const batches = [
     { table: "subscription_plans" as const, rows: plans ?? [] },
@@ -185,6 +222,9 @@ async function resyncDerivedRows(
 
   for (const { table, rows } of batches) {
     for (const row of rows) {
+      if (!row.derived_from_code || !activeParentCodes[table].has(row.derived_from_code)) {
+        continue;
+      }
       // A derived row is always USD, so Stripe. The Paystack branch
       // exists only so a future naira-derived row cannot silently skip a sync.
       const result =

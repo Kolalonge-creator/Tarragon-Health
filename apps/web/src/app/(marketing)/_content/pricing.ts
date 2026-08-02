@@ -19,10 +19,22 @@
  * - ONE DIASPORA CURRENCY, AND ONE PRICE. Pounds are retired, along with
  *   Diaspora Premium (which had no naira counterpart and so could never sit on
  *   a single price list). Dollar prices are the naira price converted at an
- *   admin-set reference rate, currently ₦1,365 to the dollar, so the same plan
- *   costs the same everywhere. The old 2.5-3.5x diaspora premium is gone with
- *   it: do not reintroduce a diaspora price band here, because
- *   private.enforce_derived_price will reject it in the database anyway.
+ *   admin-set reference rate, currently ₦1,365 to the dollar, so the same
+ *   plan is priced from the same naira number everywhere. The old 2.5-3.5x
+ *   diaspora premium is gone with it: do not reintroduce a diaspora price
+ *   band here, because private.enforce_derived_price will reject it in the
+ *   database anyway.
+ * - UPDATED 2026-08-02: a disclosed 10% international-card processing fee
+ *   now sits on top of the converted price, on every dollar plan and add-on,
+ *   monthly and yearly alike (private.expected_derived_price_minor). This is
+ *   not the retired diaspora premium reintroduced under another name: it is
+ *   cost-based, uniform, and shown to the buyer as its own line rather than
+ *   folded silently into a bigger number (DIASPORA_PROCESSING_FEE_NOTE
+ *   below). The Diaspora tab also now leads with the yearly price (one card
+ *   charge a year instead of twelve), matching the onboarding/subscription
+ *   pages, which already defaulted to yearly for dollars. Admin-editable at
+ *   /admin/settings/diaspora-pricing; re-derive USD_TIERS's static fallback
+ *   numbers if either the rate or the fee changes.
  *
  * Still current from 2026-07-21: the "Annual Doctor Review" name (kept apart
  * from the "Annual Health Check" screening product), the ₦65,000 Annual Health
@@ -59,6 +71,11 @@ export type PricingTier = {
   items: PricingLineItem[];
   /** Plain-text clarification called out in the guide (not a line item). */
   footnote?: string;
+  /** A one-line disclosure shown directly under the price, distinct from
+   * `footnote` (which sits below the feature list). Used on the Diaspora tab
+   * to state the processing fee as its own line rather than fold it
+   * silently into priceMain/priceSecondary. */
+  priceNote?: string;
 };
 
 export const PRICING_LABELS: Record<
@@ -183,14 +200,34 @@ export const NGN_TIERS: PricingTier[] = [
   },
 ];
 
+/** Short version for a per-card line, right under the price. Full version
+ * (DIASPORA_PROCESSING_FEE_NOTE, below) sits once under the whole tier grid.
+ * Exported so lib/marketing/plan-prices.ts can reuse the exact same wording
+ * for the live-priced override, not just this file's static fallback. */
+export const DIASPORA_PROCESSING_FEE_NOTE_SHORT = "Includes a 10% international processing fee.";
+
+/**
+ * Diaspora tab prices, annual-first.
+ *
+ * priceMain is now the YEARLY charge, not the monthly one: one card charge a
+ * year instead of twelve, which the onboarding and /patient/subscription
+ * pages already default to for dollars (see plan-selector.tsx). priceSecondary
+ * carries the monthly alternative, still one tap away everywhere it's shown.
+ *
+ * Both numbers include the 10% processing fee (naira price / 1,365 * 1.10,
+ * rounded to the cent) so this static fallback matches what checkout actually
+ * charges even before fetchTierPriceOverrides' live prices load. Re-derive
+ * both if the reference rate or the fee ever change.
+ */
 export const USD_TIERS: PricingTier[] = [
   {
     id: "diaspora-prevent",
     name: "Tarragon Prevent (Diaspora)",
     whoFor: "Healthy, and planning to stay that way",
-    priceMain: "$2.56",
-    pricePeriod: "per month",
-    priceSecondary: "or $25.64/year",
+    priceMain: "$28.21",
+    pricePeriod: "per year",
+    priceSecondary: "or $2.82/month",
+    priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description:
       "The stay-healthy plan, billed in dollars: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Screenings and vaccinations are done at partner facilities in Nigeria; monitoring and education work from anywhere.",
     items: [
@@ -202,9 +239,10 @@ export const USD_TIERS: PricingTier[] = [
     id: "diaspora-essential",
     name: "Essential Care (Diaspora)",
     whoFor: "One condition, monitored from abroad",
-    priceMain: "$5.86",
-    pricePeriod: "per month",
-    priceSecondary: "or $58.61/year",
+    priceMain: "$64.47",
+    pricePeriod: "per year",
+    priceSecondary: "or $6.45/month",
+    priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description: "Everything included is the same as Essential Care in Naira, billed in US dollars.",
     highlight: true,
     items: [
@@ -216,9 +254,10 @@ export const USD_TIERS: PricingTier[] = [
     id: "diaspora-complete",
     name: "Complete Care (Diaspora)",
     whoFor: "Multiple conditions, monitored from abroad",
-    priceMain: "$10.99",
-    pricePeriod: "per month",
-    priceSecondary: "or $109.89/year",
+    priceMain: "$120.88",
+    pricePeriod: "per year",
+    priceSecondary: "or $12.09/month",
+    priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description: "Everything included is the same as Complete Care in Naira, billed in US dollars.",
     items: [
       { feature: "Everything in Complete Care (Naira plan)", label: "INCLUDED" },
@@ -242,8 +281,9 @@ export const USD_TIERS: PricingTier[] = [
  * thing a transfer app structurally cannot do.
  *
  * Deliberately makes no claim about price being lower, higher or better value
- * than anything else. The plans cost the same everywhere; the reason to buy is
- * not the number.
+ * than anything else. The plan is the same naira number everywhere, plus a
+ * disclosed processing fee for a dollar card; the reason to buy is not the
+ * number.
  */
 export const DIASPORA_SPONSOR_PITCH = {
   title: "You already send money home for health",
@@ -269,7 +309,18 @@ export const DIASPORA_SPONSOR_PITCH = {
 };
 
 export const DIASPORA_ONE_PRICE_NOTE =
-  "The dollar price is the naira price, converted. Tarragon runs one price list, so the same plan costs the same whether it is paid for from Lagos or from London. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you buy their checks for them.";
+  "The dollar price starts from the naira price, converted at our published rate. Tarragon runs one price list: nobody pays a different rate for the same plan because of who they are. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you buy their checks for them.";
+
+/**
+ * Founder decision, 2026-08-02: an international card charge genuinely costs
+ * more to process than a Paystack-in-Nigeria one, and until this date that
+ * real cost was invisible (every dollar row sat at exact naira parity). This
+ * states it plainly rather than folding it into a bigger number: shown once
+ * here for the whole tab, and again per card as DIASPORA_PROCESSING_FEE_NOTE_
+ * SHORT, right next to the price it affects.
+ */
+export const DIASPORA_PROCESSING_FEE_NOTE =
+  "Every dollar price above already includes a 10% processing fee on top of the converted naira price. This covers what it actually costs to process an international card charge; it is the same fee whether you pay monthly or yearly, and it is never hidden in the number, it is stated here.";
 
 /**
  * Honesty note for diaspora buyers subscribing for THEMSELVES: monitoring

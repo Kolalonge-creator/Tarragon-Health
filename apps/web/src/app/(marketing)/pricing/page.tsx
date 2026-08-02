@@ -19,7 +19,7 @@ import {
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora (£). No hidden costs: every line item is clearly labelled.",
+    "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora ($). No hidden costs: every line item is clearly labelled.",
   alternates: { canonical: MARKETING_ROUTES.pricing },
 };
 

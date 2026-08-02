@@ -9197,18 +9197,21 @@ export type Database = {
           ngn_per_usd: number | null
           updated_at: string
           updated_by: string | null
+          usd_processing_fee_pct: number
         }
         Insert: {
           id?: boolean
           ngn_per_usd?: number | null
           updated_at?: string
           updated_by?: string | null
+          usd_processing_fee_pct?: number
         }
         Update: {
           id?: boolean
           ngn_per_usd?: number | null
           updated_at?: string
           updated_by?: string | null
+          usd_processing_fee_pct?: number
         }
         Relationships: [
           {
@@ -13319,6 +13322,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_usd_processing_fee: { Args: { p_fee_pct: number }; Returns: Json }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }

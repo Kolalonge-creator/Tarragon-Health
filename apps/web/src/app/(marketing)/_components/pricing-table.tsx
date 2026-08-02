@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   DIASPORA_ONE_PRICE_NOTE,
+  DIASPORA_PROCESSING_FEE_NOTE,
   DIASPORA_SELF_USE_NOTE,
   DIASPORA_SPONSOR_PITCH,
   NGN_TIERS,
@@ -39,6 +40,9 @@ function TierCard({ tier }: { tier: PricingTier }) {
       </div>
       {tier.priceSecondary ? (
         <p className="mt-1 text-sm text-charcoal-ink/70">{tier.priceSecondary}</p>
+      ) : null}
+      {tier.priceNote ? (
+        <p className="mt-1 text-xs font-medium text-deep-forest">{tier.priceNote}</p>
       ) : null}
       <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">{tier.description}</p>
       <ul className="mt-6 space-y-3 border-t border-charcoal-ink/10 pt-6">
@@ -150,6 +154,7 @@ export function PricingTable({
       {currency === "USD" ? (
         <div className="mx-auto mt-6 max-w-2xl space-y-3 text-center text-sm text-charcoal-ink/70">
           <p>{DIASPORA_ONE_PRICE_NOTE}</p>
+          <p className="font-medium text-deep-forest">{DIASPORA_PROCESSING_FEE_NOTE}</p>
           <p>{DIASPORA_SELF_USE_NOTE}</p>
         </div>
       ) : (

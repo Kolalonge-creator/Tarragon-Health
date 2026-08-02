@@ -13,6 +13,7 @@ type PriceRow = {
   derived_from_code: string | null;
   stripe_price_id: string | null;
   is_active: boolean;
+  price_locked: boolean;
 };
 
 export default async function DiasporaPricingPage() {
@@ -24,7 +25,7 @@ export default async function DiasporaPricingPage() {
 
   const { data: settings } = await supabase
     .from("platform_currency_settings")
-    .select("ngn_per_usd, updated_at")
+    .select("ngn_per_usd, usd_processing_fee_pct, updated_at")
     .eq("id", true)
     .maybeSingle();
 
@@ -33,10 +34,14 @@ export default async function DiasporaPricingPage() {
   const [{ data: plans }, { data: addOns }] = await Promise.all([
     supabase
       .from("subscription_plans")
-      .select("code, name, interval, price_minor, currency, derived_from_code, stripe_price_id, is_active"),
+      .select(
+        "code, name, interval, price_minor, currency, derived_from_code, stripe_price_id, is_active, price_locked"
+      ),
     supabase
       .from("add_ons")
-      .select("code, name, interval, price_minor, currency, derived_from_code, stripe_price_id, is_active"),
+      .select(
+        "code, name, interval, price_minor, currency, derived_from_code, stripe_price_id, is_active, price_locked"
+      ),
   ]);
 
   const all: PriceRow[] = [...(plans ?? []), ...(addOns ?? [])];
@@ -59,6 +64,7 @@ export default async function DiasporaPricingPage() {
           currentMinor: r.price_minor,
           needsSync: r.stripe_price_id === null,
           isActive: r.is_active,
+          isLocked: r.price_locked,
         },
       ];
     })
@@ -79,13 +85,18 @@ export default async function DiasporaPricingPage() {
         </h1>
         <p className="max-w-3xl text-charcoal-ink/60">
           One price list. Every plan and add-on is priced once, in naira; the
-          dollar amounts are that same price converted at the rate below.
-          Nobody pays more for the same thing because of where they are. The
-          currency is only how they pay.
+          dollar amounts are that same price converted at the rate below,
+          plus the processing fee below it. Nobody pays a different rate for
+          the same plan because of who they are. The fee is a real, disclosed
+          cost of the payment rail, not a diaspora markup, and it is shown to
+          the buyer as its own line rather than folded into the price.
         </p>
       </div>
       <CurrencyRateManager
         initialUsd={settings?.ngn_per_usd == null ? null : Number(settings.ngn_per_usd)}
+        initialFeePct={
+          settings?.usd_processing_fee_pct == null ? 0 : Number(settings.usd_processing_fee_pct) * 100
+        }
         updatedAtLabel={
           updatedAt
             ? new Date(updatedAt).toLocaleString("en-GB", {
