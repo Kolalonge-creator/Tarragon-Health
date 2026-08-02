@@ -129,8 +129,14 @@ def interpret_screening_result(
     `procedural_status` should be populated depending on `screen_type_code`
     — analyte panels use `analytes`; positive/negative tests (HIV, hepatitis,
     TB, malaria RDT) use `qualitative_result`; `sickle_cell_genotype` uses
-    `genotype`; imaging/pathology screens (mammography, cervical smear, FIT,
-    clinical breast exam, colonoscopy, bone density, vision check) use
+    `genotype`, classified against AA/AS/SS etc.; a free-text lab result with
+    no meaningful abnormal/normal distinction of its own (currently only
+    `blood_group`, e.g. "O+") also uses `genotype` as its value carrier but is
+    recorded as `other_status="normal"` verbatim — it must NOT run through
+    `_classify_genotype`, which is sickle-cell-specific and would wrongly
+    flag every real blood-group value as an unrecognised, escalation-worthy
+    genotype string; imaging/pathology screens (mammography, cervical smear,
+    FIT, clinical breast exam, colonoscopy, bone density, vision check) use
     `procedural_status` since ML cannot derive a finding from imaging or
     pathology itself.
     """
@@ -162,7 +168,13 @@ def interpret_screening_result(
     other_status: ResultStatus | None = None
     other_note: str | None = None
     if genotype is not None:
-        other_status, other_note = _classify_genotype(genotype)
+        if screen_type_code == "sickle_cell_genotype":
+            other_status, other_note = _classify_genotype(genotype)
+        else:
+            # e.g. blood_group: a free-text lab value with no abnormal/
+            # normal distinction of its own — never run through the
+            # sickle-cell-specific classifier above.
+            other_status, other_note = "normal", f"{screen_type_code}: {genotype}."
     elif qualitative_result is not None:
         other_status = "abnormal" if qualitative_result == "positive" else "normal"
         other_note = f"{screen_type_code}: {qualitative_result}."
@@ -172,8 +184,16 @@ def interpret_screening_result(
 
     if other_status is not None:
         statuses.append(other_status)
-        if other_status != "normal":
+        # genotype/blood_group notes carry the actual VALUE the patient paid
+        # to learn (their genotype letters, their blood group) — unlike a
+        # qualitative/procedural "normal", dropping it from the summary
+        # would silently discard the one piece of information the result
+        # exists to report. Those two stay included even when other_status
+        # is "normal"; qualitative_result/procedural_status keep the
+        # existing normal-results-are-terse behaviour unchanged.
+        if other_status != "normal" or genotype is not None:
             notes.append(other_note or "")
+        if other_status != "normal":
             mapped_flag = _SCREEN_TYPE_FLAG.get(screen_type_code)
             if mapped_flag and mapped_flag not in flags:
                 flags.append(mapped_flag)

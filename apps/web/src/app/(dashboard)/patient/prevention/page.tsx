@@ -119,12 +119,10 @@ export default async function PreventionHubPage() {
         <LogVaccinationForm patientId={profile.id} />
       </div>
 
-      <RequiresEntitlement
-        feature="annual_review"
-        fallback={<UpgradePrompt feature="annual_review" />}
-      >
-        <AnnualReviewCard patientId={profile.id} />
-      </RequiresEntitlement>
+      {/* Annual Doctor Review is retired as a standalone product — folded into
+          Comprehensive Screen. No entitlement gate: renders only for a
+          pre-existing in-progress row, nothing for everyone else. */}
+      <AnnualReviewCard patientId={profile.id} />
 
       {profile.organisation_id && (
         <RequiresEntitlement

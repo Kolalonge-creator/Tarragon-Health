@@ -14,6 +14,7 @@ import { PatientTimeline } from "@/components/patient-timeline";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
+import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
@@ -188,6 +189,7 @@ export default async function ClinicianPatientPage({
       {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
       <ResultDocumentsSection patientId={patient.id} />
       <MentalHealthSummary patientId={patient.id} showScores />
+      <ScreenOrderResultsSection patientId={patient.id} />
       <ScreeningResultForm patientId={patient.id} />
       <HealthCheckReview
         patientId={patient.id}

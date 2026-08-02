@@ -117,6 +117,25 @@ def test_unrecognised_genotype_escalates_rather_than_passes_silently() -> None:
     assert result.result_status == "abnormal"
 
 
+def test_blood_group_never_runs_through_the_sickle_cell_classifier() -> None:
+    """A real blood group value (e.g. 'O+') is not an AA/AS/SS token — it
+    would hit the sickle-cell classifier's unrecognised-string escalation
+    branch if screen_type_code weren't checked first. It must always record
+    as normal, verbatim, never abnormal."""
+    result = interpret_screening_result(
+        screen_type_code="blood_group", sex="female", age=30, genotype="O+"
+    )
+    assert result.result_status == "normal"
+    assert "O+" in result.summary
+
+
+def test_blood_group_stays_normal_for_a_non_sickle_cell_looking_string() -> None:
+    result = interpret_screening_result(
+        screen_type_code="blood_group", sex="male", age=40, genotype="AB-"
+    )
+    assert result.result_status == "normal"
+
+
 def test_mammography_procedural_passthrough_with_flag() -> None:
     result = interpret_screening_result(
         screen_type_code="mammography", sex="female", age=52, procedural_status="abnormal"
