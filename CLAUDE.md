@@ -2038,6 +2038,181 @@ reference either new table.
   and hand them `docs/INTEGRATIONS_API.md`'s Protocol API section; consider per-key rate limiting once
   real usage volume exists to judge a sane threshold against.
 
+### 2026-08-01 — Sponsor surface rebuilt after walking it as a diaspora son (branch `worktree-sponsor-10-of-10`)
+Founder asked for an in-character review of `/patient/supporting` as somebody abroad supporting a
+parent in Lagos, then to build every gap it found. Fixture: a 68-year-old mother in Ikeja on
+Amlodipine with BP trending 148/90 → 156/96. Three migrations `20260801090000`–`093000`; typecheck /
+lint (0 errors, the same 2 pre-existing warnings) / 555 web tests / full production build all green.
+- **⚠️ THE BIG ONE — every table a migration creates in `public` was born unreachable, and had been
+  for the life of the project.** Confirmed against `pg_default_acl`, not guessed: default privileges
+  for tables created by `postgres` in `public` are `{postgres, service_role}` with **`authenticated`
+  absent**, where Supabase's own `storage` schema includes it. So a table created in the dashboard at
+  bootstrap is reachable and a table created by `create table` in a migration is not. RLS restricts
+  *rows*; it does not grant *table access*, so a carefully written policy on such a table governs
+  nothing and PostgREST returns `42501`, which supabase-js surfaces as an **empty result** — the UI
+  then renders a confident, wrong zero rather than an error. **30 tables were affected**, including
+  every Health Wallet table (the review found ₦65,000 of real money displaying as ₦0 with "No money
+  has been added yet") and all 13 `lpe_*` Lifestyle Programme Engine tables. Fixed at the root in
+  `20260801090000`: one `alter default privileges … grant … to authenticated` so every future table
+  is born reachable, plus a data-driven backfill granting each existing table exactly what its own
+  policies imply (a SELECT-only policy gets only SELECT — it cannot over-grant). **`anon` deliberately
+  excluded**; public exposure here is always a specific decision. Paired with the existing
+  `rls_auto_enable` event trigger, a new table is now both RLS-protected *and* reachable. Proven live
+  by creating a throwaway table and asserting all three properties. **This is the third time this
+  class was fixed one table at a time (M1 sprint, then `case_briefs`) — it is fixed at the root now,
+  with `packages/db/tests/authenticated_table_grants.sql` as the standing guard.**
+  ⚠️ **Note the wallet half was overtaken mid-session**: a concurrent session retired the Health
+  Wallet for Care Vouchers (PR #192) while the review was being written, and the voucher tables *do*
+  carry grants. The wallet finding is therefore historical; the other 26 tables were real and are now
+  fixed.
+- **"A frightening number and apparently nobody has noticed."** The mother's 156/96 rendered as a
+  flat neutral figure while the platform had **already** raised `clinician_review` with a review
+  deadline three days out — and `clinician_alerts` already carried the `can_read_clinical` clause, so
+  the sponsor was permitted to know. The page simply queried `escalations` (empty) and never
+  `clinician_alerts`. New `sponsor_care_status` RPC returns **counts and dates only** — `title`/
+  `detail` are never selected, asserted over in the migration — so the card can say "their care team
+  is looking at something · a doctor reviews it by 4 Aug" and structurally cannot leak a clinician's
+  reasoning to a family member before the patient hears it. Also added BP movement ("up from 148/90")
+  and the care plan's own target quoted back ("under 140/90"), so the number finally has a scale.
+- **The sponsor could not buy the one thing they came for.** No path at any price to "put my mother
+  on Complete Care and bill my card monthly" — only one-off vouchers. New
+  `subscriptions.paid_by_profile_id` + `initiateSponsoredSubscriptionCheckout` + a
+  `sponsored_subscription` metadata kind read by `private.activate_sponsored_subscription`, an AFTER
+  INSERT trigger on `payment_transactions` — the same no-redeploy pattern the wallet top-up used, so
+  neither webhook Edge Function had to change. The grant is **re-checked when the money lands**, so a
+  grant revoked mid-checkout buys nothing (proven). Both parties are notified: nobody should discover
+  they were put on a paid plan by noticing new features.
+- **A refill due in five days was visible and unactionable.** `sponsor_request_refill` turns it into
+  a real priced bill (idempotent — a second press returns the same order, never a duplicate), refusing
+  anything that is not already an active clinician-prescribed medication, so it is never a route to a
+  new prescription. `sponsor_payable_orders` also gained `video_visit`, the order type most likely to
+  need somebody else to settle it.
+- **Silence was the product.** The only notification the sponsor had ever received was a
+  health-education lesson for their *own* account. Added `sponsor_care_reviewed` (a doctor has looked
+  at it), `sponsor_person_quiet` (21 days silent, only for someone on an active care plan, one nudge
+  a month) and `sponsored_plan_started`, all `in_app` + `email`, all hard-coded `non_clinical` with an
+  assertion that keeps them that way.
+- **A payer had to become a patient to pay, and then had to live in a patient's app.** Two halves,
+  both closed. **(a) The questions:** full patient onboarding — consent to how *their own* health data
+  is used, consent to receive *remote care themselves*, DOB and sex — stood between someone and giving
+  us money for their mother, enforced in the DB. New `profiles.account_purpose` ('care' | 'support'):
+  a supporter accepts the terms of service and nothing else, because a person who will never receive
+  care here has no telehealth relationship to consent to and no health data we have a basis to hold.
+  **(b) The app itself:** reordering the patient menu was not enough — a supporter still landed on
+  `/patient`, a dashboard of empty prompts about a body we are not looking after, under a sidebar of
+  nine links about their own health, labelled "Patient". Now: `getNavSections` takes
+  `accountPurpose` and gives supporters their own four-item menu (People you support · Messages ·
+  Your people · Payments), the role chip reads **"Supporter"**, `completeOnboarding` and a guard on
+  `/patient` both send them to `/patient/supporting` as their real home, and a `setUpMyOwnCare`
+  action is the door if they ever do want care here.
+  **`enforce_receives_care_switch` re-imposes every prerequisite if they take that door**, and
+  `joinAsPatientToo` clears `onboarding_completed_at` in the same statement so they go back through
+  the full patient flow rather than around it — the requirement **moved rather than weakened**.
+- **Founder correction, same day: supporting and being a patient are INDEPENDENT.**
+  `account_purpose` ('care' | 'support'), shipped hours earlier in `20260801093000`, encoded a false
+  exclusivity — it could not represent a daughter who funds her mother's care *and* uses Tarragon for
+  her own. Replaced in `20260801100000` by `profiles.receives_care boolean`; being a **supporter**
+  needs no column at all, because it is already fully expressed by holding a `profile_access` grant,
+  which is the thing that actually confers the ability and which the person supported can revoke. Two
+  independent facts, so all four combinations exist. Three rules, all founder-specified:
+  1. **A supporter may join as a patient, on any plan including Free** — and must then answer
+     everything. `joinAsPatientToo` sends them through the whole flow including the intake questions,
+     because the screening calendar and risk scoring are computed from those answers; a
+     half-answered patient silently gets a thinner schedule rather than an obviously empty one.
+     They keep supporting whoever they support — joining ADDS care, it does not swap.
+  2. **A supporter who has not joined must not reach the patient surfaces at all**, not merely have
+     them hidden. Enforced in `proxy.ts` as a single **default-deny** choke point: everything under
+     `/patient` is refused except four named supporter surfaces (`supporting`, `family`, `messages`,
+     `subscription`). Default-deny matters — the opposite would silently open each newly added
+     clinical page to accounts that never consented to care, and a per-page guard would have to be
+     remembered sixteen times today and once more per page forever.
+  3. **Both at once works**, and falls through to the full patient menu, which already carries
+     People you support in third place — no combined case to special-case.
+- **Verified in a browser, all fourteen `/patient` routes probed as a supporter-only account:** the
+  ten clinical ones (`/patient`, prevention, health-check, health-passport, lifestyle, wellness,
+  nutrition, activity, weight, quick-log) all redirect to `/patient/supporting`; the four supporter
+  ones are allowed. Then joined as a patient and re-probed: prevention now open, supporting still
+  open, chip back to "Patient", full menu with People you support retained.
+  `packages/db/tests/supporter_accounts.sql` (**9/9**) covers all of it, including the two that
+  matter most — an onboarded supporter **cannot** simply flip `receives_care` on, and once restarted
+  the full DOB + consent set is demanded exactly as for any new patient.
+- **Two real bugs found only by walking it in a browser.** (1) The supporter consent checkbox still
+  read "…and to receive remote care", which would have recorded a consent never asked for — the exact
+  untruth the split exists to remove. (2) My own `enforce_onboarding_prereqs` referenced
+  `patient_consents.profile_id`; the column is `patient_id`. A plpgsql body is not resolved until it
+  runs, so it created cleanly and threw on the first real supporter. Both fixed and re-verified live.
+- **Also fixed, pre-existing and unrelated:** `risk-signals-card.tsx` (from commit `e6b4c99`) was
+  missing `"use client"` while calling a `useQuery` hook — **this was throwing a 500 on `/patient`,
+  the main patient dashboard, for every user**. One line. Plus the duplicate "Messages" nav entry
+  (`navigation.ts:28`/`:31`, a live React duplicate-key error) removed, "People you support" moved
+  from tenth to third, and a stale "Health Wallet" reference left in the spend-receipt email.
+- **Verified:** `packages/db/tests/sponsor_care_status_and_funding.sql` — **19/19 pass**, every
+  negative paired with a positive control, then deliberately sabotaged (consent removed) to confirm it
+  discriminates rather than passing vacuously. Full browser walk as the sponsor confirmed the care-team
+  band, BP movement and target, a real refill turning into a "Medication ₦4,500" bill labelled by
+  category not drug, the plan picker, the one-step supporter onboarding, and the fixed nav. All
+  fixtures deleted afterward and both QA accounts restored.
+- **Next / founder:** Meta approval for the three new WhatsApp templates (the `in_app` leg works now
+  regardless) and a `send-pending-notifications` redeploy to pick up their email bodies; a real
+  Paystack round-trip of sponsored-plan checkout in a non-sandboxed browser, the same known gap every
+  payment pass in this file carries.
+
+### 2026-08-01 — A supporter can open the account they support, and pay from their own card
+Two founder asks on the same day, both built on `worktree-sponsor-10-of-10`.
+- **Paying directly.** The only settle path left after the Health Wallet was retired was redeeming a
+  Care Voucher the person already held, so the button read "No voucher for this" against a real,
+  itemised, unpaid bill; `sponsor_pay_booking_order` had been dropped by `20260731215735` and never
+  replaced. `initiateSponsorBillCheckout` now charges the supporter's own card for one named bill.
+  **The amount is never posted from the form and authorisation is not a second check that could
+  drift from the first** — both come from `sponsor_payable_orders`, which raises 42501 without a
+  manage grant, so a bill you cannot list is a bill you cannot pay. Verified live: a `view` grantee
+  is refused the listing outright, a `manage` grantee sees the real ₦4,500, and the bill still names
+  a category rather than the drug.
+- **Opening their account** (founder chose full act-as over a richer read-only view, and chose
+  "always name the supporter" for attribution). `20260801110000`: `private.can_act_for`,
+  `logged_by_profile_id` on `vitals_readings`/`symptoms`, INSERT policies for a manage grantee, and
+  `private.stamp_acting_supporter` deriving the author from `auth.uid()`.
+  **Acting for someone is deliberately NOT impersonation** — `auth.uid()` stays the supporter
+  throughout, because every RLS policy on this platform is built on it. Only the `patient_id` the app
+  is pointed at changes. The chosen person lives in a cookie that is **only a hint**: the live grant
+  is re-checked on every request, so a forged or stale cookie reaches nothing and a downgrade to
+  `view` ends access on the very next page load (both proven live).
+  **No UPDATE or DELETE policy exists**, so a supporter may add to the record and can never revise or
+  remove it, including their own earlier entry. `packages/db/tests/acting_for_someone.sql` (9/9)
+  covers all of it, including a deliberately spoofed author being overwritten with the real one.
+- **The bug that mattered, found only by walking it:** `logVital` hardcoded `patient_id: user.id` and
+  ignored the patient it was handed, so a reading logged inside someone else's open account silently
+  landed on the supporter's own record. Fixed for `logVital` and `logSymptom` via `resolveSubjectId`,
+  which re-checks the grant. Verified end to end: 134/84 saved to **Folake's** record, attributed to
+  **Tunde Adeyemi**.
+- **The remaining three writes wired, 2026-08-01** (`20260801120000`, `20260801121000`). Founder
+  confirmed a family member SHOULD be able to raise a danger-symptom alert for someone, which is
+  the case the whole feature exists for: an elderly parent having chest pain is often not the person
+  holding the phone. `submitRiskAssessment`, `reportDangerSymptoms` and `logHospitalAdmission` now
+  resolve the subject the same way, with INSERT policies and `logged_by_profile_id` on
+  `risk_assessment_responses`/`emergency_events`/`patient_hospital_admissions`.
+  **That made attribution clinical rather than cosmetic.** Both alert bodies asserted the patient had
+  spoken ("Priority 1 ... source", "patient reported a hospital admission", "Self-reported by the
+  patient"), which is simply false when a son files it, and a doctor ringing about a Priority-1
+  emergency needs to know whether the patient described their own chest pain or somebody else did.
+  Both alerts now name the reporter and stop claiming the patient spoke; the `audit_log` rows were
+  also recording `actor_id = patient_id` and now record who actually acted.
+- **⚠️ THE TRAP, worth reading before writing another acting-for policy:** `insert ... returning` is
+  checked against the **SELECT** policy as well as the INSERT one, and when SELECT rejects the new row
+  Postgres raises `42501: new row violates row-level security policy` — **the same message as a WITH
+  CHECK failure**, pointing at the wrong half. supabase-js `.insert(...).select("id")` compiles to
+  exactly that, so a plain `insert` in a test passes while the real button fails in the browser, which
+  is precisely what happened. Closed by `20260801121000`: a supporter may read a row **because they
+  wrote it** (`logged_by_profile_id = auth.uid()`), which adds no visibility over anything the patient
+  recorded themselves. The migration asserts every table a supporter can write has a matching
+  read-back policy, and the test now uses `returning` deliberately.
+- **Verified live end to end:** as Tunde with Folake's account open, the real danger-symptom button
+  raised a Priority-1 emergency on **her** record reading *"Reported by Tunde Adeyemi on the patient's
+  behalf, not by the patient themselves."* `packages/db/tests/supporter_reporting.sql` (14/14) covers
+  it, including the two controls that matter — her own report stays unattributed and her own alert
+  never names a third party.
+- typecheck / lint (0 errors, same 2 pre-existing warnings) / 555 tests / production build green.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed

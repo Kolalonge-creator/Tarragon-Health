@@ -20,9 +20,30 @@ const PUBLIC_LEGAL_PATH: Record<string, string> = {
  * is a hard gate — the profiles_enforce_onboarding_prereqs trigger blocks
  * finishing onboarding until these are on file.
  */
-export function ConsentStep({ onComplete }: { onComplete: () => void }) {
-  const { data: versions, isLoading } = useCurrentConsentVersions();
+export function ConsentStep({
+  onComplete,
+  onlyTypes,
+  description,
+}: {
+  onComplete: () => void;
+  /**
+   * Restricts which consents are shown and accepted. Used by the supporter
+   * path, where telehealth and health-data consents are not merely skipped for
+   * convenience — a person who will never receive care here has no telehealth
+   * relationship to consent to, and we have no basis to process health data
+   * they will never give us. Asking anyway would collect a consent that is not
+   * true. The database enforces the same split in
+   * private.enforce_onboarding_prereqs.
+   */
+  onlyTypes?: string[];
+  description?: string;
+}) {
+  const { data: allVersions, isLoading } = useCurrentConsentVersions();
   const [state, formAction, pending] = useActionState(acceptConsents, undefined);
+
+  const versions = onlyTypes
+    ? allVersions?.filter((v) => onlyTypes.includes(v.consent_type))
+    : allVersions;
 
   useEffect(() => {
     if (state?.success) onComplete();
@@ -35,7 +56,7 @@ export function ConsentStep({ onComplete }: { onComplete: () => void }) {
           Your agreement
         </h2>
         <p className="mt-1 text-sm text-charcoal-ink/60">
-          Please read and agree before we set up your care.
+          {description ?? "Please read and agree before we set up your care."}
         </p>
       </div>
 
@@ -89,9 +110,14 @@ export function ConsentStep({ onComplete }: { onComplete: () => void }) {
             className="mt-0.5 h-4 w-4 rounded border-charcoal-ink/30"
             required
           />
+          {/* The wording has to match what is actually on the page. A
+              supporter is shown only the terms of service, so claiming they
+              agreed "to receive remote care" would record a consent they were
+              never asked for — the exact untruth this split exists to avoid. */}
           <span>
-            I have read and agree to how my health information is used, to receive remote
-            care, and to the terms of service.
+            {onlyTypes
+              ? "I have read and agree to the terms of service."
+              : "I have read and agree to how my health information is used, to receive remote care, and to the terms of service."}
           </span>
         </label>
         {state?.error && <p className="text-sm text-red-600">{state.error}</p>}

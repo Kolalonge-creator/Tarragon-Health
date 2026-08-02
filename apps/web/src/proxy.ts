@@ -47,7 +47,7 @@ export async function proxy(request: NextRequest) {
   // supabase/migrations/20260705000001_core_auth_multitenancy.sql.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, custom_role_id")
+    .select("role, custom_role_id, receives_care")
     .eq("id", user.id)
     .single();
 
@@ -55,7 +55,48 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  const home = getRoleHomePath(profile.role);
+  // Somebody who signed up only to fund a relative's care is refused the
+  // patient surfaces outright, rather than merely having them dropped from the
+  // menu — they have no plan, no consents and no clinical record here, so a
+  // hidden link is not a boundary.
+  //
+  // Deliberately DEFAULT-DENY: anything new added under /patient is closed to
+  // supporters unless it is named below. The opposite default would silently
+  // open each new clinical surface to accounts that never consented to care.
+  //
+  // This is the single choke point for it. A per-page guard would have to be
+  // remembered sixteen times today and once more for every page added.
+  // ...unless they have opened the account of somebody they support, which is
+  // the entire point of being here. The cookie only suppresses the redirect;
+  // the live 'manage' grant is what actually admits them, re-checked on the
+  // page itself via getActingFor, so a forged cookie reaches an empty account
+  // rather than somebody's record.
+  const hasOpenAccount = Boolean(request.cookies.get("th_acting_for")?.value);
+  const supporterOnly =
+    profile.role === "patient" && profile.receives_care === false && !hasOpenAccount;
+  if (supporterOnly && pathname.startsWith("/patient")) {
+    const allowed =
+      pathname === "/patient/supporting" ||
+      pathname.startsWith("/patient/supporting/") ||
+      // Naming a next of kin and being named by someone are the same screen,
+      // and linking is how a supporter gets connected in the first place.
+      pathname === "/patient/family" ||
+      pathname.startsWith("/patient/family/") ||
+      // The three-way thread with the person they support and the care team.
+      pathname === "/patient/messages" ||
+      pathname.startsWith("/patient/messages/") ||
+      // What they pay for other people, not a plan of their own.
+      pathname === "/patient/subscription" ||
+      pathname.startsWith("/patient/subscription/");
+    if (!allowed) {
+      return NextResponse.redirect(new URL("/patient/supporting", request.url));
+    }
+  }
+
+  const home =
+    supporterOnly && profile.role === "patient"
+      ? "/patient/supporting"
+      : getRoleHomePath(profile.role);
 
   // Auth-only public paths (login/signup) — not marketing pages
   if (isPublicPath(pathname) && pathname !== "/" && !isMarketingPath(pathname)) {

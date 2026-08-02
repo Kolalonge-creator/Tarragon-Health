@@ -3034,6 +3034,7 @@ export type Database = {
           followed_up_at: string | null
           followed_up_by: string | null
           id: string
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           source: Database["public"]["Enums"]["emergency_source"]
@@ -3072,6 +3073,7 @@ export type Database = {
           followed_up_at?: string | null
           followed_up_by?: string | null
           id?: string
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           source?: Database["public"]["Enums"]["emergency_source"]
@@ -8295,6 +8297,7 @@ export type Database = {
           facility_name: string | null
           id: string
           is_current: boolean | null
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           reason: string | null
@@ -8335,6 +8338,7 @@ export type Database = {
           facility_name?: string | null
           id?: string
           is_current?: boolean | null
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           reason?: string | null
@@ -9635,6 +9639,7 @@ export type Database = {
           metadata: Json
           next_of_kin_name: string | null
           next_of_kin_phone: string | null
+          receives_care: boolean
           onboarding_completed_at: string | null
           organisation_id: string | null
           patient_number: string | null
@@ -9670,6 +9675,7 @@ export type Database = {
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
+          receives_care?: boolean
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -9705,6 +9711,7 @@ export type Database = {
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
+          receives_care?: boolean
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -10220,6 +10227,7 @@ export type Database = {
           category: Database["public"]["Enums"]["risk_assessment_category"]
           created_at: string
           id: string
+          logged_by_profile_id: string | null
           organisation_id: string
           profile_id: string
           question_key: string
@@ -10238,6 +10246,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["risk_assessment_category"]
           created_at?: string
           id?: string
+          logged_by_profile_id?: string | null
           organisation_id?: string
           profile_id?: string
           question_key?: string
@@ -11043,6 +11052,7 @@ export type Database = {
         Row: {
           amount_minor: number
           cancel_at_period_end: boolean
+          paid_by_profile_id: string | null
           cancelled_at: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
@@ -11063,6 +11073,7 @@ export type Database = {
         Insert: {
           amount_minor?: number
           cancel_at_period_end?: boolean
+          paid_by_profile_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -11083,6 +11094,7 @@ export type Database = {
         Update: {
           amount_minor?: number
           cancel_at_period_end?: boolean
+          paid_by_profile_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -11203,6 +11215,7 @@ export type Database = {
           description: string | null
           id: string
           is_red_flag: boolean
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           reported_at: string
@@ -11225,6 +11238,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_red_flag?: boolean
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           reported_at?: string
@@ -11826,6 +11840,7 @@ export type Database = {
           ketone_urine: string | null
           ketones_mmol_l: number | null
           note: string | null
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           pulse_bpm: number | null
@@ -11878,6 +11893,7 @@ export type Database = {
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
           note?: string | null
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           pulse_bpm?: number | null
@@ -13479,7 +13495,13 @@ export type Database = {
         }
         Returns: Json
       }
+      can_act_for: { Args: { p_beneficiary: string }; Returns: boolean }
+      sponsor_care_status: { Args: { p_beneficiary: string }; Returns: Json }
       sponsor_payable_orders: { Args: { p_beneficiary: string }; Returns: Json }
+      sponsor_request_refill: {
+        Args: { p_beneficiary: string; p_medication_id: string }
+        Returns: string
+      }
       sponsor_set_dependent_basics: {
         Args: {
           p_beneficiary: string

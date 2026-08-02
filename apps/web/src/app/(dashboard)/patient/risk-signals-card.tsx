@@ -1,3 +1,8 @@
+"use client";
+
+// Missing since this card was added, which threw "Attempted to call useQuery()
+// from the server" and took the whole patient dashboard down with it — the
+// hook below is a client hook, so the file has to declare the boundary.
 import { usePatientRiskSignals } from "@/lib/queries/health-score";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";

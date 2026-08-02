@@ -142,7 +142,18 @@ export async function completeOnboarding() {
   // table. Anything unrecognised falls through to the normal dashboard, so a
   // stale or hand-typed value can never strand a new patient on a bad route.
   const intent = user.user_metadata?.signup_intent;
-  redirect(intent === "health_check" ? "/patient/prevention#health-check" : "/patient");
+  if (intent === "health_check") redirect("/patient/prevention#health-check");
+
+  // A supporter's home is the people they support. Landing them on a dashboard
+  // of empty prompts about their own vitals is the moment the product stops
+  // being the thing they signed up for.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("receives_care")
+    .eq("id", user.id)
+    .single();
+
+  redirect(profile?.receives_care === false ? "/patient/supporting" : "/patient");
 }
 
 export type IdentityVerificationState =

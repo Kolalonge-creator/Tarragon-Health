@@ -50,6 +50,11 @@ export async function signUp(
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
+        // Someone signing up to pay for a relative's care rather than to be
+        // treated. /auth/callback turns this into profiles.account_purpose,
+        // which is what lets them skip consenting to telehealth for
+        // themselves — see 20260801093000_supporter_accounts.sql.
+        ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
       },
     },
   });
