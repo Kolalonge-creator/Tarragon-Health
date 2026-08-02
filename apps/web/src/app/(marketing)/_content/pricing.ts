@@ -24,10 +24,15 @@
  *   it: do not reintroduce a diaspora price band here, because
  *   private.enforce_derived_price will reject it in the database anyway.
  *
- * Still current from 2026-07-21: the "Annual Doctor Review" name (kept apart
- * from the "Annual Health Check" screening product), the ₦65,000 Annual Health
- * Check aligned to the live panel_bundles row, and TYPICAL_PRICES mirroring the
- * live lab_tests/panel_bundles catalogue (re-derive when partners reprice).
+ * Superseded 2026-08-02 — the old 3-tier Health Check ladder (Basic/Annual
+ * Health Check/Comprehensive, ₦15k/₦65k/₦75k) is replaced by Core/Advanced/
+ * Comprehensive Screen (₦65k/₦95k/₦149k), matching new panel_bundles rows
+ * 'screen_core'/'screen_advanced'/'screen_comprehensive'. "Annual Doctor
+ * Review" is retired as a separate product — its doctor video consult is now
+ * Comprehensive Screen's own result walkthrough, closing the two confusingly-
+ * named "annual ___" products this file used to carry side by side. Active
+ * subscribers get 15% off any Screen tier. TYPICAL_PRICES mirrors the live
+ * lab_tests/panel_bundles catalogue (re-derive when partners reprice).
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
@@ -134,7 +139,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
       { feature: "Screening lab tests (HbA1c from ₦8,000, etc.)", label: "BOOK & PAY" },
-      { feature: "Annual Health Check (₦65,000, full-body)", label: "BOOK & PAY" },
+      { feature: "Core Screen (₦65,000, full-body health check)", label: "BOOK & PAY" },
     ],
     footnote:
       "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme; that's the whole point of catching it early.",
@@ -179,7 +184,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Medication refills", label: "BOOK & PAY" },
     ],
     footnote:
-      "The Annual Health Check (full body screening) is not bundled free into Complete Care. It's a ₦65,000/year add-on available on any plan, so the price you see is the price you actually pay.",
+      "Core Screen (full body health check) is not bundled free into Complete Care. It's a ₦65,000/year add-on available on any plan, so the price you see is the price you actually pay — subscribers get 15% off.",
   },
 ];
 
@@ -317,13 +322,13 @@ export type PricingAddOn = {
 
 export const ADD_ONS: PricingAddOn[] = [
   {
-    id: "annual-health-check",
-    name: "Annual Health Check",
+    id: "screen-core",
+    name: "Core Screen",
     price: "₦65,000/year",
     label: "ADD-ON",
     description:
-      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a doctor consultation to walk you through your results. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge. Not the same product as the Annual Doctor Review (₦70,000/year): this is a day of screening tests, the Review is a sit-down about your whole year of care.",
-    availability: "Available to anyone, on any plan, including Tarragon Free.",
+      "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge. Two deeper tiers are available: Advanced Screen (₦95,000/year) adds age-triggered cancer screening and an ECG, and Comprehensive Screen (₦149,000/year) adds imaging and a 15-minute doctor video consult to walk through your whole result set — see the full breakdown on the Annual Health Check page.",
+    availability: "Available to anyone, on any plan, including Tarragon Free. Active subscribers get 15% off list.",
   },
   {
     id: "prevention-screening",
@@ -383,15 +388,10 @@ export const ADD_ONS: PricingAddOn[] = [
       "A guided programme for diet, activity, and weight: a personal assessment, goals you set with support, structured diet and exercise tracks, and in-app check-ins, with a progress review every three months. It's also the engine behind Tarragon's weight programme.",
     availability: "Included on Complete Care and above. Available as an add-on on Essential Care or Tarragon Free.",
   },
-  {
-    id: "annual-review",
-    name: "Annual Doctor Review",
-    price: "₦70,000/year",
-    label: "ADD-ON",
-    description:
-      "Once a year, your doctor sits down with your whole year of care: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short video consultation to talk through the year behind you and the plan ahead. Not the same product as the Annual Health Check (₦65,000): the Check is a day of screening tests; this Review is your whole year of care, talked through with your doctor.",
-    availability: "Included on Complete Care. Available as an add-on on lower plans.",
-  },
+  // 'annual-review' (Annual Doctor Review, ₦70,000/year) retired 2026-08-02 —
+  // folded into Comprehensive Screen (see 'screen-core' above), which now
+  // includes the same doctor video consult as part of its own result walkthrough.
+  // Two separately-named "annual ___" products was confusing; there's one now.
   {
     id: "video-visit",
     name: "Video Doctor Visit",
@@ -418,9 +418,10 @@ export const ADD_ONS: PricingAddOn[] = [
  * shown before booking.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
-  { item: "Health Check tier 1 of 3 — Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
-  { item: "Health Check tier 2 of 3 — Annual Health Check (adds your cancer screening)", price: "₦65,000" },
-  { item: "Health Check tier 3 of 3 — Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
+  { item: "Quick Check (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
+  { item: "Core Screen (cardiometabolic + organ baseline + HIV/Hep B/Hep C)", price: "₦65,000" },
+  { item: "Advanced Screen (Core + cancer screening + ECG)", price: "₦95,000" },
+  { item: "Comprehensive Screen (Advanced + imaging + doctor video consult)", price: "₦149,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
   { item: "Diabetes panel (HbA1c + cholesterol)", price: "from ₦18,500" },
@@ -603,9 +604,9 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
       "Typical partner-lab prices are listed on this page (for example, HbA1c from ₦8,000 and a lipid panel from ₦9,000), and your exact price is always shown before you confirm any booking. Nothing is ever charged without your confirmation.",
   },
   {
-    question: "What's the difference between the Annual Health Check and the Annual Doctor Review?",
+    question: "What's the difference between Core, Advanced, and Comprehensive Screen?",
     answer:
-      "The Annual Health Check (₦65,000/year) is a day of screening tests: bloods, BP, BMI, one cancer screening, and a doctor consultation about the results. The Annual Doctor Review (₦70,000/year, already included on Complete Care) is your whole year of care reviewed with your doctor: questionnaires, labs, a medication review, an updated care plan, and a video consultation.",
+      "They're one cumulative ladder, so each tier includes everything in the one below it. Core Screen (₦65,000/year) is a full cardiometabolic and organ-baseline workup, plus HIV/Hepatitis B/Hepatitis C. Advanced Screen (₦95,000/year) adds age-triggered cancer screening and an ECG, with a personalised screening calendar. Comprehensive Screen (₦149,000/year) adds imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set — the same doctor review that used to be a separate Annual Doctor Review product. Active subscribers get 15% off any tier.",
   },
   {
     question: "What if I need a test that isn't listed here?",

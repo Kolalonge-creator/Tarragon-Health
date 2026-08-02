@@ -29,9 +29,13 @@ const OPEN_STATUSES = [
 ];
 
 /** Health Check packages vs confidential single screenings — both are the
- * self_bookable set (WHO-essential only, per migration 20260723164727). */
+ * self_bookable set (WHO-essential only, per migration 20260723164727).
+ * `health_check_basic` (₦15,000) is the standalone quick-check below the
+ * ladder; `screen_core`/`screen_advanced`/`screen_comprehensive` are the
+ * Core/Advanced/Comprehensive Screen tiers that replaced the old
+ * `annual_health_check`/`health_check_comprehensive` bundles. */
 const isPackage = (b: PanelBundle) =>
-  b.code === "annual_health_check" || b.code.startsWith("health_check");
+  b.code.startsWith("health_check") || b.code.startsWith("screen_");
 
 /** The WHO-essential confidential screenings (cervical smear, HIV, Hep B,
  * Hep C) vs. other self-bookable single tests (e.g. blood group & genotype,
@@ -103,7 +107,7 @@ export function AnnualHealthCheckBooking({
 
   const selected =
     selfBookable.find((b) => b.id === selectedBundleId) ??
-    packages.find((b) => b.code === "annual_health_check") ??
+    packages.find((b) => b.code === "screen_core") ??
     selfBookable[0] ??
     null;
 
@@ -137,6 +141,12 @@ export function AnnualHealthCheckBooking({
         </div>
         {bundle.description && (
           <p className="mt-1 text-xs text-charcoal-ink/60">{bundle.description}</p>
+        )}
+        {bundle.code === "screen_comprehensive" && (
+          <p className="mt-1 text-xs text-charcoal-ink/60">
+            Everything except imaging (ultrasound, mammography) is ready now — imaging isn&apos;t
+            available in your area yet. Your care team will follow up once it is.
+          </p>
         )}
         {hasOpenOrder && (
           <p className="mt-1 text-xs text-amber-700">You already have this one in progress.</p>

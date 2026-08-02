@@ -334,14 +334,12 @@ export default async function PatientPage() {
           }}
           patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
-        {/* Annual Doctor Review lives with prevention (it's the yearly
-            whole-body review), not buried under Care — the gate is unchanged. */}
-        <RequiresEntitlement
-          feature="annual_review"
-          fallback={<UpgradePrompt feature="annual_review" />}
-        >
-          <AnnualReviewCard patientId={profile.id} />
-        </RequiresEntitlement>
+        {/* Annual Doctor Review is retired as a standalone product — folded into
+            Comprehensive Screen (see the Screen ladder). No entitlement gate
+            any more: this only ever renders for the handful of pre-existing
+            in-progress rows from before the retirement, and shows nothing
+            (not an upgrade prompt) for everyone else. */}
+        <AnnualReviewCard patientId={profile.id} />
         {profile.organisation_id && (
           <RequiresEntitlement
             feature="health_education"

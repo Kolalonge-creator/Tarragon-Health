@@ -9,7 +9,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "Annual Health Check",
   description:
-    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex, reviewed by a doctor, at a partner lab near you. ₦65,000, available to anyone on any plan.",
+    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex, reviewed by a doctor, at a partner lab near you. From ₦65,000, available to anyone on any plan.",
   alternates: { canonical: MARKETING_ROUTES.annualHealthCheck },
 };
 
@@ -160,26 +160,31 @@ export default function AnnualHealthCheckPage() {
       <Section>
         <SectionHeading
           eyebrow="Pick your level"
-          title="Three packages, one discipline"
-          description="Every package follows World Health Organization screening guidance for what actually matters in Nigeria, and every one ends with a doctor talking you through your results."
+          title="Four tiers, one discipline"
+          description="Each tier includes everything in the one before it, and every one ends with a doctor talking you through your results. Active subscribers get 15% off any Screen tier."
         />
-        <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
+        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
-              name: "Basic",
+              name: "Quick Check",
               price: "₦15,000",
               body: "The cardiometabolic essentials: HbA1c, full cholesterol panel, blood pressure, and BMI. These are the WHO's core adult checks.",
             },
             {
-              name: "Annual Health Check",
+              name: "Core Screen",
               price: "₦65,000",
-              body: "Everything in Basic, plus the cancer screening that fits your age and sex (cervical screening or PSA).",
+              body: "A full cardiometabolic and organ-baseline workup — full blood count, liver/kidney/thyroid function, urinalysis — plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
               highlight: true,
             },
             {
-              name: "Comprehensive",
-              price: "₦75,000",
-              body: "Everything in the Annual Health Check, plus HIV, Hepatitis B, and Hepatitis C screening, all WHO priorities for Nigeria.",
+              name: "Advanced Screen",
+              price: "₦95,000",
+              body: "Everything in Core Screen, plus the cancer screening that fits your age and sex (cervical screening or PSA), an ECG, and a personalised screening calendar.",
+            },
+            {
+              name: "Comprehensive Screen",
+              price: "₦149,000",
+              body: "Everything in Advanced Screen, plus imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set.",
             },
           ].map((tier) => (
             <div
@@ -231,17 +236,15 @@ export default function AnnualHealthCheckPage() {
             Most years, your check will confirm you&apos;re well; that&apos;s the point, and
             it&apos;s worth paying for. For the few people whose results show something, catching
             it at an annual check typically means simpler, cheaper, more successful treatment
-            than waiting for symptoms. The Annual Health Check is a screening day, not a
-            hospital admission: if anything needs deeper investigation, your doctor will say so
-            plainly and help you arrange it.
+            than waiting for symptoms. This is a screening day, not a hospital admission: if
+            anything needs deeper investigation, your doctor will say so plainly and help you
+            arrange it.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Looking for the year-round version? <Link href={MARKETING_ROUTES.pricing} className="text-brand-green hover:underline">Tarragon Prevent</Link> keeps
-            your full screening and vaccination calendar running all year, and the{" "}
-            <Link href={MARKETING_ROUTES.pricing} className="text-brand-green hover:underline">
-              Annual Doctor Review
-            </Link>{" "}
-            adds a video consult reviewing your whole year of care.
+            your full screening and vaccination calendar running all year. Comprehensive Screen
+            already includes the doctor video consult reviewing your whole result set — no
+            separate review to buy.
           </p>
         </div>
       </Section>
