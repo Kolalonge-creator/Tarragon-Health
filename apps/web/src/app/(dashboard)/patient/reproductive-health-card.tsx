@@ -28,7 +28,7 @@ const LIFE_STAGE_LABEL: Record<ReproductiveLifeStage, string> = {
  * Women's-health bridge, part 2: a self-reported life stage that drives a
  * small honestly-labelled nudge engine (see lib/rules/cycle-nudges.ts).
  * Never a diagnosis, never fed into risk/escalation scoring — a preference
- * the patient can change any time, same as the reminder-preference toggle.
+ * the patient can change any time.
  * Part 1 (real cervical/breast screening status inside the Women's Health
  * preventive programme) lives in preventive-programmes.tsx.
  */

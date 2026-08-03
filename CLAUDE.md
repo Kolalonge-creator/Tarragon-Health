@@ -2390,6 +2390,269 @@ pre-existing warnings), 598 tests, production build green — matching the branc
   extracted values) per the fulfilment branch's own HANDOFF doc, which flagged this as never having
   been run once; decide whether `main-dev` → `main` should follow given the production DB is now
   materially ahead of what `main` currently serves.
+### 2026-08-03 — Clinical intelligence core: lab-report extraction, drug-safety engine, longitudinal synthesis, emergency card, pack verification (branch `worktree-clinical-intelligence-core`, isolated worktree, explicit ask)
+Founder-directed build off a strategy critique. The thesis it acts on: suspending fulfilment changes what
+the product is — no longer "we get you tested and medicated" but "we know what's happening to your body,
+we tell you what it means, and we're accountable when it goes wrong." Everything below serves that, and
+everything is buildable with no partner and no headcount. Three migrations applied via `apply_migration`
+(recorded: `20260803120000_lab_report_extractions`, `20260803125000_patient_blood_profile`,
+`20260803130000_emergency_cards`); typecheck / lint (0 errors, the same 2 pre-existing warnings) /
+**680 web + 47 shared tests** / full production build all green; `get_advisors` shows **zero ERROR-level
+findings** and no new/unexpected finding on any new table.
+- **1. Lab-report extraction — the bottleneck the fulfilment suspension created.** `actions.ts` stored an
+  uploaded report as a blob and flagged it for a human, and `lab_analyte_readings` was only ever written
+  by the clinician's manual entry form, so "use any lab and upload" meant twenty fields of typing per
+  report for a doctor. Now: `lib/lab-reports/analyte-catalogue.ts` (the canonical vocabulary — every
+  storable analyte, its canonical unit, the units Nigerian reports actually print, and the many names
+  they use), `extract.ts` (Claude vision over image or PDF against a closed vocabulary), and a
+  side-by-side review screen where the document stays on screen next to editable numbers. **Unit
+  conversion is deliberately strict** — an unrecognised unit is REFUSED, never assumed canonical, because
+  a creatinine of 90 is normal in µmol/L and end-stage renal failure in mg/dL. Every row is re-resolved
+  and re-converted on the way back in, so a hallucinated code or mismatched unit never reaches the
+  database. `lab_report_extractions` is drafts only: org-staff readable and **deliberately NOT
+  patient-readable** (an unconfirmed machine transcription must not reach a patient before a clinician
+  sees it), service-role write, no insert/update/delete policy. Filing numbers stays separate from
+  recording a finding, matching the line `markResultDocumentReviewed` already draws.
+- **2. eGFR + the general drug-safety engine — the pharmacist removed from the loop.** `rules/egfr.ts` is
+  CKD-EPI 2021, **race-free specifically** because the 2009 multiplier inflates eGFR and in a Nigerian
+  population would under-warn on exactly the drugs this platform checks; it refuses (paediatric age,
+  unknown sex, implausible creatinine) rather than return a wrong number. `rules/drug-safety.ts` adds the
+  three catches nobody was making: interactions across ~45 classes matched by INN stem so it generalises
+  past the named drugs; **duplicate therapy that compares PRESCRIBERS**, since the same class from two
+  prescribers is the uncoordinated-care case and from one prescriber usually deliberate; and renal dosing
+  against the patient's own creatinine. A clean report reports itself as advisory **in the return type**,
+  and `renalCheckSkipped` is non-null whenever no creatinine exists — an empty findings list must never
+  read as "renal dosing checked and fine". Composes `diabetesDrugSafety` rather than restating it.
+- **3. Longitudinal synthesis — the subscription sentence.** `rules/longitudinal.ts` finds
+  consecutive-direction runs **anchored on the latest reading** (a rise three years ago that has since
+  corrected is history, not a finding), with a per-analyte noise floor so a 4% creatinine drift is never
+  announced as a trend. One computation, two renderings (`describeForPatient` / `describeForClinician`),
+  so a patient and their doctor can never be looking at different facts. Describes movement, never
+  interprets it — a test asserts the patient wording never contains a verdict word.
+- **4. Emergency card — be the record they carry into any hospital.** ⚠️ **A deliberate, consented PHI
+  exposure**, and the one anon-reachable surface here: `emergency_card_by_token` is now the fourth
+  "Public Can Execute SECURITY DEFINER Function" advisory alongside the three intentional marketing
+  endpoints, and unlike those three it returns PHI. Every safeguard exists because of that — off by
+  default, consent recorded at creation with the exposure named in plain language, instant revocation and
+  rotation, a **fixed minimal dataset pinned in the function body** so no caller can widen it, every read
+  logged and shown back to the patient, 32-byte tokens, `noindex`, `force-dynamic` so a revoked card stops
+  resolving on the next request. anon reaches the card ONLY through the token function, never the table
+  (asserted in the migration). **Found a real gap building it: blood group and haemoglobin genotype were
+  stored nowhere structured** — the platform already sells the test and the answer survived only as prose
+  in a result summary, unreadable by anything. In Nigeria genotype is among the highest-value emergency
+  facts there is. `patient_blood_profile` gives it a home with provenance (`lab_result` /
+  `patient_reported` / `clinician_recorded`), because "AA" with no source is a rumour.
+- **5. Pack verification — reads the box, never judges it.** Patients buy from any pharmacy, so nobody
+  here sees the pack. `pack-vision.ts` reads what is printed; `pack-check.ts` compares name and strength
+  against the prescription. **It never claims authenticity** — the prompt forbids it, the verdict union
+  has no value for it, and a test asserts no verdict ever contains "genuine"/"counterfeit". Every result,
+  including a clean one, points at NAFDAC's Mobile Authentication Service, and says plainly that a missing
+  scratch panel does not mean a fake. Stateless by design: no image, no reading, no result stored. A
+  strength discrepancy routes the patient to their care team via existing in-app messaging rather than
+  auto-raising an alert off a photo.
+- **Verified beyond typecheck/lint/test/build:** `packages/db/tests/emergency_cards.sql` — 10 checks in
+  one rolled-back transaction, every negative paired with a positive control (anon sees nothing only means
+  something once anon-with-the-right-token sees the card), including that the payload key set is exactly
+  the intended minimal one so widening it cannot happen silently. **Then deliberately sabotaged** by
+  inverting the revocation assertion, which failed as it should — the suite discriminates rather than
+  passing vacuously. An earlier draft of that test also proved, by failing, that anon has no grant on the
+  lookup table either. Confirmed via `has_function_privilege` that only `emergency_card_by_token` is
+  anon-executable and all three new tables are anon-denied.
+- **Two real bugs found by tests, fixed in source not in the test:** prescriber names were being
+  lower-cased for comparison and then DISPLAYED lower-cased in a warning a clinician reads; and dotted
+  abbreviations ("A.L.P.", "S.G.P.T.") resolved to nothing because punctuation-to-space normalisation
+  turned them into "a l p" — fixed with a compact-form index. Separately, two eGFR reference values in my
+  own test were wrong and the implementation was right: hand-computing CKD-EPI 2021 term by term gave
+  110.7 and 112.05, so the test bands were corrected and a third independently-derived anchor (53 at
+  1.5 mg/dL, age 60, male — near the drug-safety thresholds) added.
+- **NOT browser-verified** — no test credential was reset this pass, per [[feedback_credential_reset_scope]].
+  Composition over the live-proven DB primitives plus a green production build, consistent with this
+  codebase's posture when no test credential is at hand.
+- **Deliberately not built:** real Nigerian-language voice in and out. It needs a TTS vendor
+  (ElevenLabs or similar) with real credentials — the browser Web Speech API placeholder barely covers
+  Yoruba/Hausa/Igbo and has no Pidgin voice at all, which is exactly the ParentCare-shaped demand the
+  diaspora sponsor product is built to serve. Owner step, not an engineering one. The Protocol API was
+  already built (2026-08-02) and needed nothing here.
+- **Next / founder steps:** confirm the emergency card's PHI-exposure posture is what you want before it
+  reaches real patients — it is the one genuinely new anon-readable surface on the platform, and the
+  decision is yours, not mine; a TTS vendor for voice; browser click-through of the extraction
+  review-and-confirm loop against a real Nigerian lab report once a test credential is free (the
+  extraction prompt is tuned but has never seen a real report).
+
+### 2026-08-03 — Founder correction: blood group / genotype must carry provenance; voice suspended
+Same session as the entry above, acting on two founder decisions.
+- **"I don't sell this test at the moment"** — so a clinician typing a genotype in on trust was the
+  wrong default. `patient_blood_profile` was restructured (`20260803140000_blood_profile_provenance`,
+  zero rows, clean change) so there are exactly TWO ways a value gets in and the database refuses
+  anything else: **`lab_document`** (linked to a real uploaded report on this patient's own record) or
+  **`patient_attested`** (the patient states it, having confirmed what they are confirming, with the
+  wording versioned). The old free-text `source` allowed `clinician_recorded` — evidence-free, the exact
+  rumour the table exists to prevent — and is gone. `private.enforce_blood_profile_provenance` forces a
+  patient's claim to `patient_attested` and strips any document they attach, and refuses a report
+  belonging to a different patient so evidence cannot be borrowed. The emergency card renders the two
+  **differently** (green/confirmed vs amber/"Patient-reported, not confirmed") — a receiving team leaning
+  on a half-remembered genotype while believing it came off a lab report is precisely the harm this
+  prevents. ⚠️ **Liability wording deliberately NOT encoded.** The founder asked for patients to be
+  "liable for any error"; what a person is legally answerable for is counsel's to word, not a migration's
+  to invent. The attestation is recorded and versioned (`lib/clinical/blood-attestation.ts`) — bump
+  `BLOOD_ATTESTATION_VERSION` when counsel supplies text. Verified live: 9 checks, every negative paired
+  with a positive control, then sabotaged to confirm they discriminate. **A real policy gap surfaced on
+  the way:** patients hold insert/update on their own row but no delete, so a delete under their session
+  silently affects zero rows — correct (they may correct a value, not erase it), and the test now says so.
+- ⚠️ **Discrepancy worth a decision:** the `single_blood_group_genotype` bundle is **`is_active = true`,
+  `self_bookable = true`, ₦6,500** on the live project. The platform is selling it whether or not it is
+  being promoted. Deactivate the bundle or resume promoting it, but the two should agree.
+- **Voice: REMOVED, English only (founder decision, same session).** Superseding the "suspend"
+  framing below: the founder asked to take it out rather than park it — "let it be strictly english
+  for now. we can explore that in the future." Removed from the app: the Web Speech read-aloud and
+  language switcher on `ResultExplainer`, the `language` prop threaded through `RiskSignalsCard`, and
+  the `ReminderPreferenceForm` voice-call toggle (file deleted along with its action). The explainer
+  now pins `language = "en"` in `explainPatientResultAction` rather than reading `profiles.language`,
+  so no caller can request another. Migration `20260803150000_english_only_no_voice_channel` removes
+  the voice branch from `private.remap_notification_channel`, which was the ONLY thing that ever
+  turned a queued reminder into a voice call — with it gone `notifications.channel = 'voice'` is
+  unreachable and the Termii voice sender in `send-pending-notifications` is dead code, so **no Edge
+  Function redeploy was needed** to make the platform stop calling people. **Nothing was dropped:**
+  `profiles.language`, `profiles.preferred_reminder_channel`, the `voice` enum value and
+  `patient_result_explanations.language` all stay, because an enum value is the one thing Postgres
+  cannot remove in place and dropping it would turn reopening this into a schema rebuild. Restore the
+  one branch in that function to reopen. ⚠️ **`ConditionLanguageForm` was checked and deliberately
+  left alone** — despite the name it is about clinical tone ("obesity" vs "weight"), not spoken
+  language. Verified live (`packages/db/tests/english_only_no_voice.sql`): a stale voice preference no
+  longer routes to voice, **push-first routing still works** (the control that matters — the voice
+  branch shared a function with it, so a careless removal would have silently taken both out), and no
+  function anywhere still assigns the channel. Sabotaged to confirm the push control discriminates.
+  Measured first: 0 patients with a non-English language, 0 with a voice preference, 0 voice
+  notifications ever, 0 non-English explanations — nothing to migrate, nobody affected.
+- **Original suspend analysis, kept for the numbers behind the decision.** Costed it properly: an explainer is ~400 characters and
+  the text is already cached per (patient, kind, subject, language), so audio caches with it — one
+  generation per unique explanation, not per listen. At ElevenLabs API rates ($0.10/1k chars multilingual,
+  $0.05/1k Flash) voicing ~2,500 unique explanations is **roughly $50–100 one-off**, then near zero. That
+  is not the blocker. The blockers are (a) **no single vendor covers all four languages** — ElevenLabs has
+  Igbo, Spitch (Lagos) covers Yoruba/Hausa/Igbo/English with no public pricing, and **Nigerian Pidgin has
+  essentially no standard synthesis voice anywhere**, which is the one an elder is most likely to want;
+  and (b) the decisive fact — **zero patients on the live project have set a non-English language
+  preference** (`profiles.language`), so this is demand that has not materialised. The already-built,
+  already-paid Termii **voice-call** path covers the can't-read case for reminders without any new vendor.
+  Revisit when non-English preferences appear in the data.
+
+### 2026-08-03 — Founder follow-up: voice removed outright (not suspended), English only for now
+Superseding the "suspend, revisit later" framing directly above — the founder asked to take voice out
+rather than park it: **"remove the voice part, let it be strictly english for now. we can explore that
+in the future."**
+- **App layer:** the Web Speech read-aloud control and the language switcher are gone from
+  `ResultExplainer`; the `language` prop is gone from `RiskSignalsCard` (both call sites updated); the
+  voice-call reminder toggle (`ReminderPreferenceForm` + its action) is deleted outright, not just
+  hidden. `explainPatientResultAction` now pins `language = "en"` internally rather than reading
+  `profiles.language`, so no caller — not even a stale client — can request another language.
+- **DB layer, and this is the part that actually mattered:** migration `20260803150000` removes the
+  voice branch from `private.remap_notification_channel` — the ONLY function on the platform that ever
+  turned a queued `whatsapp` reminder into a `voice` one. With that branch gone, `notifications.channel
+  = 'voice'` is structurally unreachable, which makes the Termii voice sender in the deployed
+  `send-pending-notifications` function dead code. **No Edge Function redeploy was needed** to stop the
+  platform calling anyone — removing the one call site was enough.
+- **Nothing was dropped.** `profiles.language`, `profiles.preferred_reminder_channel`, the `voice` value
+  on `notification_channel`, and `patient_result_explanations.language` all stay — an enum value is the
+  one thing Postgres cannot remove in place, and dropping it would turn "explore in the future" into a
+  schema rebuild instead of restoring one `if` branch.
+- ⚠️ **`ConditionLanguageForm` was checked and deliberately left alone** — despite the name it toggles
+  clinical wording ("obesity" vs the platform's gentler default "weight") on the patient's own dashboard,
+  not spoken language. Confirmed before touching anything nearby.
+- **Verified live** (`packages/db/tests/english_only_no_voice.sql`): a stale voice preference no longer
+  routes to voice; **push-first routing still works** — the control that actually matters, since the
+  voice branch shared a function with push-first and a careless removal could have silently killed both;
+  no function anywhere still assigns the channel. Sabotaged the push-first assertion to confirm it
+  discriminates rather than passing vacuously. Measured before deciding: 0 patients with a non-English
+  language, 0 with a voice preference, 0 voice notifications ever sent, 0 non-English explanations
+  generated — nothing to migrate, nobody affected. `pnpm --filter web typecheck`/`lint`(0 errors, same 2
+  pre-existing warnings)/`test` (680)/production build all green.
+
+### 2026-08-03 — Emergency card redesign: printed card is the default, live link is opt-in
+Founder asked, given the emergency card's PHI-exposure posture from the entry above, "what is best
+solution" — not just a yes/no on the design as built. The best answer inverts the default rather than
+hardening the anon endpoint in place: **put the data ON the card instead of pointing at it.**
+- **`/patient/emergency-card/print` is now the DEFAULT.** An authenticated page reading the patient's
+  own record through their own session — `lib/emergency/dataset.ts`'s `loadEmergencyDatasetForPatient`
+  — the exact same authorisation level Health Passport already needs. **Zero new anon endpoint for the
+  default path.** Its QR carries **plain, human-readable text** (`lib/emergency/qr-text.ts`), deliberately
+  never a URL and never base64/compressed binary: any QR-scanner app on any phone — a stranger doctor's
+  own personal phone, no Tarragon app, no internet — shows the content directly the instant it scans,
+  which is the actual 2am-rural-hospital case this feature exists for. Losing the printed card means
+  losing a piece of paper, not exposing a live endpoint — the same trust model MedicAlert bracelets and
+  anticoagulant yellow books have used for decades. Byte-budgeted with a hard per-item cap so one
+  unusually long allergen/drug name can't itself blow a physical QR's real capacity ceiling (found by my
+  own adversarial test, fixed with a cap rather than by loosening the assertion — see the test-file
+  comments for the exact accounting bug and the fix).
+- **The live link (the original design) is now the explicit OPT-IN**, reframed on `/patient/emergency-card`
+  under its own "Also want a live link?" section with its own consent copy naming it as a **different,
+  ongoing exposure from the printed card** — for the "always current / checked from abroad" case, not the
+  primary path. Hardened three ways (migration `20260803160000`):
+  1. **`Referrer-Policy: no-referrer`** on `/emergency/[token]` — a real gap the first build shipped
+     with (metadata `robots: noindex` was set, the header wasn't). Set in `proxy.ts` as an early,
+     session-independent exit for that one path prefix, plus the Next `metadata.referrer` field
+     belt-and-braces.
+  2. **12-month expiry**, enforced lazily inside `emergency_card_by_token` itself (`is_active and
+     expires_at > now()`) — same shape as the existing revocation check, no separate enforcement cron
+     needed. A live PHI endpoint can no longer sit forgotten for years. `create_emergency_card` resets
+     the clock on every rotation/renewal. A `emergency-card-expiry-nudge-daily` cron (07:15) fires an
+     in_app+email nudge 30 days out, deduped via `renewal_nudged_at` so a card is never nudged twice.
+  3. **A per-day-deduped view notification** (`last_viewed_on`) — in_app + email every calendar day the
+     card is actually viewed, never more than once regardless of how many times a single hospital visit
+     scans it (a real, expected pattern that a naive per-view notification would have turned into spam,
+     training the patient to ignore it). Near-real-time discovery of an unexpected view instead of a log
+     nobody remembers to check.
+- **Both surfaces render through one shared `EmergencyCardBody`** (`components/emergency/`) so the print
+  and live pages can never visually diverge — a change to how a severe allergy or an unconfirmed blood
+  group is presented only ever needs to be made once. The live page's payload gained `expires_at`
+  (the minimal-key-set assertion in `packages/db/tests/emergency_cards.sql` updated to match).
+- **Verified live, 19 checks across two DB test files** (10 original + 9 new in
+  `packages/db/tests/emergency_card_hardening.sql`), every negative paired with a positive control (an
+  expired card resolving to nothing only means something once a not-yet-expired one still resolves).
+  **A real RLS finding surfaced writing the test, not a bug in the feature:** `emergency_cards` has
+  SELECT-only policy for the patient — `expires_at`/`renewal_nudged_at`/`last_viewed_on` are mutable only
+  through the SECURITY DEFINER RPCs, so a raw fixture `UPDATE` run under the patient's own session
+  silently affects zero rows under RLS. Fixed by running fixture mutations under the connection's own
+  superuser role (bypassing RLS, same as any other test's fixture setup) and reserving the simulated
+  `authenticated`/`anon` sessions for the actual RPC calls under test. **Two separate sabotage runs**
+  confirmed the same-day-dedupe assertion and the push-first-routing control both genuinely discriminate
+  rather than passing vacuously. `pnpm --filter web typecheck`/`lint`(0 errors, same 2 pre-existing
+  warnings)/`test` (689, +9 new for `qr-text.ts`)/production build all green; `get_advisors`-equivalent
+  spot checks confirm only `emergency_card_by_token` is anon-executable across every new/changed object.
+- **Not deployed:** the two new notification templates (`emergency_card_viewed`,
+  `emergency_card_expiring_soon`) were added to `send-pending-notifications`' source for the email leg,
+  matching this codebase's established convention — the in_app leg works immediately with zero deploy,
+  since `in_app` rows are never routed through that function at all (confirmed: its own channel filter
+  excludes `in_app` — `NotificationBell` polls the table directly). Email is best-effort pending the next
+  catch-up redeploy, same posture as every other recently-added template in this file.
+- **Next:** none blocking. The live-link opt-in's consent copy, expiry framing, and view-log presentation
+  are all live in the app; the print page has not been browser-verified this pass (no test credential at
+  hand) — composition over the 19 DB-verified checks + a green production build.
+
+### 2026-08-03 — `worktree-clinical-intelligence-core` merged to `main-dev`, released to `main`
+Closed out the item flagged at the end of the self-arranged-fulfilment entry above. Clean merge (one
+conflict, this changelog section itself — both branches had appended same-day entries; resolved by
+keeping both in full, self-arranged-fulfilment first since its own "Next" line named this branch as
+what to merge next). `database.types.ts` and all three touched app files (clinician patient detail,
+patient health-check, patient dashboard) auto-merged with no conflict. **Reconciliation, same recurring
+drift class as every prior entry in this file:** the branch's 6 local migration filenames didn't match
+their real applied timestamps (e.g. local `20260803120000_lab_report_extractions.sql` vs. actually
+applied `20260803144056`), and one applied migration (`20260803151829_emergency_card_blood_provenance`,
+wiring blood provenance into the emergency card's payload function) had no local file at all — pulled
+verbatim from `schema_migrations.statements` and committed. `supabase/migrations/` now matches the
+436 applied migrations on the live project exactly, verified by diffing the full sorted version list,
+not by counting. `pnpm --filter web typecheck`/`lint`(0 errors, 3 warnings — a third pre-existing
+warning, `vaccination-booking.tsx`'s unused `_props`, was already on `main-dev` before this merge, from
+the self-arranged-fulfilment commit; not introduced here)/`test`/production build all green post-merge.
+Pushed `main-dev`, then fast-forward-merged into `main` and pushed — production now matches the live
+database for both the self-arranged-fulfilment and clinical-intelligence-core migrations, closing the
+app-code/DB mismatch flagged for both branches earlier the same day.
+- **Not done as part of this merge, unchanged from each branch's own "Next" list:** browser
+  click-through of the self-arranged patient loop (issue a Screen → upload a result → see the clinician
+  alert) and of the lab-report extraction review-and-confirm screen against a real report — neither had a
+  test credential available when built. The emergency card's PHI-exposure posture (opt-in, hardened,
+  described above) is live and still awaiting the founder's own read of it in the running app. The
+  `single_blood_group_genotype` bundle discrepancy (active + self-bookable + ₦6,500 while not being
+  promoted) is still open — deactivate or resume promoting, whichever the founder prefers.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

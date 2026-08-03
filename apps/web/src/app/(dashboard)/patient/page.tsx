@@ -27,6 +27,7 @@ import { AskADoctor } from "./ask-a-doctor";
 import { BookVideoVisit } from "./book-video-visit";
 import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
 import { ResultsTrendsCard } from "./results-trends-card";
+import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
 import { HbpmSummaryCard } from "./hbpm-summary-card";
@@ -34,6 +35,7 @@ import { SymptomLogForm } from "./symptom-log-form";
 import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { MedicationsList } from "./medications-list";
+import { CheckMyPack } from "./check-my-pack";
 import { LabMonitoringCard } from "./lab-monitoring-card";
 import { AdherenceCheckins } from "./adherence-checkins";
 import { TodaysDoses } from "./todays-doses";
@@ -49,7 +51,6 @@ import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationForFamily } from "./vaccination-for-family";
 import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { PatientLocationForm } from "./patient-location-form";
-import { ReminderPreferenceForm } from "./reminder-preference-form";
 import { AiUsageDisclosure } from "./ai-usage-disclosure";
 import { ConditionLanguageForm } from "./condition-language-form";
 import { WearableConnectSection } from "./wearable-connect-section";
@@ -164,7 +165,11 @@ export default async function PatientPage() {
       >
         <NextBestAction patientId={subjectId} />
         <HealthResetCard patientId={subjectId} />
-        <RiskSignalsCard patientId={subjectId} language={profile.language} />
+        <RiskSignalsCard patientId={subjectId} />
+        {/* The thing a one-off lab visit structurally cannot tell someone: what
+            has moved across several results. Renders nothing until there is
+            genuinely enough history for a pattern. */}
+        <HealthTrendsCard patientId={subjectId} audience="patient" />
         <CareScheduleCard patientId={subjectId} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both
@@ -288,6 +293,10 @@ export default async function PatientPage() {
           canStop
         />
         <AdherenceCheckins patientId={subjectId} />
+        {/* Patients buy from any pharmacy now, so nobody here sees the box.
+            Reads it back and compares it with what was prescribed — and points
+            at NAFDAC for the authenticity question we cannot answer. */}
+        <CheckMyPack />
         <LabMonitoringCard patientId={subjectId} />
         <AddMedicationForm patientId={subjectId} source="patient" />
         {/* Pharmacy ORDERING is dormant while no pharmacy partner is
@@ -476,9 +485,6 @@ export default async function PatientPage() {
         <IdentityVerificationCard patientId={subjectId} />
         <PatientLocationForm
           initial={{ state: profile.state, city: profile.city, area: profile.area }}
-        />
-        <ReminderPreferenceForm
-          initial={{ preferred_reminder_channel: profile.preferred_reminder_channel }}
         />
         <ConditionLanguageForm
           initial={{ condition_language_preference: profile.condition_language_preference }}

@@ -5,6 +5,9 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generatePatientExplanation } from "./generate";
 import type { ExplainerKind } from "./snapshot";
 
+/** Pinned. See the note on explainPatientResultAction. */
+const EXPLAINER_LANGUAGE = "en";
+
 export interface PatientExplanationResult {
   status: "generated" | "failed";
   explanation: string | null;
@@ -15,10 +18,12 @@ export interface PatientExplanationResult {
  * deliberately no patientId parameter, so this action can never be pointed
  * at another patient's data; RLS on patient_result_explanations would block
  * a cross-patient read anyway, but the action itself never accepts the
- * possibility. `languageOverride` lets the patient toggle to English even
- * when their profile.language is set to something else -- each language
- * caches as its own row, so toggling never re-spends on a language already
- * generated.
+ * possibility.
+ *
+ * ENGLISH ONLY (founder decision, 2026-08-03). The language is pinned here
+ * rather than read from profiles.language, so no caller can request another
+ * one. The cache is still keyed by language, so the day this reopens, existing
+ * English rows stay valid and other languages simply generate alongside them.
  *
  * Cache-first: a past reading never changes, so a previously generated
  * explanation for this exact (patient, kind, key, language) is reused
@@ -28,8 +33,7 @@ export interface PatientExplanationResult {
 export async function explainPatientResultAction(
   kind: ExplainerKind,
   subjectKey: string,
-  label: string,
-  languageOverride?: string
+  label: string
 ): Promise<PatientExplanationResult> {
   const supabase = await createClient();
   const {
@@ -39,12 +43,12 @@ export async function explainPatientResultAction(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("organisation_id, language")
+    .select("organisation_id")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile?.organisation_id) return { status: "failed", explanation: null };
 
-  const language = languageOverride ?? profile.language ?? "en";
+  const language = EXPLAINER_LANGUAGE;
 
   const { data: cached } = await supabase
     .from("patient_result_explanations")
