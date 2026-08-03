@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
+import { BloodAttestationForm } from "./blood-attestation-form";
 
 /**
  * "Be the record they carry into any hospital."
@@ -29,6 +30,12 @@ export default async function EmergencyCardPage() {
   const active = card?.is_active ? card : null;
   const qrSvg = active ? await emergencyCardQrSvg(active.token) : null;
   const url = active ? emergencyCardUrl(active.token) : null;
+
+  const { data: blood } = await supabase
+    .from("patient_blood_profile")
+    .select("blood_group, genotype, genotype_note, provenance")
+    .eq("patient_id", user.id)
+    .maybeSingle();
 
   const { data: lookups } = active
     ? await supabase
@@ -89,6 +96,21 @@ export default async function EmergencyCardPage() {
           <EmergencyCardControls hasActiveCard={Boolean(active)} />
         </CardContent>
       </Card>
+
+      {/* Sits directly under the card: it is the field most likely to be blank
+          and the one that most changes what a receiving team does. */}
+      <BloodAttestationForm
+        initial={
+          blood
+            ? {
+                bloodGroup: blood.blood_group,
+                genotype: blood.genotype,
+                genotypeNote: blood.genotype_note,
+                provenance: blood.provenance,
+              }
+            : null
+        }
+      />
 
       {active ? (
         <Card>

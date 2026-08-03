@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import {
-  BLOOD_SOURCE_LABEL,
+  BLOOD_PROVENANCE,
   GENOTYPE_NOTE,
   type EmergencyCardPayload,
 } from "@/lib/emergency/card";
@@ -79,6 +79,7 @@ export default async function EmergencyCardPage({
 
   const severeAllergies = card.allergies.filter((a) => a.severity === "severe");
   const genotypeNote = card.blood?.genotype ? GENOTYPE_NOTE[card.blood.genotype] : undefined;
+  const provenance = card.blood?.provenance ? BLOOD_PROVENANCE[card.blood.provenance] : undefined;
 
   return (
     <main className="mx-auto max-w-2xl p-4 print:max-w-none print:p-0">
@@ -93,8 +94,14 @@ export default async function EmergencyCardPage({
       </header>
 
       {/* Blood facts first. In Nigeria genotype is often the single most
-          decision-changing line on this card. */}
-      <section className="border-x border-charcoal-ink/15 bg-amber-50 p-4">
+          decision-changing line on this card — and how much to lean on it
+          depends entirely on where it came from, so provenance is shown as
+          prominently as the value itself. */}
+      <section
+        className={`border-x border-charcoal-ink/15 p-4 ${
+          provenance?.tone === "unconfirmed" ? "bg-amber-50" : "bg-emerald-50"
+        }`}
+      >
         <h2 className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
           Blood
         </h2>
@@ -110,9 +117,20 @@ export default async function EmergencyCardPage({
             {card.blood.note ? (
               <p className="text-sm text-charcoal-ink/70">{card.blood.note}</p>
             ) : null}
+            {provenance ? (
+              <p
+                className={`mt-2 text-sm font-medium ${
+                  provenance.tone === "unconfirmed" ? "text-amber-900" : "text-emerald-900"
+                }`}
+              >
+                {provenance.label}
+              </p>
+            ) : null}
+            {provenance ? (
+              <p className="text-xs text-charcoal-ink/65">{provenance.detail}</p>
+            ) : null}
             <p className="mt-1 text-xs text-charcoal-ink/55">
-              {BLOOD_SOURCE_LABEL[card.blood.source ?? ""] ?? "source not recorded"} — confirm by
-              testing before transfusing.
+              Always confirm by testing before transfusing.
             </p>
           </>
         ) : (

@@ -27,7 +27,9 @@ export interface EmergencyCardPayload {
     blood_group: string | null;
     genotype: string | null;
     note: string | null;
-    source: string | null;
+    /** 'lab_document' | 'patient_attested' — rendered differently, never conflated. */
+    provenance: string | null;
+    recorded_at: string | null;
   } | null;
   issued_at: string;
   source: string;
@@ -73,8 +75,28 @@ export const GENOTYPE_NOTE: Record<string, string> = {
   CC: "Haemoglobin C disease",
 };
 
-export const BLOOD_SOURCE_LABEL: Record<string, string> = {
-  lab_result: "from a lab result",
-  patient_reported: "as reported by the patient",
-  clinician_recorded: "recorded by a clinician",
+/**
+ * How each provenance is described to whoever is reading the card.
+ *
+ * The wording matters more here than almost anywhere else in the product: a
+ * receiving team leaning on a genotype the patient half-remembers, believing it
+ * came off a lab report, is exactly the harm this provenance model exists to
+ * prevent. So a patient-attested value says so plainly and is styled as a
+ * caution, not as a fact.
+ */
+export const BLOOD_PROVENANCE: Record<
+  string,
+  { label: string; tone: "confirmed" | "unconfirmed"; detail: string }
+> = {
+  lab_document: {
+    label: "From a lab report on file",
+    tone: "confirmed",
+    detail: "Recorded by the care team from a laboratory report the patient uploaded.",
+  },
+  patient_attested: {
+    label: "Patient-reported, not confirmed",
+    tone: "unconfirmed",
+    detail:
+      "The patient told us this themselves and no lab report has been seen. Treat it as a starting point, not a result.",
+  },
 };

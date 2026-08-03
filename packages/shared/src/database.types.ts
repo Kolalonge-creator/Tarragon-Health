@@ -8291,39 +8291,55 @@ export type Database = {
       }
       patient_blood_profile: {
         Row: {
+          attestation_version: string | null
+          attested_at: string | null
           blood_group: Database["public"]["Enums"]["blood_group"] | null
+          document_id: string | null
           genotype: Database["public"]["Enums"]["haemoglobin_genotype"] | null
           genotype_note: string | null
           organisation_id: string
           patient_id: string
+          provenance: string
           recorded_at: string
           recorded_by: string | null
-          source: string
           updated_at: string
         }
         Insert: {
+          attestation_version?: string | null
+          attested_at?: string | null
           blood_group?: Database["public"]["Enums"]["blood_group"] | null
+          document_id?: string | null
           genotype?: Database["public"]["Enums"]["haemoglobin_genotype"] | null
           genotype_note?: string | null
           organisation_id: string
           patient_id: string
+          provenance: string
           recorded_at?: string
           recorded_by?: string | null
-          source?: string
           updated_at?: string
         }
         Update: {
+          attestation_version?: string | null
+          attested_at?: string | null
           blood_group?: Database["public"]["Enums"]["blood_group"] | null
+          document_id?: string | null
           genotype?: Database["public"]["Enums"]["haemoglobin_genotype"] | null
           genotype_note?: string | null
           organisation_id?: string
           patient_id?: string
+          provenance?: string
           recorded_at?: string
           recorded_by?: string | null
-          source?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "patient_blood_profile_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patient_blood_profile_organisation_id_fkey"
             columns: ["organisation_id"]

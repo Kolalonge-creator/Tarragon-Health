@@ -128,9 +128,18 @@ export default async function ClinicianPatientPage({
 
   const { data: bloodProfile } = await supabase
     .from("patient_blood_profile")
-    .select("blood_group, genotype, genotype_note, source, recorded_at")
+    .select("blood_group, genotype, genotype_note, provenance, document_id, attested_at, recorded_at")
     .eq("patient_id", patient.id)
     .maybeSingle();
+
+  // The reports a blood group or genotype may be recorded AGAINST. With none on
+  // file the form offers no way to type one in on trust — that is the point.
+  const { data: bloodReports } = await supabase
+    .from("lab_result_documents")
+    .select("id, original_filename, created_at")
+    .eq("patient_id", patient.id)
+    .order("created_at", { ascending: false })
+    .limit(25);
 
   const tabs: PatientRecordTab[] = [
           {
@@ -149,11 +158,23 @@ export default async function ClinicianPatientPage({
                           bloodGroup: bloodProfile.blood_group,
                           genotype: bloodProfile.genotype,
                           genotypeNote: bloodProfile.genotype_note,
-                          source: bloodProfile.source,
+                          provenance: bloodProfile.provenance,
+                          documentId: bloodProfile.document_id,
+                          attestedAt: bloodProfile.attested_at,
                           recordedAt: bloodProfile.recorded_at,
                         }
                       : null
                   }
+                  reports={(bloodReports ?? []).map((r) => ({
+                    id: r.id,
+                    label: `${r.original_filename ?? "Result"} · ${new Date(
+                      r.created_at,
+                    ).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}`,
+                  }))}
                 />
                 <PatientTimeline patientId={patient.id} />
                 {patient.organisation_id && (
