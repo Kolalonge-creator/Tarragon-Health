@@ -701,7 +701,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What is a care voucher?",
     answer:
-      "When you pay for a health check ahead of time, you get a care voucher for that exact check. It is for that service and for you alone: it cannot be transferred, and it is never exchangeable for cash. You can pay for it in instalments, a family member can buy one for you, and it lasts two years. Referring a friend earns you both a ₦500 reward voucher once they complete their first paid order.",
+      "When you buy a year of a plan ahead of time, you get a care voucher for that plan. It is for that plan and for the person named on it: it cannot be transferred, and it is never exchangeable for cash. You can pay for it in instalments, a family member can buy one for you, and whoever it is for starts their year when they are ready. Tests themselves are paid straight to the laboratory. Referring a friend earns you both a ₦500 reward voucher once they complete their first paid order.",
   },
   {
     question: "Can I track my children's vaccinations too?",
