@@ -452,10 +452,14 @@ export function useSponsorPayOrder() {
 }
 
 /**
- * Books a self-bookable check for someone you manage. If they already hold a
- * paid voucher for that exact check it is used immediately; otherwise the
- * booking is created as a real pending bill, which then shows up in
- * useSponsorPayableOrders.
+ * Requests a self-bookable check for someone you manage.
+ *
+ * Self-arranged, so there is nothing to pay here: Tarragon writes down which
+ * tests are needed, and they take that request to whichever laboratory suits
+ * them and pay there. A supporter keeps the useful half (noticing that a check
+ * is due and getting it written) and loses the half we can no longer honour,
+ * because we do not take payment for tests. To help with the money, buy them a
+ * year of their plan instead.
  */
 export function useSponsorBookCare() {
   const queryClient = useQueryClient();

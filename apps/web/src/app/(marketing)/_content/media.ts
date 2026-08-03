@@ -172,7 +172,7 @@ export const PRODUCT_VIDEOS: Record<string, ProductVideo> = {
     youtubeId: "",
     title: "See how preventive screening works",
     caption:
-      "Your personal screening calendar, booking through partner labs, and what happens the moment a result needs attention.",
+      "Your personal screening calendar, taking a request to any lab you like, and what happens the moment a result needs attention.",
   },
   medication: {
     youtubeId: "",

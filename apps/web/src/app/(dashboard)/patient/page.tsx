@@ -47,7 +47,6 @@ import { ReproductiveHealthCard } from "./reproductive-health-card";
 import { HealthEducation } from "./health-education";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationForFamily } from "./vaccination-for-family";
-import { FacilityDirectory } from "./facility-directory";
 import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { PatientLocationForm } from "./patient-location-form";
 import { ReminderPreferenceForm } from "./reminder-preference-form";
@@ -63,8 +62,6 @@ import { EmergencyAlert } from "./emergency-alert";
 import { LabCatalogue } from "./lab-catalogue";
 import { LabOrdersList } from "./lab-orders-list";
 import { LabResults } from "./lab-results";
-import { PharmacyCatalogue } from "./pharmacy-catalogue";
-import { PharmacyOrdersList } from "./pharmacy-orders-list";
 import { BookingRequestsList } from "./booking-requests-list";
 import { AiCoachChat } from "./ai-coach-chat";
 import { CareCircleCard } from "./care-circle-card";
@@ -280,8 +277,8 @@ export default async function PatientPage() {
 
       <DashboardSection
         id="medications"
-        title="Medications & pharmacy"
-        description="Today's doses, your medicines cabinet, and pharmacy orders."
+        title="Medications"
+        description="Today's doses and your medicines cabinet."
         icon={SEMANTIC_ICON.medication}
       >
         <TodaysDoses patientId={subjectId} />
@@ -293,19 +290,14 @@ export default async function PatientPage() {
         <AdherenceCheckins patientId={subjectId} />
         <LabMonitoringCard patientId={subjectId} />
         <AddMedicationForm patientId={subjectId} source="patient" />
-        <RequiresEntitlement
-          feature="medication_refills"
-          fallback={<UpgradePrompt feature="medication_refills" />}
-        >
-          {profile.organisation_id && (
-            <PharmacyCatalogue
-              organisationId={profile.organisation_id}
-              patientId={subjectId}
-              patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
-            />
-          )}
-          <PharmacyOrdersList patientId={subjectId} />
-        </RequiresEntitlement>
+        {/* Pharmacy ORDERING is dormant while no pharmacy partner is
+            contracted: patients buy wherever suits them and record it on the
+            medication itself. PharmacyCatalogue/PharmacyOrdersList are kept
+            unmounted rather than deleted, so contracting a partner is a matter
+            of rendering them again. Everything that makes chronic medication
+            work — refill reminders, adherence check-ins, the missed-dose
+            ladder, reviews, drug-class lab monitoring — is above and untouched,
+            because none of it needs a partner. */}
       </DashboardSection>
 
       <DashboardSection
@@ -328,14 +320,13 @@ export default async function PatientPage() {
         <AnnualHealthCheckBooking
           patientId={subjectId}
           organisationId={profile.organisation_id}
-          patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
           sex={profile.sex}
+          screensEnabled={screeningBookingEnabled}
         />
         <PreventiveScreeningCalendar
           patientId={subjectId}
           organisationId={profile.organisation_id}
           bookingEnabled={screeningBookingEnabled}
-          patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
         <RiskAssessmentForm patientId={subjectId} />
         <CareProgrammeRecommendations
@@ -398,29 +389,24 @@ export default async function PatientPage() {
         {screeningBookingEnabled ? (
           <>
             <LabCatalogue />
-            <LabOrdersList
-              patientId={subjectId}
-              patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
-            />
+            <LabOrdersList patientId={subjectId} />
             <ResultsTrendsCard patientId={subjectId} />
             <LabResults patientId={subjectId} />
-            {/* FacilityDirectory/BookingRequestsList stay scoped to types with
-                no priced catalogue (hospital, radiology, optician,
-                vaccination_centre) — lab now books through the catalogue above,
-                per the "sole transactional path" decision (see facility-directory.tsx). */}
-            <FacilityDirectory patientId={subjectId} />
+            {/* No facility directory. Labs, pharmacies and specialists are all
+                suspended (founder decision 2026-08-03): the platform takes no
+                payment for a test and has inspected no laboratory, so it lists
+                none. BookingRequestsList stays because vaccination bookings
+                still create real requests a patient needs to see. */}
             <BookingRequestsList patientId={subjectId} />
           </>
         ) : (
           <>
             <UpgradePrompt feature="lab_coordination" />
-            {/* A Free user can still have real orders to pay/track — the
-                Annual Health Check is purchasable on any plan — so the order
-                list, trends, and results stay visible below the prompt. */}
-            <LabOrdersList
-              patientId={subjectId}
-              patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
-            />
+            {/* A Free user can still hold real requests and upload real
+                results — a result a patient is holding must always reach a
+                doctor, whatever they pay — so the request list, trends, and
+                results stay visible below the prompt. */}
+            <LabOrdersList patientId={subjectId} />
             <ResultsTrendsCard patientId={subjectId} />
             <LabResults patientId={subjectId} />
           </>
@@ -466,10 +452,7 @@ export default async function PatientPage() {
         >
           <LifestyleProgressSummary patientId={subjectId} />
         </RequiresEntitlement>
-        <YourReferrals
-          patientId={subjectId}
-          patientLocation={{ state: profile.state, city: profile.city }}
-        />
+        <YourReferrals patientId={subjectId} />
         {coachAccess && <AiCoachChat patientId={subjectId} />}
         <CareCircleCard />
 

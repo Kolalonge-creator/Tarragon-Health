@@ -1,30 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import type { FacilityWithServices } from "@/lib/queries/facilities";
-import { FacilitySelector, type PatientLocation } from "./facility-selector";
-import { BookingRequestForm } from "./booking-request-form";
+import type { PatientLocation } from "./facility-selector";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 /**
- * "Book a vaccination near you" — pick a vaccination centre by state/city/area
- * (or "use my location"), then send a booking request they confirm directly.
- * Reuses the shared FacilitySelector + the existing BookingRequestForm /
- * booking_requests path (a request, not a real-time booking — same low-tech
- * shape as the facility directory). Additive to LogVaccinationForm, which stays
- * for recording shots already received.
+ * Vaccination-centre booking, suspended platform-wide (founder decision
+ * 2026-08-03, alongside labs/pharmacy/specialist bookings — "suspend
+ * everything ... until I later have partners"). No vaccination_centre
+ * facility is active, so there is nothing left to select or book through.
+ *
+ * Deliberately not the same treatment as lab/referral self-arranged
+ * fulfilment: a vaccine has to be physically administered at a real
+ * location, so there is no PDF-and-go-anywhere equivalent — the patient
+ * still needs a contracted, listed centre. LogVaccinationForm (recording a
+ * dose already received, anywhere) is untouched and stays the only working
+ * path until a partner is onboarded.
+ *
+ * `patientLocation` is kept as an accepted, unused prop rather than removed
+ * from every call site, so re-activating this later (flip a facility row to
+ * active, restore the FacilitySelector body) is a revert of this one file.
  */
-export function VaccinationBooking({
-  patientId,
-  patientLocation,
-}: {
+export function VaccinationBooking(_props: {
   patientId: string;
   patientLocation?: PatientLocation | null;
 }) {
-  const [selectedFacility, setSelectedFacility] = useState<FacilityWithServices | null>(null);
-
   return (
     <Card>
       <CardHeader>
@@ -32,37 +32,14 @@ export function VaccinationBooking({
           <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
           Book a vaccination near you
         </CardTitle>
-        <CardDescription>
-          Find a vaccination centre in your area and send a booking request; they&apos;ll
-          confirm the date with you.
-        </CardDescription>
+        <CardDescription>Booking through a vaccination centre isn&apos;t available yet.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <FacilitySelector
-          type="vaccination_centre"
-          patientLocation={patientLocation}
-          selectedFacilityId={selectedFacility?.id ?? null}
-          onSelect={setSelectedFacility}
-          idPrefix="vax"
-          emptyText="No vaccination centres listed for that location yet, try a nearby city."
-        />
-        {selectedFacility && (
-          <>
-            <BookingRequestForm
-              patientId={patientId}
-              facility={selectedFacility}
-              onDone={() => setSelectedFacility(null)}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedFacility(null)}
-            >
-              Choose a different centre
-            </Button>
-          </>
-        )}
+      <CardContent>
+        <p className="text-sm text-charcoal-ink/70">
+          We haven&apos;t contracted a vaccination centre yet, so there is nowhere to book through
+          the app right now. If you get a dose done elsewhere, log it below and your care team will
+          see it on your record.
+        </p>
       </CardContent>
     </Card>
   );

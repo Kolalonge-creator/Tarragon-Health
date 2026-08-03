@@ -13,6 +13,7 @@ import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { PreVisitSummary } from "./pre-visit-summary";
+import { ExtractedResultsPanel } from "./extracted-results-panel";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
@@ -204,6 +205,9 @@ export default async function ClinicianPatientPage({
             content: (
               <>
                 <ResultDocumentsSection patientId={patient.id} />
+                {/* Sits directly under the uploaded documents it was read from,
+                    so checking a value against the page is one glance. */}
+                <ExtractedResultsPanel patientId={patient.id} />
                 <MentalHealthSummary patientId={patient.id} showScores />
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />

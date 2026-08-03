@@ -76,16 +76,27 @@ export function useVoucherPayments(voucherId: string | null | undefined) {
 /** The services that can actually be bought ahead of time. Same
  * self_bookable catalogue the booking card already uses, so a voucher can
  * never be sold for something a patient is not allowed to order directly. */
+/**
+ * What can be bought as a voucher: a year of a plan.
+ *
+ * Yearly and naira only, matching public.purchase_subscription_voucher's own
+ * guards, so the picker can never offer something the RPC will refuse. Tests
+ * are gone from here entirely: they are paid straight to the laboratory, so
+ * there is nothing for us to sell in advance.
+ */
 export function useVoucherCatalogue() {
   return useQuery({
-    queryKey: ["care-vouchers", "catalogue"],
+    queryKey: ["care-vouchers", "plan-catalogue"],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("panel_bundles")
-        .select("id, code, name, description, price_kobo")
-        .eq("self_bookable", true)
-        .order("price_kobo");
+        .from("subscription_plans")
+        .select("id, code, name, description, price_minor")
+        .eq("is_active", true)
+        .eq("interval", "yearly")
+        .eq("currency", "NGN")
+        .gt("price_minor", 0)
+        .order("price_minor");
       if (error) throw error;
       return data;
     },

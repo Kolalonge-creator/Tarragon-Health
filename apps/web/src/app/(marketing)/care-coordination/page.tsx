@@ -9,7 +9,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "Care coordination",
   description:
-    "TarragonHealth coordinates labs, medication, and specialist referrals: tests booked with trusted partner labs at a price you confirm first, refills through licensed partner pharmacies, and every result reviewed.",
+    "TarragonHealth works out which tests you need and when, writes you a request to take to any laboratory you like, reads every result that comes back, and follows up. You pay the lab directly and we take nothing on it.",
   alternates: { canonical: MARKETING_ROUTES.careCoordination },
 };
 
@@ -21,7 +21,7 @@ const COORDINATION_CARDS = SERVICE_CARDS.filter((card) =>
 const CONNECTS = [
   {
     title: "Hassle-free lab tests",
-    body: "No more guessing which lab to trust or queuing to ask for prices. Tarragon tells you which tests are due, shows you the exact price up front, books you into a vetted partner lab, and makes sure a doctor reviews every result: never a report that sits unread.",
+    body: "No more guessing what you should be checking or when. Tarragon works out which tests are due for you, writes the request to take to whichever laboratory suits you, and makes sure a doctor reads every result: never a report that sits unread.",
   },
   {
     title: "Genuine medication, refilled on time",
@@ -29,7 +29,7 @@ const CONNECTS = [
   },
   {
     title: "Specialist referrals that carry your record",
-    body: "When your care team refers you to a specialist, the referral travels with your health record (your readings, medications, and results), not a paper slip that gets lost. Afterwards, follow-up comes back onto the same record.",
+    body: "When your care team refers you to a specialist, you get a proper referral letter carrying your readings, medications, and the result that prompted it, so the specialist knows why you are there instead of asking you to explain. You choose which specialist to see and pay them directly. Bring their findings back and they go onto the same record.",
   },
   {
     title: "A doctor, when you need one directly",
@@ -43,12 +43,12 @@ const JOURNEY = [
     body: "A test is due, a refill is running low, or your doctor recommends a check. You see it in the app, with a reminder so it doesn't slip.",
   },
   {
-    title: "You see the exact price and confirm",
-    body: "Before anything is booked, you see the real partner price and confirm. Nothing is ever charged without your confirmation.",
+    title: "You choose where to go",
+    body: "We write the request and you take it to whichever laboratory you trust. You pay them directly, at their price, and we take nothing on it.",
   },
   {
-    title: "We book it with a trusted partner",
-    body: "Tarragon books the lab, pharmacy, or specialist from its vetted partner network and sends you exactly where to go, what to bring, and how to prepare.",
+    title: "You get a request to take with you",
+    body: "A written request naming exactly which tests to run and why, so the laboratory knows what to do and nothing is left to a conversation at the counter.",
   },
   {
     title: "The result comes back reviewed",
@@ -124,7 +124,7 @@ export default function CareCoordinationPage() {
           ))}
         </ol>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Typical partner-lab prices are published openly on our{" "}
+          Rough guide prices, which laboratories set rather than we do, are published openly on our{" "}
           <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
             pricing page
           </Link>

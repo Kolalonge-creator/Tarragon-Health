@@ -10,13 +10,19 @@ import type { Currency } from "@tarragon/shared";
 export type VoucherActionState = { error?: string; message?: string } | undefined;
 
 /**
- * Buys a Care Voucher for a named service, for yourself or for someone who
- * has linked you to their care. The price is never taken from this form:
- * purchase_care_voucher reads it from the catalogue and freezes it on the
- * voucher, so a tampered client cannot change what a service costs.
+ * Buys a year of a plan for yourself, or for someone who has linked you to
+ * their care.
  *
- * Buying does not charge anything. It reserves the voucher; payment is a
- * separate step and may be spread over several instalments.
+ * The SKU is a subscription, not a test: tests are paid straight to the
+ * laboratory now, so there is nothing for Tarragon to sell ahead of time
+ * (public.purchase_care_voucher fails closed). A plan is different, because it
+ * is the thing Tarragon actually provides.
+ *
+ * The price is never taken from this form. purchase_subscription_voucher reads
+ * it from the catalogue and freezes it on the voucher, so a tampered client
+ * cannot change what a plan costs. Buying reserves it; payment is a separate
+ * step and may be spread over instalments. The recipient then redeems it when
+ * they are ready, so nobody is put on a plan without an act of their own.
  */
 export async function buyCareVoucher(
   _prevState: VoucherActionState,
@@ -26,15 +32,15 @@ export async function buyCareVoucher(
   if (!user) return { error: "Not signed in" };
 
   const beneficiaryProfileId = (formData.get("beneficiaryProfileId") as string) || user.id;
-  const panelBundleId = formData.get("panelBundleId") as string;
+  const planId = formData.get("planId") as string;
   const giftMessage = ((formData.get("giftMessage") as string) || "").trim() || undefined;
 
-  if (!panelBundleId) return { error: "Choose which check you'd like to buy." };
+  if (!planId) return { error: "Choose which plan you'd like to buy." };
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("purchase_care_voucher", {
+  const { data, error } = await supabase.rpc("purchase_subscription_voucher", {
     p_beneficiary: beneficiaryProfileId,
-    p_panel_bundle_id: panelBundleId,
+    p_plan_id: planId,
     p_gift_message: giftMessage,
   });
 
@@ -47,9 +53,46 @@ export async function buyCareVoucher(
     };
   }
 
-  const result = data as { voucher_number?: string; sku_name?: string };
+  const result = data as { voucher_number?: string };
   return {
-    message: `Reserved ${result.sku_name ?? "your voucher"} (${result.voucher_number ?? ""}). Pay for it whenever you're ready, in one go or bit by bit.`,
+    message: `Reserved ${result.voucher_number ?? "your voucher"}. Pay for it whenever you're ready, in one go or bit by bit, and they can start their year whenever suits them.`,
+  };
+}
+
+/**
+ * The recipient starts the year somebody bought them.
+ *
+ * Deliberately theirs to press: public.redeem_subscription_voucher refuses
+ * anyone but the beneficiary, including the person who paid. If they already
+ * have a plan running it extends that rather than opening a second one, so a
+ * gift can never double-bill them.
+ */
+export async function redeemSubscriptionVoucher(
+  _prevState: VoucherActionState,
+  formData: FormData,
+): Promise<VoucherActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const voucherId = formData.get("voucherId") as string;
+  if (!voucherId) return { error: "Which voucher?" };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("redeem_subscription_voucher", {
+    p_voucher_id: voucherId,
+  });
+  if (error) return { error: error.message };
+
+  const result = data as { plan_name?: string; covered_until?: string };
+  const until = result.covered_until
+    ? new Date(result.covered_until).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+  return {
+    message: `You're on ${result.plan_name ?? "your plan"}${until ? ` until ${until}` : ""}. Nothing renews automatically, so there is no card to cancel.`,
   };
 }
 

@@ -7,31 +7,20 @@ import {
   usePatientLabOrders,
   type PanelBundle,
 } from "@/lib/queries/lab-orders";
-import type { FacilityWithServices } from "@/lib/queries/facilities";
-import { FacilitySelector, type PatientLocation } from "./facility-selector";
-import { RegionGate } from "@/components/region-gate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
-import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
+import { PatientResultUpload } from "@/components/patient-result-upload";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import { koboToNaira } from "@tarragon/shared";
 import { cn } from "@/lib/utils";
 
-const OPEN_STATUSES = [
-  "pending_payment",
-  "payment_confirmed",
-  "ordered",
-  "sample_collected",
-  "processing",
-];
+/** An order still waiting on the patient going to a lab and uploading. */
+const OPEN_STATUSES = ["payment_confirmed", "ordered", "sample_collected", "processing"];
 
 /** Health Check packages vs confidential single screenings — both are the
  * self_bookable set (WHO-essential only, per migration 20260723164727).
- * `health_check_basic` (₦15,000) is the standalone quick-check below the
- * ladder; `screen_core`/`screen_advanced`/`screen_comprehensive` are the
+ * `screen_core`/`screen_advanced`/`screen_comprehensive` are the
  * Core/Advanced/Comprehensive Screen tiers that replaced the old
  * `annual_health_check`/`health_check_comprehensive` bundles. */
 const isPackage = (b: PanelBundle) =>
@@ -46,33 +35,34 @@ const isConfidential = (b: PanelBundle) => CONFIDENTIAL_CODES.includes(b.code);
 const REBOOK_AFTER_MONTHS = 11;
 
 /**
- * Self-service booking for the WHO-essential self_bookable bundles: the
- * Core/Advanced/Comprehensive Screen ladder (health_check_basic is retired,
- * deactivated not deleted) and the confidential single screenings (cervical
- * smear, HIV, Hepatitis B, Hepatitis C). Open to
- * every patient on every plan — BOOK & PAY items, not subscription features.
- * The DB trigger (private.enforce_lab_order_origin) is the real gate; this
- * card only ever offers what panel_bundles.self_bookable allows. Every
- * resulted check gets a doctor debrief (see handle_health_check_resulted).
+ * The Screen ladder, self-arranged: Tarragon writes the request saying which
+ * tests are needed and why, the patient takes it to whichever lab they like and
+ * pays that lab directly, then uploads the result here for a doctor to read.
+ *
+ * Tarragon takes nothing on the test itself — there is no partner to route the
+ * sample to and no charge to collect, which private.enforce_lab_order_origin
+ * enforces on the row rather than leaving to this component.
+ *
+ * `screensEnabled` gates the curated ladder as a subscription feature. What is
+ * NEVER gated, on any plan: uploading a result, a doctor reading it, and the
+ * abnormal-result escalation pipeline. Safety is not a paid feature here.
  */
 export function AnnualHealthCheckBooking({
   patientId,
   organisationId,
-  patientLocation,
   sex,
+  screensEnabled = true,
 }: {
   patientId: string;
   organisationId: string | null;
-  patientLocation?: PatientLocation | null;
   /** Hides sex-specific single screenings (e.g. cervical smear for men). */
   sex?: string | null;
+  screensEnabled?: boolean;
 }) {
   const { data: bundles } = useLabCatalogue();
   const { data: orders } = usePatientLabOrders(patientId);
   const createOrder = useCreateLabOrder();
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
-  const [booking, setBooking] = useState(false);
-  const [selectedFacility, setSelectedFacility] = useState<FacilityWithServices | null>(null);
   // Captured once on mount so the render stays pure (lint: no Date.now() in
   // render); a rebook nudge doesn't need a live-ticking clock.
   const [nowMs] = useState(() => Date.now());
@@ -123,34 +113,23 @@ export function AnnualHealthCheckBooking({
         type="button"
         disabled={hasOpenOrder}
         aria-pressed={isSelected}
-        onClick={() => {
-          setSelectedBundleId(bundle.id);
-          setBooking(false);
-          setSelectedFacility(null);
-        }}
+        onClick={() => setSelectedBundleId(bundle.id)}
         className={cn(
           "w-full rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green",
-          isSelected ? "border-brand-green bg-brand-green/5" : "border-charcoal-ink/10 hover:border-charcoal-ink/25",
+          isSelected
+            ? "border-brand-green bg-brand-green/5"
+            : "border-charcoal-ink/10 hover:border-charcoal-ink/25",
           hasOpenOrder && "opacity-60"
         )}
       >
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
-          <p className="shrink-0 text-sm font-semibold text-charcoal-ink">
-            ₦{koboToNaira(bundle.price_kobo).toLocaleString()}
-          </p>
-        </div>
+        <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
         {bundle.description && (
           <p className="mt-1 text-xs text-charcoal-ink/60">{bundle.description}</p>
         )}
-        {bundle.code === "screen_comprehensive" && (
-          <p className="mt-1 text-xs text-charcoal-ink/60">
-            Everything except imaging (ultrasound, mammography) is ready now — imaging isn&apos;t
-            available in your area yet. Your care team will follow up once it is.
-          </p>
-        )}
         {hasOpenOrder && (
-          <p className="mt-1 text-xs text-amber-700">You already have this one in progress.</p>
+          <p className="mt-1 text-xs text-amber-700">
+            You already have a request open for this one.
+          </p>
         )}
       </button>
     );
@@ -166,8 +145,9 @@ export function AnnualHealthCheckBooking({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
-          Book directly, on any plan: you see the exact price before you pay, and a doctor
-          reviews every result with you, including the all-clear ones.
+          We tell you which tests are worth doing and why, and write you a request to take to any
+          lab you like. You pay the lab directly, we take nothing on it, and a doctor reads every
+          result with you, including the all-clear ones.
         </p>
 
         {rebookDue && lastResulted && (
@@ -184,146 +164,101 @@ export function AnnualHealthCheckBooking({
 
         {openOrders.length > 0 && (
           <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+              Waiting on your result
+            </p>
             {openOrders.map((order) => (
               <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
                 <div className="flex items-center gap-2">
-                  <Badge variant={order.status === "pending_payment" ? "amber" : "blue"}>
-                    {order.status === "pending_payment" ? "Awaiting payment" : "In progress"}
-                  </Badge>
+                  <Badge variant="blue">Ready to take to a lab</Badge>
                   <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
                 </div>
                 <p className="text-sm text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Health check"}
-                  {order.provider && (
-                    <span className="text-charcoal-ink/60"> · {order.provider.name}</span>
-                  )}
-                  : ₦{koboToNaira(order.total_kobo).toLocaleString()}
                 </p>
-                {order.status === "pending_payment" && (
-                  <>
-                    <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
-                    <RedeemVoucherButton
-                      orderType="lab"
-                      orderId={order.id}
-                      patientId={patientId}
-                      panelBundleId={order.panel_bundle_id}
-                      payableKobo={order.payable_kobo ?? order.total_kobo}
-                    />
-                  </>
-                )}
+                <a
+                  href={`/api/patient/lab-order/${order.id}/request`}
+                  className="inline-block text-xs font-medium text-brand-green hover:underline"
+                >
+                  Download the request to take with you
+                </a>
+                <PatientResultUpload labOrderId={order.id} />
               </div>
             ))}
           </div>
         )}
 
-        <RegionGate
-          state={patientLocation?.state ?? null}
-          service="lab"
-          serviceLabel="Health check booking"
-        >
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
-              Health Check packages
-            </p>
-            {packages.map(bundleRow)}
-          </div>
-
-          {confidential.length > 0 && (
-            <div className="space-y-2 pt-1">
+        {screensEnabled ? (
+          <>
+            <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
-                Confidential screenings
+                Health Check packages
               </p>
-              <p className="text-xs text-charcoal-ink/60">
-                Recommended by the World Health Organization for everyone, and booked without
-                having to explain yourself to anybody.
-              </p>
-              <ConfidentialResultNotice />
-              {confidential.map(bundleRow)}
+              {packages.map(bundleRow)}
             </div>
-          )}
 
-          {otherTests.length > 0 && (
-            <div className="space-y-2 pt-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
-                Other self-service tests
-              </p>
-              <p className="text-xs text-charcoal-ink/60">
-                Book directly: no due screening or doctor referral needed.
-              </p>
-              {otherTests.map(bundleRow)}
-            </div>
-          )}
+            {confidential.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+                  Confidential screenings
+                </p>
+                <p className="text-xs text-charcoal-ink/60">
+                  Recommended by the World Health Organization for everyone, and requested without
+                  having to explain yourself to anybody.
+                </p>
+                <ConfidentialResultNotice />
+                {confidential.map(bundleRow)}
+              </div>
+            )}
 
-          {selected && !openBundleIds.has(selected.id) && (
-            <div className="pt-1">
-              {booking ? (
-                <div className="space-y-3 rounded-md border border-charcoal-ink/10 p-3">
-                  <p className="text-xs font-medium text-charcoal-ink">
-                    Choose a lab near you for: {selected.name}
-                  </p>
-                  <FacilitySelector
-                    type="lab"
-                    patientLocation={patientLocation}
-                    selectedFacilityId={selectedFacility?.id ?? null}
-                    onSelect={setSelectedFacility}
-                    idPrefix="ahc"
-                    emptyText="No labs listed for that location yet; try a nearby city, or message your care team to arrange it."
-                  />
-                  {selectedFacility && !selectedFacility.lab_provider_id && (
-                    <p className="text-xs text-amber-700">
-                      This location can&apos;t take an online booking yet, pick another lab.
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      size="sm"
-                      disabled={!selectedFacility?.lab_provider_id || createOrder.isPending}
-                      onClick={() =>
-                        createOrder.mutate(
-                          {
-                            organisationId,
-                            patientId,
-                            panelBundleId: selected.id,
-                            providerId: selectedFacility!.lab_provider_id!,
-                            facilityId: selectedFacility!.id,
-                            totalKobo: selected.price_kobo,
-                          },
-                          {
-                            onSuccess: () => {
-                              setBooking(false);
-                              setSelectedFacility(null);
-                            },
-                          }
-                        )
-                      }
-                    >
-                      {createOrder.isPending
-                        ? "Booking…"
-                        : `Confirm: ₦${koboToNaira(selected.price_kobo).toLocaleString()}`}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setBooking(false);
-                        setSelectedFacility(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    {createOrder.isError && (
-                      <p className="w-full text-xs text-red-600">Could not book. Try again.</p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <Button type="button" size="sm" onClick={() => setBooking(true)}>
-                  Book {selected.name}: ₦{koboToNaira(selected.price_kobo).toLocaleString()}
+            {otherTests.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+                  Other self-service tests
+                </p>
+                <p className="text-xs text-charcoal-ink/60">
+                  Request these directly: no due screening or doctor referral needed.
+                </p>
+                {otherTests.map(bundleRow)}
+              </div>
+            )}
+
+            {selected && !openBundleIds.has(selected.id) && (
+              <div className="space-y-2 pt-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={createOrder.isPending}
+                  onClick={() =>
+                    createOrder.mutate({
+                      organisationId,
+                      patientId,
+                      panelBundleId: selected.id,
+                    })
+                  }
+                >
+                  {createOrder.isPending ? "Getting it ready…" : `Get ${selected.name}`}
                 </Button>
-              )}
-            </div>
-          )}
-        </RegionGate>
+                <p className="text-xs text-charcoal-ink/60">
+                  Costs vary quite a bit between labs, so it&apos;s worth asking two before you go.
+                </p>
+                {createOrder.isError && (
+                  <p className="text-xs text-red-600">
+                    Could not set that up just now. Please try again.
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="space-y-3 rounded-md border border-dashed border-charcoal-ink/15 p-3">
+            <p className="text-sm text-charcoal-ink/70">
+              The Health Check packages come with a paid plan. You can still upload any result you
+              already have and a doctor will read it, on any plan.
+            </p>
+            <PatientResultUpload label="Upload a result you already have" />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

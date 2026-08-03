@@ -60,7 +60,7 @@ export default async function PricingPage() {
             Not looking for a plan? You do not need one.
           </p>
           <p className="mt-1.5 text-sm text-charcoal-ink/75">
-            A one-off Health Check is pay-once, from ₦65,000, on any plan including the free one.
+            You pay laboratories and pharmacies directly, at their price. We never take a cut on a test.
             So are HIV, hepatitis, cervical and blood group screenings, from ₦6,000.
           </p>
           <Button asChild variant="outline" size="sm" className="mt-3">

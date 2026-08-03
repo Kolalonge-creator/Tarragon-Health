@@ -41,7 +41,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A Health Check that matches you",
-      body: "From a ₦65,000 Core Screen to a ₦149,000 Comprehensive Screen, plus confidential screenings you can book yourself in minutes.",
+      body: "From a Core Screen to a Comprehensive Screen, plus confidential screenings you can request yourself in minutes. We write the request, you use any lab, a doctor reads it.",
     },
   },
   {
@@ -91,7 +91,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "Labs and refills are arranged for you",
-    body: "When a test is due or medication runs low, Tarragon shows you the exact price, books a vetted partner lab or licensed pharmacy, and follows the result until a doctor has reviewed it.",
+    body: "When a test is due or medication runs low, Tarragon tells you, writes you the request, and follows it until a doctor has read the result. You choose the laboratory or pharmacy and pay them directly.",
   },
   {
     title: "Small habits earn real rewards",

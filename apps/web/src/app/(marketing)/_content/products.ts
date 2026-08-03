@@ -154,7 +154,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     included: [
       "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
       "Vaccination schedule, booking, and doctor-verified certificates",
-      "The Annual Health Check (from ₦65,000, up to a full Comprehensive Screen): bookable by anyone on any plan",
+      "The Annual Health Check, up to a full Comprehensive Screen: we say what to get, you use any lab, a doctor reads it",
       "Personalised health education with short knowledge checks",
       "Doctor follow-up the same day on any result that needs attention",
       "A seamless path into chronic care monitoring in the rare case follow-up is needed: same record, no starting over",
@@ -166,7 +166,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Complete and track",
-        body: "Book screenings at partner labs near you, see exact prices before you confirm, and keep every result in one record; no more lost reports.",
+        body: "Take your screening requests to any laboratory near you, and keep every result in one record; no more lost reports.",
       },
       {
         title: "Stay confidently well",
