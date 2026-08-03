@@ -12,10 +12,17 @@
  *   ONLY once its `youtubeId` is filled in (no "coming soon" placeholders),
  *   so lighting a page up is a one-line edit here when the channel is live.
  * - `videoSrc` on a media slot: a muted, looping, self-hosted ambient clip
- *   (file under `public/marketing/`, MP4, no sound, a few seconds) for the
- *   homepage hero banner. Use professionally shot footage only; until then
- *   the illustrated hero stays. Setting `videoSrc` on `homepage.hero` swaps
- *   the hero visual to footage automatically.
+ *   (file under `public/marketing/video/`, MP4, no sound, ~5s) rendered as
+ *   decorative texture beside real text, never a player UI. Sourced either
+ *   from professionally shot footage or an AI-generated ambient clip (this
+ *   set: Higgsfield Seedance 2.0, generated 2026-08-03, anchored to the
+ *   existing product stills via start_image so poster and video match).
+ *   Every clip here is deliberately generic/ambient (hands, objects, a
+ *   calm environment) and never depicts a specific clinical encounter,
+ *   a named condition being diagnosed, or claims to be a real patient or
+ *   doctor testimonial — see `docs/CLINICAL_TRUST_MODEL_SPEC.md` and the
+ *   brand voice rule against fear-based/over-claiming imagery. Setting
+ *   `videoSrc` on a slot swaps that visual to footage automatically.
  */
 
 export type MarketingIllustrationId =
@@ -50,6 +57,7 @@ export const MARKETING_MEDIA = {
     hero: {
       illustration: "family-care",
       imageAlt: "Adult child checking in on a parent's health via phone",
+      videoSrc: "/marketing/video/hero-family-care.mp4",
     } as MarketingMediaSlot,
     problem: {
       illustration: "fragmented-care",
@@ -72,31 +80,45 @@ export const MARKETING_MEDIA = {
     },
   },
   productHero: {
+    // Note: once `videoSrc` is set, `imageSrc` is used ONLY as the raw HTML
+    // <video poster> attribute (not run through next/image optimization), so
+    // these point at the small pre-generated JPEG posters under
+    // `video/*-poster.jpg`, not the original multi-MB source photos.
     hypertension: {
-      imageSrc: "/marketing/photos/hypertension-bp-monitor.png",
+      imageSrc: "/marketing/video/hypertension-bp-monitor-poster.jpg",
       imageAlt: "A close-up of someone checking their blood pressure with a home monitor",
-    } satisfies MarketingMediaSlot,
+      videoSrc: "/marketing/video/hypertension-bp.mp4",
+    } as MarketingMediaSlot,
     diabetes: {
-      imageSrc: "/marketing/photos/diabetes-glucometer.png",
+      imageSrc: "/marketing/video/diabetes-glucometer-poster.jpg",
       imageAlt: "A close-up of a hand holding a glucometer showing a blood sugar reading",
-    } satisfies MarketingMediaSlot,
+      videoSrc: "/marketing/video/diabetes-glucometer.mp4",
+    } as MarketingMediaSlot,
     obesity: {
-      imageSrc: "/marketing/photos/obesity-healthy-meal.png",
+      imageSrc: "/marketing/video/obesity-healthy-meal-poster.jpg",
       imageAlt: "Hands preparing a colorful, healthy meal at home",
-    } satisfies MarketingMediaSlot,
-    parentcare: { illustration: "parentcare" } satisfies MarketingMediaSlot,
+      videoSrc: "/marketing/video/obesity-meal.mp4",
+    } as MarketingMediaSlot,
+    parentcare: {
+      imageSrc: "/marketing/video/parentcare-video-call-poster.jpg",
+      imageAlt: "A woman video calling an older relative from her living room",
+      videoSrc: "/marketing/video/parentcare-video-call.mp4",
+    } as MarketingMediaSlot,
     prevention: {
-      imageSrc: "/marketing/illustrations/prevention-health-check.png",
+      imageSrc: "/marketing/video/prevention-health-check-poster.jpg",
       imageAlt: "A patient having a routine blood pressure check with a doctor",
-    } satisfies MarketingMediaSlot,
+      videoSrc: "/marketing/video/prevention-health-check.mp4",
+    } as MarketingMediaSlot,
     medication: {
-      imageSrc: "/marketing/photos/medication-pill-organizer.png",
+      imageSrc: "/marketing/video/medication-pill-organizer-poster.jpg",
       imageAlt: "Hands sorting medication into a weekly pill organizer",
-    } satisfies MarketingMediaSlot,
+      videoSrc: "/marketing/video/medication-pill-organizer.mp4",
+    } as MarketingMediaSlot,
     labs: {
-      imageSrc: "/marketing/photos/labs-blood-sample.png",
+      imageSrc: "/marketing/video/labs-blood-sample-poster.jpg",
       imageAlt: "A gloved hand labeling a blood sample tube in a lab",
-    } satisfies MarketingMediaSlot,
+      videoSrc: "/marketing/video/labs-blood-sample.mp4",
+    } as MarketingMediaSlot,
   },
   serviceCard: {
     hypertension: { illustration: "hypertension" } satisfies MarketingMediaSlot,
