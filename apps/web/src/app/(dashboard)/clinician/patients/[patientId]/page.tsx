@@ -17,6 +17,7 @@ import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
@@ -125,6 +126,12 @@ export default async function ClinicianPatientPage({
     .eq("patient_id", patient.id)
     .maybeSingle();
 
+  const { data: bloodProfile } = await supabase
+    .from("patient_blood_profile")
+    .select("blood_group, genotype, genotype_note, source, recorded_at")
+    .eq("patient_id", patient.id)
+    .maybeSingle();
+
   const tabs: PatientRecordTab[] = [
           {
             id: "overview",
@@ -132,6 +139,22 @@ export default async function ClinicianPatientPage({
             content: (
               <>
                 <PreVisitSummary patientId={patient.id} />
+                {/* Two facts with outsized weight in a Nigerian emergency, and
+                    the platform had nowhere to keep them until now. */}
+                <BloodProfileForm
+                  patientId={patient.id}
+                  initial={
+                    bloodProfile
+                      ? {
+                          bloodGroup: bloodProfile.blood_group,
+                          genotype: bloodProfile.genotype,
+                          genotypeNote: bloodProfile.genotype_note,
+                          source: bloodProfile.source,
+                          recordedAt: bloodProfile.recorded_at,
+                        }
+                      : null
+                  }
+                />
                 <PatientTimeline patientId={patient.id} />
                 {patient.organisation_id && (
                   <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
