@@ -52,7 +52,6 @@ import { VaccinationForFamily } from "./vaccination-for-family";
 import { FacilityDirectory } from "./facility-directory";
 import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { PatientLocationForm } from "./patient-location-form";
-import { ReminderPreferenceForm } from "./reminder-preference-form";
 import { AiUsageDisclosure } from "./ai-usage-disclosure";
 import { ConditionLanguageForm } from "./condition-language-form";
 import { WearableConnectSection } from "./wearable-connect-section";
@@ -169,7 +168,7 @@ export default async function PatientPage() {
       >
         <NextBestAction patientId={subjectId} />
         <HealthResetCard patientId={subjectId} />
-        <RiskSignalsCard patientId={subjectId} language={profile.language} />
+        <RiskSignalsCard patientId={subjectId} />
         {/* The thing a one-off lab visit structurally cannot tell someone: what
             has moved across several results. Renders nothing until there is
             genuinely enough history for a pattern. */}
@@ -503,9 +502,6 @@ export default async function PatientPage() {
         <IdentityVerificationCard patientId={subjectId} />
         <PatientLocationForm
           initial={{ state: profile.state, city: profile.city, area: profile.area }}
-        />
-        <ReminderPreferenceForm
-          initial={{ preferred_reminder_channel: profile.preferred_reminder_channel }}
         />
         <ConditionLanguageForm
           initial={{ condition_language_preference: profile.condition_language_preference }}

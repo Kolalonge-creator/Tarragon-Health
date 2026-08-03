@@ -203,7 +203,7 @@ export default async function HealthCheckPage() {
       {/* Lipid results + the CV-risk gloss they feed — both self-hide until
           there's real data, so nothing renders until a lipid panel lands. */}
       <LipidProfileCard patientId={profile.id} />
-      <RiskSignalsCard patientId={profile.id} language={profile.language} />
+      <RiskSignalsCard patientId={profile.id} />
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>

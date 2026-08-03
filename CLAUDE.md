@@ -2454,7 +2454,29 @@ Same session as the entry above, acting on two founder decisions.
 - ⚠️ **Discrepancy worth a decision:** the `single_blood_group_genotype` bundle is **`is_active = true`,
   `self_bookable = true`, ₦6,500** on the live project. The platform is selling it whether or not it is
   being promoted. Deactivate the bundle or resume promoting it, but the two should agree.
-- **Voice: SUSPENDED, and not on cost grounds.** Costed it properly: an explainer is ~400 characters and
+- **Voice: REMOVED, English only (founder decision, same session).** Superseding the "suspend"
+  framing below: the founder asked to take it out rather than park it — "let it be strictly english
+  for now. we can explore that in the future." Removed from the app: the Web Speech read-aloud and
+  language switcher on `ResultExplainer`, the `language` prop threaded through `RiskSignalsCard`, and
+  the `ReminderPreferenceForm` voice-call toggle (file deleted along with its action). The explainer
+  now pins `language = "en"` in `explainPatientResultAction` rather than reading `profiles.language`,
+  so no caller can request another. Migration `20260803150000_english_only_no_voice_channel` removes
+  the voice branch from `private.remap_notification_channel`, which was the ONLY thing that ever
+  turned a queued reminder into a voice call — with it gone `notifications.channel = 'voice'` is
+  unreachable and the Termii voice sender in `send-pending-notifications` is dead code, so **no Edge
+  Function redeploy was needed** to make the platform stop calling people. **Nothing was dropped:**
+  `profiles.language`, `profiles.preferred_reminder_channel`, the `voice` enum value and
+  `patient_result_explanations.language` all stay, because an enum value is the one thing Postgres
+  cannot remove in place and dropping it would turn reopening this into a schema rebuild. Restore the
+  one branch in that function to reopen. ⚠️ **`ConditionLanguageForm` was checked and deliberately
+  left alone** — despite the name it is about clinical tone ("obesity" vs "weight"), not spoken
+  language. Verified live (`packages/db/tests/english_only_no_voice.sql`): a stale voice preference no
+  longer routes to voice, **push-first routing still works** (the control that matters — the voice
+  branch shared a function with it, so a careless removal would have silently taken both out), and no
+  function anywhere still assigns the channel. Sabotaged to confirm the push control discriminates.
+  Measured first: 0 patients with a non-English language, 0 with a voice preference, 0 voice
+  notifications ever, 0 non-English explanations — nothing to migrate, nobody affected.
+- **Original suspend analysis, kept for the numbers behind the decision.** Costed it properly: an explainer is ~400 characters and
   the text is already cached per (patient, kind, subject, language), so audio caches with it — one
   generation per unique explanation, not per listen. At ElevenLabs API rates ($0.10/1k chars multilingual,
   $0.05/1k Flash) voicing ~2,500 unique explanations is **roughly $50–100 one-off**, then near zero. That
