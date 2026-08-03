@@ -20,14 +20,22 @@ export type DerivedRow = {
   currentMinor: number;
   needsSync: boolean;
   isActive: boolean;
+  /** Has an active/trialing subscriber. The database refuses to move this
+   * row's price, currency or interval no matter what the rate or fee become
+   * (private.enforce_subscription_plan_price_lock and its add_ons twin) — it
+   * stays exactly as it is until someone clones it as a new plan. */
+  isLocked: boolean;
 };
 
 const SYMBOL: Record<"USD", string> = { USD: "$" };
 
-/** Same arithmetic as private.expected_derived_price_minor, for the preview. */
-function derive(nairaMinor: number, rate: number): number | null {
+/** Same arithmetic as private.expected_derived_price_minor, for the preview.
+ * `feePct` is a percentage (10 means 10%), matching what the form field
+ * carries; the database stores it as a fraction (0.10). */
+function derive(nairaMinor: number, rate: number, feePct: number): number | null {
   if (!Number.isFinite(rate) || rate <= 0) return null;
-  return Math.round(nairaMinor / rate);
+  const fee = Number.isFinite(feePct) ? feePct : 0;
+  return Math.round((nairaMinor / rate) * (1 + fee / 100));
 }
 
 function money(minor: number, symbol: string) {
@@ -39,12 +47,15 @@ function money(minor: number, symbol: string) {
 
 export function CurrencyRateManager({
   initialUsd,
+  initialFeePct,
   updatedAtLabel,
   daysSinceReview,
   rows,
   unlinked,
 }: {
   initialUsd: number | null;
+  /** As a percentage (10 means 10%), not the fraction the database stores. */
+  initialFeePct: number;
   /** Preformatted on the server: a bare toLocaleString() here renders one
    * locale during SSR and another in the browser, which is a real hydration
    * mismatch this codebase has already been bitten by twice. */
@@ -54,6 +65,7 @@ export function CurrencyRateManager({
   unlinked: { code: string; name: string; isActive: boolean }[];
 }) {
   const [usd, setUsd] = useState(initialUsd === null ? "" : String(initialUsd));
+  const [feePct, setFeePct] = useState(String(initialFeePct));
   const [state, formAction, pending] = useActionState<DiasporaPricingState, FormData>(
     saveCurrencyRates,
     undefined
@@ -65,17 +77,34 @@ export function CurrencyRateManager({
   const reviewNeedsAttention = reviewStatus === "due" || reviewStatus === "overdue" || reviewStatus === "never";
 
   const usdRate = Number(usd);
+  const usdFeePct = Number(feePct);
 
   const preview = useMemo(
     () =>
       rows.map((r) => {
-        const next = derive(r.nairaMinor, usdRate);
-        return { ...r, nextMinor: next, changes: next !== null && next !== r.currentMinor };
+        // A locked row's price cannot move no matter what is typed above —
+        // the database refuses the write. Previewing it as "unchanged"
+        // rather than computing the new number avoids showing a price the
+        // save button cannot actually produce.
+        const next = r.isLocked ? r.currentMinor : derive(r.nairaMinor, usdRate, usdFeePct);
+        return {
+          ...r,
+          nextMinor: next,
+          changes: !r.isLocked && next !== null && next !== r.currentMinor,
+        };
       }),
-    [rows, usdRate]
+    [rows, usdRate, usdFeePct]
   );
 
   const changing = preview.filter((r) => r.changes).length;
+  // A locked row's real would-be price at this rate/fee, computed the same
+  // way as the preview but without the isLocked short-circuit, purely to
+  // tell the admin it exists — never shown as something saving will do.
+  const lockedWouldMove = rows.filter((r) => {
+    if (!r.isLocked) return false;
+    const wouldBe = derive(r.nairaMinor, usdRate, usdFeePct);
+    return wouldBe !== null && wouldBe !== r.currentMinor;
+  }).length;
   const rateSet = initialUsd !== null;
 
   return (
@@ -83,25 +112,44 @@ export function CurrencyRateManager({
       <form action={formAction}>
         <Card>
           <CardHeader>
-            <CardTitle>Reference rate</CardTitle>
+            <CardTitle>Reference rate &amp; processing fee</CardTitle>
             <CardDescription>
-              How much naira one dollar is worth for pricing. Dollars are the only currency
-              Tarragon prices in besides naira. This is yours to set and change whenever you like;
-              it is not a live market feed, so a price only moves when you move it.
+              How much naira one dollar is worth for pricing, plus what it actually costs to
+              process a dollar card charge from abroad. Dollars are the only currency Tarragon
+              prices in besides naira. Neither of these is a live feed; a price only moves when
+              you move it.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="max-w-xs space-y-1">
-              <Label htmlFor="ngn_per_usd">Naira per $1</Label>
-              <Input
-                id="ngn_per_usd"
-                name="ngn_per_usd"
-                inputMode="decimal"
-                value={usd}
-                onChange={(e) => setUsd(e.target.value)}
-                placeholder="e.g. 1365"
-                required
-              />
+            <div className="flex flex-wrap gap-6">
+              <div className="max-w-xs space-y-1">
+                <Label htmlFor="ngn_per_usd">Naira per $1</Label>
+                <Input
+                  id="ngn_per_usd"
+                  name="ngn_per_usd"
+                  inputMode="decimal"
+                  value={usd}
+                  onChange={(e) => setUsd(e.target.value)}
+                  placeholder="e.g. 1365"
+                  required
+                />
+              </div>
+              <div className="max-w-xs space-y-1">
+                <Label htmlFor="usd_processing_fee_pct">Processing fee (%)</Label>
+                <Input
+                  id="usd_processing_fee_pct"
+                  name="usd_processing_fee_pct"
+                  inputMode="decimal"
+                  value={feePct}
+                  onChange={(e) => setFeePct(e.target.value)}
+                  placeholder="e.g. 10"
+                  required
+                />
+                <p className="text-xs text-charcoal-ink/50">
+                  Added on top of the converted price, on every dollar plan and add-on. Shown to
+                  the buyer as its own line, not folded silently into the number.
+                </p>
+              </div>
             </div>
 
             {!rateSet && (
@@ -114,9 +162,19 @@ export function CurrencyRateManager({
 
             <p className="text-sm text-charcoal-ink/70">
               {changing === 0
-                ? "Nothing would change at this rate."
+                ? "Nothing would change at this rate and fee."
                 : `Saving changes ${changing} price${changing === 1 ? "" : "s"}. Each one gets a brand-new Stripe price, because a Stripe price can never be edited after it is created. The old one is retired and the plan switches back on only once its replacement exists.`}
             </p>
+
+            {lockedWouldMove > 0 && (
+              <p className="rounded-md bg-charcoal-ink/5 p-3 text-sm text-charcoal-ink/70">
+                {lockedWouldMove} plan{lockedWouldMove === 1 ? " is" : "s are"} locked with an
+                existing subscriber and will not move even though the number above would work out
+                differently for {lockedWouldMove === 1 ? "it" : "them"}. Their current subscriber
+                keeps their current price. To sell a new price under that plan&apos;s conditions,
+                clone it as a new plan.
+              </p>
+            )}
 
             {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
             {state?.message && <p className="text-sm text-deep-forest">{state.message}</p>}
@@ -220,7 +278,9 @@ export function CurrencyRateManager({
                     )}
                   </td>
                   <td className="py-2">
-                    {r.isActive ? (
+                    {r.isLocked ? (
+                      <Badge variant="grey">Locked (has a subscriber)</Badge>
+                    ) : r.isActive ? (
                       <Badge variant="green">On sale</Badge>
                     ) : r.needsSync ? (
                       <Badge variant="amber">Awaiting Stripe price</Badge>

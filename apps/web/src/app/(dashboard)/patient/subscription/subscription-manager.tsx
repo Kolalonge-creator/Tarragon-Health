@@ -84,8 +84,11 @@ export function SubscriptionManager() {
    *
    * Same reasoning as the onboarding plan selector: a dollar plan is the naira
    * price converted, so buying it monthly is twelve small card charges a year
-   * and each one loses a flat processing fee. Only the order changes here;
-   * every monthly row is still listed and still switchable.
+   * instead of one. Every dollar price (monthly or yearly) already carries a
+   * disclosed 10% international-card processing fee since 2026-08-02 (see the
+   * note rendered next to CurrencyTabs below) -- yearly halves the number of
+   * charges, it does not change the per-charge fee rate. Only the order
+   * changes here; every monthly row is still listed and still switchable.
    */
   const otherPlans =
     currency === "USD"
@@ -225,6 +228,12 @@ export function SubscriptionManager() {
         </CardHeader>
         <CardContent className="space-y-3">
           <CurrencyTabs value={currency} onChange={setCurrencyOverride} />
+          {currency === "USD" && (
+            <p className="rounded-lg bg-charcoal-ink/5 p-3 text-xs text-charcoal-ink/70">
+              Dollar prices below (plans and add-ons) already include a 10% international
+              card-processing fee, on top of the converted naira price.
+            </p>
+          )}
           {changeState?.error && <p className="text-sm text-red-600">{changeState.error}</p>}
           {changeState?.message && <p className="text-sm text-charcoal-ink/70">{changeState.message}</p>}
           {otherPlans.length > 0 && (

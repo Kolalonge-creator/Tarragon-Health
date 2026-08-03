@@ -18,22 +18,53 @@ export interface NavSection {
 /** Role → sidebar navigation. Routes listed here must be real pages; pages
  * that gate on entitlement/permission still render a friendly gate, so a
  * link is safe even when the caller lacks the feature. */
-export function getNavSections(role: string | null | undefined): NavSection[] {
+export function getNavSections(
+  role: string | null | undefined,
+  /**
+   * False means this account funds somebody else's care and receives none
+   * here. Reordering the patient menu was not enough: such a person was still
+   * handed a sidebar of Prevention, Health Check, Health Passport, Lifestyle
+   * coaching and Wellness rewards — nine links about a body we are not looking
+   * after — which is what makes the product feel like it was built for
+   * somebody else and lent to them. They get their own short menu instead.
+   *
+   * Somebody who is BOTH a supporter and a patient falls through to the full
+   * patient menu, which already carries People you support in third place. The
+   * two are independent, so there is no combined case to special-case.
+   */
+  receivesCare?: boolean | null,
+): NavSection[] {
   switch (role) {
     case "patient":
+      if (receivesCare === false) {
+        return [
+          {
+            items: [
+              { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+              { label: "Messages", href: "/patient/messages", icon: "messages" },
+              { label: "Your people", href: "/patient/family", icon: "family" },
+              // Not "Subscription" — a supporter has no plan of their own. This
+              // is where they see what they are paying for other people.
+              { label: "Payments", href: "/patient/subscription", icon: "billing" },
+            ],
+          },
+        ];
+      }
       return [
         {
           items: [
             { label: "Dashboard", href: "/patient", icon: "dashboard", exact: true },
             { label: "Messages", href: "/patient/messages", icon: "messages" },
+            // Somebody funding a parent's care is here for this and nothing
+            // else. It used to sit tenth, below the caller's own wellness
+            // points, which buried the entire reason a sponsor logs in.
+            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
-            { label: "Messages", href: "/patient/messages", icon: "messages" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
             { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
             { label: "Your people", href: "/patient/family", icon: "family" },
-            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
           ],
         },

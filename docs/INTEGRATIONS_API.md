@@ -25,6 +25,7 @@ and issue a new one. All requests must be HTTPS.
 |---|---|
 | `device_readings:write` | POST /api/integrations/device-readings |
 | `patients:read` | reserved for future read endpoints |
+| `protocol_api:classify` | POST /api/protocol-api/v1/{bp-triage,diabetes-risk,cv-risk} |
 
 ## `GET /api/integrations/me`
 
@@ -95,6 +96,112 @@ Readings land in the same clinical record as the patient's own entries and
 run the same downstream review/escalation pipeline — an abnormal
 device-pushed blood pressure gets clinical attention exactly like one typed
 into the app.
+
+## Protocol API — licensed classifiers (no patient tenant required)
+
+For a partner clinic, state PHC, or NGO that wants Tarragon's validated
+clinical decision-support logic without becoming a Tarragon patient-serving
+tenant: three **stateless** endpoints, each wrapping the exact pure
+function this platform's own patients and clinicians run through (BP triage
+mirrors the DB red-flag trigger, FINDRISC is the platform's own onboarding
+diabetes screen, CV-risk stratification is the same engine behind the
+Medical-Director-signed cardiovascular module — running here on the
+honestly-labelled provisional defaults, since a licensee never sees
+Tarragon's live signed config).
+
+**Genuinely stateless: no patient record is created, read, or written on
+this platform by any of the three calls below, and no clinical values are
+persisted anywhere — only the fact that a call happened (organisation,
+key, endpoint, timestamp) is logged, for usage visibility only.** A
+partner never has to hand over patient data to use these.
+
+A TarragonHealth admin adds your organisation and issues a
+`protocol_api:classify`-scoped key at `/admin/settings/protocol-api`.
+
+### `GET /api/protocol-api/v1/me`
+
+Key self-test, same shape as `/api/integrations/me`.
+
+### `POST /api/protocol-api/v1/bp-triage`
+
+```json
+{ "systolic": 168, "diastolic": 98 }
+```
+
+```json
+{
+  "level": "red",
+  "label": "High — urgent review",
+  "note": "Thanks. This reading is high. Please rest for 5 minutes and re-check, then reply. Your care team is being notified.",
+  "advisory": true,
+  "disclaimer": "Advisory triage guidance only, not a diagnosis — confirm clinically before acting on an urgent/emergency band."
+}
+```
+
+`level` is one of `green` | `amber` | `red` | `emergency` | `unknown`.
+
+### `POST /api/protocol-api/v1/diabetes-risk`
+
+FINDRISC (Finnish Diabetes Risk Score, validated in Nigeria):
+
+```json
+{
+  "age_years": 52, "bmi": 29.4, "waist_cm": 98, "sex": "male",
+  "physically_active": false, "eats_vegetables_fruit_daily": true,
+  "on_bp_medication": true, "history_of_high_glucose": false,
+  "family_history": "first_degree"
+}
+```
+
+```json
+{
+  "score": 14, "band": "moderate", "approx_ten_year_risk": "about 1 in 6",
+  "recommend_blood_test": true, "advisory": true,
+  "disclaimer": "Advisory screening guidance only, not a diagnosis — a moderate-or-higher band should proceed to a diagnostic blood test (FPG or HbA1c)."
+}
+```
+
+### `POST /api/protocol-api/v1/cv-risk`
+
+Every field is optional (all fields except `diabetes`/`on_lipid_lowering_therapy`
+default to `null`; those two default to `false`) — the engine degrades
+gracefully with thin data, same as the platform's own onboarding flow.
+
+```json
+{
+  "age": 58, "sex": "male", "ldl_mg_dl": 145, "non_hdl_mg_dl": 175,
+  "ten_year_risk_pct": 14, "ten_year_risk_level": "high",
+  "diabetes": false,
+  "cv_profile": {
+    "established_ascvd": false, "prior_mi": false, "prior_stroke_tia": false,
+    "prior_pad": false, "prior_revascularisation": false,
+    "familial_hypercholesterolaemia": false
+  },
+  "on_lipid_lowering_therapy": false
+}
+```
+
+```json
+{
+  "prevention_category": "primary",
+  "risk_category": "high",
+  "ldl_target_mg_dl": 100,
+  "non_hdl_target_mg_dl": 130,
+  "at_target": false,
+  "statin_recommendation": "primary_risk_based_recommended",
+  "escalations": [],
+  "config_signed": false,
+  "population_note": "10-year CVD risk is estimated with SCORE2 (European-derived) and is not validated for Sub-Saharan African populations; treat it as a guide and confirm clinically.",
+  "rationale": ["10-year CVD risk 14% ≥ 10% threshold — statin is a lifestyle-first clinician conversation, not an automatic trigger."],
+  "advisory": true,
+  "disclaimer": "Advisory risk stratification only, never a prescription — this engine never recommends a specific medication or dose, and a high-risk/secondary-prevention classification always means 'flag for clinician review', never 'treat automatically'."
+}
+```
+
+**This engine never prescribes and never auto-treats.** A
+secondary-prevention/high-risk classification is structurally a flag for a
+human clinician to review, never an instruction to start a medication — the
+same guarantee this platform enforces for its own patients.
 
 ## Outbound (TarragonHealth → your platform)
 

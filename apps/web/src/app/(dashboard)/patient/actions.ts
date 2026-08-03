@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveSubjectId } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
@@ -51,10 +52,21 @@ export async function logVital(
     return { error: "Not signed in" };
   }
 
+  // Whose reading this is. A supporter with a live 'manage' grant may have the
+  // account of somebody they support open, in which case the reading belongs to
+  // that person and not to the caller. resolveSubjectId re-checks the grant on
+  // the server every time, so a stale or forged cookie resolves back to the
+  // caller's own id rather than somebody else's record.
+  //
+  // Attribution is not this function's job and deliberately cannot be spoofed
+  // here: private.stamp_acting_supporter derives logged_by_profile_id from
+  // auth.uid() at insert time.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
     return { error: "No organisation on file" };
@@ -93,7 +105,7 @@ export async function logVital(
   const { error } = await supabase.from("vitals_readings").insert({
     ...row,
     taken_at: taken_at ? new Date(taken_at).toISOString() : undefined,
-    patient_id: user.id,
+    patient_id: subjectId,
     organisation_id: profile.organisation_id,
   });
   if (error) {
@@ -101,15 +113,15 @@ export async function logVital(
   }
 
   if (row.vital_type === "blood_pressure") {
-    await assessBpControlBestEffort(supabase, user.id, profile.organisation_id);
+    await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
   }
   if (row.vital_type === "pulse") {
-    await assessHeartRateBestEffort(supabase, user.id, profile.organisation_id);
+    await assessHeartRateBestEffort(supabase, subjectId, profile.organisation_id);
   }
   // Glucose OR ketones both re-run the glucose red-flag engine — a ketone log
   // pairs with the latest glucose to catch suspected DKA (§15.3).
   if (row.vital_type === "glucose" || row.vital_type === "ketones") {
-    await assessGlucoseBestEffort(supabase, user.id, profile.organisation_id);
+    await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
   }
   await assessHealthScoreBestEffort(supabase, user.id, profile.organisation_id);
 
@@ -188,10 +200,14 @@ export async function logSymptom(
     return { error: "Not signed in" };
   }
 
+  // Same subject resolution as logVital: a supporter with the account open
+  // is logging this for them, and the grant is re-checked server-side.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
     return { error: "No organisation on file" };
@@ -201,7 +217,7 @@ export async function logSymptom(
     symptom_type: parsed.data.symptom_type,
     severity: parsed.data.severity,
     description: parsed.data.description || null,
-    patient_id: user.id,
+    patient_id: subjectId,
     organisation_id: profile.organisation_id,
   });
   if (error) {
@@ -267,10 +283,16 @@ export async function submitRiskAssessment(
     return { error: "Not signed in" };
   }
 
+  // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
+  // grant server-side, so a stale or forged cookie resolves back to the
+  // caller's own id. Attribution is stamped from auth.uid() in the database
+  // (private.stamp_acting_supporter) and cannot be set from here.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id, sex, date_of_birth")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
     return { error: "No organisation on file" };
@@ -283,7 +305,7 @@ export async function submitRiskAssessment(
     .filter((key) => responses[key] !== undefined)
     .map((key) => ({
       organisation_id: organisationId,
-      profile_id: user.id,
+      profile_id: subjectId,
       category: QUESTION_CATEGORY[key],
       question_key: key,
       response: responses[key] as Json,
@@ -300,7 +322,7 @@ export async function submitRiskAssessment(
   // record the "Log a reading" widget writes to, not a form-only value.
   if (responses.weight_kg !== undefined) {
     const { error: weightInsertError } = await supabase.from("vitals_readings").insert({
-      patient_id: user.id,
+      patient_id: subjectId,
       organisation_id: organisationId,
       vital_type: "weight",
       weight_kg: responses.weight_kg,
@@ -313,7 +335,7 @@ export async function submitRiskAssessment(
   const { data: latestWeight } = await supabase
     .from("vitals_readings")
     .select("weight_kg")
-    .eq("patient_id", user.id)
+    .eq("patient_id", subjectId)
     .eq("vital_type", "weight")
     .order("taken_at", { ascending: false })
     .limit(1)
@@ -340,7 +362,7 @@ export async function submitRiskAssessment(
     .insert(
       scores.map((score) => ({
         organisation_id: organisationId,
-        profile_id: user.id,
+        profile_id: subjectId,
         condition: score.condition,
         tier: score.tier,
         inputs_snapshot: score.inputsSnapshot as Json,
@@ -358,7 +380,7 @@ export async function submitRiskAssessment(
   const { data: existingSchedules } = await supabase
     .from("screening_schedules")
     .select("id, screen_type_id, status, due_date")
-    .eq("patient_id", user.id);
+    .eq("patient_id", subjectId);
 
   const lastCompletedByScreenTypeId = new Map<string, string>();
   const activeByScreenTypeId = new Map<string, { id: string; due_date: string }>();
@@ -396,7 +418,7 @@ export async function submitRiskAssessment(
     const { error: scheduleInsertError } = await serviceRoleClient.from("screening_schedules").insert(
       newSchedules.map((rec) => ({
         organisation_id: organisationId,
-        patient_id: user.id,
+        patient_id: subjectId,
         screen_type_id: rec.screenTypeId,
         due_date: rec.dueDate,
         status: "pending" as const,
@@ -437,7 +459,7 @@ export async function submitRiskAssessment(
     const { data: existingRecs } = await serviceRoleClient
       .from("care_plan_recommendations")
       .select("condition, status")
-      .eq("patient_id", user.id)
+      .eq("patient_id", subjectId)
       .in("status", ["proposed", "accepted"]);
     const alreadyOpen = new Set((existingRecs ?? []).map((row) => row.condition));
 
@@ -448,7 +470,7 @@ export async function submitRiskAssessment(
         .insert(
           newRecs.map((rec) => ({
             organisation_id: organisationId,
-            patient_id: user.id,
+            patient_id: subjectId,
             condition: rec.condition,
             tier: rec.tier,
             rationale: rec.rationale,
@@ -463,12 +485,12 @@ export async function submitRiskAssessment(
 
   // Smoking status/height/weight just (re)submitted feed the Health Score's
   // smoking and BMI components directly.
-  await assessHealthScoreBestEffort(supabase, user.id, organisationId);
+  await assessHealthScoreBestEffort(supabase, subjectId, organisationId);
 
   // Materialise the vaccination schedule so its daily reminder cron has rows
   // to work from — best-effort, never blocks the assessment.
   await generateVaccinationScheduleBestEffort({
-    patientId: user.id,
+    patientId: subjectId,
     organisationId,
     ageYears,
   });
@@ -557,10 +579,16 @@ export async function reportDangerSymptoms(
     return { error: "Not signed in" };
   }
 
+  // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
+  // grant server-side, so a stale or forged cookie resolves back to the
+  // caller's own id. Attribution is stamped from auth.uid() in the database
+  // (private.stamp_acting_supporter) and cannot be set from here.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
     return { error: "No organisation on file" };
@@ -569,7 +597,7 @@ export async function reportDangerSymptoms(
   const { data, error } = await supabase
     .from("emergency_events")
     .insert({
-      patient_id: user.id,
+      patient_id: subjectId,
       organisation_id: profile.organisation_id,
       source: "danger_symptom_checklist",
       trigger_detail: dangerSignsSummary(parsed.data.signs as DangerSign[]),
@@ -730,17 +758,23 @@ export async function logHospitalAdmission(
     return { error: "Not signed in" };
   }
 
+  // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
+  // grant server-side, so a stale or forged cookie resolves back to the
+  // caller's own id. Attribution is stamped from auth.uid() in the database
+  // (private.stamp_acting_supporter) and cannot be set from here.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
     return { error: "No organisation on file" };
   }
 
   const { error } = await supabase.from("patient_hospital_admissions").insert({
-    patient_id: user.id,
+    patient_id: subjectId,
     organisation_id: profile.organisation_id,
     admitted_on: parsed.data.admitted_on,
     discharged_on: parsed.data.discharged_on || null,

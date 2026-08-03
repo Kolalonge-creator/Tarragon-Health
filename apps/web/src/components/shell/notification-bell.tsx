@@ -138,6 +138,41 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/supporting",
     };
   }
+  if (n.template === "sponsor_care_reviewed") {
+    // From private.notify_sponsors_care_reviewed(). A doctor has actually
+    // looked at something for the person you support. THAT it happened, never
+    // what was found — the patient and their doctor discuss that first, and
+    // this row is non_clinical precisely so it can travel on any channel.
+    const name = String(payload.person_name ?? "someone you support");
+    return {
+      text: `A doctor has reviewed something for ${name}`,
+      href: "/patient/supporting",
+    };
+  }
+  if (n.template === "sponsor_person_quiet") {
+    // From private.queue_sponsor_quiet_nudges(). Someone with an active care
+    // plan has stopped logging readings. An activity fact, not a health
+    // judgement — the useful thing a supporter abroad can do is ring them.
+    const name = String(payload.person_name ?? "someone you support");
+    const days = Number(payload.quiet_days ?? 0);
+    return {
+      text: `${name} hasn't logged a reading in ${days} days — a call might help`,
+      href: "/patient/supporting",
+    };
+  }
+  if (n.template === "sponsored_plan_started") {
+    // From private.activate_sponsored_subscription(). Sent to BOTH sides: the
+    // person whose care it is must never discover they were put on a paid plan
+    // by noticing new features appear.
+    const isPayer = payload.is_payer === true;
+    const planName = String(payload.plan_name ?? "a plan");
+    return {
+      text: isPayer
+        ? `You are now paying for ${String(payload.person_name ?? "someone")}'s ${planName}`
+        : `${String(payload.sponsor_name ?? "Someone")} is now paying for your ${planName}`,
+      href: isPayer ? "/patient/supporting" : "/patient/subscription",
+    };
+  }
   if (n.template === "critical_notification_escalation_exhausted") {
     // From private.escalate_unconfirmed_critical_notifications() —
     // every channel in a critical alert's ladder (push -> whatsapp -> sms)

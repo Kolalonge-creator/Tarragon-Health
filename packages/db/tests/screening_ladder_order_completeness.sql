@@ -1,0 +1,172 @@
+-- Verifies the structured per-analyte result pipeline for the Core/Advanced/
+-- Comprehensive Screen ladder: annual_health_checks links to the purchased
+-- order, screening_results.follow_up_action stores, an order auto-resolves
+-- to 'resulted' only once every APPLICABLE test_code has a result, and the
+-- once-per-lifetime (genotype/blood group) vs annual vs dormant-imaging vs
+-- sex/age-gated (psa) distinctions all hold. Rolled back, no residue.
+--
+-- Reuses two real, pre-existing patient fixtures rather than minting new
+-- auth.users rows: one with sex=null (age ~41) and one male (age ~66, born
+-- 1960) — swap the ids below if either stops existing.
+begin;
+
+create temporary table test_results (case_name text, passed boolean) on commit drop;
+
+do $$
+declare
+  v_patient uuid := 'bb707ae8-1d0b-49c2-b990-1950de601db4'; -- sex null, age ~41
+  v_male uuid := '04280ae6-f1bd-4fc9-a588-fac792e032af';    -- male, age ~66
+  v_org uuid := '00000000-0000-0000-0000-000000000001';
+  v_core_bundle uuid;
+  v_comp_bundle uuid;
+  v_order1 uuid;
+  v_order2 uuid;
+  v_order3 uuid;
+  v_order4 uuid;
+  v_year int := extract(year from (now() at time zone 'Africa/Lagos'))::int;
+begin
+  select id into v_core_bundle from public.panel_bundles where code = 'screen_core';
+  select id into v_comp_bundle from public.panel_bundles where code = 'screen_comprehensive';
+
+  -- Order 1: screen_core, entering results one code at a time.
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
+  values (v_org, v_patient, v_core_bundle, 'pending_payment', 6500000, 'patient_initiated', 1)
+  returning id into v_order1;
+
+  update public.lab_orders set status = 'payment_confirmed' where id = v_order1;
+
+  insert into test_results select 'check1_payment_confirmed_links_annual_check',
+    exists(select 1 from public.annual_health_checks where patient_id = v_patient and year = v_year
+      and lab_order_id = v_order1 and status = 'in_progress');
+
+  insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
+  values
+    (v_org, v_patient, v_order1, 'hba1c', 'normal'),
+    (v_org, v_patient, v_order1, 'lipid_panel', 'normal'),
+    (v_org, v_patient, v_order1, 'fbc', 'normal'),
+    (v_org, v_patient, v_order1, 'lft', 'normal'),
+    (v_org, v_patient, v_order1, 'kft', 'normal'),
+    (v_org, v_patient, v_order1, 'tft', 'normal'),
+    (v_org, v_patient, v_order1, 'urinalysis', 'normal'),
+    (v_org, v_patient, v_order1, 'hiv', 'normal'),
+    (v_org, v_patient, v_order1, 'hep_b', 'normal'),
+    (v_org, v_patient, v_order1, 'hep_c', 'normal');
+
+  insert into test_results select 'check2_not_resulted_until_complete',
+    (select status = 'payment_confirmed' from public.lab_orders where id = v_order1);
+
+  insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status, follow_up_action)
+  values (v_org, v_patient, v_order1, 'blood_group', 'abnormal', 'test follow-up action stored');
+
+  insert into test_results select 'check3_still_missing_genotype',
+    (select status = 'payment_confirmed' from public.lab_orders where id = v_order1);
+
+  insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
+  values (v_org, v_patient, v_order1, 'sickle_cell_genotype', 'normal');
+
+  insert into test_results select 'check4_resolves_on_last_code',
+    (select status = 'resulted' and resulted_at is not null from public.lab_orders where id = v_order1);
+
+  insert into test_results select 'check5_follow_up_action_persisted',
+    (select follow_up_action = 'test follow-up action stored' from public.screening_results
+     where lab_order_id = v_order1 and screen_type_code = 'blood_group');
+
+  -- Order 2: a fresh screen_core order, same patient -- once-per-lifetime
+  -- genotype/blood group already satisfied without a fresh entry.
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
+  values (v_org, v_patient, v_core_bundle, 'payment_confirmed', 6500000, 'patient_initiated', 1)
+  returning id into v_order2;
+
+  insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
+  values
+    (v_org, v_patient, v_order2, 'hba1c', 'normal'),
+    (v_org, v_patient, v_order2, 'lipid_panel', 'normal'),
+    (v_org, v_patient, v_order2, 'fbc', 'normal'),
+    (v_org, v_patient, v_order2, 'lft', 'normal'),
+    (v_org, v_patient, v_order2, 'kft', 'normal'),
+    (v_org, v_patient, v_order2, 'tft', 'normal'),
+    (v_org, v_patient, v_order2, 'urinalysis', 'normal'),
+    (v_org, v_patient, v_order2, 'hiv', 'normal'),
+    (v_org, v_patient, v_order2, 'hep_b', 'normal'),
+    (v_org, v_patient, v_order2, 'hep_c', 'normal');
+
+  insert into test_results select 'check6_once_per_lifetime_carries_forward',
+    (select status = 'resulted' from public.lab_orders where id = v_order2);
+
+  -- Order 3: screen_comprehensive, null-sex ~41yo patient -- dormant
+  -- imaging AND male-only psa are both correctly excluded from the
+  -- completeness requirement.
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
+  values (v_org, v_patient, v_comp_bundle, 'payment_confirmed', 14900000, 'patient_initiated', 1)
+  returning id into v_order3;
+
+  insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
+  values
+    (v_org, v_patient, v_order3, 'hba1c', 'normal'),
+    (v_org, v_patient, v_order3, 'lipid_panel', 'normal'),
+    (v_org, v_patient, v_order3, 'fbc', 'normal'),
+    (v_org, v_patient, v_order3, 'lft', 'normal'),
+    (v_org, v_patient, v_order3, 'kft', 'normal'),
+    (v_org, v_patient, v_order3, 'tft', 'normal'),
+    (v_org, v_patient, v_order3, 'urinalysis', 'normal'),
+    (v_org, v_patient, v_order3, 'hiv', 'normal'),
+    (v_org, v_patient, v_order3, 'hep_b', 'normal'),
+    (v_org, v_patient, v_order3, 'hep_c', 'normal'),
+    (v_org, v_patient, v_order3, 'urine_acr', 'normal'),
+    (v_org, v_patient, v_order3, 'ogtt_fpg', 'normal'),
+    (v_org, v_patient, v_order3, 'ecg_resting', 'normal'),
+    (v_org, v_patient, v_order3, 'fit', 'normal'),
+    (v_org, v_patient, v_order3, 'syphilis', 'normal');
+
+  insert into test_results select 'check7_comprehensive_ignores_dormant_imaging_and_sex_gated_psa',
+    (select status = 'resulted' from public.lab_orders where id = v_order3);
+
+  insert into test_results select 'check8_comprehensive_video_consult_created',
+    exists(select 1 from public.video_consultations where patient_id = v_patient and context = 'annual_review'
+      and created_at > now() - interval '1 minute');
+
+  -- Order 4: MALE patient -- psa genuinely required, gated on shared
+  -- decision-making (private.enforce_psa_sdm_gate).
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
+  values (v_org, v_male, v_comp_bundle, 'payment_confirmed', 14900000, 'patient_initiated', 1)
+  returning id into v_order4;
+
+  insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
+  values
+    (v_org, v_male, v_order4, 'hba1c', 'normal'),
+    (v_org, v_male, v_order4, 'lipid_panel', 'normal'),
+    (v_org, v_male, v_order4, 'fbc', 'normal'),
+    (v_org, v_male, v_order4, 'lft', 'normal'),
+    (v_org, v_male, v_order4, 'kft', 'normal'),
+    (v_org, v_male, v_order4, 'tft', 'normal'),
+    (v_org, v_male, v_order4, 'urinalysis', 'normal'),
+    (v_org, v_male, v_order4, 'hiv', 'normal'),
+    (v_org, v_male, v_order4, 'hep_b', 'normal'),
+    (v_org, v_male, v_order4, 'hep_c', 'normal'),
+    (v_org, v_male, v_order4, 'urine_acr', 'normal'),
+    (v_org, v_male, v_order4, 'ogtt_fpg', 'normal'),
+    (v_org, v_male, v_order4, 'ecg_resting', 'normal'),
+    (v_org, v_male, v_order4, 'fit', 'normal'),
+    (v_org, v_male, v_order4, 'syphilis', 'normal'),
+    (v_org, v_male, v_order4, 'blood_group', 'normal'),
+    (v_org, v_male, v_order4, 'sickle_cell_genotype', 'normal');
+
+  insert into test_results select 'check9_male_missing_psa_stays_unresolved',
+    (select status = 'payment_confirmed' from public.lab_orders where id = v_order4);
+
+  insert into public.patient_shared_decisions (organisation_id, patient_id, screen_type_code, notes)
+  values (v_org, v_male, 'psa', 'test SDM fixture');
+
+  insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
+  values (v_org, v_male, v_order4, 'psa', 'normal');
+
+  insert into test_results select 'check10_male_resolves_once_psa_entered_after_sdm',
+    (select status = 'resulted' from public.lab_orders where id = v_order4);
+end $$;
+
+select * from test_results order by case_name;
+
+-- All 10 rows above should read passed = true. Zero residue below the
+-- rollback: no lab_orders/screening_results/annual_health_checks/
+-- video_consultations/patient_shared_decisions row from this test survives.
+rollback;

@@ -88,7 +88,11 @@ export const signupSchema = z
     // and completeOnboarding falls back to /patient regardless, so this can
     // never be used to push a new patient at an arbitrary route.
     intent: z
-      .enum(["health_check"])
+      // 'support' additionally decides what we are allowed to ask this person
+      // for at all: a payer has no telehealth relationship to consent to and
+      // no health data for us to hold, so their onboarding is genuinely
+      // shorter rather than merely reordered.
+      .enum(["health_check", "support"])
       .nullish()
       .catch(undefined)
       .transform((v) => v ?? undefined),

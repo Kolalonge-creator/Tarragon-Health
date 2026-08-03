@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { submitScreeningResult } from "./screening-result-actions";
 import {
   ANALYTE_SCREEN_TYPES,
@@ -14,16 +14,19 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const SCREEN_TYPE_LABELS: Record<(typeof SCREENING_RESULT_SCREEN_TYPES)[number], string> = {
+export const SCREEN_TYPE_LABELS: Record<(typeof SCREENING_RESULT_SCREEN_TYPES)[number], string> = {
   hba1c: "HbA1c",
   lipid_panel: "Lipid panel",
   psa: "PSA",
+  ogtt_fpg: "OGTT / fasting glucose",
   hiv: "HIV",
   hep_b: "Hepatitis B",
   hep_c: "Hepatitis C",
+  syphilis: "Syphilis (VDRL/TPHA)",
   tb_screen: "TB screen",
   malaria_rdt: "Malaria RDT",
   sickle_cell_genotype: "Sickle cell genotype",
+  blood_group: "Blood group & rhesus",
   mammography: "Mammography",
   cervical_smear: "Cervical smear",
   fit: "FIT (colorectal)",
@@ -31,6 +34,13 @@ const SCREEN_TYPE_LABELS: Record<(typeof SCREENING_RESULT_SCREEN_TYPES)[number],
   bone_density: "Bone density scan",
   colonoscopy: "Colonoscopy",
   vision_check: "Vision check",
+  fbc: "Full blood count",
+  lft: "Liver function",
+  kft: "Kidney function (U&E, creatinine, eGFR)",
+  tft: "Thyroid function (TSH, FT4)",
+  urinalysis: "Urinalysis",
+  urine_acr: "Urine albumin:creatinine ratio",
+  ecg_resting: "Resting 12-lead ECG",
 };
 
 type ScreenType = (typeof SCREENING_RESULT_SCREEN_TYPES)[number];
@@ -42,36 +52,68 @@ function groupOf(screenType: ScreenType): "analyte" | "qualitative" | "genotype"
   return "procedural";
 }
 
-export function ScreeningResultForm({ patientId }: { patientId: string }) {
-  const [screenType, setScreenType] = useState<ScreenType>("hba1c");
+/**
+ * `labOrderId` + `lockedScreenType` put the form in order-scoped mode — the
+ * type selector is replaced with a fixed label and a hidden field, and
+ * `lab_order_id` travels as a hidden field too (screeningResultSchema reads
+ * both straight off FormData, so no server-action signature change is
+ * needed). Used by the clinician's per-order result checklist; the
+ * standalone "record a result for this patient" tool omits both and keeps
+ * the free-choice dropdown exactly as before.
+ */
+export function ScreeningResultForm({
+  patientId,
+  labOrderId,
+  lockedScreenType,
+  onSuccess,
+}: {
+  patientId: string;
+  labOrderId?: string;
+  lockedScreenType?: ScreenType;
+  onSuccess?: () => void;
+}) {
+  const [screenType, setScreenType] = useState<ScreenType>(lockedScreenType ?? "hba1c");
   const [state, formAction, pending] = useActionState(
     submitScreeningResult.bind(null, patientId),
     undefined
   );
   const group = groupOf(screenType);
 
+  useEffect(() => {
+    if (state?.success) onSuccess?.();
+  }, [state?.success, onSuccess]);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Record a screening/lab result</CardTitle>
+        <CardTitle>
+          {lockedScreenType
+            ? `Record ${SCREEN_TYPE_LABELS[lockedScreenType]}`
+            : "Record a screening/lab result"}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="screen_type_code">Screening type</Label>
-            <Select
-              id="screen_type_code"
-              name="screen_type_code"
-              value={screenType}
-              onChange={(event) => setScreenType(event.target.value as ScreenType)}
-            >
-              {SCREENING_RESULT_SCREEN_TYPES.map((code) => (
-                <option key={code} value={code}>
-                  {SCREEN_TYPE_LABELS[code]}
-                </option>
-              ))}
-            </Select>
-          </div>
+          {labOrderId && <input type="hidden" name="lab_order_id" value={labOrderId} />}
+          {lockedScreenType ? (
+            <input type="hidden" name="screen_type_code" value={lockedScreenType} />
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="screen_type_code">Screening type</Label>
+              <Select
+                id="screen_type_code"
+                name="screen_type_code"
+                value={screenType}
+                onChange={(event) => setScreenType(event.target.value as ScreenType)}
+              >
+                {SCREENING_RESULT_SCREEN_TYPES.map((code) => (
+                  <option key={code} value={code}>
+                    {SCREEN_TYPE_LABELS[code]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
 
           {screenType === "hba1c" && (
             <div className="grid grid-cols-2 gap-4">
@@ -93,6 +135,13 @@ export function ScreeningResultForm({ patientId }: { patientId: string }) {
             <div className="space-y-1.5">
               <Label htmlFor="psa_value">PSA value (ng/mL)</Label>
               <Input id="psa_value" name="psa_value" type="number" step="0.1" required />
+            </div>
+          )}
+
+          {screenType === "ogtt_fpg" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="ogtt_fpg_value">OGTT / fasting glucose (mg/dL)</Label>
+              <Input id="ogtt_fpg_value" name="ogtt_fpg_value" type="number" step="1" required />
             </div>
           )}
 
@@ -129,8 +178,15 @@ export function ScreeningResultForm({ patientId }: { patientId: string }) {
 
           {group === "genotype" && (
             <div className="space-y-1.5">
-              <Label htmlFor="genotype">Genotype</Label>
-              <Input id="genotype" name="genotype" placeholder="e.g. AA, AS, SS" required />
+              <Label htmlFor="genotype">
+                {screenType === "blood_group" ? "Blood group & rhesus" : "Genotype"}
+              </Label>
+              <Input
+                id="genotype"
+                name="genotype"
+                placeholder={screenType === "blood_group" ? "e.g. O+, A-" : "e.g. AA, AS, SS"}
+                required
+              />
             </div>
           )}
 

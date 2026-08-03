@@ -6,16 +6,31 @@ import { z } from "zod";
  * catalogue code is covered here — 'blood_pressure' is handled by the
  * vitals-logging BP-control flow instead, and 'pcos_panel'/'antenatal_booking'
  * don't have an ML lab-interpretation shape yet.
+ *
+ * The Screen ladder's own annual/organ-baseline panel codes (added
+ * 20260802010000) are folded into the two groups that need zero ML-service
+ * schema change: 'ogtt_fpg' reuses the already-supported 'fasting_glucose'
+ * analyte code (a fasting/OGTT glucose reading is that same measurement,
+ * same canonical unit); 'fbc'/'lft'/'kft'/'tft'/'urinalysis'/'ecg_resting'/
+ * 'urine_acr' are PROCEDURAL (status only, like mammography/FIT below) —
+ * ML cannot derive a finding from a multi-value blood panel report any more
+ * than it can from imaging, so a clinician records the panel's overall
+ * status rather than every constituent value. 'syphilis' is QUALITATIVE
+ * (VDRL/TPHA, positive/negative). 'blood_group' reuses the free-text
+ * `genotype` field but is recorded server-side as `normal` verbatim (see
+ * services/ml/app/scoring/screening_interpretation.py) — never run through
+ * the sickle-cell-specific classifier `sickle_cell_genotype` uses.
  */
-export const ANALYTE_SCREEN_TYPES = ["hba1c", "lipid_panel", "psa"] as const;
+export const ANALYTE_SCREEN_TYPES = ["hba1c", "lipid_panel", "psa", "ogtt_fpg"] as const;
 export const QUALITATIVE_SCREEN_TYPES = [
   "hiv",
   "hep_b",
   "hep_c",
   "tb_screen",
   "malaria_rdt",
+  "syphilis",
 ] as const;
-export const GENOTYPE_SCREEN_TYPES = ["sickle_cell_genotype"] as const;
+export const GENOTYPE_SCREEN_TYPES = ["sickle_cell_genotype", "blood_group"] as const;
 export const PROCEDURAL_SCREEN_TYPES = [
   "mammography",
   "cervical_smear",
@@ -24,6 +39,13 @@ export const PROCEDURAL_SCREEN_TYPES = [
   "bone_density",
   "colonoscopy",
   "vision_check",
+  "fbc",
+  "lft",
+  "kft",
+  "tft",
+  "urinalysis",
+  "ecg_resting",
+  "urine_acr",
 ] as const;
 
 export const SCREENING_RESULT_SCREEN_TYPES = [
@@ -61,6 +83,14 @@ function isProceduralScreenType(code: string): code is ProceduralScreenType {
 export const screeningResultSchema = z
   .object({
     screen_type_code: z.enum(SCREENING_RESULT_SCREEN_TYPES),
+    // Set only when this result is being recorded against a specific
+    // Screen-tier (Core/Advanced/Comprehensive) order — the order-scoped
+    // checklist passes it as a hidden field; the standalone clinician form
+    // (record a result for this patient, no order context) omits it. Once
+    // every applicable code for that order has a linked result, a DB
+    // trigger auto-flips the order to 'resulted' (see
+    // 20260802224400_screening_results_follow_up_action_and_auto_resulted).
+    lab_order_id: z.string().uuid().optional(),
     hba1c_value: z.coerce.number().gt(0).max(20).optional(),
     hba1c_unit: z.enum(["percent", "mmol_mol"]).default("percent"),
     psa_value: z.coerce.number().gt(0).max(2000).optional(),
@@ -68,7 +98,13 @@ export const screeningResultSchema = z
     hdl_cholesterol_mg_dl: z.coerce.number().gt(0).max(200).optional(),
     ldl_cholesterol_mg_dl: z.coerce.number().gt(0).max(500).optional(),
     triglycerides_mg_dl: z.coerce.number().gt(0).max(2000).optional(),
+    // OGTT/fasting plasma glucose — same canonical unit + ML AnalyteCode
+    // ('fasting_glucose') as every other single-analyte field here.
+    ogtt_fpg_value: z.coerce.number().gt(0).max(500).optional(),
     qualitative_result: z.enum(["positive", "negative"]).optional(),
+    // Free-text carrier for both sickle_cell_genotype (classified AA/AS/SS)
+    // and blood_group (recorded verbatim as normal — see screeningResultSchema's
+    // GENOTYPE_SCREEN_TYPES comment and the ML-side branch this depends on).
     genotype: z.string().trim().min(1).max(32).optional(),
     procedural_status: z.enum(["normal", "borderline", "abnormal", "critical"]).optional(),
   })
@@ -80,6 +116,13 @@ export const screeningResultSchema = z
       }
       if (code === "psa" && data.psa_value === undefined) {
         ctx.addIssue({ code: "custom", path: ["psa_value"], message: "Enter a PSA value" });
+      }
+      if (code === "ogtt_fpg" && data.ogtt_fpg_value === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["ogtt_fpg_value"],
+          message: "Enter an OGTT/fasting glucose value",
+        });
       }
       if (
         code === "lipid_panel" &&
@@ -101,7 +144,11 @@ export const screeningResultSchema = z
         message: "Select positive or negative",
       });
     } else if (isGenotypeScreenType(code) && !data.genotype) {
-      ctx.addIssue({ code: "custom", path: ["genotype"], message: "Enter a genotype" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["genotype"],
+        message: code === "blood_group" ? "Enter a blood group" : "Enter a genotype",
+      });
     } else if (isProceduralScreenType(code) && data.procedural_status === undefined) {
       ctx.addIssue({ code: "custom", path: ["procedural_status"], message: "Select a result status" });
     }

@@ -19,7 +19,7 @@ import {
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora (£). No hidden costs: every line item is clearly labelled.",
+    "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora ($). No hidden costs: every line item is clearly labelled.",
   alternates: { canonical: MARKETING_ROUTES.pricing },
 };
 
@@ -60,7 +60,7 @@ export default async function PricingPage() {
             Not looking for a plan? You do not need one.
           </p>
           <p className="mt-1.5 text-sm text-charcoal-ink/75">
-            A one-off Health Check is pay-once, from ₦15,000, on any plan including the free one.
+            A one-off Health Check is pay-once, from ₦65,000, on any plan including the free one.
             So are HIV, hepatitis, cervical and blood group screenings, from ₦6,000.
           </p>
           <Button asChild variant="outline" size="sm" className="mt-3">

@@ -482,6 +482,31 @@ export default async function AdminPage() {
       </Card>
       )}
 
+      {can("integrations.manage") && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SEMANTIC_ICON.impact className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <Link href="/admin/settings/protocol-api" className="hover:underline">
+              Protocol API
+            </Link>
+          </CardTitle>
+          <CardDescription>
+            License the escalation/risk/protocol machinery to a partner clinic, state PHC, or
+            NGO — stateless classifiers, no patient tenant required.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/admin/settings/protocol-api"
+            className="text-sm font-medium text-brand-green hover:underline"
+          >
+            Manage licensed partners →
+          </Link>
+        </CardContent>
+      </Card>
+      )}
+
       {can("broadcasts.send") && (
       <Card>
         <CardHeader>

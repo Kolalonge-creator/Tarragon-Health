@@ -39,14 +39,14 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
             price: "$2.56/month",
             why: "The stay-healthy plan: a screening and vaccination calendar built around them, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
             secondary:
-              "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000, in Nigeria) is available to anyone, on any plan.",
+              "Just want to self-track for now? Tarragon Free is ₦0 forever, and the Annual Health Check (from ₦65,000, in Nigeria) is available to anyone, on any plan.",
           }
         : {
             plan: "Tarragon Prevent",
             price: "₦3,500/month",
             why: "The stay-healthy plan: a screening and vaccination calendar built around them, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
             secondary:
-              "Just want to self-track for now? Tarragon Free is ₦0 forever, and the one-off Annual Health Check (₦65,000) is available to anyone, on any plan.",
+              "Just want to self-track for now? Tarragon Free is ₦0 forever, and the Annual Health Check (from ₦65,000) is available to anyone, on any plan.",
           }
       : health === "one"
         ? from === "abroad"

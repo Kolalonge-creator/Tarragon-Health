@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { DIASPORA_PROCESSING_FEE_NOTE_SHORT } from "@/app/(marketing)/_content/pricing";
 
 /**
  * Live prices for the public pricing page.
@@ -80,13 +81,22 @@ const TIER_PLAN_CODES: Record<string, { monthly?: string; yearly?: string; curre
   "diaspora-complete": { monthly: "complete_usd", yearly: "complete_yearly_usd", currency: "USD" },
 };
 
-export type TierPriceOverride = { priceMain?: string; priceSecondary?: string };
+export type TierPriceOverride = { priceMain?: string; priceSecondary?: string; priceNote?: string };
 
 /**
  * Builds the per-tier price strings from live data. Only tiers whose backing
  * plan is actually on sale get an override; anything unpriced, off sale or
  * unreachable keeps the static string, so the page never shows a blank or a
  * zero where a price belongs.
+ *
+ * Naira tiers lead with the monthly price, matching how they're always sold.
+ * Dollar tiers lead with the YEARLY price instead (one card charge a year
+ * instead of twelve — matches the default onboarding and /patient/subscription
+ * already use for USD) and carry a fee-disclosure note, since every dollar
+ * price on sale already includes the 10% international processing fee
+ * (private.expected_derived_price_minor). If only one interval is on sale
+ * (e.g. mid-resync after a rate or fee change), that one becomes priceMain
+ * rather than showing nothing.
  */
 export async function fetchTierPriceOverrides(): Promise<Record<string, TierPriceOverride>> {
   const prices = await fetchPlanPrices();
@@ -98,7 +108,17 @@ export async function fetchTierPriceOverrides(): Promise<Record<string, TierPric
     const yearly = spec.yearly ? prices.get(spec.yearly) : undefined;
     const override: TierPriceOverride = {};
 
-    if (monthly !== undefined) {
+    if (spec.currency === "USD") {
+      if (yearly !== undefined) {
+        override.priceMain = formatPrice(yearly, spec.currency);
+        if (monthly !== undefined) {
+          override.priceSecondary = `or ${formatPrice(monthly, spec.currency)}/month`;
+        }
+      } else if (monthly !== undefined) {
+        override.priceMain = formatPrice(monthly, spec.currency);
+      }
+      if (override.priceMain) override.priceNote = DIASPORA_PROCESSING_FEE_NOTE_SHORT;
+    } else if (monthly !== undefined) {
       override.priceMain = formatPrice(monthly, spec.currency);
       if (yearly !== undefined) {
         override.priceSecondary = `or ${formatPrice(yearly, spec.currency)}/year`;

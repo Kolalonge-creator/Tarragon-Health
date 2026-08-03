@@ -483,7 +483,9 @@ Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14,
 - **`wearable_readings` is a genuinely separate table from `vitals_readings`, not a "no dual source of truth" violation** — passive wearable metrics (steps, sleep stages, HRV, recovery/strain) have no `vitals_readings.vital_type` equivalent at all. Any wearable metric that *does* overlap an existing vital_type (heart rate → pulse, weight, SpO2) should go to `vitals_readings` with `source='wearable'` instead (that enum value already exists) — the additive-faster-path/no-parallel-table rule below still applies to those overlapping metrics.
 - **App/web manual entry is never removed.** Device sync is an additive faster path into the same `vitals_readings` table patients already log into manually via app/web — same downstream escalation logic, same `patient_risk_scores`, same abnormal-result pipeline. No dual source-of-truth for anything that has a `vitals_readings` equivalent — `vitals_readings.source` (`manual`/`device`/`wearable`) distinguishes them, not a parallel table. WhatsApp/SMS may remind a patient to log a reading; it is not itself an entry interface.
 - Every reading gets `organisation_id` + RLS like any other table.
-- Diaspora/premium tier only for the consumer wearable ecosystem (Apple Health/Oura/WHOOP/Garmin/Fitbit, not yet built) — Bluetooth clinical devices (BP cuff/glucometer/scale) are core-tier, sold as device bundles per `docs/FEATURE_SPEC.md`.
+- Diaspora/premium tier only for the consumer wearable ecosystem (Apple Health/Oura/WHOOP/Garmin/Fitbit, not yet built).
+- **Founder decision 2026-08-02 — Tarragon does NOT sell/import/bundle BP cuffs or glucometers.** The "sold as device bundles" line elsewhere in this file and in `docs/FEATURE_SPEC.md`/`docs/FULL_SPECIFICATION_V4.md` was never built (confirmed: `pricing.ts` has zero device line items, no checkout/product-listing code exists) and is now deliberately shelved, not just unbuilt. Reason: becoming a hardware importer/reseller would require Tarragon to be NAFDAC's registered "local representative" for whichever brand it bundles (Power of Attorney from the manufacturer, or import/register under Tarragon's own name) — a real business-development/regulatory commitment inappropriate for a pre-revenue solo founder to take on speculatively. **Patients buy their own BP monitor/glucometer from any existing local retailer (any brand, Bluetooth or not) and either type the reading in manually (already fully shipped, zero cost) or, once the BLE path below is proven on real hardware, pair it if it happens to be one of the two curated standard-GATT-compliant models.** Do not build a device-bundle checkout/product-listing feature without an explicit ask — this is now the same class of gate as the other Phase 2/3 items above.
+- **The BLE "connecting" path itself (see 2026-07-21 GATT profile note below) is fully built but never tested against real hardware** — before recommending or documenting any specific device model to patients, buy one A&D Medical UA-651BLE (BP) and one Roche Accu-Chek Guide/Guide Me (glucose) and pair them with the real Expo app first. Both are the two models with documented, credible standard-GATT compliance (unlike Omron/iHealth, which push proprietary apps/SDKs) — see the 2026-08-02 device-sourcing research in conversation history for the full comparison. Add a "supported devices" list to the pairing screen only after that hardware test passes.
 - **Weight Scale (0x2A9D) gap CLOSED 2026-07-21** — full BLE support now covers all five standard GATT clinical profiles: BP cuff (0x2A35), glucometer (0x2A18), weight scale (0x2A9D, spec-fixed 0.005 kg/0.01 lb resolutions, imperial converted to kg, 0xFFFF measurement-unsuccessful rejected), thermometer (0x2A1C, 32-bit medical FLOAT, °F converted to °C), and pulse oximeter (PLX Spot-Check 0x2A5E). `patient_device_type` gained `thermometer`/`pulse_oximeter` (migration `20260721141233`); readings land in the existing `vitals_readings` columns (`weight_kg`/`temperature_c`/`spo2_pct`) via the same device-readings API.
 
 ## TypeScript Code Rules
@@ -1851,6 +1853,466 @@ service, not an amount of spending power. Nine migrations, `20260731214826`–`2
   `20260801091000_sponsor_care_status_and_funding`. Confirmed they do NOT collide with the voucher
   work (nothing references the dropped wallet, every voucher object intact), but whoever owns that
   session still needs to commit them, same recurring drift class as every prior entry in this file.
+
+### 2026-08-01 — Clinical authority made monotonic: refill confirmation reachable at every tier ([PR #194](https://github.com/Kolalonge-creator/Tarragon-Health/pull/194), released via [PR #195](https://github.com/Kolalonge-creator/Tarragon-Health/pull/195))
+Founder requirement, stated directly: a higher tier must be able to see and do everything a lower
+tier can, so that when no lower tier is on shift the senior doctor can still handle everything.
+Formally: **`authority(tier N)` must be a subset of `authority(tier N+1)`.** Auditing that turned up
+one real violation and one design error behind it.
+- **The violation:** `private.can_confirm_medication_refill` was written as
+  `doctor_tier = 'tier_1'` — an **equality**, where every sibling gate in this codebase is a minimum
+  ("Tier 2 and above"). A floor expressed as a fence, which silently made a *lower* tier the only
+  holder of a capability. A Tier 4 Senior Registrar covering a shift with no Tier 1 on duty had no
+  route to confirm a routine refill. Fixed by `20260801001234`: all five clinical tiers plus the
+  Clinical Director. `care_coordinator` is excluded **by name**, not via `doctor_tier is not null` —
+  that is what keeps CLAUDE.md's own never-grant-a-Care-Coordinator-medication-write rule structural,
+  since a tier added to the enum later is then excluded by default rather than silently admitted.
+- **Why the DB fix alone was nearly a no-op, checked not assumed:** Tier 2+ already passed
+  `medications_update` via `has_prescribing_authority`, and the UI computes its own gate in
+  TypeScript without ever calling the function. So two app-layer halves were needed for the stated
+  requirement to actually hold. Confirmed by grep that `useConfirmMedicationRefill` is the **only**
+  write path to `refill_date` anywhere in the app — `AddMedicationForm` adds a medication and
+  `StopMedication` stops one, so neither substitutes and the capability was genuinely unreachable,
+  not merely inconvenient.
+- **UI gate:** new `canConfirmMedicationRefill()` in `lib/clinical/doctor-tier.ts` mirrors the DB
+  predicate (same convention as the existing `hasPrescribingAuthority` mirror), replacing
+  `!canPrescribe && doctor_tier === 'tier_1'` — an exclusion that by construction hid the control
+  from every prescriber.
+- **Attribution (`20260801001838`):** `last_confirmed_at`/`by` stamping sat *after* an unconditional
+  `if has_prescribing_authority then return new`, so a senior doctor's confirmation was written but
+  never credited and the patient-facing "Confirmed by your care team" line stayed blank. Moved out
+  from behind that early-return, but deliberately **not** "stamp for everyone": a prescriber makes
+  many kinds of write, so a dose change or a stop must never surface to the patient as a care-team
+  confirmation. Non-prescribers stamp unconditionally (their only permitted update *is* a
+  confirmation — byte-for-byte the prior behaviour, including re-confirming an unchanged date, which
+  a naive value-change test would have silently regressed); prescribers stamp only when
+  `refill_date` moved and no clinical field moved with it.
+- **`packages/db/tests/tier_authority_monotonicity.sql` — the durable part.** It **discovers** tier
+  gates dynamically (any `private` function taking a single org `uuid`, returning boolean, whose body
+  mentions `doctor_tier`) rather than listing them, so the next gate someone writes is covered without
+  anyone remembering to add it. Also asserts non-vacuity (some gate must deny some tier, else an
+  all-permissive system would pass trivially) and that `care_coordinator` is denied by every gate.
+- **Verified against the live database, and the suite proved itself:** the monotonicity test was run
+  **before** the fix and FAILED, naming the exact violation
+  (`can_confirm_medication_refill: tier_1=allowed but tier_2/3/4/5=denied`) — no deliberate sabotage
+  needed, the real bug tripped it. After: all cases pass, matrix
+  `can_confirm_medication_refill t1..t5=1 coord=0`, `has_prescribing_authority t1=0 t2..t5=1 coord=0`,
+  with case 2 still reporting a genuine denial so the suite is not vacuously green.
+  `packages/db/tests/refill_confirmation_attribution.sql` covers 5 cases: Tier 1 confirm stamps;
+  Tier 4 confirm stamps; Tier 4 dose change does NOT stamp *while the dose genuinely changes*;
+  patient edit never stamps; Tier 1 dose change still blocked `42501`.
+- **⚠️ Test trap worth remembering, it produced four wrong readings before being caught:**
+  `medications_update` is gated on `is_org_staff`, so a probe profile that is not clinician-role is
+  denied with **zero rows updated and no exception**. That reads as a failed assertion rather than a
+  blocked write, and it also makes "should not happen" cases pass for the wrong reason. Always assert
+  the write actually landed (here, `dose=20mg`), never only that the side effect is absent.
+- typecheck clean, lint 0 errors (same 2 pre-existing warnings), 65 suites / 563 tests. All CI green
+  on both PRs; production deployment `6435b88` confirmed **success** and both domains verified live.
+- **NOT browser-verified.** The change is user-visible (a Tier 2+ doctor now sees "Confirm &
+  continue"), but completing it requires signing in, and this session could not enter a password to
+  authenticate. No QA fixtures were left on production. To check it by hand: sign in as
+  `clinician.tier2.test@tarragon.test`, give that account an active `clinical_staff` row at
+  `doctor_tier='tier_2'`, add a `source='clinician'` medication to a QA patient, and open that
+  patient at `/clinician/patients/<id>` — the control should now render where previously it did not.
+- **Related, still open:** the **visibility** half of the same founder requirement is not fixed by
+  this. Tier 4/5 currently reach only 3 pages (`/doctor`) against Tier 1-3's 23, with no patient
+  directory at all, so the most senior doctors still cannot open a patient record. That is fixed only
+  by the parked doctor/clinician account-role merge on `worktree-doctor-ux-resolution` (commit
+  `9c01473`, both migrations deliberately unapplied pending an explicit go-ahead to rebuild
+  `user_role` on production).
+
+### 2026-08-02 — Patient AI explainer + Protocol API licensing (branch `worktree-ai-explainer-and-protocol-api`, isolated worktree, explicit ask)
+Founder asked what could make the platform innovative without more headcount; picked two of the
+proposed plays to build: (1) extend the "AI drafts, never decides" discipline from `case_briefs`
+(doctor-facing) to patients directly, multilingual and voice-capable; (2) license the
+escalation/risk/protocol machinery to smaller providers/PHCs/NGOs as a stateless API — "revenue that
+scales on API calls, not staff." Three migrations applied via `apply_migration` (recorded:
+`20260802205209_patient_result_explanations`, `20260802205326_protocol_partner_organisation_type`,
+`20260802205424_protocol_api_usage_log`); `pnpm --filter web typecheck`/`lint` (0 errors, same 2
+pre-existing warnings)/`test` (568, +5 new)/production build (all new routes compile) all green;
+`get_advisors` (security) shows only the accepted `authenticated_security_definer_function_executable`
+WARN on the 5 new RPCs, same advisory every sibling RPC in this codebase carries — zero findings
+reference either new table.
+- **Reconciliation first:** 8 migrations were live on remote with no local file
+  (`fix_missing_authenticated_table_grants` + 7 `sponsor_*`/`supporter_*` migrations) — confirmed
+  these belong to a concurrent session's in-flight sponsor/supporter-account work (matches
+  `project_sponsor_surface_rebuild` memory), not touched, per the shared-working-directory-hazard
+  discipline.
+- **Patient explainer ("Help me understand this"):** `patient_result_explanations` — same shape as
+  `case_briefs` (RLS select-only, patient-own-or-org-staff; **no insert/update/delete policy at
+  all**, every write goes through the service-role generator; explicit `grant select ... to
+  authenticated` with an assertion, the recurring M1-sprint-class gap this file has documented
+  repeatedly). Keyed by `(patient_id, kind, subject_key, language)` rather than a row id — always
+  explains the patient's LATEST value for that kind+key, matching how `RiskSignalsCard` already
+  presents "latest" data, which makes caching trivial (a past reading never changes, so a generated
+  explanation is reused indefinitely — no repeat Anthropic spend for a patient re-reading the same
+  card). `lib/patient-explainer/{snapshot,generate,actions}.ts` mirror `lib/case-briefs/*` almost
+  line for line: Claude Haiku 4.5, `withStructuredOutput`, never throws (persists a `failed` row and
+  degrades), system prompt hard-rules (ground only in the snapshot, never diagnose, never suggest a
+  medication, always close with "talk to your care team"). **New: language-aware.** `profiles.language`
+  (en/pcm/yo/ha/ig, added 2026-07-23 for voice reminders but explicitly commented "in-app UI stays
+  English for now") is now actually read for in-app content for the first time — the system prompt
+  is generated per-language, and each language caches as its own row so a patient can toggle to
+  English without losing the cached original. **`explainPatientResultAction` deliberately takes no
+  patientId parameter** — it always operates on the caller's own `auth.uid()`, so it can never be
+  pointed at another patient's data by construction, not just by RLS. Wired into `RiskSignalsCard`
+  (confirmed via grep to be patient-dashboard-only, safe to wire unconditionally) via a new
+  `<ResultExplainer>` component; **deliberately NOT wired into `LipidProfileCard`**, since that
+  component is also rendered on the clinician's patient-detail page for a DIFFERENT patient than the
+  viewer — wiring it there would have silently generated an explanation using the clinician's own
+  identity instead of the patient being viewed. Flagged as a real safety consideration this session
+  checked rather than assumed, not built around.
+  - **Voice, zero marginal cost:** "Read aloud" uses the browser's own Web Speech API
+    (`window.speechSynthesis`) — no vendor integration, no new secret, works today. Gracefully
+    hidden when no matching voice is installed for the language (Nigerian-language TTS voice
+    coverage varies a lot by OS/browser; Pidgin has no standard synthesis voice anywhere and
+    deliberately has no candidate mapping, so the control simply doesn't render for it). Honestly
+    flagged as a real gap, not pretended away: production-quality multilingual TTS for Nigerian
+    languages needs a real vendor (ElevenLabs or similar) as a follow-up, same "dormant until
+    real credentials exist" posture as the Dexcom/wearable connectors.
+  - **Real ESLint catch, fixed before commit:** the voice-availability check originally called
+    `setVoicesReady(true)` synchronously inside the effect body (flagged `react-hooks/set-state-in-
+    effect` — an actual error, not a warning). Fixed by moving the synchronous "is a voice already
+    loaded" read into the `useState` lazy initializer (a render-time read, not an effect-time
+    mutation) and leaving the effect to do ONLY what effects are for: subscribing to the
+    `voiceschanged` event. No hydration-mismatch risk — the branch that reads `voicesReady` only
+    renders after the patient has clicked to open the panel, never during the initial paint.
+  - `AiUsageDisclosure` (patient-facing, 2026-07-30) updated to name this second AI-drafted surface
+    alongside the doctor-facing case-brief one, same "AI drafts, never decides" line.
+- **Protocol API (the infrastructure/licensing play):** new `protocol_partner` `organisation_type`
+  enum value (own migration, the enum-add-then-use split) — a licensee org that has no patients, no
+  `clinical_staff`, no `lab_orders`, existing purely as the org-scoped billing/access boundary
+  `api_keys` already requires. New `protocol_api:classify` scope. Three genuinely stateless
+  classifier endpoints, each a thin, Zod-validated wrapper around an EXISTING pure, already-tested
+  `lib/rules/*` engine — no new clinical logic invented, real reuse of "genuinely hard to build and
+  validated" machinery:
+  - `POST /api/protocol-api/v1/bp-triage` wraps `classifyBpLevel` (the same bands the DB red-flag
+    trigger and every patient/clinician badge already use).
+  - `POST /api/protocol-api/v1/diabetes-risk` wraps `scoreFindrisc` (FINDRISC, Nigeria-validated
+    per the engine's own docstring — the platform's own onboarding screen).
+  - `POST /api/protocol-api/v1/cv-risk` wraps `assessCvRisk`, run on the exported
+    `PROVISIONAL_CV_RISK_CONFIG` (the same honestly-labelled provisional defaults this platform
+    itself falls back to with no signed config) — `config_signed` is always `false` in the
+    response; a licensee never sees Tarragon's live Medical-Director-signed `cv_risk_config`, which
+    is internal governance data specific to this platform's own patients.
+  - **Genuinely stateless — no patient record is read or written by any of the three calls, no
+    clinical values are persisted anywhere on this platform**, only the fact that a call happened
+    (org, key, endpoint, timestamp) is logged in the new `protocol_api_usage_log`, non-blocking
+    (`lib/protocol-api/log-usage.ts`, same "never awaited by the caller's response" discipline as
+    `api_keys.last_used_at`).
+  - **The real structural finding that shaped this design:** every existing `api_keys`/
+    `partner_integrations` RLS policy requires `organisation_id = current_org_id()` — correct for a
+    partner org's OWN staff self-serving their OWN integrations, but wrong here, since an external
+    NGO/PHC licensee typically has no Tarragon login at all. Built 5 narrowly-scoped SECURITY
+    DEFINER RPCs (`admin_create_protocol_partner_org`, `admin_list_protocol_partners`,
+    `admin_issue_protocol_api_key`, `admin_revoke_protocol_api_key`,
+    `admin_list_protocol_api_keys`) so Tarragon's own admin can act across the org boundary on a
+    licensee's behalf — same pattern as `admin_link_lab_partner` (2026-07-30). **Structural, not
+    just app-layer, containment:** `admin_issue_protocol_api_key` hardcodes
+    `scopes = array['protocol_api:classify']` — caller-supplied scopes are never accepted — and
+    verifies the target org's `type = 'protocol_partner'` before inserting, so this surface can
+    never become a general cross-org backdoor for minting a `device_readings:write` key or creating
+    a clinic/HMO org. Proven live, not assumed: a rolled-back-transaction test confirmed a
+    non-admin is blocked, an admin's org+key+listing round-trip works, and the issued key is only
+    ever visible through the scope-filtered listing RPC (proving the hardcoded scope actually
+    stuck).
+  - New `/admin/settings/protocol-api` (add a partner org, issue/revoke keys with the show-once
+    flow, per-partner 30-day call count) + a card on the admin index, both gated on the existing
+    `integrations.manage` permission — no new permission key needed.
+  - `docs/INTEGRATIONS_API.md` extended with a full Protocol API section (request/response examples
+    for all three endpoints, the statelessness guarantee stated explicitly, the never-prescribes
+    guardrail restated for a partner audience).
+- **Verified live, not assumed:** RLS on `patient_result_explanations` proven in 3 rolled-back-SQL
+  cases (patient sees own, stranger sees zero, direct authenticated insert blocked `42501` with no
+  insert policy to hit); the 5 protocol-api admin RPCs proven in 2 more (non-admin blocked with the
+  RPC's own exception; admin's full org→key→listing round-trip, with the scope-hardcoding confirmed
+  by the key only appearing in a query that filters on the exact hardcoded array). Learned (again)
+  that `execute_sql`'s unterminated transactions auto-rollback on connection close — confirmed no
+  residue from an early test that omitted an explicit `rollback`.
+- **NOT browser-verified** — composition over the DB-verified primitives + green production build,
+  consistent with this codebase's own posture on recent similar passes when no test credential is at
+  hand. **Next / founder steps:** a real TTS vendor for production-quality Nigerian-language voice
+  (currently Web Speech API only, English-strongest); wire the explainer into a vitals/lipid card on
+  a confirmed patient-only render path (deliberately not attempted here for `LipidProfileCard` — see
+  above); when a real protocol-partner licensee is ready, add them via `/admin/settings/protocol-api`
+  and hand them `docs/INTEGRATIONS_API.md`'s Protocol API section; consider per-key rate limiting once
+  real usage volume exists to judge a sane threshold against.
+
+### 2026-08-01 — Sponsor surface rebuilt after walking it as a diaspora son (branch `worktree-sponsor-10-of-10`)
+Founder asked for an in-character review of `/patient/supporting` as somebody abroad supporting a
+parent in Lagos, then to build every gap it found. Fixture: a 68-year-old mother in Ikeja on
+Amlodipine with BP trending 148/90 → 156/96. Three migrations `20260801090000`–`093000`; typecheck /
+lint (0 errors, the same 2 pre-existing warnings) / 555 web tests / full production build all green.
+- **⚠️ THE BIG ONE — every table a migration creates in `public` was born unreachable, and had been
+  for the life of the project.** Confirmed against `pg_default_acl`, not guessed: default privileges
+  for tables created by `postgres` in `public` are `{postgres, service_role}` with **`authenticated`
+  absent**, where Supabase's own `storage` schema includes it. So a table created in the dashboard at
+  bootstrap is reachable and a table created by `create table` in a migration is not. RLS restricts
+  *rows*; it does not grant *table access*, so a carefully written policy on such a table governs
+  nothing and PostgREST returns `42501`, which supabase-js surfaces as an **empty result** — the UI
+  then renders a confident, wrong zero rather than an error. **30 tables were affected**, including
+  every Health Wallet table (the review found ₦65,000 of real money displaying as ₦0 with "No money
+  has been added yet") and all 13 `lpe_*` Lifestyle Programme Engine tables. Fixed at the root in
+  `20260801090000`: one `alter default privileges … grant … to authenticated` so every future table
+  is born reachable, plus a data-driven backfill granting each existing table exactly what its own
+  policies imply (a SELECT-only policy gets only SELECT — it cannot over-grant). **`anon` deliberately
+  excluded**; public exposure here is always a specific decision. Paired with the existing
+  `rls_auto_enable` event trigger, a new table is now both RLS-protected *and* reachable. Proven live
+  by creating a throwaway table and asserting all three properties. **This is the third time this
+  class was fixed one table at a time (M1 sprint, then `case_briefs`) — it is fixed at the root now,
+  with `packages/db/tests/authenticated_table_grants.sql` as the standing guard.**
+  ⚠️ **Note the wallet half was overtaken mid-session**: a concurrent session retired the Health
+  Wallet for Care Vouchers (PR #192) while the review was being written, and the voucher tables *do*
+  carry grants. The wallet finding is therefore historical; the other 26 tables were real and are now
+  fixed.
+- **"A frightening number and apparently nobody has noticed."** The mother's 156/96 rendered as a
+  flat neutral figure while the platform had **already** raised `clinician_review` with a review
+  deadline three days out — and `clinician_alerts` already carried the `can_read_clinical` clause, so
+  the sponsor was permitted to know. The page simply queried `escalations` (empty) and never
+  `clinician_alerts`. New `sponsor_care_status` RPC returns **counts and dates only** — `title`/
+  `detail` are never selected, asserted over in the migration — so the card can say "their care team
+  is looking at something · a doctor reviews it by 4 Aug" and structurally cannot leak a clinician's
+  reasoning to a family member before the patient hears it. Also added BP movement ("up from 148/90")
+  and the care plan's own target quoted back ("under 140/90"), so the number finally has a scale.
+- **The sponsor could not buy the one thing they came for.** No path at any price to "put my mother
+  on Complete Care and bill my card monthly" — only one-off vouchers. New
+  `subscriptions.paid_by_profile_id` + `initiateSponsoredSubscriptionCheckout` + a
+  `sponsored_subscription` metadata kind read by `private.activate_sponsored_subscription`, an AFTER
+  INSERT trigger on `payment_transactions` — the same no-redeploy pattern the wallet top-up used, so
+  neither webhook Edge Function had to change. The grant is **re-checked when the money lands**, so a
+  grant revoked mid-checkout buys nothing (proven). Both parties are notified: nobody should discover
+  they were put on a paid plan by noticing new features.
+- **A refill due in five days was visible and unactionable.** `sponsor_request_refill` turns it into
+  a real priced bill (idempotent — a second press returns the same order, never a duplicate), refusing
+  anything that is not already an active clinician-prescribed medication, so it is never a route to a
+  new prescription. `sponsor_payable_orders` also gained `video_visit`, the order type most likely to
+  need somebody else to settle it.
+- **Silence was the product.** The only notification the sponsor had ever received was a
+  health-education lesson for their *own* account. Added `sponsor_care_reviewed` (a doctor has looked
+  at it), `sponsor_person_quiet` (21 days silent, only for someone on an active care plan, one nudge
+  a month) and `sponsored_plan_started`, all `in_app` + `email`, all hard-coded `non_clinical` with an
+  assertion that keeps them that way.
+- **A payer had to become a patient to pay, and then had to live in a patient's app.** Two halves,
+  both closed. **(a) The questions:** full patient onboarding — consent to how *their own* health data
+  is used, consent to receive *remote care themselves*, DOB and sex — stood between someone and giving
+  us money for their mother, enforced in the DB. New `profiles.account_purpose` ('care' | 'support'):
+  a supporter accepts the terms of service and nothing else, because a person who will never receive
+  care here has no telehealth relationship to consent to and no health data we have a basis to hold.
+  **(b) The app itself:** reordering the patient menu was not enough — a supporter still landed on
+  `/patient`, a dashboard of empty prompts about a body we are not looking after, under a sidebar of
+  nine links about their own health, labelled "Patient". Now: `getNavSections` takes
+  `accountPurpose` and gives supporters their own four-item menu (People you support · Messages ·
+  Your people · Payments), the role chip reads **"Supporter"**, `completeOnboarding` and a guard on
+  `/patient` both send them to `/patient/supporting` as their real home, and a `setUpMyOwnCare`
+  action is the door if they ever do want care here.
+  **`enforce_receives_care_switch` re-imposes every prerequisite if they take that door**, and
+  `joinAsPatientToo` clears `onboarding_completed_at` in the same statement so they go back through
+  the full patient flow rather than around it — the requirement **moved rather than weakened**.
+- **Founder correction, same day: supporting and being a patient are INDEPENDENT.**
+  `account_purpose` ('care' | 'support'), shipped hours earlier in `20260801093000`, encoded a false
+  exclusivity — it could not represent a daughter who funds her mother's care *and* uses Tarragon for
+  her own. Replaced in `20260801100000` by `profiles.receives_care boolean`; being a **supporter**
+  needs no column at all, because it is already fully expressed by holding a `profile_access` grant,
+  which is the thing that actually confers the ability and which the person supported can revoke. Two
+  independent facts, so all four combinations exist. Three rules, all founder-specified:
+  1. **A supporter may join as a patient, on any plan including Free** — and must then answer
+     everything. `joinAsPatientToo` sends them through the whole flow including the intake questions,
+     because the screening calendar and risk scoring are computed from those answers; a
+     half-answered patient silently gets a thinner schedule rather than an obviously empty one.
+     They keep supporting whoever they support — joining ADDS care, it does not swap.
+  2. **A supporter who has not joined must not reach the patient surfaces at all**, not merely have
+     them hidden. Enforced in `proxy.ts` as a single **default-deny** choke point: everything under
+     `/patient` is refused except four named supporter surfaces (`supporting`, `family`, `messages`,
+     `subscription`). Default-deny matters — the opposite would silently open each newly added
+     clinical page to accounts that never consented to care, and a per-page guard would have to be
+     remembered sixteen times today and once more per page forever.
+  3. **Both at once works**, and falls through to the full patient menu, which already carries
+     People you support in third place — no combined case to special-case.
+- **Verified in a browser, all fourteen `/patient` routes probed as a supporter-only account:** the
+  ten clinical ones (`/patient`, prevention, health-check, health-passport, lifestyle, wellness,
+  nutrition, activity, weight, quick-log) all redirect to `/patient/supporting`; the four supporter
+  ones are allowed. Then joined as a patient and re-probed: prevention now open, supporting still
+  open, chip back to "Patient", full menu with People you support retained.
+  `packages/db/tests/supporter_accounts.sql` (**9/9**) covers all of it, including the two that
+  matter most — an onboarded supporter **cannot** simply flip `receives_care` on, and once restarted
+  the full DOB + consent set is demanded exactly as for any new patient.
+- **Two real bugs found only by walking it in a browser.** (1) The supporter consent checkbox still
+  read "…and to receive remote care", which would have recorded a consent never asked for — the exact
+  untruth the split exists to remove. (2) My own `enforce_onboarding_prereqs` referenced
+  `patient_consents.profile_id`; the column is `patient_id`. A plpgsql body is not resolved until it
+  runs, so it created cleanly and threw on the first real supporter. Both fixed and re-verified live.
+- **Also fixed, pre-existing and unrelated:** `risk-signals-card.tsx` (from commit `e6b4c99`) was
+  missing `"use client"` while calling a `useQuery` hook — **this was throwing a 500 on `/patient`,
+  the main patient dashboard, for every user**. One line. Plus the duplicate "Messages" nav entry
+  (`navigation.ts:28`/`:31`, a live React duplicate-key error) removed, "People you support" moved
+  from tenth to third, and a stale "Health Wallet" reference left in the spend-receipt email.
+- **Verified:** `packages/db/tests/sponsor_care_status_and_funding.sql` — **19/19 pass**, every
+  negative paired with a positive control, then deliberately sabotaged (consent removed) to confirm it
+  discriminates rather than passing vacuously. Full browser walk as the sponsor confirmed the care-team
+  band, BP movement and target, a real refill turning into a "Medication ₦4,500" bill labelled by
+  category not drug, the plan picker, the one-step supporter onboarding, and the fixed nav. All
+  fixtures deleted afterward and both QA accounts restored.
+- **Next / founder:** Meta approval for the three new WhatsApp templates (the `in_app` leg works now
+  regardless) and a `send-pending-notifications` redeploy to pick up their email bodies; a real
+  Paystack round-trip of sponsored-plan checkout in a non-sandboxed browser, the same known gap every
+  payment pass in this file carries.
+
+### 2026-08-01 — A supporter can open the account they support, and pay from their own card
+Two founder asks on the same day, both built on `worktree-sponsor-10-of-10`.
+- **Paying directly.** The only settle path left after the Health Wallet was retired was redeeming a
+  Care Voucher the person already held, so the button read "No voucher for this" against a real,
+  itemised, unpaid bill; `sponsor_pay_booking_order` had been dropped by `20260731215735` and never
+  replaced. `initiateSponsorBillCheckout` now charges the supporter's own card for one named bill.
+  **The amount is never posted from the form and authorisation is not a second check that could
+  drift from the first** — both come from `sponsor_payable_orders`, which raises 42501 without a
+  manage grant, so a bill you cannot list is a bill you cannot pay. Verified live: a `view` grantee
+  is refused the listing outright, a `manage` grantee sees the real ₦4,500, and the bill still names
+  a category rather than the drug.
+- **Opening their account** (founder chose full act-as over a richer read-only view, and chose
+  "always name the supporter" for attribution). `20260801110000`: `private.can_act_for`,
+  `logged_by_profile_id` on `vitals_readings`/`symptoms`, INSERT policies for a manage grantee, and
+  `private.stamp_acting_supporter` deriving the author from `auth.uid()`.
+  **Acting for someone is deliberately NOT impersonation** — `auth.uid()` stays the supporter
+  throughout, because every RLS policy on this platform is built on it. Only the `patient_id` the app
+  is pointed at changes. The chosen person lives in a cookie that is **only a hint**: the live grant
+  is re-checked on every request, so a forged or stale cookie reaches nothing and a downgrade to
+  `view` ends access on the very next page load (both proven live).
+  **No UPDATE or DELETE policy exists**, so a supporter may add to the record and can never revise or
+  remove it, including their own earlier entry. `packages/db/tests/acting_for_someone.sql` (9/9)
+  covers all of it, including a deliberately spoofed author being overwritten with the real one.
+- **The bug that mattered, found only by walking it:** `logVital` hardcoded `patient_id: user.id` and
+  ignored the patient it was handed, so a reading logged inside someone else's open account silently
+  landed on the supporter's own record. Fixed for `logVital` and `logSymptom` via `resolveSubjectId`,
+  which re-checks the grant. Verified end to end: 134/84 saved to **Folake's** record, attributed to
+  **Tunde Adeyemi**.
+- **The remaining three writes wired, 2026-08-01** (`20260801120000`, `20260801121000`). Founder
+  confirmed a family member SHOULD be able to raise a danger-symptom alert for someone, which is
+  the case the whole feature exists for: an elderly parent having chest pain is often not the person
+  holding the phone. `submitRiskAssessment`, `reportDangerSymptoms` and `logHospitalAdmission` now
+  resolve the subject the same way, with INSERT policies and `logged_by_profile_id` on
+  `risk_assessment_responses`/`emergency_events`/`patient_hospital_admissions`.
+  **That made attribution clinical rather than cosmetic.** Both alert bodies asserted the patient had
+  spoken ("Priority 1 ... source", "patient reported a hospital admission", "Self-reported by the
+  patient"), which is simply false when a son files it, and a doctor ringing about a Priority-1
+  emergency needs to know whether the patient described their own chest pain or somebody else did.
+  Both alerts now name the reporter and stop claiming the patient spoke; the `audit_log` rows were
+  also recording `actor_id = patient_id` and now record who actually acted.
+- **⚠️ THE TRAP, worth reading before writing another acting-for policy:** `insert ... returning` is
+  checked against the **SELECT** policy as well as the INSERT one, and when SELECT rejects the new row
+  Postgres raises `42501: new row violates row-level security policy` — **the same message as a WITH
+  CHECK failure**, pointing at the wrong half. supabase-js `.insert(...).select("id")` compiles to
+  exactly that, so a plain `insert` in a test passes while the real button fails in the browser, which
+  is precisely what happened. Closed by `20260801121000`: a supporter may read a row **because they
+  wrote it** (`logged_by_profile_id = auth.uid()`), which adds no visibility over anything the patient
+  recorded themselves. The migration asserts every table a supporter can write has a matching
+  read-back policy, and the test now uses `returning` deliberately.
+- **Verified live end to end:** as Tunde with Folake's account open, the real danger-symptom button
+  raised a Priority-1 emergency on **her** record reading *"Reported by Tunde Adeyemi on the patient's
+  behalf, not by the patient themselves."* `packages/db/tests/supporter_reporting.sql` (14/14) covers
+  it, including the two controls that matter — her own report stays unattributed and her own alert
+  never names a third party.
+- typecheck / lint (0 errors, same 2 pre-existing warnings) / 555 tests / production build green.
+
+### 2026-08-02 — Screen ladder: Core/Advanced/Comprehensive Screen replace the old Health Check tiers (branches `worktree-screening-module-pricing`, isolated worktree)
+Retires the Annual Health Check / Health Check Comprehensive bundles, the ₦15,000 Quick Check tier,
+and the standalone Annual Doctor Review product, replacing all of them with one cumulative screening
+ladder — **Core ₦65,000 / Advanced ₦95,000 / Comprehensive ₦149,000** — with Annual Doctor Review's
+doctor video consult folded into Comprehensive Screen rather than sold separately. Built across 5
+commits, migrations applied live and verified via rolled-back transactions throughout.
+- **Screen ladder + clinical layer:** a real HBV/HCV/HIV serology state machine, pathway-ownership
+  suppression (a chronic-care patient is never re-tested for something their care plan already
+  covers), a database-enforced PSA shared-decision-making gate, a 15% subscriber discount on
+  Screen-tier orders, and a video-visit price fix (was ₦5,000 live, corrected to the
+  founder-approved ₦10,000).
+- **Clinical-workflow layer built out behind the commercial ladder:** new analyte/procedural codes
+  (OGTT/FPG, FBC/LFT/KFT/TFT, urinalysis, resting ECG, urine ACR, syphilis, blood group), a
+  structured `follow_up_action` column, and a completeness check that auto-flips a Screen order to
+  `resulted` once every applicable code has a result (sex/age-gated, excludes dormant imaging,
+  once-per-lifetime for genotype/blood group). `/patient/health-check` stage 3 now requires ≥2 BP +
+  weight + waist + pulse readings taken since the check opened, not just any one reading ever
+  logged. A Screen-tier order's outstanding codes render as a checklist on the clinician patient
+  page, each opening the result form locked to that code and prompting for a follow-up action on
+  abnormal/critical results.
+- **Screening calendar now refreshes off a recorded result** — a real, previously-silent gap
+  (`screening_schedules` had no write path anywhere that ever set `status = 'completed'`), closed
+  with a narrow DB trigger. Full detail in the dedicated entry directly below.
+- **Marketing swept in full**, not partially: `pricing.ts`, the annual-health-check landing page,
+  `/gift`, `/prevention`, `/for-you`, `plan-finder.tsx`, `screening-journey.tsx`, `products.ts` and
+  the shared FAQ all rewritten from the old 3-4 tier Basic/Annual Health Check/Comprehensive
+  language to the real Core/Advanced/Comprehensive Screen ladder and its real prices — the annual-
+  health-check tier grid is now three cards, not four. `AnnualReviewCard` is un-gated from the
+  now-removed `annual_review` entitlement (renders only for pre-existing in-progress rows, nothing
+  for anyone else, matching the retired product).
+- **Verified:** typecheck/lint (0 errors, 2 pre-existing warnings)/563 web + 47 shared tests/full
+  production build all green throughout. DB completeness logic proven via
+  `packages/db/tests/screening_ladder_order_completeness.sql` (10 cases, rolled back). **Not
+  browser-verified** — no test credential reset this pass; composition over DB-verified primitives
+  plus a green build, consistent with this codebase's posture when no test credential is at hand.
+- **Next:** none blocking. `screening_schedules` still has no one-active partial unique index per
+  (patient, screen_type) the way `vaccination_schedules` does — fine for today's usage pattern, flag
+  if the same duplicate-row edge case ever needs tightening there too.
+
+### 2026-08-02 — Screening calendar now refreshes off a recorded result, closing a gap flagged (not silently dropped) in the 57ea1be session (branch `worktree-screening-module-pricing`)
+The 57ea1be commit message ("Retire Quick Check tier, close screening clinical-workflow gaps") flagged
+one thing left open: "the auto-refresh of the screening calendar off an Advanced/Comprehensive result
+was deliberately not built (the generation logic lives embedded inside the large `submitRiskAssessment`
+server action, too risky to extract/re-trigger in this pass)". Closed without touching that action.
+- **The actual gap was broader than the flag implied, and worse than cosmetic.** Auditing before
+  writing anything found `screening_schedules` had **no write path anywhere** that ever set
+  `status = 'completed'` — the only existing trigger (`mark_screening_schedule_booked`,
+  `20260715125456`) flips `pending/overdue → booked` on `lab_orders` insert and stops there. So even
+  the *old*, single-screening booking flow left every completed schedule stuck at `booked` forever,
+  and `submitRiskAssessment`'s own `lastCompletedByScreenTypeId` map (which only reads
+  `status = 'completed'` rows) never saw it — meaning cadence tightening was already silently broken
+  for everyone, not just the new Screen-tier self-service path. Compounding it: a self-bookable
+  Core/Advanced/Comprehensive Screen order is deliberately booked with **no** `screening_schedule_id`
+  link at all (`enforce_lab_order_origin`'s self-bookable branch), so even a hypothetical
+  resulted-hooked-off-`lab_orders` fix would have missed exactly the case the flag named.
+- **Fixed with a narrow DB trigger, not an app-layer refactor.** Migration
+  `20260802232211_screening_schedule_refresh_on_result.sql`: `private.refresh_screening_schedule_on_result()`
+  (`AFTER INSERT` on `public.screening_results`, `security definer`/`set search_path = ''`, same shape
+  as `mark_screening_schedule_booked`) matches the inserted row's `screen_type_code` against
+  `screen_types`, closes any active (`pending`/`booked`/`overdue`) schedule row for that patient+screen
+  type as `completed`, and — mirroring `computeScreeningRecommendations`' own
+  `addMonths(lastCompleted, frequencyMonths)` branch — opens a fresh `pending` row dated
+  today + `frequency_months` for recurring screenings; a one-off screen type (`frequency_months` is
+  null) gets no follow-up row, matching that same function's `lastCompleted, frequencyMonths is null →
+  continue` branch. Matched on **patient + screen type**, not the `screening_schedule_id` FK, precisely
+  because the Screen-tier self-service path has no such link — this is the one thing that reconnects
+  it back to the calendar. Exception-guarded (`when others then return new`) so a calendar-refresh bug
+  can never block recording a clinical result, same best-effort discipline as
+  `generateVaccinationScheduleBestEffort`.
+- **`submitRiskAssessment` (`apps/web/src/app/(dashboard)/patient/actions.ts`) is untouched** — the
+  risk this session's predecessor correctly flagged (refactoring a large, already-tested, onboarding-
+  critical-path server action just to add a second call site) was avoided entirely by hooking the fix
+  at the DB layer, off the one place every `screening_results` row lands regardless of caller
+  (confirmed via grep — `screening-result-actions.ts`'s single insert statement is still the only
+  writer).
+- **Scope, stated not guessed at:** deliberately does not re-validate age/sex eligibility against
+  `screen_types` before scheduling the next cycle — a result already exists for this patient+test, so
+  its own next-due-date is correct regardless of whether the catalogue would freshly *recommend* it
+  (that's `computeScreeningRecommendations`'s job, not this narrower refresh). Deliberately does not
+  guard against recording the same `screen_type_code` twice in quick succession (e.g. a correction) —
+  it would close the row it just opened and open another; no dedupe/rate-limit exists, matching this
+  codebase's existing tolerance for the same class of edge case elsewhere (`screening_schedules` has
+  no one-active partial unique index the way `vaccination_schedules` does).
+- **Verified live**, `packages/db/tests/screening_schedule_refresh_on_result.sql`, 3 cases in one
+  rolled-back transaction: an existing active schedule on a recurring (36-month) screen type closes to
+  `completed` and a new `pending` row lands at exactly `today + 36 months`; a one-off screen type
+  closes to `completed` with zero follow-up rows; a patient with **no** prior schedule row for that
+  screen type still gets a correct `pending` next-cycle row, never an error. All 7 checks passed.
+  `get_advisors` (security): zero findings reference the new function/trigger — it lives in `private`
+  schema, never PostgREST-exposed, so it carries none of the accepted-WARN class the `public.*` RPCs
+  do.
+- **No TypeScript touched** — this is a pure DB-layer fix, so no typecheck/lint/test/build run was
+  needed beyond confirming `git status` showed only the migration + its test file.
+- **Not browser-verified** — no UI change; the effect is visible only in `screening_schedules` rows
+  and the patient-facing screening calendar's due dates, both already proven via the live SQL test
+  above.
+- **Next:** none blocking. Worth remembering for anyone touching `screening_schedules` next: it still
+  has no one-active partial unique index per (patient, screen_type) the way `vaccination_schedules`
+  does — fine for today's usage pattern, but the same class of duplicate-row edge case flagged above
+  would recur there too if this table ever needs the same tightening.
 
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed

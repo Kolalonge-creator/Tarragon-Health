@@ -74,7 +74,7 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-1">
         <p className="text-sm text-charcoal-ink">
-          Your doctor: <span className="font-medium">{clinician.full_name}</span>
+          Your doctor: <span className="font-medium">Dr. {clinician.full_name}</span>
           {clinicianCredential && (
             <span className="text-charcoal-ink/60"> · {clinicianCredential}</span>
           )}

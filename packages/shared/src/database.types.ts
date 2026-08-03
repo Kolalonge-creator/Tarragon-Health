@@ -235,6 +235,7 @@ export type Database = {
           created_at: string
           gender_screens_completed: Json
           id: string
+          lab_order_id: string | null
           organisation_id: string
           patient_id: string
           review_summary: string | null
@@ -251,6 +252,7 @@ export type Database = {
           created_at?: string
           gender_screens_completed?: Json
           id?: string
+          lab_order_id?: string | null
           organisation_id: string
           patient_id: string
           review_summary?: string | null
@@ -267,6 +269,7 @@ export type Database = {
           created_at?: string
           gender_screens_completed?: Json
           id?: string
+          lab_order_id?: string | null
           organisation_id?: string
           patient_id?: string
           review_summary?: string | null
@@ -279,6 +282,13 @@ export type Database = {
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "annual_health_checks_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "annual_health_checks_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -3034,6 +3044,7 @@ export type Database = {
           followed_up_at: string | null
           followed_up_by: string | null
           id: string
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           source: Database["public"]["Enums"]["emergency_source"]
@@ -3072,6 +3083,7 @@ export type Database = {
           followed_up_at?: string | null
           followed_up_by?: string | null
           id?: string
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           source?: Database["public"]["Enums"]["emergency_source"]
@@ -8295,6 +8307,7 @@ export type Database = {
           facility_name: string | null
           id: string
           is_current: boolean | null
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           reason: string | null
@@ -8335,6 +8348,7 @@ export type Database = {
           facility_name?: string | null
           id?: string
           is_current?: boolean | null
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           reason?: string | null
@@ -8478,6 +8492,69 @@ export type Database = {
           },
           {
             foreignKeyName: "patient_quarterly_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_result_explanations: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          explanation_text: string | null
+          generated_at: string
+          id: string
+          input_snapshot: Json
+          kind: string
+          language: string
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          status: string
+          subject_key: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          explanation_text?: string | null
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          kind: string
+          language?: string
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          status: string
+          subject_key: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          explanation_text?: string | null
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          kind?: string
+          language?: string
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          status?: string
+          subject_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_result_explanations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_result_explanations_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -9197,18 +9274,21 @@ export type Database = {
           ngn_per_usd: number | null
           updated_at: string
           updated_by: string | null
+          usd_processing_fee_pct: number
         }
         Insert: {
           id?: boolean
           ngn_per_usd?: number | null
           updated_at?: string
           updated_by?: string | null
+          usd_processing_fee_pct?: number
         }
         Update: {
           id?: boolean
           ngn_per_usd?: number | null
           updated_at?: string
           updated_by?: string | null
+          usd_processing_fee_pct?: number
         }
         Relationships: [
           {
@@ -9569,6 +9649,7 @@ export type Database = {
           metadata: Json
           next_of_kin_name: string | null
           next_of_kin_phone: string | null
+          receives_care: boolean
           onboarding_completed_at: string | null
           organisation_id: string | null
           patient_number: string | null
@@ -9604,6 +9685,7 @@ export type Database = {
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
+          receives_care?: boolean
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -9639,6 +9721,7 @@ export type Database = {
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
+          receives_care?: boolean
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -9677,6 +9760,45 @@ export type Database = {
             columns: ["pharmacy_partner_id"]
             isOneToOne: false
             referencedRelation: "pharmacy_partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      protocol_api_usage_log: {
+        Row: {
+          api_key_id: string
+          called_at: string
+          endpoint: string
+          id: string
+          organisation_id: string
+        }
+        Insert: {
+          api_key_id: string
+          called_at?: string
+          endpoint: string
+          id?: string
+          organisation_id: string
+        }
+        Update: {
+          api_key_id?: string
+          called_at?: string
+          endpoint?: string
+          id?: string
+          organisation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_api_usage_log_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_api_usage_log_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -10115,6 +10237,7 @@ export type Database = {
           category: Database["public"]["Enums"]["risk_assessment_category"]
           created_at: string
           id: string
+          logged_by_profile_id: string | null
           organisation_id: string
           profile_id: string
           question_key: string
@@ -10133,6 +10256,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["risk_assessment_category"]
           created_at?: string
           id?: string
+          logged_by_profile_id?: string | null
           organisation_id?: string
           profile_id?: string
           question_key?: string
@@ -10279,6 +10403,7 @@ export type Database = {
         Row: {
           abnormal_flags: string[]
           created_at: string
+          follow_up_action: string | null
           id: string
           lab_order_id: string | null
           organisation_id: string
@@ -10291,6 +10416,7 @@ export type Database = {
         Insert: {
           abnormal_flags?: string[]
           created_at?: string
+          follow_up_action?: string | null
           id?: string
           lab_order_id?: string | null
           organisation_id: string
@@ -10303,6 +10429,7 @@ export type Database = {
         Update: {
           abnormal_flags?: string[]
           created_at?: string
+          follow_up_action?: string | null
           id?: string
           lab_order_id?: string | null
           organisation_id?: string
@@ -10938,6 +11065,7 @@ export type Database = {
         Row: {
           amount_minor: number
           cancel_at_period_end: boolean
+          paid_by_profile_id: string | null
           cancelled_at: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
@@ -10958,6 +11086,7 @@ export type Database = {
         Insert: {
           amount_minor?: number
           cancel_at_period_end?: boolean
+          paid_by_profile_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -10978,6 +11107,7 @@ export type Database = {
         Update: {
           amount_minor?: number
           cancel_at_period_end?: boolean
+          paid_by_profile_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -11098,6 +11228,7 @@ export type Database = {
           description: string | null
           id: string
           is_red_flag: boolean
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           reported_at: string
@@ -11120,6 +11251,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_red_flag?: boolean
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           reported_at?: string
@@ -11721,6 +11853,7 @@ export type Database = {
           ketone_urine: string | null
           ketones_mmol_l: number | null
           note: string | null
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           pulse_bpm: number | null
@@ -11773,6 +11906,7 @@ export type Database = {
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
           note?: string | null
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           pulse_bpm?: number | null
@@ -12566,12 +12700,51 @@ export type Database = {
         Args: { p_text: string }
         Returns: string[]
       }
+      admin_create_protocol_partner_org: {
+        Args: { p_name: string }
+        Returns: string
+      }
+      admin_issue_protocol_api_key: {
+        Args: {
+          p_key_hash: string
+          p_key_prefix: string
+          p_name: string
+          p_organisation_id: string
+        }
+        Returns: string
+      }
       admin_link_lab_partner: {
         Args: { p_lab_provider_id: string | null; p_profile_id: string }
         Returns: undefined
       }
+      admin_list_protocol_api_keys: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          key_prefix: string
+          last_used_at: string
+          name: string
+          revoked_at: string
+        }[]
+      }
+      admin_list_protocol_partners: {
+        Args: never
+        Returns: {
+          active_key_count: number
+          calls_last_30_days: number
+          created_at: string
+          last_called_at: string
+          name: string
+          organisation_id: string
+        }[]
+      }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_refresh_public_impact_metrics: { Args: never; Returns: undefined }
+      admin_revoke_protocol_api_key: {
+        Args: { p_key_id: string }
+        Returns: undefined
+      }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
@@ -13319,6 +13492,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_usd_processing_fee: { Args: { p_fee_pct: number }; Returns: Json }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
@@ -13334,7 +13508,13 @@ export type Database = {
         }
         Returns: Json
       }
+      can_act_for: { Args: { p_beneficiary: string }; Returns: boolean }
+      sponsor_care_status: { Args: { p_beneficiary: string }; Returns: Json }
       sponsor_payable_orders: { Args: { p_beneficiary: string }; Returns: Json }
+      sponsor_request_refill: {
+        Args: { p_beneficiary: string; p_medication_id: string }
+        Returns: string
+      }
       sponsor_set_dependent_basics: {
         Args: {
           p_beneficiary: string
@@ -13635,6 +13815,7 @@ export type Database = {
         | "lab"
         | "pharmacy"
         | "direct_consumer"
+        | "protocol_partner"
       outcomes_contract_type: "fee_at_risk" | "flat"
       outreach_task_status:
         | "open"
@@ -14276,6 +14457,7 @@ export const Constants = {
         "lab",
         "pharmacy",
         "direct_consumer",
+        "protocol_partner",
       ],
       outcomes_contract_type: ["fee_at_risk", "flat"],
       outreach_task_status: [

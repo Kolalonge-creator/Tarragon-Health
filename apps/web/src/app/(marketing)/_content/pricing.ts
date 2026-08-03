@@ -19,15 +19,32 @@
  * - ONE DIASPORA CURRENCY, AND ONE PRICE. Pounds are retired, along with
  *   Diaspora Premium (which had no naira counterpart and so could never sit on
  *   a single price list). Dollar prices are the naira price converted at an
- *   admin-set reference rate, currently ₦1,365 to the dollar, so the same plan
- *   costs the same everywhere. The old 2.5-3.5x diaspora premium is gone with
- *   it: do not reintroduce a diaspora price band here, because
- *   private.enforce_derived_price will reject it in the database anyway.
+ *   admin-set reference rate, currently ₦1,365 to the dollar, so the same
+ *   plan is priced from the same naira number everywhere. The old 2.5-3.5x
+ *   diaspora premium is gone with it: do not reintroduce a diaspora price
+ *   band here, because private.enforce_derived_price will reject it in the
+ *   database anyway.
+ * - UPDATED 2026-08-02: a disclosed 10% international-card processing fee
+ *   now sits on top of the converted price, on every dollar plan and add-on,
+ *   monthly and yearly alike (private.expected_derived_price_minor). This is
+ *   not the retired diaspora premium reintroduced under another name: it is
+ *   cost-based, uniform, and shown to the buyer as its own line rather than
+ *   folded silently into a bigger number (DIASPORA_PROCESSING_FEE_NOTE
+ *   below). The Diaspora tab also now leads with the yearly price (one card
+ *   charge a year instead of twelve), matching the onboarding/subscription
+ *   pages, which already defaulted to yearly for dollars. Admin-editable at
+ *   /admin/settings/diaspora-pricing; re-derive USD_TIERS's static fallback
+ *   numbers if either the rate or the fee changes.
  *
- * Still current from 2026-07-21: the "Annual Doctor Review" name (kept apart
- * from the "Annual Health Check" screening product), the ₦65,000 Annual Health
- * Check aligned to the live panel_bundles row, and TYPICAL_PRICES mirroring the
- * live lab_tests/panel_bundles catalogue (re-derive when partners reprice).
+ * Superseded 2026-08-02 — the old 3-tier Health Check ladder (Basic/Annual
+ * Health Check/Comprehensive, ₦15k/₦65k/₦75k) is replaced by Core/Advanced/
+ * Comprehensive Screen (₦65k/₦95k/₦149k), matching new panel_bundles rows
+ * 'screen_core'/'screen_advanced'/'screen_comprehensive'. "Annual Doctor
+ * Review" is retired as a separate product — its doctor video consult is now
+ * Comprehensive Screen's own result walkthrough, closing the two confusingly-
+ * named "annual ___" products this file used to carry side by side. Active
+ * subscribers get 15% off any Screen tier. TYPICAL_PRICES mirrors the live
+ * lab_tests/panel_bundles catalogue (re-derive when partners reprice).
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
@@ -59,6 +76,11 @@ export type PricingTier = {
   items: PricingLineItem[];
   /** Plain-text clarification called out in the guide (not a line item). */
   footnote?: string;
+  /** A one-line disclosure shown directly under the price, distinct from
+   * `footnote` (which sits below the feature list). Used on the Diaspora tab
+   * to state the processing fee as its own line rather than fold it
+   * silently into priceMain/priceSecondary. */
+  priceNote?: string;
 };
 
 export const PRICING_LABELS: Record<
@@ -134,7 +156,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
       { feature: "Screening lab tests (HbA1c from ₦8,000, etc.)", label: "BOOK & PAY" },
-      { feature: "Annual Health Check (₦65,000, full-body)", label: "BOOK & PAY" },
+      { feature: "Core Screen (₦65,000, full-body health check)", label: "BOOK & PAY" },
     ],
     footnote:
       "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme; that's the whole point of catching it early.",
@@ -179,18 +201,38 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Medication refills", label: "BOOK & PAY" },
     ],
     footnote:
-      "The Annual Health Check (full body screening) is not bundled free into Complete Care. It's a ₦65,000/year add-on available on any plan, so the price you see is the price you actually pay.",
+      "Core Screen (full body health check) is not bundled free into Complete Care. It's a ₦65,000/year add-on available on any plan, so the price you see is the price you actually pay — subscribers get 15% off.",
   },
 ];
 
+/** Short version for a per-card line, right under the price. Full version
+ * (DIASPORA_PROCESSING_FEE_NOTE, below) sits once under the whole tier grid.
+ * Exported so lib/marketing/plan-prices.ts can reuse the exact same wording
+ * for the live-priced override, not just this file's static fallback. */
+export const DIASPORA_PROCESSING_FEE_NOTE_SHORT = "Includes a 10% international processing fee.";
+
+/**
+ * Diaspora tab prices, annual-first.
+ *
+ * priceMain is now the YEARLY charge, not the monthly one: one card charge a
+ * year instead of twelve, which the onboarding and /patient/subscription
+ * pages already default to for dollars (see plan-selector.tsx). priceSecondary
+ * carries the monthly alternative, still one tap away everywhere it's shown.
+ *
+ * Both numbers include the 10% processing fee (naira price / 1,365 * 1.10,
+ * rounded to the cent) so this static fallback matches what checkout actually
+ * charges even before fetchTierPriceOverrides' live prices load. Re-derive
+ * both if the reference rate or the fee ever change.
+ */
 export const USD_TIERS: PricingTier[] = [
   {
     id: "diaspora-prevent",
     name: "Tarragon Prevent (Diaspora)",
     whoFor: "Healthy, and planning to stay that way",
-    priceMain: "$2.56",
-    pricePeriod: "per month",
-    priceSecondary: "or $25.64/year",
+    priceMain: "$28.21",
+    pricePeriod: "per year",
+    priceSecondary: "or $2.82/month",
+    priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description:
       "The stay-healthy plan, billed in dollars: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Screenings and vaccinations are done at partner facilities in Nigeria; monitoring and education work from anywhere.",
     items: [
@@ -202,9 +244,10 @@ export const USD_TIERS: PricingTier[] = [
     id: "diaspora-essential",
     name: "Essential Care (Diaspora)",
     whoFor: "One condition, monitored from abroad",
-    priceMain: "$5.86",
-    pricePeriod: "per month",
-    priceSecondary: "or $58.61/year",
+    priceMain: "$64.47",
+    pricePeriod: "per year",
+    priceSecondary: "or $6.45/month",
+    priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description: "Everything included is the same as Essential Care in Naira, billed in US dollars.",
     highlight: true,
     items: [
@@ -216,9 +259,10 @@ export const USD_TIERS: PricingTier[] = [
     id: "diaspora-complete",
     name: "Complete Care (Diaspora)",
     whoFor: "Multiple conditions, monitored from abroad",
-    priceMain: "$10.99",
-    pricePeriod: "per month",
-    priceSecondary: "or $109.89/year",
+    priceMain: "$120.88",
+    pricePeriod: "per year",
+    priceSecondary: "or $12.09/month",
+    priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description: "Everything included is the same as Complete Care in Naira, billed in US dollars.",
     items: [
       { feature: "Everything in Complete Care (Naira plan)", label: "INCLUDED" },
@@ -242,8 +286,9 @@ export const USD_TIERS: PricingTier[] = [
  * thing a transfer app structurally cannot do.
  *
  * Deliberately makes no claim about price being lower, higher or better value
- * than anything else. The plans cost the same everywhere; the reason to buy is
- * not the number.
+ * than anything else. The plan is the same naira number everywhere, plus a
+ * disclosed processing fee for a dollar card; the reason to buy is not the
+ * number.
  */
 export const DIASPORA_SPONSOR_PITCH = {
   title: "You already send money home for health",
@@ -269,7 +314,18 @@ export const DIASPORA_SPONSOR_PITCH = {
 };
 
 export const DIASPORA_ONE_PRICE_NOTE =
-  "The dollar price is the naira price, converted. Tarragon runs one price list, so the same plan costs the same whether it is paid for from Lagos or from London. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you buy their checks for them.";
+  "The dollar price starts from the naira price, converted at our published rate. Tarragon runs one price list: nobody pays a different rate for the same plan because of who they are. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you buy their checks for them.";
+
+/**
+ * Founder decision, 2026-08-02: an international card charge genuinely costs
+ * more to process than a Paystack-in-Nigeria one, and until this date that
+ * real cost was invisible (every dollar row sat at exact naira parity). This
+ * states it plainly rather than folding it into a bigger number: shown once
+ * here for the whole tab, and again per card as DIASPORA_PROCESSING_FEE_NOTE_
+ * SHORT, right next to the price it affects.
+ */
+export const DIASPORA_PROCESSING_FEE_NOTE =
+  "Every dollar price above already includes a 10% processing fee on top of the converted naira price. This covers what it actually costs to process an international card charge; it is the same fee whether you pay monthly or yearly, and it is never hidden in the number, it is stated here.";
 
 /**
  * Honesty note for diaspora buyers subscribing for THEMSELVES: monitoring
@@ -317,13 +373,13 @@ export type PricingAddOn = {
 
 export const ADD_ONS: PricingAddOn[] = [
   {
-    id: "annual-health-check",
-    name: "Annual Health Check",
+    id: "screen-core",
+    name: "Core Screen",
     price: "₦65,000/year",
     label: "ADD-ON",
     description:
-      "A full metabolic panel (fasting blood sugar, lipid profile, kidney and liver function), BP/weight/BMI check, one age- and sex-relevant cancer screening test, and a doctor consultation to walk you through your results. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge. Not the same product as the Annual Doctor Review (₦70,000/year): this is a day of screening tests, the Review is a sit-down about your whole year of care.",
-    availability: "Available to anyone, on any plan, including Tarragon Free.",
+      "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge. Two deeper tiers are available: Advanced Screen (₦95,000/year) adds age-triggered cancer screening and an ECG, and Comprehensive Screen (₦149,000/year) adds imaging and a 15-minute doctor video consult to walk through your whole result set — see the full breakdown on the Annual Health Check page.",
+    availability: "Available to anyone, on any plan, including Tarragon Free. Active subscribers get 15% off list.",
   },
   {
     id: "prevention-screening",
@@ -383,15 +439,10 @@ export const ADD_ONS: PricingAddOn[] = [
       "A guided programme for diet, activity, and weight: a personal assessment, goals you set with support, structured diet and exercise tracks, and in-app check-ins, with a progress review every three months. It's also the engine behind Tarragon's weight programme.",
     availability: "Included on Complete Care and above. Available as an add-on on Essential Care or Tarragon Free.",
   },
-  {
-    id: "annual-review",
-    name: "Annual Doctor Review",
-    price: "₦70,000/year",
-    label: "ADD-ON",
-    description:
-      "Once a year, your doctor sits down with your whole year of care: health questionnaires, a broad set of labs, a medication review, an updated risk score and care plan, and a short video consultation to talk through the year behind you and the plan ahead. Not the same product as the Annual Health Check (₦65,000): the Check is a day of screening tests; this Review is your whole year of care, talked through with your doctor.",
-    availability: "Included on Complete Care. Available as an add-on on lower plans.",
-  },
+  // 'annual-review' (Annual Doctor Review, ₦70,000/year) retired 2026-08-02 —
+  // folded into Comprehensive Screen (see 'screen-core' above), which now
+  // includes the same doctor video consult as part of its own result walkthrough.
+  // Two separately-named "annual ___" products was confusing; there's one now.
   {
     id: "video-visit",
     name: "Video Doctor Visit",
@@ -418,9 +469,9 @@ export const ADD_ONS: PricingAddOn[] = [
  * shown before booking.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
-  { item: "Health Check tier 1 of 3 — Basic (HbA1c + cholesterol + BP/BMI)", price: "₦15,000" },
-  { item: "Health Check tier 2 of 3 — Annual Health Check (adds your cancer screening)", price: "₦65,000" },
-  { item: "Health Check tier 3 of 3 — Comprehensive (adds HIV + Hepatitis B + Hepatitis C)", price: "₦75,000" },
+  { item: "Core Screen (cardiometabolic + organ baseline + HIV/Hep B/Hep C)", price: "₦65,000" },
+  { item: "Advanced Screen (Core + cancer screening + ECG)", price: "₦95,000" },
+  { item: "Comprehensive Screen (Advanced + imaging + doctor video consult)", price: "₦149,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
   { item: "Diabetes panel (HbA1c + cholesterol)", price: "from ₦18,500" },
@@ -603,9 +654,9 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
       "Typical partner-lab prices are listed on this page (for example, HbA1c from ₦8,000 and a lipid panel from ₦9,000), and your exact price is always shown before you confirm any booking. Nothing is ever charged without your confirmation.",
   },
   {
-    question: "What's the difference between the Annual Health Check and the Annual Doctor Review?",
+    question: "What's the difference between Core, Advanced, and Comprehensive Screen?",
     answer:
-      "The Annual Health Check (₦65,000/year) is a day of screening tests: bloods, BP, BMI, one cancer screening, and a doctor consultation about the results. The Annual Doctor Review (₦70,000/year, already included on Complete Care) is your whole year of care reviewed with your doctor: questionnaires, labs, a medication review, an updated care plan, and a video consultation.",
+      "They're one cumulative ladder, so each tier includes everything in the one below it. Core Screen (₦65,000/year) is a full cardiometabolic and organ-baseline workup, plus HIV/Hepatitis B/Hepatitis C. Advanced Screen (₦95,000/year) adds age-triggered cancer screening and an ECG, with a personalised screening calendar. Comprehensive Screen (₦149,000/year) adds imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set — the same doctor review that used to be a separate Annual Doctor Review product. Active subscribers get 15% off any tier.",
   },
   {
     question: "What if I need a test that isn't listed here?",

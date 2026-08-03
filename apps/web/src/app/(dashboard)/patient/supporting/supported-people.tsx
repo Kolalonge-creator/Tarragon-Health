@@ -16,13 +16,24 @@ import {
   useSponsorBookCare,
   useSponsorPayOrder,
   useSponsorPayableOrders,
+  useSponsorRequestRefill,
   useSponsorSetBasics,
   useSupportedPeople,
+  useSupportedPersonCareStatus,
   useSupportedPersonHealth,
+  type SponsorPayableOrder,
   type SupportedPerson,
+  type SupportedPersonHealth,
 } from "@/lib/queries/sponsorship";
 import { buyCareVoucher, type VoucherActionState } from "../vouchers/actions";
 import { useVoucherCatalogue } from "@/lib/queries/vouchers";
+import {
+  openTheirAccount,
+  paySomeonesBill,
+  paySomeonesPlan,
+  type SponsorActionState,
+} from "./actions";
+import { useActivePatientPlans } from "@/lib/queries/subscription-plans";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -252,6 +263,10 @@ function PersonCard({
           </form>
         )}
 
+        {person.permissionLevel === "manage" && <OpenTheirAccount person={person} />}
+
+        {person.permissionLevel === "manage" && <PayTheirPlan person={person} />}
+
         {person.permissionLevel === "manage" && <ManageActions person={person} />}
 
         {person.usedVouchers.length > 0 && (
@@ -310,6 +325,248 @@ function humanCondition(condition: string): string {
 }
 
 /**
+ * "156/96, up from 148/90."
+ *
+ * Two readings compared is a fact about two readings. It is not a judgement
+ * about either, and it is the difference between a number a supporter can do
+ * nothing with and one they can ask a sensible question about.
+ */
+function bpMovement(data: SupportedPersonHealth): string | null {
+  const now = data.latestBloodPressure;
+  const before = data.previousBloodPressure;
+  if (!now?.systolic || !before?.systolic) return null;
+  if (now.systolic === before.systolic) return null;
+  const direction = now.systolic > before.systolic ? "up" : "down";
+  return `${direction} from ${before.systolic}/${before.diastolic ?? "?"}`;
+}
+
+/**
+ * Opens their account, so an errand can be run from inside it.
+ *
+ * The grant is checked here and re-checked on every request afterwards, so
+ * this cannot outlive permission: the moment they revoke it, the next page
+ * load is the supporter's own account again.
+ */
+function OpenTheirAccount({ person }: { person: SupportedPerson }) {
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    openTheirAccount,
+    undefined,
+  );
+  const name = (person.fullName ?? "").trim().split(/\s+/)[0] || "them";
+
+  return (
+    <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
+      <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
+      <p className="text-xs font-medium text-charcoal-ink">Open their account</p>
+      <p className="text-sm text-charcoal-ink/70">
+        Go into {name}&apos;s account to log a reading or book something for them, the way you would
+        if you were sitting next to them. Everything you do there is saved with your name on it.
+      </p>
+      <Button type="submit" variant="outline" disabled={pending}>
+        {pending ? "Opening…" : `Open ${name}'s account`}
+      </Button>
+      {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
+    </form>
+  );
+}
+
+/**
+ * One bill, paid on the supporter's own card.
+ *
+ * The amount is never posted from here: initiateSponsorBillCheckout reads it
+ * back off the order through sponsor_payable_orders, which is also what
+ * authorises the payment. So the price shown and the price charged cannot
+ * drift, and a tampered form cannot change either.
+ */
+function PayBillOnMyCard({
+  person,
+  bill,
+}: {
+  person: SupportedPerson;
+  bill: SponsorPayableOrder;
+}) {
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    paySomeonesBill,
+    undefined,
+  );
+
+  return (
+    <form action={action} className="inline-flex flex-col items-end gap-1">
+      <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
+      <input type="hidden" name="orderId" value={bill.order_id} />
+      <input type="hidden" name="currency" value="NGN" />
+      <Button type="submit" disabled={pending}>
+        {pending ? "Starting…" : `Pay ${naira(bill.amount_kobo)} on my card`}
+      </Button>
+      {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
+    </form>
+  );
+}
+
+/**
+ * Pay for their plan, monthly, on your card.
+ *
+ * The single most-asked-for diaspora action, and there was no path to it at
+ * any price: a supporter could buy one-off vouchers and nothing else, so the
+ * continuous monitoring that makes the product worth having was the one thing
+ * they could not fund. "Send money home for health" is a thing a transfer app
+ * already does; paying for a named plan and being told what it did is not.
+ *
+ * Only naira plans are offered. The care happens in Nigeria at Nigerian cost,
+ * so a supporter abroad pays the same price converted at the reference rate,
+ * not a diaspora premium for the same thing.
+ */
+function PayTheirPlan({ person }: { person: SupportedPerson }) {
+  const { data: plans } = useActivePatientPlans();
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    paySomeonesPlan,
+    undefined,
+  );
+
+  if (person.permissionLevel !== "manage") return null;
+
+  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_minor > 0);
+  if (payable.length === 0) return null;
+
+  return (
+    <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
+      <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
+      <input type="hidden" name="currency" value="NGN" />
+      <p className="text-xs font-medium text-charcoal-ink">Pay for their plan</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select name="planCode" defaultValue="" className="max-w-xs">
+          <option value="">Choose a plan</option>
+          {payable.map((plan) => (
+            <option key={plan.code} value={plan.code}>
+              {plan.name} ({naira(plan.price_minor)}
+              {plan.interval === "yearly" ? "/yr" : "/mo"})
+            </option>
+          ))}
+        </Select>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Starting…" : "Pay on my card"}
+        </Button>
+      </div>
+      {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
+      <p className="text-xs text-charcoal-ink/50">
+        Billed to you, held by them. They keep their own account and can cancel it themselves at any
+        time. Both of you are told when it starts.
+      </p>
+    </form>
+  );
+}
+
+/**
+ * Whether anybody is actually doing anything about it.
+ *
+ * This is the single most important thing on the page and it was missing
+ * entirely. A supporter could be shown a blood pressure of 156/96 while the
+ * platform had already raised a doctor alert with a three-day deadline — and
+ * be told nothing, so the only available reading of the screen was "a
+ * frightening number and apparently no one has noticed".
+ *
+ * Status only, and by construction: sponsor_care_status returns counts and
+ * dates, never the alert's title or reasoning, so this card cannot drift into
+ * telling a family member what a clinician thinks before the clinician has
+ * told the patient.
+ */
+function CareTeamStatus({ person, firstName }: { person: SupportedPerson; firstName: string }) {
+  const { data } = useSupportedPersonCareStatus(person.profileId, person.clinicalAccess);
+  if (!data) return null;
+
+  if (data.openCount === 0) {
+    return (
+      <div className="rounded-lg bg-brand-green/10 p-3">
+        <p className="text-sm text-charcoal-ink/80">
+          Nothing is waiting on their care team right now.
+          {data.lastReviewedAt
+            ? ` A doctor last reviewed something on ${shortDate(data.lastReviewedAt)}.`
+            : ""}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg bg-brand-green/10 p-3">
+      <p className="text-sm font-medium text-charcoal-ink">
+        {data.openCount === 1
+          ? `Their care team is looking at something for ${firstName}.`
+          : `Their care team is looking at ${data.openCount} things for ${firstName}.`}
+      </p>
+      {data.nextReviewDue && (
+        <p className="mt-0.5 text-sm text-charcoal-ink/70">
+          {data.reviewOverdue
+            ? "A doctor was due to review this by " +
+              shortDate(data.nextReviewDue) +
+              ". We are chasing it."
+            : `A doctor reviews it by ${shortDate(data.nextReviewDue)}.`}
+        </p>
+      )}
+      <p className="mt-1 text-xs text-charcoal-ink/50">
+        You are told that a review is happening, not what was found. {firstName} and their doctor
+        discuss that first.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Turns a due refill into a bill you can settle.
+ *
+ * A medication with a refill date days away was visible here and completely
+ * unactionable — there was no order to pay and no way to create one, so the
+ * most ordinary thing a family member does for an elderly parent was the one
+ * thing the page could not help with.
+ *
+ * Only offered inside two weeks of the refill date, and only to a supporter
+ * trusted to act. The RPC refuses anything that is not already an active
+ * prescribed medication, so this asks a pharmacy to dispense what a doctor
+ * decided; it is never a route to a new prescription.
+ */
+function RefillAction({
+  person,
+  medication,
+}: {
+  person: SupportedPerson;
+  medication: SupportedPersonHealth["medications"][number];
+}) {
+  const requestRefill = useSponsorRequestRefill();
+  const [note, setNote] = useState<string | null>(null);
+
+  const daysLeft = medication.daysUntilRefill;
+  if (person.permissionLevel !== "manage" || daysLeft === null) return null;
+  if (daysLeft > 14) return null;
+
+  if (note) return <span className="text-xs text-brand-green">{note}</span>;
+
+  return (
+    <>
+      <span className="text-xs text-charcoal-ink/50">
+        {daysLeft <= 0 ? "supply has run out" : `${daysLeft} days left`}
+      </span>
+      <button
+        type="button"
+        disabled={requestRefill.isPending}
+        onClick={() =>
+          requestRefill.mutate(
+            { beneficiaryId: person.profileId, medicationId: medication.id },
+            {
+              onSuccess: () => setNote("Added to their bills below — you can pay it there."),
+              onError: (error) =>
+                setNote(error instanceof Error ? error.message : "Could not arrange that refill."),
+            },
+          )
+        }
+        className="rounded-md border border-brand-green/40 px-2 py-0.5 text-xs text-brand-green disabled:opacity-50"
+      >
+        {requestRefill.isPending ? "Arranging…" : "Arrange refill"}
+      </button>
+    </>
+  );
+}
+
+/**
  * How they are doing, for someone who has been told they may look.
  *
  * Rendered only when person.clinicalAccess is true, but that flag is a
@@ -324,6 +581,7 @@ function humanCondition(condition: string): string {
 function HealthSummary({ person }: { person: SupportedPerson }) {
   const { data, isLoading } = useSupportedPersonHealth(person.profileId, person.clinicalAccess);
   const name = person.fullName ?? "They";
+  const firstName = (person.fullName ?? "").trim().split(/\s+/)[0] || "They";
 
   if (isLoading) {
     return <p className="text-sm text-charcoal-ink/60">Loading how they are doing…</p>;
@@ -342,6 +600,8 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
     <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
       <p className="text-xs font-medium text-charcoal-ink">How they are doing</p>
 
+      <CareTeamStatus person={person} firstName={firstName} />
+
       {nothingYet ? (
         <p className="text-sm text-charcoal-ink/60">
           {name} has not logged anything yet. There is nothing to show until they do.
@@ -359,6 +619,15 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
               {data.latestBloodPressure && (
                 <p className="text-xs text-charcoal-ink/50">
                   {shortDate(data.latestBloodPressure.takenAt)}
+                  {bpMovement(data) ? ` · ${bpMovement(data)}` : ""}
+                </p>
+              )}
+              {/* Their own care plan's number, quoted. Without a scale a
+                  sponsor is staring at three digits they cannot read. */}
+              {data.bloodPressureTarget && (
+                <p className="text-xs text-charcoal-ink/50">
+                  Care team&apos;s target: under {data.bloodPressureTarget.systolic}/
+                  {data.bloodPressureTarget.diastolic}
                 </p>
               )}
             </div>
@@ -418,9 +687,15 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
               <p className="text-xs text-charcoal-ink/60">Currently taking</p>
               <ul className="mt-1 space-y-1">
                 {data.medications.map((medication) => (
-                  <li key={medication.id} className="text-sm text-charcoal-ink/70">
-                    {medication.drugName}
-                    {medication.dose ? ` · ${medication.dose}` : ""}
+                  <li
+                    key={medication.id}
+                    className="flex flex-wrap items-center gap-2 text-sm text-charcoal-ink/70"
+                  >
+                    <span>
+                      {medication.drugName}
+                      {medication.dose ? ` · ${medication.dose}` : ""}
+                    </span>
+                    <RefillAction person={person} medication={medication} />
                   </li>
                 ))}
               </ul>
@@ -612,24 +887,36 @@ function ManageActions({ person }: { person: SupportedPerson }) {
                   {bill.label}{" "}
                   <span className="font-medium text-charcoal-ink">{naira(bill.amount_kobo)}</span>
                 </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={payOrder.isPending || person.readyVouchers.length === 0}
-                  onClick={() =>
-                    run(async () => {
-                      await payOrder.mutateAsync({
-                        beneficiaryId: person.profileId,
-                        voucherId: person.readyVouchers[0].id,
-                        orderType: bill.order_type,
-                        orderId: bill.order_id,
-                      });
-                      return "Paid with their voucher.";
-                    })
-                  }
-                >
-                  {person.readyVouchers.length === 0 ? "No voucher for this" : "Use their voucher"}
-                </Button>
+                <span className="flex flex-wrap items-center gap-2">
+                  {/* Paying on your own card is the ordinary case, so it leads.
+                      Redeeming a voucher only works when they already hold a
+                      paid one for that exact named service, which most real
+                      bills (a refill, a video visit, a test a clinician
+                      ordered) will never match — that used to be the ONLY
+                      option here, and it read "No voucher for this" against a
+                      bill the supporter could see and could not settle. */}
+                  <PayBillOnMyCard person={person} bill={bill} />
+                  {person.readyVouchers.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={payOrder.isPending}
+                      onClick={() =>
+                        run(async () => {
+                          await payOrder.mutateAsync({
+                            beneficiaryId: person.profileId,
+                            voucherId: person.readyVouchers[0].id,
+                            orderType: bill.order_type,
+                            orderId: bill.order_id,
+                          });
+                          return "Paid with their voucher.";
+                        })
+                      }
+                    >
+                      Use their voucher
+                    </Button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>

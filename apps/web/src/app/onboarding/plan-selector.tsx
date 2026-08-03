@@ -118,6 +118,11 @@ export function PlanSelector() {
             monthly payments with two months taken off, and it is one card charge a year instead
             of twelve. Switch any plan back to monthly below if you would rather.
           </p>
+          <p className="rounded-lg bg-charcoal-ink/5 p-3 text-xs text-charcoal-ink/70">
+            Dollar prices below already include a 10% international card-processing fee, on
+            monthly and yearly alike. It is a real, disclosed cost of the payment rail, not a
+            markup: the naira price is the same one price list either way.
+          </p>
         </>
       )}
       <div className="space-y-3">

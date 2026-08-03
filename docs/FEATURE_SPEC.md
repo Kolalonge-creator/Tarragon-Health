@@ -312,7 +312,7 @@ Use this as a build tracker — check off per sprint. (Originally scoped against
 | Doctors | Escalation review, medication review, clinical safety |
 | Hospitals | Urgent referral, specialist care, post-discharge monitoring |
 | Home visit clinicians | BP/glucose checks, sample collection, frail patient support |
-| Device suppliers | BP monitors, glucometers, scales, pulse oximeters |
+| ~~Device suppliers~~ | ~~BP monitors, glucometers, scales, pulse oximeters~~ — **SHELVED 2026-08-02**, patient self-sources, see CLAUDE.md |
 | Employers | Staff enrolment, corporate chronic disease care |
 | HMOs (Reliance, Avon, Ronsberger, Wellahealth) | Member monitoring, chronic risk control |
 | Diaspora groups | ParentCare distribution, overseas payment |

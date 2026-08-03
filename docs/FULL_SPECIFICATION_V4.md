@@ -203,7 +203,7 @@ All new features route through the existing 4-label transparency system (INCLUDE
 
 - Health Score, Personalized Timeline, symptom tracking, broadened screening types → **INCLUDED** in existing tiers, since they cost little to serve and raise engagement/retention.
 - Full Panel AHC, whole-body MRI referral → **ADD-ON**, gated to Premium ParentCare / diaspora / Corporate Gold.
-- Bluetooth devices → sold as **device bundles** (already a listed revenue stream in the Master Plan) — BOOK & PAY, one-time or financed.
+- ~~Bluetooth devices → sold as **device bundles**~~ **SHELVED 2026-08-02** — patient self-sources their own device instead; see CLAUDE.md's Device & Wearable Integration section for why (NAFDAC local-representative burden, not worth it pre-revenue).
 - Daily AI coaching, wearable digests → **INCLUDED** for paid tiers once built; never offered as part of the free 90-Day Health Reset, consistent with the existing "what should not be free" rules (nothing that implies active clinical responsibility).
 
 ---
