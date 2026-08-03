@@ -227,38 +227,9 @@ export function useOrderLabTest() {
   });
 }
 
-/**
- * Fills in facility_id (and server-derives provider_id from it) on a lab
- * order that doesn't have one yet — closes the clinician-ordered gap where
- * useOrderLabTest never asks which physical lab to use. RPC-backed
- * (public.set_lab_order_facility) because lab_orders_update RLS is
- * staff-only; the function re-derives ownership + status server-side, so
- * this can't be used to redirect an already-paid order.
- */
-export function useSetLabOrderFacility() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      orderId,
-      facilityId,
-    }: {
-      orderId: string;
-      facilityId: string;
-      /** Only used to invalidate the right query cache on success. */
-      patientId: string;
-    }) => {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("set_lab_order_facility", {
-        p_order_id: orderId,
-        p_facility_id: facilityId,
-      });
-      if (error) throw error;
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
-    },
-  });
-}
+/* useSetLabOrderFacility and its ChooseLabFacility card are removed: a
+ * self-arranged order has no facility to set, and public.set_lab_order_facility
+ * now refuses one outright. The RPC survives for the dormant partner path. */
 
 export type LabResultInterpretation = Tables<"lab_result_interpretations">;
 

@@ -358,20 +358,20 @@ export const DIASPORA_PROCESSING_FEE_NOTE =
 export const DIASPORA_SELF_USE_NOTE =
   "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, in-app care team messaging, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
-/** Care vouchers: you buy a named service at a fixed price and hold an
- * entitlement to that service. Deliberately not a balance. Non-transferable,
- * single-purpose, never exchangeable for cash, valid 24 months. */
+/** Reward vouchers only.
+ *
+ * Prepaid-service vouchers are retired: tests are paid straight to the
+ * laboratory, so there is no service for Tarragon to sell ahead of time and
+ * public.purchase_care_voucher fails closed. What remains is reward credit
+ * (referrals and prevention rewards), which is a discount on Tarragon's own
+ * charges, never cash, and never transferable. */
 export const CARE_VOUCHER_INTRO =
-  "You can pay for a health check ahead of time and use it whenever you are ready. You get a care voucher for that specific check, valid for two years. It is not an account balance and it is never exchangeable for cash: it is the check itself, already paid for.";
+  "Reward credit you earn, from referring someone or from keeping up with your prevention, comes off what you pay us. It is not an account balance and it is never exchangeable for cash. Tests themselves are paid straight to the laboratory you use, so there is nothing for us to hold on your behalf.";
 
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
-    title: "Pay a little at a time",
-    body: "Pay for a check in as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying toward it.",
-  },
-  {
-    title: "Let someone else buy it",
-    body: "A family member, in Nigeria or abroad, can buy a check for you. They see that they bought it and later that it was used, and nothing about your results.",
+    title: "Someone can pay for your plan",
+    body: "A family member, in Nigeria or abroad, can put your plan on their card. They see that it renews, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
   },
   {
     title: "Refer a friend",
@@ -589,11 +589,11 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "You confirm and pay",
-    body: "By card, bank transfer, or USSD, through Paystack (Stripe for diaspora payments in US dollars).",
+    body: "For plans and add-ons: by card, bank transfer, or USSD, through Paystack (Stripe for diaspora payments in US dollars). For a test, you pay the laboratory directly and we take nothing on it.",
   },
   {
-    title: "We book it with our partner",
-    body: "A lab, pharmacy, or clinic, and send you everything you need: where to go, what to bring, and any preparation required.",
+    title: "You get a request to take with you",
+    body: "It names exactly which tests to run and why, so the laboratory knows what to do. You choose where to go and when.",
   },
   {
     title: "Your result or delivery comes back in the app",

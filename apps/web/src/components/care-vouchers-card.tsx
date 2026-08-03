@@ -1,21 +1,18 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { buyCareVoucher, payTowardVoucher } from "@/app/(dashboard)/patient/vouchers/actions";
+import { payTowardVoucher } from "@/app/(dashboard)/patient/vouchers/actions";
 import {
   useMyVouchers,
-  useVoucherCatalogue,
   useVoucherConfig,
   useMyReferralCode,
   useRedeemReferralCode,
   isVoucherSpendable,
   type CareVoucher,
 } from "@/lib/queries/vouchers";
-import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
 
@@ -56,14 +53,10 @@ function formatDate(iso: string) {
  */
 export function CareVouchersCard({ patientId }: { patientId: string }) {
   const { data: vouchers } = useMyVouchers(patientId);
-  const { data: catalogue } = useVoucherCatalogue();
   const { data: config } = useVoucherConfig();
-  const { data: sponsorable } = useSponsorableProfiles();
   const { data: referralCode } = useMyReferralCode();
 
-  const [buyOpen, setBuyOpen] = useState(false);
   const [payingFor, setPayingFor] = useState<string | null>(null);
-  const [buyState, buyAction, buyPending] = useActionState(buyCareVoucher, undefined);
   const [payState, payAction, payPending] = useActionState(payTowardVoucher, undefined);
 
   const redeemCode = useRedeemReferralCode();
@@ -83,7 +76,6 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
           Your care vouchers
         </CardTitle>
         <p className="pt-1 text-sm text-slate-600">
-          Pay for a check ahead of time, in one go or bit by bit, and use it whenever you are ready.
           A voucher is for the service named on it and for you alone. It is not an account balance
           and it is never exchangeable for cash.
         </p>
@@ -92,8 +84,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
       <CardContent className="space-y-5">
         {live.length === 0 && (
           <p className="text-sm text-slate-600">
-            You do not have any vouchers yet. Buying one is a good way to spread the cost of a
-            health check.
+            You do not have any vouchers yet.
           </p>
         )}
 
@@ -110,57 +101,16 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
           />
         ))}
 
+        {/* Buying a check in advance is gone: tests are paid straight to the
+            laboratory now, so there is no service for Tarragon to sell ahead of
+            time and public.purchase_care_voucher fails closed. Reward vouchers
+            still exist and still display above. */}
         <div className="border-t border-slate-100 pt-4">
-          <Button type="button" size="sm" variant="outline" onClick={() => setBuyOpen(!buyOpen)}>
-            {buyOpen ? "Cancel" : "Buy a check in advance"}
-          </Button>
-
-          {buyOpen && (
-            <form action={buyAction} className="space-y-3 pt-3">
-              <label className="block text-sm">
-                <span className="text-slate-700">Which check?</span>
-                <Select name="panelBundleId" required className="mt-1">
-                  <option value="">Choose a check</option>
-                  {(catalogue ?? []).map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} — {naira(b.price_kobo ?? 0)}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-
-              {(sponsorable ?? []).length > 0 && (
-                <label className="block text-sm">
-                  <span className="text-slate-700">Who is it for?</span>
-                  <Select name="beneficiaryProfileId" className="mt-1">
-                    <option value={patientId}>Me</option>
-                    {(sponsorable ?? []).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.full_name}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-              )}
-
-              <label className="block text-sm">
-                <span className="text-slate-700">Add a note (optional)</span>
-                <Input name="giftMessage" className="mt-1" placeholder="Thinking of you" />
-              </label>
-
-              <p className="text-xs text-slate-500">
-                Reserving is free. You pay separately, and the voucher becomes usable once it is
-                paid in full. It then lasts {config?.validity_months ?? 24} months, and we will
-                remind you before it runs out.
-              </p>
-
-              <Button type="submit" size="sm" disabled={buyPending}>
-                {buyPending ? "Reserving…" : "Reserve this check"}
-              </Button>
-              {buyState?.error && <p className="text-xs text-red-600">{buyState.error}</p>}
-              {buyState?.message && <p className="text-xs text-emerald-700">{buyState.message}</p>}
-            </form>
-          )}
+          <p className="text-sm text-slate-600">
+            You pay laboratories and pharmacies directly, at their price, so there is nothing for us
+            to hold on your behalf. To help somebody else with their care, pay for their plan from
+            the people you support.
+          </p>
         </div>
 
         {past.length > 0 && (

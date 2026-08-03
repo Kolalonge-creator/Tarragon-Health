@@ -14,8 +14,8 @@ export const metadata: Metadata = {
 
 const WAYS_TO_GIVE = [
   {
-    title: "Buy them a specific check",
-    body: "For a parent, spouse, or family member already linked to you on Tarragon: choose the check you want them to have and pay for it. They get a care voucher for that exact service, valid for two years, that they book whenever suits them. It belongs to them and nobody else can use it.",
+    title: "Pay for their plan",
+    body: "For a parent, spouse, or family member already linked to you on Tarragon: put their plan on your card. They get their screening schedule worked out for them and a doctor reading every result that comes back, and it renews from your card rather than theirs. Their results go to them and their doctor, never to you.",
   },
   {
     title: "Invite them, you both get a reward",
@@ -54,8 +54,8 @@ const HOW_IT_WORKS = [
   },
   {
     step: 4,
-    title: "They book it whenever suits them",
-    body: "The voucher sits on their account for two years, and we remind them before it runs out. If it does lapse, we will normally put it back.",
+    title: "They go whenever suits them",
+    body: "We tell them which tests are due and write the request. They take it to any laboratory they like and pay there, and a doctor reads whatever comes back.",
   },
 ];
 
@@ -77,15 +77,15 @@ export default function GiftPage() {
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href="/login">Buy a check for someone</Link>
+              <Link href="/login">Pay for someone’s plan</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href="/signup">New here? Get started</Link>
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Already a member? Open the care vouchers card on your dashboard to buy one or share
-            your referral link.
+            Already a member? Open the people you support on your dashboard to pay for their plan,
+            or share your referral link.
           </p>
         </div>
       </Section>
@@ -140,16 +140,17 @@ export default function GiftPage() {
             Honest expectations
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            You can buy a check for someone already connected to you on Tarragon, a next of kin or
-            a family member you look after. If the person you want to give to is not on Tarragon
-            yet, use your referral link instead. It is free for them to join, and you both get a
-            ₦500 reward voucher the moment they complete their first paid order.
+            You can pay for the plan of someone already connected to you on Tarragon, a next of kin
+            or a family member you look after. What you cannot do is pay for their tests through us:
+            laboratories are paid directly, by whoever is standing in one, so the practical way to
+            help with a test is to send them what it costs. If the person you want to give to is not
+            on Tarragon yet, use your referral link instead. It is free for them to join, and you
+            both get a ₦500 reward voucher the moment they complete their first paid order.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            A care voucher is for the service named on it and for the person named on it. It cannot
-            be transferred, and it is never exchangeable for cash. It lasts two years, we remind
-            them before it runs out, and if it does lapse unused they only have to ask and we will
-            normally put it back. You will be told when it is used, and nothing about their results.
+            A reward voucher is for the person named on it. It cannot be transferred, and it is
+            never exchangeable for cash. You will be told when a plan you pay for renews, and
+            nothing about their results.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Looking after a parent day to day?{" "}
@@ -167,9 +168,9 @@ export default function GiftPage() {
         <CtaBand
           variant="gradient"
           title="Give someone the gift of being looked after."
-          description="Buy them a real check, or send them your referral link. Either way it is care, not a card that expires."
+          description="Pay for their plan, or send them your referral link. Either way it is care, not a card that expires."
           primaryHref="/login"
-          primaryLabel="Buy a check for someone"
+          primaryLabel="Pay for someone’s plan"
           secondaryHref="/signup"
           secondaryLabel="Get started"
         />

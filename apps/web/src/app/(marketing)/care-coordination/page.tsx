@@ -43,12 +43,12 @@ const JOURNEY = [
     body: "A test is due, a refill is running low, or your doctor recommends a check. You see it in the app, with a reminder so it doesn't slip.",
   },
   {
-    title: "You see the exact price and confirm",
-    body: "Before anything is booked, you see the real partner price and confirm. Nothing is ever charged without your confirmation.",
+    title: "You choose where to go",
+    body: "We write the request and you take it to whichever laboratory you trust. You pay them directly, at their price, and we take nothing on it.",
   },
   {
-    title: "We book it with a trusted partner",
-    body: "Tarragon books the lab, pharmacy, or specialist from its vetted partner network and sends you exactly where to go, what to bring, and how to prepare.",
+    title: "You get a request to take with you",
+    body: "A written request naming exactly which tests to run and why, so the laboratory knows what to do and nothing is left to a conversation at the counter.",
   },
   {
     title: "The result comes back reviewed",

@@ -25,8 +25,6 @@ import {
   type SupportedPerson,
   type SupportedPersonHealth,
 } from "@/lib/queries/sponsorship";
-import { buyCareVoucher, type VoucherActionState } from "../vouchers/actions";
-import { useVoucherCatalogue } from "@/lib/queries/vouchers";
 import {
   openTheirAccount,
   paySomeonesBill,
@@ -62,7 +60,7 @@ function shortDate(iso: string): string {
  * being allowed to pay for care and a sponsor being allowed to read it are two
  * different questions with two different answers, and they are kept that way.
  */
-export function SupportedPeople({ payerEmailKnown }: { payerEmailKnown: boolean }) {
+export function SupportedPeople() {
   const { data: people, isLoading, isError } = useSupportedPeople();
 
   if (isLoading) {
@@ -126,7 +124,7 @@ export function SupportedPeople({ payerEmailKnown }: { payerEmailKnown: boolean 
       </Card>
 
       {people.map((person) => (
-        <PersonCard key={person.profileId} person={person} payerEmailKnown={payerEmailKnown} />
+        <PersonCard key={person.profileId} person={person} />
       ))}
     </div>
   );
@@ -134,18 +132,9 @@ export function SupportedPeople({ payerEmailKnown }: { payerEmailKnown: boolean 
 
 function PersonCard({
   person,
-  payerEmailKnown,
 }: {
   person: SupportedPerson;
-  payerEmailKnown: boolean;
 }) {
-  const [state, formAction, pending] = useActionState<VoucherActionState, FormData>(
-    buyCareVoucher,
-    undefined
-  );
-  const [showBuy, setShowBuy] = useState(false);
-  const { data: catalogue } = useVoucherCatalogue();
-
   const name = person.fullName ?? "This person";
 
   return (
@@ -176,9 +165,6 @@ function PersonCard({
               {person.readyVouchers.length}
             </p>
           </div>
-          <Button type="button" variant="outline" onClick={() => setShowBuy((open) => !open)}>
-            {showBuy ? "Cancel" : "Buy a check for them"}
-          </Button>
         </div>
 
         {person.readyVouchers.length > 0 && (
@@ -217,51 +203,10 @@ function PersonCard({
           </div>
         ))}
 
-        {showBuy && (
-          <form action={formAction} className="space-y-3 rounded-lg bg-charcoal-ink/5 p-4">
-            <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-            <div>
-              <label
-                className="block text-xs font-medium text-charcoal-ink"
-                htmlFor={`bundle-${person.profileId}`}
-              >
-                Which check?
-              </label>
-              <Select id={`bundle-${person.profileId}`} name="panelBundleId" required>
-                <option value="">Choose a check</option>
-                {(catalogue ?? []).map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} — {naira(b.price_kobo ?? 0)}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <label
-                className="block text-xs font-medium text-charcoal-ink"
-                htmlFor={`note-${person.profileId}`}
-              >
-                Add a note (optional)
-              </label>
-              <Input id={`note-${person.profileId}`} name="giftMessage" placeholder="Thinking of you" />
-            </div>
-            <p className="text-xs text-charcoal-ink/60">
-              You are buying one named check for {name}, not adding money to an account. Reserving
-              is free; you pay next, in one go or bit by bit. It belongs to them, cannot be moved to
-              anyone else, and is never exchangeable for cash.
-            </p>
-            {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-            {state?.message && <p className="text-sm text-emerald-700">{state.message}</p>}
-            {!payerEmailKnown && (
-              <p className="text-sm text-amber-700">
-                Your account needs an email address on file before you can check out.
-              </p>
-            )}
-            <Button type="submit" disabled={pending || !payerEmailKnown}>
-              {pending ? "Reserving…" : "Reserve this check"}
-            </Button>
-          </form>
-        )}
+        {/* Buying a check for somebody is gone: tests are paid straight to the
+            laboratory, so there is nothing for us to sell in advance (see
+            public.purchase_care_voucher). Paying for their PLAN is the sponsor
+            path that still works, and it lives above. */}
 
         {person.permissionLevel === "manage" && <OpenTheirAccount person={person} />}
 
@@ -950,14 +895,12 @@ function ManageActions({ person }: { person: SupportedPerson }) {
               disabled={!bundleCode || bookCare.isPending}
               onClick={() =>
                 run(async () => {
-                  const result = await bookCare.mutateAsync({
+                  await bookCare.mutateAsync({
                     beneficiaryId: person.profileId,
                     bundleCode,
                   });
                   setBundleCode("");
-                  return result.paid
-                    ? "Booked, and paid with a voucher they already had."
-                    : `Booked for ${naira(result.price_kobo)}. Buy them a voucher for it, or they can pay when they go.`;
+                  return "Requested. They can take it to any laboratory they like and pay there; we take nothing on it.";
                 })
               }
             >
@@ -965,7 +908,7 @@ function ManageActions({ person }: { person: SupportedPerson }) {
             </Button>
           </div>
           <p className="mt-1 text-xs text-charcoal-ink/50">
-            They still choose where to go and when. Booking here just means it is paid for and
+            They still choose where to go and when. Requesting here just writes down which tests
             waiting.
           </p>
         </div>
