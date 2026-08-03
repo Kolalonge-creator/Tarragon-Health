@@ -1725,6 +1725,7 @@ export type Database = {
             | null
           sku_code: string | null
           sku_name: string | null
+          subscription_plan_id: string | null
           status: Database["public"]["Enums"]["care_voucher_status"]
           updated_at: string
           voucher_number: string
@@ -1752,6 +1753,7 @@ export type Database = {
             | null
           sku_code?: string | null
           sku_name?: string | null
+          subscription_plan_id?: string | null
           status?: Database["public"]["Enums"]["care_voucher_status"]
           updated_at?: string
           voucher_number: string
@@ -1779,11 +1781,19 @@ export type Database = {
             | null
           sku_code?: string | null
           sku_name?: string | null
+          subscription_plan_id?: string | null
           status?: Database["public"]["Enums"]["care_voucher_status"]
           updated_at?: string
           voucher_number?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "care_vouchers_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "care_vouchers_beneficiary_profile_id_fkey"
             columns: ["beneficiary_profile_id"]
@@ -4788,6 +4798,7 @@ export type Database = {
           created_at: string
           excluded_test_codes: Json
           facility_id: string | null
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id: string | null
           home_visit_scheduled_at: string | null
           id: string
@@ -4821,6 +4832,7 @@ export type Database = {
           created_at?: string
           excluded_test_codes?: Json
           facility_id?: string | null
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -4854,6 +4866,7 @@ export type Database = {
           created_at?: string
           excluded_test_codes?: Json
           facility_id?: string | null
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -4990,6 +5003,80 @@ export type Database = {
           {
             foreignKeyName: "lab_providers_license_verified_by_fkey"
             columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_result_extractions: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          document_id: string
+          error_message: string | null
+          id: string
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          proposed: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id: string
+          error_message?: string | null
+          id?: string
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          proposed?: Json
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id?: string
+          error_message?: string | null
+          id?: string
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          proposed?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_result_extractions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_patient_id_fkey"
+            columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -9080,7 +9167,9 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
-          pharmacy_order_id: string
+          medication_id: string | null
+          pharmacy_name: string | null
+          pharmacy_order_id: string | null
           quantity: string | null
           recorded_by: string | null
           source: Database["public"]["Enums"]["dispense_source"]
@@ -9093,7 +9182,9 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
-          pharmacy_order_id: string
+          medication_id?: string | null
+          pharmacy_name?: string | null
+          pharmacy_order_id?: string | null
           quantity?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
@@ -9106,13 +9197,22 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
-          pharmacy_order_id?: string
+          medication_id?: string | null
+          pharmacy_name?: string | null
+          pharmacy_order_id?: string | null
           quantity?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_dispenses_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pharmacy_order_dispenses_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -10956,6 +11056,7 @@ export type Database = {
           booking_confirmed_at: string | null
           clinical_summary: Json | null
           created_at: string
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
           organisation_id: string
@@ -10989,6 +11090,7 @@ export type Database = {
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
           created_at?: string
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id: string
@@ -11022,6 +11124,7 @@ export type Database = {
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
           created_at?: string
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id?: string
@@ -13070,6 +13173,10 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
+      confirm_lab_result_extraction: {
+        Args: { p_extraction_id: string; p_readings: Json }
+        Returns: undefined
+      }
       close_masked_call: {
         Args: { p_reason?: string | null; p_session_id: string }
         Returns: undefined
@@ -13535,6 +13642,14 @@ export type Database = {
         }
         Returns: string
       }
+      purchase_subscription_voucher: {
+        Args: { p_beneficiary: string; p_gift_message?: string; p_plan_id: string }
+        Returns: Json
+      }
+      redeem_subscription_voucher: {
+        Args: { p_voucher_id: string }
+        Returns: Json
+      }
       redeem_care_voucher: {
         Args: { p_order_id: string; p_order_type: string; p_voucher: string }
         Returns: Json
@@ -13922,6 +14037,7 @@ export type Database = {
         | "analogue_rapid"
         | "analogue_long"
       lab_monitoring_status: "pending" | "completed" | "cancelled"
+      fulfilment_mode: "partner" | "self_arranged"
       lab_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -14044,6 +14160,7 @@ export type Database = {
         | "overdue_screening"
         | "stale_monitoring"
         | "unactioned_abnormal"
+        | "awaiting_result"
       patient_device_status: "active" | "unpaired"
       patient_device_type:
         | "bp_cuff"
@@ -14569,6 +14686,7 @@ export const Constants = {
         "analogue_long",
       ],
       lab_monitoring_status: ["pending", "completed", "cancelled"],
+      fulfilment_mode: ["partner", "self_arranged"],
       lab_order_status: [
         "pending_payment",
         "payment_confirmed",
@@ -14704,6 +14822,7 @@ export const Constants = {
         "overdue_screening",
         "stale_monitoring",
         "unactioned_abnormal",
+        "awaiting_result",
       ],
       patient_device_status: ["active", "unpaired"],
       patient_device_type: [

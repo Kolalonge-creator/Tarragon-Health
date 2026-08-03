@@ -129,14 +129,14 @@ export default async function PreventionPage() {
           ))}
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Every test is booked through a vetted partner lab, and you always see the exact price and
+          You take your request to whichever laboratory you like and pay them directly, and
           confirm before anything is booked; typical prices are listed openly on the{" "}
           <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
             pricing page
           </Link>
           . The one-day{" "}
           <span className="font-medium text-charcoal-ink">Annual Health Check</span> is a ladder
-          from ₦65,000: pick how deep you want to go, and every tier is doctor-reviewed.
+          pick how deep you want to go. Every tier is doctor-reviewed, and you pay the laboratory directly rather than us.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Not sure what applies to you specifically? Walk through the{" "}

@@ -41,7 +41,7 @@ const TRUST_ITEMS = [
   },
   {
     title: "No hidden costs, ever",
-    body: "You see the exact price and confirm before anything is booked or charged, spelled out in full on the pricing page.",
+    body: "Anything Tarragon itself charges you, you see the exact price and confirm first. Tests and refills you pay the provider directly, and we take nothing on them: all spelled out in full on the pricing page.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <path d="M4 7h16M4 12h16M4 17h10" />

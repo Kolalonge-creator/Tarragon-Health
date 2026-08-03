@@ -1725,6 +1725,7 @@ export type Database = {
             | null
           sku_code: string | null
           sku_name: string | null
+          subscription_plan_id: string | null
           status: Database["public"]["Enums"]["care_voucher_status"]
           updated_at: string
           voucher_number: string
@@ -1752,6 +1753,7 @@ export type Database = {
             | null
           sku_code?: string | null
           sku_name?: string | null
+          subscription_plan_id?: string | null
           status?: Database["public"]["Enums"]["care_voucher_status"]
           updated_at?: string
           voucher_number: string
@@ -1779,11 +1781,19 @@ export type Database = {
             | null
           sku_code?: string | null
           sku_name?: string | null
+          subscription_plan_id?: string | null
           status?: Database["public"]["Enums"]["care_voucher_status"]
           updated_at?: string
           voucher_number?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "care_vouchers_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "care_vouchers_beneficiary_profile_id_fkey"
             columns: ["beneficiary_profile_id"]
@@ -3031,6 +3041,95 @@ export type Database = {
           monitoring_label?: string
         }
         Relationships: []
+      }
+      emergency_card_lookups: {
+        Row: {
+          card_id: string
+          id: string
+          looked_up_at: string
+        }
+        Insert: {
+          card_id: string
+          id?: string
+          looked_up_at?: string
+        }
+        Update: {
+          card_id?: string
+          id?: string
+          looked_up_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emergency_card_lookups_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "emergency_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emergency_cards: {
+        Row: {
+          consented_at: string
+          created_at: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          last_viewed_at: string | null
+          last_viewed_on: string | null
+          organisation_id: string
+          patient_id: string
+          renewal_nudged_at: string | null
+          revoked_at: string | null
+          token: string
+          view_count: number
+        }
+        Insert: {
+          consented_at?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          last_viewed_at?: string | null
+          last_viewed_on?: string | null
+          organisation_id: string
+          patient_id: string
+          renewal_nudged_at?: string | null
+          revoked_at?: string | null
+          token: string
+          view_count?: number
+        }
+        Update: {
+          consented_at?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          last_viewed_at?: string | null
+          last_viewed_on?: string | null
+          organisation_id?: string
+          patient_id?: string
+          renewal_nudged_at?: string | null
+          revoked_at?: string | null
+          token?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emergency_cards_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emergency_cards_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       emergency_events: {
         Row: {
@@ -4788,6 +4887,7 @@ export type Database = {
           created_at: string
           excluded_test_codes: Json
           facility_id: string | null
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id: string | null
           home_visit_scheduled_at: string | null
           id: string
@@ -4821,6 +4921,7 @@ export type Database = {
           created_at?: string
           excluded_test_codes?: Json
           facility_id?: string | null
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -4854,6 +4955,7 @@ export type Database = {
           created_at?: string
           excluded_test_codes?: Json
           facility_id?: string | null
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -4940,6 +5042,92 @@ export type Database = {
           },
         ]
       }
+      lab_report_extractions: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_codes: Json
+          created_at: string
+          document_id: string
+          error_message: string | null
+          id: string
+          lab_name: string | null
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          patient_name_on_report: string | null
+          report_date: string | null
+          rows: Json
+          status: string
+          unreadable_reason: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_codes?: Json
+          created_at?: string
+          document_id: string
+          error_message?: string | null
+          id?: string
+          lab_name?: string | null
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          patient_name_on_report?: string | null
+          report_date?: string | null
+          rows?: Json
+          status: string
+          unreadable_reason?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_codes?: Json
+          created_at?: string
+          document_id?: string
+          error_message?: string | null
+          id?: string
+          lab_name?: string | null
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          patient_name_on_report?: string | null
+          report_date?: string | null
+          rows?: Json
+          status?: string
+          unreadable_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_report_extractions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_report_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_report_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_report_extractions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_providers: {
         Row: {
           contact_email: string | null
@@ -4990,6 +5178,80 @@ export type Database = {
           {
             foreignKeyName: "lab_providers_license_verified_by_fkey"
             columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_result_extractions: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          document_id: string
+          error_message: string | null
+          id: string
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          proposed: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id: string
+          error_message?: string | null
+          id?: string
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          proposed?: Json
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id?: string
+          error_message?: string | null
+          id?: string
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          proposed?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_result_extractions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_patient_id_fkey"
+            columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -8123,6 +8385,73 @@ export type Database = {
           },
         ]
       }
+      patient_blood_profile: {
+        Row: {
+          attestation_version: string | null
+          attested_at: string | null
+          blood_group: Database["public"]["Enums"]["blood_group"] | null
+          document_id: string | null
+          genotype: Database["public"]["Enums"]["haemoglobin_genotype"] | null
+          genotype_note: string | null
+          organisation_id: string
+          patient_id: string
+          provenance: string
+          recorded_at: string
+          recorded_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          attestation_version?: string | null
+          attested_at?: string | null
+          blood_group?: Database["public"]["Enums"]["blood_group"] | null
+          document_id?: string | null
+          genotype?: Database["public"]["Enums"]["haemoglobin_genotype"] | null
+          genotype_note?: string | null
+          organisation_id: string
+          patient_id: string
+          provenance: string
+          recorded_at?: string
+          recorded_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attestation_version?: string | null
+          attested_at?: string | null
+          blood_group?: Database["public"]["Enums"]["blood_group"] | null
+          document_id?: string | null
+          genotype?: Database["public"]["Enums"]["haemoglobin_genotype"] | null
+          genotype_note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          provenance?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_blood_profile_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_blood_profile_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_blood_profile_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_devices: {
         Row: {
           ble_device_id: string
@@ -9080,7 +9409,9 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
-          pharmacy_order_id: string
+          medication_id: string | null
+          pharmacy_name: string | null
+          pharmacy_order_id: string | null
           quantity: string | null
           recorded_by: string | null
           source: Database["public"]["Enums"]["dispense_source"]
@@ -9093,7 +9424,9 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
-          pharmacy_order_id: string
+          medication_id?: string | null
+          pharmacy_name?: string | null
+          pharmacy_order_id?: string | null
           quantity?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
@@ -9106,13 +9439,22 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
-          pharmacy_order_id?: string
+          medication_id?: string | null
+          pharmacy_name?: string | null
+          pharmacy_order_id?: string | null
           quantity?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_dispenses_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pharmacy_order_dispenses_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -10956,6 +11298,7 @@ export type Database = {
           booking_confirmed_at: string | null
           clinical_summary: Json | null
           created_at: string
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
           organisation_id: string
@@ -10989,6 +11332,7 @@ export type Database = {
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
           created_at?: string
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id: string
@@ -11022,6 +11366,7 @@ export type Database = {
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
           created_at?: string
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id?: string
@@ -13070,8 +13415,24 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
+      confirm_lab_result_extraction: {
+        Args: { p_extraction_id: string; p_readings: Json }
+        Returns: undefined
+      }
       close_masked_call: {
         Args: { p_reason?: string | null; p_session_id: string }
+        Returns: undefined
+      }
+      create_emergency_card: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      emergency_card_by_token: {
+        Args: { p_token: string }
+        Returns: Json
+      }
+      revoke_emergency_card: {
+        Args: Record<PropertyKey, never>
         Returns: undefined
       }
       create_personalised_lifestyle_goal: {
@@ -13535,6 +13896,14 @@ export type Database = {
         }
         Returns: string
       }
+      purchase_subscription_voucher: {
+        Args: { p_beneficiary: string; p_gift_message?: string; p_plan_id: string }
+        Returns: Json
+      }
+      redeem_subscription_voucher: {
+        Args: { p_voucher_id: string }
+        Returns: Json
+      }
       redeem_care_voucher: {
         Args: { p_order_id: string; p_order_type: string; p_voucher: string }
         Returns: Json
@@ -13752,6 +14121,8 @@ export type Database = {
         | "emergency"
       alert_status: "open" | "acknowledged" | "resolved"
       allergy_severity: "mild" | "moderate" | "severe"
+      blood_group: "O+" | "O-" | "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-"
+      haemoglobin_genotype: "AA" | "AS" | "AC" | "SS" | "SC" | "CC" | "other"
       allergy_source: "patient" | "clinician"
       annual_check_status: "pending" | "in_progress" | "completed"
       annual_review_stage:
@@ -13922,6 +14293,7 @@ export type Database = {
         | "analogue_rapid"
         | "analogue_long"
       lab_monitoring_status: "pending" | "completed" | "cancelled"
+      fulfilment_mode: "partner" | "self_arranged"
       lab_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -14044,6 +14416,7 @@ export type Database = {
         | "overdue_screening"
         | "stale_monitoring"
         | "unactioned_abnormal"
+        | "awaiting_result"
       patient_device_status: "active" | "unpaired"
       patient_device_type:
         | "bp_cuff"
@@ -14379,6 +14752,8 @@ export const Constants = {
       ],
       alert_status: ["open", "acknowledged", "resolved"],
       allergy_severity: ["mild", "moderate", "severe"],
+      blood_group: ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"],
+      haemoglobin_genotype: ["AA", "AS", "AC", "SS", "SC", "CC", "other"],
       allergy_source: ["patient", "clinician"],
       annual_check_status: ["pending", "in_progress", "completed"],
       annual_review_stage: [
@@ -14569,6 +14944,7 @@ export const Constants = {
         "analogue_long",
       ],
       lab_monitoring_status: ["pending", "completed", "cancelled"],
+      fulfilment_mode: ["partner", "self_arranged"],
       lab_order_status: [
         "pending_payment",
         "payment_confirmed",
@@ -14704,6 +15080,7 @@ export const Constants = {
         "overdue_screening",
         "stale_monitoring",
         "unactioned_abnormal",
+        "awaiting_result",
       ],
       patient_device_status: ["active", "unpaired"],
       patient_device_type: [

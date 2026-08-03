@@ -39,7 +39,6 @@ import {
   ChevronRight,
   ArrowRightLeft,
   Bell,
-  Phone,
   Landmark,
   BookOpen,
   FileSpreadsheet,
@@ -62,7 +61,6 @@ import {
   Soup,
   UtensilsCrossed,
   Apple,
-  Volume2,
   AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
@@ -99,7 +97,6 @@ export const SEMANTIC_ICON = {
   billing: CreditCard,
   commission: Percent,
   logistics: Truck,
-  reminderPreference: Phone,
   badge: Award,
   points: Star,
   challenge: Target,
@@ -110,7 +107,6 @@ export const SEMANTIC_ICON = {
   weightTrend: TrendingDown,
   steps: Footprints,
   workout: Dumbbell,
-  speak: Volume2,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Meal-type tab icons for the "Log a meal" picker — a page-local visual set,

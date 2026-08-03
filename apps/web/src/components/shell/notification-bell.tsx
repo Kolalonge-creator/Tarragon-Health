@@ -185,6 +185,19 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: sourceTable === "clinician_alerts" ? "/clinician/escalations" : "/admin",
     };
   }
+  if (n.template === "emergency_card_viewed") {
+    const on = String(payload.viewed_on ?? "");
+    return {
+      text: on ? `Your emergency card link was viewed on ${on}` : "Your emergency card link was viewed",
+      href: "/patient/emergency-card",
+    };
+  }
+  if (n.template === "emergency_card_expiring_soon") {
+    return {
+      text: "Your emergency card link expires soon — renew it to keep it working",
+      href: "/patient/emergency-card",
+    };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 

@@ -28,18 +28,26 @@ export default async function CoveragePage() {
             Where we work
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Half of TarragonHealth needs a partner on the ground: a lab to draw blood, a pharmacy
-            to hand over medication, a specialist to see someone in person. We switch those on one
-            state at a time, and only once a real partner is signed. Check yours here, before you
-            pay for anything.
+            TarragonHealth works anywhere in Nigeria. We tell you which tests are worth doing and
+            when, write you a request to take to any lab you like, read the result with you, and
+            follow up. None of that waits on us signing a partner in your state, so none of it is
+            switched off where you live.
+          </p>
+          <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+            You pay the lab or the pharmacy directly, at their price. We take nothing on top.
+          </p>
+          <p className="mt-4 text-sm text-charcoal-ink/60">
+            What we do not yet do anywhere: collect a sample from your home, deliver medication to
+            your door, or bill a lab on your behalf. Those need contracted partners, and we would
+            rather say so than imply otherwise.
           </p>
           {liveStates.length > 0 && (
             <p className="mt-4 text-sm text-charcoal-ink/60">
-              Partner services are live in{" "}
+              Partner-fulfilled services are live in{" "}
               <span className="font-medium text-deep-forest">
                 {liveStates.map((row) => row.displayName).join(", ")}
               </span>
-              . Everywhere else, the rest of the platform still works.
+              .
             </p>
           )}
         </div>
@@ -49,7 +57,7 @@ export default async function CoveragePage() {
         <SectionHeading
           eyebrow="Coverage"
           title="Check a state"
-          description="This reads the same live list the app itself uses, so it can never promise something the product would then refuse."
+          description="Screening guidance, test requests, uploading a result and doctor review work in every state. This checker shows the extra, partner-fulfilled services on top, and reads the same live list the app itself uses, so it can never promise something the product would then refuse."
         />
         <CoverageChecker coverage={coverage} />
       </Section>

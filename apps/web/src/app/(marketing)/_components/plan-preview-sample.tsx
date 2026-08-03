@@ -59,7 +59,7 @@ export function buildSamplePlan(age: AgeBand, sex: Sex, situation: Situation): S
     calendar,
     firstNinetyDays: [
       "A real two-minute health profile builds your real calendar; this example only used three quick picks.",
-      "You book your first due check at a partner lab near you, and see the exact price before confirming.",
+      "You request your first due check in the app and take it to any lab you like. You pay them directly, and we take nothing on it.",
       "Most results just confirm you're on track. If one doesn't, a doctor follows up the same day, not next month.",
     ],
   };

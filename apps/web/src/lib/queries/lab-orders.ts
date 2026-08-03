@@ -110,13 +110,15 @@ export function useOrgLabOrders() {
 }
 
 /**
- * Patient books a panel_bundle with a chosen provider. lab_orders' INSERT
- * RLS allows patient_id = auth.uid() directly (unlike specialist_referrals,
- * which is always staff/trigger-created) — booking is patient-initiated
- * here, so no server action/service-role needed for this step. status must
- * be set explicitly: the column's actual default is 'ordered', predating
- * this payment-gated flow (Build 1 only added the new enum values, never
- * changed the default).
+ * Patient issues a self-arranged order for a panel_bundle: Tarragon records
+ * WHAT test is needed and why, and the patient takes it to whichever lab they
+ * choose, pays that lab directly, and uploads the result. No provider, no
+ * facility, no charge — private.enforce_lab_order_origin rejects all three on
+ * a self_arranged order, so this is enforced server-side, not by convention.
+ *
+ * lab_orders' INSERT RLS allows patient_id = auth.uid() directly (unlike
+ * specialist_referrals, which is always staff/trigger-created), so no server
+ * action/service-role is needed for this step.
  *
  * Per the clinician-originated-orders gate (migration
  * 20260715125456_clinician_originated_orders), this only succeeds when
@@ -135,31 +137,25 @@ export function useCreateLabOrder() {
       organisationId,
       patientId,
       panelBundleId,
-      providerId,
-      facilityId,
-      totalKobo,
       screeningScheduleId,
     }: {
       organisationId: string;
       patientId: string;
       panelBundleId: string;
-      /** Derived from the chosen facility's lab_provider_id — carries pricing/commission. */
-      providerId: string;
-      /** The physical facility the patient chose (public.facilities). Optional for back-compat. */
-      facilityId?: string;
-      totalKobo: number;
       /** Required for the due-screening path; omitted only for self_bookable bundles. */
       screeningScheduleId?: string;
     }) => {
       const supabase = createClient();
+      // Self-arranged: no provider, no facility, no charge, and it opens at
+      // 'ordered' rather than 'pending_payment' because there is nothing for
+      // Tarragon to collect. private.enforce_lab_order_origin rejects any of
+      // those being set, so this shape is enforced server-side too.
       const { error } = await supabase.from("lab_orders").insert({
         organisation_id: organisationId,
         patient_id: patientId,
         panel_bundle_id: panelBundleId,
-        provider_id: providerId,
-        facility_id: facilityId ?? null,
-        total_kobo: totalKobo,
-        status: "pending_payment",
+        total_kobo: 0,
+        status: "ordered",
         screening_schedule_id: screeningScheduleId ?? null,
       });
       if (error) throw error;
@@ -188,14 +184,10 @@ export function useOrderLabTest() {
       organisationId,
       patientId,
       panelBundleId,
-      providerId,
-      totalKobo,
     }: {
       organisationId: string;
       patientId: string;
       panelBundleId: string;
-      providerId: string;
-      totalKobo: number;
     }) => {
       const supabase = createClient();
       const {
@@ -215,13 +207,15 @@ export function useOrderLabTest() {
         throw new Error("You must be an active clinical_staff member of this organisation to order a lab test");
       }
 
+      // Self-arranged, exactly like the patient path: the clinician decides
+      // WHAT test is needed and why; the patient takes that order to whichever
+      // lab suits them and uploads the result.
       const { error } = await supabase.from("lab_orders").insert({
         organisation_id: organisationId,
         patient_id: patientId,
         panel_bundle_id: panelBundleId,
-        provider_id: providerId,
-        total_kobo: totalKobo,
-        status: "pending_payment",
+        total_kobo: 0,
+        status: "ordered",
         origin: "clinically_triggered",
         ordered_by: staff.id,
       });
@@ -233,38 +227,9 @@ export function useOrderLabTest() {
   });
 }
 
-/**
- * Fills in facility_id (and server-derives provider_id from it) on a lab
- * order that doesn't have one yet — closes the clinician-ordered gap where
- * useOrderLabTest never asks which physical lab to use. RPC-backed
- * (public.set_lab_order_facility) because lab_orders_update RLS is
- * staff-only; the function re-derives ownership + status server-side, so
- * this can't be used to redirect an already-paid order.
- */
-export function useSetLabOrderFacility() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      orderId,
-      facilityId,
-    }: {
-      orderId: string;
-      facilityId: string;
-      /** Only used to invalidate the right query cache on success. */
-      patientId: string;
-    }) => {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("set_lab_order_facility", {
-        p_order_id: orderId,
-        p_facility_id: facilityId,
-      });
-      if (error) throw error;
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
-    },
-  });
-}
+/* useSetLabOrderFacility and its ChooseLabFacility card are removed: a
+ * self-arranged order has no facility to set, and public.set_lab_order_facility
+ * now refuses one outright. The RPC survives for the dormant partner path. */
 
 export type LabResultInterpretation = Tables<"lab_result_interpretations">;
 

@@ -34,6 +34,17 @@ export default async function HealthCheckPage() {
   // Ensure this year's check row exists (caller-scoped, idempotent).
   await supabase.rpc("open_health_check");
 
+  // Same gate as the prevention hub: the curated Screen ladder is a paid-plan
+  // feature. Uploading a result and having a doctor read it never is.
+  const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
+    feature: "lab_coordination",
+  });
+  const { data: preventionCoordinationEnabled } = await supabase.rpc("has_feature_access", {
+    feature: "prevention_coordination",
+  });
+  const screensEnabled =
+    (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
+
   const year = new Date().getFullYear();
   const yearStart = `${year}-01-01T00:00:00.000Z`;
 
@@ -191,19 +202,19 @@ export default async function HealthCheckPage() {
         </CardContent>
       </Card>
 
-      {/* The one-off lab bundle that powers stage 4 — bookable here directly,
-          on any plan (the self_bookable exception, migration 20260723150205). */}
+      {/* The lab tests that power stage 4. Self-arranged: we write the request,
+          the patient uses any lab, and uploads the result back here. */}
       <AnnualHealthCheckBooking
         patientId={profile.id}
         organisationId={profile.organisation_id}
-        patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         sex={profile.sex}
+        screensEnabled={screensEnabled}
       />
 
       {/* Lipid results + the CV-risk gloss they feed — both self-hide until
           there's real data, so nothing renders until a lipid panel lands. */}
       <LipidProfileCard patientId={profile.id} />
-      <RiskSignalsCard patientId={profile.id} language={profile.language} />
+      <RiskSignalsCard patientId={profile.id} />
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>

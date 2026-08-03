@@ -19,8 +19,8 @@ const GENERAL_STEPS = [
     body: "Pick your age and sex below, or sign up and let your real profile (age, sex, family history) build your personal screening calendar automatically.",
   },
   {
-    title: "Book, with the price upfront",
-    body: "Every screening is booked through a vetted partner lab or clinic. You see the exact price and confirm before anything is booked, never a surprise bill afterward.",
+    title: "Request it, take it anywhere",
+    body: "We say what to get and why, and write you a real request. You take it to whichever laboratory or clinic you like, pay them directly, and we take nothing on it.",
   },
   {
     title: "One visit, most of the time",

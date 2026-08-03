@@ -79,8 +79,8 @@ export default async function PreventionHubPage() {
         <AnnualHealthCheckBooking
           patientId={profile.id}
           organisationId={profile.organisation_id}
-          patientLocation={location}
           sex={profile.sex}
+          screensEnabled={screeningBookingEnabled}
         />
       </div>
 
@@ -94,7 +94,6 @@ export default async function PreventionHubPage() {
           patientId={profile.id}
           organisationId={profile.organisation_id}
           bookingEnabled={screeningBookingEnabled}
-          patientLocation={location}
         />
         {!screeningBookingEnabled && <UpgradePrompt feature="prevention_coordination" />}
       </div>

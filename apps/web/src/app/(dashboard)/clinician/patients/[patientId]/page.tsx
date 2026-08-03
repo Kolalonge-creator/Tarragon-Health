@@ -13,9 +13,13 @@ import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { PreVisitSummary } from "./pre-visit-summary";
+import { ExtractedResultsPanel } from "./extracted-results-panel";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
+import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { BloodProfileForm } from "./blood-profile-form";
+import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
@@ -123,6 +127,21 @@ export default async function ClinicianPatientPage({
     .eq("patient_id", patient.id)
     .maybeSingle();
 
+  const { data: bloodProfile } = await supabase
+    .from("patient_blood_profile")
+    .select("blood_group, genotype, genotype_note, provenance, document_id, attested_at, recorded_at")
+    .eq("patient_id", patient.id)
+    .maybeSingle();
+
+  // The reports a blood group or genotype may be recorded AGAINST. With none on
+  // file the form offers no way to type one in on trust — that is the point.
+  const { data: bloodReports } = await supabase
+    .from("lab_result_documents")
+    .select("id, original_filename, created_at")
+    .eq("patient_id", patient.id)
+    .order("created_at", { ascending: false })
+    .limit(25);
+
   const tabs: PatientRecordTab[] = [
           {
             id: "overview",
@@ -130,6 +149,34 @@ export default async function ClinicianPatientPage({
             content: (
               <>
                 <PreVisitSummary patientId={patient.id} />
+                {/* Two facts with outsized weight in a Nigerian emergency, and
+                    the platform had nowhere to keep them until now. */}
+                <BloodProfileForm
+                  patientId={patient.id}
+                  initial={
+                    bloodProfile
+                      ? {
+                          bloodGroup: bloodProfile.blood_group,
+                          genotype: bloodProfile.genotype,
+                          genotypeNote: bloodProfile.genotype_note,
+                          provenance: bloodProfile.provenance,
+                          documentId: bloodProfile.document_id,
+                          attestedAt: bloodProfile.attested_at,
+                          recordedAt: bloodProfile.recorded_at,
+                        }
+                      : null
+                  }
+                  reports={(bloodReports ?? []).map((r) => ({
+                    id: r.id,
+                    label: `${r.original_filename ?? "Result"} · ${new Date(
+                      r.created_at,
+                    ).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}`,
+                  }))}
+                />
                 <PatientTimeline patientId={patient.id} />
                 {patient.organisation_id && (
                   <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
@@ -146,6 +193,10 @@ export default async function ClinicianPatientPage({
                     tier — refill coordination is a staff-visible clinical detail
                     regardless of what the patient's plan does or doesn't unlock for
                     them on their own dashboard. */}
+                {/* Above the list deliberately: the interaction, duplicate-therapy
+                    and renal-dosing checks are what a dispensing pharmacist would
+                    have caught, and this platform has no pharmacist in the loop. */}
+                <MedicationSafetyPanel patientId={patient.id} />
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
@@ -183,6 +234,7 @@ export default async function ClinicianPatientPage({
             content: (
               <>
                 <BpLadderPanel patientId={patient.id} />
+                <HealthTrendsCard patientId={patient.id} audience="clinician" />
                 <VitalsTrendChart patientId={patient.id} />
                 <LipidProfileCard patientId={patient.id} />
                 <CardiovascularRiskPanel
@@ -204,6 +256,9 @@ export default async function ClinicianPatientPage({
             content: (
               <>
                 <ResultDocumentsSection patientId={patient.id} />
+                {/* Sits directly under the uploaded documents it was read from,
+                    so checking a value against the page is one glance. */}
+                <ExtractedResultsPanel patientId={patient.id} />
                 <MentalHealthSummary patientId={patient.id} showScores />
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />

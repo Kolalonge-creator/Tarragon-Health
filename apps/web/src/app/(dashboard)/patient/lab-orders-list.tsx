@@ -3,30 +3,26 @@
 import { usePatientLabOrders } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
-import { koboToNaira, type LabOrderStatus } from "@tarragon/shared";
-import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
-import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
-import { HomeCollectionAvailability } from "@/components/home-collection-availability";
-import { ChooseLabFacility } from "./choose-lab-facility";
-import type { PatientLocation } from "./facility-selector";
+import type { LabOrderStatus } from "@tarragon/shared";
+import { PatientResultUpload } from "@/components/patient-result-upload";
 
+/** Self-arranged: the states that matter to a patient are "we've written it,
+ * go when you can" and "the result is in". Payment states are retained in the
+ * map because the enum still carries them for the dormant partner path. */
 const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending_payment: { variant: "amber", label: "Awaiting payment" },
-  payment_confirmed: { variant: "blue", label: "Booking confirmed" },
-  ordered: { variant: "blue", label: "In progress" },
+  payment_confirmed: { variant: "blue", label: "Ready to take to a lab" },
+  ordered: { variant: "blue", label: "Ready to take to a lab" },
   sample_collected: { variant: "blue", label: "Sample collected" },
   processing: { variant: "blue", label: "In progress" },
   resulted: { variant: "green", label: "Results ready" },
   cancelled: { variant: "grey", label: "Cancelled" },
 };
 
-export function LabOrdersList({
-  patientId,
-  patientLocation,
-}: {
-  patientId: string;
-  patientLocation?: PatientLocation | null;
-}) {
+/** Still open: the patient has a request and we're waiting on their result. */
+const AWAITING_RESULT: LabOrderStatus[] = ["payment_confirmed", "ordered", "processing"];
+
+export function LabOrdersList({ patientId }: { patientId: string }) {
   const { data: orders, isLoading, isError } = usePatientLabOrders(patientId);
 
   if (isLoading || isError || !orders || orders.length === 0) {
@@ -36,48 +32,32 @@ export function LabOrdersList({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your lab orders</CardTitle>
+        <CardTitle>Your test requests</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="divide-y divide-charcoal-ink/10">
           {orders.map((order) => {
             const badge = LAB_ORDER_STATUS_BADGE[order.status];
+            const awaiting = AWAITING_RESULT.includes(order.status);
             return (
-              <li key={order.id} className="space-y-1 py-3">
+              <li key={order.id} className="space-y-2 py-3">
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
                   <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
                 </div>
                 <p className="text-sm font-medium text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Lab test"}
-                  {order.facility ? (
-                    <span className="text-charcoal-ink/60"> · {order.facility.name}</span>
-                  ) : (
-                    order.provider && <span className="text-charcoal-ink/60"> · {order.provider.name}</span>
-                  )}
                 </p>
-                <p className="text-xs text-charcoal-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
-                {order.status === "pending_payment" &&
-                  (order.facility_id ? (
-                    <>
-                      <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
-                      <RedeemVoucherButton
-                        orderType="lab"
-                        orderId={order.id}
-                        patientId={patientId}
-                        panelBundleId={order.panel_bundle_id}
-                        payableKobo={order.payable_kobo ?? order.total_kobo}
-                      />
-                    </>
-                  ) : (
-                    <ChooseLabFacility orderId={order.id} patientId={patientId} patientLocation={patientLocation} />
-                  ))}
-                {(order.status === "payment_confirmed" || order.status === "ordered") && (
-                  <HomeCollectionAvailability
-                    region={order.provider?.regions?.[0] ?? null}
-                    homeVisitProviderName={order.home_visit_provider?.name ?? null}
-                    homeVisitScheduledAt={order.home_visit_scheduled_at}
-                  />
+                {awaiting && (
+                  <>
+                    <a
+                      href={`/api/patient/lab-order/${order.id}/request`}
+                      className="inline-block text-xs font-medium text-brand-green hover:underline"
+                    >
+                      Download the request to take with you
+                    </a>
+                    <PatientResultUpload labOrderId={order.id} />
+                  </>
                 )}
               </li>
             );
