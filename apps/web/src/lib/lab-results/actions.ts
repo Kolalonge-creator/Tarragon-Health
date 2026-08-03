@@ -6,6 +6,7 @@ import type { Database } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
+import { generateLabResultExtraction } from "@/lib/lab-extraction/generate";
 import {
   labPartnerResultUploadSchema,
   markResultReviewedSchema,
@@ -111,23 +112,37 @@ export async function uploadResultDocumentForPatient(
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const { error: insertError } = await service.from("lab_result_documents").insert({
-    organisation_id: patient.organisation_id,
-    patient_id: patientId,
-    lab_order_id: labOrderId ?? null,
-    file_path: path,
-    original_filename: file.name,
-    mime_type: file.type,
-    file_size_bytes: file.size,
-    source,
-    uploaded_by: user.id,
-    note: note ?? null,
-  });
-  if (insertError) {
+  const { data: inserted, error: insertError } = await service
+    .from("lab_result_documents")
+    .insert({
+      organisation_id: patient.organisation_id,
+      patient_id: patientId,
+      lab_order_id: labOrderId ?? null,
+      file_path: path,
+      original_filename: file.name,
+      mime_type: file.type,
+      file_size_bytes: file.size,
+      source,
+      uploaded_by: user.id,
+      note: note ?? null,
+    })
+    .select("id")
+    .single();
+  if (insertError || !inserted) {
     // Roll back the orphaned object so a failed insert leaves no stray file.
     await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return { error: insertError.message };
+    return { error: insertError?.message ?? "Could not save that upload." };
   }
+
+  // Same structured read as the patient-upload path — an emailed result is no
+  // less worth turning into trendable numbers. Never throws.
+  await generateLabResultExtraction(service, {
+    documentId: inserted.id,
+    organisationId: patient.organisation_id,
+    patientId,
+    filePath: path,
+    mimeType: file.type,
+  });
 
   revalidatePath("/lab-liaison");
   revalidatePath(`/clinician/patients/${patientId}`);
@@ -214,23 +229,40 @@ export async function uploadResultDocumentAsPatient(
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const { error: insertError } = await supabase.from("lab_result_documents").insert({
-    organisation_id: me.organisation_id,
-    patient_id: user.id,
-    lab_order_id: labOrderId ?? null,
-    file_path: path,
-    original_filename: file.name,
-    mime_type: file.type,
-    file_size_bytes: file.size,
-    source: "patient",
-    uploaded_by: user.id,
-    note: note ?? null,
-  });
-  if (insertError) {
+  const { data: inserted, error: insertError } = await supabase
+    .from("lab_result_documents")
+    .insert({
+      organisation_id: me.organisation_id,
+      patient_id: user.id,
+      lab_order_id: labOrderId ?? null,
+      file_path: path,
+      original_filename: file.name,
+      mime_type: file.type,
+      file_size_bytes: file.size,
+      source: "patient",
+      uploaded_by: user.id,
+      note: note ?? null,
+    })
+    .select("id")
+    .single();
+  if (insertError || !inserted) {
     // Roll back the orphaned object so a failed insert leaves no stray file.
     await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
-    return { error: insertError.message };
+    return { error: insertError?.message ?? "Could not save that upload." };
   }
+
+  // Read the document into structured values so the clinician opening the alert
+  // already has numbers to check rather than a PDF to squint at. Awaited (it
+  // never throws, and a failure just persists a 'failed' row) so the clinician
+  // is not racing the model; the patient's own confirmation does not depend on
+  // the outcome either way.
+  await generateLabResultExtraction(createServiceRoleClient(), {
+    documentId: inserted.id,
+    organisationId: me.organisation_id,
+    patientId: user.id,
+    filePath: path,
+    mimeType: file.type,
+  });
 
   revalidatePath("/patient");
   revalidatePath("/patient/prevention");

@@ -4788,6 +4788,7 @@ export type Database = {
           created_at: string
           excluded_test_codes: Json
           facility_id: string | null
+          fulfilment: Database["public"]["Enums"]["lab_order_fulfilment"]
           home_visit_provider_id: string | null
           home_visit_scheduled_at: string | null
           id: string
@@ -4821,6 +4822,7 @@ export type Database = {
           created_at?: string
           excluded_test_codes?: Json
           facility_id?: string | null
+          fulfilment?: Database["public"]["Enums"]["lab_order_fulfilment"]
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -4854,6 +4856,7 @@ export type Database = {
           created_at?: string
           excluded_test_codes?: Json
           facility_id?: string | null
+          fulfilment?: Database["public"]["Enums"]["lab_order_fulfilment"]
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -4990,6 +4993,80 @@ export type Database = {
           {
             foreignKeyName: "lab_providers_license_verified_by_fkey"
             columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_result_extractions: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          document_id: string
+          error_message: string | null
+          id: string
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          proposed: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id: string
+          error_message?: string | null
+          id?: string
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          proposed?: Json
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id?: string
+          error_message?: string | null
+          id?: string
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          proposed?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_result_extractions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_extractions_patient_id_fkey"
+            columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -13070,6 +13147,10 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
+      confirm_lab_result_extraction: {
+        Args: { p_extraction_id: string; p_readings: Json }
+        Returns: undefined
+      }
       close_masked_call: {
         Args: { p_reason?: string | null; p_session_id: string }
         Returns: undefined
@@ -13922,6 +14003,7 @@ export type Database = {
         | "analogue_rapid"
         | "analogue_long"
       lab_monitoring_status: "pending" | "completed" | "cancelled"
+      lab_order_fulfilment: "partner" | "self_arranged"
       lab_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -14044,6 +14126,7 @@ export type Database = {
         | "overdue_screening"
         | "stale_monitoring"
         | "unactioned_abnormal"
+        | "awaiting_result"
       patient_device_status: "active" | "unpaired"
       patient_device_type:
         | "bp_cuff"
@@ -14569,6 +14652,7 @@ export const Constants = {
         "analogue_long",
       ],
       lab_monitoring_status: ["pending", "completed", "cancelled"],
+      lab_order_fulfilment: ["partner", "self_arranged"],
       lab_order_status: [
         "pending_payment",
         "payment_confirmed",
@@ -14704,6 +14788,7 @@ export const Constants = {
         "overdue_screening",
         "stale_monitoring",
         "unactioned_abnormal",
+        "awaiting_result",
       ],
       patient_device_status: ["active", "unpaired"],
       patient_device_type: [
