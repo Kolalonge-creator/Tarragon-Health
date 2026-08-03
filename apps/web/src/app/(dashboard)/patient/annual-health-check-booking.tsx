@@ -47,8 +47,9 @@ const REBOOK_AFTER_MONTHS = 11;
 
 /**
  * Self-service booking for the WHO-essential self_bookable bundles: the
- * three Health Check packages (Basic / Annual / Comprehensive) and the
- * confidential single screenings (cervical smear, HIV, Hepatitis B). Open to
+ * Core/Advanced/Comprehensive Screen ladder (health_check_basic is retired,
+ * deactivated not deleted) and the confidential single screenings (cervical
+ * smear, HIV, Hepatitis B, Hepatitis C). Open to
  * every patient on every plan — BOOK & PAY items, not subscription features.
  * The DB trigger (private.enforce_lab_order_origin) is the real gate; this
  * card only ever offers what panel_bundles.self_bookable allows. Every

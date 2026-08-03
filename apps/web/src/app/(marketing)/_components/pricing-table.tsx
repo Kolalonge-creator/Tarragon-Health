@@ -67,11 +67,12 @@ function TierCard({ tier }: { tier: PricingTier }) {
 
 /**
  * `priceOverrides` carries the live prices read from the database by the page.
- * The pound and dollar amounts are the naira price converted at the founder's
- * reference rate, so they change whenever that rate changes and cannot be
- * shipped as constants — the page would advertise one number while checkout
- * charged another. A tier with no override keeps its static price, so a
- * database blip degrades to slightly stale copy rather than a blank card.
+ * The dollar amounts are the naira price converted at the founder's reference
+ * rate plus the disclosed processing fee, so they change whenever the rate or
+ * fee changes and cannot be shipped as constants — the page would advertise
+ * one number while checkout charged another. A tier with no override keeps
+ * its static price, so a database blip degrades to slightly stale copy rather
+ * than a blank card.
  */
 export function PricingTable({
   priceOverrides = {},
