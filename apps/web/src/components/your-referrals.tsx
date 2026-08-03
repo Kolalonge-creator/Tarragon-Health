@@ -3,9 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stepper } from "@/components/ui/stepper";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import type { ReferralStatus } from "@tarragon/shared";
-import { PayForReferralButton } from "./pay-for-referral-button";
-import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
-import { ChooseReferralSpecialist } from "./choose-referral-specialist";
 
 // Patient-facing status copy — deliberately not the staff worklist labels
 // (REFERRAL_STATUS_BADGE in clinician/referrals/page.tsx), per CLAUDE.md's
@@ -31,13 +28,7 @@ function formatDate(value: string): string {
  * this component, nothing ever showed it to the patient). Renders nothing
  * if the patient has no referrals on record.
  */
-export async function YourReferrals({
-  patientId,
-  patientLocation,
-}: {
-  patientId: string;
-  patientLocation?: { state: string | null; city: string | null } | null;
-}) {
+export async function YourReferrals({ patientId }: { patientId: string }) {
   const supabase = await createClient();
 
   const { data: referrals } = await supabase
@@ -69,37 +60,26 @@ export async function YourReferrals({
             </div>
             <p className="text-xs text-charcoal-ink/60">{PATIENT_STATUS_COPY[referral.status]}</p>
             <Stepper steps={deriveReferralPipelineStages(referral)} />
-            {referral.specialist_provider && (
-              <p className="text-xs text-charcoal-ink/60">With {referral.specialist_provider.name}</p>
-            )}
-            {!referral.specialist_provider_id &&
-              referral.status === "pending" &&
-              referral.urgency !== null && (
-                <ChooseReferralSpecialist
-                  referralId={referral.id}
-                  specialistType={referral.specialist_type}
-                  patientLocation={patientLocation}
-                />
-              )}
             {referral.appointment_date && (
               <p className="text-xs text-charcoal-ink/60">
                 Appointment: {new Date(referral.appointment_date).toLocaleDateString()}
               </p>
             )}
-            {referral.status === "pending_payment" && referral.referral_fee_kobo && (
-              <>
-                <PayForReferralButton
-                  referralId={referral.id}
-                  feeKobo={referral.referral_fee_kobo}
-                />
-                <RedeemVoucherButton
-                  orderType="referral"
-                  orderId={referral.id}
-                  patientId={patientId}
-                  payableKobo={referral.payable_kobo ?? referral.referral_fee_kobo}
-                />
-              </>
-            )}
+            {/* The letter is the referral. Tarragon does not book the
+                specialist or take a fee on one, so there is nobody to choose
+                here and nothing to pay us; the patient takes this to whichever
+                clinic suits them. Never gated by plan. */}
+            <a
+              href={`/api/patient/referral/${referral.id}/letter`}
+              className="inline-block text-xs font-medium text-brand-green hover:underline"
+            >
+              Download your referral letter
+            </a>
+            <p className="text-xs text-charcoal-ink/50">
+              Take this to any {referral.specialist_type.replace(/_/g, " ")} you like. It tells them
+              why you were referred and what we have already done, so you do not have to explain it
+              yourself. You pay that clinic directly.
+            </p>
           </div>
         ))}
       </CardContent>

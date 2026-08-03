@@ -457,10 +457,7 @@ export default async function PatientPage() {
         >
           <LifestyleProgressSummary patientId={subjectId} />
         </RequiresEntitlement>
-        <YourReferrals
-          patientId={subjectId}
-          patientLocation={{ state: profile.state, city: profile.city }}
-        />
+        <YourReferrals patientId={subjectId} />
         {coachAccess && <AiCoachChat patientId={subjectId} />}
         <CareCircleCard />
 

@@ -29,7 +29,7 @@ const CONNECTS = [
   },
   {
     title: "Specialist referrals that carry your record",
-    body: "When your care team refers you to a specialist, the referral travels with your health record (your readings, medications, and results), not a paper slip that gets lost. Afterwards, follow-up comes back onto the same record.",
+    body: "When your care team refers you to a specialist, you get a proper referral letter carrying your readings, medications, and the result that prompted it, so the specialist knows why you are there instead of asking you to explain. You choose which specialist to see and pay them directly. Bring their findings back and they go onto the same record.",
   },
   {
     title: "A doctor, when you need one directly",

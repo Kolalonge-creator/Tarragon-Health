@@ -4798,7 +4798,7 @@ export type Database = {
           created_at: string
           excluded_test_codes: Json
           facility_id: string | null
-          fulfilment: Database["public"]["Enums"]["lab_order_fulfilment"]
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id: string | null
           home_visit_scheduled_at: string | null
           id: string
@@ -4832,7 +4832,7 @@ export type Database = {
           created_at?: string
           excluded_test_codes?: Json
           facility_id?: string | null
-          fulfilment?: Database["public"]["Enums"]["lab_order_fulfilment"]
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -4866,7 +4866,7 @@ export type Database = {
           created_at?: string
           excluded_test_codes?: Json
           facility_id?: string | null
-          fulfilment?: Database["public"]["Enums"]["lab_order_fulfilment"]
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           home_visit_provider_id?: string | null
           home_visit_scheduled_at?: string | null
           id?: string
@@ -11056,6 +11056,7 @@ export type Database = {
           booking_confirmed_at: string | null
           clinical_summary: Json | null
           created_at: string
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
           organisation_id: string
@@ -11089,6 +11090,7 @@ export type Database = {
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
           created_at?: string
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id: string
@@ -11122,6 +11124,7 @@ export type Database = {
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
           created_at?: string
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id?: string
@@ -14034,7 +14037,7 @@ export type Database = {
         | "analogue_rapid"
         | "analogue_long"
       lab_monitoring_status: "pending" | "completed" | "cancelled"
-      lab_order_fulfilment: "partner" | "self_arranged"
+      fulfilment_mode: "partner" | "self_arranged"
       lab_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -14683,7 +14686,7 @@ export const Constants = {
         "analogue_long",
       ],
       lab_monitoring_status: ["pending", "completed", "cancelled"],
-      lab_order_fulfilment: ["partner", "self_arranged"],
+      fulfilment_mode: ["partner", "self_arranged"],
       lab_order_status: [
         "pending_payment",
         "payment_confirmed",
