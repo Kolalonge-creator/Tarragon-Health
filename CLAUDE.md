@@ -2431,6 +2431,41 @@ findings** and no new/unexpected finding on any new table.
   review-and-confirm loop against a real Nigerian lab report once a test credential is free (the
   extraction prompt is tuned but has never seen a real report).
 
+### 2026-08-03 — Founder correction: blood group / genotype must carry provenance; voice suspended
+Same session as the entry above, acting on two founder decisions.
+- **"I don't sell this test at the moment"** — so a clinician typing a genotype in on trust was the
+  wrong default. `patient_blood_profile` was restructured (`20260803140000_blood_profile_provenance`,
+  zero rows, clean change) so there are exactly TWO ways a value gets in and the database refuses
+  anything else: **`lab_document`** (linked to a real uploaded report on this patient's own record) or
+  **`patient_attested`** (the patient states it, having confirmed what they are confirming, with the
+  wording versioned). The old free-text `source` allowed `clinician_recorded` — evidence-free, the exact
+  rumour the table exists to prevent — and is gone. `private.enforce_blood_profile_provenance` forces a
+  patient's claim to `patient_attested` and strips any document they attach, and refuses a report
+  belonging to a different patient so evidence cannot be borrowed. The emergency card renders the two
+  **differently** (green/confirmed vs amber/"Patient-reported, not confirmed") — a receiving team leaning
+  on a half-remembered genotype while believing it came off a lab report is precisely the harm this
+  prevents. ⚠️ **Liability wording deliberately NOT encoded.** The founder asked for patients to be
+  "liable for any error"; what a person is legally answerable for is counsel's to word, not a migration's
+  to invent. The attestation is recorded and versioned (`lib/clinical/blood-attestation.ts`) — bump
+  `BLOOD_ATTESTATION_VERSION` when counsel supplies text. Verified live: 9 checks, every negative paired
+  with a positive control, then sabotaged to confirm they discriminate. **A real policy gap surfaced on
+  the way:** patients hold insert/update on their own row but no delete, so a delete under their session
+  silently affects zero rows — correct (they may correct a value, not erase it), and the test now says so.
+- ⚠️ **Discrepancy worth a decision:** the `single_blood_group_genotype` bundle is **`is_active = true`,
+  `self_bookable = true`, ₦6,500** on the live project. The platform is selling it whether or not it is
+  being promoted. Deactivate the bundle or resume promoting it, but the two should agree.
+- **Voice: SUSPENDED, and not on cost grounds.** Costed it properly: an explainer is ~400 characters and
+  the text is already cached per (patient, kind, subject, language), so audio caches with it — one
+  generation per unique explanation, not per listen. At ElevenLabs API rates ($0.10/1k chars multilingual,
+  $0.05/1k Flash) voicing ~2,500 unique explanations is **roughly $50–100 one-off**, then near zero. That
+  is not the blocker. The blockers are (a) **no single vendor covers all four languages** — ElevenLabs has
+  Igbo, Spitch (Lagos) covers Yoruba/Hausa/Igbo/English with no public pricing, and **Nigerian Pidgin has
+  essentially no standard synthesis voice anywhere**, which is the one an elder is most likely to want;
+  and (b) the decisive fact — **zero patients on the live project have set a non-English language
+  preference** (`profiles.language`), so this is demand that has not materialised. The already-built,
+  already-paid Termii **voice-call** path covers the can't-read case for reminders without any new vendor.
+  Revisit when non-English preferences appear in the data.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
