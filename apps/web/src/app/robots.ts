@@ -14,7 +14,6 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         "/patient",
         "/clinician",
-        "/doctor",
         "/admin",
         "/pharmacist",
         "/lab-partner",

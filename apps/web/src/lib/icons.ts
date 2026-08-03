@@ -63,6 +63,7 @@ import {
   UtensilsCrossed,
   Apple,
   Volume2,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -153,6 +154,7 @@ export const NAV_ICON = {
   bell: Bell,
   wellness: Trophy,
   caseload: Gauge,
+  warning: AlertTriangle,
   menu: Menu,
   close: X,
   signOut: LogOut,

@@ -21,6 +21,25 @@ export function effectiveAlertLevel(alert: {
   return alert.override_level ?? alert.level;
 }
 
+/**
+ * Whether an alert engages the Tier 2+ authority gate on claiming/resolving
+ * an escalation (private.enforce_emergency_escalation_tier,
+ * 20260731021500_emergency_escalation_tier_gate.sql).
+ *
+ * Deliberately NOT effectiveAlertLevel(alert) === "emergency". The gate
+ * fires when EITHER the system's own classification OR a clinician's
+ * override is 'emergency', because a Tier 1 holds an active clinical_staff
+ * row and can therefore override an emergency down to routine -- coalesce
+ * alone would let them hand themselves the case. Mirrors the DB predicate
+ * exactly; keep the two in step if either changes.
+ */
+export function requiresEmergencyAuthority(
+  alert: { level: EscalationLevel; override_level?: EscalationLevel | null } | null
+): boolean {
+  if (!alert) return false;
+  return alert.level === "emergency" || alert.override_level === "emergency";
+}
+
 /** Effective severity DESC (emergency first), then sla_due_at ASC with nulls last. */
 export function compareAlerts(
   a: { level: EscalationLevel; override_level?: EscalationLevel | null; sla_due_at: string | null },

@@ -4,11 +4,36 @@ import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-p
 import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/doctor-tier";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent } from "@/components/ui/card";
+import { ClinicalStaffSetupWarning } from "@/components/clinical/clinical-staff-setup-warning";
+import { WorklistCountStrip, type WorklistCountTile } from "@/components/clinical/worklist-count-strip";
 import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { Worklist } from "./worklist";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
+
+/**
+ * Every worklist this dashboard links to, each paired with the count query
+ * that answers "is there actually anything waiting here" — see
+ * lib/queries/worklist-counts.ts. This is the one place that turns 13
+ * badge-free pages into a single at-a-glance "today" view.
+ */
+const WORKLIST_COUNT_TILES: WorklistCountTile[] = [
+  { key: "escalations", href: "/clinician/escalations", label: "Open escalations", icon: "escalation" },
+  { key: "outreach", href: "/clinician/outreach", label: "Outreach tasks", icon: "messages" },
+  { key: "asyncConsults", href: "/clinician/async-consults", label: "Async consults", icon: "inbox" },
+  { key: "referralsNeedingUrgency", href: "/clinician/referrals", label: "Referrals to triage", icon: "referral" },
+  { key: "waitlistedReferrals", href: "/clinician/referrals/waitlisted", label: "Waitlisted referrals", icon: "referral" },
+  { key: "adherenceAlerts", href: "/clinician/adherence", label: "Adherence alerts", icon: "medication" },
+  { key: "recommendations", href: "/clinician/recommendations", label: "Care recommendations", icon: "carePlan" },
+  { key: "vaccinationVerifications", href: "/clinician/vaccinations", label: "Vaccinations to verify", icon: "vaccination" },
+  { key: "lifestyleFlags", href: "/clinician/lifestyle-flags", label: "Lifestyle safety flags", icon: "lifestyle" },
+  { key: "medicationReviews", href: "/clinician/medication-reviews", label: "Medication reviews", icon: "medication" },
+  { key: "annualReviews", href: "/clinician/annual-reviews", label: "Annual reviews", icon: "review" },
+  { key: "preventiveReviews", href: "/clinician/preventive-reviews", label: "Preventive reviews", icon: "preventive" },
+  { key: "lifestyleReviews", href: "/clinician/lifestyle-reviews", label: "Lifestyle reviews", icon: "lifestyle" },
+  { key: "carePlanReviewPrompts", href: "/clinician/care-plan-review", label: "Care plans to review", icon: "carePlan" },
+];
 
 const QUICK_LINKS: { href: string; label: string; blurb: string; icon: LucideIcon }[] = [
   {
@@ -116,20 +141,32 @@ export default async function ClinicianPage() {
     attestationExpiresAt = latest?.expires_at ?? null;
   }
 
-  // Tier 1-4 Doctor Dashboard: one worklist, tier-gated view — per
-  // docs/Tarragon_Health_Master_Operating_Plan_v4.md §12 this dashboard is
-  // role-gated views of the shared worklist, not a separate dashboard per
-  // tier. Falls back to a generic label when the caller has no
+  // Unified doctor dashboard (founder decision 2026-07-31): every doctor,
+  // Tier 1-5, gets the same page access — doctor_tier still drives clinical
+  // authority (prescribing, refill-confirmation), just not which pages a
+  // doctor can reach. Falls back to a generic label when the caller has no
   // clinical_staff row yet (e.g. newly added, tier not assigned).
-  const roleLabel = staff?.doctor_tier ? DOCTOR_TIER_LABEL[staff.doctor_tier] : "Care Team Doctor";
+  const roleLabel = staff?.doctor_tier ? DOCTOR_TIER_LABEL[staff.doctor_tier] : "Doctor";
   const authorityBlurb = staff?.doctor_tier ? DOCTOR_TIER_AUTHORITY_BLURB[staff.doctor_tier] : undefined;
 
   return (
     <DashboardPlaceholder
       greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
       roleLabel={roleLabel}
-      comingUp={["Workload metrics"]}
+      comingUp={[]}
     >
+      {/* is_clinical_director is orthogonal to doctor_tier and to the now-
+          unified account role — a Director keeps every capability this
+          dashboard grants any other doctor, plus the protocol/config
+          sign-off authority gated separately at /admin/settings/*. This
+          badge is purely visible confirmation that the distinction still
+          exists; it grants nothing on its own. */}
+      {staff?.is_clinical_director && (
+        <span className="inline-flex w-fit items-center rounded-full bg-sprout-gold/15 px-2.5 py-1 text-xs font-medium text-deep-forest">
+          Clinical Director
+        </span>
+      )}
+      {!staff && <ClinicalStaffSetupWarning roleLabel={roleLabel} />}
       {authorityBlurb && (
         <Card variant="soft">
           <CardContent className="py-3 text-sm text-charcoal-ink/70">{authorityBlurb}</CardContent>
@@ -137,6 +174,12 @@ export default async function ClinicianPage() {
       )}
       {staff && <RedFlagAttestation />}
       {attestationStaff && <AttestationCard expiresAt={attestationExpiresAt} />}
+      <section aria-labelledby="worklist-counts-heading" className="space-y-2">
+        <h2 id="worklist-counts-heading" className="font-heading text-sm font-medium text-charcoal-ink/60">
+          Today, at a glance
+        </h2>
+        <WorklistCountStrip tiles={WORKLIST_COUNT_TILES} />
+      </section>
       <Worklist />
       <section aria-labelledby="clinician-worklists-heading" className="space-y-3">
         <h2

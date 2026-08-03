@@ -5,7 +5,6 @@ import { isMarketingPath } from "@/lib/marketing/routes";
 export const ROLE_HOME_PATH: Record<UserRole, string> = {
   patient: "/patient",
   clinician: "/clinician",
-  doctor: "/doctor",
   admin: "/admin",
   hmo_admin: "/dashboard/hmo",
   corporate_admin: "/dashboard/corporate",

@@ -10,7 +10,6 @@ describe("getRoleHomePath", () => {
   it("maps every role to its dashboard home", () => {
     expect(getRoleHomePath("patient")).toBe("/patient");
     expect(getRoleHomePath("clinician")).toBe("/clinician");
-    expect(getRoleHomePath("doctor")).toBe("/doctor");
     expect(getRoleHomePath("admin")).toBe("/admin");
     expect(getRoleHomePath("hmo_admin")).toBe("/dashboard/hmo");
     expect(getRoleHomePath("corporate_admin")).toBe("/dashboard/corporate");
@@ -24,7 +23,7 @@ describe("pathMatchesRole", () => {
 
   it("matches nested paths under the home", () => {
     expect(pathMatchesRole("/clinician/worklist", "clinician")).toBe(true);
-    expect(pathMatchesRole("/doctor/escalations", "doctor")).toBe(true);
+    expect(pathMatchesRole("/clinician/escalations", "clinician")).toBe(true);
   });
 
   it("rejects another role's path", () => {
@@ -61,7 +60,7 @@ describe("isRoleHomePrefixed", () => {
   it("recognises every role home and its sub-paths", () => {
     expect(isRoleHomePrefixed("/patient")).toBe(true);
     expect(isRoleHomePrefixed("/dashboard/hmo/reports")).toBe(true);
-    expect(isRoleHomePrefixed("/doctor")).toBe(true);
+    expect(isRoleHomePrefixed("/clinician")).toBe(true);
   });
 
   it("rejects public paths", () => {

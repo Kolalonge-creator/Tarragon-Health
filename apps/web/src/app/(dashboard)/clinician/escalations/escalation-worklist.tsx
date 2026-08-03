@@ -9,11 +9,18 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
 import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
 import { SEVERITY_TILE_TINT } from "@/lib/worklist/severity-tile-tint";
-import { effectiveAlertLevel } from "@/lib/worklist/priority";
+import { effectiveAlertLevel, requiresEmergencyAuthority } from "@/lib/worklist/priority";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationStatus } from "@tarragon/shared";
 
-export function EscalationWorklist() {
+/**
+ * `canHandleEmergency` mirrors private.can_handle_emergency_escalation --
+ * resolved server-side from the caller's own clinical_staff row and passed
+ * down, the same shape as MedicationsList's canConfirmRefill. It only
+ * decides whether a row shows a Claim button or a plain-language
+ * explanation; the DB trigger is what actually enforces the rule.
+ */
+export function EscalationWorklist({ canHandleEmergency }: { canHandleEmergency: boolean }) {
   const { data, isLoading, isError } = useDoctorEscalations();
   const claim = useClaimEscalation();
 
@@ -64,10 +71,20 @@ export function EscalationWorklist() {
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((escalation) => {
-              const levelBadge = escalation.clinician_alert
-                ? LEVEL_BADGE[effectiveAlertLevel(escalation.clinician_alert)]
+              const effectiveLevel = escalation.clinician_alert
+                ? effectiveAlertLevel(escalation.clinician_alert)
                 : null;
+              const levelBadge = effectiveLevel ? LEVEL_BADGE[effectiveLevel] : null;
               const isOverridden = !!escalation.clinician_alert?.override_level;
+              // Every doctor tier can see and work every case (unified
+              // access, 2026-07-31) — but claiming an emergency-level case
+              // specifically needs a Tier 2+ doctor or the Clinical
+              // Director. requiresEmergencyAuthority is deliberately not
+              // effectiveAlertLevel(...) === "emergency" — see its own
+              // doc comment for why a downward override must not unlock a
+              // Tier 1's own claim.
+              const isEmergencyLocked =
+                requiresEmergencyAuthority(escalation.clinician_alert) && !canHandleEmergency;
               const isOverdue =
                 !!escalation.clinician_alert?.sla_due_at &&
                 new Date(escalation.clinician_alert.sla_due_at) < new Date();
@@ -94,7 +111,7 @@ export function EscalationWorklist() {
                     </div>
                     <p className="text-sm font-medium text-charcoal-ink">
                       <Link
-                        href={`/doctor/escalations/${escalation.id}`}
+                        href={`/clinician/escalations/${escalation.id}`}
                         className="hover:underline"
                       >
                         {escalation.patient?.full_name ?? "Unknown patient"}
@@ -103,14 +120,20 @@ export function EscalationWorklist() {
                     </p>
                   </div>
                   {escalation.assigned_doctor_id === null ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={claim.isPending}
-                      onClick={() => claim.mutate(escalation.id)}
-                    >
-                      Claim
-                    </Button>
+                    isEmergencyLocked ? (
+                      <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
+                        Needs a Tier 2+ doctor or the Clinical Director to claim
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={claim.isPending}
+                        onClick={() => claim.mutate(escalation.id)}
+                      >
+                        Claim
+                      </Button>
+                    )
                   ) : (
                     <span className="text-xs text-charcoal-ink/60">
                       {escalation.assigned_doctor?.full_name ?? "Claimed"}

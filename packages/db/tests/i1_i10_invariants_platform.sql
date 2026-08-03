@@ -305,6 +305,17 @@ end $$;
 -- proof (blocked / allowed-with-contact / referred-not-gated / non-
 -- emergency-not-gated) in packages/db/tests/i5_emergency_escalation_
 -- synchronous_contact.sql.
+--
+-- 2026-07-31 note: 20260731021500_emergency_escalation_tier_gate.sql added a
+-- SECOND before-update trigger on escalations (Tier 2+/Director required to
+-- resolve an emergency-level case at all), sorting alphabetically before
+-- this one so it fires first. Left un-simulated, v_clin has no clinical_staff
+-- row and no JWT context (auth.uid() is null), so the NEW gate blocks with
+-- 42501 before I5's own 23514 check is ever reached -- masking exactly what
+-- this section means to prove. Fixed by granting v_clin a temporary Tier 2
+-- clinical_staff row and simulating their session (same pattern as
+-- packages/db/tests/emergency_escalation_tier_gate.sql), so the tier gate
+-- passes cleanly and only I5's synchronous-contact requirement is on trial.
 -- ===========================================================================
 do $$
 declare
@@ -318,6 +329,14 @@ begin
   select id into v_pat  from public.profiles where role='patient'   and organisation_id=v_org limit 1;
   select id into v_clin from public.profiles where role='clinician' and organisation_id=v_org limit 1;
 
+  -- Give v_clin real Tier 2 authority so the 2026-07-31 tier gate is
+  -- satisfied and only I5's own check is exercised below. Scoped to this
+  -- rolled-back transaction; cleared automatically at rollback.
+  delete from public.clinical_staff where profile_id = v_clin;
+  insert into public.clinical_staff
+    (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, is_clinical_director)
+  values (v_org, v_clin, 'I5 fixture Tier 2', true, now(), 'tier_2', false);
+
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title)
   values (v_org, v_pat, 'emergency', 'open', 'I5 PASS-PROOF FIXTURE — emergency alert')
   returning id into v_alert_id;
@@ -326,6 +345,9 @@ begin
     (organisation_id, patient_id, clinician_alert_id, status, raised_by, reason)
   values (v_org, v_pat, v_alert_id, 'open', v_clin, 'I5 pass-proof fixture')
   returning id into v_esc_id;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
 
   -- The forbidden path: close a text-only note on an EMERGENCY escalation,
   -- with zero linked synchronous contact of any kind. Must now be rejected.
@@ -339,6 +361,9 @@ begin
   exception when sqlstate '23514' then
     v_blocked := true;
   end;
+
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
 
   insert into invariant_result values (
     5, 'I5', case when v_blocked then 'PASS' else 'GAP' end,

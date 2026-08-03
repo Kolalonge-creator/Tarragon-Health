@@ -251,7 +251,7 @@ export default function ClinicianReferralsPage() {
                     </p>
                   )}
                   <Link
-                    href={`/doctor/referrals/${referral.id}`}
+                    href={`/clinician/referrals/${referral.id}`}
                     className="text-xs text-brand-green hover:underline"
                   >
                     Set urgency &amp; clinical summary
