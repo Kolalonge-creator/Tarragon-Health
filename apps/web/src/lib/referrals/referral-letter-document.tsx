@@ -31,6 +31,14 @@ export interface ReferralLetterData {
   } | null;
   /** Null unless a real clinical_staff row backs it. Never a placeholder. */
   referrerName: string | null;
+  /**
+   * The register a credential is on, read from clinical_staff rather than
+   * assumed. MDCN and NMCN are both real here, and printing the wrong register
+   * at a specialist is a misstatement, so the register is never inferred — no
+   * type, no claim. Matches the health passport and vaccination certificate,
+   * which already read credential_type this way.
+   */
+  referrerCredentialType: string | null;
   referrerCredential: string | null;
 }
 
@@ -246,7 +254,10 @@ export function ReferralLetterDocument({ data }: { data: ReferralLetterData }) {
           {data.referrerName ? (
             <Text>
               {data.referrerName}
-              {data.referrerCredential ? ` (MDCN ${data.referrerCredential})` : ""}, TarragonHealth
+              {data.referrerCredentialType && data.referrerCredential
+                ? ` (${data.referrerCredentialType} ${data.referrerCredential})`
+                : ""}
+              , TarragonHealth
             </Text>
           ) : (
             <Text>TarragonHealth care team</Text>

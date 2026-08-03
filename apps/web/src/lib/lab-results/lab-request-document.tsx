@@ -13,7 +13,15 @@ export interface LabRequestData {
   testNames: string[];
   /** Null for a patient-initiated preventive request. */
   requestedByName: string | null;
-  requestedByMdcn: string | null;
+  /**
+   * The register a credential is on, read from clinical_staff rather than
+   * assumed. MDCN and NMCN are both real here, and printing the wrong register
+   * on a clinical document is a misstatement, so the register is never inferred
+   * — no type, no claim. Matches the health passport and vaccination
+   * certificate, which already read credential_type this way.
+   */
+  requestedByCredentialType: string | null;
+  requestedByCredentialNumber: string | null;
 }
 
 const styles = StyleSheet.create({
@@ -119,8 +127,10 @@ export function LabRequestDocument({ data }: { data: LabRequestData }) {
           {data.requestedByName ? (
             <Text>
               {data.requestedByName}
-              {data.requestedByMdcn ? ` (MDCN ${data.requestedByMdcn})` : ""}, TarragonHealth care
-              team
+              {data.requestedByCredentialType && data.requestedByCredentialNumber
+                ? ` (${data.requestedByCredentialType} ${data.requestedByCredentialNumber})`
+                : ""}
+              , TarragonHealth care team
             </Text>
           ) : (
             <Text style={styles.muted}>

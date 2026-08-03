@@ -64,16 +64,18 @@ export async function GET(
   // Null-gated attribution, same rule as ReviewedByDoctor: a name appears only
   // when a real clinical_staff row backs it.
   let referrerName: string | null = null;
+  let referrerCredentialType: string | null = null;
   let referrerCredential: string | null = null;
   if (referral.set_by) {
     const { data: staff } = await supabase
       .from("clinical_staff")
-      .select("full_name, credential_number")
+      .select("full_name, credential_type, credential_number")
       .eq("profile_id", referral.set_by)
       .eq("active", true)
       .maybeSingle();
     if (staff?.full_name) {
       referrerName = staff.full_name;
+      referrerCredentialType = staff.credential_type;
       referrerCredential = staff.credential_number;
     }
   }
@@ -93,6 +95,7 @@ export async function GET(
     medications: summary.medications ?? [],
     triggeringResult: summary.triggering_result ?? null,
     referrerName,
+    referrerCredentialType,
     referrerCredential,
   };
 

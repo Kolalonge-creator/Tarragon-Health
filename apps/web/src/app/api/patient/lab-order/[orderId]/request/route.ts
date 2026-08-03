@@ -63,16 +63,18 @@ export async function GET(
   // Null-gated attribution, exactly like ReviewedByDoctor: a name is printed
   // only when a real clinical_staff row backs it, never a placeholder.
   let requestedByName: string | null = null;
-  let requestedByMdcn: string | null = null;
+  let requestedByCredentialType: string | null = null;
+  let requestedByCredentialNumber: string | null = null;
   if (order.ordered_by) {
     const { data: staff } = await supabase
       .from("clinical_staff")
-      .select("full_name, credential_number")
+      .select("full_name, credential_type, credential_number")
       .eq("id", order.ordered_by)
       .maybeSingle();
     if (staff?.full_name) {
       requestedByName = staff.full_name;
-      requestedByMdcn = staff.credential_number;
+      requestedByCredentialType = staff.credential_type;
+      requestedByCredentialNumber = staff.credential_number;
     }
   }
 
@@ -87,7 +89,8 @@ export async function GET(
     panelDescription: order.panel_bundle?.description ?? null,
     testNames,
     requestedByName,
-    requestedByMdcn,
+    requestedByCredentialType,
+    requestedByCredentialNumber,
   };
 
   const buffer = await renderToBuffer(LabRequestDocument({ data }));
