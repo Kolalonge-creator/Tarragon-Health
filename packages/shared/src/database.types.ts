@@ -1725,6 +1725,7 @@ export type Database = {
             | null
           sku_code: string | null
           sku_name: string | null
+          subscription_plan_id: string | null
           status: Database["public"]["Enums"]["care_voucher_status"]
           updated_at: string
           voucher_number: string
@@ -1752,6 +1753,7 @@ export type Database = {
             | null
           sku_code?: string | null
           sku_name?: string | null
+          subscription_plan_id?: string | null
           status?: Database["public"]["Enums"]["care_voucher_status"]
           updated_at?: string
           voucher_number: string
@@ -1779,11 +1781,19 @@ export type Database = {
             | null
           sku_code?: string | null
           sku_name?: string | null
+          subscription_plan_id?: string | null
           status?: Database["public"]["Enums"]["care_voucher_status"]
           updated_at?: string
           voucher_number?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "care_vouchers_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "care_vouchers_beneficiary_profile_id_fkey"
             columns: ["beneficiary_profile_id"]
@@ -13628,6 +13638,14 @@ export type Database = {
           p_voucher: string
         }
         Returns: string
+      }
+      purchase_subscription_voucher: {
+        Args: { p_beneficiary: string; p_gift_message?: string; p_plan_id: string }
+        Returns: Json
+      }
+      redeem_subscription_voucher: {
+        Args: { p_voucher_id: string }
+        Returns: Json
       }
       redeem_care_voucher: {
         Args: { p_order_id: string; p_order_type: string; p_voucher: string }

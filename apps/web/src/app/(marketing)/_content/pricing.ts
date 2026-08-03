@@ -358,20 +358,23 @@ export const DIASPORA_PROCESSING_FEE_NOTE =
 export const DIASPORA_SELF_USE_NOTE =
   "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, in-app care team messaging, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
 
-/** Reward vouchers only.
+/** Care vouchers buy a YEAR OF A PLAN, never a test.
  *
- * Prepaid-service vouchers are retired: tests are paid straight to the
- * laboratory, so there is no service for Tarragon to sell ahead of time and
- * public.purchase_care_voucher fails closed. What remains is reward credit
- * (referrals and prevention rewards), which is a discount on Tarragon's own
- * charges, never cash, and never transferable. */
+ * Prepaid lab vouchers are retired (public.purchase_care_voucher fails closed):
+ * tests are paid straight to the laboratory, so there is nothing for Tarragon
+ * to sell ahead of time. A plan is different, because it is the thing Tarragon
+ * actually provides. Yearly only, and the recipient starts it themselves. */
 export const CARE_VOUCHER_INTRO =
-  "Reward credit you earn, from referring someone or from keeping up with your prevention, comes off what you pay us. It is not an account balance and it is never exchangeable for cash. Tests themselves are paid straight to the laboratory you use, so there is nothing for us to hold on your behalf.";
+  "You can buy a year of a plan, for yourself or for someone who has linked you to their care, and pay for it in one go or bit by bit. Whoever it is for starts their year when they are ready. It is not an account balance and it is never exchangeable for cash. Tests themselves are paid straight to the laboratory you use.";
 
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
-    title: "Someone can pay for your plan",
-    body: "A family member, in Nigeria or abroad, can put your plan on their card. They see that it renews, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
+    title: "Pay a little at a time",
+    body: "Spread a year of a plan over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying toward it.",
+  },
+  {
+    title: "Someone can buy it for you",
+    body: "A family member, in Nigeria or abroad, can buy you a year. They see that they bought it and later that it was used, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
   },
   {
     title: "Refer a friend",

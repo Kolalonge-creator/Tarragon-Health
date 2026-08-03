@@ -1,9 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { payTowardVoucher } from "@/app/(dashboard)/patient/vouchers/actions";
+import {
+  buyCareVoucher,
+  payTowardVoucher,
+  redeemSubscriptionVoucher,
+} from "@/app/(dashboard)/patient/vouchers/actions";
 import {
   useMyVouchers,
+  useVoucherCatalogue,
   useVoucherConfig,
   useMyReferralCode,
   useRedeemReferralCode,
@@ -13,6 +18,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
 
@@ -53,11 +60,19 @@ function formatDate(iso: string) {
  */
 export function CareVouchersCard({ patientId }: { patientId: string }) {
   const { data: vouchers } = useMyVouchers(patientId);
+  const { data: catalogue } = useVoucherCatalogue();
+  const { data: sponsorable } = useSponsorableProfiles();
   const { data: config } = useVoucherConfig();
   const { data: referralCode } = useMyReferralCode();
 
   const [payingFor, setPayingFor] = useState<string | null>(null);
   const [payState, payAction, payPending] = useActionState(payTowardVoucher, undefined);
+  const [buyState, buyAction, buyPending] = useActionState(buyCareVoucher, undefined);
+  const [redeemState, redeemAction, redeemPending] = useActionState(
+    redeemSubscriptionVoucher,
+    undefined
+  );
+  const [buyOpen, setBuyOpen] = useState(false);
 
   const redeemCode = useRedeemReferralCode();
   const [redeemInput, setRedeemInput] = useState("");
@@ -101,16 +116,80 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
           />
         ))}
 
-        {/* Buying a check in advance is gone: tests are paid straight to the
-            laboratory now, so there is no service for Tarragon to sell ahead of
-            time and public.purchase_care_voucher fails closed. Reward vouchers
-            still exist and still display above. */}
+        {/* Starting a gifted year is the recipient's own act, never the
+            purchaser's: public.redeem_subscription_voucher refuses anybody but
+            the beneficiary. If they already have a plan running, redeeming
+            extends it rather than opening a second one. */}
+        {live
+          .filter((v) => v.subscription_plan_id && isVoucherSpendable(v))
+          .map((v) => (
+            <form key={`redeem-${v.id}`} action={redeemAction} className="space-y-2">
+              <input type="hidden" name="voucherId" value={v.id} />
+              <Button type="submit" size="sm" disabled={redeemPending}>
+                {redeemPending ? "Starting…" : `Start my year of ${v.sku_name ?? "care"}`}
+              </Button>
+            </form>
+          ))}
+        {redeemState?.error && <p className="text-xs text-red-600">{redeemState.error}</p>}
+        {redeemState?.message && (
+          <p className="text-xs text-emerald-700">{redeemState.message}</p>
+        )}
+        {/* A voucher buys a YEAR OF A PLAN, never a test: tests are paid
+            straight to the laboratory, so there is nothing for us to sell in
+            advance (public.purchase_care_voucher fails closed). A plan is
+            different, because it is the thing we actually provide. */}
         <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm text-slate-600">
-            You pay laboratories and pharmacies directly, at their price, so there is nothing for us
-            to hold on your behalf. To help somebody else with their care, pay for their plan from
-            the people you support.
-          </p>
+          <Button type="button" size="sm" variant="outline" onClick={() => setBuyOpen(!buyOpen)}>
+            {buyOpen ? "Cancel" : "Buy a year of care"}
+          </Button>
+
+          {buyOpen && (
+            <form action={buyAction} className="space-y-3 pt-3">
+              <label className="block text-sm">
+                <span className="text-slate-700">Which plan?</span>
+                <Select name="planId" required className="mt-1">
+                  <option value="">Choose a plan</option>
+                  {(catalogue ?? []).map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} — {naira(plan.price_minor ?? 0)}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              {(sponsorable ?? []).length > 0 && (
+                <label className="block text-sm">
+                  <span className="text-slate-700">Who is it for?</span>
+                  <Select name="beneficiaryProfileId" className="mt-1">
+                    <option value={patientId}>Me</option>
+                    {(sponsorable ?? []).map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.full_name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              )}
+
+              <label className="block text-sm">
+                <span className="text-slate-700">Add a note (optional)</span>
+                <Input name="giftMessage" className="mt-1" placeholder="Thinking of you" />
+              </label>
+
+              <p className="text-xs text-slate-500">
+                Reserving is free. You pay separately, in one go or bit by bit, and it becomes
+                usable once it is paid in full. Whoever it is for starts their year when they are
+                ready, so nobody is put on a plan without choosing to be. Tests are still paid at
+                the laboratory.
+              </p>
+
+              <Button type="submit" size="sm" disabled={buyPending}>
+                {buyPending ? "Reserving…" : "Reserve this plan"}
+              </Button>
+              {buyState?.error && <p className="text-xs text-red-600">{buyState.error}</p>}
+              {buyState?.message && <p className="text-xs text-emerald-700">{buyState.message}</p>}
+            </form>
+          )}
         </div>
 
         {past.length > 0 && (
