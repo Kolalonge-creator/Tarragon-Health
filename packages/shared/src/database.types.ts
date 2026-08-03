@@ -3062,11 +3062,14 @@ export type Database = {
         Row: {
           consented_at: string
           created_at: string
+          expires_at: string
           id: string
           is_active: boolean
           last_viewed_at: string | null
+          last_viewed_on: string | null
           organisation_id: string
           patient_id: string
+          renewal_nudged_at: string | null
           revoked_at: string | null
           token: string
           view_count: number
@@ -3074,11 +3077,14 @@ export type Database = {
         Insert: {
           consented_at?: string
           created_at?: string
+          expires_at?: string
           id?: string
           is_active?: boolean
           last_viewed_at?: string | null
+          last_viewed_on?: string | null
           organisation_id: string
           patient_id: string
+          renewal_nudged_at?: string | null
           revoked_at?: string | null
           token: string
           view_count?: number
@@ -3086,11 +3092,14 @@ export type Database = {
         Update: {
           consented_at?: string
           created_at?: string
+          expires_at?: string
           id?: string
           is_active?: boolean
           last_viewed_at?: string | null
+          last_viewed_on?: string | null
           organisation_id?: string
           patient_id?: string
+          renewal_nudged_at?: string | null
           revoked_at?: string | null
           token?: string
           view_count?: number

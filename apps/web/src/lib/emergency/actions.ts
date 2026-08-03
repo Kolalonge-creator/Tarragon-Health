@@ -6,14 +6,15 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 export type EmergencyCardActionResult = { error?: string; success?: boolean; message?: string };
 
 /**
- * Create (or rotate) the caller's own emergency card.
+ * Create (or rotate) the caller's own LIVE LINK — the opt-in extra on top of
+ * the printed card (2026-08-03 redesign).
  *
  * Takes no patient argument by design — `public.create_emergency_card()` acts
  * only on auth.uid(), so there is no parameter through which one person could
- * mint a card for another. Proven in packages/db/tests/emergency_cards.sql.
+ * mint a link for another. Proven in packages/db/tests/emergency_cards.sql.
  *
- * Calling this again ROTATES: the previous token stops working immediately.
- * That is the answer to a printed card being lost.
+ * Calling this again ROTATES: the previous token stops working immediately and
+ * a fresh 12-month expiry starts. That is the answer to a shared or lost link.
  */
 export async function createEmergencyCardAction(): Promise<EmergencyCardActionResult> {
   const user = await getCurrentUser();
@@ -26,7 +27,7 @@ export async function createEmergencyCardAction(): Promise<EmergencyCardActionRe
   revalidatePath("/patient/emergency-card");
   return {
     success: true,
-    message: "Your emergency card is ready. Print it or save it to your phone.",
+    message: "Your live link is ready. It lasts 12 months and you'll be reminded before it expires.",
   };
 }
 
@@ -41,6 +42,6 @@ export async function revokeEmergencyCardAction(): Promise<EmergencyCardActionRe
   revalidatePath("/patient/emergency-card");
   return {
     success: true,
-    message: "Your card has been withdrawn. Any printed copy or link stops working now.",
+    message: "Your live link has been withdrawn. Your printed card is unaffected.",
   };
 }

@@ -10,7 +10,14 @@ import QRCode from "qrcode";
  * key set, so the two cannot drift silently.
  */
 
-export interface EmergencyCardPayload {
+/**
+ * The clinical facts themselves — the part shared between the printed/offline
+ * card (built from the patient's own authenticated session, see
+ * lib/emergency/dataset.ts) and the live anon-readable card (built from
+ * `emergency_card_by_token`). Both render through the same
+ * `EmergencyCardBody` component so the two can never visually diverge.
+ */
+export interface EmergencyClinicalFacts {
   full_name: string | null;
   date_of_birth: string | null;
   sex: string | null;
@@ -31,7 +38,18 @@ export interface EmergencyCardPayload {
     provenance: string | null;
     recorded_at: string | null;
   } | null;
+}
+
+/**
+ * The live card's full payload. Mirrors `public.emergency_card_by_token`
+ * exactly. If that function's jsonb_build_object ever changes, this type is
+ * where it must be reflected — the DB test
+ * (packages/db/tests/emergency_cards.sql) asserts the key set, so the two
+ * cannot drift silently.
+ */
+export interface EmergencyCardPayload extends EmergencyClinicalFacts {
   issued_at: string;
+  expires_at: string;
   source: string;
 }
 

@@ -8,12 +8,16 @@ import {
 } from "@/lib/emergency/actions";
 
 /**
- * Create, rotate and withdraw controls.
+ * Create, rotate and withdraw controls for the LIVE LINK — the opt-in extra
+ * on top of the printed card, not the default (see the parent page's
+ * 2026-08-03 redesign).
  *
  * Consent is asked for at the moment of creation, in plain language naming
- * exactly what a stranger would see — not buried in a policy page. Rotating and
- * withdrawing are given equal prominence to creating, because a lost printed
- * card is the realistic risk here and the answer to it must be obvious.
+ * exactly what a stranger would see AND that this is a different, ongoing
+ * exposure from the printed card — not buried in a policy page. Rotating and
+ * withdrawing are given equal prominence to creating, because a lost or
+ * unwanted link is the realistic risk here and the answer to it must be
+ * obvious.
  */
 export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolean }) {
   const [pending, startTransition] = useTransition();
@@ -44,9 +48,11 @@ export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolea
             className="mt-1"
           />
           <span>
-            I understand that anyone holding this card or its link can see my name, date of birth,
-            blood group and genotype, allergies, current medicines, ongoing conditions and my
-            emergency contact, without signing in. I can withdraw it at any time.
+            I understand this is a different, ongoing exposure from my printed card: anyone holding
+            this link can see my name, date of birth, blood group and genotype, allergies, current
+            medicines, ongoing conditions and my emergency contact, without signing in, for as long
+            as it stays active. It lasts 12 months and I&rsquo;ll be reminded before it expires. I
+            can withdraw it sooner at any time, and I&rsquo;ll be told every time it&rsquo;s viewed.
           </span>
         </label>
         <Button
@@ -54,7 +60,7 @@ export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolea
           disabled={pending || !consented}
           onClick={() => run(createEmergencyCardAction)}
         >
-          {pending ? "Creating…" : "Create my emergency card"}
+          {pending ? "Creating…" : "Create a live link"}
         </Button>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         {message ? <p className="text-sm text-brand-green">{message}</p> : null}
@@ -71,7 +77,7 @@ export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolea
           disabled={pending}
           onClick={() => run(createEmergencyCardAction)}
         >
-          {pending ? "Working…" : "Replace with a new card"}
+          {pending ? "Working…" : "Replace with a new link"}
         </Button>
         {confirmingRevoke ? (
           <>
@@ -99,16 +105,13 @@ export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolea
             disabled={pending}
             onClick={() => setConfirmingRevoke(true)}
           >
-            Withdraw my card
+            Withdraw my link
           </Button>
         )}
-        <Button type="button" variant="outline" onClick={() => window.print()}>
-          Print
-        </Button>
       </div>
       <p className="text-xs text-charcoal-ink/60">
-        Replacing issues a new link and stops the old one working — use it if you lose a printed
-        copy.
+        Replacing issues a new link, resets its 12-month clock, and stops the old one working
+        immediately — use it if you ever share the old one by mistake.
       </p>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {message ? <p className="text-sm text-brand-green">{message}</p> : null}

@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import {
-  BLOOD_PROVENANCE,
-  GENOTYPE_NOTE,
-  type EmergencyCardPayload,
-} from "@/lib/emergency/card";
+import type { EmergencyCardPayload } from "@/lib/emergency/card";
+import { EmergencyCardBody } from "@/components/emergency/emergency-card-body";
 
 /**
- * The card a stranger doctor reads at 2am.
+ * The card a stranger doctor reads at 2am, when a patient has explicitly opted
+ * in to a live link ON TOP OF their printed/offline card — see
+ * `/patient/emergency-card/print`, which is the DEFAULT this platform points
+ * a patient to first. This page is deliberately the higher-exposure, opt-in
+ * extra, not the primary path (founder decision, 2026-08-03).
  *
  * NO LOGIN, BY DESIGN — the person this protects may be unconscious, so
  * requiring them to authenticate would defeat the entire purpose. The token in
@@ -16,8 +17,12 @@ import {
  * deliberately, and they can revoke it instantly.
  *
  * Reached through `emergency_card_by_token`, the one anon-executable function
- * on this platform. The dataset is fixed inside that function, so this page
- * cannot widen it however it is called.
+ * on this platform that returns PHI. Hardened three ways (2026-08-03): a
+ * `Referrer-Policy: no-referrer` (see proxy.ts) so the token can never leak via
+ * an outbound Referer header, a 12-month expiry enforced inside the function
+ * itself, and a per-day-deduped in-app+email notification to the patient every
+ * time the card is actually viewed. The dataset itself is fixed inside that
+ * function, so this page cannot widen it however it is called.
  *
  * Rendered with a bare anon supabase-js client and no platform/auth imports —
  * the same boundary discipline `lib/marketing/*` holds, for the same reason:
@@ -29,10 +34,11 @@ export const metadata: Metadata = {
   // Never indexed. A search engine should not hold these, and a token in a
   // crawler's index would outlive any revocation.
   robots: { index: false, follow: false, nocache: true },
+  referrer: "no-referrer",
 };
 
-// Always fresh: a revoked card must stop resolving on the very next request,
-// and a cached page would keep serving a card the patient has just withdrawn.
+// Always fresh: a revoked or expired card must stop resolving on the very next
+// request, and a cached page would keep serving one the patient has withdrawn.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -49,12 +55,10 @@ async function loadCard(token: string): Promise<EmergencyCardPayload | null> {
   return data as unknown as EmergencyCardPayload;
 }
 
-function formatDob(dob: string | null): string {
-  if (!dob) return "Not recorded";
-  const date = new Date(dob);
-  if (Number.isNaN(date.getTime())) return "Not recorded";
-  const age = Math.floor((Date.now() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-  return `${date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} (age ${age})`;
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default async function EmergencyCardPage({
@@ -70,181 +74,28 @@ export default async function EmergencyCardPage({
       <main className="mx-auto max-w-md p-6">
         <h1 className="text-lg font-semibold text-charcoal-ink">This card is not available</h1>
         <p className="mt-2 text-sm text-charcoal-ink/70">
-          This emergency card link is not valid, or the person it belongs to has withdrawn it. If
-          you are treating someone right now, rely on your own assessment.
+          This emergency card link is not valid, has expired, or the person it belongs to has
+          withdrawn it. If you are treating someone right now, rely on your own assessment.
         </p>
       </main>
     );
   }
 
-  const severeAllergies = card.allergies.filter((a) => a.severity === "severe");
-  const genotypeNote = card.blood?.genotype ? GENOTYPE_NOTE[card.blood.genotype] : undefined;
-  const provenance = card.blood?.provenance ? BLOOD_PROVENANCE[card.blood.provenance] : undefined;
-
   return (
-    <main className="mx-auto max-w-2xl p-4 print:max-w-none print:p-0">
-      <header className="rounded-t-lg bg-deep-forest p-4 text-white print:rounded-none">
-        <p className="text-xs uppercase tracking-widest opacity-80">Emergency health card</p>
-        <h1 className="mt-1 text-2xl font-semibold">{card.full_name ?? "Name not recorded"}</h1>
-        <p className="mt-1 text-sm opacity-90">
-          {formatDob(card.date_of_birth)}
-          {card.sex ? ` · ${card.sex}` : ""}
-          {card.patient_number ? ` · ${card.patient_number}` : ""}
-        </p>
-      </header>
-
-      {/* Blood facts first. In Nigeria genotype is often the single most
-          decision-changing line on this card — and how much to lean on it
-          depends entirely on where it came from, so provenance is shown as
-          prominently as the value itself. */}
-      <section
-        className={`border-x border-charcoal-ink/15 p-4 ${
-          provenance?.tone === "unconfirmed" ? "bg-amber-50" : "bg-emerald-50"
-        }`}
-      >
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
-          Blood
-        </h2>
-        {card.blood && (card.blood.blood_group || card.blood.genotype) ? (
-          <>
-            <p className="mt-1 text-xl font-semibold text-charcoal-ink">
-              {card.blood.blood_group ?? "Group not recorded"}
-              {card.blood.genotype ? ` · Genotype ${card.blood.genotype}` : ""}
-            </p>
-            {genotypeNote ? (
-              <p className="text-sm font-medium text-charcoal-ink/80">{genotypeNote}</p>
-            ) : null}
-            {card.blood.note ? (
-              <p className="text-sm text-charcoal-ink/70">{card.blood.note}</p>
-            ) : null}
-            {provenance ? (
-              <p
-                className={`mt-2 text-sm font-medium ${
-                  provenance.tone === "unconfirmed" ? "text-amber-900" : "text-emerald-900"
-                }`}
-              >
-                {provenance.label}
-              </p>
-            ) : null}
-            {provenance ? (
-              <p className="text-xs text-charcoal-ink/65">{provenance.detail}</p>
-            ) : null}
-            <p className="mt-1 text-xs text-charcoal-ink/55">
-              Always confirm by testing before transfusing.
-            </p>
-          </>
-        ) : (
-          <p className="mt-1 text-sm text-charcoal-ink/70">Not recorded.</p>
-        )}
-      </section>
-
-      <Section title="Allergies" tone={severeAllergies.length > 0 ? "danger" : "normal"}>
-        {card.allergies.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/70">
-            None recorded. That is not the same as none — ask if you can.
+    <EmergencyCardBody
+      facts={card}
+      headerLabel="Emergency health card"
+      headerSubline={`Issued ${formatDate(card.issued_at)} · Valid until ${formatDate(card.expires_at)}`}
+      footer={
+        <>
+          <p>
+            Shared by the patient through TarragonHealth. This is a summary the patient chose to
+            carry, not a complete medical record, and it may be out of date. It does not replace
+            your own assessment. The patient can withdraw it at any time.
           </p>
-        ) : (
-          <ul className="space-y-1">
-            {card.allergies.map((a) => (
-              <li key={a.allergen} className="text-sm text-charcoal-ink">
-                <span className="font-medium">{a.allergen}</span>
-                {a.severity ? <span className="text-charcoal-ink/70"> · {a.severity}</span> : null}
-                {a.reaction ? <span className="text-charcoal-ink/70"> · {a.reaction}</span> : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <Section title="Current medicines">
-        {card.medications.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/70">None recorded.</p>
-        ) : (
-          <ul className="space-y-1">
-            {card.medications.map((m) => (
-              <li key={m.drug_name} className="text-sm text-charcoal-ink">
-                <span className="font-medium">{m.drug_name}</span>
-                {m.dose ? <span className="text-charcoal-ink/70"> · {m.dose}</span> : null}
-                {m.frequency ? <span className="text-charcoal-ink/70"> · {m.frequency}</span> : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <Section title="Ongoing conditions">
-        {card.conditions.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/70">None recorded.</p>
-        ) : (
-          <p className="text-sm text-charcoal-ink">
-            {card.conditions.map((c) => c.replace(/_/g, " ")).join(" · ")}
-          </p>
-        )}
-      </Section>
-
-      <Section title="Emergency contact">
-        {card.emergency_contact?.name ? (
-          <p className="text-sm text-charcoal-ink">
-            <span className="font-medium">{card.emergency_contact.name}</span>
-            {card.emergency_contact.relationship
-              ? ` (${card.emergency_contact.relationship})`
-              : ""}
-            {card.emergency_contact.phone ? (
-              <>
-                {" · "}
-                <a
-                  href={`tel:${card.emergency_contact.phone}`}
-                  className="font-medium text-brand-green underline"
-                >
-                  {card.emergency_contact.phone}
-                </a>
-              </>
-            ) : null}
-          </p>
-        ) : (
-          <p className="text-sm text-charcoal-ink/70">None recorded.</p>
-        )}
-      </Section>
-
-      <footer className="rounded-b-lg border-x border-b border-charcoal-ink/15 bg-charcoal-ink/[0.03] p-4 text-xs text-charcoal-ink/60 print:rounded-none">
-        <p>
-          Shared by the patient through TarragonHealth. This is a summary the patient chose to
-          carry, not a complete medical record, and it may be out of date. It does not replace your
-          own assessment. The patient can withdraw it at any time.
-        </p>
-        <p className="mt-1">
-          Issued{" "}
-          {new Date(card.issued_at).toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-          . Viewing this card is recorded and shown to the patient.
-        </p>
-      </footer>
-    </main>
-  );
-}
-
-function Section({
-  title,
-  children,
-  tone = "normal",
-}: {
-  title: string;
-  children: React.ReactNode;
-  tone?: "normal" | "danger";
-}) {
-  return (
-    <section
-      className={`border-x border-t border-charcoal-ink/15 p-4 ${
-        tone === "danger" ? "bg-red-50" : "bg-white"
-      }`}
-    >
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
-        {title}
-      </h2>
-      <div className="mt-1">{children}</div>
-    </section>
+          <p className="mt-1">Viewing this card is recorded and shown to the patient.</p>
+        </>
+      }
+    />
   );
 }

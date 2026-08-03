@@ -1176,6 +1176,57 @@ const TEMPLATE_MAP: Record<
       smsText,
     };
   },
+  // Sent every calendar day the patient's live emergency-card link is actually
+  // viewed (public.emergency_card_by_token, deduped to one per day so a single
+  // hospital visit scanning it several times doesn't spam them). in_app +
+  // email only — this is a security-style notice, not a reminder, and works
+  // via the in_app leg the moment it's queued regardless of this function's
+  // own deploy state (in_app rows are never routed through this sender at
+  // all — see the channel filter above).
+  emergency_card_viewed: (payload) => {
+    const on = String(payload.viewed_on ?? "today");
+    const smsText = `Tarragon Health: your emergency card link was viewed on ${on}. If that wasn't expected, replace it at any time from your dashboard.`;
+    return {
+      metaTemplateName: "emergency_card_viewed",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: on }] }],
+      smsText,
+      pushUrl: "/patient/emergency-card",
+      email: {
+        subject: "Your emergency card was viewed",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Your emergency card link was opened on ${on}.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">This is expected if you or a hospital scanned it while you were being treated. If it wasn't expected, you can replace the link at any time from your Emergency card page &mdash; the old one stops working immediately.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+      },
+    };
+  },
+  // Sent 30 days before a live emergency-card link expires
+  // (private.queue_emergency_card_expiry_nudges). The printed/offline card
+  // this pairs with is unaffected by this expiry — it's mentioned explicitly
+  // so a lapsing live link never reads as "your whole emergency card is gone".
+  emergency_card_expiring_soon: () => {
+    const smsText =
+      "Tarragon Health: your emergency card live link expires in 30 days. Replace it to keep it working. Your printed card is unaffected.";
+    return {
+      metaTemplateName: "emergency_card_expiring_soon",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText,
+      pushUrl: "/patient/emergency-card",
+      email: {
+        subject: "Your emergency card link expires soon",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Your emergency card live link expires in about 30 days.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Replace it from your Emergency card page to keep it working for another 12 months. If you'd rather let it lapse, that's fine &mdash; your printed card is unaffected either way.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+      },
+    };
+  },
 };
 
 interface SendResult {

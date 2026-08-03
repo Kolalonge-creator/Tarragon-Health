@@ -62,7 +62,7 @@ begin
   if exists (
     select 1 from jsonb_object_keys(v_payload) k
     where k not in ('full_name','date_of_birth','sex','patient_number','emergency_contact',
-                    'allergies','medications','conditions','blood','issued_at','source')
+                    'allergies','medications','conditions','blood','issued_at','expires_at','source')
   ) then
     raise exception 'FAIL 3: payload exposes an unexpected key - the dataset has been widened';
   end if;

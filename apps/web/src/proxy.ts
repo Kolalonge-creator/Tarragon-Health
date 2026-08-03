@@ -17,6 +17,20 @@ export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const isApp = isAppHost(host);
 
+  // The anon-readable emergency card carries its whole authorisation in the
+  // URL's token. A `<meta name="referrer">` tag (set in the page's own
+  // metadata) only protects navigations FROM that page; it does nothing about
+  // this page's own initial load, and covers nothing if a browser or an
+  // embedded webview ignores the meta tag. The HTTP header is the real
+  // guarantee: no downstream site this page might ever link to (today: none)
+  // can learn the token via a Referer header, belt-and-braces alongside the
+  // metadata. Applies regardless of session state — this route needs no role
+  // gating, so it exits before any of that logic runs.
+  if (pathname.startsWith("/emergency/")) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   // app.tarragonhealth.com (or app.localhost): "/" is platform entry, not marketing homepage
   if (isApp && pathname === "/") {
     if (!user) {
