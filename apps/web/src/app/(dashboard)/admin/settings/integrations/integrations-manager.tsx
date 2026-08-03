@@ -233,7 +233,7 @@ function PartnersSection({ partners }: { partners: PartnerRow[] }) {
               id="p-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Synlab results API"
+              placeholder="e.g. Partner results API"
             />
           </div>
           <div className="space-y-1">
