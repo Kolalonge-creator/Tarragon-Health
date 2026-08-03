@@ -37,7 +37,10 @@ export interface ReferralLetterData {
 const styles = StyleSheet.create({
   page: { padding: 34, fontSize: 10, color: "#12324B", lineHeight: 1.4 },
   brand: { fontSize: 12, fontWeight: 700, color: "#0E7C52" },
-  title: { fontSize: 18, fontWeight: 700, marginTop: 6, marginBottom: 2 },
+  // lineHeight is set explicitly because the page sets 1.4 for body copy, and
+  // inheriting that on an 18pt heading makes its line box overlap the subtitle
+  // beneath it. Matches the lab request document's heading spacing.
+  title: { fontSize: 18, fontWeight: 700, lineHeight: 1.2, marginTop: 6, marginBottom: 4 },
   subtitle: { fontSize: 10, color: "#555", marginBottom: 14 },
   urgent: { fontSize: 11, fontWeight: 700, color: "#B3261E", marginBottom: 10 },
   section: { marginBottom: 12 },
@@ -72,6 +75,29 @@ function formatDate(value: string | null | undefined): string {
 
 function humanise(value: string): string {
   return value.replace(/_/g, " ");
+}
+
+/**
+ * The practitioner noun for a specialist_type, because the letter addresses a
+ * person: "any cardiologist the patient chooses", not "any cardiology". An
+ * unmapped value falls back to humanise, so a new enum member degrades to
+ * readable text rather than printing a raw underscored code at a specialist.
+ */
+const SPECIALIST_NOUN: Record<string, string> = {
+  urologist: "urologist",
+  oncologist: "oncologist",
+  ob_gyn: "OB-GYN",
+  cardiology: "cardiologist",
+  endocrinology: "endocrinologist",
+  nephrology: "nephrologist",
+  ophthalmology: "ophthalmologist",
+  dietetics: "dietitian",
+  podiatry: "podiatrist",
+  other: "specialist",
+};
+
+function specialistNoun(value: string): string {
+  return SPECIALIST_NOUN[value] ?? humanise(value);
 }
 
 function vitalLine(v: ReferralVital): string {
@@ -126,7 +152,7 @@ export function ReferralLetterDocument({ data }: { data: ReferralLetterData }) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            To: any {humanise(data.specialistType)} the patient chooses
+            To: any {specialistNoun(data.specialistType)} the patient chooses
           </Text>
           <Text style={styles.muted}>
             This patient has not been booked with a named specialist. They are free to attend
