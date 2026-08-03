@@ -114,6 +114,7 @@ export const PRICING_PROMISES: string[] = [
   "We will never charge you for anything without showing you the exact price first and getting your confirmation. No surprise charges. Ever.",
   "We will always tell you clearly whether something is already included in your plan, something you need to book and pay for, or something that's actually free elsewhere and we're just reminding you about it.",
   "You will always know exactly what you are paying for: every plan and every add-on is fully listed below, with nothing left out.",
+  "Paying in dollars from abroad includes a disclosed 10% international card-processing fee on top of the converted naira price — a real, cost-based charge shown as its own line next to the price, never folded silently into a bigger number.",
   "You can cancel a monthly plan at any time. Annual plans are paid upfront for the year, but you can turn off auto-renewal whenever you like: no penalty, no argument, no hard sell.",
   "Naira prices are reviewed once a year to keep pace with cost changes, but we will always tell you at least 30 days before any change takes effect, and anything you've already paid for (like an annual plan) is honoured at the price you paid until it's time to renew.",
 ];
