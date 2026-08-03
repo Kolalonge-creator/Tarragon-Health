@@ -9157,7 +9157,9 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
-          pharmacy_order_id: string
+          medication_id: string | null
+          pharmacy_name: string | null
+          pharmacy_order_id: string | null
           quantity: string | null
           recorded_by: string | null
           source: Database["public"]["Enums"]["dispense_source"]
@@ -9170,7 +9172,9 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
-          pharmacy_order_id: string
+          medication_id?: string | null
+          pharmacy_name?: string | null
+          pharmacy_order_id?: string | null
           quantity?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
@@ -9183,13 +9187,22 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
-          pharmacy_order_id?: string
+          medication_id?: string | null
+          pharmacy_name?: string | null
+          pharmacy_order_id?: string | null
           quantity?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_dispenses_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pharmacy_order_dispenses_organisation_id_fkey"
             columns: ["organisation_id"]

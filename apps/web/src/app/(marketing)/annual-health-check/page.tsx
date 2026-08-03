@@ -9,7 +9,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "Annual Health Check",
   description:
-    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex, reviewed by a doctor, at a partner lab near you. From ₦65,000, available to anyone on any plan.",
+    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. We say what to get and why, you use any lab you like, and a doctor reads the result with you.",
   alternates: { canonical: MARKETING_ROUTES.annualHealthCheck },
 };
 
@@ -81,7 +81,7 @@ const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Book in the app",
-    body: "Pick a partner lab near you and confirm: the price is shown before you pay, and it's the price you pay.",
+    body: "Take your request to any laboratory you like. You pay them directly, at their price, and we take nothing on it.",
   },
   {
     step: 2,
@@ -118,8 +118,8 @@ export default function AnnualHealthCheckPage() {
             record.
           </p>
           <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
-            From ₦65,000
-            <span className="text-base font-normal text-charcoal-ink/60"> · once a year · anyone, on any plan (even Free)</span>
+            We take nothing on your tests
+            <span className="text-base font-normal text-charcoal-ink/60"> · you pay the lab directly · once a year</span>
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
@@ -167,18 +167,18 @@ export default function AnnualHealthCheckPage() {
           {[
             {
               name: "Core Screen",
-              price: "₦65,000",
+              price: "With a paid plan",
               body: "A full cardiometabolic and organ-baseline workup — full blood count, liver/kidney/thyroid function, urinalysis — plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
               highlight: true,
             },
             {
               name: "Advanced Screen",
-              price: "₦95,000",
+              price: "With a paid plan",
               body: "Everything in Core Screen, plus the cancer screening that fits your age and sex (cervical screening or PSA), an ECG, and a personalised screening calendar.",
             },
             {
               name: "Comprehensive Screen",
-              price: "₦149,000",
+              price: "With a paid plan",
               body: "Everything in Advanced Screen, plus imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set.",
             },
           ].map((tier) => (

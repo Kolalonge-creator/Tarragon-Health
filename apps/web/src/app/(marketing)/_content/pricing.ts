@@ -37,14 +37,24 @@
  *   numbers if either the rate or the fee changes.
  *
  * Superseded 2026-08-02 — the old 3-tier Health Check ladder (Basic/Annual
- * Health Check/Comprehensive, ₦15k/₦65k/₦75k) is replaced by Core/Advanced/
- * Comprehensive Screen (₦65k/₦95k/₦149k), matching new panel_bundles rows
+ * Health Check/Comprehensive) is replaced by Core/Advanced/Comprehensive
+ * Screen, matching new panel_bundles rows
  * 'screen_core'/'screen_advanced'/'screen_comprehensive'. "Annual Doctor
  * Review" is retired as a separate product — its doctor video consult is now
  * Comprehensive Screen's own result walkthrough, closing the two confusingly-
- * named "annual ___" products this file used to carry side by side. Active
- * subscribers get 15% off any Screen tier. TYPICAL_PRICES mirrors the live
- * lab_tests/panel_bundles catalogue (re-derive when partners reprice).
+ * named "annual ___" products this file used to carry side by side.
+ *
+ * Superseded 2026-08-03 — SELF-ARRANGED FULFILMENT. Tarragon has no contracted
+ * lab or pharmacy, so it no longer books, routes or bills a test. Nothing in
+ * this file may quote a Tarragon price for a Screen tier or an individual test,
+ * because there isn't one: the patient takes our request to whichever
+ * laboratory they choose and pays that laboratory directly, and we take no
+ * commission on it. The Screen tiers are a paid-plan feature covering the part
+ * we actually do (deciding what is worth testing, writing the request, reading
+ * the result, following up). TYPICAL_PRICES is a rough budgeting guide only,
+ * explicitly not our prices, and deliberately carries no Screen-tier totals.
+ * Re-check this whole file against the model before reintroducing any figure.
+ * Uploading a result and having a doctor read it is never gated, on any plan.
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
@@ -57,7 +67,12 @@
  * where its card used to sit.)
  */
 
-export type PricingLabel = "INCLUDED" | "BOOK & PAY" | "FREE ELSEWHERE" | "ADD-ON";
+export type PricingLabel =
+  | "INCLUDED"
+  | "BOOK & PAY"
+  | "YOU PAY THE LAB"
+  | "FREE ELSEWHERE"
+  | "ADD-ON";
 
 export type PricingLineItem = {
   feature: string;
@@ -94,7 +109,13 @@ export const PRICING_LABELS: Record<
   },
   "BOOK & PAY": {
     title: "Book & pay",
-    description: "Available through Tarragon; you see the exact price and confirm before we book it",
+    description: "Requested through Tarragon; you choose the laboratory and pay them directly",
+    className: "bg-clinical-navy/10 text-clinical-navy",
+  },
+  "YOU PAY THE LAB": {
+    title: "You pay the lab",
+    description:
+      "Requested through Tarragon, paid straight to whichever laboratory or pharmacy you use. We take no commission on it.",
     className: "bg-clinical-navy/10 text-clinical-navy",
   },
   "FREE ELSEWHERE": {
@@ -156,8 +177,8 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Vaccination schedule, booking, and verified certificates", label: "INCLUDED" },
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
-      { feature: "Screening lab tests (HbA1c from ₦8,000, etc.)", label: "BOOK & PAY" },
-      { feature: "Core Screen (₦65,000, full-body health check)", label: "BOOK & PAY" },
+      { feature: "Screening lab tests, paid straight to the lab you choose", label: "YOU PAY THE LAB" },
+      { feature: "Core Screen: we say what to get, you use any lab, a doctor reads it", label: "INCLUDED" },
     ],
     footnote:
       "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme; that's the whole point of catching it early.",
@@ -202,7 +223,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Medication refills", label: "BOOK & PAY" },
     ],
     footnote:
-      "Core Screen (full body health check) is not bundled free into Complete Care. It's a ₦65,000/year add-on available on any plan, so the price you see is the price you actually pay — subscribers get 15% off.",
+      "The Screen tiers come with your plan. What comes with it is the part we do: working out which tests are worth doing for you, writing the request, reading the results, and following up. You pay the laboratory directly for the tests themselves, at whatever that lab charges, and we take nothing on top.",
   },
 ];
 
@@ -376,11 +397,11 @@ export const ADD_ONS: PricingAddOn[] = [
   {
     id: "screen-core",
     name: "Core Screen",
-    price: "₦65,000/year",
+    price: "Included with your plan",
     label: "ADD-ON",
     description:
-      "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, with no automatic extra charge. Two deeper tiers are available: Advanced Screen (₦95,000/year) adds age-triggered cancer screening and an ECG, and Comprehensive Screen (₦149,000/year) adds imaging and a 15-minute doctor video consult to walk through your whole result set — see the full breakdown on the Annual Health Check page.",
-    availability: "Available to anyone, on any plan, including Tarragon Free. Active subscribers get 15% off list.",
+      "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, at no extra charge. Two deeper tiers are available: Advanced Screen adds age-triggered cancer screening and an ECG, and Comprehensive Screen adds imaging and a 15-minute doctor video consult to walk through your whole result set. You pay the laboratory directly for the tests; we take nothing on them. See the full breakdown on the Annual Health Check page.",
+    availability: "The Screen tiers come with a paid plan. Uploading a result you already have, and having a doctor read it, is available to anyone on any plan including Tarragon Free.",
   },
   {
     id: "prevention-screening",
@@ -392,7 +413,7 @@ export const ADD_ONS: PricingAddOn[] = [
     items: [
       { feature: "Personalised screening calendar (age, sex, family history)", label: "INCLUDED" },
       { feature: "WhatsApp reminders when a screening test becomes due", label: "INCLUDED" },
-      { feature: "Booking coordination with a partner lab", label: "INCLUDED" },
+      { feature: "We work out which tests you need and write the request", label: "INCLUDED" },
       { feature: "Tracking of your results over time", label: "INCLUDED" },
       { feature: "The actual test itself, every time it's due", label: "BOOK & PAY" },
     ],
@@ -464,15 +485,16 @@ export const ADD_ONS: PricingAddOn[] = [
 ];
 
 /**
- * Typical prices for the most common BOOK & PAY items, mirrored from the live
- * partner-lab catalogue (`lab_tests`/`panel_bundles`). "From" phrasing because
- * partner prices vary slightly by lab and location; the exact price is always
- * shown before booking.
+ * Rough guide prices for common tests, so somebody can budget before they go.
+ *
+ * These are NOT Tarragon's prices and never appear on a Tarragon invoice: the
+ * patient pays the laboratory directly, at whatever that laboratory charges,
+ * and we take nothing on it. "From" phrasing because the real figure varies by
+ * lab and city, which is also why the Screen tiers are deliberately absent from
+ * this table: quoting a single total for a bundle we neither price nor sell
+ * would read as a promise we are in no position to keep.
  */
 export const TYPICAL_PRICES: { item: string; price: string }[] = [
-  { item: "Core Screen (cardiometabolic + organ baseline + HIV/Hep B/Hep C)", price: "₦65,000" },
-  { item: "Advanced Screen (Core + cancer screening + ECG)", price: "₦95,000" },
-  { item: "Comprehensive Screen (Advanced + imaging + doctor video consult)", price: "₦149,000" },
   { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
   { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
   { item: "Diabetes panel (HbA1c + cholesterol)", price: "from ₦18,500" },
@@ -504,7 +526,7 @@ export const LAB_PARTNERS = [
 ];
 
 export const TYPICAL_PRICES_NOTE =
-  "Every price here is the lowest current price across our partner labs, so you can budget before you ever book. Your exact price, for the lab you pick, is always shown before you confirm. If it ever differs from what you see here, the price at booking is the one that counts, and you can simply decline.";
+  "These are rough guide figures so you can budget, not our prices: you pay the laboratory directly, at whatever that laboratory charges, and we take nothing on top. Costs vary a fair bit between labs and cities, so it is worth asking two before you go.";
 
 /**
  * "Tarragon vs your HMO": complementary positioning, never disparaging. HMOs
@@ -652,12 +674,12 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What do lab tests actually cost?",
     answer:
-      "Typical partner-lab prices are listed on this page (for example, HbA1c from ₦8,000 and a lipid panel from ₦9,000), and your exact price is always shown before you confirm any booking. Nothing is ever charged without your confirmation.",
+      "Rough guide prices are listed on this page (for example, HbA1c from ₦8,000 and a lipid panel from ₦9,000), but laboratories set their own prices and you pay them directly. Tarragon never charges you for a test.",
   },
   {
     question: "What's the difference between Core, Advanced, and Comprehensive Screen?",
     answer:
-      "They're one cumulative ladder, so each tier includes everything in the one below it. Core Screen (₦65,000/year) is a full cardiometabolic and organ-baseline workup, plus HIV/Hepatitis B/Hepatitis C. Advanced Screen (₦95,000/year) adds age-triggered cancer screening and an ECG, with a personalised screening calendar. Comprehensive Screen (₦149,000/year) adds imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set — the same doctor review that used to be a separate Annual Doctor Review product. Active subscribers get 15% off any tier.",
+      "They're one cumulative ladder, so each tier includes everything in the one below it. Core Screen is a full cardiometabolic and organ-baseline workup, plus HIV/Hepatitis B/Hepatitis C. Advanced Screen adds age-triggered cancer screening and an ECG, with a personalised screening calendar. Comprehensive Screen adds imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set, which is the same doctor review that used to be a separate Annual Doctor Review product. All three come with a paid plan. What you pay for is the tests themselves, straight to whichever laboratory you use, so the cost depends on the lab rather than on us.",
   },
   {
     question: "What if I need a test that isn't listed here?",

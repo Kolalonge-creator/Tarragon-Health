@@ -63,8 +63,6 @@ import { EmergencyAlert } from "./emergency-alert";
 import { LabCatalogue } from "./lab-catalogue";
 import { LabOrdersList } from "./lab-orders-list";
 import { LabResults } from "./lab-results";
-import { PharmacyCatalogue } from "./pharmacy-catalogue";
-import { PharmacyOrdersList } from "./pharmacy-orders-list";
 import { BookingRequestsList } from "./booking-requests-list";
 import { AiCoachChat } from "./ai-coach-chat";
 import { CareCircleCard } from "./care-circle-card";
@@ -280,8 +278,8 @@ export default async function PatientPage() {
 
       <DashboardSection
         id="medications"
-        title="Medications & pharmacy"
-        description="Today's doses, your medicines cabinet, and pharmacy orders."
+        title="Medications"
+        description="Today's doses and your medicines cabinet."
         icon={SEMANTIC_ICON.medication}
       >
         <TodaysDoses patientId={subjectId} />
@@ -293,19 +291,14 @@ export default async function PatientPage() {
         <AdherenceCheckins patientId={subjectId} />
         <LabMonitoringCard patientId={subjectId} />
         <AddMedicationForm patientId={subjectId} source="patient" />
-        <RequiresEntitlement
-          feature="medication_refills"
-          fallback={<UpgradePrompt feature="medication_refills" />}
-        >
-          {profile.organisation_id && (
-            <PharmacyCatalogue
-              organisationId={profile.organisation_id}
-              patientId={subjectId}
-              patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
-            />
-          )}
-          <PharmacyOrdersList patientId={subjectId} />
-        </RequiresEntitlement>
+        {/* Pharmacy ORDERING is dormant while no pharmacy partner is
+            contracted: patients buy wherever suits them and record it on the
+            medication itself. PharmacyCatalogue/PharmacyOrdersList are kept
+            unmounted rather than deleted, so contracting a partner is a matter
+            of rendering them again. Everything that makes chronic medication
+            work — refill reminders, adherence check-ins, the missed-dose
+            ladder, reviews, drug-class lab monitoring — is above and untouched,
+            because none of it needs a partner. */}
       </DashboardSection>
 
       <DashboardSection

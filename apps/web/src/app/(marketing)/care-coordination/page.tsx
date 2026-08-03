@@ -9,7 +9,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "Care coordination",
   description:
-    "TarragonHealth coordinates labs, medication, and specialist referrals: tests booked with trusted partner labs at a price you confirm first, refills through licensed partner pharmacies, and every result reviewed.",
+    "TarragonHealth works out which tests you need and when, writes you a request to take to any laboratory you like, reads every result that comes back, and follows up. You pay the lab directly and we take nothing on it.",
   alternates: { canonical: MARKETING_ROUTES.careCoordination },
 };
 
@@ -21,7 +21,7 @@ const COORDINATION_CARDS = SERVICE_CARDS.filter((card) =>
 const CONNECTS = [
   {
     title: "Hassle-free lab tests",
-    body: "No more guessing which lab to trust or queuing to ask for prices. Tarragon tells you which tests are due, shows you the exact price up front, books you into a vetted partner lab, and makes sure a doctor reviews every result: never a report that sits unread.",
+    body: "No more guessing what you should be checking or when. Tarragon works out which tests are due for you, writes the request to take to whichever laboratory suits you, and makes sure a doctor reads every result: never a report that sits unread.",
   },
   {
     title: "Genuine medication, refilled on time",
@@ -124,7 +124,7 @@ export default function CareCoordinationPage() {
           ))}
         </ol>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Typical partner-lab prices are published openly on our{" "}
+          Rough guide prices, which laboratories set rather than we do, are published openly on our{" "}
           <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
             pricing page
           </Link>

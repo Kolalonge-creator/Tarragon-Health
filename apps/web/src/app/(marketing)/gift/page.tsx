@@ -25,14 +25,14 @@ const WAYS_TO_GIVE = [
 
 const GIFT_IDEAS = [
   {
-    title: "A Core Screen",
-    price: "₦65,000",
-    body: "A full cardiometabolic and organ-baseline workup, plus HIV, hepatitis B, and hepatitis C, genotype and blood group, all reviewed by a doctor. Buy it once and they book it when they are ready.",
+    title: "A year of Complete Care",
+    price: "Their plan, on your card",
+    body: "Doctor review of their readings, their whole screening schedule worked out for them, and someone reading every result that comes back. You pay for the plan; they pay their own laboratory when they go, at that lab's price. Results go to them and their doctor, never to you.",
   },
   {
-    title: "A Comprehensive Screen",
-    price: "₦149,000",
-    body: "Everything in Core Screen, plus the cancer screening that fits their age and sex, an ECG, imaging, and a 15-minute doctor video consult through the whole result set. Results go to them and their doctor, never to you.",
+    title: "Top up what a test will cost",
+    price: "Any amount",
+    body: "Tests are paid straight to the laboratory, so the practical gift is covering it. Put money toward their care and they use it when they go, without having to ask you first.",
   },
 ];
 
