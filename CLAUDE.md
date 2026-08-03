@@ -2342,6 +2342,95 @@ The entry above deliberately left the `doctor`/`clinician` account-role hard for
 - **MDCN/regulatory note, not resolved by this pass:** this enforces the platform's own documented tier-authority model: it does not claim MDCN sign-off, which remains the pre-existing open founder item (master plan §16) — unifying page access makes that confirmation more relevant, not less, since a Tier 1 now reaches more of the platform even with the emergency case gated.
 - **Next:** browser-verify as a real Tier 1 and Tier 2 fixture once a test credential is available; update the QA-accounts memory (the two `doctor.tier*.test` accounts are now `clinician`-role, per the migration's own automatic conversion — no manual follow-up needed, but the memory's own text should be corrected to match).
 
+### 2026-08-03 — Clinical intelligence core: lab-report extraction, drug-safety engine, longitudinal synthesis, emergency card, pack verification (branch `worktree-clinical-intelligence-core`, isolated worktree, explicit ask)
+Founder-directed build off a strategy critique. The thesis it acts on: suspending fulfilment changes what
+the product is — no longer "we get you tested and medicated" but "we know what's happening to your body,
+we tell you what it means, and we're accountable when it goes wrong." Everything below serves that, and
+everything is buildable with no partner and no headcount. Three migrations applied via `apply_migration`
+(recorded: `20260803120000_lab_report_extractions`, `20260803125000_patient_blood_profile`,
+`20260803130000_emergency_cards`); typecheck / lint (0 errors, the same 2 pre-existing warnings) /
+**680 web + 47 shared tests** / full production build all green; `get_advisors` shows **zero ERROR-level
+findings** and no new/unexpected finding on any new table.
+- **1. Lab-report extraction — the bottleneck the fulfilment suspension created.** `actions.ts` stored an
+  uploaded report as a blob and flagged it for a human, and `lab_analyte_readings` was only ever written
+  by the clinician's manual entry form, so "use any lab and upload" meant twenty fields of typing per
+  report for a doctor. Now: `lib/lab-reports/analyte-catalogue.ts` (the canonical vocabulary — every
+  storable analyte, its canonical unit, the units Nigerian reports actually print, and the many names
+  they use), `extract.ts` (Claude vision over image or PDF against a closed vocabulary), and a
+  side-by-side review screen where the document stays on screen next to editable numbers. **Unit
+  conversion is deliberately strict** — an unrecognised unit is REFUSED, never assumed canonical, because
+  a creatinine of 90 is normal in µmol/L and end-stage renal failure in mg/dL. Every row is re-resolved
+  and re-converted on the way back in, so a hallucinated code or mismatched unit never reaches the
+  database. `lab_report_extractions` is drafts only: org-staff readable and **deliberately NOT
+  patient-readable** (an unconfirmed machine transcription must not reach a patient before a clinician
+  sees it), service-role write, no insert/update/delete policy. Filing numbers stays separate from
+  recording a finding, matching the line `markResultDocumentReviewed` already draws.
+- **2. eGFR + the general drug-safety engine — the pharmacist removed from the loop.** `rules/egfr.ts` is
+  CKD-EPI 2021, **race-free specifically** because the 2009 multiplier inflates eGFR and in a Nigerian
+  population would under-warn on exactly the drugs this platform checks; it refuses (paediatric age,
+  unknown sex, implausible creatinine) rather than return a wrong number. `rules/drug-safety.ts` adds the
+  three catches nobody was making: interactions across ~45 classes matched by INN stem so it generalises
+  past the named drugs; **duplicate therapy that compares PRESCRIBERS**, since the same class from two
+  prescribers is the uncoordinated-care case and from one prescriber usually deliberate; and renal dosing
+  against the patient's own creatinine. A clean report reports itself as advisory **in the return type**,
+  and `renalCheckSkipped` is non-null whenever no creatinine exists — an empty findings list must never
+  read as "renal dosing checked and fine". Composes `diabetesDrugSafety` rather than restating it.
+- **3. Longitudinal synthesis — the subscription sentence.** `rules/longitudinal.ts` finds
+  consecutive-direction runs **anchored on the latest reading** (a rise three years ago that has since
+  corrected is history, not a finding), with a per-analyte noise floor so a 4% creatinine drift is never
+  announced as a trend. One computation, two renderings (`describeForPatient` / `describeForClinician`),
+  so a patient and their doctor can never be looking at different facts. Describes movement, never
+  interprets it — a test asserts the patient wording never contains a verdict word.
+- **4. Emergency card — be the record they carry into any hospital.** ⚠️ **A deliberate, consented PHI
+  exposure**, and the one anon-reachable surface here: `emergency_card_by_token` is now the fourth
+  "Public Can Execute SECURITY DEFINER Function" advisory alongside the three intentional marketing
+  endpoints, and unlike those three it returns PHI. Every safeguard exists because of that — off by
+  default, consent recorded at creation with the exposure named in plain language, instant revocation and
+  rotation, a **fixed minimal dataset pinned in the function body** so no caller can widen it, every read
+  logged and shown back to the patient, 32-byte tokens, `noindex`, `force-dynamic` so a revoked card stops
+  resolving on the next request. anon reaches the card ONLY through the token function, never the table
+  (asserted in the migration). **Found a real gap building it: blood group and haemoglobin genotype were
+  stored nowhere structured** — the platform already sells the test and the answer survived only as prose
+  in a result summary, unreadable by anything. In Nigeria genotype is among the highest-value emergency
+  facts there is. `patient_blood_profile` gives it a home with provenance (`lab_result` /
+  `patient_reported` / `clinician_recorded`), because "AA" with no source is a rumour.
+- **5. Pack verification — reads the box, never judges it.** Patients buy from any pharmacy, so nobody
+  here sees the pack. `pack-vision.ts` reads what is printed; `pack-check.ts` compares name and strength
+  against the prescription. **It never claims authenticity** — the prompt forbids it, the verdict union
+  has no value for it, and a test asserts no verdict ever contains "genuine"/"counterfeit". Every result,
+  including a clean one, points at NAFDAC's Mobile Authentication Service, and says plainly that a missing
+  scratch panel does not mean a fake. Stateless by design: no image, no reading, no result stored. A
+  strength discrepancy routes the patient to their care team via existing in-app messaging rather than
+  auto-raising an alert off a photo.
+- **Verified beyond typecheck/lint/test/build:** `packages/db/tests/emergency_cards.sql` — 10 checks in
+  one rolled-back transaction, every negative paired with a positive control (anon sees nothing only means
+  something once anon-with-the-right-token sees the card), including that the payload key set is exactly
+  the intended minimal one so widening it cannot happen silently. **Then deliberately sabotaged** by
+  inverting the revocation assertion, which failed as it should — the suite discriminates rather than
+  passing vacuously. An earlier draft of that test also proved, by failing, that anon has no grant on the
+  lookup table either. Confirmed via `has_function_privilege` that only `emergency_card_by_token` is
+  anon-executable and all three new tables are anon-denied.
+- **Two real bugs found by tests, fixed in source not in the test:** prescriber names were being
+  lower-cased for comparison and then DISPLAYED lower-cased in a warning a clinician reads; and dotted
+  abbreviations ("A.L.P.", "S.G.P.T.") resolved to nothing because punctuation-to-space normalisation
+  turned them into "a l p" — fixed with a compact-form index. Separately, two eGFR reference values in my
+  own test were wrong and the implementation was right: hand-computing CKD-EPI 2021 term by term gave
+  110.7 and 112.05, so the test bands were corrected and a third independently-derived anchor (53 at
+  1.5 mg/dL, age 60, male — near the drug-safety thresholds) added.
+- **NOT browser-verified** — no test credential was reset this pass, per [[feedback_credential_reset_scope]].
+  Composition over the live-proven DB primitives plus a green production build, consistent with this
+  codebase's posture when no test credential is at hand.
+- **Deliberately not built:** real Nigerian-language voice in and out. It needs a TTS vendor
+  (ElevenLabs or similar) with real credentials — the browser Web Speech API placeholder barely covers
+  Yoruba/Hausa/Igbo and has no Pidgin voice at all, which is exactly the ParentCare-shaped demand the
+  diaspora sponsor product is built to serve. Owner step, not an engineering one. The Protocol API was
+  already built (2026-08-02) and needed nothing here.
+- **Next / founder steps:** confirm the emergency card's PHI-exposure posture is what you want before it
+  reaches real patients — it is the one genuinely new anon-readable surface on the platform, and the
+  decision is yours, not mine; a TTS vendor for voice; browser click-through of the extraction
+  review-and-confirm loop against a real Nigerian lab report once a test credential is free (the
+  extraction prompt is tuned but has never seen a real report).
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
