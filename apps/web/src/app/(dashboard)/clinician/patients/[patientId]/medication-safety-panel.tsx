@@ -1,0 +1,117 @@
+import { createClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { loadMedicationSafety } from "@/lib/clinical/patient-clinical-context";
+import type { DrugSafetySeverity, FindingKind } from "@/lib/rules/drug-safety";
+
+const SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {
+  contraindicated: { label: "Avoid", variant: "red" },
+  caution: { label: "Caution", variant: "amber" },
+  info: { label: "Note", variant: "grey" },
+};
+
+const KIND_LABEL: Record<FindingKind, string> = {
+  interaction: "Interaction",
+  duplicate_therapy: "Duplicate therapy",
+  renal_dosing: "Kidney function",
+  drug_specific: "Drug note",
+};
+
+/**
+ * The checks a dispensing pharmacist makes, surfaced to the clinician who
+ * actually decides.
+ *
+ * ADVISORY ONLY, and the copy says so plainly rather than leaving a clean panel
+ * to be read as a clearance. A clean panel means "no rule in a curated set
+ * fired", which is a different statement from "this list is safe".
+ */
+export async function MedicationSafetyPanel({ patientId }: { patientId: string }) {
+  const supabase = await createClient();
+  const { report, egfr, egfrUnavailableReason, medicationCount } = await loadMedicationSafety(
+    supabase,
+    patientId,
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Medication safety</CardTitle>
+        <CardDescription>
+          Interactions, duplicate therapy, and kidney-function dosing across the {medicationCount}{" "}
+          active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory — nothing here changes
+          a prescription.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Kidney function first: it is the input half these checks depend on. */}
+        <div className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
+          {egfr ? (
+            <>
+              <p className="text-sm font-medium text-charcoal-ink">
+                eGFR {egfr.egfr} mL/min/1.73m²{" "}
+                <span className="font-normal text-charcoal-ink/60">— {egfr.categoryLabel}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-charcoal-ink/60">
+                {egfr.equation}, from a creatinine taken{" "}
+                {new Date(egfr.takenAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+                .
+              </p>
+              {egfr.stale ? (
+                <p className="mt-1 text-xs text-amber-700">
+                  That creatinine is over a year old. Recheck kidney function before acting on the
+                  dosing advice below.
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-xs text-charcoal-ink/70">{egfrUnavailableReason}</p>
+          )}
+        </div>
+
+        {medicationCount === 0 ? (
+          <p className="text-sm text-charcoal-ink/60">No active medicines on file.</p>
+        ) : report.findings.length === 0 ? (
+          <p className="text-sm text-charcoal-ink/70">
+            No interaction, duplicate-therapy or renal-dosing rule fired for this list. That is not
+            the same as a clearance — these checks cover a curated rule set, not a complete
+            interaction database.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {report.findings.map((finding, index) => {
+              const badge = SEVERITY_BADGE[finding.severity];
+              return (
+                <li
+                  key={`${finding.kind}-${finding.title}-${index}`}
+                  className="rounded-lg border border-charcoal-ink/10 p-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                    <span className="text-[0.7rem] uppercase tracking-wide text-charcoal-ink/50">
+                      {KIND_LABEL[finding.kind]}
+                    </span>
+                    <p className="text-sm font-medium text-charcoal-ink">{finding.title}</p>
+                  </div>
+                  <p className="mt-1 text-sm text-charcoal-ink/80">{finding.message}</p>
+                  <p className="mt-1 text-xs text-charcoal-ink/55">
+                    {[...new Set(finding.drugNames)].join(" · ")}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {report.renalCheckSkipped && medicationCount > 0 ? (
+          <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+            {report.renalCheckSkipped}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}

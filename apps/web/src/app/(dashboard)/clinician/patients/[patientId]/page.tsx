@@ -16,6 +16,8 @@ import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
+import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
@@ -146,6 +148,10 @@ export default async function ClinicianPatientPage({
                     tier — refill coordination is a staff-visible clinical detail
                     regardless of what the patient's plan does or doesn't unlock for
                     them on their own dashboard. */}
+                {/* Above the list deliberately: the interaction, duplicate-therapy
+                    and renal-dosing checks are what a dispensing pharmacist would
+                    have caught, and this platform has no pharmacist in the loop. */}
+                <MedicationSafetyPanel patientId={patient.id} />
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
@@ -183,6 +189,7 @@ export default async function ClinicianPatientPage({
             content: (
               <>
                 <BpLadderPanel patientId={patient.id} />
+                <HealthTrendsCard patientId={patient.id} audience="clinician" />
                 <VitalsTrendChart patientId={patient.id} />
                 <LipidProfileCard patientId={patient.id} />
                 <CardiovascularRiskPanel

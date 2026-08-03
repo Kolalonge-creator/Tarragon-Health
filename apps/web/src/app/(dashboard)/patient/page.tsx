@@ -27,6 +27,7 @@ import { AskADoctor } from "./ask-a-doctor";
 import { BookVideoVisit } from "./book-video-visit";
 import { AnnualHealthCheckBooking } from "./annual-health-check-booking";
 import { ResultsTrendsCard } from "./results-trends-card";
+import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { VitalsForm } from "./vitals-form";
 import { VitalsHistory } from "./vitals-history";
 import { HbpmSummaryCard } from "./hbpm-summary-card";
@@ -168,6 +169,10 @@ export default async function PatientPage() {
         <NextBestAction patientId={subjectId} />
         <HealthResetCard patientId={subjectId} />
         <RiskSignalsCard patientId={subjectId} language={profile.language} />
+        {/* The thing a one-off lab visit structurally cannot tell someone: what
+            has moved across several results. Renders nothing until there is
+            genuinely enough history for a pattern. */}
+        <HealthTrendsCard patientId={subjectId} audience="patient" />
         <CareScheduleCard patientId={subjectId} />
         {/* Dual-state overview: a patient in a chronic programme leads with
             monitoring numbers; a healthy patient leads with prevention. Both
