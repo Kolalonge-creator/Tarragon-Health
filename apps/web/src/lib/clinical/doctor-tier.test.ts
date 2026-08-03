@@ -1,4 +1,8 @@
-import { canConfirmMedicationRefill, hasPrescribingAuthority } from "./doctor-tier";
+import {
+  canConfirmMedicationRefill,
+  canHandleEmergencyEscalation,
+  hasPrescribingAuthority,
+} from "./doctor-tier";
 
 type Staff = Parameters<typeof hasPrescribingAuthority>[0];
 
@@ -64,9 +68,57 @@ describe("canConfirmMedicationRefill", () => {
   });
 });
 
+/**
+ * Mirrors private.can_handle_emergency_escalation
+ * (20260731021500_emergency_escalation_tier_gate.sql) — an emergency-level
+ * escalation can only be CLAIMED or RESOLVED by Tier 2+ or the org's
+ * Clinical Director. Introduced alongside the doctor->clinician account role
+ * merge (20260731020000): before that merge only a Tier 4/5 'doctor'-role
+ * account could reach the escalation queue at all, so the account-role split
+ * was gating this by accident. Unifying page access without this check would
+ * have newly let a Tier 1 close an emergency.
+ */
+describe("canHandleEmergencyEscalation", () => {
+  it("refuses Tier 1 — the case the doctor->clinician role merge created", () => {
+    expect(canHandleEmergencyEscalation(staff("tier_1"))).toBe(false);
+  });
+
+  it("refuses a Care Coordinator outright", () => {
+    expect(canHandleEmergencyEscalation(staff("care_coordinator"))).toBe(false);
+  });
+
+  it("allows Tier 2 through Tier 5", () => {
+    for (const tier of [
+      "tier_2",
+      "tier_3",
+      "tier_4_senior_registrar",
+      "tier_5_partner_specialist",
+    ] as const) {
+      expect(canHandleEmergencyEscalation(staff(tier))).toBe(true);
+    }
+  });
+
+  it("allows a Clinical Director with no tier recorded at all", () => {
+    // is_clinical_director is an orthogonal governance flag, not a rung on
+    // the ladder (CLAUDE.md's Clinical Tier Ladder note) — a Director can sit
+    // at any tier, or none.
+    expect(canHandleEmergencyEscalation(staff(null, true))).toBe(true);
+  });
+
+  it("refuses an account with no clinical_staff row at all, never inferring a tier", () => {
+    // CLAUDE.md: "never infer or default a doctor_tier in code."
+    expect(canHandleEmergencyEscalation(null)).toBe(false);
+    expect(canHandleEmergencyEscalation(staff(null))).toBe(false);
+  });
+});
+
 describe("tier authority is monotonic", () => {
   it("never allows a lower tier something a higher tier is denied", () => {
-    const gates = { hasPrescribingAuthority, canConfirmMedicationRefill };
+    const gates = {
+      hasPrescribingAuthority,
+      canConfirmMedicationRefill,
+      canHandleEmergencyEscalation,
+    };
 
     for (const [name, gate] of Object.entries(gates)) {
       for (let lo = 0; lo < CLINICAL_LADDER.length; lo += 1) {

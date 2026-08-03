@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useResolveEscalation } from "@/lib/queries/escalations";
+import { useResolveEscalation, fetchDoctorEscalations } from "@/lib/queries/escalations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -51,7 +51,28 @@ export function ResolveForm({ escalationId }: { escalationId: string }) {
           onClick={() => {
             resolve.mutate(
               { escalationId, status, resolutionNote: resolutionNote.trim() },
-              { onSuccess: () => router.push("/doctor") }
+              {
+                onSuccess: async () => {
+                  // Send the doctor straight to the next-highest-priority open
+                  // case instead of bouncing them back to the top of the
+                  // dashboard every time — a doctor working a long queue
+                  // shouldn't lose their place after every single resolution.
+                  // Best-effort: any failure here just falls back to
+                  // /clinician, same as before this existed.
+                  try {
+                    const remaining = (await fetchDoctorEscalations()).filter(
+                      (escalation) => escalation.id !== escalationId
+                    );
+                    if (remaining.length > 0) {
+                      router.push(`/clinician/escalations/${remaining[0].id}`);
+                      return;
+                    }
+                  } catch {
+                    // fall through to /clinician below
+                  }
+                  router.push("/clinician");
+                },
+              }
             );
           }}
         >

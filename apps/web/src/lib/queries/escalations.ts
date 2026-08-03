@@ -25,22 +25,6 @@ export type EscalationWithDetails = Tables<"escalations"> & {
 const ESCALATION_SELECT =
   "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
 
-/** All escalations in the caller's org, newest first — clinician tracking view. */
-export function useOrgEscalations() {
-  return useQuery({
-    queryKey: ["escalations", "org"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("escalations")
-        .select(ESCALATION_SELECT)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as EscalationWithDetails[];
-    },
-  });
-}
-
 /**
  * Open/under-review escalations — doctor worklist (unclaimed or claimed by
  * anyone). Fetched oldest-first, then re-ranked by effective severity
@@ -49,20 +33,26 @@ export function useOrgEscalations() {
  * compareAlerts/effectiveAlertLevel discipline as the clinician worklist
  * (lib/worklist/priority.ts). Array.sort is stable, so escalations tied on
  * severity+SLA keep the oldest-first order they were fetched in.
+ *
+ * Extracted from the hook body so a one-off caller (the resolve flow's
+ * "next case" redirect) can fetch the same ranked list without subscribing
+ * to it as a live query.
  */
+export async function fetchDoctorEscalations(): Promise<EscalationWithDetails[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("escalations")
+    .select(ESCALATION_SELECT)
+    .in("status", ["open", "under_review"])
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data as EscalationWithDetails[]).slice().sort(compareByAlert);
+}
+
 export function useDoctorEscalations() {
   return useQuery({
     queryKey: ["escalations", "doctor-worklist"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("escalations")
-        .select(ESCALATION_SELECT)
-        .in("status", ["open", "under_review"])
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return (data as EscalationWithDetails[]).slice().sort(compareByAlert);
-    },
+    queryFn: fetchDoctorEscalations,
     refetchInterval: 60_000,
   });
 }

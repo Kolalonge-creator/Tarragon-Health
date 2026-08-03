@@ -1,5 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
-import { compareAlerts, compareByAlert, effectiveAlertLevel } from "./priority";
+import {
+  compareAlerts,
+  compareByAlert,
+  effectiveAlertLevel,
+  requiresEmergencyAuthority,
+} from "./priority";
 
 describe("compareAlerts", () => {
   it("sorts a more severe level before a less severe one, regardless of SLA", () => {
@@ -114,5 +119,44 @@ describe("compareByAlert", () => {
     };
     expect(() => compareByAlert(noAlert, urgentRow)).not.toThrow();
     expect(compareByAlert(noAlert, urgentRow)).toBeGreaterThan(0);
+  });
+});
+
+describe("requiresEmergencyAuthority", () => {
+  it("engages on a system-classified emergency", () => {
+    expect(requiresEmergencyAuthority({ level: "emergency", override_level: null })).toBe(true);
+  });
+
+  it("engages when a clinician overrides a lesser case UP to emergency", () => {
+    expect(
+      requiresEmergencyAuthority({ level: "clinician_review", override_level: "emergency" })
+    ).toBe(true);
+  });
+
+  it("STILL engages when an emergency is overridden DOWN — the bypass a coalesce would open", () => {
+    // A Tier 1 holds an active clinical_staff row, so they may legitimately
+    // record an override. If this read coalesce(override_level, level) they
+    // could downgrade an emergency and then claim it themselves. The DB
+    // trigger closes that; this must agree or the UI would offer a Claim
+    // button that the database then refuses.
+    expect(requiresEmergencyAuthority({ level: "emergency", override_level: "routine" })).toBe(
+      true
+    );
+    expect(effectiveAlertLevel({ level: "emergency", override_level: "routine" })).toBe("routine");
+  });
+
+  it("does not engage for any non-emergency combination", () => {
+    expect(
+      requiresEmergencyAuthority({ level: "urgent_escalation", override_level: null })
+    ).toBe(false);
+    expect(
+      requiresEmergencyAuthority({ level: "routine", override_level: "clinician_review" })
+    ).toBe(false);
+    expect(requiresEmergencyAuthority({ level: "clinician_review" })).toBe(false);
+  });
+
+  it("treats a missing alert as not requiring senior authority, never throwing", () => {
+    expect(() => requiresEmergencyAuthority(null)).not.toThrow();
+    expect(requiresEmergencyAuthority(null)).toBe(false);
   });
 });

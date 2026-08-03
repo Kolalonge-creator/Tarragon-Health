@@ -1,30 +1,52 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * Org patient directory — the index behind the sidebar "Patients" link.
  * RLS (private.is_org_staff) scopes the query to the caller's organisation;
- * no additional filtering is done in application code.
+ * app-code filtering is limited to name search and the optional "assigned to
+ * me" toggle below — every org-staff account can still see the whole roster
+ * (cross-coverage), this only changes what's shown by default.
  */
 export default async function ClinicianPatientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; mine?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, mine } = await searchParams;
+  const showMineOnly = mine === "1";
   const supabase = await createClient();
 
-  let query = supabase
-    .from("profiles")
-    .select("id, full_name, patient_number, phone")
-    .eq("role", "patient")
-    .order("full_name", { ascending: true })
-    .limit(200);
-  if (q?.trim()) {
-    query = query.ilike("full_name", `%${q.trim()}%`);
+  let assignedPatientIds: string[] | null = null;
+  if (showMineOnly) {
+    const currentUser = await getCurrentUser();
+    const { data: assignments } = currentUser
+      ? await supabase
+          .from("care_team_assignment")
+          .select("patient_id")
+          .eq("clinician_id", currentUser.id)
+      : { data: [] };
+    assignedPatientIds = (assignments ?? []).map((a) => a.patient_id);
   }
-  const { data: patients } = await query;
+
+  let patients: { id: string; full_name: string | null; patient_number: string | null; phone: string | null }[] = [];
+  if (!showMineOnly || (assignedPatientIds && assignedPatientIds.length > 0)) {
+    let query = supabase
+      .from("profiles")
+      .select("id, full_name, patient_number, phone")
+      .eq("role", "patient")
+      .order("full_name", { ascending: true })
+      .limit(200);
+    if (q?.trim()) {
+      query = query.ilike("full_name", `%${q.trim()}%`);
+    }
+    if (showMineOnly && assignedPatientIds) {
+      query = query.in("id", assignedPatientIds);
+    }
+    const { data } = await query;
+    patients = data ?? [];
+  }
 
   return (
     <div className="space-y-6">
@@ -36,34 +58,59 @@ export default async function ClinicianPatientsPage({
         </p>
       </div>
 
-      <form method="GET" className="flex gap-2">
-        <input
-          type="search"
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="Search by name"
-          aria-label="Search patients by name"
-          className="w-full max-w-sm rounded-lg border border-charcoal-ink/15 bg-white px-3 py-2 text-sm text-charcoal-ink placeholder:text-charcoal-ink/40 focus:border-brand-green focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="rounded-lg bg-brand-green px-4 py-2 text-sm font-medium text-white hover:bg-deep-forest"
-        >
-          Search
-        </button>
-      </form>
+      <div className="flex flex-wrap items-center gap-3">
+        <form method="GET" className="flex gap-2">
+          {showMineOnly && <input type="hidden" name="mine" value="1" />}
+          <input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Search by name"
+            aria-label="Search patients by name"
+            className="w-full max-w-sm rounded-lg border border-charcoal-ink/15 bg-white px-3 py-2 text-sm text-charcoal-ink placeholder:text-charcoal-ink/40 focus:border-brand-green focus:outline-none"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-brand-green px-4 py-2 text-sm font-medium text-white hover:bg-deep-forest"
+          >
+            Search
+          </button>
+        </form>
+        <div className="flex gap-1 rounded-lg border border-charcoal-ink/15 bg-white p-1 text-sm">
+          <Link
+            href={q?.trim() ? `?q=${encodeURIComponent(q.trim())}` : "?"}
+            className={`rounded-md px-3 py-1.5 font-medium ${
+              !showMineOnly ? "bg-brand-green/10 text-deep-forest" : "text-charcoal-ink/60 hover:text-charcoal-ink"
+            }`}
+          >
+            Everyone
+          </Link>
+          <Link
+            href={q?.trim() ? `?mine=1&q=${encodeURIComponent(q.trim())}` : "?mine=1"}
+            className={`rounded-md px-3 py-1.5 font-medium ${
+              showMineOnly ? "bg-brand-green/10 text-deep-forest" : "text-charcoal-ink/60 hover:text-charcoal-ink"
+            }`}
+          >
+            Assigned to me
+          </Link>
+        </div>
+      </div>
 
       <Card>
         <CardHeader>
           <CardTitle>
-            {q?.trim() ? `Results for “${q.trim()}”` : "All patients"}
-            {patients ? ` (${patients.length})` : ""}
+            {showMineOnly ? "Assigned to me" : q?.trim() ? `Results for “${q.trim()}”` : "All patients"}
+            {` (${patients.length})`}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!patients || patients.length === 0 ? (
+          {patients.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
-              {q?.trim() ? "No patients match that name." : "No patients enrolled yet."}
+              {showMineOnly
+                ? "No patients are assigned to you on the care team yet. Switch to “Everyone” to see the full roster."
+                : q?.trim()
+                  ? "No patients match that name."
+                  : "No patients enrolled yet."}
             </p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10">

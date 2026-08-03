@@ -21,7 +21,7 @@ const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["varia
 const REFERRAL_SELECT =
   "*, patient:profiles!specialist_referrals_patient_id_fkey(full_name), specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name, consultation_fee_kobo)";
 
-export default async function DoctorReferralDetailPage({
+export default async function ReferralDetailPage({
   params,
 }: {
   params: Promise<{ referralId: string }>;

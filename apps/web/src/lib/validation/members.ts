@@ -4,7 +4,6 @@ import { z } from "zod";
 export const USER_ROLES = [
   "patient",
   "clinician",
-  "doctor",
   "care_coordinator",
   "pharmacist",
   "analyst",
@@ -21,8 +20,7 @@ export type UserRoleValue = (typeof USER_ROLES)[number];
 /** Human labels for the account roles, shown in the provisioning + assignment UI. */
 export const USER_ROLE_LABELS: Record<UserRoleValue, string> = {
   patient: "Patient",
-  clinician: "Clinician (Medical Officer T1–T3)",
-  doctor: "Doctor (Senior Registrar / Specialist T4–T5)",
+  clinician: "Doctor (all tiers — set doctor_tier on clinical_staff for seniority/authority)",
   care_coordinator: "Care Coordinator",
   pharmacist: "Pharmacist",
   analyst: "Platform Analyst",
