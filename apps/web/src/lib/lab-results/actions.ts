@@ -9,6 +9,7 @@ import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import {
   labPartnerResultUploadSchema,
   markResultReviewedSchema,
+  patientResultUploadSchema,
   staffResultUploadSchema,
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
@@ -130,6 +131,109 @@ export async function uploadResultDocumentForPatient(
 
   revalidatePath("/lab-liaison");
   revalidatePath(`/clinician/patients/${patientId}`);
+  return { success: true };
+}
+
+/**
+ * A patient uploads their own result, from whichever lab they used. This is the
+ * front door of the self-arranged model: Tarragon issues the request, the
+ * patient goes wherever suits them, and this is how the result gets back.
+ *
+ * Deliberately runs through the patient's OWN session rather than the
+ * service-role client the staff path needs. Both halves of the permission were
+ * already in place and simply had no UI:
+ *   - storage: the 'lab result doc patient insert' policy allows writing into
+ *     the caller's own {auth.uid()}/ folder;
+ *   - row: lab_result_documents_insert allows patient_id = auth.uid() when
+ *     source = 'patient'.
+ * So there is nothing to elevate, and nothing here can write into another
+ * patient's record even if this action were called with a forged body.
+ *
+ * source is pinned to 'patient' and patient_id comes from the session, never
+ * from the form. private.handle_lab_result_document then raises the
+ * clinician_review alert, forces reviewed_by/at null, and deliberately skips
+ * the "your result is available" notification for a self-upload. Uploading a
+ * file never records a clinical finding on its own — a clinician does that.
+ */
+export async function uploadResultDocumentAsPatient(
+  formData: FormData,
+): Promise<ResultUploadResult> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Attach the result file (PDF or photo)." };
+  }
+  const fileError = validateResultDocFile(file);
+  if (fileError) return { error: fileError };
+
+  const parsed = patientResultUploadSchema.safeParse({
+    lab_order_id: formData.get("lab_order_id") || undefined,
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { lab_order_id: labOrderId, note } = parsed.data;
+
+  const supabase = await createClient();
+
+  // organisation_id is derived from the caller's own profile, never sent by the
+  // client — it is what every downstream RLS policy and the alert trigger key
+  // off, so it must not be forgeable.
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!me?.organisation_id) {
+    return { error: "Your account isn't set up for uploads yet. Message your care team." };
+  }
+
+  // If an order is named, confirm it is genuinely theirs. RLS would already
+  // reject a foreign order on read, so a miss here means "not yours" — fail
+  // rather than silently filing the result against nothing.
+  if (labOrderId) {
+    const { data: order } = await supabase
+      .from("lab_orders")
+      .select("id")
+      .eq("id", labOrderId)
+      .eq("patient_id", user.id)
+      .maybeSingle();
+    if (!order) return { error: "That test request isn't on your record." };
+  }
+
+  const ext = EXT_BY_MIME[file.type] ?? "bin";
+  // The leading folder MUST be the caller's uid: that is exactly what the
+  // storage own-folder policy checks.
+  const path = `${user.id}/${randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(RESULT_DOC_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { error: uploadError.message };
+
+  const { error: insertError } = await supabase.from("lab_result_documents").insert({
+    organisation_id: me.organisation_id,
+    patient_id: user.id,
+    lab_order_id: labOrderId ?? null,
+    file_path: path,
+    original_filename: file.name,
+    mime_type: file.type,
+    file_size_bytes: file.size,
+    source: "patient",
+    uploaded_by: user.id,
+    note: note ?? null,
+  });
+  if (insertError) {
+    // Roll back the orphaned object so a failed insert leaves no stray file.
+    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    return { error: insertError.message };
+  }
+
+  revalidatePath("/patient");
+  revalidatePath("/patient/prevention");
   return { success: true };
 }
 

@@ -328,14 +328,13 @@ export default async function PatientPage() {
         <AnnualHealthCheckBooking
           patientId={subjectId}
           organisationId={profile.organisation_id}
-          patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
           sex={profile.sex}
+          screensEnabled={screeningBookingEnabled}
         />
         <PreventiveScreeningCalendar
           patientId={subjectId}
           organisationId={profile.organisation_id}
           bookingEnabled={screeningBookingEnabled}
-          patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         />
         <RiskAssessmentForm patientId={subjectId} />
         <CareProgrammeRecommendations
@@ -398,10 +397,7 @@ export default async function PatientPage() {
         {screeningBookingEnabled ? (
           <>
             <LabCatalogue />
-            <LabOrdersList
-              patientId={subjectId}
-              patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
-            />
+            <LabOrdersList patientId={subjectId} />
             <ResultsTrendsCard patientId={subjectId} />
             <LabResults patientId={subjectId} />
             {/* FacilityDirectory/BookingRequestsList stay scoped to types with
@@ -414,15 +410,17 @@ export default async function PatientPage() {
         ) : (
           <>
             <UpgradePrompt feature="lab_coordination" />
-            {/* A Free user can still have real orders to pay/track — the
-                Annual Health Check is purchasable on any plan — so the order
-                list, trends, and results stay visible below the prompt. */}
-            <LabOrdersList
-              patientId={subjectId}
-              patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
-            />
+            {/* A Free user can still hold real requests and upload real
+                results — a result a patient is holding must always reach a
+                doctor, whatever they pay — so the request list, trends, and
+                results stay visible below the prompt. */}
+            <LabOrdersList patientId={subjectId} />
             <ResultsTrendsCard patientId={subjectId} />
             <LabResults patientId={subjectId} />
+            {/* Reference only, so there's no reason to gate it: someone holding
+                a clinician-issued request needs to find a lab whatever plan
+                they're on. */}
+            <FacilityDirectory patientId={subjectId} />
           </>
         )}
       </DashboardSection>

@@ -22,16 +22,29 @@ const FACILITY_TYPE_LABEL: Record<Facility["type"], string> = {
   vaccination_centre: "Vaccination centre",
 };
 
-// 'lab'/'pharmacy' are excluded from the filter dropdown (not the lookup
-// map above, so any pre-existing row of either type still renders a
-// correct badge) — this open-ended facility-request form was never the
-// transactional path for either (Build 2's decision): pharmacy books
-// through PharmacyCatalogue, and lab tests book either via a due screening
-// on PreventiveScreeningCalendar or a clinician-generated order — never a
-// free-text request to an arbitrary facility.
+// 'pharmacy' stays out of the filter dropdown (not the lookup map above, so a
+// pre-existing row still renders a correct badge): medication is collected
+// wherever the patient likes and recorded afterwards, so an open-ended booking
+// request to a specific pharmacy is not a path we offer.
+//
+// 'lab' is now IN the dropdown. It used to be excluded because lab tests booked
+// transactionally through the catalogue; under self-arranged fulfilment there is
+// no booking to make, so the only useful thing we can offer is "here are labs
+// people use, go to whichever suits you". Labs are listed for reference only —
+// see LAB_LISTING_NOTE and the verified-badge suppression below.
 const SELECTABLE_FACILITY_TYPES = Object.entries(FACILITY_TYPE_LABEL).filter(
-  ([value]) => value !== "lab" && value !== "pharmacy",
+  ([value]) => value !== "pharmacy",
 );
+
+/**
+ * Deliberate wording: "commonly used", never "trusted", "approved" or
+ * "recommended". Tarragon has not audited any of these laboratories, and
+ * claiming otherwise to a patient choosing where to have blood taken would be a
+ * representation we cannot stand behind. Accreditation checking (MLSCN
+ * registration and similar) is a real piece of ops work, not a copy change.
+ */
+const LAB_LISTING_NOTE =
+  "These are laboratories people commonly use. We have not inspected or accredited them, and we earn nothing if you go to one, so please use whichever lab you trust or your doctor suggests.";
 
 /**
  * "Find near me" discovery view (docs/FULL_SPECIFICATION_V4.md §2.3 — "a
@@ -87,7 +100,9 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
           Care navigation
         </CardTitle>
         <CardDescription>
-          Find a nearby lab, pharmacy, vaccination centre, or specialist. Browse first, book only when you&apos;re ready.
+          Find a lab, vaccination centre, hospital, or specialist near you. Labs are listed for
+          reference so you can take your test request somewhere convenient; you are free to use any
+          lab, listed here or not.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -182,7 +197,14 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <Badge variant="grey">{FACILITY_TYPE_LABEL[facility.type]}</Badge>
-                    {facility.verified && <Badge variant="green">Verified</Badge>}
+                    {/* No "Verified" claim on a laboratory: facilities.verified
+                        is seeded true wholesale and reflects no actual
+                        inspection, so on the one listing a patient uses to
+                        choose where blood is drawn it would be a false
+                        assurance. See LAB_LISTING_NOTE. */}
+                    {facility.verified && facility.type !== "lab" && (
+                      <Badge variant="green">Verified</Badge>
+                    )}
                   </div>
                 </div>
                 {facility.facility_services.length > 0 && (
@@ -197,7 +219,12 @@ export function FacilityDirectory({ patientId }: { patientId: string }) {
                     ))}
                   </ul>
                 )}
-                {requestingFacilityId === facility.id ? (
+                {/* A lab needs no booking from us: the patient takes their test
+                    request straight there and pays the lab. Offering to "book"
+                    it would promise a coordination step that does not happen. */}
+                {facility.type === "lab" ? (
+                  <p className="text-xs text-charcoal-ink/60">{LAB_LISTING_NOTE}</p>
+                ) : requestingFacilityId === facility.id ? (
                   <BookingRequestForm
                     patientId={patientId}
                     facility={facility}
