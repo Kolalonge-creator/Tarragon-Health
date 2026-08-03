@@ -188,7 +188,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       "Medication schedule built into your health record",
       "WhatsApp and app reminders for every dose",
       "Refill alerts before you run out",
-      "Pharmacy partner network for booking a refill",
+      "Buy from any pharmacy you like, log the collection in seconds",
       "Doctor follow-up when doses are missed",
     ],
     howItWorks: [
@@ -213,12 +213,12 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
   },
   labs: {
     slug: "labs",
-    headline: "Know what tests are due, book them, and track follow-up.",
+    headline: "Know what tests are due, take the request anywhere, and track follow-up.",
     intro:
-      "Lab work is where care between visits most often goes quiet. Tarragon keeps a running calendar of what's due, books it through a trusted partner network, and makes sure every result is reviewed, not just filed away.",
+      "Lab work is where care between visits most often goes quiet. Tarragon keeps a running calendar of what's due, writes you a request to take to any laboratory you like, and makes sure every result is reviewed, not just filed away. You pay the lab directly; we take nothing on it.",
     included: [
       "Lab calendar synced to your chronic and preventive record",
-      "Booking through Tarragon's trusted lab partner network",
+      "A written request you take to any laboratory near you",
       "Results explained in plain language, not jargon",
       "Immediate doctor alert for abnormal results",
       "Follow-up tracked until the loop is closed",
@@ -229,8 +229,8 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         body: "Your lab calendar reflects your conditions and screening timeline; no guessing what's overdue.",
       },
       {
-        title: "Book with a trusted lab",
-        body: "Book through Tarragon's partner network and keep every result in one record instead of scattered reports.",
+        title: "Take the request to any lab",
+        body: "Pick whichever laboratory suits you, pay them directly, and upload the result — keep every result in one record instead of scattered reports.",
       },
       {
         title: "Never lose a result",
@@ -240,7 +240,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Lab Coordination",
       description:
-        "Know what lab tests are due, book them through a trusted partner network, and get doctor follow-up on every result.",
+        "Know what lab tests are due, take the request to any laboratory you like, and get doctor follow-up on every result.",
     },
   },
 };

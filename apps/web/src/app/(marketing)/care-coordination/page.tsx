@@ -24,8 +24,8 @@ const CONNECTS = [
     body: "No more guessing what you should be checking or when. Tarragon works out which tests are due for you, writes the request to take to whichever laboratory suits you, and makes sure a doctor reads every result: never a report that sits unread.",
   },
   {
-    title: "Genuine medication, refilled on time",
-    body: "Refills are coordinated through licensed, vetted partner pharmacies, so you know the medication you collect is genuine, not counterfeit. Refill alerts arrive before you run out, and your doctor follows up if doses are being missed.",
+    title: "Refills tracked, wherever you buy",
+    body: "You buy your medication at whichever pharmacy suits you and pay them directly. Refill alerts arrive before you run out, you log what you collected, and your doctor follows up if doses are being missed.",
   },
   {
     title: "Specialist referrals that carry your record",

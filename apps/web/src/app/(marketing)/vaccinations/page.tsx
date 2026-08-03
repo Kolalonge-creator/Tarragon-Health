@@ -8,7 +8,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 export const metadata: Metadata = {
   title: "Vaccinations",
   description:
-    "A personal vaccination schedule for you and your children, reminders when a dose is due, easy booking at a partner facility, and a doctor-verified certificate you'll never lose.",
+    "A personal vaccination schedule for you and your children, reminders when a dose is due, and a doctor-verified certificate you'll never lose. Get the dose wherever suits you, then log it.",
   alternates: { canonical: MARKETING_ROUTES.vaccinations },
 };
 
@@ -21,7 +21,7 @@ const HOW_IT_WORKS = [
   {
     step: 2,
     title: "A reminder when a dose is due",
-    body: "No more guessing from memory or a paper card. You're reminded before a dose is due, with a partner facility you can book straight from the app.",
+    body: "No more guessing from memory or a paper card. You're reminded before a dose is due, and you get it done at whichever clinic or vaccination provider suits you.",
   },
   {
     step: 3,
@@ -45,8 +45,8 @@ const WHATS_INCLUDED = [
     body: "You're prompted ahead of a due date, not left to remember a schedule from a paper card that can be lost, torn, or left behind on a trip.",
   },
   {
-    title: "Book at a partner facility",
-    body: "Choose a facility near you and book the appointment directly, with the price shown up front.",
+    title: "Get it done wherever suits you",
+    body: "There's no facility to book through the app yet, so you take the dose at whichever clinic or provider is convenient and pay them directly; log it here afterwards.",
   },
   {
     title: "Doctor-verified certificate",
@@ -58,7 +58,7 @@ const WHATS_INCLUDED = [
   },
   {
     title: "Available on every Tarragon plan",
-    body: "Vaccination tracking, booking, and verification are available on every plan, including Free; this is prevention we think everyone should have.",
+    body: "Vaccination tracking, reminders, and verification are available on every plan, including Free; this is prevention we think everyone should have.",
   },
 ];
 
@@ -75,8 +75,8 @@ export default function VaccinationsPage() {
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             A personal vaccination schedule for you and your children, a reminder before a dose is
-            due, easy booking at a partner facility near you, and a doctor-verified certificate
-            you&apos;ll never lose, even if the paper one is.
+            due, and a doctor-verified certificate you&apos;ll never lose, even if the paper one
+            is. Get the dose wherever suits you and pay them directly; we take nothing on it.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
@@ -87,8 +87,7 @@ export default function VaccinationsPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Already a member? Log or book a vaccination from your dashboard&apos;s Prevention
-            section.
+            Already a member? Log a vaccination from your dashboard&apos;s Prevention section.
           </p>
         </div>
       </Section>
@@ -137,7 +136,7 @@ export default function VaccinationsPage() {
             tracked the same way as your own, including the doses that are easy to lose track of
             between school-age boosters and travel. If you&apos;re following your family&apos;s
             care from outside Nigeria, the schedule and verified certificates are visible to you
-            from anywhere; booking and the visit itself happen at a partner facility in Nigeria.
+            from anywhere; the visit itself still happens wherever your family is, in Nigeria.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Vaccinations are one part of{" "}

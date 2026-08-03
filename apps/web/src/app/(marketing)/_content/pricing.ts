@@ -69,7 +69,6 @@
 
 export type PricingLabel =
   | "INCLUDED"
-  | "BOOK & PAY"
   | "YOU PAY THE LAB"
   | "FREE ELSEWHERE"
   | "ADD-ON";
@@ -107,15 +106,10 @@ export const PRICING_LABELS: Record<
     description: "Part of your plan at no extra charge",
     className: "bg-brand-green/10 text-deep-forest",
   },
-  "BOOK & PAY": {
-    title: "Book & pay",
-    description: "Requested through Tarragon; you choose the laboratory and pay them directly",
-    className: "bg-clinical-navy/10 text-clinical-navy",
-  },
   "YOU PAY THE LAB": {
     title: "You pay the lab",
     description:
-      "Requested through Tarragon, paid straight to whichever laboratory or pharmacy you use. We take no commission on it.",
+      "Tarragon works out what's needed and writes the request; you take it to whichever laboratory, pharmacy, or provider you choose and pay them directly. We take no commission on it.",
     className: "bg-clinical-navy/10 text-clinical-navy",
   },
   "FREE ELSEWHERE": {
@@ -148,7 +142,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings routinely on this plan. But if a test you book through us comes back abnormal, that still raises a real alert to our doctors on every plan, including this one: we do not hold back an abnormal result behind a paywall.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings routinely on this plan. But upload any test result, and if it's abnormal, that still raises a real alert to our doctors on every plan, including this one: we do not hold back an abnormal result behind a paywall.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -169,12 +163,12 @@ export const NGN_TIERS: PricingTier[] = [
     pricePeriod: "per month",
     priceSecondary: "or ₦35,000/year (2 months free)",
     description:
-      "The stay-healthy plan. You don't need a diagnosis to benefit from Tarragon: Prevent builds your personal screening and vaccination calendar, books the checks when they come due, and teaches you what your numbers mean. If a result ever needs attention, a doctor steps in the same day and helps you decide what's next.",
+      "The stay-healthy plan. You don't need a diagnosis to benefit from Tarragon: Prevent builds your personal screening and vaccination calendar, tells you what's due and why, and teaches you what your numbers mean. If a result ever needs attention, a doctor steps in the same day and helps you decide what's next.",
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
       { feature: "Personal screening calendar matched to your age, sex, and history", label: "INCLUDED" },
-      { feature: "Book screenings when due, with reminders and results tracking", label: "INCLUDED" },
-      { feature: "Vaccination schedule, booking, and verified certificates", label: "INCLUDED" },
+      { feature: "Screening requests when due, with reminders and results tracking", label: "INCLUDED" },
+      { feature: "Vaccination schedule, reminders, and verified certificates", label: "INCLUDED" },
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
       { feature: "Screening lab tests, paid straight to the lab you choose", label: "YOU PAY THE LAB" },
@@ -198,8 +192,8 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Monthly doctor check-in", label: "INCLUDED" },
       { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
       { feature: "Message your care team directly in the app", label: "INCLUDED" },
-      { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "BOOK & PAY" },
-      { feature: "Medication refills through partner pharmacies", label: "BOOK & PAY" },
+      { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "YOU PAY THE LAB" },
+      { feature: "Medication refills, from any pharmacy you choose", label: "YOU PAY THE LAB" },
     ],
     footnote:
       "If you have more than one condition, or your doctor considers you higher-risk, Complete Care gives you closer monitoring.",
@@ -219,8 +213,8 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Hypertension, diabetes, and weight all managed together on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
       { feature: "Ask a doctor a one-off written question, answered within 24 hours", label: "INCLUDED" },
-      { feature: "Lab tests", label: "BOOK & PAY" },
-      { feature: "Medication refills", label: "BOOK & PAY" },
+      { feature: "Lab tests", label: "YOU PAY THE LAB" },
+      { feature: "Medication refills", label: "YOU PAY THE LAB" },
     ],
     footnote:
       "The Screen tiers come with your plan. What comes with it is the part we do: working out which tests are worth doing for you, writing the request, reading the results, and following up. You pay the laboratory directly for the tests themselves, at whatever that lab charges, and we take nothing on top.",
@@ -256,10 +250,10 @@ export const USD_TIERS: PricingTier[] = [
     priceSecondary: "or $2.82/month",
     priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description:
-      "The stay-healthy plan, billed in dollars: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Screenings and vaccinations are done at partner facilities in Nigeria; monitoring and education work from anywhere.",
+      "The stay-healthy plan, billed in dollars: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Monitoring, doctor review, and education work from anywhere; a physical test or dose still needs whoever it's for to visit a laboratory or provider in Nigeria.",
     items: [
       { feature: "Everything in Tarragon Prevent (Naira plan)", label: "INCLUDED" },
-      { feature: "Screening lab tests in Nigeria", label: "BOOK & PAY" },
+      { feature: "Screening lab tests, paid to a laboratory in Nigeria", label: "YOU PAY THE LAB" },
     ],
   },
   {
@@ -274,7 +268,7 @@ export const USD_TIERS: PricingTier[] = [
     highlight: true,
     items: [
       { feature: "Everything in Essential Care (Naira plan)", label: "INCLUDED" },
-      { feature: "Lab tests and medication refills in Nigeria", label: "BOOK & PAY" },
+      { feature: "Lab tests and medication refills in Nigeria", label: "YOU PAY THE LAB" },
     ],
   },
   {
@@ -288,7 +282,7 @@ export const USD_TIERS: PricingTier[] = [
     description: "Everything included is the same as Complete Care in Naira, billed in US dollars.",
     items: [
       { feature: "Everything in Complete Care (Naira plan)", label: "INCLUDED" },
-      { feature: "Lab tests and medication refills in Nigeria", label: "BOOK & PAY" },
+      { feature: "Lab tests and medication refills in Nigeria", label: "YOU PAY THE LAB" },
     ],
   },
 ];
@@ -351,12 +345,14 @@ export const DIASPORA_PROCESSING_FEE_NOTE =
 
 /**
  * Honesty note for diaspora buyers subscribing for THEMSELVES: monitoring
- * and doctor review work anywhere, but the partner network (labs, pharmacies,
- * home visits) is physically in Nigeria. Saying so up front costs a few
- * conversions and buys the thing a new platform needs most: trust.
+ * and doctor review work anywhere, but a lab test or a medication refill
+ * still means physically standing in a laboratory or pharmacy, and home
+ * visits specifically still need a contracted partner we don't have yet.
+ * Saying so up front costs a few conversions and buys the thing a new
+ * platform needs most: trust.
  */
 export const DIASPORA_SELF_USE_NOTE =
-  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, in-app care team messaging, and health record all work wherever you are, but lab bookings, medication refills, and home visits happen through our partner network in Nigeria, so those are for when you're home.";
+  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, in-app care team messaging, and health record all work wherever you are. A lab test or a medication refill still means physically visiting a laboratory or pharmacy of your own choosing, so those are for when you're home; home sample collection and medication delivery aren't live anywhere yet, ours or a partner's.";
 
 /** Care vouchers buy a YEAR OF A PLAN, never a test.
  *
@@ -418,7 +414,7 @@ export const ADD_ONS: PricingAddOn[] = [
       { feature: "WhatsApp reminders when a screening test becomes due", label: "INCLUDED" },
       { feature: "We work out which tests you need and write the request", label: "INCLUDED" },
       { feature: "Tracking of your results over time", label: "INCLUDED" },
-      { feature: "The actual test itself, every time it's due", label: "BOOK & PAY" },
+      { feature: "The actual test itself, every time it's due", label: "YOU PAY THE LAB" },
     ],
     availability:
       "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Tarragon Prevent and above — this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
@@ -472,7 +468,7 @@ export const ADD_ONS: PricingAddOn[] = [
     id: "video-visit",
     name: "Video Doctor Visit",
     price: "₦10,000/visit",
-    label: "BOOK & PAY",
+    label: "ADD-ON",
     description:
       "A 15-minute video consultation with a doctor, never an in-person visit. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed — a doctor accepts your slot or offers a different one that works, within 24 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
     availability: "Available on any plan, priced per visit rather than as a subscription.",
@@ -481,9 +477,9 @@ export const ADD_ONS: PricingAddOn[] = [
     id: "hpv-catchup",
     name: "Catch-Up HPV Vaccine",
     price: "Typically ₦35,000–₦55,000/dose (2–3 doses needed)",
-    label: "BOOK & PAY",
-    description: "For women aged 15–45, outside the free government age bracket. Full price confirmed before you book.",
-    availability: "Price shown at time of booking. See What's Always Free below for the free version, ages 9–14.",
+    label: "YOU PAY THE LAB",
+    description: "For women aged 15–45, outside the free government age bracket. You find a provider and pay them directly; the figure above is a rough guide, not a Tarragon price.",
+    availability: "Log each dose in the app once you've had it, and it joins your vaccination record. See What's Always Free below for the free version, ages 9–14.",
   },
 ];
 
