@@ -1,0 +1,587 @@
+/**
+ * The canonical analyte catalogue — the single source of truth for every
+ * numeric lab value this platform can store, its canonical unit, the units a
+ * Nigerian lab report might print it in, and the many names those reports
+ * actually use for it.
+ *
+ * WHY THIS EXISTS: Nigeria has no HL7/FHIR interchange between labs. Every
+ * report is a differently-shaped PDF or a photo of a printout, and the same
+ * analyte appears as "Creatinine", "Serum Creatinine", "CREAT", or "S. Creat"
+ * depending on which lab printed it. Extraction (lib/lab-reports/extract.ts)
+ * resolves whatever the report calls it back to ONE code, so every downstream
+ * engine — eGFR, longitudinal trends, CV risk, the patient explainer — reads a
+ * single vocabulary rather than free text.
+ *
+ * The existing analyte codes already in `lab_analyte_readings` (hba1c,
+ * fasting_glucose, the five lipid codes from lib/lipids/analytes.ts, psa) are
+ * carried here VERBATIM. This catalogue widens the vocabulary; it never renames
+ * an existing code, because historical rows already carry those strings and a
+ * rename would orphan every trend.
+ *
+ * Canonical units follow what `submitScreeningResult` already writes (mg/dL for
+ * glucose and lipids, percent for HbA1c, ng/mL for PSA) so extracted values sit
+ * in the same series as clinician-entered ones with no conversion at read time.
+ *
+ * NOT IN THIS FILE: clinical thresholds and targets. Those live in signed
+ * config (`cv_risk_config`) or in the pure rules engines, deliberately, so a
+ * clinical number can be reviewed and changed without touching this vocabulary.
+ * The `refLow`/`refHigh` fields here are ORIENTATION ONLY — a rough adult
+ * reference band used to render "outside the usual range" on an extraction
+ * review screen. They are never used to classify a result, raise an alert, or
+ * tell a patient anything.
+ */
+
+export type AnalyteGroup =
+  | "renal"
+  | "glycaemic"
+  | "lipid"
+  | "liver"
+  | "haematology"
+  | "electrolyte"
+  | "thyroid"
+  | "urinalysis"
+  | "other";
+
+export interface AnalyteDefinition {
+  /** Stable code written to lab_analyte_readings.code. Never rename. */
+  code: string;
+  label: string;
+  group: AnalyteGroup;
+  /** The unit every stored row uses for this code. */
+  canonicalUnit: string;
+  /**
+   * Other units a Nigerian report may print, with the factor to multiply by to
+   * reach `canonicalUnit`. Keys are lower-cased and stripped of spaces/dots by
+   * `normaliseUnit` before lookup.
+   */
+  unitConversions?: Record<string, number>;
+  /**
+   * Names, abbreviations, and misspellings seen on real report layouts. Matched
+   * case-insensitively after punctuation stripping. Order does not matter;
+   * `resolveAnalyteCode` prefers the longest match so "hdl cholesterol" never
+   * loses to a bare "cholesterol".
+   */
+  aliases: string[];
+  /**
+   * Rough adult reference band, for review-screen orientation only.
+   *
+   * `refLow: 0` is the deliberate "no lower bound of interest" sentinel — a low
+   * total cholesterol or a low ALT is not something this platform flags, so the
+   * band is one-sided. It reads below the plausibility floor on purpose; a
+   * value that low is rejected as a misread before it ever reaches the band.
+   */
+  refLow?: number;
+  refHigh?: number;
+  /**
+   * Sex-specific reference band where the difference is large enough that a
+   * single band would be misleading on the review screen (haemoglobin,
+   * creatinine, haematocrit).
+   */
+  refBySex?: { male: [number, number]; female: [number, number] };
+  /** A plausible-value guard. Anything outside this is rejected as a misread. */
+  plausible: [number, number];
+}
+
+/**
+ * mg/dL ⇄ µmol/L for creatinine: 1 mg/dL = 88.4 µmol/L. Nigerian labs print
+ * both, and getting this backwards turns a normal creatinine into stage-5 CKD,
+ * so it is named rather than inlined.
+ */
+const CREATININE_UMOL_TO_MG_DL = 1 / 88.4;
+/** mmol/L → mg/dL for glucose. */
+const GLUCOSE_MMOL_TO_MG_DL = 18.016;
+/** mmol/L → mg/dL for cholesterol fractions. */
+const CHOLESTEROL_MMOL_TO_MG_DL = 38.67;
+/** mmol/L → mg/dL for triglycerides (different molecular weight to cholesterol). */
+const TRIGLYCERIDE_MMOL_TO_MG_DL = 88.57;
+/** mmol/L → mg/dL for urea. Note urea and BUN are NOT the same measurement. */
+const UREA_MMOL_TO_MG_DL = 6.006;
+
+export const ANALYTE_CATALOGUE: readonly AnalyteDefinition[] = [
+  // ---------------------------------------------------------------- renal
+  {
+    code: "creatinine",
+    label: "Creatinine",
+    group: "renal",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "umol/l": CREATININE_UMOL_TO_MG_DL, "µmol/l": CREATININE_UMOL_TO_MG_DL, "mmol/l": 1000 * CREATININE_UMOL_TO_MG_DL },
+    aliases: ["creatinine", "serum creatinine", "s creatinine", "creat", "s creat", "plasma creatinine", "cr"],
+    refBySex: { male: [0.7, 1.3], female: [0.6, 1.1] },
+    plausible: [0.1, 25],
+  },
+  {
+    code: "urea",
+    label: "Urea",
+    group: "renal",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "mmol/l": UREA_MMOL_TO_MG_DL },
+    aliases: ["urea", "serum urea", "s urea", "blood urea"],
+    refLow: 15,
+    refHigh: 45,
+    plausible: [1, 400],
+  },
+  {
+    code: "bun",
+    label: "Blood urea nitrogen",
+    group: "renal",
+    canonicalUnit: "mg/dL",
+    // BUN = urea / 2.14. Kept as its OWN code rather than converted into urea:
+    // a report prints one or the other, and silently converting would invent a
+    // measurement the lab never made.
+    aliases: ["bun", "blood urea nitrogen", "urea nitrogen"],
+    refLow: 7,
+    refHigh: 20,
+    plausible: [1, 200],
+  },
+  {
+    code: "urine_acr",
+    label: "Urine albumin-to-creatinine ratio",
+    group: "renal",
+    canonicalUnit: "mg/g",
+    unitConversions: { "mg/mmol": 8.84 },
+    aliases: ["urine acr", "acr", "albumin creatinine ratio", "albumin to creatinine ratio", "urine albumin creatinine ratio", "uacr", "microalbumin creatinine ratio"],
+    refLow: 0,
+    refHigh: 30,
+    plausible: [0, 30000],
+  },
+  // ------------------------------------------------------------- glycaemic
+  {
+    code: "hba1c",
+    label: "HbA1c",
+    group: "glycaemic",
+    canonicalUnit: "percent",
+    // IFCC mmol/mol → DCCT %. Not a plain multiply: % = (mmol/mol / 10.929) + 2.15.
+    // Handled by `convertToCanonical`'s special case, not a factor here.
+    aliases: ["hba1c", "hb a1c", "haemoglobin a1c", "hemoglobin a1c", "glycated haemoglobin", "glycated hemoglobin", "glycosylated haemoglobin", "a1c"],
+    refLow: 4,
+    refHigh: 5.6,
+    plausible: [3, 20],
+  },
+  {
+    code: "fasting_glucose",
+    label: "Fasting glucose",
+    group: "glycaemic",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "mmol/l": GLUCOSE_MMOL_TO_MG_DL },
+    aliases: ["fasting glucose", "fasting blood glucose", "fasting blood sugar", "fbs", "fbg", "fpg", "fasting plasma glucose", "glucose fasting"],
+    refLow: 70,
+    refHigh: 99,
+    plausible: [10, 1500],
+  },
+  {
+    code: "random_glucose",
+    label: "Random glucose",
+    group: "glycaemic",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "mmol/l": GLUCOSE_MMOL_TO_MG_DL },
+    aliases: ["random glucose", "random blood sugar", "rbs", "rbg", "casual glucose", "random plasma glucose"],
+    refLow: 70,
+    refHigh: 139,
+    plausible: [10, 1500],
+  },
+  {
+    code: "ogtt_2h_glucose",
+    label: "2-hour glucose (OGTT)",
+    group: "glycaemic",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "mmol/l": GLUCOSE_MMOL_TO_MG_DL },
+    aliases: ["2 hour glucose", "2hr glucose", "ogtt 2 hour", "ogtt 2hr", "2 h post glucose", "post prandial glucose", "2 hour post prandial", "pp glucose", "ogtt"],
+    refLow: 70,
+    refHigh: 139,
+    plausible: [10, 1500],
+  },
+  // ----------------------------------------------------------------- lipid
+  {
+    code: "total_cholesterol",
+    label: "Total cholesterol",
+    group: "lipid",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "mmol/l": CHOLESTEROL_MMOL_TO_MG_DL },
+    aliases: ["total cholesterol", "cholesterol total", "t chol", "tc", "cholesterol"],
+    refLow: 0,
+    refHigh: 200,
+    plausible: [30, 800],
+  },
+  {
+    code: "hdl_cholesterol",
+    label: "HDL cholesterol",
+    group: "lipid",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "mmol/l": CHOLESTEROL_MMOL_TO_MG_DL },
+    aliases: ["hdl cholesterol", "hdl", "hdl c", "high density lipoprotein", "hdl chol"],
+    refLow: 40,
+    refHigh: 100,
+    plausible: [5, 200],
+  },
+  {
+    code: "ldl_cholesterol",
+    label: "LDL cholesterol",
+    group: "lipid",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "mmol/l": CHOLESTEROL_MMOL_TO_MG_DL },
+    aliases: ["ldl cholesterol", "ldl", "ldl c", "low density lipoprotein", "ldl chol", "ldl calculated"],
+    refLow: 0,
+    refHigh: 100,
+    plausible: [5, 600],
+  },
+  {
+    code: "triglycerides",
+    label: "Triglycerides",
+    group: "lipid",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "mmol/l": TRIGLYCERIDE_MMOL_TO_MG_DL },
+    aliases: ["triglycerides", "triglyceride", "tg", "trig", "trigs"],
+    refLow: 0,
+    refHigh: 150,
+    plausible: [10, 5000],
+  },
+  // ----------------------------------------------------------------- liver
+  {
+    code: "alt",
+    label: "ALT (SGPT)",
+    group: "liver",
+    canonicalUnit: "U/L",
+    aliases: ["alt", "sgpt", "alanine aminotransferase", "alanine transaminase", "alt sgpt", "sgpt alt"],
+    refLow: 0,
+    refHigh: 41,
+    plausible: [1, 20000],
+  },
+  {
+    code: "ast",
+    label: "AST (SGOT)",
+    group: "liver",
+    canonicalUnit: "U/L",
+    aliases: ["ast", "sgot", "aspartate aminotransferase", "aspartate transaminase", "ast sgot", "sgot ast"],
+    refLow: 0,
+    refHigh: 40,
+    plausible: [1, 20000],
+  },
+  {
+    code: "alp",
+    label: "Alkaline phosphatase",
+    group: "liver",
+    canonicalUnit: "U/L",
+    aliases: ["alp", "alkaline phosphatase", "alk phos", "alkaline phos"],
+    refLow: 40,
+    refHigh: 130,
+    plausible: [5, 5000],
+  },
+  {
+    code: "total_bilirubin",
+    label: "Total bilirubin",
+    group: "liver",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "umol/l": 1 / 17.1, "µmol/l": 1 / 17.1 },
+    aliases: ["total bilirubin", "bilirubin total", "t bilirubin", "t bil", "bilirubin"],
+    refLow: 0.1,
+    refHigh: 1.2,
+    plausible: [0, 80],
+  },
+  {
+    code: "albumin",
+    label: "Albumin",
+    group: "liver",
+    canonicalUnit: "g/dL",
+    unitConversions: { "g/l": 0.1 },
+    aliases: ["albumin", "serum albumin", "s albumin", "alb"],
+    refLow: 3.5,
+    refHigh: 5.2,
+    plausible: [0.5, 10],
+  },
+  // ----------------------------------------------------------- haematology
+  {
+    code: "haemoglobin",
+    label: "Haemoglobin",
+    group: "haematology",
+    canonicalUnit: "g/dL",
+    unitConversions: { "g/l": 0.1 },
+    aliases: ["haemoglobin", "hemoglobin", "hb", "hgb", "haemoglobin concentration"],
+    refBySex: { male: [13, 17], female: [12, 15] },
+    plausible: [1, 25],
+  },
+  {
+    code: "haematocrit",
+    label: "Haematocrit (PCV)",
+    group: "haematology",
+    canonicalUnit: "percent",
+    aliases: ["haematocrit", "hematocrit", "pcv", "hct", "packed cell volume"],
+    refBySex: { male: [40, 52], female: [36, 46] },
+    plausible: [5, 75],
+  },
+  {
+    code: "wbc",
+    label: "White cell count",
+    group: "haematology",
+    canonicalUnit: "10^9/L",
+    aliases: ["wbc", "white blood cell count", "white cell count", "total wbc", "leucocyte count", "leukocyte count", "twbc"],
+    refLow: 4,
+    refHigh: 11,
+    plausible: [0.1, 500],
+  },
+  {
+    code: "platelets",
+    label: "Platelet count",
+    group: "haematology",
+    canonicalUnit: "10^9/L",
+    aliases: ["platelets", "platelet count", "plt", "thrombocyte count"],
+    refLow: 150,
+    refHigh: 400,
+    plausible: [1, 3000],
+  },
+  // ----------------------------------------------------------- electrolyte
+  {
+    code: "sodium",
+    label: "Sodium",
+    group: "electrolyte",
+    canonicalUnit: "mmol/L",
+    aliases: ["sodium", "na", "na+", "serum sodium"],
+    refLow: 135,
+    refHigh: 145,
+    plausible: [90, 200],
+  },
+  {
+    code: "potassium",
+    label: "Potassium",
+    group: "electrolyte",
+    canonicalUnit: "mmol/L",
+    aliases: ["potassium", "k", "k+", "serum potassium"],
+    refLow: 3.5,
+    refHigh: 5.1,
+    plausible: [1, 12],
+  },
+  {
+    code: "chloride",
+    label: "Chloride",
+    group: "electrolyte",
+    canonicalUnit: "mmol/L",
+    aliases: ["chloride", "cl", "cl-", "serum chloride"],
+    refLow: 98,
+    refHigh: 107,
+    plausible: [50, 180],
+  },
+  {
+    code: "bicarbonate",
+    label: "Bicarbonate",
+    group: "electrolyte",
+    canonicalUnit: "mmol/L",
+    aliases: ["bicarbonate", "hco3", "hco3-", "co2", "total co2", "serum bicarbonate"],
+    refLow: 22,
+    refHigh: 29,
+    plausible: [3, 60],
+  },
+  // --------------------------------------------------------------- thyroid
+  {
+    code: "tsh",
+    label: "TSH",
+    group: "thyroid",
+    canonicalUnit: "mIU/L",
+    aliases: ["tsh", "thyroid stimulating hormone", "thyrotropin"],
+    refLow: 0.4,
+    refHigh: 4.0,
+    plausible: [0.001, 500],
+  },
+  {
+    code: "free_t4",
+    label: "Free T4",
+    group: "thyroid",
+    canonicalUnit: "ng/dL",
+    unitConversions: { "pmol/l": 1 / 12.87 },
+    aliases: ["free t4", "ft4", "free thyroxine", "t4 free"],
+    refLow: 0.8,
+    refHigh: 1.8,
+    plausible: [0.01, 20],
+  },
+  // ----------------------------------------------------------------- other
+  {
+    code: "psa",
+    label: "PSA",
+    group: "other",
+    canonicalUnit: "ng/mL",
+    aliases: ["psa", "prostate specific antigen", "total psa", "prostatic specific antigen"],
+    refLow: 0,
+    refHigh: 4,
+    plausible: [0, 5000],
+  },
+  {
+    code: "uric_acid",
+    label: "Uric acid",
+    group: "other",
+    canonicalUnit: "mg/dL",
+    unitConversions: { "umol/l": 1 / 59.48, "µmol/l": 1 / 59.48 },
+    aliases: ["uric acid", "urate", "serum uric acid"],
+    refLow: 3.5,
+    refHigh: 7.2,
+    plausible: [0.1, 40],
+  },
+] as const;
+
+/**
+ * Non-HDL is derived, never extracted — a report does not print it, and
+ * `computeNonHdl` already owns the derivation. Listed so trend/display code can
+ * ask the catalogue about it without it ever becoming an extraction target.
+ */
+export const DERIVED_ANALYTE_CODES = ["non_hdl_cholesterol"] as const;
+
+const BY_CODE = new Map(ANALYTE_CATALOGUE.map((a) => [a.code, a]));
+
+export function getAnalyte(code: string): AnalyteDefinition | undefined {
+  return BY_CODE.get(code);
+}
+
+export function isKnownAnalyteCode(code: string): boolean {
+  return BY_CODE.has(code);
+}
+
+/** Lower-case, strip punctuation, collapse whitespace. */
+function normaliseLabel(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[._():/\\,;*#-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Lower-case and strip spaces/dots so "µmol / L" and "umol/l" both match. */
+export function normaliseUnit(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw.toLowerCase().replace(/[\s.]+/g, "").replace(/μ/g, "µ");
+}
+
+/**
+ * Alias index, built longest-alias-first so a specific name always beats a
+ * generic substring: "hdl cholesterol" must not resolve to `total_cholesterol`
+ * via the bare "cholesterol" alias. That single ordering rule is the difference
+ * between a correct lipid panel and a silently wrong one.
+ */
+const ALIAS_INDEX: { alias: string; code: string }[] = ANALYTE_CATALOGUE.flatMap((a) =>
+  a.aliases.map((alias) => ({ alias: normaliseLabel(alias), code: a.code })),
+).sort((x, y) => y.alias.length - x.alias.length);
+
+/**
+ * Compact form — every non-alphanumeric removed, no space inserted. This is
+ * what makes dotted abbreviations resolve: reports routinely print "A.L.P.",
+ * "S.G.P.T." and "T. Bilirubin", which the spaced form turns into "a l p" and
+ * matches nothing.
+ */
+function compactLabel(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+const COMPACT_INDEX = new Map<string, string>();
+for (const entry of ALIAS_INDEX) {
+  const key = compactLabel(entry.alias);
+  // Longest alias wins, matching ALIAS_INDEX's ordering, so a specific name
+  // still beats a generic one after compaction.
+  if (!COMPACT_INDEX.has(key)) COMPACT_INDEX.set(key, entry.code);
+}
+
+/**
+ * Resolve whatever a report called a row back to a catalogue code.
+ *
+ * Exact alias match, then exact compact match (dotted abbreviations), then a
+ * whole-word containment match so "Serum Creatinine (fasting)" still resolves.
+ * Returns null when nothing matches — an unrecognised row is surfaced to the
+ * reviewing clinician as unmapped, never guessed into the nearest code.
+ */
+export function resolveAnalyteCode(reportLabel: string): string | null {
+  const label = normaliseLabel(reportLabel);
+  if (!label) return null;
+
+  for (const entry of ALIAS_INDEX) {
+    if (entry.alias === label) return entry.code;
+  }
+
+  const compact = COMPACT_INDEX.get(compactLabel(reportLabel));
+  if (compact) return compact;
+
+  for (const entry of ALIAS_INDEX) {
+    // Whole-word boundary check — prevents "k" (potassium) matching inside
+    // "kidney", and "cr" matching inside "creatinine clearance".
+    const pattern = new RegExp(`(^|\\s)${escapeRegExp(entry.alias)}($|\\s)`);
+    if (pattern.test(label)) return entry.code;
+  }
+  return null;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export type UnitConversion =
+  | { ok: true; value: number; converted: boolean }
+  | { ok: false; reason: "unknown_unit" | "implausible" };
+
+/**
+ * Convert a reported value into the analyte's canonical unit.
+ *
+ * Deliberately strict: an unrecognised unit is refused rather than assumed to
+ * be canonical. A creatinine of 90 is normal in µmol/L and end-stage renal
+ * failure in mg/dL, so guessing here would be the single most dangerous thing
+ * this file could do. An unrecognised unit surfaces to the reviewer instead.
+ *
+ * An empty/absent unit IS accepted as canonical — many Nigerian reports print
+ * the unit once in a column header the extractor cannot attach per-row — but
+ * the value must then still pass the plausibility band, which is what catches
+ * a µmol/L creatinine that arrived with no unit at all.
+ */
+export function convertToCanonical(
+  code: string,
+  value: number,
+  reportedUnit: string | null | undefined,
+): UnitConversion {
+  const analyte = getAnalyte(code);
+  if (!analyte) return { ok: false, reason: "unknown_unit" };
+
+  const unit = normaliseUnit(reportedUnit);
+  const canonical = normaliseUnit(analyte.canonicalUnit);
+
+  let converted = value;
+  let didConvert = false;
+
+  if (unit && unit !== canonical) {
+    if (code === "hba1c" && (unit === "mmol/mol" || unit === "mmolmol")) {
+      // IFCC → DCCT is affine, not a scale factor.
+      converted = value / 10.929 + 2.15;
+      didConvert = true;
+    } else {
+      const factorKey = Object.keys(analyte.unitConversions ?? {}).find(
+        (k) => normaliseUnit(k) === unit,
+      );
+      if (factorKey === undefined) return { ok: false, reason: "unknown_unit" };
+      converted = value * (analyte.unitConversions as Record<string, number>)[factorKey];
+      didConvert = true;
+    }
+  }
+
+  const rounded = Math.round(converted * 1000) / 1000;
+  const [low, high] = analyte.plausible;
+  if (rounded < low || rounded > high) return { ok: false, reason: "implausible" };
+
+  return { ok: true, value: rounded, converted: didConvert };
+}
+
+/**
+ * The rough adult reference band for review-screen orientation only, sex-aware
+ * where the catalogue defines one. NEVER a clinical classification — nothing
+ * downstream may branch on this to raise an alert or tell a patient anything.
+ */
+export function orientationRange(
+  code: string,
+  sex?: string | null,
+): { low: number; high: number } | null {
+  const analyte = getAnalyte(code);
+  if (!analyte) return null;
+  if (analyte.refBySex) {
+    const key = sex === "male" || sex === "female" ? sex : null;
+    if (!key) return null;
+    const [low, high] = analyte.refBySex[key];
+    return { low, high };
+  }
+  if (analyte.refLow === undefined || analyte.refHigh === undefined) return null;
+  return { low: analyte.refLow, high: analyte.refHigh };
+}
+
+/** Every extractable code, for prompting the vision model with a closed vocabulary. */
+export function extractableCodes(): string[] {
+  return ANALYTE_CATALOGUE.map((a) => a.code);
+}

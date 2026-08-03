@@ -1,0 +1,18 @@
+-- Closing the one safety hole the self-arranged model opens.
+--
+-- With a partner lab, "the sample was taken and resulted" is a fact the system
+-- RECEIVES. Self-arranged, the only signal is the patient bothering to upload,
+-- so a patient who is told a test matters and quietly never goes is invisible.
+-- A test never taken is a bigger silent failure than an abnormal result
+-- mishandled, and this platform's whole premise is that neither happens.
+--
+-- patient_care_gaps -> private.queue_care_outreach (cron care-outreach-daily)
+-- is already a working chase engine that raises a real coordinator/clinician
+-- worklist task plus one aggregated nudge, for EVERY patient rather than only
+-- high-risk ones. It just had nothing to chase here, because a self-bookable
+-- Screen carries no screening_schedule link by design. So this needs a new gap
+-- type rather than a new engine.
+--
+-- Enum value added alone: Postgres forbids using a freshly-added enum value in
+-- the same transaction that adds it.
+alter type public.outreach_trigger_type add value if not exists 'awaiting_result';

@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { MarkResultReviewed } from "./mark-result-reviewed";
+import { LabReportExtractionPanel, type ExtractionView } from "./lab-report-extraction-panel";
+import type { ExtractedRow } from "@/lib/lab-reports/extract";
 
 const SOURCE_LABEL: Record<string, string> = {
   patient: "Patient uploaded",
@@ -26,6 +28,39 @@ function formatDate(value: string): string {
 export async function ResultDocumentsSection({ patientId }: { patientId: string }) {
   const supabase = await createClient();
   const documents = await loadResultDocuments(supabase, patientId);
+
+  // Extraction drafts, keyed by document. Org-staff RLS on
+  // lab_report_extractions is the gate — a patient never sees these.
+  const { data: extractionRows } = await supabase
+    .from("lab_report_extractions")
+    .select(
+      "id, document_id, status, report_date, lab_name, patient_name_on_report, rows, unreadable_reason, error_message, confirmed_at, confirmed_codes",
+    )
+    .eq("patient_id", patientId);
+
+  const extractionByDocument = new Map<string, ExtractionView>(
+    (extractionRows ?? []).map((row) => [
+      row.document_id,
+      {
+        id: row.id,
+        status: row.status as ExtractionView["status"],
+        reportDate: row.report_date,
+        labName: row.lab_name,
+        patientNameOnReport: row.patient_name_on_report,
+        rows: (row.rows ?? []) as unknown as ExtractedRow[],
+        unreadableReason: row.unreadable_reason,
+        errorMessage: row.error_message,
+        confirmedAt: row.confirmed_at,
+        confirmedCodes: (row.confirmed_codes ?? []) as unknown as string[],
+      },
+    ]),
+  );
+
+  const { data: patient } = await supabase
+    .from("profiles")
+    .select("sex, full_name")
+    .eq("id", patientId)
+    .maybeSingle();
 
   return (
     <Card>
@@ -67,6 +102,14 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                 ) : (
                   <p className="text-xs text-red-600">File could not be loaded.</p>
                 )}
+                <LabReportExtractionPanel
+                  documentId={doc.id}
+                  signedUrl={doc.signedUrl}
+                  isPdf={doc.isPdf}
+                  patientSex={patient?.sex ?? null}
+                  patientName={patient?.full_name ?? null}
+                  extraction={extractionByDocument.get(doc.id) ?? null}
+                />
                 {doc.reviewedAt ? (
                   <ReviewedResultLine reviewedBy={doc.reviewedBy} reviewedAt={doc.reviewedAt} />
                 ) : (

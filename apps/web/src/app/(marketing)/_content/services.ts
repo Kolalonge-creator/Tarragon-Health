@@ -278,12 +278,12 @@ export const HOMEPAGE_FAQS = [
   {
     question: "Can I use Tarragon for my parent while I live abroad?",
     answer:
-      "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for it by buying the checks they need from anywhere.",
+      "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for their plan from anywhere; the tests and refills themselves are still paid directly to whichever laboratory or pharmacy they use in Nigeria, at their price.",
   },
   {
     question: "How much does it cost?",
     answer:
-      "Pricing is shown clearly with no hidden costs. Some services are included, some are book-and-pay through partners, and some are add-ons. See the pricing page for every plan and add-on in full.",
+      "Pricing is shown clearly with no hidden costs. Some services are included, some you pay directly to a laboratory or pharmacy you choose (we take nothing on those), and some are add-ons. See the pricing page for every plan and add-on in full.",
   },
   {
     question: "How do I log my blood pressure, glucose, or weight?",

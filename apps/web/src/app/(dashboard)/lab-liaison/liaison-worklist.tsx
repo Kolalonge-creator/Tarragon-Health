@@ -171,7 +171,7 @@ function UploadPanel({ patients }: { patients: LiaisonPatient[] }) {
             <Label htmlFor="result-note">Note (optional)</Label>
             <Textarea
               id="result-note"
-              placeholder="e.g. Synlab · FBC · received 20 Jul"
+              placeholder="e.g. FBC · received 20 Jul"
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={2}

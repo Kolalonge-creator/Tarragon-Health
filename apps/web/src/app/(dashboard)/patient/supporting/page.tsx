@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { getCurrentUser } from "@/lib/supabase/server";
 import { SupportedPeople } from "./supported-people";
 import { joinAsPatientToo } from "./actions";
 
@@ -23,8 +22,6 @@ export default async function SupportingPage() {
   if (!profile) redirect("/login");
   if (profile.role !== "patient") redirect("/");
 
-  const user = await getCurrentUser();
-
   return (
     <div className="space-y-6">
       <div>
@@ -38,7 +35,7 @@ export default async function SupportingPage() {
         </p>
       </div>
 
-      <SupportedPeople payerEmailKnown={Boolean(user?.email)} />
+      <SupportedPeople />
 
       {profile.receives_care === false ? (
         // A supporter account has no care of its own, deliberately: we never

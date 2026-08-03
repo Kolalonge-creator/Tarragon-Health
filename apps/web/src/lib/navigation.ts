@@ -62,6 +62,7 @@ export function getNavSections(
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Emergency card", href: "/patient/emergency-card", icon: "passport" },
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
             { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
             { label: "Your people", href: "/patient/family", icon: "family" },

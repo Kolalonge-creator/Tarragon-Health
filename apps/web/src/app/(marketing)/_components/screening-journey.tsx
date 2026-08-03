@@ -45,7 +45,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ALL_BANDS,
     category: "Heart & metabolic",
     summary: "Blood sugar (HbA1c), cholesterol, blood pressure, and BMI: the numbers behind diabetes and heart disease, years before symptoms show.",
-    price: "From ₦65,000",
+    price: "Paid to the lab, not to us",
     steps: [
       {
         title: "Is this for you?",
@@ -53,7 +53,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Book the Annual Health Check in the app and pick a partner lab near you. The price is shown before you pay, and it's the price you pay.",
+        body: "Request the Annual Health Check in the app, then take it to any laboratory you like. You pay them directly, at their price, and we take nothing on it.",
       },
       {
         title: "Test day",
@@ -80,7 +80,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Book directly and confidentially in the app, on its own, no bundle required, at a partner lab or clinic near you.",
+        body: "Request it directly and confidentially in the app, on its own, no bundle required, then take it to any laboratory or clinic you like.",
       },
       {
         title: "Test day",
@@ -111,7 +111,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Test day",
-        body: "A clinical exam, with imaging referral if anything warrants a closer look, at a partner facility your doctor coordinates.",
+        body: "A clinical exam, with a written imaging referral to whichever facility suits you if anything warrants a closer look.",
       },
       {
         title: "Results & what's next",
@@ -192,7 +192,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Test day",
-        body: "A simple blood sample at a partner lab, usually done in minutes.",
+        body: "A simple blood sample at whichever lab you choose, usually done in minutes.",
       },
       {
         title: "Results & what's next",
@@ -215,7 +215,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Book directly in the app, on its own, at a partner lab near you.",
+        body: "Request it directly in the app, on its own, then take it to any lab you like.",
       },
       {
         title: "Test day",

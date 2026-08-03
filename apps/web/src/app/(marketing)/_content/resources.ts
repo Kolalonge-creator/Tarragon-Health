@@ -1438,7 +1438,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What the follow-up usually looks like",
         paragraphs: [
-          "A doctor reviews the result against your history, decides whether it needs a repeat test, a referral to a specialist or partner lab, or simply a routine recheck, and explains the reasoning in plain language, not a lab printout left for you to interpret alone.",
+          "A doctor reviews the result against your history, decides whether it needs a repeat test, a referral to a specialist, or simply a routine recheck, and explains the reasoning in plain language, not a lab printout left for you to interpret alone.",
         ],
       },
       {

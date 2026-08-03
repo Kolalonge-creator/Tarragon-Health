@@ -33,7 +33,7 @@ const RISK_LEVEL_COPY: Record<Enums<"risk_level">, string | null> = {
  * roughly what's shaping your care" gloss, framed as informational context
  * rather than a precise causal explanation for any one contact.
  */
-export function RiskSignalsCard({ patientId, language }: { patientId: string; language: string }) {
+export function RiskSignalsCard({ patientId }: { patientId: string }) {
   const { data } = usePatientRiskSignals(patientId);
 
   if (!data || data.length === 0) return null;
@@ -76,7 +76,6 @@ export function RiskSignalsCard({ patientId, language }: { patientId: string; la
                       kind="risk_score"
                       subjectKey={row.score_type}
                       label={label}
-                      language={language}
                     />
                   </li>
                 );
