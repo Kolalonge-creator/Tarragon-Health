@@ -2488,6 +2488,98 @@ Same session as the entry above, acting on two founder decisions.
   already-paid Termii **voice-call** path covers the can't-read case for reminders without any new vendor.
   Revisit when non-English preferences appear in the data.
 
+### 2026-08-03 — Founder follow-up: voice removed outright (not suspended), English only for now
+Superseding the "suspend, revisit later" framing directly above — the founder asked to take voice out
+rather than park it: **"remove the voice part, let it be strictly english for now. we can explore that
+in the future."**
+- **App layer:** the Web Speech read-aloud control and the language switcher are gone from
+  `ResultExplainer`; the `language` prop is gone from `RiskSignalsCard` (both call sites updated); the
+  voice-call reminder toggle (`ReminderPreferenceForm` + its action) is deleted outright, not just
+  hidden. `explainPatientResultAction` now pins `language = "en"` internally rather than reading
+  `profiles.language`, so no caller — not even a stale client — can request another language.
+- **DB layer, and this is the part that actually mattered:** migration `20260803150000` removes the
+  voice branch from `private.remap_notification_channel` — the ONLY function on the platform that ever
+  turned a queued `whatsapp` reminder into a `voice` one. With that branch gone, `notifications.channel
+  = 'voice'` is structurally unreachable, which makes the Termii voice sender in the deployed
+  `send-pending-notifications` function dead code. **No Edge Function redeploy was needed** to stop the
+  platform calling anyone — removing the one call site was enough.
+- **Nothing was dropped.** `profiles.language`, `profiles.preferred_reminder_channel`, the `voice` value
+  on `notification_channel`, and `patient_result_explanations.language` all stay — an enum value is the
+  one thing Postgres cannot remove in place, and dropping it would turn "explore in the future" into a
+  schema rebuild instead of restoring one `if` branch.
+- ⚠️ **`ConditionLanguageForm` was checked and deliberately left alone** — despite the name it toggles
+  clinical wording ("obesity" vs the platform's gentler default "weight") on the patient's own dashboard,
+  not spoken language. Confirmed before touching anything nearby.
+- **Verified live** (`packages/db/tests/english_only_no_voice.sql`): a stale voice preference no longer
+  routes to voice; **push-first routing still works** — the control that actually matters, since the
+  voice branch shared a function with push-first and a careless removal could have silently killed both;
+  no function anywhere still assigns the channel. Sabotaged the push-first assertion to confirm it
+  discriminates rather than passing vacuously. Measured before deciding: 0 patients with a non-English
+  language, 0 with a voice preference, 0 voice notifications ever sent, 0 non-English explanations
+  generated — nothing to migrate, nobody affected. `pnpm --filter web typecheck`/`lint`(0 errors, same 2
+  pre-existing warnings)/`test` (680)/production build all green.
+
+### 2026-08-03 — Emergency card redesign: printed card is the default, live link is opt-in
+Founder asked, given the emergency card's PHI-exposure posture from the entry above, "what is best
+solution" — not just a yes/no on the design as built. The best answer inverts the default rather than
+hardening the anon endpoint in place: **put the data ON the card instead of pointing at it.**
+- **`/patient/emergency-card/print` is now the DEFAULT.** An authenticated page reading the patient's
+  own record through their own session — `lib/emergency/dataset.ts`'s `loadEmergencyDatasetForPatient`
+  — the exact same authorisation level Health Passport already needs. **Zero new anon endpoint for the
+  default path.** Its QR carries **plain, human-readable text** (`lib/emergency/qr-text.ts`), deliberately
+  never a URL and never base64/compressed binary: any QR-scanner app on any phone — a stranger doctor's
+  own personal phone, no Tarragon app, no internet — shows the content directly the instant it scans,
+  which is the actual 2am-rural-hospital case this feature exists for. Losing the printed card means
+  losing a piece of paper, not exposing a live endpoint — the same trust model MedicAlert bracelets and
+  anticoagulant yellow books have used for decades. Byte-budgeted with a hard per-item cap so one
+  unusually long allergen/drug name can't itself blow a physical QR's real capacity ceiling (found by my
+  own adversarial test, fixed with a cap rather than by loosening the assertion — see the test-file
+  comments for the exact accounting bug and the fix).
+- **The live link (the original design) is now the explicit OPT-IN**, reframed on `/patient/emergency-card`
+  under its own "Also want a live link?" section with its own consent copy naming it as a **different,
+  ongoing exposure from the printed card** — for the "always current / checked from abroad" case, not the
+  primary path. Hardened three ways (migration `20260803160000`):
+  1. **`Referrer-Policy: no-referrer`** on `/emergency/[token]` — a real gap the first build shipped
+     with (metadata `robots: noindex` was set, the header wasn't). Set in `proxy.ts` as an early,
+     session-independent exit for that one path prefix, plus the Next `metadata.referrer` field
+     belt-and-braces.
+  2. **12-month expiry**, enforced lazily inside `emergency_card_by_token` itself (`is_active and
+     expires_at > now()`) — same shape as the existing revocation check, no separate enforcement cron
+     needed. A live PHI endpoint can no longer sit forgotten for years. `create_emergency_card` resets
+     the clock on every rotation/renewal. A `emergency-card-expiry-nudge-daily` cron (07:15) fires an
+     in_app+email nudge 30 days out, deduped via `renewal_nudged_at` so a card is never nudged twice.
+  3. **A per-day-deduped view notification** (`last_viewed_on`) — in_app + email every calendar day the
+     card is actually viewed, never more than once regardless of how many times a single hospital visit
+     scans it (a real, expected pattern that a naive per-view notification would have turned into spam,
+     training the patient to ignore it). Near-real-time discovery of an unexpected view instead of a log
+     nobody remembers to check.
+- **Both surfaces render through one shared `EmergencyCardBody`** (`components/emergency/`) so the print
+  and live pages can never visually diverge — a change to how a severe allergy or an unconfirmed blood
+  group is presented only ever needs to be made once. The live page's payload gained `expires_at`
+  (the minimal-key-set assertion in `packages/db/tests/emergency_cards.sql` updated to match).
+- **Verified live, 19 checks across two DB test files** (10 original + 9 new in
+  `packages/db/tests/emergency_card_hardening.sql`), every negative paired with a positive control (an
+  expired card resolving to nothing only means something once a not-yet-expired one still resolves).
+  **A real RLS finding surfaced writing the test, not a bug in the feature:** `emergency_cards` has
+  SELECT-only policy for the patient — `expires_at`/`renewal_nudged_at`/`last_viewed_on` are mutable only
+  through the SECURITY DEFINER RPCs, so a raw fixture `UPDATE` run under the patient's own session
+  silently affects zero rows under RLS. Fixed by running fixture mutations under the connection's own
+  superuser role (bypassing RLS, same as any other test's fixture setup) and reserving the simulated
+  `authenticated`/`anon` sessions for the actual RPC calls under test. **Two separate sabotage runs**
+  confirmed the same-day-dedupe assertion and the push-first-routing control both genuinely discriminate
+  rather than passing vacuously. `pnpm --filter web typecheck`/`lint`(0 errors, same 2 pre-existing
+  warnings)/`test` (689, +9 new for `qr-text.ts`)/production build all green; `get_advisors`-equivalent
+  spot checks confirm only `emergency_card_by_token` is anon-executable across every new/changed object.
+- **Not deployed:** the two new notification templates (`emergency_card_viewed`,
+  `emergency_card_expiring_soon`) were added to `send-pending-notifications`' source for the email leg,
+  matching this codebase's established convention — the in_app leg works immediately with zero deploy,
+  since `in_app` rows are never routed through that function at all (confirmed: its own channel filter
+  excludes `in_app` — `NotificationBell` polls the table directly). Email is best-effort pending the next
+  catch-up redeploy, same posture as every other recently-added template in this file.
+- **Next:** none blocking. The live-link opt-in's consent copy, expiry framing, and view-log presentation
+  are all live in the app; the print page has not been browser-verified this pass (no test credential at
+  hand) — composition over the 19 DB-verified checks + a green production build.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
