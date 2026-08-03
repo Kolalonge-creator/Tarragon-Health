@@ -2342,6 +2342,55 @@ The entry above deliberately left the `doctor`/`clinician` account-role hard for
 - **MDCN/regulatory note, not resolved by this pass:** this enforces the platform's own documented tier-authority model: it does not claim MDCN sign-off, which remains the pre-existing open founder item (master plan §16) — unifying page access makes that confirmation more relevant, not less, since a Tier 1 now reaches more of the platform even with the emergency case gated.
 - **Next:** browser-verify as a real Tier 1 and Tier 2 fixture once a test credential is available; update the QA-accounts memory (the two `doctor.tier*.test` accounts are now `clinician`-role, per the migration's own automatic conversion — no manual follow-up needed, but the memory's own text should be corrected to match).
 
+### 2026-08-03 — Self-arranged fulfilment merged to `main-dev`; full marketing consistency sweep
+`worktree-self-arranged-fulfilment` (11 commits, founder decision 2026-08-03: Tarragon stops routing
+and billing labs/pharmacies/specialists directly — see `project_self_arranged_fulfilment` memory for
+the full build record) had sat unmerged with its 10 migrations already applied live to production, so
+the deployed app code was stale relative to the real database. Merged clean (one auto-resolved conflict
+in `media.ts` against a same-day, separately-committed marketing-video pass) after renaming two
+migrations to their real applied timestamps (`20260731232749_fix_missing_authenticated_table_grants`,
+plus the two doctor-merge migrations from the entry above). typecheck clean, lint 0 errors (same 2
+pre-existing warnings), 598 tests, production build green — matching the branch's own reported numbers.
+- **Found the branch's own marketing sweep was incomplete.** A broad grep for "trusted partner" /
+  "partner lab" / "book(ed) through" / "exact price and confirm" across `(marketing)` turned up real
+  leftovers, several in files the branch had already partially edited: `care-coordination/page.tsx`'s
+  medication card still promised "licensed, vetted partner pharmacies"; `products.ts`'s labs and
+  medication product pages still had three "trusted lab partner network" lines; `pricing.ts` still had
+  a Free-tier line claiming "a test you book through us", a Prevent-tier line claiming Tarragon "books
+  the checks", a "Vaccination schedule, booking, and verified certificates" bullet (booking is
+  suspended, the schedule and certificates are not), a diaspora self-use note framing physical-presence
+  requirements as "partner network" dependence, and eight `"BOOK & PAY"`-labelled line items whose own
+  label description said Tarragon takes the payment — no longer true anywhere except the video visit.
+  `screening-journey.tsx` (the interactive homepage/product component) had five step bodies still
+  naming "a partner lab near you". Two files were **never touched by the branch at all**:
+  `vaccinations/page.tsx` (stale despite vaccination-centre booking being suspended in the branch's own
+  last two commits) and `trust-band.tsx`/`plan-preview-sample.tsx` (both still carried the exact "you
+  see the exact price and confirm before anything is booked" phrasing the branch's own commit history
+  says was removed everywhere).
+- **Fixed all of it** in a follow-up commit: retired the `"BOOK & PAY"` `PricingLabel` entirely (its
+  description was already accurate — "Tarragon takes the payment" — for nothing that still exists
+  except the video visit, now labelled `ADD-ON`) in favour of the already-correct `"YOU PAY THE LAB"`
+  label, generalised its description to cover any provider, not just "laboratory or pharmacy"; rewrote
+  `vaccinations/page.tsx`'s hero/metadata/what's-included/how-it-works/diaspora-paragraph to the real
+  self-arranged-dose state (schedule + reminders + doctor-verified certificate, get the dose wherever
+  suits you); rewrote every "partner lab/facility" step body in `screening-journey.tsx` and the
+  separate `/screening-journey` route page's own stale step; fixed `trust-band.tsx` and
+  `plan-preview-sample.tsx`; fixed two `services.ts` FAQ answers and one `resources.ts` educational
+  paragraph. Re-ran typecheck/lint/598 tests/production build clean after every batch of edits.
+- **Not done this pass:** `worktree-clinical-intelligence-core` (8 commits — lab-report AI extraction,
+  eGFR/drug-safety engine, emergency cards, blood-group provenance, English-only) is **also** unmerged
+  with its migrations **also** already live on production (confirmed via `list_migrations`:
+  `lab_report_extractions`, `patient_blood_profile`, `emergency_cards`, `blood_profile_provenance`,
+  `emergency_card_blood_provenance`, `english_only_no_voice_channel`, all under different timestamps
+  than the branch's own local filenames — same recurring drift class). It has zero `(marketing)` file
+  changes, so it was out of scope for this pass's specific ask, but the DB/app-code mismatch is the
+  same shape of risk the fulfilment branch had and is worth reconciling in a dedicated follow-up.
+- **Next:** merge `worktree-clinical-intelligence-core`; browser-verify the self-arranged patient loop
+  (issue a Screen → download the request PDF → upload a result → see the clinician alert → confirm
+  extracted values) per the fulfilment branch's own HANDOFF doc, which flagged this as never having
+  been run once; decide whether `main-dev` → `main` should follow given the production DB is now
+  materially ahead of what `main` currently serves.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
