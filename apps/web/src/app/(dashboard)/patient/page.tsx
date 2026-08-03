@@ -47,7 +47,6 @@ import { ReproductiveHealthCard } from "./reproductive-health-card";
 import { HealthEducation } from "./health-education";
 import { RiskAssessmentDisplay } from "./risk-assessment-display";
 import { VaccinationForFamily } from "./vaccination-for-family";
-import { FacilityDirectory } from "./facility-directory";
 import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { PatientLocationForm } from "./patient-location-form";
 import { ReminderPreferenceForm } from "./reminder-preference-form";
@@ -393,11 +392,11 @@ export default async function PatientPage() {
             <LabOrdersList patientId={subjectId} />
             <ResultsTrendsCard patientId={subjectId} />
             <LabResults patientId={subjectId} />
-            {/* FacilityDirectory/BookingRequestsList stay scoped to types with
-                no priced catalogue (hospital, radiology, optician,
-                vaccination_centre) — lab now books through the catalogue above,
-                per the "sole transactional path" decision (see facility-directory.tsx). */}
-            <FacilityDirectory patientId={subjectId} />
+            {/* No facility directory. Labs, pharmacies and specialists are all
+                suspended (founder decision 2026-08-03): the platform takes no
+                payment for a test and has inspected no laboratory, so it lists
+                none. BookingRequestsList stays because vaccination bookings
+                still create real requests a patient needs to see. */}
             <BookingRequestsList patientId={subjectId} />
           </>
         ) : (
@@ -410,10 +409,6 @@ export default async function PatientPage() {
             <LabOrdersList patientId={subjectId} />
             <ResultsTrendsCard patientId={subjectId} />
             <LabResults patientId={subjectId} />
-            {/* Reference only, so there's no reason to gate it: someone holding
-                a clinician-issued request needs to find a lab whatever plan
-                they're on. */}
-            <FacilityDirectory patientId={subjectId} />
           </>
         )}
       </DashboardSection>

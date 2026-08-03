@@ -521,12 +521,10 @@ export const TYPICAL_PRICES: { item: string; price: string }[] = [
  * shrinks. Every price in TYPICAL_PRICES above is the cheapest live
  * lab_tests row across exactly these four.
  */
-export const LAB_PARTNERS = [
-  "Synlab Nigeria",
-  "Cerba Lancet",
-  "Healthtracka",
-  "Afriglobal Medicare",
-];
+// No LAB_PARTNERS list. Naming laboratories would present them as partners we
+// have chosen, and the platform has contracted and inspected none: every
+// lab_providers row is inactive and the patient pays whichever lab they pick
+// directly. Restore this only alongside a real contracted, accredited network.
 
 export const TYPICAL_PRICES_NOTE =
   "These are rough guide figures so you can budget, not our prices: you pay the laboratory directly, at whatever that laboratory charges, and we take nothing on top. Costs vary a fair bit between labs and cities, so it is worth asking two before you go.";
