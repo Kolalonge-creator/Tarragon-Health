@@ -4940,6 +4940,92 @@ export type Database = {
           },
         ]
       }
+      lab_report_extractions: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_codes: Json
+          created_at: string
+          document_id: string
+          error_message: string | null
+          id: string
+          lab_name: string | null
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          patient_name_on_report: string | null
+          report_date: string | null
+          rows: Json
+          status: string
+          unreadable_reason: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_codes?: Json
+          created_at?: string
+          document_id: string
+          error_message?: string | null
+          id?: string
+          lab_name?: string | null
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          patient_name_on_report?: string | null
+          report_date?: string | null
+          rows?: Json
+          status: string
+          unreadable_reason?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_codes?: Json
+          created_at?: string
+          document_id?: string
+          error_message?: string | null
+          id?: string
+          lab_name?: string | null
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          patient_name_on_report?: string | null
+          report_date?: string | null
+          rows?: Json
+          status?: string
+          unreadable_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_report_extractions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_report_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_report_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_report_extractions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_providers: {
         Row: {
           contact_email: string | null
