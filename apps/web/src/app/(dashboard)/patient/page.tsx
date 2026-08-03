@@ -35,6 +35,7 @@ import { SymptomLogForm } from "./symptom-log-form";
 import { SymptomLogHistory } from "./symptom-log-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { MedicationsList } from "./medications-list";
+import { CheckMyPack } from "./check-my-pack";
 import { LabMonitoringCard } from "./lab-monitoring-card";
 import { AdherenceCheckins } from "./adherence-checkins";
 import { TodaysDoses } from "./todays-doses";
@@ -296,6 +297,10 @@ export default async function PatientPage() {
           canStop
         />
         <AdherenceCheckins patientId={subjectId} />
+        {/* Patients buy from any pharmacy now, so nobody here sees the box.
+            Reads it back and compares it with what was prescribed — and points
+            at NAFDAC for the authenticity question we cannot answer. */}
+        <CheckMyPack />
         <LabMonitoringCard patientId={subjectId} />
         <AddMedicationForm patientId={subjectId} source="patient" />
         <RequiresEntitlement
