@@ -5,7 +5,7 @@
  * pure-config adapters; all side-effects (DB, WhatsApp, ML) are injected.
  *
  * Spec: guideline/LIFESTYLE_ENGINE_SPEC.md
- * Build plan: docs/LIFESTYLE_ENGINE_BUILD_PLAN.md
+ * Build plan (historical): docs/archive/LIFESTYLE_ENGINE_BUILD_PLAN.md
  */
 export * from "./types/index";
 export * from "./core/index";
