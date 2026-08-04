@@ -198,9 +198,10 @@ export default function AnnualHealthCheckPage() {
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Need just one thing? The WHO-recommended screenings (cervical screening, HIV,
-          Hepatitis B, and Hepatitis C) can each be booked on their own, confidentially, from
-          ₦6,000. Don&apos;t know your blood group and genotype yet? You can book that directly
-          too, from ₦6,500.
+          Hepatitis B, and Hepatitis C) can each be requested on their own, confidentially.
+          Don&apos;t know your blood group and genotype yet? You can request that directly too.
+          Either way, you take the request to any laboratory you like and pay them directly, at
+          their price; we don&apos;t set or quote one.
         </p>
         <div className="mx-auto mt-6 max-w-2xl">
           <ConfidentialResultNotice />

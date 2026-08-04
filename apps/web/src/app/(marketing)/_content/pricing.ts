@@ -51,9 +51,17 @@
  * laboratory they choose and pays that laboratory directly, and we take no
  * commission on it. The Screen tiers are a paid-plan feature covering the part
  * we actually do (deciding what is worth testing, writing the request, reading
- * the result, following up). TYPICAL_PRICES is a rough budgeting guide only,
- * explicitly not our prices, and deliberately carries no Screen-tier totals.
- * Re-check this whole file against the model before reintroducing any figure.
+ * the result, following up).
+ *
+ * Sharpened 2026-08-04 — founder decision: this file quotes NO price for any
+ * test, investigation, screening, or vaccine dose, not even as a "rough guide"
+ * (the old TYPICAL_PRICES table was removed for exactly this reason — a
+ * budgeting estimate still reads as a Tarragon price to a visitor). The
+ * platform is positioned around monitoring, prevention, and doctor review of
+ * what an investigation finds, never around what it costs. Every test a
+ * patient needs is requested in-app and booked and paid for by the patient
+ * privately, directly with the laboratory or provider they choose. Re-check
+ * this whole file against that model before reintroducing any figure.
  * Uploading a result and having a doctor read it is never gated, on any plan.
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
@@ -127,7 +135,7 @@ export const PRICING_LABELS: Record<
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "We will never charge you for anything without showing you the exact price first and getting your confirmation. No surprise charges. Ever.",
-  "We will always tell you clearly whether something is already included in your plan, something you need to book and pay for, or something that's actually free elsewhere and we're just reminding you about it.",
+  "We will always tell you clearly whether something is already included in your plan, something you'll pay the laboratory or pharmacy for directly (we set no price on it and take no cut), or something that's actually free elsewhere and we're just reminding you about it.",
   "You will always know exactly what you are paying for: every plan and every add-on is fully listed below, with nothing left out.",
   "Paying in dollars from abroad includes a disclosed 10% international card-processing fee on top of the converted naira price — a real, cost-based charge shown as its own line next to the price, never folded silently into a bigger number.",
   "You can cancel a monthly plan at any time. Annual plans are paid upfront for the year, but you can turn off auto-renewal whenever you like: no penalty, no argument, no hard sell.",
@@ -426,14 +434,18 @@ export const ADD_ONS: PricingAddOn[] = [
   // will not include dedicated per-patient staff. Both add_ons rows are
   // is_active = false in production, so leaving the card up would have sold a
   // product that cannot be bought.
-  {
-    id: "starter-kit",
-    name: "BP Monitor & Glucometer Starter Kit",
-    price: "₦25,000–₦45,000",
-    label: "ADD-ON",
-    description: "A home blood pressure monitor, a glucometer with starter test strips, and a short doctor call to walk you through using both correctly.",
-    availability: "One-time purchase; can be paid in 3 monthly instalments if you prefer.",
-  },
+  //
+  // 'starter-kit' (BP Monitor & Glucometer Starter Kit, ₦25,000–₦45,000)
+  // removed 2026-08-04. It contradicted the 2026-08-02 founder decision that
+  // Tarragon does not sell/import/bundle BP cuffs or glucometers (selling a
+  // specific device model in Nigeria needs NAFDAC registration, which needs
+  // either manufacturer Power of Attorney or Tarragon importing under its own
+  // name — a real regulatory/business-development commitment, not something
+  // to take on speculatively). Confirmed no `add_ons` row for it ever
+  // existed in the database — the card advertised a product with no
+  // checkout path at all, the same "sold nothing that could be bought" class
+  // as the Dedicated Care Coordinator removal above. Patients buy a monitor
+  // from any local retailer and type readings into the vitals form manually.
   {
     id: "expedited-response",
     name: "Expedited Doctor Response",
@@ -476,54 +488,23 @@ export const ADD_ONS: PricingAddOn[] = [
   {
     id: "hpv-catchup",
     name: "Catch-Up HPV Vaccine",
-    price: "Typically ₦35,000–₦55,000/dose (2–3 doses needed)",
+    price: "Paid to your provider, not to us",
     label: "YOU PAY THE LAB",
-    description: "For women aged 15–45, outside the free government age bracket. You find a provider and pay them directly; the figure above is a rough guide, not a Tarragon price.",
+    description: "For women aged 15–45, outside the free government age bracket. Find a provider, get the vaccine (2–3 doses), and pay them directly — we don't set or quote a price for it.",
     availability: "Log each dose in the app once you've had it, and it joins your vaccination record. See What's Always Free below for the free version, ages 9–14.",
   },
 ];
 
-/**
- * Rough guide prices for common tests, so somebody can budget before they go.
- *
- * These are NOT Tarragon's prices and never appear on a Tarragon invoice: the
- * patient pays the laboratory directly, at whatever that laboratory charges,
- * and we take nothing on it. "From" phrasing because the real figure varies by
- * lab and city, which is also why the Screen tiers are deliberately absent from
- * this table: quoting a single total for a bundle we neither price nor sell
- * would read as a promise we are in no position to keep.
- */
-export const TYPICAL_PRICES: { item: string; price: string }[] = [
-  { item: "HbA1c (3-month blood sugar)", price: "from ₦8,000" },
-  { item: "Lipid panel (cholesterol)", price: "from ₦9,000" },
-  { item: "Diabetes panel (HbA1c + cholesterol)", price: "from ₦18,500" },
-  { item: "Hypertension panel (cholesterol + HbA1c)", price: "from ₦22,000" },
-  { item: "PSA (prostate screening)", price: "from ₦12,000" },
-  { item: "Cervical smear", price: "from ₦18,000" },
-  { item: "HIV screening", price: "from ₦6,000" },
-  { item: "Hepatitis B screening", price: "from ₦7,000" },
-  { item: "Hepatitis C screening", price: "from ₦7,000" },
-  { item: "Blood group & genotype", price: "from ₦6,500" },
-];
-
-/**
- * The labs these prices are actually quoted from. Named deliberately: for a
- * first-time visitor deciding whether a young brand can be trusted with a
- * blood test, a recognised lab name does more work than any amount of copy
- * about our process.
- *
- * Must stay a true reflection of the live lab_providers table. Do not add a
- * partner here to look bigger than we are; if a partnership ends, this list
- * shrinks. Every price in TYPICAL_PRICES above is the cheapest live
- * lab_tests row across exactly these four.
- */
-// No LAB_PARTNERS list. Naming laboratories would present them as partners we
-// have chosen, and the platform has contracted and inspected none: every
-// lab_providers row is inactive and the patient pays whichever lab they pick
-// directly. Restore this only alongside a real contracted, accredited network.
-
-export const TYPICAL_PRICES_NOTE =
-  "These are rough guide figures so you can budget, not our prices: you pay the laboratory directly, at whatever that laboratory charges, and we take nothing on top. Costs vary a fair bit between labs and cities, so it is worth asking two before you go.";
+// No TYPICAL_PRICES / LAB_PARTNERS list, and none should be reintroduced.
+// Founder decision 2026-08-04: the platform is structured around monitoring,
+// prevention, and doctor review of what a test finds — never around what a
+// test costs, since Tarragon has no contracted lab and does not set, quote,
+// or collect a naira for one. A "rough guide" figure still reads as a
+// Tarragon price to a visitor, and a table of illustrative prices next to
+// named laboratories would present partners the platform has neither
+// contracted nor inspected. If a real, contracted, accredited network is
+// ever signed, that is a decision to reopen deliberately, not to slide back
+// in as a "helpful estimate."
 
 /**
  * "Tarragon vs your HMO": complementary positioning, never disparaging. HMOs
@@ -581,12 +562,12 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
     body: "A test, refill, or vaccine is due.",
   },
   {
-    title: "You see the exact price",
-    body: "In the app, before anything is booked. No estimates, no “roughly.”",
+    title: "For a plan or add-on, you see the exact price",
+    body: "In the app, before you're ever charged. No estimates, no “roughly.” A test, refill, or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show — see the next step.",
   },
   {
-    title: "You confirm and pay",
-    body: "For plans and add-ons: by card, bank transfer, or USSD, through Paystack (Stripe for diaspora payments in US dollars). For a test, you pay the laboratory directly and we take nothing on it.",
+    title: "You confirm and pay, or take a request to the provider",
+    body: "For plans and add-ons: by card, bank transfer, or USSD, through Paystack (Stripe for diaspora payments in US dollars). For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
   },
   {
     title: "You get a request to take with you",
@@ -616,7 +597,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Will my card ever be charged automatically for a test I didn't ask for?",
     answer:
-      "No. Every single lab test, refill, or vaccine requires you to see the price and confirm before anything is booked or charged.",
+      "No. Your card is never charged for a test, refill, or vaccine at all: those go straight to whichever laboratory, pharmacy, or provider you choose, and you pay them directly, at their price. The only things Tarragon itself ever charges you for are your plan and any add-on you've explicitly confirmed, always shown to you first.",
   },
   {
     question: "My test came back abnormal. Will I be billed extra automatically?",
@@ -636,7 +617,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "I'm healthy, why would I join a health platform?",
     answer:
-      "Because staying healthy is exactly what most of Tarragon does. Hypertension, diabetes, and many cancers are far cheaper and easier to deal with when they're caught early, or prevented outright. Tarragon Prevent builds your personal screening and vaccination calendar, books the right checks at the right ages, and teaches you what your numbers mean. Most members will simply get yearly confirmation that all is well; for the few where something shows up, a doctor follows up the same day and it's caught years earlier than it would have been.",
+      "Because staying healthy is exactly what most of Tarragon does. Hypertension, diabetes, and many cancers are far cheaper and easier to deal with when they're caught early, or prevented outright. Tarragon Prevent builds your personal screening and vaccination calendar, tells you which checks are worth doing at your age, and teaches you what your numbers mean. Most members will simply get yearly confirmation that all is well; for the few where something shows up, a doctor follows up the same day and it's caught years earlier than it would have been.",
   },
   {
     question: "What's the difference between Tarragon Free and Tarragon Prevent?",
@@ -671,7 +652,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What do lab tests actually cost?",
     answer:
-      "Rough guide prices are listed on this page (for example, HbA1c from ₦8,000 and a lipid panel from ₦9,000), but laboratories set their own prices and you pay them directly. Tarragon never charges you for a test.",
+      "We don't know, and we deliberately don't quote a figure: Tarragon has no contracted laboratory, so every lab sets its own price and you pay that laboratory directly. Tarragon never charges you for a test. It's worth asking two or three labs before you go, since prices vary by lab and city.",
   },
   {
     question: "What's the difference between Core, Advanced, and Comprehensive Screen?",
@@ -680,7 +661,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "What if I need a test that isn't listed here?",
-    answer: "Ask your doctor on WhatsApp. We'll tell you if it's available, and you'll see the price before booking, exactly like every other test.",
+    answer: "Message your care team in the app. We'll tell you if it's worth doing and write you a request for it; you take that to any laboratory you like and pay them directly, exactly like every other test.",
   },
   {
     question: "Is my payment information safe?",
@@ -690,7 +671,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "How do I place an order for a test, refill, or add-on?",
     answer:
-      "Tap the relevant button in the app (“Book a Test,” “Request Refill,” “Add a Service”). You'll always see the price before confirming; if your clinician flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
+      "Tap the relevant button in the app (“Request a Test,” “Request Refill,” “Add a Service”). For an add-on, you'll always see Tarragon's exact price before confirming. For a test or refill, the app gives you a request to take to whichever laboratory or pharmacy you choose, and you pay them directly; if your doctor flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
   },
   {
     question: "What is a care voucher?",

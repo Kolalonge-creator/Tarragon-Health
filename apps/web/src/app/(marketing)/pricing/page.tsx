@@ -48,7 +48,7 @@ export default async function PricingPage() {
         <SectionHeading
           eyebrow="Pricing"
           title="Simple, transparent plans"
-          description="Every line item carries exactly one label: included, book & pay, free elsewhere, or add-on. No hidden costs."
+          description="Every line item carries exactly one label: included, you pay the lab, free elsewhere, or add-on. No hidden costs."
         />
         {/* The early exit for somebody who did not come here to shop for a
             subscription at all. A healthy visitor who wants one blood test has
@@ -60,8 +60,9 @@ export default async function PricingPage() {
             Not looking for a plan? You do not need one.
           </p>
           <p className="mt-1.5 text-sm text-charcoal-ink/75">
-            You pay laboratories and pharmacies directly, at their price. We never take a cut on a test.
-            So are HIV, hepatitis, cervical and blood group screenings, from ₦6,000.
+            You pay laboratories and pharmacies directly, at their price, for every test, including a
+            one-off Health Check. We tell you what&apos;s worth doing and a doctor reads the result; we
+            never set the price and never take a cut.
           </p>
           <Button asChild variant="outline" size="sm" className="mt-3">
             <Link href={MARKETING_ROUTES.annualHealthCheck}>Book a one-off check instead</Link>

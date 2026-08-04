@@ -11,8 +11,6 @@ import {
   HMO_COMPARE_INTRO,
   HMO_COMPARE_NOTE,
   HMO_COMPARE_ROWS,
-  TYPICAL_PRICES,
-  TYPICAL_PRICES_NOTE,
   FREE_TRIAL_INTRO,
   FREE_TRIAL_TERMS,
   FREE_TRIALS,
@@ -23,7 +21,7 @@ import {
 export const metadata: Metadata = {
   title: "How pricing works",
   description:
-    "Our No-Hidden-Cost Promise, free trials of real clinical care, care vouchers, how Tarragon compares to your HMO, booking step-by-step, and typical prices for book & pay items.",
+    "Our No-Hidden-Cost Promise, free trials of real clinical care, care vouchers, how Tarragon compares to your HMO, and booking step-by-step.",
   alternates: { canonical: MARKETING_ROUTES.howPricingWorks },
 };
 
@@ -184,25 +182,6 @@ export default function HowPricingWorksPage() {
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Nothing is ever taken from your card without you confirming that exact transaction first.
         </p>
-      </Section>
-
-      <Section variant="sage">
-        <SectionHeading
-          eyebrow="Typical prices"
-          title="What book &amp; pay items usually cost"
-          description={TYPICAL_PRICES_NOTE}
-        />
-        <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2">
-          {TYPICAL_PRICES.map((entry) => (
-            <div
-              key={entry.item}
-              className="flex items-center justify-between gap-3 rounded-xl border border-charcoal-ink/10 bg-white px-5 py-4"
-            >
-              <span className="text-sm text-charcoal-ink/80">{entry.item}</span>
-              <span className="shrink-0 text-sm font-semibold text-clinical-navy">{entry.price}</span>
-            </div>
-          ))}
-        </div>
       </Section>
 
       <Section variant="navy">

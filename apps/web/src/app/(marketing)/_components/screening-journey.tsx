@@ -28,14 +28,16 @@ const ALL_BANDS: AgeBand[] = ["18-24", "25-39", "40-49", "50-plus"];
 
 /**
  * Every entry maps to something actually bookable on the platform today
- * (see /annual-health-check and /prevention, which already state these
- * exact prices and mechanisms) — nothing here is invented. Standalone
- * self-booking is only offered for the WHO-priority confidential screens,
- * blood group & genotype, and the Annual Health Check ladder itself;
- * prostate and colorectal screening are part of Advanced Screen, breast
- * imaging is part of Comprehensive Screen, or otherwise ordered by a
- * doctor — never a bare self-service SKU, so their "book it" step says
- * that plainly rather than overclaiming.
+ * (see /annual-health-check and /prevention, which describe these same
+ * mechanisms) — nothing here is invented. No entry quotes a price:
+ * Tarragon has no contracted lab, so it doesn't know or set what any
+ * laboratory charges for a test — see SELF-ARRANGED FULFILMENT in
+ * pricing.ts. Standalone self-booking is only offered for the
+ * WHO-priority confidential screens, blood group & genotype, and the
+ * Annual Health Check ladder itself; prostate and colorectal screening
+ * are part of Advanced Screen, breast imaging is part of Comprehensive
+ * Screen, or otherwise ordered by a doctor — never a bare self-service
+ * SKU, so their "book it" step says that plainly rather than overclaiming.
  */
 export const SCREENINGS: ScreeningItem[] = [
   {
@@ -72,7 +74,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ["25-39", "40-49", "50-plus"],
     category: "Cancer screening",
     summary: "A quick, confidential test that catches changes years before they could become cervical cancer.",
-    price: "From ₦6,000",
+    price: "Paid to the lab, not to us",
     steps: [
       {
         title: "Is this for you?",
@@ -180,7 +182,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ALL_BANDS,
     category: "Infectious disease",
     summary: "HIV, Hepatitis B, and Hepatitis C: the WHO-priority checks for Nigeria, booked quietly, on your own terms.",
-    price: "From ₦6,000",
+    price: "Paid to the lab, not to us",
     steps: [
       {
         title: "Is this for you?",
@@ -207,7 +209,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ALL_BANDS,
     category: "Know your basics",
     summary: "Blood group and sickle cell genotype (AA/AS/SS): useful for marriage counselling, pregnancy planning, and emergencies, and something most Nigerians never get told plainly.",
-    price: "From ₦6,500",
+    price: "Paid to the lab, not to us",
     steps: [
       {
         title: "Is this for you?",

@@ -82,7 +82,7 @@ export function DashboardPreview() {
                 </p>
               </div>
               <span className="rounded-full bg-sprout-gold/15 px-3 py-1 text-xs font-medium text-charcoal-ink">
-                Book & pay
+                You pay the lab
               </span>
             </div>
             <p className="mt-2 text-sm text-charcoal-ink/65">
