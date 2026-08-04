@@ -131,7 +131,7 @@ export const WHAT_WE_TRACK = [
   "hospital admissions",
   "annual health checks",
   "cardiovascular risk",
-  "doctor video visits",
+  "online doctor consultations",
   "ask-a-doctor messages",
 ] as const;
 

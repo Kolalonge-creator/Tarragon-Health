@@ -115,7 +115,7 @@ export function AskADoctor({
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
           Send a written question and a doctor on your care team answers here, usually
-          within 24 hours. Not for emergencies: if something feels urgent, use the
+          within 72 hours. Not for emergencies: if something feels urgent, use the
           symptom check at the top of this page or go to a hospital.
         </p>
         <div className="space-y-2">
@@ -162,7 +162,7 @@ export function AskADoctor({
         )}
         {submit.isSuccess && (
           <p className="text-sm text-brand-green">
-            Sent. A doctor will answer here within 24 hours.
+            Sent. A doctor will answer here within 72 hours.
           </p>
         )}
         <Button onClick={onSubmit} disabled={submit.isPending}>

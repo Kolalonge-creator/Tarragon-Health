@@ -34,11 +34,11 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   },
   async_doctor_visit: {
     title: "Ask a doctor is part of a paid plan",
-    body: "Send a written question and get a doctor's answer in the app within 24 hours. Included on Complete Care.",
+    body: "Send a written question and get a doctor's answer in the app within 72 hours. Included on Complete Care.",
   },
   health_education: {
     title: "Personalised health education is part of a paid plan",
-    body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks. Included on Complete Care and above, or add it to Essential Care.",
+    body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks. Included on every paid plan, from Tarragon Prevent up.",
   },
   prevention_coordination: {
     title: "Screening booking is part of Tarragon Prevent",
