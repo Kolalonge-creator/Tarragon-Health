@@ -105,9 +105,15 @@ export const MARKETING_MEDIA = {
       videoSrc: "/marketing/video/parentcare-video-call.mp4",
     } as MarketingMediaSlot,
     prevention: {
-      imageSrc: "/marketing/video/prevention-health-check-poster.jpg",
-      imageAlt: "A patient having a routine blood pressure check with a doctor",
-      videoSrc: "/marketing/video/prevention-health-check.mp4",
+      // Was an AI-generated clip of a doctor placing a stethoscope on a
+      // patient's palm (anatomically wrong — auscultation for a BP check
+      // belongs at the inner elbow, not the wrist/palm) and the only hero
+      // clip on the site depicting a specific clinical encounter rather
+      // than the ambient hands/objects pattern documented above. Swapped
+      // for the existing brand illustration until a corrected photo/clip
+      // is sourced.
+      illustration: "prevention",
+      imageAlt: "A calendar and checklist representing a personal preventive screening plan",
     } as MarketingMediaSlot,
     medication: {
       imageSrc: "/marketing/video/medication-pill-organizer-poster.jpg",

@@ -4,7 +4,14 @@
 > The spec is the *destination*; this doc is *how and in what order we get there*, mapped onto the real
 > Tarragon codebase. Read alongside `CLAUDE.md` and the spec.
 >
-> **Status:** In build · branch `claude/lifestyle-engine` (off `main-dev`) · pre-launch (no live patient data yet).
+> **Status: SUPERSEDED — shipped and merged (PR #82).** This build plan is stale ("In build" below no
+> longer reflects reality) — kept only as historical design rationale. The condition-agnostic LPE
+> (hypertension/diabetes/obesity) shipped and the old `lifestyle_*` layer this plan describes
+> building was itself later retired in favor of it. For current behaviour, read the shipped code
+> under `apps/web`, not this document. Moved to `docs/archive/` during the 2026-08-04 documentation
+> cleanup pass; see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md` for the dated build/merge record.
+>
+> ~~**Status:** In build · branch `claude/lifestyle-engine` (off `main-dev`) · pre-launch (no live patient data yet).~~
 
 ---
 

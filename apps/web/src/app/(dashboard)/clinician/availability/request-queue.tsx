@@ -210,13 +210,13 @@ export function VideoVisitRequestQueue() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Video visit requests</CardTitle>
+        <CardTitle>Online consultation requests</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="mb-3 text-xs text-charcoal-ink/60">
           Patients have already paid for these; the money is held until a time is confirmed.
           Accept their requested time, propose different times that work better for you, or
-          decline with a reason — either way, respond within 24 hours or the patient is
+          decline with a reason — either way, respond within 48 hours or the patient is
           refunded automatically.
         </p>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

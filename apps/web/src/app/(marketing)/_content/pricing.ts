@@ -62,7 +62,25 @@
  * patient needs is requested in-app and booked and paid for by the patient
  * privately, directly with the laboratory or provider they choose. Re-check
  * this whole file against that model before reintroducing any figure.
- * Uploading a result and having a doctor read it is never gated, on any plan.
+ *
+ * Corrected 2026-08-05 — founder decision, reversing the line above: routine
+ * doctor review of a result a patient uploads is a paid-plan feature (Prevent
+ * and above), not something available on Tarragon Free. A doctor reading an
+ * uploaded result unprompted, for a patient who isn't paying for review at
+ * all, costs real clinician time for no platform benefit. This does NOT
+ * touch the separate, non-negotiable abnormal-result escalation pipeline
+ * (Category 2→1 upgrade via the screening_results trigger), which still
+ * fires regardless of plan — that is a structured-data safety net, not the
+ * "have someone read what I uploaded" convenience this note is about. Same
+ * pass: the async "ask a doctor" written-question reply moved from 24 to 72
+ * hours (still Complete Care only), the Expedited Doctor Response add-on was
+ * withdrawn (adds doctor-time pressure for a paid convenience, not a
+ * clinical need), Health Education became included on every paid tier
+ * instead of Complete-Care-only-plus-addon, the video consult product was
+ * renamed "Online Doctor Consultation" with its doctor-acceptance window
+ * widened from 24 to 48 hours, and the standalone Catch-Up HPV Vaccine card
+ * was folded into the Prevent tier's vaccination line (Tarragon was never
+ * charging for it, so it never needed its own priced-looking card).
  *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
@@ -150,7 +168,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings routinely on this plan. But upload any test result, and if it's abnormal, that still raises a real alert to our doctors on every plan, including this one: we do not hold back an abnormal result behind a paywall.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings, or any result you upload, routinely on this plan — that starts on Tarragon Prevent, where a doctor's time goes toward patients actually paying for review. Free still gets you real tools: logging, reminders, and the full education library, at no cost, forever.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -161,7 +179,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Device setup guides", label: "INCLUDED" },
     ],
     footnote:
-      "Not included on this plan, and available only if you upgrade: doctor review, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
+      "Not included on this plan, and available only if you upgrade: doctor review of your readings, doctor review of a result you upload, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
   },
   {
     id: "prevent",
@@ -176,11 +194,11 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
       { feature: "Personal screening calendar matched to your age, sex, and history", label: "INCLUDED" },
       { feature: "Screening requests when due, with reminders and results tracking", label: "INCLUDED" },
-      { feature: "Vaccination schedule, reminders, and verified certificates", label: "INCLUDED" },
+      { feature: "Vaccination schedule, reminders, and verified certificates, including catch-up HPV dosing outside the free government age bracket", label: "INCLUDED" },
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
       { feature: "Screening lab tests, paid straight to the lab you choose", label: "YOU PAY THE LAB" },
-      { feature: "Core Screen: we say what to get, you use any lab, a doctor reads it", label: "INCLUDED" },
+      { feature: "Core Screen: we say what to get, you use any lab or upload a result you already have, and a doctor reads it", label: "INCLUDED" },
     ],
     footnote:
       "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme; that's the whole point of catching it early.",
@@ -200,6 +218,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Monthly doctor check-in", label: "INCLUDED" },
       { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
       { feature: "Message your care team directly in the app", label: "INCLUDED" },
+      { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "YOU PAY THE LAB" },
       { feature: "Medication refills, from any pharmacy you choose", label: "YOU PAY THE LAB" },
     ],
@@ -220,7 +239,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Weekly doctor review (instead of monthly)", label: "INCLUDED" },
       { feature: "Hypertension, diabetes, and weight all managed together on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
-      { feature: "Ask a doctor a one-off written question, answered within 24 hours", label: "INCLUDED" },
+      { feature: "Ask a doctor a one-off written question, answered within 72 hours", label: "INCLUDED" },
       { feature: "Lab tests", label: "YOU PAY THE LAB" },
       { feature: "Medication refills", label: "YOU PAY THE LAB" },
     ],
@@ -408,7 +427,7 @@ export const ADD_ONS: PricingAddOn[] = [
     label: "ADD-ON",
     description:
       "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, at no extra charge. Two deeper tiers are available: Advanced Screen adds age-triggered cancer screening and an ECG, and Comprehensive Screen adds imaging and a 15-minute doctor video consult to walk through your whole result set. You pay the laboratory directly for the tests; we take nothing on them. See the full breakdown on the Annual Health Check page.",
-    availability: "The Screen tiers come with a paid plan. Uploading a result you already have, and having a doctor read it, is available to anyone on any plan including Tarragon Free.",
+    availability: "The Screen tiers come with a paid plan, from Tarragon Prevent upward. That same paid-plan review covers a result you already have, too: uploading it and having a doctor read it is included from Prevent up, not on Tarragon Free.",
   },
   {
     id: "prevention-screening",
@@ -446,23 +465,23 @@ export const ADD_ONS: PricingAddOn[] = [
   // checkout path at all, the same "sold nothing that could be bought" class
   // as the Dedicated Care Coordinator removal above. Patients buy a monitor
   // from any local retailer and type readings into the vitals form manually.
-  {
-    id: "expedited-response",
-    name: "Expedited Doctor Response",
-    price: "+₦5,000/month",
-    label: "ADD-ON",
-    description: "Moves your doctor response time for non-emergency questions to under 2 hours, instead of the standard same-day/next-day response.",
-    availability: "Available on any paid plan.",
-  },
-  {
-    id: "health-education",
-    name: "Health Education",
-    price: "₦5,000/month",
-    label: "ADD-ON",
-    description:
-      "Personalised learning built around your own conditions, reviewed by our clinical team, with short knowledge checks so you can see what's sticking.",
-    availability: "Already included at no extra charge on Complete Care and above. This add-on brings it to Essential Care or Tarragon Free.",
-  },
+  // 'expedited-response' (Expedited Doctor Response, +₦5,000/month, under-2-hour
+  // non-emergency reply) removed 2026-08-05. It sold faster access to the same
+  // fixed pool of doctor time a paying patient could ask for at no extra
+  // charge — the founder's call was that this puts pressure on a scarce
+  // clinical resource for a convenience upsell, not a clinical need. Retire
+  // the matching `add_ons` rows (`expedited-response`, plus the `_usd`/`_gbp`
+  // variants) to `is_active = false`, same pattern as the Dedicated Care
+  // Coordinator withdrawal below.
+  //
+  // 'health-education' (₦5,000/month add-on) removed 2026-08-05 — Health
+  // Education is now included on every paid tier (Prevent, Essential,
+  // Complete; see each tier's own item list above), not Complete-Care-only
+  // plus a paid add-on for everyone else. With every paid tier already
+  // covered, there's no tier left for an add-on to sell into; Tarragon Free
+  // still doesn't get it. Update `subscription_plans.features` for the
+  // prevent/essential rows (and currency variants) to include
+  // 'health_education', and retire the `health-education` add-on row(s).
   {
     id: "lifestyle-coaching",
     name: "Lifestyle Coaching",
@@ -478,21 +497,21 @@ export const ADD_ONS: PricingAddOn[] = [
   // Two separately-named "annual ___" products was confusing; there's one now.
   {
     id: "video-visit",
-    name: "Video Doctor Visit",
+    name: "Online Doctor Consultation",
     price: "₦10,000/visit",
     label: "ADD-ON",
     description:
-      "A 15-minute video consultation with a doctor, never an in-person visit. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed — a doctor accepts your slot or offers a different one that works, within 24 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
+      "A 15-minute online consultation with a doctor, over video. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed — a doctor accepts your slot or offers a different one that works, within 48 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
     availability: "Available on any plan, priced per visit rather than as a subscription.",
   },
-  {
-    id: "hpv-catchup",
-    name: "Catch-Up HPV Vaccine",
-    price: "Paid to your provider, not to us",
-    label: "YOU PAY THE LAB",
-    description: "For women aged 15–45, outside the free government age bracket. Find a provider, get the vaccine (2–3 doses), and pay them directly — we don't set or quote a price for it.",
-    availability: "Log each dose in the app once you've had it, and it joins your vaccination record. See What's Always Free below for the free version, ages 9–14.",
-  },
+  // 'hpv-catchup' (Catch-Up HPV Vaccine) removed as a standalone pricing card
+  // 2026-08-05 — Tarragon doesn't set, quote, or collect a price for it (same
+  // "we take no cut" model as every other test/vaccine), so it never needed
+  // its own priced-looking card. Folded into Tarragon Prevent's vaccination
+  // line item above, where the rest of vaccination tracking already lives.
+  // The genuinely-free version (ages 9-14, government programme) still gets
+  // its own ALWAYS_FREE entry below — that one really is a distinct, no-cost
+  // claim worth calling out on its own.
 ];
 
 // No TYPICAL_PRICES / LAB_PARTNERS list, and none should be reintroduced.
@@ -686,7 +705,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Can I speak to a doctor directly, not just wait for my scheduled review?",
     answer:
-      "Yes, two ways. Send a written question through the app and get a doctor's reply within 24 hours, included free on Complete Care. Or book a 15-minute video consultation with a doctor for ₦10,000 on any plan: payment is only taken once a doctor accepts your slot, with a full refund if none can.",
+      "Yes, two ways. Send a written question through the app and get a doctor's reply within 72 hours, included free on Complete Care. Or book a 15-minute online consultation with a doctor for ₦10,000 on any plan: payment is only taken once a doctor accepts your slot, with a full refund if none can.",
   },
 ];
 

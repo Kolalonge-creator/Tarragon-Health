@@ -99,7 +99,7 @@ export default function AsyncConsultsPage() {
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-xs text-charcoal-ink/60">
-            Written patient questions with a 24-hour response promise, soonest deadline
+            Written patient questions with a 72-hour response promise, soonest deadline
             first. Your answer is stamped with your own clinical record; it renders to the
             patient as &quot;Answered by Dr. you&quot;.
           </p>

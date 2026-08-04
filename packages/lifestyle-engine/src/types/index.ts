@@ -6,7 +6,7 @@
  * configuration via `ConditionAdapter` (see ./adapters) — there is no
  * procedural per-condition logic anywhere in `core/` or `safety/`.
  *
- * Spec: guideline/LIFESTYLE_ENGINE_SPEC.md · Build plan: docs/LIFESTYLE_ENGINE_BUILD_PLAN.md
+ * Spec: guideline/LIFESTYLE_ENGINE_SPEC.md · Build plan (historical): docs/archive/LIFESTYLE_ENGINE_BUILD_PLAN.md
  */
 import { z } from "zod";
 

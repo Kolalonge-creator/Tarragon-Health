@@ -4,19 +4,19 @@ import { refundTransaction } from "@/lib/paystack/refunds";
 
 /**
  * Sweep for the video-visit held-payment model (Vercel Cron, see
- * vercel.json — runs every 4 hours so the 24h SLA below is actually close to
- * true, not "24-48h depending on time of day" the way a once-daily sweep
- * against a 24h cutoff would silently allow). Three passes:
+ * vercel.json — runs every 4 hours so each SLA below is actually close to
+ * true, not "N to N+4h depending on time of day" the way a once-daily sweep
+ * against a fixed cutoff would silently allow). Three passes:
  *   1. Doctor-engagement expiry — paid requests no doctor accepted OR
- *      proposed alternate times for within 24h flip to 'expired' with
- *      refund_status='due' (founder ask 2026-07-31, tightened from 48h: "a
- *      doctor will accept within 24 hours").
+ *      proposed alternate times for within 48h flip to 'expired' with
+ *      refund_status='due' (founder ask 2026-08-05, widened back from the
+ *      24h set 2026-07-31 — "a doctor will accept within 48 hours").
  *   2. Patient-selection expiry — once a doctor proposes alternate times
  *      (status='alternate_proposed'), the patient gets their own 24h window
- *      to pick one before it also expires+refunds. Same cutoff, different
- *      clock (proposed_at, not the request's original updated_at) — a
- *      doctor engaging on time must not be undone by the patient simply not
- *      choosing yet.
+ *      to pick one before it also expires+refunds. Different clock
+ *      (proposed_at, not the request's original updated_at) and, since
+ *      2026-08-05, a shorter window than pass 1 — a doctor engaging on time
+ *      must not be undone by the patient simply not choosing yet.
  *   3. Refunds — every declined/expired request with refund_status='due' and
  *      a real Paystack charge gets a full refund via the Refunds API;
  *      success marks it 'refunded'. Failures stay 'due' and retry next run —
@@ -34,14 +34,15 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const supabase = createServiceRoleClient();
-  const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const doctorEngagementCutoff = new Date(Date.now() - 48 * 3600_000).toISOString();
+  const patientSelectionCutoff = new Date(Date.now() - 24 * 3600_000).toISOString();
 
-  // Pass 1: expire unaccepted, un-proposed paid requests older than 24h.
+  // Pass 1: expire unaccepted, un-proposed paid requests older than 48h.
   const { data: expiredUnaccepted } = await supabase
     .from("video_visit_requests")
     .update({ status: "expired", refund_status: "due" })
     .eq("status", "payment_confirmed")
-    .lt("updated_at", cutoff)
+    .lt("updated_at", doctorEngagementCutoff)
     .not("payment_provider_ref", "is", null)
     .select("id, organisation_id, patient_id");
 
@@ -62,7 +63,7 @@ export async function GET(request: Request): Promise<Response> {
     .from("video_visit_requests")
     .update({ status: "expired" })
     .eq("status", "payment_confirmed")
-    .lt("updated_at", cutoff)
+    .lt("updated_at", doctorEngagementCutoff)
     .is("payment_provider_ref", null);
 
   // Pass 2: expire proposals the patient never picked a time from.
@@ -70,7 +71,7 @@ export async function GET(request: Request): Promise<Response> {
     .from("video_visit_requests")
     .update({ status: "expired", refund_status: "due" })
     .eq("status", "alternate_proposed")
-    .lt("proposed_at", cutoff)
+    .lt("proposed_at", patientSelectionCutoff)
     .not("payment_provider_ref", "is", null)
     .select("id, organisation_id, patient_id");
 
@@ -89,7 +90,7 @@ export async function GET(request: Request): Promise<Response> {
     .from("video_visit_requests")
     .update({ status: "expired" })
     .eq("status", "alternate_proposed")
-    .lt("proposed_at", cutoff)
+    .lt("proposed_at", patientSelectionCutoff)
     .is("payment_provider_ref", null);
 
   const expired = [...(expiredUnaccepted ?? []), ...(expiredUnselected ?? [])];

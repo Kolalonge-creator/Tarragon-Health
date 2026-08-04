@@ -31,7 +31,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A team that keeps watching",
-      body: "Message your care team anytime, get an async doctor's answer within 24 hours, and book a paid 15-minute video visit only when you actually need one.",
+      body: "Message your care team anytime, get an async doctor's answer within 72 hours, and book a paid 15-minute online consultation only when you actually need one.",
     },
   },
   {

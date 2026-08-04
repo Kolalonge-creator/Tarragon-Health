@@ -54,13 +54,13 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
   {
     key: "ask_doctor",
     label: "Ask a doctor a written question",
-    detail: "Answered by a Tarragon doctor within 24 hours. Included on the comprehensive plans.",
+    detail: "Answered by a Tarragon doctor within 72 hours. Included on the comprehensive plans.",
     locality: "anywhere",
     gatedBy: null,
   },
   {
     key: "video_visit",
-    label: "A 15-minute video consultation",
+    label: "A 15-minute online consultation",
     detail:
       "Paid per visit. Your payment is held and only goes through once a doctor accepts, and it is refunded if nobody does.",
     locality: "anywhere",

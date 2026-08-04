@@ -53,7 +53,7 @@ const REQUEST_STATUS: Record<
   payment_confirmed: {
     label: "Paid, waiting for a doctor to accept",
     tone: "amber",
-    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time — or offer a different one that works — within 24 hours. If nobody can, you're refunded in full.",
+    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time — or offer a different one that works — within 48 hours. If nobody can, you're refunded in full.",
   },
   alternate_proposed: {
     label: "Your doctor offered different times",
@@ -69,7 +69,7 @@ const REQUEST_STATUS: Record<
   expired: {
     label: "Not accepted in time",
     tone: "red",
-    note: "Nobody was able to confirm a time within 24 hours. Your payment will be refunded in full.",
+    note: "Nobody confirmed a time in time. Your payment will be refunded in full.",
   },
   cancelled: { label: "Cancelled", tone: "grey" },
   refunded: { label: "Refunded", tone: "grey" },
@@ -147,7 +147,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>15-minute telemedicine visit with a doctor</CardTitle>
+        <CardTitle>15-minute online consultation with a doctor</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
@@ -158,11 +158,11 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
           </p>
         </div>
         <p className="text-sm text-charcoal-ink/70">
-          A paid, self-serve 15-minute video consultation with a Tarragon doctor, not an
-          in-person visit. Pick a time and pay: your payment is{" "}
+          A paid, self-serve 15-minute online consultation with a Tarragon doctor, over
+          video. Pick a time and pay: your payment is{" "}
           <span className="font-medium">held by Tarragon</span> and only goes through once a
           time is confirmed — either your doctor accepts the time you picked, or offers a
-          different time that works better for them, within 24 hours. If nobody can take it,
+          different time that works better for them, within 48 hours. If nobody can take it,
           you get a full refund.
         </p>
 
