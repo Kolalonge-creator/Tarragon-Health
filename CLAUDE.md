@@ -2654,6 +2654,25 @@ app-code/DB mismatch flagged for both branches earlier the same day.
   `single_blood_group_genotype` bundle discrepancy (active + self-bookable + ₦6,500 while not being
   promoted) is still open — deactivate or resume promoting, whichever the founder prefers.
 
+### 2026-08-04 — Second occurrence: a push to `main` built on Vercel but was never promoted to production
+Founder reported the live site still showed retired partner-lab/booking copy (prices for lab tests and
+investigation packages, "book & pay" language implying Tarragon books and pays labs directly) days
+after the self-arranged-fulfilment sweep and the clinical-intelligence-core merge were both logged as
+released above. **The code was never the problem** — `main` at `e49cfb3` already had the full fix
+(every "BOOK & PAY" label replaced with "YOU PAY THE LAB", every partner-lab reference removed) and
+Vercel had already built it successfully (`dpl_5dS79vGfvFypfsrQ1MzhXRiYQiYU`, state `READY`). **That
+build's `target` was `null`, not `"production"`** — it was never promoted, so `tarragonhealth.ng` was
+still serving an earlier deployment (`dpl_Bc2WQXMMa2vnsjc2eAbqUgLpSBJa`, commit `ad4429d`, built
+*before* the self-arranged-fulfilment merge landed in `main-dev`). This is the same failure mode as the
+2026-07-30 "escalation-SLA page was never actually deployed" entry above — a push to `main` reaching
+GitHub does not reliably reach a promoted Vercel production deployment on this project, and there is no
+CI check anywhere that would have caught it. **No Vercel CLI/API token is available in this environment
+to directly promote an existing ready deployment**, so the recovery was the same one used last time:
+push a small, real commit to `main` to give the GitHub webhook another chance. **If this happens again,
+check `list_deployments`/`get_project.latestDeployment` for a `READY` build whose `target` is not
+`"production"` before assuming the code itself is wrong** — the fastest confirmation is comparing the
+live page's own copy against `git show origin/main:<file>`, not against the changelog.
+
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
