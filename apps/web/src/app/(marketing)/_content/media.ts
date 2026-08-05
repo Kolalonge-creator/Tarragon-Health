@@ -190,6 +190,6 @@ export const PRODUCT_VIDEOS: Record<string, ProductVideo> = {
     youtubeId: "",
     title: "See how lab coordination works",
     caption:
-      "Knowing what's due, seeing the exact price, booking a trusted lab, and getting every result reviewed.",
+      "Knowing what's due, taking your request to any lab you choose, and getting every result reviewed.",
   },
 };
