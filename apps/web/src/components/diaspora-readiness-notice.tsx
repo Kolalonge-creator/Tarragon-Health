@@ -33,8 +33,9 @@ export function DiasporaReadinessNotice() {
         Before you pay, who is this plan for?
       </p>
       <p className="mt-1 text-xs text-charcoal-ink/60">
-        Part of Tarragon is a partner network of labs, pharmacies and specialists in Nigeria.
-        That part only works for someone who can walk into one. The rest works anywhere.
+        Part of Tarragon still needs someone to physically be in Nigeria: taking a lab request to
+        a lab, collecting medication from a pharmacy, or seeing a specialist in person. The rest
+        works anywhere.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -62,9 +63,9 @@ export function DiasporaReadinessNotice() {
       {audience === "self" && (
         <div className="mt-4 space-y-3">
           <p className="rounded-lg bg-brand-green/5 p-3 text-xs text-charcoal-ink/80">
-            You get everything in the first list below. The partner network in the second list
-            will sit dormant on your account until you are in Nigeria, so buy this for the
-            monitoring, the doctors and the record, not for the labs.
+            You get everything in the first list below. The second list will sit unused on your
+            account until you are physically in Nigeria to visit a lab, pharmacy or specialist, so
+            buy this for the monitoring, the doctors and the record, not for the labs.
           </p>
           <TwoLists anywhere={anywhere} inNigeria={inNigeria} />
         </div>
@@ -73,9 +74,11 @@ export function DiasporaReadinessNotice() {
       {audience === "someone_in_nigeria" && (
         <div className="mt-4 space-y-3">
           <p className="rounded-lg bg-brand-green/5 p-3 text-xs text-charcoal-ink/80">
-            They get the whole product, as long as their state is live for the service they
-            need. Worth checking their state first, and note that labs and pharmacy are only
-            switched on in some of them so far.
+            They get the whole product. Lab tests, pharmacy collection and specialist visits are
+            self-arranged, so they work in every state today: we write the request, they take it
+            to a provider of their choosing and pay directly. Home sample collection and
+            medication delivery are the only two pieces still waiting on a contracted partner,
+            worth checking their state for if that matters to them.
           </p>
           <div className="flex flex-wrap gap-2">
             <Link

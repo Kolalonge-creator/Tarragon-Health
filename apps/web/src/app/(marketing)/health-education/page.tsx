@@ -79,8 +79,8 @@ export default function HealthEducationPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Included on Complete Care and above; available as a ₦5,000/month add-on on Essential
-            Care or Tarragon Free.
+            Personalised to your own conditions and risk on every paid plan, Tarragon Prevent and
+            above. Tarragon Free still gets the full general education library at no cost, forever.
           </p>
         </div>
       </Section>

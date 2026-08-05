@@ -2,12 +2,19 @@
  * Which parts of Tarragon need the person to physically be in Nigeria, and
  * which do not.
  *
- * This is the honest half of the diaspora pitch. Roughly half the product is a
- * partner network: labs, pharmacies, specialists, couriers, home visits. Every
- * one of those is gated by the state rollout (region_service_available), so it
- * only exists for someone standing in a live Nigerian state. The other half is
- * monitoring, doctors over video and text, the record itself, and paying for
- * someone else's care, none of which cares where anybody is sitting.
+ * This is the honest half of the diaspora pitch. Some of the product needs
+ * someone to physically be in Nigeria: labs, pharmacy collection, and
+ * specialist visits, because a sample still has to be drawn and a person
+ * still has to be examined somewhere. Since the 2026-08-03 self-arranged-
+ * fulfilment change, none of those three wait on a contracted partner or the
+ * state rollout (region_service_available) any more — Tarragon writes the
+ * request or referral letter, the patient takes it to whichever provider they
+ * choose, and pays them directly, in any state. Only home sample collection
+ * and medication delivery still depend on a real logistics partner being
+ * contracted, and none exists yet in any state, so `gatedBy` is reserved for
+ * those two. The other half of the product — monitoring, doctors over video
+ * and text, the record itself, and paying for someone else's care — never
+ * needed Nigeria at all.
  *
  * Before this, that split was a sentence at the bottom of the pricing page.
  * A buyer in Houston choosing a plan for a mother in Enugu had no way to see it
@@ -108,23 +115,25 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
     key: "labs",
     label: "Lab tests and health check packages",
     detail:
-      "Booked at a partner centre, so the person being tested has to be able to walk into one.",
+      "We write the request; you take it to any lab in Nigeria you choose, pay them directly, and upload the result. Works in every state today, since it does not wait on us signing a partner.",
     locality: "in_nigeria",
-    gatedBy: "lab",
+    gatedBy: null,
   },
   {
     key: "pharmacy",
     label: "Pharmacy collection",
-    detail: "A prescription is routed to a partner pharmacy for collection in person.",
+    detail:
+      "Buy your medication from any pharmacy near you and log the collection in the app. No partner routing, no waiting on your state.",
     locality: "in_nigeria",
-    gatedBy: "pharmacy",
+    gatedBy: null,
   },
   {
     key: "specialist",
     label: "Specialist referrals",
-    detail: "Referred into a partner clinic for an in-person appointment.",
+    detail:
+      "You get a referral letter carrying your record and take it to a specialist of your choosing, in person. Available everywhere today; we do not book the appointment or take a fee.",
     locality: "in_nigeria",
-    gatedBy: "specialist",
+    gatedBy: null,
   },
   {
     key: "home_visit",

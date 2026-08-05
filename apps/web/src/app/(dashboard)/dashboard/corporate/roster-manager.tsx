@@ -59,7 +59,10 @@ export function RosterManager({
   }
 
   const mutationError =
-    (addMember.error as Error | null)?.message ?? (removeMember.error as Error | null)?.message ?? null;
+    (addMember.error as Error | null)?.message ??
+    (claimMember.error as Error | null)?.message ??
+    (removeMember.error as Error | null)?.message ??
+    null;
   const displayError = validationError ?? mutationError;
 
   const activeRows = (roster.data ?? []).filter((r) => r.status !== "removed");

@@ -700,7 +700,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Can I track my children's vaccinations too?",
     answer:
-      "Yes. Add a child to your family from your dashboard, even one who's too young to have their own login, and they get their own vaccination schedule, reminders, booking, and doctor-verified certificates, on the same record as the rest of your family's care. This is included on every plan, including Free.",
+      "Yes. Add a child from your dashboard, even one who's too young to have their own login, and their schedule lives on your account: their own vaccination schedule, reminders, and doctor-verified certificates, on the same record as the rest of their care. This is included on every plan, including Free.",
   },
   {
     question: "Can I speak to a doctor directly, not just wait for my scheduled review?",
