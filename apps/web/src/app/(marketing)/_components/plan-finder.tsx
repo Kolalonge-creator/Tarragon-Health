@@ -20,16 +20,17 @@ type Recommendation = {
  * pricing decisions live in _content/pricing.ts, this only routes to them.
  *
  * Since removal 4 (2026-07-29) there is no household plan to route to, so
- * "who" no longer changes which plan is recommended — it changes whose plan it
+ * "who" no longer changes which plan is recommended; it changes whose plan it
  * is. Everyone enrols individually, so the answer for someone looking after a
  * parent is the plan that suits that parent, on that parent's own account,
- * paid for by buying their checks for them. The question is kept because it is
- * the one people arrive with, and answering it plainly is more useful than
- * hiding it.
+ * funded by whoever is paying for it. Their lab tests stay paid straight to
+ * the laboratory, never through Tarragon, even for a next-of-kin relationship.
+ * The question is kept because it is the one people arrive with, and
+ * answering it plainly is more useful than hiding it.
  */
 export function recommendPlan(who: Who, health: Health, from: From): Recommendation {
   const forSomeoneElse =
-    "They hold their own Tarragon account and their own subscription. Name each other as next of kin and you can follow their care and buy the checks they need.";
+    "They hold their own Tarragon account and their own subscription. Name each other as next of kin and you can follow their care and fund their plan; their lab tests are still paid straight to the laboratory.";
 
   const rec: Recommendation =
     health === "none"

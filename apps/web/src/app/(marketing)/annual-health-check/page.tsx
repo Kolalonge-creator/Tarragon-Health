@@ -168,7 +168,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Core Screen",
               price: "With a paid plan",
-              body: "A full cardiometabolic and organ-baseline workup — full blood count, liver/kidney/thyroid function, urinalysis — plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
+              body: "A full cardiometabolic and organ-baseline workup (full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
               highlight: true,
             },
             {
@@ -239,8 +239,8 @@ export default function AnnualHealthCheckPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Looking for the year-round version? <Link href={MARKETING_ROUTES.pricing} className="text-brand-green hover:underline">Tarragon Prevent</Link> keeps
             your full screening and vaccination calendar running all year. Comprehensive Screen
-            already includes the doctor video consult reviewing your whole result set — no
-            separate review to buy.
+            already includes the doctor video consult reviewing your whole result set, so
+            there&apos;s no separate review to buy.
           </p>
         </div>
       </Section>

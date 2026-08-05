@@ -116,13 +116,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Know how your parent is doing, even when you are not there every day.",
     campaignLine: "Your parents looked after you. Now help look after them.",
     intro:
-      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can pay for their care by buying the checks they need, from Lagos or from anywhere.",
+      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can fund their plan, in naira or dollars, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
     included: [
       "Their own plan and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
       "Next of kin access: you see their care, you cannot change it, and they can withdraw it whenever they want",
       "We contact you first if something urgent comes up",
-      "Pay for their care by buying their checks outright, in naira or dollars",
+      "Fund their plan outright, in naira or dollars, from anywhere",
       "Doctor follow-up when readings or care gaps need attention",
     ],
     howItWorks: [
@@ -136,7 +136,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You cover the cost, if you want to",
-        body: "Buy the checks they need whenever suits you, in one go or in instalments. Each one is for that service and for them alone, and is never exchangeable for cash.",
+        body: "Buy them a year of their plan whenever suits you, in one go or in instalments. It's for their account alone, and is never exchangeable for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a check costs if you want to help with that too.",
       },
     ],
     metadata: {
@@ -230,7 +230,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Take the request to any lab",
-        body: "Pick whichever laboratory suits you, pay them directly, and upload the result — keep every result in one record instead of scattered reports.",
+        body: "Pick whichever laboratory suits you, pay them directly, and upload the result, keeping every result in one record instead of scattered reports.",
       },
       {
         title: "Never lose a result",

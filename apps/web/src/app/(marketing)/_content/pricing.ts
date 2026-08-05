@@ -155,7 +155,7 @@ export const PRICING_PROMISES: string[] = [
   "We will never charge you for anything without showing you the exact price first and getting your confirmation. No surprise charges. Ever.",
   "We will always tell you clearly whether something is already included in your plan, something you'll pay the laboratory or pharmacy for directly (we set no price on it and take no cut), or something that's actually free elsewhere and we're just reminding you about it.",
   "You will always know exactly what you are paying for: every plan and every add-on is fully listed below, with nothing left out.",
-  "Paying in dollars from abroad includes a disclosed 10% international card-processing fee on top of the converted naira price — a real, cost-based charge shown as its own line next to the price, never folded silently into a bigger number.",
+  "Paying in dollars from abroad includes a disclosed 10% international card-processing fee on top of the converted naira price: a real, cost-based charge shown as its own line next to the price, never folded silently into a bigger number.",
   "You can cancel a monthly plan at any time. Annual plans are paid upfront for the year, but you can turn off auto-renewal whenever you like: no penalty, no argument, no hard sell.",
   "Naira prices are reviewed once a year to keep pace with cost changes, but we will always tell you at least 30 days before any change takes effect, and anything you've already paid for (like an annual plan) is honoured at the price you paid until it's time to renew.",
 ];
@@ -168,7 +168,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings, or any result you upload, routinely on this plan — that starts on Tarragon Prevent, where a doctor's time goes toward patients actually paying for review. Free still gets you real tools: logging, reminders, and the full education library, at no cost, forever.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings, or any result you upload, routinely on this plan; that starts on Tarragon Prevent, where a doctor's time goes toward patients actually paying for review. Free still gets you real tools: logging, reminders, and the full education library, at no cost, forever.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -357,7 +357,7 @@ export const DIASPORA_SPONSOR_PITCH = {
 };
 
 export const DIASPORA_ONE_PRICE_NOTE =
-  "The dollar price starts from the naira price, converted at our published rate. Tarragon runs one price list: nobody pays a different rate for the same plan because of who they are. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you buy their checks for them.";
+  "The dollar price starts from the naira price, converted at our published rate. Tarragon runs one price list: nobody pays a different rate for the same plan because of who they are. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you fund their plan; their lab tests are still paid straight to the laboratory, not through us.";
 
 /**
  * Founder decision, 2026-08-02: an international card charge genuinely costs
@@ -444,7 +444,7 @@ export const ADD_ONS: PricingAddOn[] = [
       { feature: "The actual test itself, every time it's due", label: "YOU PAY THE LAB" },
     ],
     availability:
-      "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Tarragon Prevent and above — this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
+      "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Tarragon Prevent and above; this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
   },
   // 'care-coordinator' (Dedicated Care Coordinator, +₦30,000/month) removed
   // 2026-07-31, matching the same-date withdrawal in seed.sql and the
@@ -501,7 +501,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "₦10,000/visit",
     label: "ADD-ON",
     description:
-      "A 15-minute online consultation with a doctor, over video. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed — a doctor accepts your slot or offers a different one that works, within 48 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
+      "A 15-minute online consultation with a doctor, over video. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed: a doctor accepts your slot or offers a different one that works, within 48 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
     availability: "Available on any plan, priced per visit rather than as a subscription.",
   },
   // 'hpv-catchup' (Catch-Up HPV Vaccine) removed as a standalone pricing card
@@ -537,7 +537,7 @@ export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }
   { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },
   { need: "A doctor reviews your BP and blood sugar readings every month, even when you feel fine", hmo: false, tarragon: true },
   { need: "Spots a worrying pattern in your numbers and escalates it before it becomes an emergency", hmo: false, tarragon: true },
-  { need: "Reminds you, books your labs and refills, and tracks your results over time", hmo: false, tarragon: true },
+  { need: "Reminds you when a test or refill is due, hands you a request to take to any lab or pharmacy, and tracks your results over time", hmo: false, tarragon: true },
   { need: "Keeps your whole health story in one record your family can see (with your consent)", hmo: false, tarragon: true },
 ];
 
@@ -582,7 +582,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "For a plan or add-on, you see the exact price",
-    body: "In the app, before you're ever charged. No estimates, no “roughly.” A test, refill, or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show — see the next step.",
+    body: "In the app, before you're ever charged. No estimates, no “roughly.” A test, refill, or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show; see the next step.",
   },
   {
     title: "You confirm and pay, or take a request to the provider",
