@@ -129,14 +129,10 @@ export default async function PreventionPage() {
           ))}
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          You take your request to whichever laboratory you like and pay them directly, and
-          confirm before anything is booked; typical prices are listed openly on the{" "}
-          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
-            pricing page
-          </Link>
-          . The one-day{" "}
+          You take your request to whichever laboratory you like and pay them directly, at their
+          own price; we set no price on any test and take no cut. The one-day{" "}
           <span className="font-medium text-charcoal-ink">Annual Health Check</span> is a ladder
-          pick how deep you want to go. Every tier is doctor-reviewed, and you pay the laboratory directly rather than us.
+          pick how deep you want to go. Every tier is doctor-reviewed.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Not sure what applies to you specifically? Walk through the{" "}
@@ -151,7 +147,7 @@ export default async function PreventionPage() {
           <Link href={MARKETING_ROUTES.vaccinations} className="font-medium text-deep-forest hover:underline">
             schedule, reminders, and doctor-verified certificates
           </Link>{" "}
-          work for your whole family.
+          work for you and your children.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Curious where you stand before booking anything? Try the free{" "}

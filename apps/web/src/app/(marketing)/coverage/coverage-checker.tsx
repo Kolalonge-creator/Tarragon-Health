@@ -8,8 +8,12 @@ import type { StateCoverage } from "@/lib/marketing/coverage-data";
 /**
  * "Does any of this work where my mother lives?", answered before signing up.
  *
- * Every partner-backed service is gated on the state rollout, and outside Lagos
- * most of them are still dark. That is a fine thing to be honest about and a
+ * Since the 2026-08-03 self-arranged-fulfilment change, only home sample
+ * collection and medication delivery still depend on a contracted logistics
+ * partner (gatedServices() reflects that — see @/lib/coverage/what-works-where),
+ * and neither is live in any state yet. Lab tests, pharmacy collection and
+ * specialist referrals are self-arranged and work nationwide already, so they
+ * are never in this gated list; that is a fine thing to be honest about and a
  * terrible thing to discover after paying, which until now was the only way to
  * discover it: the gate was authenticated-only.
  *
@@ -78,7 +82,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
             <p className="mt-1 text-sm text-charcoal-ink/70">
               {liveCount > 0
                 ? "Everything else on this page works there today regardless, because it does not depend on a local partner."
-                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. It is only the partner network below that is waiting."}
+                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. So do lab tests, pharmacy collection and specialist referrals: those are self-arranged, so they work in every state without waiting on a partner. It is only home sample collection and medication delivery that are waiting, below."}
             </p>
 
             <ul className="mt-4 space-y-2">

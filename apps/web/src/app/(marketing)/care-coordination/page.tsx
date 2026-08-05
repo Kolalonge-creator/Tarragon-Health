@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
@@ -124,11 +123,9 @@ export default function CareCoordinationPage() {
           ))}
         </ol>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Rough guide prices, which laboratories set rather than we do, are published openly on our{" "}
-          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
-            pricing page
-          </Link>
-          , so you can budget before you ever book.
+          We do not set, quote, or collect a naira for any test. The laboratory tells you its own
+          price when you get there, and you pay them directly, so there is never a Tarragon price
+          to guess at beforehand.
         </p>
       </Section>
 

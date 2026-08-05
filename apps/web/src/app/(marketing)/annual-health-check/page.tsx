@@ -30,10 +30,17 @@ export const metadata: Metadata = {
  *    receives or stores a card number.
  *
  * NOTE: this block intentionally does NOT repeat the homepage TrustBand's
- * "MDCN-registered doctors" wording. At the time of writing the only active
- * clinical_staff record has credential_number null (the founder deferred
- * recording it, see CLAUDE.md 2026-07-30), so that claim is not currently
- * backed by data and must not be spread to a second page until it is.
+ * "MDCN-registered doctors" wording. Re-checked live 2026-08-05: of 7 active
+ * clinical_staff records, 6 carry a credential_number and a distinct
+ * verified_by (all still QA test values — TEST-0001 etc, not real MDCN
+ * numbers), and 1 has both credential_number and verified_by null (an older
+ * record; license_verified_at is set, so it does not violate
+ * clinical_staff_active_requires_verification, but nothing proves "someone
+ * else" verified it, only that clinical_staff_no_self_verification's
+ * `verified_by IS NULL OR ... verified_by <> profile_id` check trivially
+ * allows a null verifier). The two CHECK constraints this block's claims rely
+ * on are still live and unchanged. Still no real MDCN-registered doctor on
+ * the platform, so still don't add the stronger wording here.
  */
 const BOOKING_ASSURANCES = [
   {
@@ -61,7 +68,7 @@ const WHATS_INCLUDED = [
   },
   {
     title: "Your cancer screening",
-    body: "The one that fits you: cervical screening for women, prostate (PSA) for men over 40, chosen by age and sex, not one-size-fits-all.",
+    body: "The one that fits you: cervical screening for women, prostate (PSA) for men over 40, chosen by age and sex, not one-size-fits-all. Included from Advanced Screen up.",
   },
   {
     title: "Blood pressure & BMI",
@@ -86,7 +93,7 @@ const HOW_IT_WORKS = [
   {
     step: 2,
     title: "One lab visit",
-    body: "Samples and measurements in a single visit. Home sample collection is coming to selected areas.",
+    body: "Samples and measurements in a single visit. We don't yet collect a sample from your home anywhere; that needs a contracted logistics partner, and we'd rather say so than imply otherwise.",
   },
   {
     step: 3,
@@ -142,7 +149,7 @@ export default function AnnualHealthCheckPage() {
         <SectionHeading
           eyebrow="What's included"
           title="Six things, one visit"
-          description="Chosen because they catch the conditions that quietly account for most avoidable illness in Nigeria: diabetes, heart disease, and late-found cancers."
+          description="Chosen because they catch the conditions that quietly account for most avoidable illness in Nigeria: diabetes, heart disease, and late-found cancers. Blood sugar, cholesterol, BP & BMI, and a doctor's read are on every tier below, starting with Core Screen; cancer screening is added on Advanced Screen."
         />
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {WHATS_INCLUDED.map((item) => (
@@ -161,14 +168,14 @@ export default function AnnualHealthCheckPage() {
         <SectionHeading
           eyebrow="Pick your level"
           title="Three tiers, one discipline"
-          description="Each tier includes everything in the one before it, and every one ends with a doctor talking you through your results. Active subscribers get 15% off any Screen tier."
+          description="Each tier includes everything in the one before it, and every one ends with a doctor talking you through your results."
         />
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3">
           {[
             {
               name: "Core Screen",
               price: "With a paid plan",
-              body: "A full cardiometabolic and organ-baseline workup (full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
+              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
               highlight: true,
             },
             {

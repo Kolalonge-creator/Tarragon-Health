@@ -16,7 +16,7 @@ const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Your schedule builds itself",
-    body: "Add yourself and your children to your Tarragon family, and each person's due and upcoming vaccines are worked out automatically, from routine childhood immunisation through to adult and travel doses like HPV.",
+    body: "Your own due and upcoming vaccines are worked out automatically, from routine childhood immunisation through to adult and travel doses like HPV. Add a child too young to have their own login and their schedule lives on your account, tracked the same way.",
   },
   {
     step: 2,
@@ -37,8 +37,8 @@ const HOW_IT_WORKS = [
 
 const WHATS_INCLUDED = [
   {
-    title: "One record per family member",
-    body: "Every child and adult in your family has their own schedule, in the same record as the rest of their care, nothing to track separately.",
+    title: "Your own record, and your children's",
+    body: "A child too young to have their own login keeps their schedule on your account, in the same record as the rest of their care. An adult you're caring for, like a parent, keeps their own account; you follow their schedule as next of kin once they've agreed.",
   },
   {
     title: "Reminders, not memory",
@@ -74,13 +74,14 @@ export default function VaccinationsPage() {
             Vaccinations, tracked and verified
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            A personal vaccination schedule for you and your children, a reminder before a dose is
-            due, and a doctor-verified certificate you&apos;ll never lose, even if the paper one
-            is. Get the dose wherever suits you and pay them directly; we take nothing on it.
+            A personal vaccination schedule for you and any children too young to have their own
+            login, a reminder before a dose is due, and a doctor-verified certificate you&apos;ll
+            never lose, even if the paper one is. Get the dose wherever suits you and pay them
+            directly; we take nothing on it.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href="/signup">Start your family&apos;s schedule</Link>
+              <Link href="/signup">Start your schedule</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={MARKETING_ROUTES.prevention}>Explore preventive health</Link>
@@ -129,25 +130,27 @@ export default function VaccinationsPage() {
       <Section variant="sage">
         <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-            For the whole family, wherever you are
+            For your children, and for whoever else you look after
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Add your children to your Tarragon family and their routine immunisation schedule is
-            tracked the same way as your own, including the doses that are easy to lose track of
-            between school-age boosters and travel. If you&apos;re following your family&apos;s
-            care from outside Nigeria, the schedule and verified certificates are visible to you
-            from anywhere; the visit itself still happens wherever your family is, in Nigeria.
+            A child too young to have their own login keeps their routine immunisation schedule on
+            your account, tracked the same way as your own, including the doses that are easy to
+            lose track of between school-age boosters and travel. If you&apos;re abroad, their
+            schedule and verified certificates are visible to you from anywhere; the visit itself
+            still happens wherever they are, in Nigeria.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Vaccinations are one part of{" "}
-            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
-              Tarragon Prevent
-            </Link>
-            , which also builds your screening calendar and yearly Health Check, or explore{" "}
+            Caring for an adult relative, like a parent? They keep their own Tarragon account and
+            their own vaccination schedule; you follow it as next of kin once they&apos;ve agreed,
+            never by adding them to yours. See{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">
               Caring for a parent
             </Link>{" "}
-            for coordinated family monitoring.
+            for how that works. Vaccinations are one part of{" "}
+            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
+              Tarragon Prevent
+            </Link>
+            , which also builds your screening calendar and yearly Health Check.
           </p>
         </div>
       </Section>
@@ -155,10 +158,10 @@ export default function VaccinationsPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="Give your family's vaccine record a permanent home."
+          title="Give your vaccine record a permanent home."
           description="Free to start, verified when it matters."
           primaryHref="/signup"
-          primaryLabel="Start your family's schedule"
+          primaryLabel="Start your schedule"
         />
       </Section>
     </>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { getServiceCoverage } from "@/lib/marketing/coverage-data";
-import { itemsFor } from "@/lib/coverage/what-works-where";
+import { gatedServices, itemsFor } from "@/lib/coverage/what-works-where";
 import { CoverageChecker } from "./coverage-checker";
 
 export const metadata: Metadata = {
@@ -17,7 +17,15 @@ export const revalidate = 300;
 
 export default async function CoveragePage() {
   const coverage = await getServiceCoverage();
-  const liveStates = coverage.filter((row) => row.isActive);
+  // row.isActive is the state's own master rollout switch, which can be on
+  // with zero partners actually contracted there (true of every state right
+  // now — see the 2026-08-03 self-arranged-fulfilment migrations). Filtering
+  // on it alone would claim "partner-fulfilled services are live" in a state
+  // where the checker below correctly says otherwise. Only a state with at
+  // least one currently-gated service (home sample collection, medication
+  // delivery — see gatedServices()) actually live belongs in this list.
+  const gated = gatedServices();
+  const liveStates = coverage.filter((row) => gated.some((service) => row.services[service]));
   const inNigeria = itemsFor("in_nigeria");
 
   return (

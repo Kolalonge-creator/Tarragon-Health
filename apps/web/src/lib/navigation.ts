@@ -188,6 +188,14 @@ export function getNavSections(
           ],
         },
       ];
+    case "lab_liaison":
+      return [
+        {
+          items: [
+            { label: "Dashboard", href: "/lab-liaison", icon: "dashboard", exact: true },
+          ],
+        },
+      ];
     case "analyst":
       return [
         {
