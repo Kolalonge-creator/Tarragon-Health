@@ -82,6 +82,29 @@
  * was folded into the Prevent tier's vaccination line (Tarragon was never
  * charging for it, so it never needed its own priced-looking card).
  *
+ * Repriced 2026-08-05 — founder-directed tier increase, argued from what a
+ * Nigerian buyer is actually comparing against (Reliance HMO Basic at the old
+ * ₦3,500/mo Prevent price; a private Lagos consult at ₦15–16k vs. old
+ * ₦8,000/mo Essential; entry retail HMO at ₦40–120k/yr vs. old ₦15,000/mo
+ * Complete): Prevent ₦3,500→₦5,000/mo (₦35,000→₦50,000/yr), Essential
+ * ₦8,000→₦10,000/mo (₦80,000→₦100,000/yr), Complete ₦15,000→₦20,000/mo
+ * (₦150,000→₦200,000/yr). Diaspora prices are unchanged in mechanism (still
+ * the naira price ÷ reference rate × 1.10 fee) and simply move with them.
+ * Two real feature additions ride alongside the increase, not just a number
+ * change: Essential and Complete now also include Prevent's screening and
+ * vaccination calendar and Core Screen review (previously a chronic-care
+ * subscriber inherited from Tarragon Free, not Prevent, so got no preventive
+ * screening at all — `essential`/`complete`'s `features` rows gained
+ * `prevention_coordination` in the same migration); and Prevent's existing
+ * `result_document_review` entitlement is named explicitly below as fast,
+ * any-lab result reading, since that capability (`lab_report_extractions`)
+ * was already built and live but never stated as a reason to pay. See
+ * `raise_ngn_tier_prices_and_fold_prevention_into_chronic_plans` for the
+ * migration. Every changed subscription_plans row is `is_active: false`
+ * pending a "Sync now" in /admin/settings/subscriptions (Paystack Plans /
+ * Stripe Prices are immutable on amount, so each needs a fresh provider
+ * object) — this file's numbers are correct ahead of that step, not after it.
+ *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
  * earlier "clinician is the default face" rule in
@@ -185,9 +208,9 @@ export const NGN_TIERS: PricingTier[] = [
     id: "prevent",
     name: "Tarragon Prevent",
     whoFor: "Healthy, and planning to stay that way",
-    priceMain: "₦3,500",
+    priceMain: "₦5,000",
     pricePeriod: "per month",
-    priceSecondary: "or ₦35,000/year (2 months free)",
+    priceSecondary: "or ₦50,000/year (2 months free)",
     description:
       "The stay-healthy plan. You don't need a diagnosis to benefit from Tarragon: Prevent builds your personal screening and vaccination calendar, tells you what's due and why, and teaches you what your numbers mean. If a result ever needs attention, a doctor steps in the same day and helps you decide what's next.",
     items: [
@@ -197,6 +220,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Vaccination schedule, reminders, and verified certificates, including catch-up HPV dosing outside the free government age bracket", label: "INCLUDED" },
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
+      { feature: "Any lab, any format: upload a result and a doctor reads it back to you in plain language within minutes, not just once a year", label: "INCLUDED" },
       { feature: "Screening lab tests, paid straight to the lab you choose", label: "YOU PAY THE LAB" },
       { feature: "Core Screen: we say what to get, you use any lab or upload a result you already have, and a doctor reads it", label: "INCLUDED" },
     ],
@@ -207,10 +231,10 @@ export const NGN_TIERS: PricingTier[] = [
     id: "essential",
     name: "Essential Care",
     whoFor: "One condition: hypertension, diabetes, or weight management",
-    priceMain: "₦8,000",
+    priceMain: "₦10,000",
     pricePeriod: "per month",
-    priceSecondary: "or ₦80,000/year (2 months free)",
-    description: "Real clinical monitoring begins here, for one condition.",
+    priceSecondary: "or ₦100,000/year (2 months free)",
+    description: "Real clinical monitoring begins here, for one condition — and, new alongside this price, your full preventive screening calendar comes with it too, not just chronic-condition tracking.",
     highlight: true,
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
@@ -218,20 +242,22 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Monthly doctor check-in", label: "INCLUDED" },
       { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
       { feature: "Message your care team directly in the app", label: "INCLUDED" },
+      { feature: "Personal screening calendar and vaccination schedule, the same as Tarragon Prevent", label: "INCLUDED" },
+      { feature: "Core Screen: any lab or an upload, read back to you by a doctor", label: "INCLUDED" },
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "YOU PAY THE LAB" },
       { feature: "Medication refills, from any pharmacy you choose", label: "YOU PAY THE LAB" },
     ],
     footnote:
-      "If you have more than one condition, or your doctor considers you higher-risk, Complete Care gives you closer monitoring.",
+      "A month of Essential Care costs less than a single private specialist consultation in Lagos (typically ₦15,000–16,000) and buys twelve months of monthly doctor review, a check-in, adherence follow-up, and in-app messaging with your care team. If you have more than one condition, or your doctor considers you higher-risk, Complete Care gives you closer monitoring.",
   },
   {
     id: "complete",
     name: "Complete Care",
     whoFor: "More than one of the conditions we manage, or higher risk",
-    priceMain: "₦15,000",
+    priceMain: "₦20,000",
     pricePeriod: "per month",
-    priceSecondary: "or ₦150,000/year (2 months free)",
+    priceSecondary: "or ₦200,000/year (2 months free)",
     description:
       "Tarragon currently manages three chronic conditions: hypertension, diabetes, and weight management. Complete Care is for anyone managing more than one of them together (for example, blood pressure and blood sugar, or diabetes and weight), or anyone whose doctor recommends closer monitoring.",
     items: [
@@ -272,9 +298,9 @@ export const USD_TIERS: PricingTier[] = [
     id: "diaspora-prevent",
     name: "Tarragon Prevent (Diaspora)",
     whoFor: "Healthy, and planning to stay that way",
-    priceMain: "$28.21",
+    priceMain: "$40.29",
     pricePeriod: "per year",
-    priceSecondary: "or $2.82/month",
+    priceSecondary: "or $4.03/month",
     priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description:
       "The stay-healthy plan, billed in dollars: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Monitoring, doctor review, and education work from anywhere; a physical test or dose still needs whoever it's for to visit a laboratory or provider in Nigeria.",
@@ -287,9 +313,9 @@ export const USD_TIERS: PricingTier[] = [
     id: "diaspora-essential",
     name: "Essential Care (Diaspora)",
     whoFor: "One condition, monitored from abroad",
-    priceMain: "$64.47",
+    priceMain: "$80.59",
     pricePeriod: "per year",
-    priceSecondary: "or $6.45/month",
+    priceSecondary: "or $8.06/month",
     priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description: "Everything included is the same as Essential Care in Naira, billed in US dollars.",
     highlight: true,
@@ -302,9 +328,9 @@ export const USD_TIERS: PricingTier[] = [
     id: "diaspora-complete",
     name: "Complete Care (Diaspora)",
     whoFor: "Multiple conditions, monitored from abroad",
-    priceMain: "$120.88",
+    priceMain: "$161.17",
     pricePeriod: "per year",
-    priceSecondary: "or $12.09/month",
+    priceSecondary: "or $16.12/month",
     priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description: "Everything included is the same as Complete Care in Naira, billed in US dollars.",
     items: [
@@ -482,6 +508,17 @@ export const ADD_ONS: PricingAddOn[] = [
   // still doesn't get it. Update `subscription_plans.features` for the
   // prevent/essential rows (and currency variants) to include
   // 'health_education', and retire the `health-education` add-on row(s).
+  //
+  // 'sponsor-statement' (₦2,000/month, a single exportable funding statement
+  // across everyone a supporter funds) exists as an `add_ons` row (NGN +
+  // derived USD) since 2026-08-05 but is deliberately NOT listed here yet.
+  // Two real gaps stand between it and being sellable: subscription_add_ons
+  // requires a patient subscription_id to attach to, which a pure supporter
+  // with no plan of their own doesn't have; and no UI reads this code at all
+  // (/patient/supporting has no gated feature behind it). Listing it here
+  // before either exists would repeat the exact "sold nothing that could be
+  // bought" mistake this file has already had to walk back twice (Dedicated
+  // Care Coordinator, Starter Kit) — add it once both are real, not before.
   {
     id: "lifestyle-coaching",
     name: "Lifestyle Coaching",
@@ -611,7 +648,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Which conditions does Tarragon manage, and where does weight management fit?",
     answer:
-      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and weight management. Weight management is a full condition on any plan, not an extra: if that's the only one you need, Essential Care (₦8,000/month) covers it, including doctor review of your weight trend, a structured lifestyle plan, and follow-up. Managing your weight alongside blood pressure or diabetes is exactly what Complete Care (₦15,000/month) is for, and Lifestyle Coaching is already included there at no extra charge. Preventive screening is separate and available to everyone, whatever your conditions.",
+      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and weight management. Weight management is a full condition on any plan, not an extra: if that's the only one you need, Essential Care (₦10,000/month) covers it, including doctor review of your weight trend, a structured lifestyle plan, and follow-up. Managing your weight alongside blood pressure or diabetes is exactly what Complete Care (₦20,000/month) is for, and Lifestyle Coaching is already included there at no extra charge. Preventive screening now comes with both Essential Care and Complete Care as well as Tarragon Prevent, so it's covered whichever of these three plans you're on.",
   },
   {
     question: "Will my card ever be charged automatically for a test I didn't ask for?",
@@ -641,7 +678,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What's the difference between Tarragon Free and Tarragon Prevent?",
     answer:
-      "Free is self-tracking: you log your own numbers and nobody books anything for you. Prevent (₦3,500/month) adds the active prevention layer: a screening and vaccination calendar built for you, bookable when checks come due, reminders, results tracking, personalised health education, and doctor follow-up on any abnormal result.",
+      "Free is self-tracking: you log your own numbers and nobody books anything for you. Prevent (₦5,000/month) adds the active prevention layer: a screening and vaccination calendar built for you, bookable when checks come due, reminders, results tracking, personalised health education, and doctor follow-up on any abnormal result.",
   },
   {
     question: "How do the free trials of Complete Care work?",
