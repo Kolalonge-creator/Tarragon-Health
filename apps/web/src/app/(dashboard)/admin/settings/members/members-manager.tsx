@@ -13,6 +13,7 @@ import { USER_ROLES, USER_ROLE_LABELS, type UserRoleValue } from "@/lib/validati
 import type { MemberRow, PermissionRow, CustomRoleRow, OrgRow } from "./page";
 import {
   provisionMemberAction,
+  createInstitutionOrgAction,
   setMemberRoleAction,
   grantPermissionAction,
   revokePermissionAction,
@@ -40,6 +41,7 @@ export function MembersManager({
   customRoles,
   organisations,
   canProvision,
+  canManageOrgs,
   canAssignRoles,
   canGrant,
   canManageRoles,
@@ -50,6 +52,7 @@ export function MembersManager({
   customRoles: CustomRoleRow[];
   organisations: OrgRow[];
   canProvision: boolean;
+  canManageOrgs: boolean;
   canAssignRoles: boolean;
   canGrant: boolean;
   canManageRoles: boolean;
@@ -75,6 +78,10 @@ export function MembersManager({
       )}
       {feedback?.message && (
         <p className="rounded-md bg-brand-green/10 px-4 py-2 text-sm text-deep-forest">{feedback.message}</p>
+      )}
+
+      {canManageOrgs && (
+        <CreateOrgCard pending={pending} onSubmit={(fd) => run((f) => createInstitutionOrgAction(undefined, f), fd)} />
       )}
 
       {canProvision && (
@@ -115,6 +122,59 @@ export function MembersManager({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Onboards a new employer or HMO client — the piece that was missing before
+ * a corporate_admin/hmo_admin login (created below) had any real
+ * organisation to attach to. Mirrors the protocol-api "add a licensed
+ * partner" card one page over; same shape, different tenant type.
+ */
+function CreateOrgCard({
+  pending,
+  onSubmit,
+}: {
+  pending: boolean;
+  onSubmit: (fd: FormData) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Create an organisation</CardTitle>
+        <CardDescription>
+          Onboard a new employer or HMO client. Once it exists, give it its first login below with
+          the matching Employer/Corporate Admin or HMO Admin role.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          className="grid gap-4 sm:grid-cols-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit(new FormData(e.currentTarget));
+            e.currentTarget.reset();
+          }}
+        >
+          <div className="space-y-1">
+            <Label htmlFor="orgName">Organisation name</Label>
+            <Input id="orgName" name="name" required />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="orgType">Type</Label>
+            <Select id="orgType" name="type" defaultValue="corporate">
+              <option value="corporate">Employer / Corporate</option>
+              <option value="hmo">HMO</option>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Button type="submit" disabled={pending}>
+              {pending ? "Creating…" : "Create organisation"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

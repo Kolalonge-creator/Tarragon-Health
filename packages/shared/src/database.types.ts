@@ -5469,6 +5469,8 @@ export type Database = {
       leads: {
         Row: {
           contact: string
+          contacted_at: string | null
+          contacted_by: string | null
           created_at: string
           id: string
           message: string | null
@@ -5478,6 +5480,8 @@ export type Database = {
         }
         Insert: {
           contact: string
+          contacted_at?: string | null
+          contacted_by?: string | null
           created_at?: string
           id?: string
           message?: string | null
@@ -5487,6 +5491,8 @@ export type Database = {
         }
         Update: {
           contact?: string
+          contacted_at?: string | null
+          contacted_by?: string | null
           created_at?: string
           id?: string
           message?: string | null
@@ -5494,7 +5500,15 @@ export type Database = {
           role?: Database["public"]["Enums"]["lead_role"]
           source?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_contacted_by_fkey"
+            columns: ["contacted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       logistics_partners: {
         Row: {
@@ -13243,6 +13257,10 @@ export type Database = {
       admin_broadcast_content_check: {
         Args: { p_text: string }
         Returns: string[]
+      }
+      admin_create_institution_org: {
+        Args: { p_name: string; p_type: string }
+        Returns: string
       }
       admin_create_protocol_partner_org: {
         Args: { p_name: string }

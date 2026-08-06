@@ -3,7 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SEMANTIC_ICON } from "@/lib/icons";
+import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 
 export default async function AdminPage() {
   const profile = await getCurrentProfile();
@@ -53,6 +53,28 @@ export default async function AdminPage() {
           <CardContent>
             <Link href="/admin/settings/members" className="text-sm font-medium text-brand-green hover:underline">
               Manage members &amp; access →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {can("leads.manage") && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <NAV_ICON.inbox className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+              <Link href="/admin/leads" className="hover:underline">
+                Leads
+              </Link>
+            </CardTitle>
+            <CardDescription>
+              Everyone who has submitted the contact form or plan-finder, including employer and
+              HMO enquiries. Filter and mark as contacted.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/admin/leads" className="text-sm font-medium text-brand-green hover:underline">
+              View leads →
             </Link>
           </CardContent>
         </Card>
