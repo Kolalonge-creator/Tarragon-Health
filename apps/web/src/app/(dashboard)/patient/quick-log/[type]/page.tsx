@@ -42,7 +42,7 @@ export default async function QuickLogPage({
         title={`Log your ${TYPE_LABEL[type].toLowerCase()}`}
       />
       <Link
-        href="/patient#vitals"
+        href="/patient/vitals"
         className="block text-center text-sm text-charcoal-ink/60 hover:underline"
       >
         Go to my full dashboard

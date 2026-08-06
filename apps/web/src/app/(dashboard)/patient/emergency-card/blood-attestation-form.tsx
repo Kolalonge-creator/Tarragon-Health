@@ -96,7 +96,7 @@ export function BloodAttestationForm({
           <>
             <p className="text-sm text-charcoal-ink/80">
               The best way to get this on your card is to{" "}
-              <Link href="/patient#labs" className="font-medium text-brand-green hover:underline">
+              <Link href="/patient/labs" className="font-medium text-brand-green hover:underline">
                 upload your lab result
               </Link>
               , and your care team will confirm it. If you do not have the report to hand, you can

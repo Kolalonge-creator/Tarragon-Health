@@ -20,6 +20,28 @@ export function getRoleHomePath(role: UserRole): string {
   return ROLE_HOME_PATH[role];
 }
 
+/** Short, patient/staff-facing role name — shown in the app shell's profile
+ * menu and on /account. Deliberately terser than USER_ROLE_LABELS
+ * (lib/validation/members.ts), which is written for the admin provisioning
+ * screen and carries internal detail (e.g. "set doctor_tier on
+ * clinical_staff") that has no business appearing in someone's own account
+ * menu. "Supporter" (a person who funds another patient's care and has none
+ * of their own) is not a profiles.role value, so it is handled by the caller,
+ * not this map. */
+export const ROLE_DISPLAY_LABEL: Record<UserRole, string> = {
+  patient: "Patient",
+  clinician: "Doctor",
+  admin: "Admin",
+  hmo_admin: "HMO admin",
+  corporate_admin: "Corporate admin",
+  care_coordinator: "Care Coordinator",
+  pharmacist: "Partner Pharmacy",
+  analyst: "Platform Analytics",
+  finance: "Finance",
+  lab_liaison: "Lab Liaison",
+  lab_partner: "Partner Laboratory",
+};
+
 /** True when `pathname` is the role-home (or under it) for `role`. */
 export function pathMatchesRole(pathname: string, role: UserRole): boolean {
   const home = ROLE_HOME_PATH[role];

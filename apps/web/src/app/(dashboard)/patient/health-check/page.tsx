@@ -140,7 +140,7 @@ export default async function HealthCheckPage() {
                   : VITAL_LABEL[kind]
               )
               .join(", ")}`,
-      href: "/patient#vitals",
+      href: "/patient/vitals",
     },
     {
       title: "4. Screenings",
