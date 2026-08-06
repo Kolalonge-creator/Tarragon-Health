@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
+import { ProfileMenu } from "./profile-menu";
 import type { NavSection } from "@/lib/navigation";
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -97,12 +98,21 @@ function BrandLockup({ homeHref }: { homeHref: string }) {
 export function AppShell({
   userName,
   roleLabel,
+  idLabel,
+  idValue,
+  profileHref,
   navSections,
   signOutAction,
   children,
 }: {
   userName: string;
   roleLabel: string;
+  /** e.g. "Patient ID" / "Staff ID" — omitted for roles with no reference number. */
+  idLabel?: string;
+  idValue?: string | null;
+  /** Where the profile menu's "Profile & settings" link and the sidebar
+   * user block both point — role-dependent, computed by the caller. */
+  profileHref: string;
   navSections: NavSection[];
   signOutAction: () => Promise<void>;
   children: React.ReactNode;
@@ -129,7 +139,7 @@ export function AppShell({
 
   const userBlock = (
     <div className="space-y-3 border-t border-charcoal-ink/10 px-4 py-4">
-      <div className="flex items-center gap-3">
+      <Link href={profileHref} className="flex items-center gap-3 rounded-lg hover:bg-charcoal-ink/5">
         <div
           aria-hidden
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-soft-sage font-heading text-sm font-semibold text-deep-forest"
@@ -140,7 +150,7 @@ export function AppShell({
           <p className="truncate text-sm font-medium text-charcoal-ink">{userName}</p>
           <p className="truncate text-xs text-charcoal-ink/50">{roleLabel}</p>
         </div>
-      </div>
+      </Link>
       <form action={signOutAction}>
         <Button
           type="submit"
@@ -225,17 +235,14 @@ export function AppShell({
               <DeviceHeartbeat />
               <PushSubscribePrompt />
               <NotificationBell />
-              <span className="hidden max-w-48 truncate text-charcoal-ink/70 sm:inline">
-                {userName}
-              </span>
-              <span className="rounded-full bg-brand-green/10 px-2.5 py-1 text-xs font-medium text-deep-forest">
-                {roleLabel}
-              </span>
-              <form action={signOutAction} className={cn(hasNav && "lg:hidden")}>
-                <Button type="submit" variant="ghost" size="sm">
-                  Sign out
-                </Button>
-              </form>
+              <ProfileMenu
+                userName={userName}
+                roleLabel={roleLabel}
+                idLabel={idLabel}
+                idValue={idValue}
+                profileHref={profileHref}
+                signOutAction={signOutAction}
+              />
             </div>
           </div>
         </header>

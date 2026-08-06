@@ -2,22 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
 import { getNavSections } from "@/lib/navigation";
+import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { Providers } from "./providers";
 import { signOut } from "../auth/actions";
-
-const ROLE_LABEL: Record<string, string> = {
-  patient: "Patient",
-  clinician: "Doctor",
-  admin: "Admin",
-  hmo_admin: "HMO admin",
-  corporate_admin: "Corporate admin",
-  care_coordinator: "Care Coordinator",
-  pharmacist: "Partner Pharmacy",
-  analyst: "Platform Analytics",
-  finance: "Finance",
-  lab_liaison: "Lab Liaison",
-  lab_partner: "Partner Laboratory",
-};
 
 export default async function DashboardLayout({
   children,
@@ -33,7 +20,7 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, organisation_id, receives_care")
+    .select("full_name, role, organisation_id, receives_care, patient_number, staff_number")
     .eq("id", user.id)
     .single();
 
@@ -42,6 +29,31 @@ export default async function DashboardLayout({
   // already sitting third in it.
   const supporterOnly = profile?.receives_care === false;
 
+  // Staff ID (EMP-NNNNNN): clinician/care_coordinator carry it on
+  // clinical_staff (tied to their clinical record — 20260719214625); every
+  // other staff role carries it directly on profiles instead
+  // (20260806115556_profiles_staff_number.sql), since they have no
+  // clinical_staff row to hang it off.
+  let staffNumber: string | null = profile?.staff_number ?? null;
+  if (profile?.role === "clinician" || profile?.role === "care_coordinator") {
+    const { data: staff } = await supabase
+      .from("clinical_staff")
+      .select("staff_number")
+      .eq("profile_id", user.id)
+      .maybeSingle();
+    staffNumber = staff?.staff_number ?? null;
+  }
+
+  const isPatient = profile?.role === "patient" && !supporterOnly;
+  const idLabel = isPatient ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
+  const idValue = isPatient ? profile?.patient_number : staffNumber;
+  // Patients keep their fuller, editable profile section on their own
+  // dashboard (location, emergency contact, wording preference); every other
+  // signed-in account, including a supporter-only login (who gets redirected
+  // straight off plain /patient to /patient/supporting, so this route is
+  // unreachable for them), lands on the shared /account page.
+  const profileHref = isPatient ? "/patient/profile" : "/account";
+
   return (
     <Providers>
       <AppShell
@@ -49,8 +61,11 @@ export default async function DashboardLayout({
         // "Patient" is wrong for somebody who is not one, and it is the first
         // word they see about themselves every time they sign in.
         roleLabel={
-          supporterOnly ? "Supporter" : profile ? (ROLE_LABEL[profile.role] ?? "—") : "—"
+          supporterOnly ? "Supporter" : profile ? (ROLE_DISPLAY_LABEL[profile.role] ?? "—") : "—"
         }
+        idLabel={idLabel}
+        idValue={idValue}
+        profileHref={profileHref}
         navSections={getNavSections(profile?.role, profile?.receives_care)}
         signOutAction={signOut}
       >
