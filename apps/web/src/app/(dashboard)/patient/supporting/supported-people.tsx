@@ -45,6 +45,96 @@ function shortDate(iso: string): string {
   });
 }
 
+function csvCell(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/**
+ * The statement, free: a person supporting several people had to open each
+ * card in turn to see what their money had funded, with nothing to hand to
+ * an accountant or keep for their own records. Everything here — totals,
+ * per-person breakdown, every voucher used — is already shown on this page;
+ * this only reshapes it into one file. Charging for that reshaping, on top
+ * of data the page already gives away, is what the platform's own
+ * No-Hidden-Cost Promise argues against (see the retired sponsor-statement
+ * add-on in 20260805225206_retire_sponsor_statement_addon_ship_free_instead.sql).
+ */
+function buildStatementCsv(people: SupportedPerson[]): string {
+  const totalFunded = people.reduce((sum, p) => sum + p.fundedKobo, 0);
+  const totalUsed = people.reduce((sum, p) => sum + p.usedVouchers.length, 0);
+  const totalReady = people.reduce((sum, p) => sum + p.readyVouchers.length, 0);
+
+  const lines: string[] = [
+    "Tarragon Health — statement of care you have funded",
+    `Generated,${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+    "",
+    "Summary",
+    `People you support,${people.length}`,
+    `Total funded (NGN),${koboToNaira(totalFunded)}`,
+    `Vouchers used,${totalUsed}`,
+    `Vouchers paid for and waiting,${totalReady}`,
+    "",
+    "Detail",
+    ["Person", "Voucher number", "What it's for", "Status", "Value (NGN)", "Paid so far (NGN)", "Used on", "Bought by you"]
+      .map(csvCell)
+      .join(","),
+  ];
+
+  for (const person of people) {
+    const name = person.fullName ?? "Unnamed";
+    const entries = [
+      ...person.usedVouchers.map((v) => ({ v, status: "Used" })),
+      ...person.readyVouchers.map((v) => ({ v, status: "Ready" })),
+      ...person.savingVouchers.map((v) => ({ v, status: "Still paying" })),
+    ];
+
+    if (entries.length === 0) {
+      lines.push([name, "", "No vouchers yet", "", "", "", "", ""].map(csvCell).join(","));
+      continue;
+    }
+
+    for (const { v, status } of entries) {
+      lines.push(
+        [
+          name,
+          v.voucherNumber,
+          v.label,
+          status,
+          String(koboToNaira(v.faceValueKobo)),
+          String(koboToNaira(v.amountPaidKobo)),
+          v.redeemedAt ? shortDate(v.redeemedAt) : "",
+          v.boughtByMe ? "Yes" : "No",
+        ]
+          .map(csvCell)
+          .join(","),
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function DownloadStatementButton({ people }: { people: SupportedPerson[] }) {
+  function download() {
+    const csv = buildStatementCsv(people);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `tarragon-statement-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <Button type="button" variant="outline" onClick={download}>
+      Download statement
+    </Button>
+  );
+}
+
 /**
  * Everyone this person supports, and what their money actually did.
  *
@@ -100,25 +190,33 @@ export function SupportedPeople() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardContent className="grid gap-4 py-6 sm:grid-cols-3">
-          <div>
-            <p className="font-heading text-2xl font-semibold text-charcoal-ink">
-              {people.length}
-            </p>
-            <p className="text-sm text-charcoal-ink/60">
-              {people.length === 1 ? "person you support" : "people you support"}
-            </p>
+        <CardContent className="space-y-4 py-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="font-heading text-2xl font-semibold text-charcoal-ink">
+                {people.length}
+              </p>
+              <p className="text-sm text-charcoal-ink/60">
+                {people.length === 1 ? "person you support" : "people you support"}
+              </p>
+            </div>
+            <div>
+              <p className="font-heading text-2xl font-semibold text-brand-green">{totalUsed}</p>
+              <p className="text-sm text-charcoal-ink/60">
+                {totalUsed === 1 ? "check has been used" : "checks have been used"}
+                {totalFunded > 0 ? ` of ${naira(totalFunded)} you have paid` : ""}
+              </p>
+            </div>
+            <div>
+              <p className="font-heading text-2xl font-semibold text-charcoal-ink">{totalReady}</p>
+              <p className="text-sm text-charcoal-ink/60">paid for and waiting to be used</p>
+            </div>
           </div>
-          <div>
-            <p className="font-heading text-2xl font-semibold text-brand-green">{totalUsed}</p>
-            <p className="text-sm text-charcoal-ink/60">
-              {totalUsed === 1 ? "check has been used" : "checks have been used"}
-              {totalFunded > 0 ? ` of ${naira(totalFunded)} you have paid` : ""}
+          <div className="flex items-center justify-between gap-3 border-t border-charcoal-ink/10 pt-4">
+            <p className="text-xs text-charcoal-ink/50">
+              A statement of everyone you fund and what it paid for, in one file.
             </p>
-          </div>
-          <div>
-            <p className="font-heading text-2xl font-semibold text-charcoal-ink">{totalReady}</p>
-            <p className="text-sm text-charcoal-ink/60">paid for and waiting to be used</p>
+            <DownloadStatementButton people={people} />
           </div>
         </CardContent>
       </Card>

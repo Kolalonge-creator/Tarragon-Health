@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import type { Json } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { hasPermission, type PermissionKey } from "@/lib/auth/permissions";
+import { hasPermission, hasAnyPermission, type PermissionKey } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { provisionMemberSchema, USER_ROLES } from "@/lib/validation/members";
@@ -87,6 +88,47 @@ export async function provisionMemberAction(
 
   revalidatePath("/admin/settings/members");
   return { message: `Login created for ${input.email} (${input.role}).` };
+}
+
+const createInstitutionOrgSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  type: z.enum(["corporate", "hmo"]),
+});
+
+/**
+ * Create a new corporate (employer) or HMO organisation. Belt-and-braces
+ * permission check here, same discipline as protocol-api's
+ * createProtocolPartnerAction — the real gate is inside
+ * admin_create_institution_org itself (20260805234029), so a caller who
+ * fails this early check still can't have gotten anywhere via a bypassed
+ * client. Whoever creates the org should provision its first
+ * corporate_admin/hmo_admin login with the "Create a login" form above,
+ * now that the org exists to attach it to.
+ */
+export async function createInstitutionOrgAction(
+  _prev: MemberActionState,
+  formData: FormData
+): Promise<MemberActionState> {
+  const allowed = await hasAnyPermission("orgs.manage", "orgs.corporate.manage", "orgs.hmo.manage");
+  if (!allowed) return { error: "You don't have access to do that" };
+
+  const parsed = createInstitutionOrgSchema.safeParse({
+    name: formData.get("name"),
+    type: formData.get("type"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid details" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_create_institution_org", {
+    p_name: parsed.data.name,
+    p_type: parsed.data.type,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/settings/members");
+  return { message: `${parsed.data.type === "hmo" ? "HMO" : "Employer"} organisation "${parsed.data.name}" created.` };
 }
 
 /**

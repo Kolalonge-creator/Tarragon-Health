@@ -120,6 +120,12 @@ export default async function MembersPage() {
         customRoles={roleRows}
         organisations={(orgs ?? []) as OrgRow[]}
         canProvision={isSuperAdmin || keys.has("users.provision")}
+        canManageOrgs={
+          isSuperAdmin ||
+          keys.has("orgs.manage") ||
+          keys.has("orgs.corporate.manage") ||
+          keys.has("orgs.hmo.manage")
+        }
         canAssignRoles={isSuperAdmin || keys.has("users.roles.assign")}
         canGrant={isSuperAdmin || keys.has("users.permissions.grant")}
         canManageRoles={isSuperAdmin || keys.has("roles.manage")}
