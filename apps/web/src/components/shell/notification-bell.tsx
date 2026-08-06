@@ -26,7 +26,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
         count > 1
           ? `${count} new lessons ready — starting with "${title}"`
           : `New lesson ready: "${title}"`,
-      href: "/patient#prevention",
+      href: "/patient/prevention",
     };
   }
   if (n.template === "new_care_message") {
@@ -51,13 +51,13 @@ function describe(n: InAppNotification): { text: string; href: string } {
   if (n.template === "health_reset_complete") {
     return {
       text: "Your 90-Day Health Reset is complete — claim your free trial",
-      href: "/patient#overview",
+      href: "/patient",
     };
   }
   if (n.template === "video_visit_alternate_proposed") {
     return {
       text: "Your doctor offered a different time for your video visit — pick one",
-      href: "/patient#care",
+      href: "/patient/care",
     };
   }
   if (n.template === "care_access_view_request" || n.template === "care_access_manage_request") {
@@ -80,7 +80,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     const drug = String(payload.drug_name ?? "your medication");
     return {
       text: `Refill reminder: ${drug} is due soon`,
-      href: "/patient#medications",
+      href: "/patient/medications",
     };
   }
   if (n.template === "medication_adherence_checkin") {
@@ -94,7 +94,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     const checkinType = String(payload.checkin_type ?? "");
     return {
       text: checkinCopy[checkinType] ?? `A check-in for ${drug} is due`,
-      href: "/patient#medications",
+      href: "/patient/medications",
     };
   }
   if (n.template === "voucher_gift_used") {
@@ -114,7 +114,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     const on = String(payload.expires_on ?? "soon");
     return {
       text: `${label} runs out on ${on}. Use it, or ask us and we will extend it.`,
-      href: "/patient#care",
+      href: "/patient/care",
     };
   }
   if (n.template === "reward_voucher_issued") {
@@ -122,7 +122,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     const value = String(payload.value_naira ?? "");
     return {
       text: value ? `${label}: a ₦${value} voucher toward your care` : `${label} added to your account`,
-      href: "/patient#care",
+      href: "/patient/care",
     };
   }
   if (n.template === "sponsor_monthly_report") {

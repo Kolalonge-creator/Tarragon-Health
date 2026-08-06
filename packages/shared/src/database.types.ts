@@ -10098,6 +10098,7 @@ export type Database = {
           receives_care: boolean
           role: Database["public"]["Enums"]["user_role"]
           sex: Database["public"]["Enums"]["sex"] | null
+          staff_number: string | null
           state: string | null
           updated_at: string
         }
@@ -10137,6 +10138,7 @@ export type Database = {
           receives_care?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
+          staff_number?: string | null
           state?: string | null
           updated_at?: string
         }
@@ -10176,6 +10178,7 @@ export type Database = {
           receives_care?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
+          staff_number?: string | null
           state?: string | null
           updated_at?: string
         }

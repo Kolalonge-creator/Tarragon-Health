@@ -1,8 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** A labelled band of dashboard cards. Pairs with SectionNav: the `id` is the
- * anchor target, `scroll-mt` clears the sticky topbar + chip row. */
+/** A labelled band of dashboard cards — one per real dashboard route, giving
+ * each a consistent icon/title/description header. `scroll-mt` clears the
+ * sticky topbar for any in-page anchor a page still wants (e.g. the
+ * Prevention hub's own #screenings/#vaccinations stage links). */
 export function DashboardSection({
   id,
   title,

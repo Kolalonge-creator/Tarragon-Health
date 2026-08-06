@@ -52,7 +52,7 @@ export function DependantsList() {
                     </p>
                   </div>
                   <Button asChild size="sm" variant="outline">
-                    <Link href="/patient#prevention">Vaccination card</Link>
+                    <Link href="/patient/prevention">Vaccination card</Link>
                   </Button>
                 </li>
               );
