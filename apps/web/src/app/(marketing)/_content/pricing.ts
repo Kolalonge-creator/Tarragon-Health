@@ -234,7 +234,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦10,000",
     pricePeriod: "per month",
     priceSecondary: "or ₦100,000/year (2 months free)",
-    description: "Real clinical monitoring begins here, for one condition — and, new alongside this price, your full preventive screening calendar comes with it too, not just chronic-condition tracking.",
+    description: "Real clinical monitoring begins here, for one condition. New alongside this price: your full preventive screening calendar comes with it too, not just chronic-condition tracking.",
     highlight: true,
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
