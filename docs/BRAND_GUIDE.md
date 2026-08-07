@@ -47,6 +47,35 @@ Shield silhouette (protection, continuous monitoring) + sprout crown (two leafle
 - Backgrounds: white, Warm Ivory, Soft Sage, or Deep Navy only
 - **Never:** stretch, skew, rotate, add shadows, place over busy images, recolour the shield outside the palette (no blue, no red medical-cross styling)
 
+**Asset files and which backgrounds each one actually works on** (checked 2026-08-07 by compositing the real files over every approved ground):
+
+| File | White | Warm Ivory | Soft Sage | Deep Navy |
+|---|---|---|---|---|
+| `guard-leaf-lockup.png`, `guard-leaf-mark.png` (as delivered, RGB, no alpha) | ✅ | ❌ white box | ❌ white box | ❌ white box |
+| `guard-leaf-lockup-transparent.png`, `guard-leaf-mark-transparent.png` | ✅ | ✅ | ✅ | mark ✅ / lockup ❌ |
+
+The delivered PNGs have **no alpha channel** — an opaque white background, not
+transparency — so on any ground but white they render as a white rectangle.
+`apps/web/scripts/make-transparent-brand-assets.py` produces transparent copies
+alongside them: it flood-fills the paper inward from the image border, which
+removes the background while leaving the checkmark vein intact (the vein is
+itself near-white, so a plain colour key punches a checkmark-shaped hole through
+the mark — do not "fix" this with a colour key). No pixel of the artwork changes
+colour. Use the transparent copies anywhere we control the background; the
+opaque ones stay in structured data and social cards, where the consumer
+composites onto a background we do not control.
+
+⚠️ **OPEN GAP — Deep Navy is listed as an approved background but no asset
+satisfies it.** Transparency fixes the white box, but on navy the wordmark is
+still unreadable: "Tarragon" is set in Charcoal Ink `#171717` against `#12324B`,
+and the grey tagline fails with it. The mark alone is fine on navy and is
+already permitted standalone. Closing this needs a **reversed lockup**, and that
+is a design decision, not a conversion — someone has to choose what "Tarragon"
+becomes (Warm Ivory? pure white?), whether "Health" shifts to a lighter green
+for contrast, and whether the Sprout Gold leaflet holds up. Until that exists,
+**do not put the full lockup on Deep Navy**; use the mark plus a typeset
+wordmark instead.
+
 ## 5. Colour
 
 ### Brand palette

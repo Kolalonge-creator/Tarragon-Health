@@ -20,7 +20,14 @@ export const SITE = {
   tagline: "Care that stays with you.",
   description:
     "Health monitoring for chronic disease, preventive health, and family care coordination in Nigeria. Track blood pressure, blood sugar, medication, labs, and preventive checks in one secure platform, with clinical review and escalation when closer care is needed.",
-  /** Guard Leaf lockup, used for the Organization logo in structured data. */
+  /**
+   * Guard Leaf lockup, used for the Organization logo in structured data.
+   *
+   * Deliberately the OPAQUE asset, not the transparent one. Search and social
+   * surfaces composite a logo onto backgrounds we do not control and often get
+   * transparency wrong; a solid white ground is the safe, conventional choice
+   * here. Everywhere we control the background, the transparent copy is used.
+   */
   logoPath: "/brand/guard-leaf-lockup.png",
   locale: "en_NG",
   founder: "Dr Kola Longe",

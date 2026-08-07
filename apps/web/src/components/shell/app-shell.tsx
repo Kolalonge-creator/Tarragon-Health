@@ -81,11 +81,17 @@ function BrandLockup({ homeHref }: { homeHref: string }) {
   return (
     <Link href={homeHref} className="flex items-center gap-2.5 px-5 py-5">
       <Image
-        src="/brand/guard-leaf-mark.png"
+        // Transparent copy: identical artwork, no opaque white square, so the
+        // mark stays correct if this surface ever moves off pure white (the
+        // app background is Warm Ivory and the mobile header is translucent).
+        src="/brand/guard-leaf-mark-transparent.png"
         alt=""
-        width={28}
-        height={28}
-        className="h-7 w-7"
+        // 32px, not 28: docs/BRAND_GUIDE.md §4 sets 32px as the minimum for the
+        // mark alone because the checkmark vein stops reading below it, and the
+        // vein is the part of the Guard Leaf that carries the meaning.
+        width={32}
+        height={32}
+        className="h-8 w-8"
         priority
       />
       <span className="font-heading text-lg font-semibold tracking-tight text-deep-forest">
