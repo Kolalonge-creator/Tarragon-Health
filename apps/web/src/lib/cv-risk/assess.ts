@@ -9,8 +9,12 @@ import {
   type CvRiskConfig,
   type RiskLevel,
 } from "@/lib/rules/cv-risk";
+import { estimateCvdRiskBand, type CvdRiskResult } from "@/lib/rules/cvd-risk-afro";
 
 type Client = SupabaseClient<Database>;
+
+/** Same factor score2.py uses (386.65 g/mol cholesterol, expressed per-decilitre). */
+const MG_DL_PER_MMOL_L_CHOLESTEROL = 38.67;
 
 /** Drug-name fragments that count as lipid-lowering therapy. */
 const LIPID_LOWERING_PATTERNS = [
@@ -63,10 +67,11 @@ export async function loadCvRiskAssessment(
     .maybeSingle();
   if (!patient) return null;
 
-  const [ldls, nonHdls, riskRow, carePlans, meds, cvProfileRow, configRow] =
+  const [ldls, nonHdls, totalCholesterols, riskRow, carePlans, meds, cvProfileRow, configRow, latestBp, smokingResponse] =
     await Promise.all([
       latestAnalyte(supabase, patientId, "ldl_cholesterol", 1),
       latestAnalyte(supabase, patientId, "non_hdl_cholesterol", 2),
+      latestAnalyte(supabase, patientId, "total_cholesterol", 1),
       supabase
         .from("patient_risk_scores")
         .select("score, risk_level")
@@ -98,6 +103,22 @@ export async function loadCvRiskAssessment(
         .eq("organisation_id", organisationId)
         .eq("is_active", true)
         .maybeSingle(),
+      supabase
+        .from("vitals_readings")
+        .select("systolic")
+        .eq("patient_id", patientId)
+        .eq("vital_type", "blood_pressure")
+        .order("taken_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("risk_assessment_responses")
+        .select("response")
+        .eq("profile_id", patientId)
+        .eq("question_key", "smoking_status")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   const diabetes = (carePlans.data ?? []).some((c) => c.condition === "diabetes");
@@ -109,10 +130,33 @@ export async function loadCvRiskAssessment(
   const config = signedConfig ?? PROVISIONAL_CV_RISK_CONFIG;
   const configSigned = Boolean(configRow.data?.is_active && signedConfig);
 
-  return assessCvRisk(
+  const age = patient.date_of_birth ? ageFromDateOfBirth(patient.date_of_birth) : null;
+  const sex = patient.sex === "male" || patient.sex === "female" ? patient.sex : null;
+
+  // WHO/ISH Africa-region lab-optional fallback: only surfaced when no real
+  // SCORE2 result exists yet for this patient (score2.py needs a lipid panel
+  // and is not itself validated for this population either — see
+  // PROVISIONAL_CV_RISK_CONFIG.population_note). Never overrides a real
+  // SCORE2 result, and never written to patient_risk_scores — this is
+  // point-of-care decision support the doctor confirms, not a stored score.
+  let afroEstimate: CvdRiskResult | null = null;
+  if (!riskRow.data) {
+    const estimate = estimateCvdRiskBand({
+      age,
+      sex,
+      smoker: smokingResponse.data ? smokingResponse.data.response === "current" : null,
+      diabetic: diabetes,
+      systolic: latestBp.data?.systolic ?? null,
+      totalCholesterolMmol:
+        totalCholesterols[0] != null ? totalCholesterols[0] / MG_DL_PER_MMOL_L_CHOLESTEROL : null,
+    });
+    afroEstimate = estimate.band === "insufficient" ? null : estimate;
+  }
+
+  const assessment = assessCvRisk(
     {
-      age: patient.date_of_birth ? ageFromDateOfBirth(patient.date_of_birth) : null,
-      sex: patient.sex === "male" || patient.sex === "female" ? patient.sex : null,
+      age,
+      sex,
       ldlMgDl: ldls[0] ?? null,
       nonHdlMgDl: nonHdls[0] ?? null,
       previousNonHdlMgDl: nonHdls[1] ?? null,
@@ -125,4 +169,6 @@ export async function loadCvRiskAssessment(
     config,
     { configSigned }
   );
+
+  return { ...assessment, afroEstimate };
 }

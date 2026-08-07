@@ -2,8 +2,17 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import type { CvRiskEscalation } from "@/lib/rules/cv-risk";
+import { queueRiskSignalAttentionBestEffort } from "@/lib/notifications/queue-risk-signal-attention";
 
 const ALERT_TITLE_PREFIX = "CV lipid risk";
+
+// The only escalation code that becomes a patient-facing nudge — a rising
+// Non-HDL trend is the one case that matches "your cholesterol has
+// worsened" without putting a raw LDL/Non-HDL number or a statin-eligibility
+// judgement over SMS. very_high_ldl/very_high_non_hdl/
+// untreated_secondary_prevention stay clinician-only: those need a doctor's
+// framing before a patient sees them.
+const PATIENT_FACING_ESCALATION_CODE = "worsening_trend_on_treatment";
 
 function codeTag(code: string): string {
   return `[${code}]`;
@@ -59,5 +68,18 @@ export async function flagCvRiskEscalations(
 
   if (rows.length > 0) {
     await supabase.from("clinician_alerts").insert(rows);
+  }
+
+  const hasNewWorseningTrend = assessment.escalations.some(
+    (e) => e.code === PATIENT_FACING_ESCALATION_CODE && !openCodes.has(e.code)
+  );
+  if (hasNewWorseningTrend) {
+    await queueRiskSignalAttentionBestEffort(
+      patientId,
+      organisationId,
+      "cv_risk_lipid_trend",
+      "Cholesterol",
+      "has moved in the wrong direction since your last check"
+    );
   }
 }

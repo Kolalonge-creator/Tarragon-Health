@@ -202,6 +202,21 @@ describe("typed endpoint helpers", () => {
       morning_systolic_mean: 130,
       morning_diastolic_mean: 82,
       morning_surge_flag: false,
+      sustained: {
+        window_start: "2025-08-01T00:00:00Z",
+        window_end: "2026-01-31T00:00:00Z",
+        months: [
+          { month_start: "2025-08-01", control_rate_percent: null, reading_count: 0 },
+          { month_start: "2025-09-01", control_rate_percent: null, reading_count: 0 },
+          { month_start: "2025-10-01", control_rate_percent: null, reading_count: 0 },
+          { month_start: "2025-11-01", control_rate_percent: null, reading_count: 0 },
+          { month_start: "2025-12-01", control_rate_percent: null, reading_count: 0 },
+          { month_start: "2026-01-01", control_rate_percent: 75, reading_count: 4 },
+        ],
+        months_with_data: 1,
+        months_elevated: 0,
+        sustained_elevation_flag: false,
+      },
     };
     const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(jsonResponse(response));
     const client = createMlClient({ ...CONFIG, fetchImpl });

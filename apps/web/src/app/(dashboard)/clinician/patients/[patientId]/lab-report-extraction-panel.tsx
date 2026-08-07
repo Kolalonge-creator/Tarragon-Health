@@ -8,7 +8,8 @@ import {
   discardLabReportExtraction,
   extractLabReportAction,
 } from "@/lib/lab-reports/extraction-actions";
-import { orientationRange } from "@/lib/lab-reports/analyte-catalogue";
+import { getQualitativeAnalyte } from "@/lib/lab-reports/analyte-catalogue";
+import { interpretReading, type AnalyteStatus } from "@/lib/lab-reports/reference-ranges";
 import type { ExtractedRow } from "@/lib/lab-reports/extract";
 
 export interface ExtractionView {
@@ -29,6 +30,8 @@ interface Props {
   signedUrl: string | null;
   isPdf: boolean;
   patientSex: string | null;
+  /** Needed for the age-banded ranges (PSA) and for eGFR. Null is handled. */
+  patientAgeYears: number | null;
   patientName: string | null;
   extraction: ExtractionView | null;
 }
@@ -38,6 +41,19 @@ const STATUS_COPY: Record<ExtractedRow["status"], { label: string; tone: "amber"
   unknown_unit: { label: "Unit not recognised", tone: "amber" },
   implausible: { label: "Value looks wrong", tone: "red" },
   unmapped: { label: "Not a test we store", tone: "grey" },
+  unreadable_value: { label: "Result wording not recognised", tone: "amber" },
+};
+
+/**
+ * How a classified result is coloured. This is a REVIEW AID on an unconfirmed
+ * draft, never a finding: nothing here is recorded, and recording an abnormal
+ * result stays a separate deliberate act through the screening-result form.
+ */
+const STATUS_TONE: Record<AnalyteStatus, string> = {
+  normal: "text-charcoal-ink/45",
+  borderline: "text-amber-700",
+  abnormal: "text-red-700",
+  critical: "text-red-700 font-semibold",
 };
 
 /**
@@ -57,6 +73,7 @@ export function LabReportExtractionPanel({
   signedUrl,
   isPdf,
   patientSex,
+  patientAgeYears,
   patientName,
   extraction,
 }: Props) {
@@ -67,15 +84,32 @@ export function LabReportExtractionPanel({
   const readyRows = (extraction?.rows ?? []).filter((r) => r.status === "ready");
   const blockedRows = (extraction?.rows ?? []).filter((r) => r.status !== "ready");
 
-  const [selected, setSelected] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(readyRows.map((r) => [r.code as string, true])),
-  );
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(readyRows.map((r) => [r.code as string, String(r.value)])),
-  );
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [values, setValues] = useState<Record<string, string>>({});
   const [reportDate, setReportDate] = useState(
     extraction?.reportDate ?? new Date().toISOString().slice(0, 10),
   );
+
+  // Seed the editable fields from the draft, and RE-seed whenever a different
+  // draft arrives.
+  //
+  // A useState initialiser runs once, on mount. This component mounts before
+  // any draft exists (the "Read this report" state), so seeding there left the
+  // value boxes empty and every row unticked once the draft came back — the
+  // clinician saw a review screen with nothing in it. Adjusting state during
+  // render, keyed on the draft's own id, is React's documented pattern for
+  // "reset state when a prop changes" and re-runs correctly on a re-read.
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if (extraction && extraction.id !== seededFor) {
+    setSeededFor(extraction.id);
+    setSelected(Object.fromEntries(readyRows.map((r) => [r.code as string, true])));
+    setValues(
+      Object.fromEntries(
+        readyRows.map((r) => [r.code as string, String(r.valueText ?? r.value ?? "")]),
+      ),
+    );
+    if (extraction.reportDate) setReportDate(extraction.reportDate);
+  }
 
   function run(action: () => Promise<{ error?: string; message?: string }>) {
     setError(null);
@@ -152,10 +186,24 @@ export function LabReportExtractionPanel({
   const selectedCount = readyRows.filter((r) => selected[r.code as string]).length;
 
   function submit() {
+    // A qualitative result files as text with no unit; a numeric one files with
+    // its canonical unit. The server re-validates both, and the database
+    // constraint refuses a row carrying neither or both.
     const rows = readyRows
       .filter((r) => selected[r.code as string])
-      .map((r) => ({ code: r.code as string, value: Number(values[r.code as string]) }))
-      .filter((r) => Number.isFinite(r.value));
+      .map((r) => {
+        const code = r.code as string;
+        const raw = values[code] ?? "";
+        if (getQualitativeAnalyte(code)) {
+          return raw.trim() ? { code, value_text: raw.trim() } : null;
+        }
+        if (raw.trim() === "") return null;
+        const value = Number(raw);
+        return Number.isFinite(value)
+          ? { code, value, unit: r.canonicalUnit ?? undefined }
+          : null;
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
 
     if (rows.length === 0) {
       setError("Select at least one result to file.");
@@ -229,50 +277,115 @@ export function LabReportExtractionPanel({
             <ul className="space-y-1">
               {readyRows.map((row) => {
                 const code = row.code as string;
-                const range = orientationRange(code, patientSex);
-                const numeric = Number(values[code]);
-                const outside =
-                  range && Number.isFinite(numeric)
-                    ? numeric < range.low || numeric > range.high
-                    : false;
+                const qualitative = getQualitativeAnalyte(code);
+                const raw = values[code] ?? "";
+                // Number("") is 0, and 0 reads as critically low for almost
+                // every analyte. An empty box means "no value yet", never zero.
+                const hasValue = raw.trim() !== "";
+                const numeric = hasValue ? Number(raw) : Number.NaN;
+
+                // Classify what is ON SCREEN, not what the model first read, so
+                // a reviewer correcting a value sees the colour follow their
+                // correction rather than the draft it replaced.
+                const interpretation = qualitative
+                  ? hasValue
+                    ? interpretReading(code, raw, {
+                        sex: patientSex === "male" || patientSex === "female" ? patientSex : null,
+                        ageYears: patientAgeYears,
+                      })
+                    : null
+                  : Number.isFinite(numeric)
+                    ? interpretReading(code, numeric, {
+                        sex: patientSex === "male" || patientSex === "female" ? patientSex : null,
+                        ageYears: patientAgeYears,
+                      })
+                    : null;
+
                 return (
                   <li
                     key={code}
-                    className="flex flex-wrap items-center gap-2 rounded border border-charcoal-ink/10 px-2 py-1.5"
+                    className="rounded border border-charcoal-ink/10 px-2 py-1.5"
                   >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(selected[code])}
-                      onChange={(e) =>
-                        setSelected((s) => ({ ...s, [code]: e.target.checked }))
-                      }
-                      aria-label={`File ${row.label}`}
-                    />
-                    <span className="min-w-[7rem] flex-1 text-xs font-medium text-charcoal-ink">
-                      {row.label}
-                    </span>
-                    <input
-                      type="number"
-                      step="any"
-                      value={values[code] ?? ""}
-                      onChange={(e) => setValues((v) => ({ ...v, [code]: e.target.value }))}
-                      className="w-20 rounded border border-charcoal-ink/20 px-1 py-0.5 text-right text-xs"
-                      aria-label={`${row.label} value`}
-                    />
-                    <span className="w-14 text-xs text-charcoal-ink/60">{row.canonicalUnit}</span>
-                    {outside ? (
-                      <span className="text-[0.65rem] text-amber-700">outside usual</span>
-                    ) : null}
-                    {row.converted ? (
-                      <span
-                        className="text-[0.65rem] text-charcoal-ink/50"
-                        title={`Report printed ${row.value} ${row.unit ?? ""}`}
-                      >
-                        converted
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selected[code])}
+                        onChange={(e) =>
+                          setSelected((s) => ({ ...s, [code]: e.target.checked }))
+                        }
+                        aria-label={`File ${row.label}`}
+                      />
+                      <span className="min-w-[7rem] flex-1 text-xs font-medium text-charcoal-ink">
+                        {row.label}
                       </span>
+
+                      {qualitative ? (
+                        <select
+                          value={raw}
+                          onChange={(e) => setValues((v) => ({ ...v, [code]: e.target.value }))}
+                          className="rounded border border-charcoal-ink/20 px-1 py-0.5 text-xs"
+                          aria-label={`${row.label} result`}
+                        >
+                          {/* The read value first, so an unrecognised wording is
+                              still visible rather than silently replaced. */}
+                          {raw && !qualitative.values.includes(raw) ? (
+                            <option value={raw}>{raw}</option>
+                          ) : null}
+                          {qualitative.values.map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <>
+                          <input
+                            type="number"
+                            step="any"
+                            value={raw}
+                            onChange={(e) => setValues((v) => ({ ...v, [code]: e.target.value }))}
+                            className="w-20 rounded border border-charcoal-ink/20 px-1 py-0.5 text-right text-xs"
+                            aria-label={`${row.label} value`}
+                          />
+                          <span className="w-14 text-xs text-charcoal-ink/60">
+                            {row.canonicalUnit}
+                          </span>
+                        </>
+                      )}
+
+                      {interpretation && interpretation.status !== "normal" ? (
+                        <span className={`text-[0.65rem] ${STATUS_TONE[interpretation.status]}`}>
+                          {interpretation.status}
+                          {interpretation.direction ? ` (${interpretation.direction})` : ""}
+                        </span>
+                      ) : null}
+                      {row.converted ? (
+                        <span
+                          className="text-[0.65rem] text-charcoal-ink/50"
+                          title={`Report printed ${row.value} ${row.unit ?? ""}`}
+                        >
+                          converted
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {/* Quality-control findings. These are deterministic checks
+                        over the reading, not the model grading itself, and they
+                        are the reason to look twice at a specific row. */}
+                    {row.flags?.length ? (
+                      <ul className="mt-1 space-y-0.5 pl-6">
+                        {row.flags.map((flag) => (
+                          <li key={flag.key} className="text-[0.65rem] text-amber-700">
+                            {flag.message}
+                          </li>
+                        ))}
+                      </ul>
                     ) : null}
-                    {row.confidence === "low" ? (
-                      <span className="text-[0.65rem] text-amber-700">unclear print</span>
+
+                    {interpretation?.note ? (
+                      <p className="mt-1 pl-6 text-[0.65rem] text-charcoal-ink/50">
+                        {interpretation.note}
+                      </p>
                     ) : null}
                   </li>
                 );
@@ -289,8 +402,8 @@ export function LabReportExtractionPanel({
               <ul className="mt-1 space-y-0.5">
                 {blockedRows.map((row, i) => (
                   <li key={`${row.reportedLabel}-${i}`}>
-                    {row.reportedLabel}: {row.value} {row.unit ?? ""} —{" "}
-                    {STATUS_COPY[row.status].label}
+                    {row.reportedLabel}: {row.valueText ?? row.value ?? "—"}{" "}
+                    {row.unit ?? ""} — {STATUS_COPY[row.status].label}
                   </li>
                 ))}
               </ul>

@@ -9,6 +9,7 @@ import { requiresEmergencyAuthority } from "@/lib/worklist/priority";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { CaseBriefCard } from "@/components/case-brief-card";
+import { CaseActionsPanel } from "@/components/case-cockpit/case-actions-panel";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { StartVirtualReviewButton } from "./start-virtual-review-button";
@@ -54,7 +55,9 @@ export default async function EscalationDetailPage({
     ? (
         await supabase
           .from("case_briefs")
-          .select("status, summary_text, suggested_action_text, generated_at")
+          .select(
+            "status, summary_text, suggested_action_text, draft_review_note, generated_at, protocol_version:protocol_versions!case_briefs_protocol_version_id_fkey(title, version_number)"
+          )
           .eq("clinician_alert_id", escalation.clinician_alert_id)
           .maybeSingle()
       ).data
@@ -132,19 +135,41 @@ export default async function EscalationDetailPage({
       </Card>
 
       {escalation.clinician_alert_id && (
-        <CaseBriefCard
-          clinicianAlertId={escalation.clinician_alert_id}
-          initialBrief={
-            caseBrief
-              ? {
-                  status: caseBrief.status,
-                  summaryText: caseBrief.summary_text,
-                  suggestedActionText: caseBrief.suggested_action_text,
-                  generatedAt: caseBrief.generated_at,
-                }
-              : null
-          }
-        />
+        <>
+          <CaseBriefCard
+            clinicianAlertId={escalation.clinician_alert_id}
+            initialBrief={
+              caseBrief
+                ? {
+                    status: caseBrief.status,
+                    summaryText: caseBrief.summary_text,
+                    suggestedActionText: caseBrief.suggested_action_text,
+                    draftReviewNote: caseBrief.draft_review_note,
+                    protocolVersion: caseBrief.protocol_version
+                      ? {
+                          title: caseBrief.protocol_version.title,
+                          versionNumber: caseBrief.protocol_version.version_number,
+                        }
+                      : null,
+                    generatedAt: caseBrief.generated_at,
+                  }
+                : null
+            }
+          />
+          {/*
+            Sits directly under the brief and ABOVE the raw patient context
+            below, which is the order a doctor works the case: read the
+            summary, act on what the protocol already implies, then check the
+            actions against the real record before closing. The full patient
+            data stays on the page — the cockpit never replaces it.
+          */}
+          {escalation.patient?.id && (
+            <CaseActionsPanel
+              clinicianAlertId={escalation.clinician_alert_id}
+              patientId={escalation.patient.id}
+            />
+          )}
+        </>
       )}
 
       <ReviewedByDoctor escalationId={escalation.id} />

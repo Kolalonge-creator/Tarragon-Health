@@ -18,6 +18,8 @@
  *     conversation, not an automatic trigger.
  */
 
+import type { CvdRiskResult } from "./cvd-risk-afro";
+
 export interface CvRiskConfig {
   unit: string;
   population_note: string;
@@ -124,6 +126,16 @@ export interface CvRiskAssessment {
   configSigned: boolean;
   populationNote: string;
   rationale: string[];
+  /**
+   * WHO/ISH-style Africa-region lab-optional estimate (`cvd-risk-afro.ts`),
+   * attached only when no SCORE2 result exists yet for this patient — set by
+   * the caller (`loadCvRiskAssessment`), never by this function. Decision
+   * support only: it never feeds `riskCategory`/`statinRecommendation` above,
+   * which stay driven by a real SCORE2 result until one exists. Absent
+   * (undefined) rather than null when the caller doesn't populate it, so
+   * existing callers/tests of `assessCvRisk` are unaffected.
+   */
+  afroEstimate?: CvdRiskResult | null;
 }
 
 function hasPriorEvent(p: CardiovascularProfile): boolean {

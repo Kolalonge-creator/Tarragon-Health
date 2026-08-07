@@ -112,7 +112,7 @@ const TEMPLATE_MAP: Record<
     // vitals section link instead of a fictitious specific type.
     const suggestedType =
       typeof payload.suggested_vital_type === "string" ? payload.suggested_vital_type : null;
-    const path = suggestedType ? `/patient/quick-log/${suggestedType}` : "/patient#vitals";
+    const path = suggestedType ? `/patient/quick-log/${suggestedType}` : "/patient/vitals";
     return {
       metaTemplateName: "vitals_reminder",
       languageCode: "en",
@@ -128,7 +128,7 @@ const TEMPLATE_MAP: Record<
   medication_refill_reminder: (payload) => {
     const drugName = String(payload.drug_name ?? "your medication");
     const refillDate = String(payload.refill_date ?? "soon");
-    const path = "/patient#medications";
+    const path = "/patient/medications";
     return {
       metaTemplateName: "medication_refill_reminder",
       languageCode: "en",
@@ -185,7 +185,7 @@ const TEMPLATE_MAP: Record<
           : type === "missed_doses"
             ? `How many doses of ${drugName} have you missed?`
             : `Time for a quick review of ${drugName}.`;
-    const path = "/patient#medications";
+    const path = "/patient/medications";
     return {
       metaTemplateName: "medication_adherence_checkin",
       languageCode: "en",
@@ -239,6 +239,61 @@ const TEMPLATE_MAP: Record<
       smsText:
         `Hi, your ${vaccineName} is due ${dueDate}. Open the Tarragon Health app to book or ` +
         `log it. — Tarragon Health`,
+    };
+  },
+  // Sent to the patient as a scheduled screening comes due (see
+  // private.queue_screening_reminders). Reminder only — booking/logging a
+  // screening always happens in-app, never over WhatsApp/SMS.
+  screening_due: (payload) => {
+    const screenTypeName = String(payload.screen_type_name ?? "a screening");
+    const dueDate = String(payload.due_date ?? "soon");
+    const path = "/patient/prevention";
+    return {
+      metaTemplateName: "screening_due",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: screenTypeName },
+            { type: "text", text: dueDate },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, your ${screenTypeName} is due ${dueDate}. Open the Tarragon Health app to book it. ` +
+        `— Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  // Sent on a genuine risk-level transition surfaced by a patient_risk_scores
+  // computation — currently BP-control (see assessBpControlBestEffort) and
+  // the CV-risk worsening-lipid-trend escalation (see flagCvRiskEscalations).
+  // Deliberately one shared, generic-voiced template for every such trigger
+  // (matches RiskSignalsCard's own plain-language, non-alarmist copy) rather
+  // than a bespoke Meta template per signal — keeps the still-pending Meta
+  // template-approval backlog from growing with every new risk signal added.
+  // Never carries a raw clinical number; the app is where the detail lives.
+  risk_signal_attention: (payload) => {
+    const label = String(payload.signal_label ?? "Something in your recent readings");
+    const reason = String(payload.reason ?? "has needed some extra attention");
+    const path = "/patient";
+    return {
+      metaTemplateName: "risk_signal_attention",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: label },
+            { type: "text", text: reason },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, ${label} ${reason}. Your care team is aware — open the Tarragon Health app to see ` +
+        `more. — Tarragon Health`,
+      pushUrl: path,
     };
   },
   // Sent to the patient when their care team replies in an in-app message

@@ -48,6 +48,11 @@ export function useLipidProfile(patientId: string) {
       for (const row of data ?? []) {
         const code = row.code as LipidAnalyteCode;
         if (!history[code]) continue;
+        // The column is nullable since non-numeric results (genotype, malaria,
+        // dipsticks) share this table. No lipid code should ever be one, so a
+        // null here is a data fault rather than a shape to handle — skip it
+        // instead of letting Number(null) put a silent zero into a trend.
+        if (row.value === null || row.unit === null) continue;
         const reading: LipidReading = {
           code,
           value: Number(row.value),

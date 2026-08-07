@@ -22,7 +22,7 @@ independent of wall-clock time):
 
 import statistics
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 LAGOS_TZ = ZoneInfo("Africa/Lagos")
@@ -30,6 +30,26 @@ LAGOS_TZ = ZoneInfo("Africa/Lagos")
 CONTROL_WINDOW_DAYS = 30
 DEFAULT_CONTROL_SYSTOLIC = 140.0
 DEFAULT_CONTROL_DIASTOLIC = 90.0
+
+# --- sustained (longitudinal) control assessment ---------------------------
+#
+# CONTROL_WINDOW_DAYS above answers "how has this patient been doing
+# recently" (30 days). It deliberately cannot answer "has this been going on
+# for months" — a single good recent week fully masks a longer pattern in a
+# 30-day rolling window. This second assessment buckets readings into
+# trailing CALENDAR months (Africa/Lagos, matching this module's existing
+# timezone convention) and flags sustained elevation only when there's
+# genuine multi-month evidence of it, not a single wide window a good recent
+# stretch could mask.
+LONG_WINDOW_MONTHS = 6
+# A month's own control rate below this is "elevated" for that month. Same
+# WHO/ISH-referenced "controlled" cutoff the 30-day control rate above uses,
+# applied per-month rather than a second, independent clinical judgement.
+MONTH_ELEVATED_CONTROL_RATE_THRESHOLD = 50.0
+# Require real evidence across the window, not a couple of noisy months, on
+# both sides of the flag.
+MIN_MONTHS_WITH_DATA_FOR_SUSTAINED_FLAG = 4
+MIN_MONTHS_ELEVATED_FOR_SUSTAINED_FLAG = 4
 
 MORNING_HYPERTENSION_SYSTOLIC = 135.0
 MORNING_HYPERTENSION_DIASTOLIC = 85.0
@@ -133,4 +153,112 @@ def assess_bp_control(
         morning_systolic_mean=morning_systolic_mean,
         morning_diastolic_mean=morning_diastolic_mean,
         morning_surge_flag=morning_flag,
+    )
+
+
+@dataclass(frozen=True)
+class MonthlyControl:
+    month_start: date
+    control_rate_percent: float | None
+    reading_count: int
+
+
+@dataclass(frozen=True)
+class SustainedControlAssessment:
+    window_start: datetime
+    window_end: datetime
+    months: list[MonthlyControl]
+    months_with_data: int
+    months_elevated: int
+    # None only when there is no data at all in the 6-month window (distinct
+    # from False, which means there IS data but not enough of it — or not
+    # enough of it elevated — to call the pattern sustained).
+    sustained_elevation_flag: bool | None
+
+
+def _month_start(moment: datetime) -> date:
+    local = moment.astimezone(LAGOS_TZ)
+    return date(local.year, local.month, 1)
+
+
+def _add_months(start: date, months: int) -> date:
+    month_index = start.month - 1 + months
+    year = start.year + month_index // 12
+    month = month_index % 12 + 1
+    return date(year, month, 1)
+
+
+def assess_sustained_control(
+    readings: list[BpReading],
+    *,
+    control_systolic: float = DEFAULT_CONTROL_SYSTOLIC,
+    control_diastolic: float = DEFAULT_CONTROL_DIASTOLIC,
+    as_of: datetime | None = None,
+) -> SustainedControlAssessment:
+    """Trailing LONG_WINDOW_MONTHS calendar-month control breakdown.
+
+    `sustained_elevation_flag` is True only when at least
+    MIN_MONTHS_WITH_DATA_FOR_SUSTAINED_FLAG of the trailing months have any
+    readings at all, AND at least MIN_MONTHS_ELEVATED_FOR_SUSTAINED_FLAG of
+    those months individually had a control rate below
+    MONTH_ELEVATED_CONTROL_RATE_THRESHOLD — "poor control in at least 4 of
+    the last 6 months with data", not a single wide window a good recent
+    stretch could mask.
+    """
+    if not readings:
+        raise ValueError("readings must not be empty")
+
+    reference = as_of if as_of is not None else max(r.taken_at for r in readings)
+    reference_month = _month_start(reference)
+    earliest_month = _add_months(reference_month, -(LONG_WINDOW_MONTHS - 1))
+    window_start = datetime.combine(earliest_month, datetime.min.time(), tzinfo=LAGOS_TZ)
+
+    months: list[MonthlyControl] = []
+    for offset in range(LONG_WINDOW_MONTHS):
+        month_start = _add_months(earliest_month, offset)
+        month_end_exclusive = _add_months(month_start, 1)
+        in_month = [
+            r
+            for r in readings
+            if month_start <= r.taken_at.astimezone(LAGOS_TZ).date() < month_end_exclusive
+            and r.taken_at <= reference
+        ]
+        if in_month:
+            controlled = sum(
+                1
+                for r in in_month
+                if r.systolic < control_systolic and r.diastolic < control_diastolic
+            )
+            control_rate: float | None = round(controlled / len(in_month) * 100, 1)
+        else:
+            control_rate = None
+        months.append(
+            MonthlyControl(
+                month_start=month_start,
+                control_rate_percent=control_rate,
+                reading_count=len(in_month),
+            )
+        )
+
+    months_with_data = sum(1 for m in months if m.reading_count > 0)
+    months_elevated = sum(
+        1
+        for m in months
+        if m.control_rate_percent is not None
+        and m.control_rate_percent < MONTH_ELEVATED_CONTROL_RATE_THRESHOLD
+    )
+    sustained_elevation_flag = (
+        None
+        if months_with_data == 0
+        else months_with_data >= MIN_MONTHS_WITH_DATA_FOR_SUSTAINED_FLAG
+        and months_elevated >= MIN_MONTHS_ELEVATED_FOR_SUSTAINED_FLAG
+    )
+
+    return SustainedControlAssessment(
+        window_start=window_start,
+        window_end=reference,
+        months=months,
+        months_with_data=months_with_data,
+        months_elevated=months_elevated,
+        sustained_elevation_flag=sustained_elevation_flag,
     )
