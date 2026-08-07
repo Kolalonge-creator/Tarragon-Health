@@ -383,9 +383,13 @@ export async function extractLabReport(input: {
       name: "lab_report_extraction",
     });
 
+    // "every result", not "every numeric result": this instruction is the last
+    // thing the model reads and it overrode the system prompt's non-numeric
+    // section, which is why genotype, malaria and blood group were silently
+    // skipped on every report until the corpus harness caught it.
     const instruction = input.contextHint
-      ? `Transcribe every numeric result on this lab report. The order it was booked under was: ${input.contextHint}. Transcribe what is actually on the page regardless — do not force the results to match that panel.`
-      : "Transcribe every numeric result on this lab report.";
+      ? `Transcribe every result on this lab report, numeric and non-numeric alike. The order it was booked under was: ${input.contextHint}. Transcribe what is actually on the page regardless — do not force the results to match that panel.`
+      : "Transcribe every result on this lab report, numeric and non-numeric alike.";
 
     const documentBlock =
       input.mediaType === "application/pdf"

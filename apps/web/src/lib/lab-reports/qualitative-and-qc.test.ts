@@ -126,6 +126,39 @@ describe("white cell and platelet units", () => {
   });
 });
 
+describe("percent units", () => {
+  it("accepts a printed % for every analyte whose canonical unit is percent", () => {
+    // Found by the corpus harness on its first real run: `canonicalUnit:
+    // "percent"` never compared equal to a printed "%", there was no conversion
+    // factor for "%", so EVERY percentage on every report was refused as an
+    // unknown unit — HbA1c included, silently, since this engine shipped. One
+    // synthetic FBC went from 38.5% to 100% recall on this fix alone.
+    for (const [code, value] of [
+      ["hba1c", 6.4],
+      ["haematocrit", 33.6],
+      ["neutrophils_pct", 48],
+      ["lymphocytes_pct", 42],
+      ["eosinophils_pct", 6],
+      ["monocytes_pct", 4],
+    ] as const) {
+      expect(convertToCanonical(code, value, "%")).toEqual({
+        ok: true,
+        value,
+        converted: false,
+      });
+      expect(convertToCanonical(code, value, "percent")).toEqual({
+        ok: true,
+        value,
+        converted: false,
+      });
+    }
+  });
+
+  it("still refuses a unit that genuinely does not belong to the analyte", () => {
+    expect(convertToCanonical("haematocrit", 33.6, "g/dL").ok).toBe(false);
+  });
+});
+
 describe("parsePrintedRange", () => {
   it("reads the range forms real reports print", () => {
     expect(parsePrintedRange("70 - 110")).toEqual({ min: 70, max: 110 });

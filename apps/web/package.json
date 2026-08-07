@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "test:e2e": "jest --config jest.e2e.config.mjs"
+    "test:e2e": "jest --config jest.e2e.config.mjs",
+    "lab-corpus": "tsx --tsconfig tsconfig.scripts.json scripts/run-lab-corpus.ts"
   },
   "dependencies": {
     "@langchain/anthropic": "^0.3.14",
@@ -25,6 +26,7 @@
     "@tarragon/shared": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "heic-convert": "^2.1.0",
     "lucide-react": "^1.23.0",
     "next": "16.2.10",
     "qrcode": "^1.5.4",
@@ -48,6 +50,7 @@
     "jest": "^30.4.2",
     "tailwindcss": "^4",
     "ts-jest": "^29.4.11",
+    "tsx": "^4.23.8",
     "typescript": "^5"
   }
 }

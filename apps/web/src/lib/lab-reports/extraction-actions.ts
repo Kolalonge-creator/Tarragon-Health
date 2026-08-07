@@ -6,8 +6,9 @@ import type { Database, Json } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
-import { extractLabReport, isLabReportExtractionConfigured, type ExtractedRow } from "./extract";
+import { extractLabReport, isLabReportExtractionConfigured } from "./extract";
 import { hintsFromConfirmedRows, mergeHints, type TemplateHints } from "./corpus";
+import { isReadableDocumentType, normaliseForVision } from "./heic";
 import { worstStatusOf, type PatientContext } from "./reference-ranges";
 import { confirmLabReportExtractionSchema } from "@/lib/validation/lab-report-extraction";
 
@@ -115,6 +116,12 @@ export async function runLabReportExtraction(
       "No mime type recorded on the document.",
     );
   }
+  if (!isReadableDocumentType(mimeType)) {
+    return fail(
+      "This file type cannot be read automatically. Enter the results by hand.",
+      `Unsupported media type: ${mimeType}`,
+    );
+  }
   if (!isLabReportExtractionConfigured()) {
     return fail(
       "Automatic reading is not configured on this environment.",
@@ -123,10 +130,25 @@ export async function runLabReportExtraction(
   }
 
   let fileBase64: string;
+  // The media type actually sent to the model, which is not always the one the
+  // document was stored under — see normaliseForVision.
+  let visionMediaType: string = mimeType;
   try {
     const { data: file, error } = await service.storage.from(RESULT_DOC_BUCKET).download(filePath);
     if (error || !file) throw error ?? new Error("Not found in storage");
-    fileBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+
+    // An iPhone photographing a lab report produces HEIC, which the upload path
+    // and the bucket both accept and the vision model cannot read. Converting
+    // here is what stops the commonest patient upload in the country from
+    // failing straight into "type it in by hand". Never throws: a failed
+    // conversion returns the original bytes and falls through to the
+    // unsupported-type path below, exactly as before.
+    const normalised = await normaliseForVision(
+      Buffer.from(await file.arrayBuffer()),
+      mimeType,
+    );
+    fileBase64 = normalised.buffer.toString("base64");
+    visionMediaType = normalised.mediaType;
   } catch (error) {
     console.error("lab-reports: could not download document", error);
     return fail("Could not open the stored report file.", "Download failed.");
@@ -137,7 +159,7 @@ export async function runLabReportExtraction(
   // stay the well-tested path. Hints only enter on the retry below.
   let result = await extractLabReport({
     fileBase64,
-    mediaType: mimeType,
+    mediaType: visionMediaType,
     contextHint: params.contextHint ?? null,
   });
 
@@ -186,7 +208,7 @@ export async function runLabReportExtraction(
   if (needsHelp && hasHints) {
     const retry = await extractLabReport({
       fileBase64,
-      mediaType: mimeType,
+      mediaType: visionMediaType,
       contextHint: params.contextHint ?? null,
       templateHints: storedHints,
     });
@@ -433,6 +455,3 @@ export async function discardLabReportExtraction(
   revalidatePath(`/clinician/patients/${extraction.patient_id}`);
   return { success: true, message: "Draft discarded." };
 }
-
-/** Re-exported so the upload path can type its rows without importing extract.ts. */
-export type { ExtractedRow };
