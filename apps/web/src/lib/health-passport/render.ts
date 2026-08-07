@@ -1,6 +1,6 @@
 import "server-only";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { guardLeafMarkPng } from "./brand-assets";
+import { guardLeafLockupPng } from "./brand-assets";
 import { CREDENTIAL_ALGORITHM } from "./credential";
 import {
   HealthPassportDocument,
@@ -72,7 +72,7 @@ export async function renderPassportPdf(issuance: PassportIssuance): Promise<Buf
       patientName: issuance.subject_name,
       data: snapshot,
       credential,
-      markPng: guardLeafMarkPng(),
+      lockupPng: guardLeafLockupPng(),
     })
   );
 }
@@ -97,7 +97,7 @@ export async function renderUnsignedPassportPdf(
       data,
       documentTitle,
       credential: null,
-      markPng: guardLeafMarkPng(),
+      lockupPng: guardLeafLockupPng(),
     })
   );
 }

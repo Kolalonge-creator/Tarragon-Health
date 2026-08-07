@@ -3,42 +3,61 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 /**
- * The Guard Leaf mark, loaded off disk for PDF rendering.
+ * The brand lockup, loaded off disk for PDF rendering.
+ *
+ * ⚠️ BOTH BRAND PNGs ARE RGB WITH NO ALPHA CHANNEL — a solid white background,
+ * not transparency. That is the single fact that decides this document's
+ * masthead. An earlier draft put the Guard Leaf on a full-bleed Tarragon Green
+ * band and it rendered as a white rectangle sitting on the green, because there
+ * is no alpha to let the green through. The fix is not to key the white out
+ * (the checkmark inside the mark is itself near-white, so a colour key eats it,
+ * and doctoring a brand asset to suit one document is the wrong move anyway) —
+ * it is to give the lockup the light ground it was drawn for. See the masthead
+ * in health-passport-document.tsx.
+ *
+ * The LOCKUP is used rather than the bare mark because it is the real wordmark:
+ * "Tarragon" in near-black, "Health" in Tarragon Green, with the tagline set
+ * beneath. Hand-setting that in Helvetica, as an earlier draft did, produced a
+ * wordmark that was not the brand's.
  *
  * Read as bytes rather than referenced by URL because @react-pdf fetching a URL
  * at render time would make every download depend on the app being able to reach
  * itself over the network — a slow or blocked request would turn a working
  * document into a hung one. Bytes off the filesystem cannot fail that way.
  *
- * Cached for the process lifetime: the file does not change under a running
- * server, and re-reading 64KB on every download is pure waste.
+ * Cached for the process lifetime: the files do not change under a running
+ * server, and re-reading them on every download is pure waste.
  *
- * A missing file degrades to a wordmark-only header rather than an exception.
- * A logo is not what makes this document trustworthy — the signature is — so
- * losing it must never lose the passport.
+ * A missing file degrades to a typeset wordmark rather than an exception. A logo
+ * is not what makes this document trustworthy — the signature is — so losing it
+ * must never lose the passport.
  */
 
-const CANDIDATE_PATHS = [
-  // Normal Next.js server runtime: cwd is apps/web.
-  "public/brand/guard-leaf-mark.png",
-  // Monorepo root, e.g. a script or a test runner started from the top.
-  "apps/web/public/brand/guard-leaf-mark.png",
-];
-
-let cached: Buffer | null | undefined;
-
-export function guardLeafMarkPng(): Buffer | null {
-  if (cached !== undefined) return cached;
-  for (const relative of CANDIDATE_PATHS) {
+function loadBrandPng(filename: string, cache: { value?: Buffer | null }): Buffer | null {
+  if (cache.value !== undefined) return cache.value;
+  const candidates = [
+    // Normal Next.js server runtime: cwd is apps/web.
+    `public/brand/${filename}`,
+    // Monorepo root, e.g. a script or a test runner started from the top.
+    `apps/web/public/brand/${filename}`,
+  ];
+  for (const relative of candidates) {
     try {
-      cached = readFileSync(path.join(process.cwd(), relative));
-      return cached;
+      cache.value = readFileSync(path.join(process.cwd(), relative));
+      return cache.value;
     } catch {
       // try the next candidate
     }
   }
-  cached = null;
-  return cached;
+  cache.value = null;
+  return cache.value;
+}
+
+const lockupCache: { value?: Buffer | null } = {};
+
+/** Guard Leaf + "TarragonHealth" + tagline. The masthead asset. */
+export function guardLeafLockupPng(): Buffer | null {
+  return loadBrandPng("guard-leaf-lockup.png", lockupCache);
 }
 
 /**

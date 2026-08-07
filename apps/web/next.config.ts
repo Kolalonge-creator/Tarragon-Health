@@ -28,14 +28,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // The Guard Leaf mark is read off disk at PDF render time (see
+  // The brand lockup is read off disk at PDF render time (see
   // lib/health-passport/brand-assets.ts), so it must be traced into the
   // serverless bundle — it is never imported, only opened by path, which
-  // tracing cannot infer on its own.
+  // tracing cannot infer on its own. A missing file degrades to a typeset
+  // wordmark, so this is a quality guard rather than a correctness one.
   outputFileTracingIncludes: {
-    "/api/patient/health-passport/pdf": ["./public/brand/guard-leaf-mark.png"],
-    "/api/patient/health-check/report": ["./public/brand/guard-leaf-mark.png"],
-    "/api/patient/quarterly-report/pdf": ["./public/brand/guard-leaf-mark.png"],
+    "/api/patient/health-passport/pdf": ["./public/brand/guard-leaf-lockup.png"],
+    "/api/patient/health-check/report": ["./public/brand/guard-leaf-lockup.png"],
+    "/api/patient/quarterly-report/pdf": ["./public/brand/guard-leaf-lockup.png"],
   },
 };
 

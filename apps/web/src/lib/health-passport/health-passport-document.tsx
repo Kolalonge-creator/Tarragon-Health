@@ -163,31 +163,43 @@ const styles = StyleSheet.create({
   },
   body: { paddingHorizontal: 38 },
 
-  // Masthead — full-bleed green band, the Guard Leaf, the wordmark.
+  // Masthead — light ground, the real brand lockup, a decisive green rule.
+  //
+  // Light rather than a full-bleed green band for one non-negotiable reason: the
+  // brand PNGs have NO ALPHA (see brand-assets.ts). On green, the lockup renders
+  // as a white rectangle. It is drawn for a white ground, so it gets one. The
+  // result is also simply the better document — a solid colour band reads as a
+  // leaflet, and this is a record an immigration officer has to take seriously.
+  // Tarragon Green stays everywhere it carries meaning: the rule below, every
+  // section underline, the verification and attestation panels.
   masthead: {
-    backgroundColor: C.green,
+    backgroundColor: C.paper,
     paddingHorizontal: 38,
     paddingTop: 26,
-    paddingBottom: 22,
+    paddingBottom: 18,
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
   },
-  mastheadLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  mark: { width: 34, height: 34 },
-  wordmark: { fontSize: 15, fontFamily: "Helvetica-Bold", color: "#FFFFFF", letterSpacing: 0.2 },
-  tagline: { fontSize: 7.5, color: "#CFE6DA", marginTop: 2 },
-  docTitle: { fontSize: 19, fontFamily: "Helvetica-Bold", color: "#FFFFFF", textAlign: "right" },
+  lockup: { width: 172, height: 46 },
+  // Fallback when the asset cannot be read: the wordmark typeset in two colours,
+  // the way the real lockup sets it, rather than one flat string.
+  wordmarkDark: { fontSize: 16, fontFamily: "Helvetica-Bold", color: C.ink },
+  wordmarkGreen: { fontSize: 16, fontFamily: "Helvetica-Bold", color: C.green },
+  tagline: { fontSize: 7, color: C.muted, marginTop: 3, letterSpacing: 0.9 },
+  docTitle: { fontSize: 20, fontFamily: "Helvetica-Bold", color: C.navy, textAlign: "right" },
   docKicker: {
-    fontSize: 7.5,
-    color: "#CFE6DA",
+    fontSize: 7,
+    color: C.green,
     textAlign: "right",
-    marginTop: 3,
-    letterSpacing: 1.1,
+    marginTop: 4,
+    letterSpacing: 1.2,
+    fontFamily: "Helvetica-Bold",
   },
-  // The thin gold-of-the-brand rule under the masthead: a deeper green hairline
-  // that reads as intentional finishing rather than a printer artefact.
-  mastheadRule: { height: 3, backgroundColor: C.greenDeep },
+  // A double rule: the brand green, then a navy hairline. Two weights read as
+  // deliberate finishing on an official document where one reads as a border.
+  mastheadRule: { height: 3, backgroundColor: C.green },
+  mastheadHairline: { height: 0.75, backgroundColor: C.navy },
 
   // Subject block
   subjectRow: {
@@ -329,28 +341,47 @@ const styles = StyleSheet.create({
 
 // --------------------------------------------------------------- sub-components
 
-function Masthead({ title, markPng }: { title: string; markPng: Buffer | null }) {
+function Masthead({
+  title,
+  lockupPng,
+  reference,
+}: {
+  title: string;
+  lockupPng: Buffer | null;
+  reference: string | null;
+}) {
   return (
     <View fixed>
       <View style={styles.masthead}>
-        <View style={styles.mastheadLeft}>
-          {markPng && (
-            <Image
-              style={styles.mark}
-              src={{ data: markPng, format: "png" } as unknown as string}
-            />
-          )}
+        {lockupPng ? (
+          <Image
+            style={styles.lockup}
+            src={{ data: lockupPng, format: "png" } as unknown as string}
+          />
+        ) : (
+          // Typeset the wordmark the way the lockup does — "Tarragon" dark,
+          // "Health" green — rather than one flat string, so a missing asset
+          // degrades to something still recognisably the brand.
           <View>
-            <Text style={styles.wordmark}>TarragonHealth</Text>
-            <Text style={styles.tagline}>Care that stays with you.</Text>
+            <Text>
+              <Text style={styles.wordmarkDark}>Tarragon</Text>
+              <Text style={styles.wordmarkGreen}>Health</Text>
+            </Text>
+            <Text style={styles.tagline}>CARE THAT STAYS WITH YOU</Text>
           </View>
-        </View>
+        )}
         <View>
           <Text style={styles.docTitle}>{title}</Text>
-          <Text style={styles.docKicker}>ISSUED IN NIGERIA</Text>
+          {/* The reference, repeated in the masthead of every page. On a
+              document that will be photocopied and stapled into other people's
+              files, the identifier belongs at the top as well as the foot. */}
+          <Text style={styles.docKicker}>
+            {reference ? reference : "ISSUED IN NIGERIA"}
+          </Text>
         </View>
       </View>
       <View style={styles.mastheadRule} />
+      <View style={styles.mastheadHairline} />
     </View>
   );
 }
@@ -492,7 +523,7 @@ export function HealthPassportDocument({
   data,
   documentTitle = "Health Passport",
   credential = null,
-  markPng = null,
+  lockupPng = null,
 }: {
   patientName: string;
   data: HealthPassportData;
@@ -504,7 +535,8 @@ export function HealthPassportDocument({
    */
   documentTitle?: string;
   credential?: PassportCredentialView | null;
-  markPng?: Buffer | null;
+  /** The Guard Leaf lockup PNG. Null degrades to a typeset wordmark. */
+  lockupPng?: Buffer | null;
 }) {
   const periodLabel = `${formatDate(data.periodStart)} to ${formatDate(data.periodEnd)}`;
   const serial = credential?.serial ?? null;
@@ -521,7 +553,7 @@ export function HealthPassportDocument({
 
   return (
     <Document
-      title={`${documentTitle} — ${patientName}${serial ? ` (${serial})` : ""}`}
+      title={`${documentTitle}: ${patientName}${serial ? ` (${serial})` : ""}`}
       author="TarragonHealth"
       subject={
         credential
@@ -536,7 +568,7 @@ export function HealthPassportDocument({
       keywords={credential?.compact ?? undefined}
     >
       <Page size="A4" style={styles.page}>
-        <Masthead title={documentTitle} markPng={markPng} />
+        <Masthead title={documentTitle} lockupPng={lockupPng} reference={serial} />
         <Footer serial={serial} />
 
         <View style={styles.body}>
@@ -650,7 +682,7 @@ export function HealthPassportDocument({
                 value={humanise(s.status)}
                 note={
                   s.resultStatus
-                    ? `Result: ${humanise(s.resultStatus)}${s.resultSummary ? ` — ${s.resultSummary}` : ""}`
+                    ? `Result: ${humanise(s.resultStatus)}${s.resultSummary ? `. ${s.resultSummary}` : ""}`
                     : `Due ${formatDate(s.dueDate)}`
                 }
               />
@@ -703,7 +735,7 @@ export function HealthPassportDocument({
       {/* ------------------------------------------------------- verification page */}
       {credential && (
         <Page size="A4" style={styles.page}>
-          <Masthead title="How to verify" markPng={markPng} />
+          <Masthead title="How to verify" lockupPng={lockupPng} reference={serial} />
           <Footer serial={serial} />
 
           <View style={[styles.body, { paddingTop: 24 }]}>
@@ -773,7 +805,7 @@ export function HealthPassportDocument({
           trustworthy. */}
       {credential && (
         <Page size="A4" style={styles.page}>
-          <Masthead title="Verification appendix" markPng={markPng} />
+          <Masthead title="Verification appendix" lockupPng={lockupPng} reference={serial} />
           <Footer serial={serial} />
 
           <View style={[styles.body, { paddingTop: 24 }]}>
@@ -789,7 +821,7 @@ export function HealthPassportDocument({
             <Text style={styles.para}>
               Verify the signature over the base64url-decoded payload segment exactly as it appears,
               byte for byte. Parsing the JSON and re-serialising it reorders the keys and the check
-              will fail — the signature covers the canonical bytes, not the parsed object.
+              will fail. The signature covers the canonical bytes, not the parsed object.
             </Text>
 
             <View style={styles.kv}>

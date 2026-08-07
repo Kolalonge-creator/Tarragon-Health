@@ -20,17 +20,28 @@ import QRCode from "qrcode";
  *   when it comfortably fits, and its absence costs the document nothing.
  */
 
-/** PNG data URI, because @react-pdf renders raster images more predictably than inline SVG. */
+/**
+ * PNG data URI, because @react-pdf renders raster images more predictably than
+ * inline SVG.
+ *
+ * `background` matters more than it looks. A QR needs a quiet zone, and a PNG
+ * has no transparency to let the panel behind it through, so a white-backed code
+ * dropped onto the tinted verification panel renders as a white tile sitting on
+ * the tint — the same defect the brand lockup had on a green masthead. Painting
+ * the quiet zone in the panel's own colour makes it disappear into the card.
+ * Scannability is untouched: the modules stay Clinical Navy, which is far past
+ * the contrast any reader needs against either background.
+ */
 async function qrPngDataUri(
   value: string,
-  opts: { size: number; ecc: "L" | "M" | "Q" | "H" }
+  opts: { size: number; ecc: "L" | "M" | "Q" | "H"; background: string }
 ): Promise<string | null> {
   try {
     return await QRCode.toDataURL(value, {
       errorCorrectionLevel: opts.ecc,
       margin: 1,
       width: opts.size,
-      color: { dark: "#12324BFF", light: "#FFFFFFFF" },
+      color: { dark: "#12324BFF", light: opts.background },
     });
   } catch {
     // A missing QR is a degraded document, never a broken one — the verify URL
@@ -39,8 +50,11 @@ async function qrPngDataUri(
   }
 }
 
+/** Must match `cardAccent`'s fill in health-passport-document.tsx. */
+const VERIFY_PANEL_TINT = "#E8F2ECFF";
+
 export async function verifyQrPng(verifyUrl: string): Promise<string | null> {
-  return qrPngDataUri(verifyUrl, { size: 480, ecc: "H" });
+  return qrPngDataUri(verifyUrl, { size: 480, ecc: "H", background: VERIFY_PANEL_TINT });
 }
 
 /**
@@ -57,7 +71,7 @@ export async function offlineCredentialQrPng(compact: string): Promise<string | 
   // ECC 'M' rather than 'H': the payload is far larger than a URL, and this is
   // the code scanned deliberately at a desk rather than grabbed off a creased
   // card, so capacity is worth more here than damage tolerance.
-  return qrPngDataUri(compact, { size: 640, ecc: "M" });
+  return qrPngDataUri(compact, { size: 640, ecc: "M", background: "#FFFFFFFF" });
 }
 
 /** Inline SVG for the on-screen (HTML) verification panel. */
