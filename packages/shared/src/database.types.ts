@@ -1831,15 +1831,19 @@ export type Database = {
           generated_at: string
           id: string
           input_snapshot: Json
+          draft_review_note: string | null
           model_id: string
           organisation_id: string
           patient_id: string
+          protocol_slug: string | null
+          protocol_version_id: string | null
           status: Database["public"]["Enums"]["case_brief_status"]
           suggested_action_text: string | null
           summary_text: string | null
         }
         Insert: {
           clinician_alert_id: string
+          draft_review_note?: string | null
           error_message?: string | null
           generated_at?: string
           id?: string
@@ -1847,12 +1851,15 @@ export type Database = {
           model_id: string
           organisation_id: string
           patient_id: string
+          protocol_slug?: string | null
+          protocol_version_id?: string | null
           status: Database["public"]["Enums"]["case_brief_status"]
           suggested_action_text?: string | null
           summary_text?: string | null
         }
         Update: {
           clinician_alert_id?: string
+          draft_review_note?: string | null
           error_message?: string | null
           generated_at?: string
           id?: string
@@ -1860,11 +1867,20 @@ export type Database = {
           model_id?: string
           organisation_id?: string
           patient_id?: string
+          protocol_slug?: string | null
+          protocol_version_id?: string | null
           status?: Database["public"]["Enums"]["case_brief_status"]
           suggested_action_text?: string | null
           summary_text?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "case_briefs_protocol_version_id_fkey"
+            columns: ["protocol_version_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "case_briefs_clinician_alert_id_fkey"
             columns: ["clinician_alert_id"]
@@ -4840,8 +4856,9 @@ export type Database = {
           organisation_id: string
           patient_id: string
           taken_at: string
-          unit: string
-          value: number
+          unit: string | null
+          value: number | null
+          value_text: string | null
         }
         Insert: {
           code: string
@@ -4850,8 +4867,9 @@ export type Database = {
           organisation_id: string
           patient_id: string
           taken_at?: string
-          unit: string
-          value: number
+          unit?: string | null
+          value?: number | null
+          value_text?: string | null
         }
         Update: {
           code?: string
@@ -4860,8 +4878,9 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           taken_at?: string
-          unit?: string
-          value?: number
+          unit?: string | null
+          value?: number | null
+          value_text?: string | null
         }
         Relationships: [
           {
@@ -5048,10 +5067,13 @@ export type Database = {
           confirmed_by: string | null
           confirmed_codes: Json
           created_at: string
+          critical_suspected: boolean
           document_id: string
           error_message: string | null
           id: string
           lab_name: string | null
+          lab_name_key: string | null
+          layout_fingerprint: string | null
           model_id: string | null
           organisation_id: string
           patient_id: string
@@ -5059,6 +5081,7 @@ export type Database = {
           report_date: string | null
           rows: Json
           status: string
+          template_id: string | null
           unreadable_reason: string | null
         }
         Insert: {
@@ -5066,10 +5089,13 @@ export type Database = {
           confirmed_by?: string | null
           confirmed_codes?: Json
           created_at?: string
+          critical_suspected?: boolean
           document_id: string
           error_message?: string | null
           id?: string
           lab_name?: string | null
+          lab_name_key?: string | null
+          layout_fingerprint?: string | null
           model_id?: string | null
           organisation_id: string
           patient_id: string
@@ -5077,6 +5103,7 @@ export type Database = {
           report_date?: string | null
           rows?: Json
           status: string
+          template_id?: string | null
           unreadable_reason?: string | null
         }
         Update: {
@@ -5084,10 +5111,13 @@ export type Database = {
           confirmed_by?: string | null
           confirmed_codes?: Json
           created_at?: string
+          critical_suspected?: boolean
           document_id?: string
           error_message?: string | null
           id?: string
           lab_name?: string | null
+          lab_name_key?: string | null
+          layout_fingerprint?: string | null
           model_id?: string | null
           organisation_id?: string
           patient_id?: string
@@ -5095,6 +5125,7 @@ export type Database = {
           report_date?: string | null
           rows?: Json
           status?: string
+          template_id?: string | null
           unreadable_reason?: string | null
         }
         Relationships: [
@@ -5124,6 +5155,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_report_extractions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "lab_report_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -5178,80 +5216,6 @@ export type Database = {
           {
             foreignKeyName: "lab_providers_license_verified_by_fkey"
             columns: ["license_verified_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      lab_result_extractions: {
-        Row: {
-          confirmed_at: string | null
-          confirmed_by: string | null
-          created_at: string
-          document_id: string
-          error_message: string | null
-          id: string
-          model_id: string | null
-          organisation_id: string
-          patient_id: string
-          proposed: Json
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          confirmed_at?: string | null
-          confirmed_by?: string | null
-          created_at?: string
-          document_id: string
-          error_message?: string | null
-          id?: string
-          model_id?: string | null
-          organisation_id: string
-          patient_id: string
-          proposed?: Json
-          status: string
-          updated_at?: string
-        }
-        Update: {
-          confirmed_at?: string | null
-          confirmed_by?: string | null
-          created_at?: string
-          document_id?: string
-          error_message?: string | null
-          id?: string
-          model_id?: string | null
-          organisation_id?: string
-          patient_id?: string
-          proposed?: Json
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "lab_result_extractions_confirmed_by_fkey"
-            columns: ["confirmed_by"]
-            isOneToOne: false
-            referencedRelation: "clinical_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lab_result_extractions_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: true
-            referencedRelation: "lab_result_documents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lab_result_extractions_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lab_result_extractions_patient_id_fkey"
-            columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -13190,6 +13154,609 @@ export type Database = {
           },
         ]
       }
+      care_access_events: {
+        Row: {
+          actor_profile_id: string | null
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["care_access_event_kind"]
+          metadata: Json
+          occurred_at: string
+          organisation_id: string
+          patient_id: string
+          scope: string | null
+          subject_profile_id: string | null
+        }
+        Insert: {
+          actor_profile_id?: string | null
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["care_access_event_kind"]
+          metadata?: Json
+          occurred_at?: string
+          organisation_id: string
+          patient_id: string
+          scope?: string | null
+          subject_profile_id?: string | null
+        }
+        Update: {
+          actor_profile_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["care_access_event_kind"]
+          metadata?: Json
+          occurred_at?: string
+          organisation_id?: string
+          patient_id?: string
+          scope?: string | null
+          subject_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_access_events_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_access_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_access_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_access_events_subject_profile_id_fkey"
+            columns: ["subject_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_receipt_event_labels: {
+        Row: {
+          activity_label: string | null
+          category: string
+          event_type: Database["public"]["Enums"]["timeline_event_type"]
+        }
+        Insert: {
+          activity_label?: string | null
+          category: string
+          event_type: Database["public"]["Enums"]["timeline_event_type"]
+        }
+        Update: {
+          activity_label?: string | null
+          category?: string
+          event_type?: Database["public"]["Enums"]["timeline_event_type"]
+        }
+        Relationships: []
+      }
+      case_review_actions: {
+        Row: {
+          action_type: Database["public"]["Enums"]["case_review_action_type"]
+          clinician_alert_id: string
+          confirmed_at: string | null
+          confirmed_at_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          confirmed_by: string | null
+          confirmed_by_staff: string | null
+          confirmed_payload: Json | null
+          dismissal_reason: string | null
+          dismissed_at: string | null
+          dismissed_by_staff: string | null
+          engine_version: number
+          id: string
+          organisation_id: string
+          patient_id: string
+          proposed_at: string
+          proposed_payload: Json
+          protocol_version_id: string | null
+          rationale: string
+          required_authority: Database["public"]["Enums"]["case_review_authority"]
+          result_id: string | null
+          result_table: string | null
+          source: string
+          status: Database["public"]["Enums"]["case_review_action_status"]
+        }
+        Insert: {
+          action_type: Database["public"]["Enums"]["case_review_action_type"]
+          clinician_alert_id: string
+          confirmed_at?: string | null
+          confirmed_at_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          confirmed_by?: string | null
+          confirmed_by_staff?: string | null
+          confirmed_payload?: Json | null
+          dismissal_reason?: string | null
+          dismissed_at?: string | null
+          dismissed_by_staff?: string | null
+          engine_version: number
+          id?: string
+          organisation_id: string
+          patient_id: string
+          proposed_at?: string
+          proposed_payload?: Json
+          protocol_version_id?: string | null
+          rationale: string
+          required_authority?: Database["public"]["Enums"]["case_review_authority"]
+          result_id?: string | null
+          result_table?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["case_review_action_status"]
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["case_review_action_type"]
+          clinician_alert_id?: string
+          confirmed_at?: string | null
+          confirmed_at_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          confirmed_by?: string | null
+          confirmed_by_staff?: string | null
+          confirmed_payload?: Json | null
+          dismissal_reason?: string | null
+          dismissed_at?: string | null
+          dismissed_by_staff?: string | null
+          engine_version?: number
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          proposed_at?: string
+          proposed_payload?: Json
+          protocol_version_id?: string | null
+          rationale?: string
+          required_authority?: Database["public"]["Enums"]["case_review_authority"]
+          result_id?: string | null
+          result_table?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["case_review_action_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_review_actions_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_review_actions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_review_actions_confirmed_by_staff_fkey"
+            columns: ["confirmed_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_review_actions_dismissed_by_staff_fkey"
+            columns: ["dismissed_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_review_actions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_review_actions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_review_actions_protocol_version_id_fkey"
+            columns: ["protocol_version_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_passport_attestation_requests: {
+        Row: {
+          created_at: string
+          decline_reason: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          patient_note: string | null
+          purpose: string
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          statement: string | null
+          status: Database["public"]["Enums"]["health_passport_attestation_status"]
+        }
+        Insert: {
+          created_at?: string
+          decline_reason?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          patient_note?: string | null
+          purpose: string
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          statement?: string | null
+          status?: Database["public"]["Enums"]["health_passport_attestation_status"]
+        }
+        Update: {
+          created_at?: string
+          decline_reason?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          patient_note?: string | null
+          purpose?: string
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          statement?: string | null
+          status?: Database["public"]["Enums"]["health_passport_attestation_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_passport_attestation_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_passport_attestation_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_passport_attestation_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_passport_issuances: {
+        Row: {
+          attestation_request_id: string | null
+          attestation_statement: string | null
+          attested_at: string | null
+          attested_by: string | null
+          attesting_credential_number: string | null
+          attesting_credential_type: string | null
+          attesting_doctor_name: string | null
+          content_digest: string | null
+          content_snapshot: Json | null
+          created_at: string
+          expires_at: string
+          id: string
+          issued_at: string
+          last_verified_at: string | null
+          last_verified_on: string | null
+          organisation_id: string
+          patient_id: string
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          serial: string
+          signature: string | null
+          signed_payload: string | null
+          signing_kid: string | null
+          status: Database["public"]["Enums"]["health_passport_status"]
+          subject_dob: string | null
+          subject_name: string
+          subject_patient_number: string | null
+          verification_count: number
+        }
+        Insert: {
+          attestation_request_id?: string | null
+          attestation_statement?: string | null
+          attested_at?: string | null
+          attested_by?: string | null
+          attesting_credential_number?: string | null
+          attesting_credential_type?: string | null
+          attesting_doctor_name?: string | null
+          content_digest?: string | null
+          content_snapshot?: Json | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          last_verified_at?: string | null
+          last_verified_on?: string | null
+          organisation_id: string
+          patient_id: string
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          serial: string
+          signature?: string | null
+          signed_payload?: string | null
+          signing_kid?: string | null
+          status?: Database["public"]["Enums"]["health_passport_status"]
+          subject_dob?: string | null
+          subject_name: string
+          subject_patient_number?: string | null
+          verification_count?: number
+        }
+        Update: {
+          attestation_request_id?: string | null
+          attestation_statement?: string | null
+          attested_at?: string | null
+          attested_by?: string | null
+          attesting_credential_number?: string | null
+          attesting_credential_type?: string | null
+          attesting_doctor_name?: string | null
+          content_digest?: string | null
+          content_snapshot?: Json | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          last_verified_at?: string | null
+          last_verified_on?: string | null
+          organisation_id?: string
+          patient_id?: string
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          serial?: string
+          signature?: string | null
+          signed_payload?: string | null
+          signing_kid?: string | null
+          status?: Database["public"]["Enums"]["health_passport_status"]
+          subject_dob?: string | null
+          subject_name?: string
+          subject_patient_number?: string | null
+          verification_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_passport_issuances_attestation_request_id_fkey"
+            columns: ["attestation_request_id"]
+            isOneToOne: false
+            referencedRelation: "health_passport_attestation_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_passport_issuances_attested_by_fkey"
+            columns: ["attested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_passport_issuances_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_passport_issuances_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_passport_issuances_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_passport_issuances_signing_kid_fkey"
+            columns: ["signing_kid"]
+            isOneToOne: false
+            referencedRelation: "passport_signing_keys"
+            referencedColumns: ["kid"]
+          },
+        ]
+      }
+      health_passport_verifications: {
+        Row: {
+          id: string
+          identity_confirmed: boolean
+          issuance_id: string
+          verified_at: string
+        }
+        Insert: {
+          id?: string
+          identity_confirmed?: boolean
+          issuance_id: string
+          verified_at?: string
+        }
+        Update: {
+          id?: string
+          identity_confirmed?: boolean
+          issuance_id?: string
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_passport_verifications_issuance_id_fkey"
+            columns: ["issuance_id"]
+            isOneToOne: false
+            referencedRelation: "health_passport_issuances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_extraction_corrections: {
+        Row: {
+          code: string
+          confirmed_value: number | null
+          confirmed_value_text: string | null
+          created_at: string
+          extraction_id: string
+          id: string
+          model_confidence: string | null
+          organisation_id: string
+          outcome: string
+          printed_label: string | null
+          printed_range: string | null
+          printed_unit: string | null
+          proposed_value: number | null
+          proposed_value_text: string | null
+          template_id: string | null
+        }
+        Insert: {
+          code: string
+          confirmed_value?: number | null
+          confirmed_value_text?: string | null
+          created_at?: string
+          extraction_id: string
+          id?: string
+          model_confidence?: string | null
+          organisation_id: string
+          outcome: string
+          printed_label?: string | null
+          printed_range?: string | null
+          printed_unit?: string | null
+          proposed_value?: number | null
+          proposed_value_text?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          code?: string
+          confirmed_value?: number | null
+          confirmed_value_text?: string | null
+          created_at?: string
+          extraction_id?: string
+          id?: string
+          model_confidence?: string | null
+          organisation_id?: string
+          outcome?: string
+          printed_label?: string | null
+          printed_range?: string | null
+          printed_unit?: string | null
+          proposed_value?: number | null
+          proposed_value_text?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_extraction_corrections_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "lab_report_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_extraction_corrections_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_extraction_corrections_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "lab_report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_report_templates: {
+        Row: {
+          created_at: string
+          documents_seen: number
+          first_seen_at: string
+          hints: Json
+          id: string
+          lab_name: string
+          lab_name_key: string
+          last_seen_at: string
+          layout_fingerprint: string
+          readings_accepted: number
+          readings_corrected: number
+          readings_proposed: number
+          readings_rejected: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          documents_seen?: number
+          first_seen_at?: string
+          hints?: Json
+          id?: string
+          lab_name: string
+          lab_name_key: string
+          last_seen_at?: string
+          layout_fingerprint: string
+          readings_accepted?: number
+          readings_corrected?: number
+          readings_proposed?: number
+          readings_rejected?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          documents_seen?: number
+          first_seen_at?: string
+          hints?: Json
+          id?: string
+          lab_name?: string
+          lab_name_key?: string
+          last_seen_at?: string
+          layout_fingerprint?: string
+          readings_accepted?: number
+          readings_corrected?: number
+          readings_proposed?: number
+          readings_rejected?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      passport_signing_keys: {
+        Row: {
+          activated_at: string | null
+          algorithm: string
+          created_at: string
+          kid: string
+          public_key_spki: string
+          retired_at: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          algorithm?: string
+          created_at?: string
+          kid: string
+          public_key_spki: string
+          retired_at?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          algorithm?: string
+          created_at?: string
+          kid?: string
+          public_key_spki?: string
+          retired_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       diabetes_quality_metrics: {
@@ -13436,10 +14003,6 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
-      confirm_lab_result_extraction: {
-        Args: { p_extraction_id: string; p_readings: Json }
-        Returns: undefined
-      }
       close_masked_call: {
         Args: { p_reason?: string | null; p_session_id: string }
         Returns: undefined
@@ -14132,7 +14695,85 @@ export type Database = {
         Args: { p_enrolment_id: string }
         Returns: Json
       }
-    }
+      attest_health_passport_request: {
+        Args: { p_request_id: string; p_statement?: string }
+        Returns: string
+      }
+      care_receipt: {
+        Args: { p_beneficiary: string; p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      confirm_lab_report_extraction: {
+        Args: {
+          p_extraction_id: string
+          p_readings: Json
+          p_report_date: string
+        }
+        Returns: number
+      }
+      decline_health_passport_attestation: {
+        Args: { p_reason: string; p_request_id: string }
+        Returns: undefined
+      }
+      health_passport_by_serial: {
+        Args: { p_dob?: string; p_serial: string }
+        Returns: Json
+      }
+      mint_health_passport: {
+        Args: { p_attestation_request_id?: string }
+        Returns: Json
+      }
+      my_care_graph: { Args: never; Returns: Json }
+      raise_lab_extraction_alert: {
+        Args: {
+          p_document_id: string
+          p_level: Database["public"]["Enums"]["alert_level"]
+          p_reason: string
+        }
+        Returns: boolean
+      }
+      register_passport_signing_key: {
+        Args: { p_activate?: boolean; p_kid: string; p_public_key_spki: string }
+        Returns: undefined
+      }
+      request_health_passport_attestation: {
+        Args: { p_note?: string; p_purpose: string }
+        Returns: string
+      }
+      revoke_care_access: { Args: { p_grant_id: string }; Returns: Json }
+      retire_passport_signing_key: {
+        Args: { p_kid: string }
+        Returns: undefined
+      }
+      revoke_health_passport: {
+        Args: { p_issuance_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      seal_health_passport: {
+        Args: {
+          p_content_digest: string
+          p_content_snapshot: Json
+          p_issuance_id: string
+          p_kid: string
+          p_signature: string
+          p_signed_payload: string
+        }
+        Returns: undefined
+      }
+      upsert_lab_report_template: {
+        Args: {
+          p_hints?: Json
+          p_lab_name: string
+          p_lab_name_key: string
+          p_layout_fingerprint: string
+          p_readings_proposed?: number
+        }
+        Returns: string
+      }
+      withdraw_health_passport_attestation: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }    }
     Enums: {
       activity_entry_type: "steps" | "workout"
       alert_level:
@@ -14637,6 +15278,38 @@ export type Database = {
         | "no_show"
         | "cancelled"
       wellness_class_type: "virtual" | "in_person"
+      care_access_event_kind:
+        | "granted"
+        | "permission_changed"
+        | "clinical_access_granted"
+        | "clinical_access_withdrawn"
+        | "revoked"
+        | "record_viewed"
+        | "receipt_generated"
+        | "acted_for"
+      case_review_action_status:
+        | "proposed"
+        | "confirmed"
+        | "modified"
+        | "dismissed"
+        | "superseded"
+      case_review_action_type:
+        | "log_review_note"
+        | "schedule_follow_up"
+        | "confirm_medication_refill"
+        | "order_investigation"
+        | "resolve_case"
+      case_review_authority:
+        | "any_clinical_tier"
+        | "refill_confirmation"
+        | "prescribing"
+        | "emergency_resolution"
+      health_passport_attestation_status:
+        | "pending"
+        | "attested"
+        | "declined"
+        | "withdrawn"
+      health_passport_status: "unsigned" | "valid" | "superseded" | "revoked"
     }
     CompositeTypes: {
       [_ in never]: never

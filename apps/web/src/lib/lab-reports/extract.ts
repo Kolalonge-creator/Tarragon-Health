@@ -5,9 +5,24 @@ import { z } from "zod";
 import {
   convertToCanonical,
   getAnalyte,
+  getQualitativeAnalyte,
   resolveAnalyteCode,
+  resolveQualitativeValue,
   ANALYTE_CATALOGUE,
+  QUALITATIVE_CATALOGUE,
 } from "./analyte-catalogue";
+import {
+  checkAgainstPrintedRange,
+  checkConsistency,
+  parsePrintedRange,
+  type QcFlag,
+} from "./qc";
+import {
+  hintsPromptBlock,
+  labNameKey,
+  layoutFingerprint,
+  type TemplateHints,
+} from "./corpus";
 
 /**
  * Lab-report vision boundary — reads a photo or PDF of ANY lab report and
@@ -39,9 +54,16 @@ const rawRowSchema = z.object({
   reported_label: z.string(),
   /** Our catalogue code when the model recognises it, else null. */
   code: z.string().nullable(),
-  value: z.number(),
+  /** Numeric result. Null on a qualitative row, which carries value_text instead. */
+  value: z.number().nullable().optional(),
+  /**
+   * Non-numeric result exactly as printed ("AS", "+ve", "2+", "NOT SEEN").
+   * Genotype, malaria films, serology and urine dipsticks have no number at
+   * all, and they are among the most-ordered tests in Nigeria.
+   */
+  value_text: z.string().nullable().optional(),
   unit: z.string().nullable(),
-  /** Reference interval as printed, verbatim. Display only — never parsed for logic. */
+  /** Reference interval as printed, verbatim. Cross-checked, never trusted. */
   reported_range: z.string().nullable(),
   confidence: z.enum(["low", "medium", "high"]),
 });
@@ -65,15 +87,27 @@ export type ExtractedRowStatus =
   /** Converted value falls outside the analyte's plausible band — likely a misread. */
   | "implausible"
   /** No catalogue code matched this row label. Surfaced, never guessed. */
-  | "unmapped";
+  | "unmapped"
+  /**
+   * A qualitative analyte whose printed result the catalogue does not recognise
+   * ("Hb A/S variant?", "see comment"). Surfaced for a human to read rather
+   * than mapped to the nearest coded value — a wrong genotype is worse than a
+   * missing one.
+   */
+  | "unreadable_value";
 
 export interface ExtractedRow {
   reportedLabel: string;
   /** Null when status is 'unmapped'. */
   code: string | null;
   label: string | null;
-  /** Value in the analyte's canonical unit when status is 'ready'; else as reported. */
-  value: number;
+  /**
+   * Value in the analyte's canonical unit when status is 'ready'; else as
+   * reported. Null on a qualitative row, which carries `valueText`.
+   */
+  value: number | null;
+  /** Coded qualitative result ("AS", "positive", "2+"), or null. */
+  valueText: string | null;
   unit: string | null;
   canonicalUnit: string | null;
   /** True when the reported unit differed and we converted it. */
@@ -81,6 +115,11 @@ export interface ExtractedRow {
   reportedRange: string | null;
   confidence: "low" | "medium" | "high";
   status: ExtractedRowStatus;
+  /**
+   * Quality-control findings for this row, from qc.ts. Deterministic checks
+   * that run over the model's output — never the model's own self-assessment.
+   */
+  flags: QcFlag[];
 }
 
 export interface LabReportExtraction {
@@ -89,6 +128,10 @@ export interface LabReportExtraction {
   patientNameOnReport: string | null;
   rows: ExtractedRow[];
   unreadableReason: string | null;
+  /** Folded laboratory name, for corpus matching. Null when none was printed. */
+  labNameKey: string | null;
+  /** Stable signature of this report's layout. See corpus.ts. */
+  layoutFingerprint: string | null;
 }
 
 export type LabReportExtractionResult =
@@ -119,6 +162,19 @@ function vocabularyBlock(): string {
   }).join("\n");
 }
 
+/**
+ * The non-numeric vocabulary, listed separately and with its permitted results
+ * spelled out. Genotype, malaria films, serology and urine dipsticks have no
+ * number at all, and between them account for an enormous share of what a
+ * Nigerian laboratory prints.
+ */
+function qualitativeVocabularyBlock(): string {
+  return QUALITATIVE_CATALOGUE.map((a) => {
+    const hints = a.aliases.slice(0, 4).join(", ");
+    return `- ${a.code} (${a.label}; printed as: ${hints}; result is one of: ${a.values.join(", ")})`;
+  }).join("\n");
+}
+
 const SYSTEM_PROMPT = [
   "You transcribe laboratory reports for a Nigerian digital health platform.",
   "",
@@ -126,7 +182,7 @@ const SYSTEM_PROMPT = [
   "A doctor reviews everything you output, side by side with the original document.",
   "",
   "Rules, no exceptions:",
-  "- Transcribe ONLY numeric results that are actually printed on the document.",
+  "- Transcribe ONLY results that are actually printed on the document.",
   "- Never infer, estimate, calculate, or carry over a value that is not printed. If a panel",
   "  lists a test with no result next to it, omit that row entirely.",
   "- Copy the value EXACTLY as printed, including decimal places. Do not round or convert.",
@@ -137,15 +193,26 @@ const SYSTEM_PROMPT = [
   "- `reported_label` must be the row's label copied verbatim from the page, so a human can",
   "  find it again.",
   "- `reported_range` is the reference interval as printed, verbatim, or null. Never invent one.",
+  "  It is checked against the value, so transcribing it accurately matters as much as the result.",
   "- Set confidence to 'low' for any row where the print is unclear, smudged, cut off, or",
   "  handwritten. A low-confidence row is still useful; a wrong high-confidence row is not.",
-  "- Ignore qualitative results (positive/negative/reactive), microscopy descriptions, and free",
-  "  text comments. Numeric analytes only.",
   "- If the document is not a lab report, or is too blurred/cropped to transcribe safely, set",
   "  `unreadable_reason` and return an empty rows list.",
   "",
-  "Vocabulary — the only permitted values for `code`:",
+  "Numeric rows: put the number in `value` and leave `value_text` null.",
+  "Non-numeric rows: leave `value` null and put the result in `value_text`, copied VERBATIM",
+  "as printed — 'AS', '+ve', 'NOT SEEN', '2+', 'Non-reactive'. Do not translate it into a word",
+  "you think is clearer; the exact wording is mapped to a stable code afterwards, and a phrase",
+  "we do not recognise is shown to the doctor rather than guessed at.",
+  "",
+  "Microscopy descriptions, culture reports and free-text comments have no row of their own —",
+  "omit them. A doctor reads those from the document itself.",
+  "",
+  "Numeric vocabulary — permitted values for `code`:",
   vocabularyBlock(),
+  "",
+  "Non-numeric vocabulary — permitted values for `code`, with the results each may take:",
+  qualitativeVocabularyBlock(),
 ].join("\n");
 
 /**
@@ -157,24 +224,64 @@ const SYSTEM_PROMPT = [
 export function validateExtractedRow(raw: z.infer<typeof rawRowSchema>): ExtractedRow {
   // Trust our own alias resolution over the model's `code` when they disagree —
   // the label is verbatim from the page, the code is the model's judgement.
-  const resolved = resolveAnalyteCode(raw.reported_label) ?? (raw.code && getAnalyte(raw.code) ? raw.code : null);
+  const resolved =
+    resolveAnalyteCode(raw.reported_label) ??
+    (raw.code && (getAnalyte(raw.code) || getQualitativeAnalyte(raw.code)) ? raw.code : null);
+
+  const flags: QcFlag[] = [];
+  if (raw.confidence === "low") {
+    flags.push({
+      key: "low_confidence",
+      message: "The print was unclear here. Check this one against the document.",
+    });
+  }
 
   const base = {
     reportedLabel: raw.reported_label,
-    value: raw.value,
+    value: raw.value ?? null,
+    valueText: raw.value_text?.trim() || null,
     unit: raw.unit,
     reportedRange: raw.reported_range,
     confidence: raw.confidence,
     converted: false,
+    flags,
   };
 
   if (!resolved) {
     return { ...base, code: null, label: null, canonicalUnit: null, status: "unmapped" };
   }
 
+  // -- Qualitative: genotype, malaria, serology, urine dipstick --------------
+  const qualitative = getQualitativeAnalyte(resolved);
+  if (qualitative) {
+    const coded = base.valueText ? resolveQualitativeValue(resolved, base.valueText) : null;
+    return {
+      ...base,
+      code: resolved,
+      label: qualitative.label,
+      value: null,
+      valueText: coded ?? base.valueText,
+      canonicalUnit: null,
+      // Unrecognised wording is surfaced for a human, never mapped to the
+      // nearest coded value.
+      status: coded ? "ready" : "unreadable_value",
+    };
+  }
+
   const analyte = getAnalyte(resolved);
   if (!analyte) {
     return { ...base, code: null, label: null, canonicalUnit: null, status: "unmapped" };
+  }
+
+  // A numeric analyte with no number is not a result.
+  if (raw.value === null || raw.value === undefined || !Number.isFinite(raw.value)) {
+    return {
+      ...base,
+      code: resolved,
+      label: analyte.label,
+      canonicalUnit: analyte.canonicalUnit,
+      status: "implausible",
+    };
   }
 
   const conversion = convertToCanonical(resolved, raw.value, raw.unit);
@@ -188,11 +295,30 @@ export function validateExtractedRow(raw: z.infer<typeof rawRowSchema>): Extract
     };
   }
 
+  // Cross-check the converted value against the range the lab printed beside
+  // it, converted through the SAME unit rule so the two are comparable.
+  const printed = parsePrintedRange(raw.reported_range);
+  const convertBound = (bound: number | null): number | null => {
+    if (bound === null) return null;
+    const c = convertToCanonical(resolved, bound, raw.unit);
+    return c.ok ? c.value : null;
+  };
+  flags.push(
+    ...checkAgainstPrintedRange({
+      value: conversion.value,
+      reportedRange: raw.reported_range,
+      canonicalRange: { min: convertBound(printed.min), max: convertBound(printed.max) },
+      plausible: { min: analyte.plausible[0], max: analyte.plausible[1] },
+      label: analyte.label,
+    }),
+  );
+
   return {
     ...base,
     code: resolved,
     label: analyte.label,
     value: conversion.value,
+    valueText: null,
     canonicalUnit: analyte.canonicalUnit,
     converted: conversion.converted,
     status: "ready",
@@ -223,6 +349,12 @@ export async function extractLabReport(input: {
   mediaType: string;
   /** Optional hint shown to the model, e.g. the ordered panel's name. */
   contextHint?: string | null;
+  /**
+   * What the corpus has learned about this laboratory's stationery, when the
+   * document was matched to a known template. Orientation for the model only —
+   * hintsPromptBlock states explicitly that the page wins any disagreement.
+   */
+  templateHints?: TemplateHints | null;
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic;
 }): Promise<LabReportExtractionResult> {
@@ -270,9 +402,14 @@ export async function extractLabReport(input: {
             image_url: { url: `data:${input.mediaType};base64,${input.fileBase64}` },
           };
 
+    // Learned hints are appended to the system prompt rather than replacing any
+    // of it, so a laboratory we have never seen takes the exact path this
+    // engine has always taken.
+    const systemPrompt = SYSTEM_PROMPT + hintsPromptBlock(input.templateHints);
+
     const raw = await structured.invoke(
       [
-        new SystemMessage(SYSTEM_PROMPT),
+        new SystemMessage(systemPrompt),
         new HumanMessage({ content: [{ type: "text", text: instruction }, documentBlock] }),
       ],
       { signal: controller.signal },
@@ -293,14 +430,27 @@ export async function extractLabReport(input: {
       return true;
     });
 
+    // Cross-row consistency runs last, over the deduplicated set, because every
+    // check it makes is about a RELATIONSHIP between rows and would misfire on
+    // a duplicate. It attaches flags in place; it never removes a row.
+    checkConsistency(deduped);
+
+    const labName = parsed.data.lab_name?.trim() || null;
+    const labKey = labNameKey(labName);
+
     return {
       ok: true,
       extraction: {
         reportDate: normaliseReportDate(parsed.data.report_date),
-        labName: parsed.data.lab_name?.trim() || null,
+        labName,
         patientNameOnReport: parsed.data.patient_name?.trim() || null,
         rows: deduped,
         unreadableReason: parsed.data.unreadable_reason?.trim() || null,
+        labNameKey: labKey,
+        layoutFingerprint: layoutFingerprint(
+          labKey,
+          deduped.map((r) => r.reportedLabel),
+        ),
       },
     };
   } catch {

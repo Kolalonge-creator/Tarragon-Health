@@ -46,12 +46,20 @@ export async function loadPatientClinicalContext(
       .order("taken_at", { ascending: true }),
   ]);
 
+  // lab_analyte_readings now also holds NON-NUMERIC results (a genotype, a
+  // malaria film, a urine dipstick), which carry value_text and a null value.
+  // Every engine below is numeric, so those rows are excluded here rather than
+  // coerced — a genotype has no place in a trend line or an eGFR.
+  const numericReadings = (readings ?? []).filter(
+    (r): r is typeof r & { value: number } => r.value !== null,
+  );
+
   const trends = analyseRecord(
-    (readings ?? []).map((r) => ({ code: r.code, value: r.value, takenAt: r.taken_at })),
+    numericReadings.map((r) => ({ code: r.code, value: r.value, takenAt: r.taken_at })),
     { sex: patient?.sex ?? null },
   );
 
-  const { egfr, egfrUnavailableReason } = deriveEgfr(readings ?? [], patient ?? null);
+  const { egfr, egfrUnavailableReason } = deriveEgfr(numericReadings, patient ?? null);
 
   return { egfr, egfrUnavailableReason, trends };
 }
