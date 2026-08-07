@@ -186,12 +186,20 @@ export async function getHealthPassportData(
     vitals,
     bmi: bmi !== null ? Math.round(bmi * 10) / 10 : null,
     screenings,
-    labReadings: (labRes.data ?? []).map((row) => ({
-      code: row.code,
-      value: row.value,
-      unit: row.unit,
-      takenAt: row.taken_at,
-    })),
+    // Numeric readings only: non-numeric results (genotype, malaria film,
+    // urine dipstick) also live in lab_analyte_readings now and carry a null
+    // value with the result in value_text.
+    labReadings: (labRes.data ?? [])
+      .filter(
+        (row): row is typeof row & { value: number; unit: string } =>
+          row.value !== null && row.unit !== null,
+      )
+      .map((row) => ({
+        code: row.code,
+        value: row.value,
+        unit: row.unit,
+        takenAt: row.taken_at,
+      })),
     reviewedEscalations,
     protocolAuthor,
   };

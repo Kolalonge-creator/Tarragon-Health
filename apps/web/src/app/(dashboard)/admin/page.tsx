@@ -1,9 +1,26 @@
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
+
+type AdminTile = {
+  href: string;
+  label: string;
+  blurb: string;
+  icon: LucideIcon;
+  visible: boolean;
+};
+
+type AdminTileGroup = {
+  label: string;
+  tiles: AdminTile[];
+};
+
+function sectionId(label: string) {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
 
 export default async function AdminPage() {
   const profile = await getCurrentProfile();
@@ -21,9 +38,207 @@ export default async function AdminPage() {
       (k) => keys.has(k)
     );
   const canViewAnalytics = isSuperAdmin || keys.has("analytics.view");
-  // A member only sees an operational card if they can actually use that surface.
-  // Cards with no dedicated capability key stay super-admin-only.
+  // A member only sees an operational tile if they can actually use that surface.
+  // Tiles with no dedicated capability key stay super-admin-only.
   const can = (key: string) => isSuperAdmin || keys.has(key);
+
+  const groups: AdminTileGroup[] = [
+    {
+      label: "People & access",
+      tiles: [
+        {
+          href: "/admin/settings/members",
+          label: "Members & access",
+          blurb: "Create logins, assign roles, and delegate specific capabilities",
+          icon: NAV_ICON.members,
+          visible: canManageUsers,
+        },
+        {
+          href: "/admin/settings/clinical-staff",
+          label: "Clinical staff",
+          blurb: "Add and verify every MDCN/NMCN-credentialed doctor",
+          icon: SEMANTIC_ICON.clinicianFollowUp,
+          visible: can("clinical_staff.manage"),
+        },
+        {
+          href: "/admin/leads",
+          label: "Leads",
+          blurb: "Contact form and plan-finder submissions, including B2B",
+          icon: NAV_ICON.inbox,
+          visible: can("leads.manage"),
+        },
+      ],
+    },
+    {
+      label: "Partner network",
+      tiles: [
+        {
+          href: "/admin/settings/partners",
+          label: "Partners",
+          blurb: "Labs, pharmacies, hospitals, specialists, logistics",
+          icon: SEMANTIC_ICON.labs,
+          visible: canManagePartners,
+        },
+        {
+          href: "/admin/facilities",
+          label: "Facility directory",
+          blurb: "Facilities patients can browse and request bookings from",
+          icon: SEMANTIC_ICON.hmo,
+          visible: can("partners.facilities.manage"),
+        },
+        {
+          href: "/admin/settings/logistics-partners",
+          label: "Home visit & delivery",
+          blurb: "Home-collection and delivery partners, by region",
+          icon: SEMANTIC_ICON.logistics,
+          visible: can("partners.home_visit.manage") || can("partners.logistics.manage"),
+        },
+        {
+          href: "/admin/settings/commissions",
+          label: "Commission tracking",
+          blurb: "Partner-network commissions earned, owed, and paid",
+          icon: SEMANTIC_ICON.commission,
+          visible: can("commissions.view"),
+        },
+      ],
+    },
+    {
+      label: "Clinical configuration",
+      tiles: [
+        {
+          href: "/admin/settings/protocols",
+          label: "Clinical protocols",
+          blurb: "The signed record behind every doctor-reviewed claim",
+          icon: SEMANTIC_ICON.preventive,
+          visible: can("protocols.manage"),
+        },
+        {
+          href: "/admin/settings/cv-risk-config",
+          label: "CV-risk configuration",
+          blurb: "Lipid targets and cardiovascular-risk thresholds",
+          icon: SEMANTIC_ICON.bp,
+          visible: can("protocols.manage"),
+        },
+        {
+          href: "/admin/settings/conditions",
+          label: "Chronic conditions",
+          blurb: "The phased chronic-disease catalogue",
+          icon: SEMANTIC_ICON.carePlan,
+          visible: can("conditions.manage"),
+        },
+        {
+          href: "/admin/settings/health-education",
+          label: "Health education library",
+          blurb: "The clinician-reviewed learning catalogue",
+          icon: NAV_ICON.ledger,
+          visible: can("health_education.manage"),
+        },
+        {
+          href: "/admin/settings/vitals-reminders",
+          label: "Vitals reminder cadence",
+          blurb: "How often patients are nudged to log vitals",
+          icon: NAV_ICON.bell,
+          visible: isSuperAdmin,
+        },
+        {
+          href: "/admin/settings/medication-refills",
+          label: "Medication refill reminders",
+          blurb: "Days before a refill date patients get reminded",
+          icon: SEMANTIC_ICON.medication,
+          visible: isSuperAdmin,
+        },
+        {
+          href: "/admin/settings/ai-coach",
+          label: "AI Health Coach",
+          blurb: "Internal testing, ahead of patient release",
+          icon: SEMANTIC_ICON.aiCoach,
+          visible: isSuperAdmin,
+        },
+      ],
+    },
+    {
+      label: "Commerce & bookings",
+      tiles: [
+        {
+          href: "/admin/settings/subscriptions",
+          label: "Subscription plans & add-ons",
+          blurb: "Create, price, and activate plans, synced to Paystack",
+          icon: SEMANTIC_ICON.billing,
+          visible: can("subscriptions.manage"),
+        },
+        {
+          href: "/admin/settings/diaspora-pricing",
+          label: "Diaspora pricing (USD)",
+          blurb: "USD pricing at the admin-set exchange rate",
+          icon: SEMANTIC_ICON.billing,
+          visible: can("subscriptions.manage"),
+        },
+        {
+          href: "/admin/bookings",
+          label: "Booking requests",
+          blurb: "Every facility booking request and its status",
+          icon: SEMANTIC_ICON.booking,
+          visible: isSuperAdmin,
+        },
+      ],
+    },
+    {
+      label: "Platform & growth",
+      tiles: [
+        {
+          href: "/analytics",
+          label: "Platform analytics",
+          blurb: "Business, financial, and population-health intelligence",
+          icon: NAV_ICON.analytics,
+          visible: canViewAnalytics,
+        },
+        {
+          href: "/admin/settings/impact-metrics",
+          label: "Public impact dashboard",
+          blurb: "What shows on the public /impact page",
+          icon: SEMANTIC_ICON.impact,
+          visible: can("impact_metrics.manage"),
+        },
+        {
+          href: "/admin/settings/service-regions",
+          label: "Service regions",
+          blurb: "Turn TarragonHealth on, one state at a time",
+          icon: NAV_ICON.region,
+          visible: can("service_regions.manage"),
+        },
+        {
+          href: "/admin/settings/broadcasts",
+          label: "Broadcasts & announcements",
+          blurb: "Email/WhatsApp/SMS to a targeted audience",
+          icon: NAV_ICON.broadcast,
+          visible: can("broadcasts.send"),
+        },
+        {
+          href: "/admin/settings/integrations",
+          label: "API keys & integrations",
+          blurb: "Inbound partner keys and outbound partner APIs",
+          icon: SEMANTIC_ICON.family,
+          visible: can("integrations.manage"),
+        },
+        {
+          href: "/admin/settings/protocol-api",
+          label: "Protocol API",
+          blurb: "License escalation/risk/protocol machinery to partners",
+          icon: NAV_ICON.settings,
+          visible: can("integrations.manage"),
+        },
+        {
+          href: "/admin/testimonials",
+          label: "Testimonials",
+          blurb: "Review consented patient quotes before they go live",
+          icon: NAV_ICON.review,
+          visible: isSuperAdmin,
+        },
+      ],
+    },
+  ]
+    .map((group) => ({ ...group, tiles: group.tiles.filter((tile) => tile.visible) }))
+    .filter((group) => group.tiles.length > 0);
 
   return (
     <DashboardPlaceholder
@@ -36,573 +251,33 @@ export default async function AdminPage() {
         "Audit trail + NDPR export/erasure tools",
       ]}
     >
-      {canManageUsers && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-              <Link href="/admin/settings/members" className="hover:underline">
-                Members &amp; access
+      {groups.map((group) => (
+        <section key={group.label} aria-labelledby={`${sectionId(group.label)}-heading`} className="space-y-3">
+          <h2
+            id={`${sectionId(group.label)}-heading`}
+            className="font-heading text-sm font-medium text-charcoal-ink/60"
+          >
+            {group.label}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {group.tiles.map((tile) => (
+              <Link
+                key={tile.href}
+                href={tile.href}
+                title={tile.blurb}
+                className="group mx-auto flex aspect-square w-full max-w-[168px] flex-col items-center justify-center gap-2 rounded-2xl border border-charcoal-ink/10 bg-white p-4 text-center shadow-sm transition-all hover:border-brand-green/40 hover:shadow-md"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-soft-sage">
+                  <tile.icon className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+                </span>
+                <span className="line-clamp-2 text-xs font-medium leading-snug text-charcoal-ink group-hover:text-deep-forest sm:text-sm">
+                  {tile.label}
+                </span>
               </Link>
-            </CardTitle>
-            <CardDescription>
-              Create logins for employees and partners, assign roles, build custom roles, and
-              delegate specific capabilities to individual members.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/admin/settings/members" className="text-sm font-medium text-brand-green hover:underline">
-              Manage members &amp; access →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {can("leads.manage") && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <NAV_ICON.inbox className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-              <Link href="/admin/leads" className="hover:underline">
-                Leads
-              </Link>
-            </CardTitle>
-            <CardDescription>
-              Everyone who has submitted the contact form or plan-finder, including employer and
-              HMO enquiries. Filter and mark as contacted.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/admin/leads" className="text-sm font-medium text-brand-green hover:underline">
-              View leads →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {canManagePartners && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-              <Link href="/admin/settings/partners" className="hover:underline">
-                Partners
-              </Link>
-            </CardTitle>
-            <CardDescription>
-              Add and manage the partner network: labs, pharmacies, hospitals, specialists, and
-              logistics.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/admin/settings/partners" className="text-sm font-medium text-brand-green hover:underline">
-              Manage partners →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {canViewAnalytics && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-              <Link href="/analytics" className="hover:underline">
-                Platform analytics
-              </Link>
-            </CardTitle>
-            <CardDescription>
-              Company-wide business, financial, and population-health intelligence across every
-              organisation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/analytics" className="text-sm font-medium text-brand-green hover:underline">
-              Open analytics console →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {isSuperAdmin && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/vitals-reminders" className="hover:underline">
-              Vitals reminder cadence
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Set how often patients are nudged to log vitals: globally, per condition, or
-            per patient.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/vitals-reminders"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage reminder settings →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {isSuperAdmin && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/medication-refills" className="hover:underline">
-              Medication refill reminders
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Set how many days before a refill date patients get reminded: globally or per
-            patient.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/medication-refills"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage refill settings →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("partners.facilities.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/facilities" className="hover:underline">
-              Facility directory
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Add facilities patients can browse and request bookings from, and manage what each
-            one offers.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/facilities"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage facilities →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {isSuperAdmin && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.booking className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/bookings" className="hover:underline">
-              Booking requests
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            See every facility booking request patients have submitted and update its status.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/bookings"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            View booking requests →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {isSuperAdmin && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.aiCoach className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/ai-coach" className="hover:underline">
-              AI Health Coach (internal testing)
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Try the AI Coach yourself before it&apos;s released to patients. It&apos;s gated to
-            admins only until a subscription plan lists the ai_coach feature.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/ai-coach"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Try the coach →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {isSuperAdmin && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/testimonials" className="hover:underline">
-              Testimonials
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Review consented patient quotes before they appear on the marketing site.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/admin/testimonials" className="text-sm font-medium text-brand-green hover:underline">
-            Review testimonials →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("clinical_staff.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/clinical-staff" className="hover:underline">
-              Clinical staff
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Add and verify every named Clinical Director, care team doctor, and escalation doctor.
-            A record can&apos;t go active until its MDCN/NMCN credential is verified.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/clinical-staff"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage clinical staff →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("protocols.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/protocols" className="hover:underline">
-              Clinical protocols
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            The version-signed record behind every &quot;protocols supervised by Dr. X&quot;
-            claim shown to patients. Only the org&apos;s active Clinical Director can sign.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/protocols"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage protocols →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("protocols.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/cv-risk-config" className="hover:underline">
-              Cardiovascular-risk configuration
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            The LDL/Non-HDL targets, statin-eligibility thresholds and escalation levels the lipid
-            / CV-risk engine uses. Seeded as a provisional draft; not in force until the Medical
-            Director signs it.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/cv-risk-config"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Review &amp; sign CV-risk config →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("conditions.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/conditions" className="hover:underline">
-              Chronic conditions
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            The phased chronic-disease catalogue. Launch with hypertension and diabetes; activate
-            asthma, COPD, heart failure, CKD and obesity as the programme scales. Each needs a
-            signed WHO protocol before it can go live.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/conditions"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage conditions →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("health_education.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/health-education" className="hover:underline">
-              Health education library
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            The clinician-reviewed learning catalogue surfaced to patients, personalised to their
-            conditions and risk. Publish or hide articles and videos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/health-education"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage library →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("subscriptions.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.billing className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/subscriptions" className="hover:underline">
-              Subscription plans &amp; add-ons
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Create, price, and activate patient plans and add-on services, synced to Paystack
-            automatically.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/subscriptions"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage plans &amp; add-ons →
-          </Link>
-          <div className="mt-2">
-            <Link
-              href="/admin/settings/diaspora-pricing"
-              className="text-sm font-medium text-brand-green hover:underline"
-            >
-              Diaspora pricing (USD) →
-            </Link>
+            ))}
           </div>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("commissions.view") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.commission className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/commissions" className="hover:underline">
-              Commission tracking
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Every lab, pharmacy, and specialist-referral commission Tarragon has earned from its
-            partner network, and what&apos;s still owed vs. paid.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/commissions"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            View commissions →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {(can("partners.home_visit.manage") || can("partners.logistics.manage")) && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.logistics className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/logistics-partners" className="hover:underline">
-              Home visit &amp; delivery partners
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Add or activate a home-collection or delivery partner for a region. This is what
-            turns on real scheduling/tracking for patients there instead of &quot;coming soon&quot;.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/logistics-partners"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage partners →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("integrations.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.booking className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/integrations" className="hover:underline">
-              API keys &amp; partner integrations
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Issue API keys so device clouds and partner platforms can push data in, and
-            register outbound partner APIs this platform calls.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/integrations"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage integrations →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("integrations.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.impact className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/protocol-api" className="hover:underline">
-              Protocol API
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            License the escalation/risk/protocol machinery to a partner clinic, state PHC, or
-            NGO — stateless classifiers, no patient tenant required.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/protocol-api"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage licensed partners →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("broadcasts.send") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/broadcasts" className="hover:underline">
-              Broadcasts &amp; announcements
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Send an email/WhatsApp/SMS announcement to a targeted audience: all patients,
-            a state, subscribers on a plan, all partners, or a partner group.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/broadcasts"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Compose broadcast →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("impact_metrics.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.impact className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/impact-metrics" className="hover:underline">
-              Public impact dashboard
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Show/hide what appears on the public /impact page, and recompute the nightly
-            aggregate counts on demand.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/impact-metrics"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage impact metrics →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
-
-      {can("service_regions.manage") && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            <Link href="/admin/settings/service-regions" className="hover:underline">
-              Service regions (state rollout)
-            </Link>
-          </CardTitle>
-          <CardDescription>
-            Turn TarragonHealth on one state at a time. Activating a state opens its partner
-            actions and automatically notifies everyone waiting there.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href="/admin/settings/service-regions"
-            className="text-sm font-medium text-brand-green hover:underline"
-          >
-            Manage regions →
-          </Link>
-        </CardContent>
-      </Card>
-      )}
+        </section>
+      ))}
     </DashboardPlaceholder>
   );
 }

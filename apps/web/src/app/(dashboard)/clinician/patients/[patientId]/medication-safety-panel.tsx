@@ -17,6 +17,13 @@ const KIND_LABEL: Record<FindingKind, string> = {
   drug_specific: "Drug note",
 };
 
+const CKD_RISK_VARIANT: Record<string, "red" | "amber" | "grey" | "green"> = {
+  low: "green",
+  moderate: "amber",
+  high: "amber",
+  very_high: "red",
+};
+
 /**
  * The checks a dispensing pharmacist makes, surfaced to the clinician who
  * actually decides.
@@ -27,10 +34,8 @@ const KIND_LABEL: Record<FindingKind, string> = {
  */
 export async function MedicationSafetyPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const { report, egfr, egfrUnavailableReason, medicationCount } = await loadMedicationSafety(
-    supabase,
-    patientId,
-  );
+  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount } =
+    await loadMedicationSafety(supabase, patientId);
 
   return (
     <Card>
@@ -66,6 +71,21 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
                   dosing advice below.
                 </p>
               ) : null}
+              {ckdRisk ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge variant={CKD_RISK_VARIANT[ckdRisk.riskLevel] ?? "grey"}>
+                    KDIGO CKD risk: {ckdRisk.riskLevel.replace("_", " ")}
+                  </Badge>
+                  <span className="text-xs text-charcoal-ink/60">
+                    ACR {ckdRisk.acrCategoryLabel}
+                    {ckdRisk.invisibleToEgfrAlone
+                      ? " — eGFR alone would have looked reassuring here"
+                      : ""}
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-charcoal-ink/60">{ckdRiskUnavailableReason}</p>
+              )}
             </>
           ) : (
             <p className="text-xs text-charcoal-ink/70">{egfrUnavailableReason}</p>

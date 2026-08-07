@@ -20,6 +20,22 @@ export interface CaseSnapshot {
   latestRiskScores: { scoreType: string; riskLevel: string | null; score: number | null }[];
   recentVitals: { vitalType: string; takenAt: string; values: Record<string, number | null> }[];
   recentEscalationHistory: { level: string | null; status: string; createdAt: string }[];
+  /**
+   * The Clinical Director-signed protocol this case is being reviewed
+   * against, when one exists. Optional and null-gated for a real reason: an
+   * unsigned condition must produce a brief that says so, never one whose
+   * prose quietly reads as protocol-backed. Stored in input_snapshot like
+   * everything else here, so an audit can see exactly which protocol version
+   * the drafted note was grounded in.
+   */
+  signedProtocol?: {
+    condition: string;
+    versionNumber: number;
+    title: string;
+    targets: string[];
+    redFlags: string[];
+    cadence: string | null;
+  } | null;
 }
 
 const VITAL_VALUE_FIELDS = [
@@ -172,6 +188,30 @@ export function formatSnapshotForPrompt(snapshot: CaseSnapshot): string {
           .join("; ")}`
       : "Recent escalation history: none"
   );
+
+  // The signed protocol, when there is one. Stated explicitly in the negative
+  // case too: a model told nothing about protocols will happily invent
+  // plausible-sounding guidance, whereas one told "there is no signed
+  // protocol" has been given the fact it needs to say so.
+  if (snapshot.signedProtocol) {
+    const protocol = snapshot.signedProtocol;
+    lines.push(
+      `Signed protocol in force: "${protocol.title}" v${protocol.versionNumber} for ${protocol.condition}.`
+    );
+    if (protocol.targets.length > 0) {
+      lines.push(`Protocol targets: ${protocol.targets.join("; ")}`);
+    }
+    if (protocol.redFlags.length > 0) {
+      lines.push(`Protocol red flags: ${protocol.redFlags.join("; ")}`);
+    }
+    if (protocol.cadence) {
+      lines.push(`Protocol review cadence: ${protocol.cadence}`);
+    }
+  } else {
+    lines.push(
+      "Signed protocol in force: none for this patient's conditions. Do not refer to protocol guidance."
+    );
+  }
 
   return lines.join("\n");
 }

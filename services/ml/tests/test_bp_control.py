@@ -3,13 +3,17 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.scoring.bp_control import BpReading, assess_bp_control
+from app.scoring.bp_control import BpReading, assess_bp_control, assess_sustained_control
 
 LAGOS = ZoneInfo("Africa/Lagos")
 
 
 def _at(day: int, hour: int, minute: int = 0) -> datetime:
     return datetime(2026, 6, day, hour, minute, tzinfo=LAGOS)
+
+
+def _in_month(year: int, month: int, day: int, hour: int = 8) -> datetime:
+    return datetime(year, month, day, hour, tzinfo=LAGOS)
 
 
 def test_empty_readings_raises() -> None:
@@ -99,3 +103,78 @@ def test_variability_stats() -> None:
     assert result.systolic_mean == pytest.approx(130.0)
     assert result.systolic_sd is not None and result.systolic_sd > 0
     assert result.systolic_cv_percent is not None
+
+
+# --- assess_sustained_control (6-month longitudinal window) -----------------
+
+_JUNE_30 = _in_month(2026, 6, 30)
+
+
+def test_sustained_empty_readings_raises() -> None:
+    with pytest.raises(ValueError):
+        assess_sustained_control([])
+
+
+def test_sustained_flag_true_when_four_of_six_months_elevated() -> None:
+    uncontrolled = [
+        BpReading(taken_at=_in_month(2026, m, 10), systolic=160, diastolic=100)
+        for m in (1, 2, 3, 4)
+    ]
+    controlled = [
+        BpReading(taken_at=_in_month(2026, m, 10), systolic=120, diastolic=78)
+        for m in (5, 6)
+    ]
+    result = assess_sustained_control(uncontrolled + controlled, as_of=_JUNE_30)
+    assert result.months_with_data == 6
+    assert result.months_elevated == 4
+    assert result.sustained_elevation_flag is True
+
+
+def test_sustained_flag_false_when_fewer_than_four_months_elevated() -> None:
+    uncontrolled = [
+        BpReading(taken_at=_in_month(2026, m, 10), systolic=160, diastolic=100)
+        for m in (1, 2)
+    ]
+    controlled = [
+        BpReading(taken_at=_in_month(2026, m, 10), systolic=120, diastolic=78)
+        for m in (3, 4, 5, 6)
+    ]
+    result = assess_sustained_control(uncontrolled + controlled, as_of=_JUNE_30)
+    assert result.months_with_data == 6
+    assert result.months_elevated == 2
+    assert result.sustained_elevation_flag is False
+
+
+def test_sustained_flag_false_when_too_few_months_have_data() -> None:
+    # Only 2 months have any readings at all, even though both are elevated —
+    # not enough evidence to call it sustained, so this reads False, not None.
+    readings = [
+        BpReading(taken_at=_in_month(2026, m, 10), systolic=170, diastolic=105)
+        for m in (5, 6)
+    ]
+    result = assess_sustained_control(readings, as_of=_JUNE_30)
+    assert result.months_with_data == 2
+    assert result.sustained_elevation_flag is False
+
+
+def test_sustained_flag_none_when_window_has_no_data_at_all() -> None:
+    # All readings are from 2026, but as_of is far enough in the future that
+    # none of them fall inside the trailing 6-month window.
+    readings = [BpReading(taken_at=_in_month(2026, 6, 10), systolic=170, diastolic=105)]
+    far_future_as_of = _in_month(2028, 6, 30)
+    result = assess_sustained_control(readings, as_of=far_future_as_of)
+    assert result.months_with_data == 0
+    assert result.sustained_elevation_flag is None
+
+
+def test_sustained_monthly_breakdown_is_chronological_and_complete() -> None:
+    readings = [BpReading(taken_at=_in_month(2026, 3, 15), systolic=130, diastolic=80)]
+    result = assess_sustained_control(readings, as_of=_JUNE_30)
+    assert [m.month_start.month for m in result.months] == [1, 2, 3, 4, 5, 6]
+    assert all(m.month_start.year == 2026 for m in result.months)
+    march = result.months[2]
+    assert march.reading_count == 1
+    assert march.control_rate_percent == 100.0
+    january = result.months[0]
+    assert january.reading_count == 0
+    assert january.control_rate_percent is None

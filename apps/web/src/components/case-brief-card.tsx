@@ -11,6 +11,9 @@ export interface CaseBriefData {
   status: "generated" | "failed";
   summaryText: string | null;
   suggestedActionText: string | null;
+  draftReviewNote?: string | null;
+  /** Null-gated: no signed protocol row, no protocol claim rendered. */
+  protocolVersion?: { title: string; versionNumber: number } | null;
   generatedAt: string;
 }
 
@@ -101,6 +104,22 @@ export function CaseBriefCard({
 
         {initialBrief?.status === "generated" && (
           <div className="space-y-3">
+            {/*
+              Null-gated, exactly like ReviewedByDoctor: the version is
+              rendered only from a real signed protocol_versions row. When a
+              patient's condition has no signed protocol, the absence is
+              stated rather than left blank -- a doctor reading a drafted note
+              is entitled to know nothing was signed behind it.
+            */}
+            {initialBrief.protocolVersion ? (
+              <Badge variant="green">
+                Drafted against {initialBrief.protocolVersion.title} v
+                {initialBrief.protocolVersion.versionNumber}
+              </Badge>
+            ) : (
+              <Badge variant="grey">No signed protocol for this patient&apos;s conditions</Badge>
+            )}
+
             <p className="text-sm text-charcoal-ink">{initialBrief.summaryText}</p>
             {initialBrief.suggestedActionText && (
               <p className="text-sm text-charcoal-ink">
@@ -108,6 +127,26 @@ export function CaseBriefCard({
                 {initialBrief.suggestedActionText}
               </p>
             )}
+
+            {/*
+              Deliberately displayed as text to READ AND COPY, never pre-loaded
+              into the note field a doctor submits. The model drafts prose for
+              a human; it never occupies the field whose submission becomes a
+              clinical record. The judgment is left as a bracketed placeholder
+              by the prompt, so a note confirmed unread is visibly incomplete
+              rather than plausibly finished.
+            */}
+            {initialBrief.draftReviewNote && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-charcoal-ink/70">
+                  Draft review note — yours to edit, with your assessment still to add
+                </p>
+                <p className="whitespace-pre-wrap rounded-md bg-charcoal-ink/[0.03] p-3 text-sm text-charcoal-ink">
+                  {initialBrief.draftReviewNote}
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <p className="text-xs text-charcoal-ink/50">
                 Generated {formatGeneratedAt(initialBrief.generatedAt)}

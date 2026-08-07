@@ -6,7 +6,7 @@ import type { Database } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
-import { generateLabResultExtraction } from "@/lib/lab-extraction/generate";
+import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
 import {
   labPartnerResultUploadSchema,
   markResultReviewedSchema,
@@ -136,7 +136,7 @@ export async function uploadResultDocumentForPatient(
 
   // Same structured read as the patient-upload path — an emailed result is no
   // less worth turning into trendable numbers. Never throws.
-  await generateLabResultExtraction(service, {
+  await runLabReportExtraction(service, {
     documentId: inserted.id,
     organisationId: patient.organisation_id,
     patientId,
@@ -256,7 +256,7 @@ export async function uploadResultDocumentAsPatient(
   // never throws, and a failure just persists a 'failed' row) so the clinician
   // is not racing the model; the patient's own confirmation does not depend on
   // the outcome either way.
-  await generateLabResultExtraction(createServiceRoleClient(), {
+  await runLabReportExtraction(createServiceRoleClient(), {
     documentId: inserted.id,
     organisationId: me.organisation_id,
     patientId: user.id,

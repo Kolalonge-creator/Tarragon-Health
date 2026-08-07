@@ -9,6 +9,11 @@ packages:
 # upload during build (apps/web/next.config.ts's withSentryConfig).
 allowBuilds:
   '@sentry/cli': true
+  # esbuild arrives via tsx, which runs the manual lab-corpus accuracy script.
+  # Its postinstall only relinks the platform binary that tsx already ships as
+  # an optional dependency, and the script was verified working with this build
+  # skipped — so there is no reason to approve another postinstall here.
+  esbuild: false
   sharp: true
   unrs-resolver: true
 

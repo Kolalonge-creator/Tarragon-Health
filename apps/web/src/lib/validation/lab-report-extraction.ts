@@ -9,13 +9,42 @@ import { isKnownAnalyteCode } from "@/lib/lab-reports/analyte-catalogue";
  * reviewer can correct a misread value or a wrong unit on screen, so what
  * arrives is the HUMAN's number, not the model's, and it must stand on its own.
  */
-export const confirmedAnalyteRowSchema = z.object({
-  code: z.string().refine(isKnownAnalyteCode, {
-    message: "Unknown analyte code",
-  }),
-  /** Already in the analyte's canonical unit — the review UI converts before submit. */
-  value: z.number().finite(),
-});
+export const confirmedAnalyteRowSchema = z
+  .object({
+    code: z.string().refine(isKnownAnalyteCode, {
+      message: "Unknown analyte code",
+    }),
+    /** Already in the analyte's canonical unit — the review UI converts before submit. */
+    value: z.number().finite().optional(),
+    /**
+     * Coded non-numeric result ("AS", "positive", "2+"). A genotype, a malaria
+     * film and a urine dipstick have no number, and refusing them here would
+     * mean the engine can read them off the page but never file them.
+     */
+    value_text: z.string().min(1).max(60).optional(),
+    /** Canonical unit, required alongside a numeric value and forbidden without one. */
+    unit: z.string().max(30).optional(),
+  })
+  .superRefine((row, ctx) => {
+    const hasValue = row.value !== undefined;
+    const hasText = row.value_text !== undefined;
+    // Exactly one, mirroring the lab_analyte_readings_one_value constraint. A
+    // row carrying both would be ambiguous about which one is the result, and
+    // the database would reject it anyway — better to say so here.
+    if (hasValue === hasText) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Each result needs either a number or a non-numeric result, not both.",
+      });
+      return;
+    }
+    if (hasValue && !row.unit) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A numeric result must carry its unit.",
+      });
+    }
+  });
 
 export const confirmLabReportExtractionSchema = z.object({
   extraction_id: z.string().uuid(),

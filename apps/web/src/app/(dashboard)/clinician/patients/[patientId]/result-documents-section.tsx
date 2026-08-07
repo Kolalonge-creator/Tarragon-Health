@@ -18,6 +18,15 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Whole years since a date of birth, or null when it is absent or unusable. */
+function ageFromDob(dateOfBirth: string | null): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+  const years = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+  return years >= 0 && years < 130 ? Math.floor(years) : null;
+}
+
 /**
  * Clinician view of a patient's uploaded result documents. Files open via a
  * short-lived signed URL (org staff have no storage read policy — the row RLS
@@ -58,9 +67,14 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
 
   const { data: patient } = await supabase
     .from("profiles")
-    .select("sex, full_name")
+    .select("sex, full_name, date_of_birth")
     .eq("id", patientId)
     .maybeSingle();
+
+  // Age drives the age-banded PSA range and the eGFR estimate. Null when the
+  // patient has no recorded date of birth, and every range that needs it
+  // degrades to a stated fallback rather than guessing.
+  const patientAgeYears = ageFromDob(patient?.date_of_birth ?? null);
 
   return (
     <Card>
@@ -107,6 +121,7 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                   signedUrl={doc.signedUrl}
                   isPdf={doc.isPdf}
                   patientSex={patient?.sex ?? null}
+                  patientAgeYears={patientAgeYears}
                   patientName={patient?.full_name ?? null}
                   extraction={extractionByDocument.get(doc.id) ?? null}
                 />

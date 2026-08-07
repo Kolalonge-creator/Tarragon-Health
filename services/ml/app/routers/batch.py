@@ -28,9 +28,13 @@ from ..schemas.batch import (
     BatchPredictionResponse,
 )
 from ..schemas.diabetes import HbA1cTrajectoryResponse
-from ..schemas.hypertension import BpControlResponse
+from ..schemas.hypertension import (
+    BpControlResponse,
+    MonthlyControlOut,
+    SustainedControlOut,
+)
 from ..schemas.risk import Score2Response
-from ..scoring.bp_control import BpReading, assess_bp_control
+from ..scoring.bp_control import BpReading, assess_bp_control, assess_sustained_control
 from ..scoring.hba1c import HbA1cReading, hba1c_trajectory
 from ..scoring.score2 import score2_risk
 from ..security import require_service_key
@@ -80,11 +84,18 @@ async def _run_item(item: BatchItem) -> BatchItemResult:
                 projected_value_ci90_high=trajectory.projected_value_ci90_high,
             )
         else:
+            bp_readings = [
+                BpReading(taken_at=r.taken_at, systolic=r.systolic, diastolic=r.diastolic)
+                for r in item.payload.readings
+            ]
             assessment = assess_bp_control(
-                [
-                    BpReading(taken_at=r.taken_at, systolic=r.systolic, diastolic=r.diastolic)
-                    for r in item.payload.readings
-                ],
+                bp_readings,
+                control_systolic=item.payload.control_systolic,
+                control_diastolic=item.payload.control_diastolic,
+                as_of=item.payload.as_of,
+            )
+            sustained = assess_sustained_control(
+                bp_readings,
                 control_systolic=item.payload.control_systolic,
                 control_diastolic=item.payload.control_diastolic,
                 as_of=item.payload.as_of,
@@ -101,6 +112,21 @@ async def _run_item(item: BatchItem) -> BatchItemResult:
                 morning_systolic_mean=assessment.morning_systolic_mean,
                 morning_diastolic_mean=assessment.morning_diastolic_mean,
                 morning_surge_flag=assessment.morning_surge_flag,
+                sustained=SustainedControlOut(
+                    window_start=sustained.window_start,
+                    window_end=sustained.window_end,
+                    months=[
+                        MonthlyControlOut(
+                            month_start=m.month_start,
+                            control_rate_percent=m.control_rate_percent,
+                            reading_count=m.reading_count,
+                        )
+                        for m in sustained.months
+                    ],
+                    months_with_data=sustained.months_with_data,
+                    months_elevated=sustained.months_elevated,
+                    sustained_elevation_flag=sustained.sustained_elevation_flag,
+                ),
             )
         return BatchItemResult(request_id=item.request_id, type=item.type, ok=True, result=result)
     except Exception as exc:  # isolation must survive any scorer failure, not just ValueError

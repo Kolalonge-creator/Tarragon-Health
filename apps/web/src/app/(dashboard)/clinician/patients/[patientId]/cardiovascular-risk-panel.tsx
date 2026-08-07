@@ -124,6 +124,22 @@ export function CardiovascularRiskPanel({
               </details>
             )}
             <p className="text-xs text-charcoal-ink/50">{assessment.populationNote}</p>
+
+            {assessment.afroEstimate && (
+              <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={RISK_VARIANT[assessment.afroEstimate.band] ?? "grey"}>
+                    WHO/ISH Africa estimate: {assessment.afroEstimate.label}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-blue-900/80">
+                  No SCORE2 result on file yet — this is a transparent, lab-optional{" "}
+                  {assessment.afroEstimate.labUsed ? "estimate that used the cholesterol on file" : "estimate (no cholesterol on file)"}, not the official WHO/ISH chart. It does not
+                  drive the risk badge, targets, or escalations above — confirm it clinically, and
+                  record a lipid panel + BP + smoking status to get a real SCORE2 result.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-sm text-charcoal-ink/60">

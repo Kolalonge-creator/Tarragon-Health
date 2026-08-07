@@ -375,7 +375,11 @@ Once these are hit, Category-by-category Phase 2 items in Section 13 can begin, 
 ### Category 4 — B2B & Institutional
 - NHIA / state government population screening and chronic disease registry contracts
 - Scaled HMO and corporate contracts using multi-year outcome evidence
-- Anonymised population insights product for pharma, insurance actuaries, and public health bodies (data monetisation revenue stream)
+- **Population health intelligence product (data monetisation revenue stream, aspiration only — see gates below).** Sell aggregate, de-identified trend insights — e.g. diabetes prevalence in Lagos, hypertension trends in Abuja, obesity patterns in Port Harcourt, cancer trends by age band, medication adherence rates — to governments, insurers, pharma, and researchers. This is the same long-term moat play as Flatiron Health/IQVIA: real data network effects that get harder to replicate the more genuine patient volume the platform carries. It must be built as genuinely aggregate, non-re-identifiable output (k-anonymity/minimum-cohort thresholds, no row-level or small-cell data ever leaving the platform) — this is squarely inside the I9 constraint already shipped 2026-07-29 ("institutions get aggregate-only patient access, ever, only superadmin may drill into an individual" — see `CLAUDE.md`), not an exception to it. **Gates before any engineering starts on this (do not start on user-count or feature-completeness alone):**
+  1. Sufficient real (non-test) patient volume for aggregate outputs to be statistically meaningful and safely non-re-identifiable in Nigeria's actual population-density patterns.
+  2. NDPC registration and a DPO appointment actually completed (open item, tracked in `CLAUDE.md`'s standing follow-ups) — this product is a materially heavier NDPR exposure than the core platform.
+  3. A defensible, specified anonymisation methodology reviewed before build — not "add a GROUP BY."
+  Until all three are met this stays a roadmap note, not a backlog item.
 
 ### Category 5 — Platform Infrastructure
 - National scale across Nigeria, then Pan-African expansion

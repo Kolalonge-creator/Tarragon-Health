@@ -41,6 +41,7 @@ export function Worklist() {
   const [escalatingId, setEscalatingId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [expandedBriefId, setExpandedBriefId] = useState<string | null>(null);
+  const [expandedWhyId, setExpandedWhyId] = useState<string | null>(null);
 
   const countsByLevel = (data ?? []).reduce(
     (acc, alert) => {
@@ -75,7 +76,8 @@ export function Worklist() {
         <CardHeader>
           <CardTitle>Worklist</CardTitle>
           <CardDescription>
-            Ranked by severity, then by how close each case is to breaching its SLA.
+            Ranked by severity first, then by SLA, abnormal results, repeat escalations and case
+            complexity. Every case shows why it sits where it does.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -95,6 +97,7 @@ export function Worklist() {
               const isOverdue =
                 !!alert.sla_due_at && new Date(alert.sla_due_at) < new Date();
               const isBriefExpanded = expandedBriefId === alert.id;
+              const isWhyExpanded = expandedWhyId === alert.id;
 
               return (
                 <li key={alert.id} className="space-y-3 py-3">
@@ -119,13 +122,47 @@ export function Worklist() {
                           SLA due {formatSlaDue(alert.sla_due_at)}
                         </p>
                       )}
-                      <button
-                        type="button"
-                        className="text-xs text-brand-green hover:underline"
-                        onClick={() => setExpandedBriefId(isBriefExpanded ? null : alert.id)}
-                      >
-                        {isBriefExpanded ? "Hide AI summary" : "AI summary"}
-                      </button>
+                      {/*
+                        The ranking's own reason, always on screen. A triage
+                        order a doctor cannot see the reasoning for is one they
+                        have to either trust blindly or ignore — and the second
+                        is what actually happens.
+                      */}
+                      <p className="text-xs font-medium text-charcoal-ink/70">
+                        {alert.triage.headline}
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          className="text-xs text-brand-green hover:underline"
+                          onClick={() => setExpandedBriefId(isBriefExpanded ? null : alert.id)}
+                        >
+                          {isBriefExpanded ? "Hide AI summary" : "AI summary"}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs text-charcoal-ink/60 hover:underline"
+                          onClick={() => setExpandedWhyId(isWhyExpanded ? null : alert.id)}
+                        >
+                          {isWhyExpanded ? "Hide ranking" : "Why this rank?"}
+                        </button>
+                      </div>
+                      {isWhyExpanded && (
+                        <ul className="space-y-0.5 rounded-md bg-charcoal-ink/[0.03] p-2">
+                          {alert.triage.factors.map((factor) => (
+                            <li
+                              key={factor.key}
+                              className="flex justify-between gap-4 text-xs text-charcoal-ink/70"
+                            >
+                              <span>{factor.label}</span>
+                              <span className="tabular-nums">
+                                {factor.points > 0 ? "+" : ""}
+                                {factor.points}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex gap-2">
@@ -191,6 +228,14 @@ export function Worklist() {
                               status: alert.case_brief.status,
                               summaryText: alert.case_brief.summary_text,
                               suggestedActionText: alert.case_brief.suggested_action_text,
+                              draftReviewNote: alert.case_brief.draft_review_note,
+                              protocolVersion: alert.case_brief.protocol_version
+                                ? {
+                                    title: alert.case_brief.protocol_version.title,
+                                    versionNumber:
+                                      alert.case_brief.protocol_version.version_number,
+                                  }
+                                : null,
                               generatedAt: alert.case_brief.generated_at,
                             }
                           : null
