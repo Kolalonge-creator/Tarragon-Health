@@ -371,6 +371,175 @@ begin
   end if;
   insert into result (line) values ('PASS 13: a patient may request an attestation but never grant one');
 
+  -- ------------------- 14. a TYPED registration number is not a CHECKED one
+  -- The distinction the whole attestation grade rests on. A doctor with a number
+  -- nobody looked up must not be able to put it on a document an embassy reads.
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+
+  declare
+    v_doctor_profile uuid;
+    v_staff_id       uuid;
+    v_req2           uuid;
+  begin
+    select cs.id, cs.profile_id into v_staff_id, v_doctor_profile
+    from public.clinical_staff cs
+    where cs.active and cs.profile_id is not null
+      and cs.credential_type is not null and cs.credential_number is not null
+      and (cs.is_clinical_director or cs.doctor_tier in
+           ('tier_2','tier_3','tier_4_senior_registrar','tier_5_partner_specialist'))
+    limit 1;
+
+    if v_staff_id is null then
+      insert into result (line) values ('SKIP 14: no tier-2+ staff record with a number to test against');
+    else
+      -- Force the unchecked state, whatever the fixture happens to be.
+      update public.clinical_staff
+      set credential_verified_at = null, credential_verified_by = null
+      where id = v_staff_id;
+
+      -- Reuse the request §13 left pending. A second one is impossible by
+      -- design (health_passport_attestation_one_open_per_patient), which is
+      -- itself worth knowing the test exercises.
+      v_req2 := v_req;
+
+      reset role;
+      perform set_config('request.jwt.claims',
+        json_build_object('sub', v_doctor_profile, 'role', 'authenticated')::text, true);
+      set local role authenticated;
+
+      v_failed := false;
+      begin
+        perform public.attest_health_passport_request(v_req2, null);
+      exception when others then v_failed := true;
+      end;
+      if not v_failed then
+        raise exception 'FAIL 14: a doctor whose registration was never checked attested a passport';
+      end if;
+      insert into result (line) values ('PASS 14: an unchecked registration cannot attest a passport');
+
+      -- Positive control: the same doctor, once checked, CAN attest. Without
+      -- this, PASS 14 would also pass if the gate were simply broken shut.
+      reset role;
+      perform set_config('request.jwt.claims', null, true);
+      update public.clinical_staff
+      set credential_verified_at = now(), credential_verified_by = v_other
+      where id = v_staff_id;
+
+      perform set_config('request.jwt.claims',
+        json_build_object('sub', v_doctor_profile, 'role', 'authenticated')::text, true);
+      set local role authenticated;
+      perform public.attest_health_passport_request(v_req2, 'checked');
+
+      select status::text into v_status
+      from public.health_passport_attestation_requests where id = v_req2;
+      if v_status <> 'attested' then
+        raise exception 'FAIL 14b: a CHECKED registration still could not attest — the gate is broken shut';
+      end if;
+      insert into result (line) values ('PASS 14b: a checked registration can attest (the gate discriminates)');
+    end if;
+  end;
+
+  -- ------------------------- 15. nobody may check their own registration
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+
+  declare
+    v_self_staff uuid;
+    v_self_prof  uuid;
+  begin
+    select id, profile_id into v_self_staff, v_self_prof
+    from public.clinical_staff
+    where profile_id is not null and credential_number is not null limit 1;
+
+    -- Structural: the constraint refuses it even with no RPC in the way.
+    v_failed := false;
+    begin
+      update public.clinical_staff
+      set credential_verified_at = now(), credential_verified_by = v_self_prof
+      where id = v_self_staff;
+    exception when check_violation then v_failed := true;
+    end;
+    if not v_failed then
+      raise exception 'FAIL 15: a staff member''s registration was verified by themselves';
+    end if;
+    insert into result (line) values ('PASS 15: self-verification of a registration is structurally impossible');
+  end;
+
+  -- ---------------- 16. editing the number invalidates the check
+  -- Otherwise an admin could verify one number and quietly swap in another.
+  declare
+    v_edit_staff uuid;
+  begin
+    select id into v_edit_staff
+    from public.clinical_staff
+    where credential_verified_at is not null limit 1;
+
+    if v_edit_staff is null then
+      insert into result (line) values ('SKIP 16: no verified registration to edit');
+    else
+      update public.clinical_staff
+      set credential_number = 'CHANGED-' || substr(md5(random()::text), 1, 6)
+      where id = v_edit_staff;
+
+      if exists (
+        select 1 from public.clinical_staff
+        where id = v_edit_staff and credential_verified_at is not null
+      ) then
+        raise exception 'FAIL 16: changing the registration number left the old check in place';
+      end if;
+      insert into result (line) values ('PASS 16: editing a registration number clears its verification');
+    end if;
+  end;
+
+  -- ------ 17. the deadlock: an admin who is also the doctor cannot self-verify
+  -- Not a hypothetical. As of this test the platform has exactly one real staff
+  -- record and one real admin, and they are the same person — which is why no
+  -- passport is attestable in production. §15 proves the constraint refuses it;
+  -- this proves the RPC the admin UI actually calls refuses it too, with a
+  -- message that explains what is needed (a second admin) rather than a raw
+  -- constraint violation.
+  declare
+    v_admin_staff uuid;
+    v_admin_prof  uuid;
+    v_msg         text;
+  begin
+    select cs.id, cs.profile_id into v_admin_staff, v_admin_prof
+    from public.clinical_staff cs
+    join public.profiles p on p.id = cs.profile_id
+    where p.role = 'admin' and cs.credential_number is not null
+    limit 1;
+
+    if v_admin_staff is null then
+      -- Manufacture the situation rather than skip: it is the exact production
+      -- state and must stay covered even when the fixtures do not happen to
+      -- reproduce it.
+      select cs.id, cs.profile_id into v_admin_staff, v_admin_prof
+      from public.clinical_staff cs where cs.credential_number is not null limit 1;
+      update public.profiles set role = 'admin' where id = v_admin_prof;
+    end if;
+
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_admin_prof, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+
+    v_failed := false;
+    begin
+      perform public.verify_clinical_staff_credential(v_admin_staff);
+    exception when others then
+      v_failed := true;
+      get stacked diagnostics v_msg = message_text;
+    end;
+    if not v_failed then
+      raise exception 'FAIL 17: an admin verified their own registration through the RPC';
+    end if;
+    if v_msg not ilike '%second admin%' then
+      raise exception 'FAIL 17b: the refusal did not explain that a second admin is needed (got: %)', v_msg;
+    end if;
+    insert into result (line)
+      values ('PASS 17: an admin cannot verify their own registration, and is told a second admin is needed');
+  end;
+
   reset role;
   insert into result (line) values ('ALL HEALTH PASSPORT CHECKS PASSED');
 end $$;

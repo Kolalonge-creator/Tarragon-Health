@@ -1,7 +1,11 @@
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getHealthPassportData } from "@/lib/health-passport/get-health-passport-data";
 import { formatPassportPeriod } from "@/lib/health-passport/format";
-import { canAttestHealthPassport, hasAttestableCredential } from "@/lib/clinical/doctor-tier";
+import {
+  canAttestHealthPassport,
+  hasAttestableCredential,
+  hasCredentialOnRecord,
+} from "@/lib/clinical/doctor-tier";
 import {
   PassportAttestationList,
   type AttestationRequestItem,
@@ -40,22 +44,30 @@ export default async function PassportAttestationsPage() {
 
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("doctor_tier, is_clinical_director, credential_type, credential_number, organisation_id")
+    .select(
+      "doctor_tier, is_clinical_director, credential_type, credential_number, credential_verified_at, organisation_id"
+    )
     .eq("profile_id", user.id)
     .eq("active", true)
     .maybeSingle();
 
   const tierOk = canAttestHealthPassport(staff);
+  const numberOnFile = hasCredentialOnRecord(staff);
   const credentialOk = hasAttestableCredential(staff);
   const canAttest = tierOk && credentialOk;
 
+  // Three separate conditions, reported separately. "You cannot do this" with no
+  // reason sends a doctor to support; naming the missing condition, and who can
+  // supply it, is the difference between a blocker and a next step.
   const blockedReason = !staff
     ? "You do not have an active clinical staff record, so you cannot attest a passport."
     : !tierOk
       ? "Attesting a Health Passport needs Tier 2 or above, or Clinical Director status. You can still see who is waiting so the request can be picked up by a colleague."
-      : !credentialOk
+      : !numberOnFile
         ? "Your staff record does not yet carry a registration authority and number. An attested passport names a registered doctor to an outside institution, so it cannot be issued without one. Ask an administrator to add your MDCN or NMCN details to your record."
-        : null;
+        : !credentialOk
+          ? "Your registration number is on file but has not been verified by an administrator yet. An attested passport tells an employer or an embassy that this registration can be looked up, so the number has to be checked against the register by someone other than you before it can go on a document. Ask another administrator to verify it under Admin, Clinical staff."
+          : null;
 
   const { data: requests } = await supabase
     .from("health_passport_attestation_requests")

@@ -156,6 +156,57 @@ export function useVerifyClinicalStaff() {
 }
 
 /**
+ * Records that this staff member's REGISTRATION NUMBER was checked against the
+ * issuing register (MDCN, NMCN) by the admin doing it, now.
+ *
+ * A separate, narrower act from useVerifyClinicalStaff above, and the two must
+ * not be merged. That one clears somebody to work here and is legitimately used
+ * on records with no registration at all — a Care Coordinator is employed,
+ * active, and has no MDCN number. This one is the only thing that lets a doctor
+ * put their registration on a Health Passport handed to an embassy, so it means
+ * one specific thing: somebody looked this number up.
+ *
+ * Goes through an RPC rather than a direct update so the admin check, the
+ * "there is a number to verify" check, and the refusal to self-verify all live
+ * in one place in the database. A CHECK constraint and a trigger back it up:
+ * editing the number afterwards silently clears the verification.
+ */
+export function useVerifyClinicalStaffCredential() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clinicalStaffId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("verify_clinical_staff_credential", {
+        p_clinical_staff_id: clinicalStaffId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/** Withdraws a registration check. Deliberately leaves already-issued passports
+ * alone: they snapshot what was true when issued, and pulling one is its own
+ * deliberate act with its own reason (revoke_health_passport). */
+export function useRevokeClinicalStaffCredentialVerification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clinicalStaffId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("revoke_clinical_staff_credential_verification", {
+        p_clinical_staff_id: clinicalStaffId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
  * Records indemnity/malpractice insurance details — required before a
  * Clinical Director or Tier 4/5 clinician can be activated
  * (docs/CLINICAL_TRUST_MODEL_SPEC.md §5,

@@ -2097,111 +2097,124 @@ export type Database = {
       }
       clinical_staff: {
         Row: {
-          active: boolean
-          bio: string | null
-          created_at: string
-          credential_number: string | null
-          credential_type: string | null
-          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
-          full_name: string
-          id: string
-          indemnity_exempt: boolean
-          indemnity_exempt_by: string | null
-          indemnity_expires_at: string | null
-          indemnity_insurer: string | null
-          indemnity_policy_number: string | null
-          is_clinical_director: boolean
-          license_verified_at: string | null
-          organisation_id: string
-          photo_url: string | null
-          profile_id: string | null
-          red_flag_attested_at: string | null
-          specialty: string | null
-          staff_number: string | null
-          updated_at: string
-          verified_by: string | null
-        }
+          active: boolean;
+          bio: string | null;
+          created_at: string;
+          credential_number: string | null;
+          credential_type: string | null;
+          credential_verified_at: string | null;
+          credential_verified_by: string | null;
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null;
+          full_name: string;
+          id: string;
+          indemnity_exempt: boolean;
+          indemnity_exempt_by: string | null;
+          indemnity_expires_at: string | null;
+          indemnity_insurer: string | null;
+          indemnity_policy_number: string | null;
+          is_clinical_director: boolean;
+          license_verified_at: string | null;
+          organisation_id: string;
+          photo_url: string | null;
+          profile_id: string | null;
+          red_flag_attested_at: string | null;
+          specialty: string | null;
+          staff_number: string | null;
+          updated_at: string;
+          verified_by: string | null;
+        };
         Insert: {
-          active?: boolean
-          bio?: string | null
-          created_at?: string
-          credential_number?: string | null
-          credential_type?: string | null
-          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
-          full_name: string
-          id?: string
-          indemnity_exempt?: boolean
-          indemnity_exempt_by?: string | null
-          indemnity_expires_at?: string | null
-          indemnity_insurer?: string | null
-          indemnity_policy_number?: string | null
-          is_clinical_director?: boolean
-          license_verified_at?: string | null
-          organisation_id: string
-          photo_url?: string | null
-          profile_id?: string | null
-          red_flag_attested_at?: string | null
-          specialty?: string | null
-          staff_number?: string | null
-          updated_at?: string
-          verified_by?: string | null
-        }
+          active?: boolean;
+          bio?: string | null;
+          created_at?: string;
+          credential_number?: string | null;
+          credential_type?: string | null;
+          credential_verified_at?: string | null;
+          credential_verified_by?: string | null;
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null;
+          full_name: string;
+          id?: string;
+          indemnity_exempt?: boolean;
+          indemnity_exempt_by?: string | null;
+          indemnity_expires_at?: string | null;
+          indemnity_insurer?: string | null;
+          indemnity_policy_number?: string | null;
+          is_clinical_director?: boolean;
+          license_verified_at?: string | null;
+          organisation_id: string;
+          photo_url?: string | null;
+          profile_id?: string | null;
+          red_flag_attested_at?: string | null;
+          specialty?: string | null;
+          staff_number?: string | null;
+          updated_at?: string;
+          verified_by?: string | null;
+        };
         Update: {
-          active?: boolean
-          bio?: string | null
-          created_at?: string
-          credential_number?: string | null
-          credential_type?: string | null
-          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
-          full_name?: string
-          id?: string
-          indemnity_exempt?: boolean
-          indemnity_exempt_by?: string | null
-          indemnity_expires_at?: string | null
-          indemnity_insurer?: string | null
-          indemnity_policy_number?: string | null
-          is_clinical_director?: boolean
-          license_verified_at?: string | null
-          organisation_id?: string
-          photo_url?: string | null
-          profile_id?: string | null
-          red_flag_attested_at?: string | null
-          specialty?: string | null
-          staff_number?: string | null
-          updated_at?: string
-          verified_by?: string | null
-        }
+          active?: boolean;
+          bio?: string | null;
+          created_at?: string;
+          credential_number?: string | null;
+          credential_type?: string | null;
+          credential_verified_at?: string | null;
+          credential_verified_by?: string | null;
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null;
+          full_name?: string;
+          id?: string;
+          indemnity_exempt?: boolean;
+          indemnity_exempt_by?: string | null;
+          indemnity_expires_at?: string | null;
+          indemnity_insurer?: string | null;
+          indemnity_policy_number?: string | null;
+          is_clinical_director?: boolean;
+          license_verified_at?: string | null;
+          organisation_id?: string;
+          photo_url?: string | null;
+          profile_id?: string | null;
+          red_flag_attested_at?: string | null;
+          specialty?: string | null;
+          staff_number?: string | null;
+          updated_at?: string;
+          verified_by?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "clinical_staff_indemnity_exempt_by_fkey"
-            columns: ["indemnity_exempt_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            foreignKeyName: "clinical_staff_credential_verified_by_fkey";
+            columns: ["credential_verified_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "clinical_staff_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
+            foreignKeyName: "clinical_staff_indemnity_exempt_by_fkey";
+            columns: ["indemnity_exempt_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "clinical_staff_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            foreignKeyName: "clinical_staff_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "clinical_staff_verified_by_fkey"
-            columns: ["verified_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            foreignKeyName: "clinical_staff_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+          {
+            foreignKeyName: "clinical_staff_verified_by_fkey";
+            columns: ["verified_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clinical_staff_attestations: {
         Row: {
           attestation_version: string
@@ -13746,6 +13759,10 @@ export type Database = {
         Args: { p_kid: string };
         Returns: undefined;
       };
+      revoke_clinical_staff_credential_verification: {
+        Args: { p_clinical_staff_id: string; p_reason?: string };
+        Returns: undefined;
+      };
       revoke_emergency_card: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -14436,6 +14453,10 @@ export type Database = {
         Returns: string
       }
       touch_last_active: { Args: never; Returns: undefined }
+      verify_clinical_staff_credential: {
+        Args: { p_clinical_staff_id: string };
+        Returns: undefined;
+      };
       video_visit_acceptance_stats: { Args: never; Returns: Json }
       wellness_challenge_progress: {
         Args: { p_enrolment_id: string }

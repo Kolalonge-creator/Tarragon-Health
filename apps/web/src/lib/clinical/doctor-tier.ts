@@ -153,7 +153,10 @@ const PASSPORT_ATTESTATION_TIERS: DoctorTier[] = [
 ];
 
 type PassportAttestationAuthority = PrescribingAuthority &
-  Pick<Tables<"clinical_staff">, "credential_type" | "credential_number">;
+  Pick<
+    Tables<"clinical_staff">,
+    "credential_type" | "credential_number" | "credential_verified_at"
+  >;
 
 /**
  * Mirrors private.can_attest_health_passport(org) — Tier 2+ or the org's
@@ -177,23 +180,13 @@ export function canAttestHealthPassport(staff: PrescribingAuthority | null): boo
 }
 
 /**
- * The second, harder gate: a doctor cannot attest a passport without a
- * registration authority and number on their staff record.
+ * Is a registration number on this record at all?
  *
- * This is the load-bearing one. An attested passport exists to be checked by an
- * embassy or a hospital that has never heard of TarragonHealth; a named doctor
- * with no verifiable registration number gives them nothing to check, and
- * printing one anyway would be exactly the unverifiable claim the whole feature
- * is built to stop making. The database enforces it in two places — the RPC
- * refuses, and `health_passport_attestation_complete` refuses to store an
- * attestation without a number even if the RPC were bypassed.
- *
- * As things stand no active clinical_staff record carries a real credential
- * number, so this returns false for everyone and no passport can be attested
- * yet. That is the correct behaviour, and the UI says so plainly rather than
- * hiding the control.
+ * The weaker of the two credential conditions, kept separate so the UI can tell
+ * a doctor which one they are actually missing — "you have no number on file"
+ * and "your number has not been checked yet" need different people to fix them.
  */
-export function hasAttestableCredential(staff: PassportAttestationAuthority | null): boolean {
+export function hasCredentialOnRecord(staff: PassportAttestationAuthority | null): boolean {
   if (!staff) return false;
   return (
     typeof staff.credential_type === "string" &&
@@ -201,4 +194,29 @@ export function hasAttestableCredential(staff: PassportAttestationAuthority | nu
     typeof staff.credential_number === "string" &&
     staff.credential_number.trim().length > 0
   );
+}
+
+/**
+ * The load-bearing gate: a doctor may only attest a Health Passport once their
+ * registration number has been CHECKED by an administrator, not merely typed in.
+ *
+ * An attested passport exists to be read by an embassy or a hospital that has
+ * never heard of TarragonHealth. It tells them a doctor holds registration N. If
+ * the only thing behind N is that somebody typed it into a form, the document
+ * makes a claim nobody stands behind — which is precisely the unverifiable claim
+ * this whole feature was built to stop making. So the bar is a recorded
+ * verification act: a named admin, on a date, who is not the doctor themselves.
+ *
+ * Deliberately NOT `license_verified_at`. That column gates activation and is
+ * legitimately set on records with no registration at all (a Care Coordinator is
+ * active, employed and has no MDCN number). See the migration header for why
+ * conflating the two would break real accounts.
+ *
+ * The database enforces this three ways, so this copy only shapes the UI:
+ * `attest_health_passport_request` refuses, `mint_health_passport` re-checks at
+ * issue, and `health_passport_attestation_complete` refuses to store an
+ * attestation missing a number even if both were bypassed.
+ */
+export function hasAttestableCredential(staff: PassportAttestationAuthority | null): boolean {
+  return hasCredentialOnRecord(staff) && staff?.credential_verified_at != null;
 }

@@ -5,6 +5,8 @@ import {
   useAllClinicalStaff,
   useCreateClinicalStaff,
   useVerifyClinicalStaff,
+  useVerifyClinicalStaffCredential,
+  useRevokeClinicalStaffCredentialVerification,
   useSetClinicalStaffActive,
   useSetClinicalStaffIndemnity,
   useSetClinicalStaffIndemnityExempt,
@@ -85,6 +87,23 @@ function AttestationBadge({ expiresAt }: { expiresAt: string | null }) {
  * instead of silently reading as "Verified" either way. */
 function hasCredentialOnFile(staff: Pick<ClinicalStaff, "credential_type" | "credential_number">): boolean {
   return Boolean(staff.credential_type?.trim() && staff.credential_number?.trim());
+}
+
+/**
+ * Whether the registration number has been CHECKED, not merely typed.
+ *
+ * Rendered as its own badge beside the license one because they are genuinely
+ * different claims and only this one may go on a Health Passport. A doctor
+ * looking at "Verified" against their license and wondering why they still
+ * cannot attest is exactly the confusion this separates out.
+ */
+function RegistrationVerifiedBadge({ staff }: { staff: ClinicalStaff }) {
+  if (!hasCredentialOnFile(staff)) return null;
+  return staff.credential_verified_at ? (
+    <Badge variant="green">Registration checked {formatDate(staff.credential_verified_at)}</Badge>
+  ) : (
+    <Badge variant="amber">Registration not checked</Badge>
+  );
 }
 
 function MissingCredentialBadge({ staff }: { staff: ClinicalStaff }) {
@@ -312,12 +331,15 @@ function IndemnityExemptionsSection() {
   );
 }
 
-export function ClinicalStaffManager() {
+export function ClinicalStaffManager({ currentProfileId }: { currentProfileId: string }) {
   const { data: staff, isLoading, isError } = useAllClinicalStaff();
   const { data: orgExemptions } = useOrgIndemnityExemptions();
   const { data: attestations } = useOrgAttestationStatuses();
   const create = useCreateClinicalStaff();
   const verify = useVerifyClinicalStaff();
+  const verifyCredential = useVerifyClinicalStaffCredential();
+  const revokeCredential = useRevokeClinicalStaffCredentialVerification();
+  const [credentialError, setCredentialError] = useState<string | null>(null);
   const setActive = useSetClinicalStaffActive();
 
   const [doctorTier, setDoctorTier] = useState<ClinicalStaff["doctor_tier"]>("tier_1");
@@ -456,6 +478,11 @@ export function ClinicalStaffManager() {
           <CardTitle>All clinical staff</CardTitle>
         </CardHeader>
         <CardContent>
+          {credentialError && (
+            <p className="mb-3 rounded-md border border-red-500/40 bg-red-50 p-3 text-sm text-red-800">
+              {credentialError}
+            </p>
+          )}
           {staff.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">No clinical staff on file yet.</p>
           )}
@@ -491,6 +518,7 @@ export function ClinicalStaffManager() {
                         </p>
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {!hasCredentialOnFile(s) && <MissingCredentialBadge staff={s} />}
+                          <RegistrationVerifiedBadge staff={s} />
                           {s.license_verified_at && (
                             <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
                           )}
@@ -509,6 +537,43 @@ export function ClinicalStaffManager() {
                         >
                           {s.license_verified_at ? "Re-verify" : "Mark verified"}
                         </Button>
+                        {/* Registration checking is a separate act from license
+                            verification and only appears once there is a number
+                            to check. Nobody may check their own — the button
+                            says why rather than being mysteriously disabled,
+                            because for a small team "there is no second admin"
+                            is the real answer and it needs saying out loud. */}
+                        {hasCredentialOnFile(s) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={
+                              verifyCredential.isPending ||
+                              revokeCredential.isPending ||
+                              s.profile_id === currentProfileId
+                            }
+                            title={
+                              s.profile_id === currentProfileId
+                                ? "You cannot verify your own registration. This needs a second administrator."
+                                : s.credential_verified_at
+                                  ? "Withdraw this registration check. Passports already issued are unaffected."
+                                  : "Confirm you have looked this number up on the register."
+                            }
+                            onClick={() => {
+                              setCredentialError(null);
+                              const mutation = s.credential_verified_at
+                                ? revokeCredential
+                                : verifyCredential;
+                              mutation.mutate(s.id, {
+                                onError: (e: Error) => setCredentialError(e.message),
+                              });
+                            }}
+                          >
+                            {s.credential_verified_at
+                              ? "Unverify registration"
+                              : "Verify registration"}
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"

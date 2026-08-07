@@ -29,8 +29,16 @@ export default async function ClinicalStaffSettingsPage() {
           before they can be activated, unless an admin has explicitly exempted that person, their
           role, or the whole organisation from the requirement.
         </p>
+        <p className="mt-2 text-charcoal-ink/60">
+          Verifying the license and verifying the registration number are two different acts.
+          Marking a license verified clears someone to work here, and applies to non-clinical staff
+          who have no registration number at all. Verifying the registration number means an
+          administrator looked that specific number up on the register, and it is the only thing
+          that lets a doctor put their registration on a Health Passport an employer, a clinic or
+          an embassy will check. Neither can be done to your own record.
+        </p>
       </div>
-      <ClinicalStaffManager />
+      <ClinicalStaffManager currentProfileId={profile.id} />
     </div>
   );
 }
