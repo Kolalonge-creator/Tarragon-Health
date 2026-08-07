@@ -1,15 +1,25 @@
-import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { getHealthPassportData } from "@/lib/health-passport/get-health-passport-data";
-import { HealthPassportDocument } from "@/lib/health-passport/health-passport-document";
+import { getCurrentPassport, issueHealthPassport } from "@/lib/health-passport/issue";
+import { renderPassportPdf, renderUnsignedPassportPdf } from "@/lib/health-passport/render";
 
 /**
- * Streams the same read-side Health Passport data as the in-app view
- * (/patient/health-passport) as a downloadable PDF — FEATURE_SPEC.md's
- * free-tier "downloadable Health Passport PDF". Cookie-session auth (this
- * is a browser link, not a mobile bearer-token call), and every query is
- * already scoped to the caller's own patient_id — no data beyond what the
- * in-app page itself would show.
+ * The Health Passport download.
+ *
+ * Three paths, in order of preference:
+ *
+ *   1. The patient already holds a current passport — re-render THAT one, from
+ *      its frozen snapshot. Downloading a second copy must produce the same
+ *      document with the same reference, not silently supersede the copy already
+ *      sitting in an embassy's file.
+ *   2. They hold none — issue one, sign it, seal it, render it.
+ *   3. No signing key is configured on this deployment — hand them their record
+ *      as an honestly-labelled unsigned summary. See lib/health-passport/signing-key.ts
+ *      for why that degradation is right and a fabricated signature never is.
+ *
+ * Cookie-session auth: this is a browser link, not a mobile bearer-token call.
+ * Every query underneath is already scoped to the caller's own patient_id, so
+ * this exposes nothing the in-app page would not.
  */
 export async function GET(): Promise<Response> {
   const supabase = await createClient();
@@ -22,22 +32,48 @@ export async function GET(): Promise<Response> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, organisation_id, role")
+    .select("full_name, organisation_id, role, receives_care")
     .eq("id", user.id)
     .single();
-  if (!profile?.organisation_id || profile.role !== "patient") {
+  if (!profile?.organisation_id || profile.role !== "patient" || !profile.receives_care) {
     return new Response("Not found", { status: 404 });
   }
 
-  const data = await getHealthPassportData(supabase, user.id, profile.organisation_id);
-  const buffer = await renderToBuffer(
-    HealthPassportDocument({ patientName: profile.full_name ?? "Patient", data })
-  );
+  const existing = await getCurrentPassport(supabase, user.id);
+  const issuance =
+    existing ??
+    (await (async () => {
+      const result = await issueHealthPassport(
+        supabase,
+        user.id,
+        profile.organisation_id as string
+      );
+      return result.ok ? result.issuance : null;
+    })());
 
+  if (issuance) {
+    const pdf = await renderPassportPdf(issuance);
+    if (pdf) {
+      return pdfResponse(pdf, `tarragon-health-passport-${issuance.serial}.pdf`);
+    }
+  }
+
+  // Unsigned fallback. Reached when no signing key is configured, or in the rare
+  // case where a sealed row could not be rendered — either way the patient gets
+  // their own record rather than an error page.
+  const data = await getHealthPassportData(supabase, user.id, profile.organisation_id);
+  const pdf = await renderUnsignedPassportPdf(profile.full_name ?? "Patient", data);
+  return pdfResponse(pdf, "tarragon-health-summary.pdf");
+}
+
+function pdfResponse(buffer: Buffer, filename: string): Response {
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": 'attachment; filename="health-passport.pdf"',
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      // A passport is personal and is regenerated on demand; nothing in the
+      // chain between here and the patient's disk should keep a copy.
+      "Cache-Control": "no-store, private",
     },
   });
 }

@@ -1,12 +1,19 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { getHealthPassportData } from "@/lib/health-passport/get-health-passport-data";
+import { listPassports, passportVerifyUrl } from "@/lib/health-passport/issue";
+import { getSigner } from "@/lib/health-passport/signing-key";
+import { formatPassportDate, formatPassportPeriod } from "@/lib/health-passport/format";
 import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { LIPID_ANALYTE_META, isLipidAnalyteCode } from "@/lib/lipids/analytes";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  PassportManager,
+  type AttestationSummary,
+  type PassportSummary,
+} from "./passport-manager";
 
 const VITAL_LABEL: Record<string, string> = {
   blood_pressure: "Blood pressure",
@@ -62,31 +69,72 @@ export default async function HealthPassportPage() {
   }
 
   const supabase = await createClient();
-  const data = await getHealthPassportData(supabase, profile.id, profile.organisation_id);
+  const [data, issuances, attestationRows] = await Promise.all([
+    getHealthPassportData(supabase, profile.id, profile.organisation_id),
+    listPassports(supabase, profile.id),
+    supabase
+      .from("health_passport_attestation_requests")
+      .select("id, status, purpose, requested_at, reviewed_at, decline_reason")
+      .eq("patient_id", profile.id)
+      .order("requested_at", { ascending: false })
+      .limit(10),
+  ]);
 
-  const periodLabel = `${new Date(data.periodStart).toLocaleDateString()} – ${new Date(
-    data.periodEnd
-  ).toLocaleDateString()}`;
+  const passports: PassportSummary[] = issuances.map((row) => ({
+    id: row.id,
+    serial: row.serial,
+    status: row.status as PassportSummary["status"],
+    issuedAt: row.issued_at,
+    expiresAt: row.expires_at,
+    verifyUrl: passportVerifyUrl(row.serial),
+    verificationCount: row.verification_count,
+    lastVerifiedAt: row.last_verified_at,
+    attestingDoctorName: row.attesting_doctor_name,
+    attestingCredentialType: row.attesting_credential_type,
+    attestingCredentialNumber: row.attesting_credential_number,
+    isExpired: row.isExpired,
+  }));
+
+  // An attestation is single-use: once a passport has been issued against it,
+  // offering it again would let the same review back a second document without
+  // the doctor ever looking at the record a second time.
+  const usedAttestationIds = new Set(
+    issuances.map((row) => row.attestation_request_id).filter((id): id is string => id !== null)
+  );
+  const attestations: AttestationSummary[] = (attestationRows.data ?? []).map((row) => ({
+    id: row.id,
+    status: row.status as AttestationSummary["status"],
+    purpose: row.purpose,
+    requestedAt: row.requested_at,
+    reviewedAt: row.reviewed_at,
+    declineReason: row.decline_reason,
+    used: usedAttestationIds.has(row.id),
+  }));
+
+  const periodLabel = formatPassportPeriod(data.periodStart, data.periodEnd);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-            Your Health Passport
-          </h1>
-          <p className="text-charcoal-ink/60">
-            A summary of your health record for {periodLabel}, for your own records or to
-            share with another doctor. Not a substitute for your full medical record.
-          </p>
-        </div>
-        <Link
-          href="/api/patient/health-passport/pdf"
-          className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          Download PDF
-        </Link>
+      <div>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
+          Your Health Passport
+        </h1>
+        <p className="text-charcoal-ink/60">
+          Your health record for {periodLabel}, issued as a document that an employer, a clinic, an
+          insurer or an embassy can check for themselves, with no account needed on their side. Not a
+          substitute for your full medical record.
+        </p>
       </div>
+
+      <PassportManager
+        passports={passports}
+        attestations={attestations}
+        signingAvailable={getSigner() !== null}
+      />
+
+      <h2 className="pt-2 font-heading text-lg font-semibold text-charcoal-ink">
+        What the passport contains
+      </h2>
 
       <Card>
         <CardHeader>
@@ -111,7 +159,7 @@ export default async function HealthPassportPage() {
                   </span>
                   <span className="text-sm text-charcoal-ink/60">
                     {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
-                    period · last logged {new Date(v.takenAt).toLocaleDateString()}
+                    period · last logged {formatPassportDate(v.takenAt)}
                   </span>
                 </li>
               ))}
@@ -163,7 +211,7 @@ export default async function HealthPassportPage() {
                   <span className="font-medium text-charcoal-ink">{labResultLabel(r.code)}</span>
                   <span className="text-charcoal-ink/60">
                     {r.code === "hba1c" ? formatHba1cWithBracket(r.value) : `${r.value} ${r.unit}`} ·{" "}
-                    {new Date(r.takenAt).toLocaleDateString()}
+                    {formatPassportDate(r.takenAt)}
                   </span>
                 </li>
               ))}

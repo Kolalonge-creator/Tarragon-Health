@@ -137,3 +137,68 @@ export function canHandleEmergencyEscalation(staff: PrescribingAuthority | null)
     (staff.doctor_tier !== null && EMERGENCY_ESCALATION_TIERS.includes(staff.doctor_tier))
   );
 }
+
+/**
+ * Same tier list again, deliberately its own constant for the third time: these
+ * gate different clinical acts (initiating a medication, closing an emergency
+ * case, attesting a whole record to an outside institution) and must be free to
+ * diverge without one silently changing another. The DB keeps the same
+ * separation — three functions, not one.
+ */
+const PASSPORT_ATTESTATION_TIERS: DoctorTier[] = [
+  "tier_2",
+  "tier_3",
+  "tier_4_senior_registrar",
+  "tier_5_partner_specialist",
+];
+
+type PassportAttestationAuthority = PrescribingAuthority &
+  Pick<Tables<"clinical_staff">, "credential_type" | "credential_number">;
+
+/**
+ * Mirrors private.can_attest_health_passport(org) — Tier 2+ or the org's
+ * Clinical Director may attest a Health Passport for use outside TarragonHealth.
+ *
+ * Attesting is a broader statement than any single-case decision: it puts a
+ * named doctor's registration number against a whole record, in front of an
+ * institution that has no other way to judge it. So it sits with
+ * emergency-escalation authority rather than with first-line review.
+ *
+ * This copy only decides whether to render the control.
+ * `attest_health_passport_request` is the enforcement boundary and applies the
+ * same tier test plus the credential requirement below.
+ */
+export function canAttestHealthPassport(staff: PrescribingAuthority | null): boolean {
+  if (!staff) return false;
+  return (
+    staff.is_clinical_director ||
+    (staff.doctor_tier !== null && PASSPORT_ATTESTATION_TIERS.includes(staff.doctor_tier))
+  );
+}
+
+/**
+ * The second, harder gate: a doctor cannot attest a passport without a
+ * registration authority and number on their staff record.
+ *
+ * This is the load-bearing one. An attested passport exists to be checked by an
+ * embassy or a hospital that has never heard of TarragonHealth; a named doctor
+ * with no verifiable registration number gives them nothing to check, and
+ * printing one anyway would be exactly the unverifiable claim the whole feature
+ * is built to stop making. The database enforces it in two places — the RPC
+ * refuses, and `health_passport_attestation_complete` refuses to store an
+ * attestation without a number even if the RPC were bypassed.
+ *
+ * As things stand no active clinical_staff record carries a real credential
+ * number, so this returns false for everyone and no passport can be attested
+ * yet. That is the correct behaviour, and the UI says so plainly rather than
+ * hiding the control.
+ */
+export function hasAttestableCredential(staff: PassportAttestationAuthority | null): boolean {
+  if (!staff) return false;
+  return (
+    typeof staff.credential_type === "string" &&
+    staff.credential_type.trim().length > 0 &&
+    typeof staff.credential_number === "string" &&
+    staff.credential_number.trim().length > 0
+  );
+}

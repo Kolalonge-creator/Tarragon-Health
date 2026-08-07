@@ -31,6 +31,22 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Health Passport verification is the same class of surface: no account, no
+  // role gating, reachable on either hostname because the people using it were
+  // handed a printed URL rather than sent from inside the product. It exits
+  // before any auth logic so a signed-in patient checking someone else's
+  // document is not bounced to their own dashboard.
+  //
+  // `no-referrer` for the same belt-and-braces reason as the emergency card: the
+  // reference in the path is not itself personal data, but it should not leak
+  // into the logs of anything this page ever links out to. The key endpoint is
+  // deliberately excluded — it is public, cacheable, and meant to be fetched by
+  // strangers' tooling.
+  if (pathname.startsWith("/verify") || pathname.startsWith("/v/")) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   // app.tarragonhealth.com (or app.localhost): "/" is platform entry, not marketing homepage
   if (isApp && pathname === "/") {
     if (!user) {

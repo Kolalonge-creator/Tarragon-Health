@@ -8,6 +8,35 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, "../../"),
   // Compile TypeScript sources imported from workspace packages.
   transpilePackages: ["@tarragon/shared", "@tarragon/lifestyle-engine"],
+  async rewrites() {
+    return [
+      {
+        // The Health Passport signing keys, at the conventional discovery path.
+        // A rewrite rather than an `app/.well-known/` directory: a leading dot
+        // makes a folder invisible to a fair amount of tooling (and to Next's
+        // own file tracing), and the one URL an outside institution is told to
+        // depend on for the next decade should not rest on that.
+        source: "/.well-known/tarragon-passport-keys.json",
+        destination: "/api/passport-keys",
+      },
+      {
+        // The short form printed in the QR and read down phone lines. Every
+        // character saved makes the printed code less dense and easier to scan
+        // off a photocopy, which is the condition it will most often be in.
+        source: "/v/:serial",
+        destination: "/verify/:serial",
+      },
+    ];
+  },
+  // The Guard Leaf mark is read off disk at PDF render time (see
+  // lib/health-passport/brand-assets.ts), so it must be traced into the
+  // serverless bundle — it is never imported, only opened by path, which
+  // tracing cannot infer on its own.
+  outputFileTracingIncludes: {
+    "/api/patient/health-passport/pdf": ["./public/brand/guard-leaf-mark.png"],
+    "/api/patient/health-check/report": ["./public/brand/guard-leaf-mark.png"],
+    "/api/patient/quarterly-report/pdf": ["./public/brand/guard-leaf-mark.png"],
+  },
 };
 
 // withSentryConfig only affects the build (source map upload, tunnel

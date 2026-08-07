@@ -1,7 +1,6 @@
-import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { generateQuarterlyReportData } from "@/lib/reports/generate-quarterly-report";
-import { QuarterlyReportDocument } from "@/lib/reports/quarterly-report-document";
+import { renderUnsignedPassportPdf } from "@/lib/health-passport/render";
 import type { HealthPassportData } from "@/lib/health-passport/get-health-passport-data";
 
 /**
@@ -51,14 +50,21 @@ export async function GET(): Promise<Response> {
     ? (latestReport.snapshot as unknown as HealthPassportData)
     : (await generateQuarterlyReportData(supabase, user.id, profile.organisation_id)).data;
 
-  const buffer = await renderToBuffer(
-    QuarterlyReportDocument({ patientName: profile.full_name ?? "Patient", data })
+  // Deliberately unsigned: this is an internal summary the patient reads, not a
+  // credential for an institution. Only the Health Passport carries a
+  // verification reference, so there is never a question about which document a
+  // reference belongs to.
+  const buffer = await renderUnsignedPassportPdf(
+    profile.full_name ?? "Patient",
+    data,
+    "Quarterly Family Report"
   );
 
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": 'attachment; filename="quarterly-report.pdf"',
+      "Cache-Control": "no-store, private",
     },
   });
 }

@@ -4668,6 +4668,241 @@ export type Database = {
           },
         ]
       }
+      health_passport_attestation_requests: {
+        Row: {
+          created_at: string;
+          decline_reason: string | null;
+          id: string;
+          organisation_id: string;
+          patient_id: string;
+          patient_note: string | null;
+          purpose: string;
+          requested_at: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          statement: string | null;
+          status: Database["public"]["Enums"]["health_passport_attestation_status"];
+        };
+        Insert: {
+          created_at?: string;
+          decline_reason?: string | null;
+          id?: string;
+          organisation_id: string;
+          patient_id: string;
+          patient_note?: string | null;
+          purpose: string;
+          requested_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          statement?: string | null;
+          status?: Database["public"]["Enums"]["health_passport_attestation_status"];
+        };
+        Update: {
+          created_at?: string;
+          decline_reason?: string | null;
+          id?: string;
+          organisation_id?: string;
+          patient_id?: string;
+          patient_note?: string | null;
+          purpose?: string;
+          requested_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          statement?: string | null;
+          status?: Database["public"]["Enums"]["health_passport_attestation_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "health_passport_attestation_requests_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_passport_attestation_requests_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_passport_attestation_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      health_passport_issuances: {
+        Row: {
+          attestation_request_id: string | null;
+          attestation_statement: string | null;
+          attested_at: string | null;
+          attested_by: string | null;
+          attesting_credential_number: string | null;
+          attesting_credential_type: string | null;
+          attesting_doctor_name: string | null;
+          content_digest: string | null;
+          content_snapshot: Json | null;
+          created_at: string;
+          expires_at: string;
+          id: string;
+          issued_at: string;
+          last_verified_at: string | null;
+          last_verified_on: string | null;
+          organisation_id: string;
+          patient_id: string;
+          revocation_reason: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          serial: string;
+          signature: string | null;
+          signed_payload: string | null;
+          signing_kid: string | null;
+          status: Database["public"]["Enums"]["health_passport_status"];
+          subject_dob: string | null;
+          subject_name: string;
+          subject_patient_number: string | null;
+          verification_count: number;
+        };
+        Insert: {
+          attestation_request_id?: string | null;
+          attestation_statement?: string | null;
+          attested_at?: string | null;
+          attested_by?: string | null;
+          attesting_credential_number?: string | null;
+          attesting_credential_type?: string | null;
+          attesting_doctor_name?: string | null;
+          content_digest?: string | null;
+          content_snapshot?: Json | null;
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          issued_at?: string;
+          last_verified_at?: string | null;
+          last_verified_on?: string | null;
+          organisation_id: string;
+          patient_id: string;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          serial: string;
+          signature?: string | null;
+          signed_payload?: string | null;
+          signing_kid?: string | null;
+          status?: Database["public"]["Enums"]["health_passport_status"];
+          subject_dob?: string | null;
+          subject_name: string;
+          subject_patient_number?: string | null;
+          verification_count?: number;
+        };
+        Update: {
+          attestation_request_id?: string | null;
+          attestation_statement?: string | null;
+          attested_at?: string | null;
+          attested_by?: string | null;
+          attesting_credential_number?: string | null;
+          attesting_credential_type?: string | null;
+          attesting_doctor_name?: string | null;
+          content_digest?: string | null;
+          content_snapshot?: Json | null;
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          issued_at?: string;
+          last_verified_at?: string | null;
+          last_verified_on?: string | null;
+          organisation_id?: string;
+          patient_id?: string;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          serial?: string;
+          signature?: string | null;
+          signed_payload?: string | null;
+          signing_kid?: string | null;
+          status?: Database["public"]["Enums"]["health_passport_status"];
+          subject_dob?: string | null;
+          subject_name?: string;
+          subject_patient_number?: string | null;
+          verification_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "health_passport_issuances_attestation_request_id_fkey";
+            columns: ["attestation_request_id"];
+            isOneToOne: false;
+            referencedRelation: "health_passport_attestation_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_passport_issuances_attested_by_fkey";
+            columns: ["attested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_passport_issuances_organisation_id_fkey";
+            columns: ["organisation_id"];
+            isOneToOne: false;
+            referencedRelation: "organisations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_passport_issuances_patient_id_fkey";
+            columns: ["patient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_passport_issuances_revoked_by_fkey";
+            columns: ["revoked_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "health_passport_issuances_signing_kid_fkey";
+            columns: ["signing_kid"];
+            isOneToOne: false;
+            referencedRelation: "passport_signing_keys";
+            referencedColumns: ["kid"];
+          },
+        ];
+      };
+      health_passport_verifications: {
+        Row: {
+          id: string;
+          identity_confirmed: boolean;
+          issuance_id: string;
+          verified_at: string;
+        };
+        Insert: {
+          id?: string;
+          identity_confirmed?: boolean;
+          issuance_id: string;
+          verified_at?: string;
+        };
+        Update: {
+          id?: string;
+          identity_confirmed?: boolean;
+          issuance_id?: string;
+          verified_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "health_passport_verifications_issuance_id_fkey";
+            columns: ["issuance_id"];
+            isOneToOne: false;
+            referencedRelation: "health_passport_issuances";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       home_visit_providers: {
         Row: {
           created_at: string
@@ -7995,6 +8230,33 @@ export type Database = {
         }
         Relationships: []
       }
+      passport_signing_keys: {
+        Row: {
+          activated_at: string | null;
+          algorithm: string;
+          created_at: string;
+          kid: string;
+          public_key_spki: string;
+          retired_at: string | null;
+        };
+        Insert: {
+          activated_at?: string | null;
+          algorithm?: string;
+          created_at?: string;
+          kid: string;
+          public_key_spki: string;
+          retired_at?: string | null;
+        };
+        Update: {
+          activated_at?: string | null;
+          algorithm?: string;
+          created_at?: string;
+          kid?: string;
+          public_key_spki?: string;
+          retired_at?: string | null;
+        };
+        Relationships: [];
+      };
       pathway_attestations: {
         Row: {
           attested_at: string
@@ -13425,6 +13687,10 @@ export type Database = {
         Returns: string
       }
       analytics_user_segments: { Args: never; Returns: Json }
+      attest_health_passport_request: {
+        Args: { p_request_id: string; p_statement?: string };
+        Returns: string;
+      };
       bp_secondary_flags: { Args: { p_patient: string }; Returns: Json }
       can_act_for: { Args: { p_beneficiary: string }; Returns: boolean }
       cancel_care_voucher: {
@@ -13448,10 +13714,38 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      decline_health_passport_attestation: {
+        Args: { p_reason: string; p_request_id: string };
+        Returns: undefined;
+      };
       emergency_card_by_token: {
         Args: { p_token: string }
         Returns: Json
       }
+      health_passport_by_serial: {
+        Args: { p_dob?: string; p_serial: string };
+        Returns: Json;
+      };
+      mint_health_passport: {
+        Args: { p_attestation_request_id?: string };
+        Returns: Json;
+      };
+      register_passport_signing_key: {
+        Args: {
+          p_activate?: boolean;
+          p_kid: string;
+          p_public_key_spki: string;
+        };
+        Returns: undefined;
+      };
+      request_health_passport_attestation: {
+        Args: { p_note?: string; p_purpose: string };
+        Returns: string;
+      };
+      retire_passport_signing_key: {
+        Args: { p_kid: string };
+        Returns: undefined;
+      };
       revoke_emergency_card: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -13992,6 +14286,21 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      revoke_health_passport: {
+        Args: { p_issuance_id: string; p_reason?: string };
+        Returns: undefined;
+      };
+      seal_health_passport: {
+        Args: {
+          p_content_digest: string;
+          p_content_snapshot: Json;
+          p_issuance_id: string;
+          p_kid: string;
+          p_signature: string;
+          p_signed_payload: string;
+        };
+        Returns: undefined;
+      };
       select_video_visit_alternate_slot: {
         Args: { p_request_id: string; p_slot_id: string }
         Returns: string
@@ -14132,6 +14441,10 @@ export type Database = {
         Args: { p_enrolment_id: string }
         Returns: Json
       }
+      withdraw_health_passport_attestation: {
+        Args: { p_request_id: string };
+        Returns: undefined;
+      };
     }
     Enums: {
       activity_entry_type: "steps" | "workout"
@@ -14303,6 +14616,9 @@ export type Database = {
         | "hcv_cleared"
       health_education_content_type: "article" | "video"
       health_education_status: "seen" | "understood" | "needs_review"
+      health_passport_attestation_status:
+        "pending" | "attested" | "declined" | "withdrawn";
+      health_passport_status: "unsigned" | "valid" | "superseded" | "revoked";
       hiv_status: "unknown" | "hiv_negative" | "hiv_positive"
       hospital_admission_source: "patient_reported" | "staff_recorded"
       identity_method: "nin" | "bvn" | "document"
@@ -14953,6 +15269,13 @@ export const Constants = {
       ],
       health_education_content_type: ["article", "video"],
       health_education_status: ["seen", "understood", "needs_review"],
+      health_passport_attestation_status: [
+        "pending",
+        "attested",
+        "declined",
+        "withdrawn",
+      ],
+      health_passport_status: ["unsigned", "valid", "superseded", "revoked"],
       hiv_status: ["unknown", "hiv_negative", "hiv_positive"],
       hospital_admission_source: ["patient_reported", "staff_recorded"],
       identity_method: ["nin", "bvn", "document"],
