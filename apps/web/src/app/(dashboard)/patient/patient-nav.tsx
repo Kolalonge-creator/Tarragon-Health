@@ -37,6 +37,7 @@ export function PatientNav() {
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={false}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
