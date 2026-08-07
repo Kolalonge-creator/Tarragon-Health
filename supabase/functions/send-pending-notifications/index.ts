@@ -1157,6 +1157,61 @@ const TEMPLATE_MAP: Record<
         `See your Tarragon Health worklist. — Tarragon Health`,
     };
   },
+  // Sent to org clinicians when an emergency_events row is raised — any
+  // source (danger-symptom checklist, symptom log, ai_coach, BP hypertensive
+  // crisis, glucose severe hypo / suspected DKA, SpO2 hypoxia, temperature
+  // hyperpyrexia/hypothermia). Centralized in
+  // private.handle_emergency_event() (2026-08-07, see
+  // vitals_red_flag_notification_wiring migration) via
+  // private.enqueue_critical_notification — same tracked, force-escalating
+  // pipeline as abnormal_result_clinician_alert above.
+  emergency_event_clinician_alert: (payload) => {
+    const patientName = String(payload.patient_name ?? "A patient");
+    const sourceLabel = String(payload.source_label ?? "an emergency");
+    return {
+      metaTemplateName: "emergency_event_clinician_alert",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: patientName },
+            { type: "text", text: sourceLabel },
+          ],
+        },
+      ],
+      smsText:
+        `New Priority 1 alert: ${patientName}'s case needs review (${sourceLabel}). ` +
+        `See your Tarragon Health worklist. — Tarragon Health`,
+    };
+  },
+  // Sent to org clinicians when a RED/AMBER vitals red-flag trigger raises or
+  // upgrades a clinician_alerts row (BP, SpO2, or temperature — see
+  // private.handle_bp_reading_red_flag / handle_spo2_reading_red_flag /
+  // handle_temperature_reading_red_flag, wired 2026-08-07). Shared across all
+  // three vital types; the payload carries which one and how urgent.
+  vitals_red_flag_clinician_alert: (payload) => {
+    const patientName = String(payload.patient_name ?? "A patient");
+    const vitalLabel = String(payload.vital_label ?? "a vital sign reading");
+    const levelLabel = String(payload.level_label ?? "Review needed");
+    return {
+      metaTemplateName: "vitals_red_flag_clinician_alert",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: levelLabel },
+            { type: "text", text: patientName },
+            { type: "text", text: vitalLabel },
+          ],
+        },
+      ],
+      smsText:
+        `${levelLabel}: ${patientName}'s ${vitalLabel} needs review. ` +
+        `See your Tarragon Health worklist. — Tarragon Health`,
+    };
+  },
   // Sent to the patient after the follow-up window on an emergency event
   // (private.notify_emergency_followups). Gentle check-in nudging them to update
   // their care team in the app — the follow-up itself happens in-app, never over
