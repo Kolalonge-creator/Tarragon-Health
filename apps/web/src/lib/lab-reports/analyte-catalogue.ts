@@ -848,10 +848,23 @@ function normaliseLabel(raw: string): string {
     .trim();
 }
 
-/** Lower-case and strip spaces/dots so "µmol / L" and "umol/l" both match. */
+/**
+ * Lower-case and strip spaces/dots so "µmol / L" and "umol/l" both match.
+ *
+ * "percent" folds to "%" because several analytes declare `canonicalUnit:
+ * "percent"` (HbA1c, PCV, every differential) while every report on earth
+ * prints the symbol. Without this fold the two never compared equal, no
+ * conversion factor existed for "%", and every percentage on every report was
+ * refused as an unknown unit — including HbA1c, silently, since this engine
+ * shipped. Found by the corpus harness on its first real run.
+ */
 export function normaliseUnit(raw: string | null | undefined): string {
   if (!raw) return "";
-  return raw.toLowerCase().replace(/[\s.]+/g, "").replace(/μ/g, "µ");
+  return raw
+    .toLowerCase()
+    .replace(/[\s.]+/g, "")
+    .replace(/μ/g, "µ")
+    .replace(/^percent$/, "%");
 }
 
 /**

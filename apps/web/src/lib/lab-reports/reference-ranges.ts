@@ -320,7 +320,10 @@ export function interpretReading(
     const rule = QUALITATIVE[code];
     if (!rule) return null;
     const status = rule.status[value] ?? rule.fallback;
-    return { status, direction: status === "normal" ? null : "high", note: rule.note };
+    // No direction on a non-numeric result. "AS (high)" is meaningless — a
+    // genotype is not above or below anything — and reads as sloppy next to a
+    // haemoglobin that legitimately is low.
+    return { status, direction: null, note: rule.note };
   }
 
   const bandFn = BANDS[code];

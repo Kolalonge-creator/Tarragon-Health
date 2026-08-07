@@ -1,0 +1,7 @@
+# Real lab reports are PHI: patient name, address, hospital number, date of
+# birth. They must never reach git. Allow-listed rather than blanket-ignored so
+# that adding a case needs no git action and there is no path by which a report
+# is committed by accident.
+*
+!.gitignore
+!README.md

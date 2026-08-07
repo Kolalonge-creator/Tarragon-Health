@@ -1,0 +1,19 @@
+{
+  // Config for the standalone scripts in ./scripts, run under tsx rather than
+  // Next. It exists for one reason: `server-only` is a build-time marker with
+  // no resolvable module outside a Next build, so importing the real extraction
+  // code from a plain Node script fails at resolution.
+  //
+  // The alias lives HERE and not in tsconfig.json on purpose. Mapping
+  // `server-only` in the main config would silently disable the protection it
+  // provides for the actual application build, which is the opposite of what
+  // that marker is for.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "server-only": ["./src/test/server-only-stub.ts"]
+    }
+  },
+  "include": ["scripts/**/*.ts", "src/**/*.ts"]
+}

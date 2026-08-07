@@ -84,17 +84,32 @@ export function LabReportExtractionPanel({
   const readyRows = (extraction?.rows ?? []).filter((r) => r.status === "ready");
   const blockedRows = (extraction?.rows ?? []).filter((r) => r.status !== "ready");
 
-  const [selected, setSelected] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(readyRows.map((r) => [r.code as string, true])),
-  );
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      readyRows.map((r) => [r.code as string, String(r.valueText ?? r.value ?? "")]),
-    ),
-  );
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [values, setValues] = useState<Record<string, string>>({});
   const [reportDate, setReportDate] = useState(
     extraction?.reportDate ?? new Date().toISOString().slice(0, 10),
   );
+
+  // Seed the editable fields from the draft, and RE-seed whenever a different
+  // draft arrives.
+  //
+  // A useState initialiser runs once, on mount. This component mounts before
+  // any draft exists (the "Read this report" state), so seeding there left the
+  // value boxes empty and every row unticked once the draft came back — the
+  // clinician saw a review screen with nothing in it. Adjusting state during
+  // render, keyed on the draft's own id, is React's documented pattern for
+  // "reset state when a prop changes" and re-runs correctly on a re-read.
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if (extraction && extraction.id !== seededFor) {
+    setSeededFor(extraction.id);
+    setSelected(Object.fromEntries(readyRows.map((r) => [r.code as string, true])));
+    setValues(
+      Object.fromEntries(
+        readyRows.map((r) => [r.code as string, String(r.valueText ?? r.value ?? "")]),
+      ),
+    );
+    if (extraction.reportDate) setReportDate(extraction.reportDate);
+  }
 
   function run(action: () => Promise<{ error?: string; message?: string }>) {
     setError(null);
@@ -182,6 +197,7 @@ export function LabReportExtractionPanel({
         if (getQualitativeAnalyte(code)) {
           return raw.trim() ? { code, value_text: raw.trim() } : null;
         }
+        if (raw.trim() === "") return null;
         const value = Number(raw);
         return Number.isFinite(value)
           ? { code, value, unit: r.canonicalUnit ?? undefined }
@@ -263,13 +279,16 @@ export function LabReportExtractionPanel({
                 const code = row.code as string;
                 const qualitative = getQualitativeAnalyte(code);
                 const raw = values[code] ?? "";
-                const numeric = Number(raw);
+                // Number("") is 0, and 0 reads as critically low for almost
+                // every analyte. An empty box means "no value yet", never zero.
+                const hasValue = raw.trim() !== "";
+                const numeric = hasValue ? Number(raw) : Number.NaN;
 
                 // Classify what is ON SCREEN, not what the model first read, so
                 // a reviewer correcting a value sees the colour follow their
                 // correction rather than the draft it replaced.
                 const interpretation = qualitative
-                  ? raw
+                  ? hasValue
                     ? interpretReading(code, raw, {
                         sex: patientSex === "male" || patientSex === "female" ? patientSex : null,
                         ageYears: patientAgeYears,
