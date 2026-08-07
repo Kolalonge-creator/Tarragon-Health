@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import AwareDatetime, BaseModel, Field
 
 from ..scoring.bp_control import DEFAULT_CONTROL_DIASTOLIC, DEFAULT_CONTROL_SYSTOLIC
@@ -25,6 +27,21 @@ class BpControlRequest(BaseModel):
     )
 
 
+class MonthlyControlOut(BaseModel):
+    month_start: date
+    control_rate_percent: float | None
+    reading_count: int
+
+
+class SustainedControlOut(BaseModel):
+    window_start: AwareDatetime
+    window_end: AwareDatetime
+    months: list[MonthlyControlOut]
+    months_with_data: int
+    months_elevated: int
+    sustained_elevation_flag: bool | None
+
+
 class BpControlResponse(BaseModel):
     window_start: AwareDatetime
     window_end: AwareDatetime
@@ -37,3 +54,4 @@ class BpControlResponse(BaseModel):
     morning_systolic_mean: float | None
     morning_diastolic_mean: float | None
     morning_surge_flag: bool | None
+    sustained: SustainedControlOut

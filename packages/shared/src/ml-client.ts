@@ -90,6 +90,32 @@ export interface BpControlRequest {
   as_of?: string;
 }
 
+/** One trailing calendar month's control rate, part of BpControlResponse.sustained. */
+export interface MonthlyControlOut {
+  /** ISO date (day always "01"), Africa/Lagos calendar month. */
+  month_start: string;
+  /** null when this month has no readings at all. */
+  control_rate_percent: number | null;
+  reading_count: number;
+}
+
+/**
+ * 6-calendar-month longitudinal breakdown, distinct from the 30-day rolling
+ * window above — answers "has this been going on for months", which a
+ * 30-day window alone can't (a single good recent week fully masks a
+ * longer pattern in it). See services/ml's assess_sustained_control.
+ */
+export interface SustainedControlOut {
+  window_start: string;
+  window_end: string;
+  /** Always 6 entries, oldest first. */
+  months: MonthlyControlOut[];
+  months_with_data: number;
+  months_elevated: number;
+  /** null only when there is no data at all in the 6-month window. */
+  sustained_elevation_flag: boolean | null;
+}
+
 export interface BpControlResponse {
   window_start: string;
   window_end: string;
@@ -102,6 +128,7 @@ export interface BpControlResponse {
   morning_systolic_mean: number | null;
   morning_diastolic_mean: number | null;
   morning_surge_flag: boolean | null;
+  sustained: SustainedControlOut;
 }
 
 // --- /interpret/labs (services/ml/app/schemas/labs.py) ---------------------
