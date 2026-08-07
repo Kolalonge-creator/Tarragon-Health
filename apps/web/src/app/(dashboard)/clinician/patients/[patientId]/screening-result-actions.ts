@@ -329,10 +329,16 @@ async function maybeComputeHba1cTrajectory(
     .eq("patient_id", params.patientId)
     .eq("code", "hba1c")
     .order("taken_at", { ascending: true });
-  if (!history || history.length === 0) return;
+  // value is nullable since non-numeric results share this table; an HbA1c row
+  // should never be one, so a null is dropped rather than coerced into a zero
+  // that would bend the trajectory.
+  const numericHistory = (history ?? []).filter(
+    (r): r is typeof r & { value: number } => r.value !== null,
+  );
+  if (numericHistory.length === 0) return;
 
   const trajectory = await mlClient.hba1cTrajectory({
-    readings: history.map((r) => ({
+    readings: numericHistory.map((r) => ({
       on: r.taken_at.slice(0, 10),
       value_percent: r.value,
     })),
