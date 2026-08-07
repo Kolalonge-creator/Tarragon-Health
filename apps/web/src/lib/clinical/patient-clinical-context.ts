@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { egfrFromReading, type EgfrWithProvenance } from "@/lib/rules/egfr";
+import { combineKdigoRisk, type KdigoRiskResult } from "@/lib/rules/kdigo-ckd-risk";
 import {
   assessMedicationSafety,
   type MedicationInput,
@@ -26,6 +27,10 @@ export interface PatientClinicalContext {
   egfr: EgfrWithProvenance | null;
   /** Why eGFR is unavailable, when it is. Surfaced, never silently absent. */
   egfrUnavailableReason: string | null;
+  /** KDIGO GFR x albuminuria combined risk category — null until both eGFR and a urine ACR are on file. */
+  ckdRisk: KdigoRiskResult | null;
+  /** Why ckdRisk is unavailable, when it is. Surfaced, never silently absent. */
+  ckdRiskUnavailableReason: string | null;
   trends: TrendFinding[];
 }
 
@@ -60,8 +65,38 @@ export async function loadPatientClinicalContext(
   );
 
   const { egfr, egfrUnavailableReason } = deriveEgfr(numericReadings, patient ?? null);
+  const { ckdRisk, ckdRiskUnavailableReason } = deriveCkdRisk(
+    numericReadings,
+    egfr,
+    egfrUnavailableReason,
+  );
 
-  return { egfr, egfrUnavailableReason, trends };
+  return { egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, trends };
+}
+
+function deriveCkdRisk(
+  readings: { code: string; value: number; taken_at: string }[],
+  egfr: EgfrWithProvenance | null,
+  egfrUnavailableReason: string | null,
+): { ckdRisk: KdigoRiskResult | null; ckdRiskUnavailableReason: string | null } {
+  if (!egfr) {
+    return { ckdRisk: null, ckdRiskUnavailableReason: egfrUnavailableReason };
+  }
+
+  const acrReadings = readings.filter((r) => r.code === "urine_acr");
+  const latestAcr = acrReadings[acrReadings.length - 1];
+  if (!latestAcr) {
+    return {
+      ckdRisk: null,
+      ckdRiskUnavailableReason:
+        "No urine albumin-to-creatinine ratio on file. eGFR alone can miss a real risk that only shows up with albuminuria — add a urine ACR to complete the KDIGO CKD risk picture.",
+    };
+  }
+
+  return {
+    ckdRisk: combineKdigoRisk({ gfrCategory: egfr.category, acrMgG: latestAcr.value }),
+    ckdRiskUnavailableReason: null,
+  };
 }
 
 function deriveEgfr(
@@ -109,6 +144,8 @@ export interface MedicationSafetyView {
   report: SafetyReport;
   egfr: EgfrWithProvenance | null;
   egfrUnavailableReason: string | null;
+  ckdRisk: KdigoRiskResult | null;
+  ckdRiskUnavailableReason: string | null;
   medicationCount: number;
 }
 
@@ -145,6 +182,8 @@ export async function loadMedicationSafety(
     report,
     egfr: context.egfr,
     egfrUnavailableReason: context.egfrUnavailableReason,
+    ckdRisk: context.ckdRisk,
+    ckdRiskUnavailableReason: context.ckdRiskUnavailableReason,
     medicationCount: inputs.length,
   };
 }
