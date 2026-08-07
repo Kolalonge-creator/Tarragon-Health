@@ -13246,6 +13246,10 @@ export type Database = {
       }
     }
     Functions: {
+      my_care_plan_clinicians: {
+        Args: never
+        Returns: { care_plan_id: string; clinician_full_name: string }[]
+      }
       accept_video_visit_request: {
         Args: { p_request_id: string }
         Returns: string

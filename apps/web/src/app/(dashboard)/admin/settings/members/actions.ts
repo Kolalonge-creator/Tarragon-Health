@@ -7,7 +7,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission, hasAnyPermission, type PermissionKey } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { provisionMemberSchema, USER_ROLES } from "@/lib/validation/members";
+import { provisionMemberSchema, setMemberPhoneSchema, USER_ROLES } from "@/lib/validation/members";
 
 export type MemberActionState = { error?: string; message?: string } | undefined;
 
@@ -166,6 +166,44 @@ export async function setMemberRoleAction(
 
   revalidatePath("/admin/settings/members");
   return { message: "Role updated." };
+}
+
+/**
+ * Update a member's phone number. Runs under the caller's RLS-scoped session
+ * (profiles_update already permits an admin to write any column on an
+ * org-attached profile — no new RLS policy needed). Gated by
+ * `users.contact.edit`, deliberately distinct from `users.roles.assign`:
+ * this cannot change a member's privilege level, only how they're reached.
+ */
+export async function setMemberPhoneAction(
+  _prev: MemberActionState,
+  formData: FormData
+): Promise<MemberActionState> {
+  const actor = await requirePermission("users.contact.edit");
+
+  const parsed = setMemberPhoneSchema.safeParse({
+    memberId: formData.get("memberId"),
+    phone: formData.get("phone"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid phone number" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ phone: parsed.data.phone ?? null })
+    .eq("id", parsed.data.memberId);
+  if (error) return { error: error.message };
+
+  // Log that the field changed, not the phone number itself.
+  await recordAudit(actor.id, actor.organisation_id, "member.phone_changed", "profiles", parsed.data.memberId, {
+    phone_set: parsed.data.phone != null,
+  });
+
+  revalidatePath("/admin/settings/members");
+  revalidatePath(`/admin/members/${parsed.data.memberId}`);
+  return { message: "Phone number updated." };
 }
 
 /** Grant a single capability to a member (additive). Gated by `users.permissions.grant`. */
