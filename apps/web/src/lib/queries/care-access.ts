@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 
 export interface AccessibleProfile {
@@ -37,7 +37,8 @@ async function profilesGrantedTo(level: "manage" | null): Promise<AccessibleProf
  * Filters on is_dependent_account rather than on permission_level alone,
  * because an eldercare care_access_requests 'manage' grant (two adults, each
  * with their own account) produces an identical profile_access row and must
- * NOT appear here — see useAdultsIManage below for that surface.
+ * NOT appear here — that case is served by public.my_care_graph()'s
+ * records_i_can_see, rendered by CareGraphPanel.
  *
  * Powers the "whose vaccinations?" subject selector. A next of kin holds
  * 'view' and deliberately does not appear here: they can follow the record,
@@ -47,20 +48,6 @@ export function useManagedDependents() {
   return useQuery({
     queryKey: ["managed-dependents"],
     queryFn: async () => (await profilesGrantedTo("manage")).filter((p) => p.is_dependent_account),
-  });
-}
-
-/**
- * Adults the caller may act on under the eldercare flow — a 'manage' grant
- * accepted through care_access_requests between two people who each hold
- * their own account, as opposed to a child dependant who has none. See
- * useManagedDependents for the is_dependent_account split this relies on.
- */
-export function useAdultsIManage() {
-  return useQuery({
-    queryKey: ["adults-i-manage"],
-    queryFn: async () =>
-      (await profilesGrantedTo("manage")).filter((p) => !p.is_dependent_account),
   });
 }
 
@@ -78,87 +65,5 @@ export function useSponsorableProfiles() {
   return useQuery({
     queryKey: ["sponsorable-profiles"],
     queryFn: () => profilesGrantedTo(null),
-  });
-}
-
-export interface CareFollower {
-  grantId: string;
-  profileId: string;
-  fullName: string | null;
-  permissionLevel: "view" | "manage";
-  /** They can read this person's health information. */
-  clinicalAccess: boolean;
-  clinicalAccessUpdatedAt: string | null;
-  since: string;
-}
-
-/**
- * The people who can see the caller's own record, from the caller's side.
- *
- * The mirror image of useSponsorableProfiles, and the list the consent switch
- * hangs off. Reading the grantee's name at all depends on
- * profiles_select_my_grantees (20260731181822) — before that policy, a patient
- * could give someone access and never be shown who they were.
- */
-export function useMyCareFollowers() {
-  return useQuery({
-    queryKey: ["my-care-followers"],
-    queryFn: async (): Promise<CareFollower[]> => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not signed in");
-
-      const { data, error } = await supabase
-        .from("profile_access")
-        .select(
-          `id, permission_level, clinical_access, clinical_access_updated_at, created_at,
-           grantee:profiles!profile_access_grantee_user_id_fkey(id, full_name)`
-        )
-        .eq("profile_id", user.id)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-
-      return (data ?? []).flatMap((row) => {
-        if (!row.grantee) return [];
-        return [
-          {
-            grantId: row.id,
-            profileId: row.grantee.id,
-            fullName: row.grantee.full_name,
-            permissionLevel: row.permission_level as "view" | "manage",
-            clinicalAccess: row.clinical_access === true,
-            clinicalAccessUpdatedAt: row.clinical_access_updated_at,
-            since: row.created_at,
-          },
-        ];
-      });
-    },
-  });
-}
-
-/**
- * Turn health visibility on or off for one person.
- *
- * A plain update: profile_access_update already restricts the row to its owner,
- * and private.enforce_clinical_access_consent_owner refuses the change to
- * anyone else regardless — including a superadmin, so there is no privileged
- * path around this that a server action would need to guard.
- */
-export function useSetClinicalAccess() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { grantId: string; allow: boolean }) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("profile_access")
-        .update({ clinical_access: input.allow })
-        .eq("id", input.grantId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
-    },
   });
 }

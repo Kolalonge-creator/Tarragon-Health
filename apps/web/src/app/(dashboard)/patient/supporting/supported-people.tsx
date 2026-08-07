@@ -256,6 +256,16 @@ function PersonCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* The receipt is the answer to "did the money do anything", so it is the
+            first thing on the card rather than something to scroll for. It works
+            at either disclosure tier: without clinical consent it still proves
+            the care happened, which is the question a funder is actually asking. */}
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/patient/supporting/${person.profileId}/receipt`}>
+            See what their care involved
+          </Link>
+        </Button>
+
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs text-charcoal-ink/60">Paid for and waiting to be used</p>

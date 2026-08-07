@@ -5,9 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { AddChildForm } from "./add-child-form";
 import { NextOfKinForm, type NextOfKinState } from "./next-of-kin-form";
 import { DependantsList } from "./dependants-list";
-import { AdultsYouManageList } from "./adults-you-manage-list";
 import { CareAccessRequestsList, type CareAccessRequestRow } from "./care-access-requests-list";
-import { CareVisibilityList } from "./care-visibility-list";
+import { CareGraphPanel } from "./care-graph-panel";
+import { AccessLogPanel } from "./access-log-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -117,7 +117,13 @@ export default async function CareCirclePage() {
 
       <NextOfKinForm current={nextOfKin} />
 
-      <CareVisibilityList />
+      {/* One list of every relationship, each with its own take-back. Absorbs
+          what used to be CareVisibilityList (the health-visibility switch, which
+          could not remove anyone) and AdultsYouManageList (a list of names with
+          nothing you could do to it). */}
+      <CareGraphPanel />
+
+      <AccessLogPanel />
 
       <Card>
         <CardHeader>
@@ -134,7 +140,6 @@ export default async function CareCirclePage() {
         </CardContent>
       </Card>
 
-      <AdultsYouManageList />
       <DependantsList />
       <AddChildForm />
     </div>
