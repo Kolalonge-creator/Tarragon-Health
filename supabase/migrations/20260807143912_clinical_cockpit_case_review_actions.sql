@@ -395,6 +395,17 @@ create policy case_review_actions_update on public.case_review_actions
 -- like an empty result rather than an error (CLAUDE.md standing lesson).
 grant select, update on public.case_review_actions to authenticated;
 
+-- alter-default-privileges (20260731232749) grants authenticated
+-- select/insert/update/delete on every new table by default, precisely so a
+-- table never silently ends up unreachable. This table is the deliberate
+-- exception: proposals come only from the service-role rule engine and
+-- nothing is ever deleted, so the INSERT/DELETE default grants are revoked
+-- here rather than left to RLS alone -- the assertions below check the raw
+-- table privilege, not just the absence of a policy, so this table can never
+-- be inserted into or deleted from by an ordinary session even if a future
+-- RLS change went wrong.
+revoke insert, delete on public.case_review_actions from authenticated;
+
 -- ---------------------------------------------------------------------------
 -- case_briefs: ground the brief in the signed protocol, and draft the note
 -- ---------------------------------------------------------------------------
