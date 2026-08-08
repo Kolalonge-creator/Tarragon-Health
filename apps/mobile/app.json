@@ -24,6 +24,14 @@
           "modes": [],
           "bluetoothAlwaysPermission": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale."
         }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "TarragonHealth reads the blood pressure, blood sugar, weight, oxygen level, heart rate and step data you already keep in Apple Health, so your care team sees it alongside the rest of your record.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
       ]
     ],
     "ios": {

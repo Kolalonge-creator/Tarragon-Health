@@ -5,6 +5,7 @@ import type { Device } from "react-native-ble-plx";
 import type { Tables } from "@tarragon/shared";
 import { requestBlePermissions, scanForClinicalDevices, type SupportedDeviceType } from "@/lib/ble";
 import { supabase } from "@/lib/supabase";
+import { AppleHealthCard } from "@/screens/apple-health-card";
 import { colors, spacing } from "@/ui/theme";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
 
@@ -112,6 +113,10 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           data={devices}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ gap: 10 }}
+          // Scrolls with the list rather than sitting fixed above it: on a
+          // small screen a pinned card would push the paired devices —
+          // the reason someone opened this tab — below the fold.
+          ListHeaderComponent={<AppleHealthCard />}
           ListEmptyComponent={
             <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
               <Ionicons name="bluetooth-outline" size={28} color={colors.faint} />
