@@ -26,6 +26,7 @@ and issue a new one. All requests must be HTTPS.
 | `device_readings:write` | POST /api/integrations/device-readings |
 | `patients:read` | reserved for future read endpoints |
 | `protocol_api:classify` | POST /api/protocol-api/v1/{bp-triage,diabetes-risk,cv-risk} |
+| `fhir:import` | POST /api/integrations/fhir/import |
 
 ## `GET /api/integrations/me`
 
@@ -96,6 +97,88 @@ Readings land in the same clinical record as the patient's own entries and
 run the same downstream review/escalation pipeline — an abnormal
 device-pushed blood pressure gets clinical attention exactly like one typed
 into the app.
+
+## `POST /api/integrations/fhir/import`
+
+Push a FHIR R4 Bundle for one patient (an HMO's or hospital's record for
+someone already using TarragonHealth). **Nothing you send becomes part of
+the patient's clinical record automatically.** Each recognised resource
+lands in a review queue and only becomes an active reading, allergy,
+medication, or vaccination once a TarragonHealth clinician confirms it.
+Expect a delay between this call succeeding and the data appearing in the
+patient's record.
+
+This request shape (a `patient_number` + a Bundle, rather than a bare
+Bundle with an embedded `Patient` identifier) is provisional and may change
+once we've seen a real partner's export payload — tell us what your
+platform actually emits and we'll adjust to fit it, rather than the other
+way round.
+
+| Field | Type | Notes |
+|---|---|---|
+| `patient_number` | string | `TH-NNNNNN` |
+| `source_system` | string? | free-text label shown to the reviewing clinician |
+| `bundle` | object | a FHIR R4 `Bundle` (any `type`); up to 200 `entry` items |
+
+**v1 supports only these resource types** — anything else in the Bundle is
+recorded (so nothing is silently dropped) but not staged for review:
+
+| `resourceType` | Lands as (once confirmed) |
+|---|---|
+| `Observation` (vital-sign LOINC codes only) | a vitals reading |
+| `AllergyIntolerance` | an allergy |
+| `MedicationStatement` / `MedicationRequest` | a medication (inline `medicationCodeableConcept` only — a `medicationReference` is not supported) |
+| `Immunization` | a vaccination record, matched to our vaccine catalogue by name/CVX code — an unmatched vaccine cannot be confirmed until a clinician resolves it |
+
+Example:
+
+```bash
+curl -X POST "$BASE/api/integrations/fhir/import" \
+  -H "Authorization: Bearer th_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_number": "TH-000123",
+    "source_system": "Example HMO EMR",
+    "bundle": {
+      "resourceType": "Bundle",
+      "type": "collection",
+      "identifier": { "value": "example-hmo-export-2026-08-07" },
+      "entry": [
+        {
+          "resource": {
+            "resourceType": "Observation",
+            "id": "obs-1",
+            "status": "final",
+            "code": { "coding": [{ "system": "http://loinc.org", "code": "29463-7" }] },
+            "effectiveDateTime": "2026-08-01T09:00:00Z",
+            "valueQuantity": { "value": 71.4, "unit": "kg" }
+          }
+        }
+      ]
+    }
+  }'
+```
+
+Responses:
+
+| Status | Body | Meaning |
+|---|---|---|
+| 200 | `{ "success": true, "batch_id": "...", "proposed": { "Observation": 1 }, "skipped": [] }` | Bundle recorded, recognised resources staged for clinician review |
+| 200 | `{ "success": true, "deduped": true, "batch_id": "..." }` | this exact Bundle (by `bundle.identifier.value` or `bundle.id`) was already ingested (safe retry) |
+| 400 | `{ "error": "..." }` | validation failure (bad `patient_number`, malformed Bundle, empty or oversized `entry`) |
+| 401 | `{ "error": "..." }` | missing/invalid/revoked key |
+| 403 | `{ "error": "..." }` | key lacks the `fhir:import` scope |
+| 404 | `{ "error": "..." }` | patient number not in the key's organisation |
+
+## FHIR export (informational — not partner-called)
+
+Any TarragonHealth patient can download their own record as a FHIR R4
+`Bundle` from `/patient/health-passport` in the app ("Download as FHIR
+(JSON)"), authenticated as themselves rather than via an API key. This is
+the other half of the interoperability promise: a patient can take their
+record and hand it to any system that accepts FHIR, including yours. There
+is no partner-facing pull endpoint for another organisation's patients in
+v1 — only the patient's own self-service download.
 
 ## Protocol API — licensed classifiers (no patient tenant required)
 

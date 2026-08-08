@@ -122,6 +122,7 @@ export function getNavSections(
                 { label: "Lifestyle reviews", href: "/clinician/lifestyle-reviews", icon: "lifestyle" },
                 { label: "Care plan review", href: "/clinician/care-plan-review", icon: "carePlan" },
                 { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
+                { label: "FHIR imports", href: "/clinician/fhir-imports", icon: "inbox" },
               ],
             },
             {

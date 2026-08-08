@@ -3599,6 +3599,181 @@ export type Database = {
           },
         ]
       }
+      fhir_import_batches: {
+        Row: {
+          api_key_id: string
+          fhir_bundle_identifier: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          raw_bundle: Json
+          received_at: string
+          resource_counts: Json
+          skip_reasons: Json
+          source_system: string | null
+        }
+        Insert: {
+          api_key_id: string
+          fhir_bundle_identifier?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          raw_bundle: Json
+          received_at?: string
+          resource_counts?: Json
+          skip_reasons?: Json
+          source_system?: string | null
+        }
+        Update: {
+          api_key_id?: string
+          fhir_bundle_identifier?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          raw_bundle?: Json
+          received_at?: string
+          resource_counts?: Json
+          skip_reasons?: Json
+          source_system?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fhir_import_batches_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fhir_import_batches_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fhir_import_batches_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fhir_import_proposed_resources: {
+        Row: {
+          batch_id: string
+          confirmed_at: string | null
+          confirmed_at_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          confirmed_by: string | null
+          confirmed_by_staff: string | null
+          confirmed_payload: Json | null
+          dismissal_reason: string | null
+          dismissed_at: string | null
+          dismissed_by_staff: string | null
+          fhir_resource_id: string | null
+          id: string
+          normalized_payload: Json
+          organisation_id: string
+          parse_warnings: Json
+          parser_version: number
+          patient_id: string
+          proposed_at: string
+          raw_resource: Json
+          resource_type: Database["public"]["Enums"]["fhir_import_resource_type"]
+          result_id: string | null
+          result_table: string | null
+          source: string
+          status: Database["public"]["Enums"]["fhir_import_resource_status"]
+        }
+        Insert: {
+          batch_id: string
+          confirmed_at?: string | null
+          confirmed_at_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          confirmed_by?: string | null
+          confirmed_by_staff?: string | null
+          confirmed_payload?: Json | null
+          dismissal_reason?: string | null
+          dismissed_at?: string | null
+          dismissed_by_staff?: string | null
+          fhir_resource_id?: string | null
+          id?: string
+          normalized_payload: Json
+          organisation_id: string
+          parse_warnings?: Json
+          parser_version: number
+          patient_id: string
+          proposed_at?: string
+          raw_resource: Json
+          resource_type: Database["public"]["Enums"]["fhir_import_resource_type"]
+          result_id?: string | null
+          result_table?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["fhir_import_resource_status"]
+        }
+        Update: {
+          batch_id?: string
+          confirmed_at?: string | null
+          confirmed_at_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          confirmed_by?: string | null
+          confirmed_by_staff?: string | null
+          confirmed_payload?: Json | null
+          dismissal_reason?: string | null
+          dismissed_at?: string | null
+          dismissed_by_staff?: string | null
+          fhir_resource_id?: string | null
+          id?: string
+          normalized_payload?: Json
+          organisation_id?: string
+          parse_warnings?: Json
+          parser_version?: number
+          patient_id?: string
+          proposed_at?: string
+          raw_resource?: Json
+          resource_type?: Database["public"]["Enums"]["fhir_import_resource_type"]
+          result_id?: string | null
+          result_table?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["fhir_import_resource_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fhir_import_proposed_resources_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "fhir_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fhir_import_proposed_resources_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fhir_import_proposed_resources_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fhir_import_proposed_resources_confirmed_by_staff_fkey"
+            columns: ["confirmed_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fhir_import_proposed_resources_dismissed_by_staff_fkey"
+            columns: ["dismissed_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_accounts: {
         Row: {
           account_type: string
@@ -14144,7 +14319,14 @@ export type Database = {
       allergy_severity: "mild" | "moderate" | "severe"
       blood_group: "O+" | "O-" | "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-"
       haemoglobin_genotype: "AA" | "AS" | "AC" | "SS" | "SC" | "CC" | "other"
-      allergy_source: "patient" | "clinician"
+      allergy_source: "patient" | "clinician" | "fhir_import"
+      fhir_import_resource_type:
+        | "Observation"
+        | "AllergyIntolerance"
+        | "MedicationStatement"
+        | "MedicationRequest"
+        | "Immunization"
+      fhir_import_resource_status: "proposed" | "confirmed" | "modified" | "dismissed" | "superseded"
       annual_check_status: "pending" | "in_progress" | "completed"
       annual_review_stage:
         | "due"
@@ -14397,7 +14579,7 @@ export type Database = {
         | "lab_review"
       medication_log_status: "taken" | "missed" | "skipped"
       medication_review_status: "pending" | "completed" | "cancelled"
-      medication_source: "clinician" | "patient" | "specialist"
+      medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
       notification_channel:
         | "email"
         | "sms"
@@ -14605,7 +14787,7 @@ export type Database = {
         | "cancelled"
         | "refunded"
         | "alternate_proposed"
-      vital_source: "manual" | "device" | "wearable" | "cgm"
+      vital_source: "manual" | "device" | "wearable" | "cgm" | "fhir_import"
       vital_type:
         | "blood_pressure"
         | "glucose"
@@ -14775,7 +14957,15 @@ export const Constants = {
       allergy_severity: ["mild", "moderate", "severe"],
       blood_group: ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"],
       haemoglobin_genotype: ["AA", "AS", "AC", "SS", "SC", "CC", "other"],
-      allergy_source: ["patient", "clinician"],
+      allergy_source: ["patient", "clinician", "fhir_import"],
+      fhir_import_resource_type: [
+        "Observation",
+        "AllergyIntolerance",
+        "MedicationStatement",
+        "MedicationRequest",
+        "Immunization",
+      ],
+      fhir_import_resource_status: ["proposed", "confirmed", "modified", "dismissed", "superseded"],
       annual_check_status: ["pending", "in_progress", "completed"],
       annual_review_stage: [
         "due",
@@ -15057,7 +15247,7 @@ export const Constants = {
       ],
       medication_log_status: ["taken", "missed", "skipped"],
       medication_review_status: ["pending", "completed", "cancelled"],
-      medication_source: ["clinician", "patient", "specialist"],
+      medication_source: ["clinician", "patient", "specialist", "fhir_import"],
       notification_channel: [
         "email",
         "sms",
@@ -15288,7 +15478,7 @@ export const Constants = {
         "refunded",
         "alternate_proposed",
       ],
-      vital_source: ["manual", "device", "wearable", "cgm"],
+      vital_source: ["manual", "device", "wearable", "cgm", "fhir_import"],
       vital_type: [
         "blood_pressure",
         "glucose",
