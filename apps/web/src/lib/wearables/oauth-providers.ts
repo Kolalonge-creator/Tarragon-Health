@@ -80,6 +80,37 @@ export function isWearableProviderConfigured(provider: CloudOAuthWearableProvide
   return Boolean(process.env[config.clientIdEnvVar] && process.env[config.clientSecretEnvVar]);
 }
 
+export interface WearableClientCredentials {
+  clientId: string;
+  clientSecret: string;
+}
+
+/**
+ * The one place that resolves a provider's client ID/secret from the
+ * environment. The token exchange, the refresh grant and the webhook
+ * signature check all need the same pair, and each having its own copy of
+ * the env var names is how one of them ends up reading a variable nobody
+ * sets. Returns null (never throws, never partially-configured) unless both
+ * halves are present.
+ */
+export function getWearableClientCredentials(
+  provider: CloudOAuthWearableProvider
+): WearableClientCredentials | null {
+  const config = OAUTH_PROVIDER_CONFIG[provider];
+  const clientId = process.env[config.clientIdEnvVar];
+  const clientSecret = process.env[config.clientSecretEnvVar];
+  if (!clientId || !clientSecret) return null;
+  return { clientId, clientSecret };
+}
+
+/** For error messages that need to name the missing variable. */
+export function wearableCredentialEnvVars(
+  provider: CloudOAuthWearableProvider
+): [string, string] {
+  const config = OAUTH_PROVIDER_CONFIG[provider];
+  return [config.clientIdEnvVar, config.clientSecretEnvVar];
+}
+
 export type WearableOAuthResult = { ok: true; url: string } | { ok: false; error: string };
 
 /**

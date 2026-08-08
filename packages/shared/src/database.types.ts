@@ -12381,6 +12381,7 @@ export type Database = {
           temperature_c: number | null
           vital_type: Database["public"]["Enums"]["vital_type"]
           waist_cm: number | null
+          wearable_connection_id: string | null
           weight_kg: number | null
         }
         Insert: {
@@ -12408,6 +12409,7 @@ export type Database = {
           temperature_c?: number | null
           vital_type: Database["public"]["Enums"]["vital_type"]
           waist_cm?: number | null
+          wearable_connection_id?: string | null
           weight_kg?: number | null
         }
         Update: {
@@ -12435,6 +12437,7 @@ export type Database = {
           temperature_c?: number | null
           vital_type?: Database["public"]["Enums"]["vital_type"]
           waist_cm?: number | null
+          wearable_connection_id?: string | null
           weight_kg?: number | null
         }
         Relationships: [
@@ -12471,6 +12474,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vitals_readings_wearable_connection_id_fkey"
+            columns: ["wearable_connection_id"]
+            isOneToOne: false
+            referencedRelation: "wearable_connections"
             referencedColumns: ["id"]
           },
         ]
@@ -12566,12 +12576,14 @@ export type Database = {
           created_at: string
           external_id: string | null
           id: string
+          last_sync_error: string | null
           last_synced_at: string | null
           organisation_id: string
           patient_id: string
           provider: Database["public"]["Enums"]["wearable_provider"]
           refresh_token: string | null
           status: Database["public"]["Enums"]["wearable_connection_status"]
+          sync_cursor: string | null
           token_expires_at: string | null
         }
         Insert: {
@@ -12580,12 +12592,14 @@ export type Database = {
           created_at?: string
           external_id?: string | null
           id?: string
+          last_sync_error?: string | null
           last_synced_at?: string | null
           organisation_id: string
           patient_id: string
           provider: Database["public"]["Enums"]["wearable_provider"]
           refresh_token?: string | null
           status?: Database["public"]["Enums"]["wearable_connection_status"]
+          sync_cursor?: string | null
           token_expires_at?: string | null
         }
         Update: {
@@ -12594,12 +12608,14 @@ export type Database = {
           created_at?: string
           external_id?: string | null
           id?: string
+          last_sync_error?: string | null
           last_synced_at?: string | null
           organisation_id?: string
           patient_id?: string
           provider?: Database["public"]["Enums"]["wearable_provider"]
           refresh_token?: string | null
           status?: Database["public"]["Enums"]["wearable_connection_status"]
+          sync_cursor?: string | null
           token_expires_at?: string | null
         }
         Relationships: [
