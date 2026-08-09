@@ -40,6 +40,7 @@ function SidebarNav({
             {section.items.map((item) => {
               const active = isActive(pathname, item.href, item.exact);
               const Icon = APP_ICON[item.icon];
+              const danger = item.variant === "danger";
               return (
                 <li key={item.href}>
                   <Link
@@ -49,17 +50,21 @@ function SidebarNav({
                     aria-current={active ? "page" : undefined}
                     className={cn(
                       "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-brand-green/10 text-deep-forest"
-                        : "text-charcoal-ink/70 hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
+                      danger
+                        ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                        : active
+                          ? "bg-brand-green/10 text-deep-forest"
+                          : "text-charcoal-ink/70 hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
                     )}
                   >
                     <Icon
                       className={cn(
                         "h-4.5 w-4.5 shrink-0",
-                        active
-                          ? "text-brand-green"
-                          : "text-charcoal-ink/40 group-hover:text-charcoal-ink/60"
+                        danger
+                          ? "text-red-600"
+                          : active
+                            ? "text-brand-green"
+                            : "text-charcoal-ink/40 group-hover:text-charcoal-ink/60"
                       )}
                       strokeWidth={2}
                     />
