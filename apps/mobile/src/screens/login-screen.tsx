@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Image, Modal, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import appIcon from "../../assets/icon.png";
 import { supabase } from "@/lib/supabase";
 import { colors, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
+import { ForgotPasswordScreen } from "@/screens/forgot-password-screen";
 
 /**
  * App-level auth gate in front of both tabs (promoted from being reachable
@@ -20,6 +21,7 @@ export function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signupOpen, setSignupOpen] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   async function handleSignIn() {
     setLoading(true);
@@ -84,6 +86,9 @@ export function LoginScreen() {
       />
       {error ? <ErrorText>{error}</ErrorText> : null}
       <PrimaryButton title="Sign in" onPress={handleSignIn} loading={loading} />
+      <Pressable onPress={() => setForgotOpen(true)} style={{ alignItems: "center", paddingVertical: 4 }}>
+        <Text style={{ color: colors.brand, fontSize: 14, fontWeight: "600" }}>Forgot password?</Text>
+      </Pressable>
       <SecondaryButton title="Create your account" onPress={() => setSignupOpen(true)} />
 
       <Modal visible={signupOpen} animationType="slide" onRequestClose={() => setSignupOpen(false)}>
@@ -93,6 +98,10 @@ export function LoginScreen() {
           </View>
           <WebViewScreen path="/signup" />
         </View>
+      </Modal>
+
+      <Modal visible={forgotOpen} animationType="slide" onRequestClose={() => setForgotOpen(false)}>
+        <ForgotPasswordScreen onClose={() => setForgotOpen(false)} />
       </Modal>
     </View>
   );

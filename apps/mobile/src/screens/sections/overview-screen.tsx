@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Linking, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   getCareSchedule,
   getCareTeam,
   getRecentActivity,
   getSummaryStats,
+  getUpcomingVideoVisit,
   daysLabel,
   type CareTeamInfo,
   type RecentActivityItem,
   type ScheduleItem,
   type SummaryStats,
+  type UpcomingVideoVisit,
 } from "@/lib/overview";
 import { colors, spacing } from "@/ui/theme";
-import { Card, MutedText } from "@/ui/components";
+import { Card, MutedText, PrimaryButton } from "@/ui/components";
 import type { SectionId } from "@/lib/sections";
 import { relativeTime } from "@/lib/notifications";
 
@@ -28,20 +30,23 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
   const [careTeam, setCareTeam] = useState<CareTeamInfo | null>(null);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [activity, setActivity] = useState<RecentActivityItem[]>([]);
+  const [videoVisit, setVideoVisit] = useState<UpcomingVideoVisit | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [s, ct, sc, act] = await Promise.all([
+    const [s, ct, sc, act, vv] = await Promise.all([
       getSummaryStats(patientId),
       getCareTeam(patientId),
       getCareSchedule(patientId),
       getRecentActivity(patientId),
+      getUpcomingVideoVisit(patientId),
     ]);
     setStats(s);
     setCareTeam(ct);
     setSchedule(sc);
     setActivity(act);
+    setVideoVisit(vv);
   }, [patientId]);
 
   useEffect(() => {
@@ -96,6 +101,36 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
           </View>
         </View>
       </Card>
+
+      {videoVisit ? (
+        <Card style={{ gap: 8, borderColor: "rgba(18,50,75,0.25)", backgroundColor: "rgba(18,50,75,0.04)" }}>
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+            <Ionicons name="videocam-outline" size={20} color={colors.navy} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.navy, textTransform: "uppercase" }}>
+                Video visit
+              </Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
+                {new Date(videoVisit.scheduledAt).toLocaleString([], {
+                  weekday: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </Text>
+            </View>
+          </View>
+          {videoVisit.joinUrl ? (
+            // A standard Zoom join link (Universal/App Link) — Linking.openURL
+            // hands off to the native Zoom app if installed, or the Zoom web
+            // client otherwise. Same handoff the Care & support WebView
+            // already does for this link; surfaced here too since Overview is
+            // the screen a patient opens most (MOBILE_APP_SPEC.md §8).
+            <PrimaryButton title="Join call" onPress={() => void Linking.openURL(videoVisit.joinUrl!)} />
+          ) : (
+            <MutedText>Your join link will appear here once your doctor confirms the time.</MutedText>
+          )}
+        </Card>
+      ) : null}
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
         <StatTile icon="heart-outline" label="Latest BP" value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"} unit="mmHg" />

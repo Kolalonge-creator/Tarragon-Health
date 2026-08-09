@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { loadTodaysDoses, logDose, type DoseChecklistItem } from "@/lib/medications";
+import { loadTodaysDoses, logDose, type DoseChecklistItem, type DoseStatus } from "@/lib/medications";
+import { syncDoseReminders } from "@/lib/dose-reminders";
 import { colors, spacing } from "@/ui/theme";
 import { Card, MutedText, SecondaryButton } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
@@ -17,7 +18,9 @@ export function MedicationsScreen({ patientId, organisationId }: MedicationsScre
   const [cabinetOpen, setCabinetOpen] = useState(false);
 
   const load = useCallback(async () => {
-    setDoses(await loadTodaysDoses(patientId));
+    const today = await loadTodaysDoses(patientId);
+    setDoses(today);
+    void syncDoseReminders(today);
   }, [patientId]);
 
   useEffect(() => {
@@ -25,9 +28,11 @@ export function MedicationsScreen({ patientId, organisationId }: MedicationsScre
   }, [load]);
 
   async function toggle(item: DoseChecklistItem) {
-    const nextStatus = item.status === "taken" ? "missed" : "taken";
+    const nextStatus: Exclude<DoseStatus, "pending"> = item.status === "taken" ? "missed" : "taken";
     // Optimistic — this is the highest-frequency native write in the app.
-    setDoses((prev) => prev.map((d) => (d === item ? { ...d, status: nextStatus } : d)));
+    const next: DoseChecklistItem[] = doses.map((d) => (d === item ? { ...d, status: nextStatus } : d));
+    setDoses(next);
+    void syncDoseReminders(next);
     const result = await logDose(patientId, organisationId, item, nextStatus);
     if (result.error) await load();
   }

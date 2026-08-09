@@ -4,6 +4,7 @@ export type SectionId =
   | "overview"
   | "vitals"
   | "medications"
+  | "labs"
   | "care"
   | "prevention"
   | "family"
@@ -26,6 +27,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "overview", label: "Overview", icon: "home-outline" },
   { id: "vitals", label: "Vitals & symptoms", icon: "pulse-outline" },
   { id: "medications", label: "Medications", icon: "medkit-outline" },
+  { id: "labs", label: "Labs & results", icon: "flask-outline" },
   { id: "care", label: "Care & support", icon: "help-buoy-outline", webviewPath: "/patient/care" },
   {
     id: "prevention",

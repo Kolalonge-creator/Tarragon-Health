@@ -187,6 +187,37 @@ export function daysLabel(dateStr: string): string {
   return `${-days} day${days === -1 ? "" : "s"} overdue`;
 }
 
+export interface UpcomingVideoVisit {
+  scheduledAt: string;
+  joinUrl: string | null;
+}
+
+/** Mirrors useUpcomingVideoVisits in apps/web/src/lib/queries/consult-slots.ts
+ * — the patient's own next booked "book a video visit" check-in (general
+ * check-ins only, not the Annual Health Review's video slot). Surfaced on
+ * Overview so joining is one tap from the screen a patient opens most,
+ * rather than requiring a detour through the Care & support WebView first —
+ * see MOBILE_APP_SPEC.md §8's "one tap from the appointment reminder into a
+ * working call" framing. Joining itself deep-links via Linking.openURL on
+ * join_url, a standard Zoom Universal/App Link that opens the native Zoom
+ * app if installed and falls back to the Zoom web client otherwise — the
+ * same handoff the WebView's own onShouldStartLoadWithRequest already does
+ * for a join link tapped inside /patient/care. */
+export async function getUpcomingVideoVisit(patientId: string): Promise<UpcomingVideoVisit | null> {
+  const { data } = await supabase
+    .from("video_consultations")
+    .select("scheduled_at, join_url, status")
+    .eq("patient_id", patientId)
+    .eq("context", "general_checkin")
+    .gte("scheduled_at", new Date().toISOString())
+    .neq("status", "cancelled")
+    .order("scheduled_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!data?.scheduled_at) return null;
+  return { scheduledAt: data.scheduled_at, joinUrl: data.join_url };
+}
+
 export interface RecentActivityItem {
   id: string;
   title: string;
