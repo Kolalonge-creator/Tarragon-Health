@@ -24,19 +24,26 @@ export default async function PatientMedicationsPage() {
       description="Today's doses and your medicines cabinet."
       icon={SEMANTIC_ICON.medication}
     >
-      <TodaysDoses patientId={subjectId} />
-      <MedicationsList
-        patientId={subjectId}
-        refillCoordinationEnabled={refillCoordinationEnabled ?? false}
-        canStop
-      />
-      <AdherenceCheckins patientId={subjectId} />
-      {/* Patients buy from any pharmacy now, so nobody here sees the box.
-          Reads it back and compares it with what was prescribed — and points
-          at NAFDAC for the authenticity question we cannot answer. */}
-      <CheckMyPack />
-      <LabMonitoringCard patientId={subjectId} />
-      <AddMedicationForm patientId={subjectId} source="patient" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr] lg:items-start">
+        <div className="space-y-4">
+          <MedicationsList
+            patientId={subjectId}
+            refillCoordinationEnabled={refillCoordinationEnabled ?? false}
+            canStop
+          />
+          <AddMedicationForm patientId={subjectId} source="patient" />
+        </div>
+
+        <div className="space-y-4">
+          <TodaysDoses patientId={subjectId} />
+          <AdherenceCheckins patientId={subjectId} />
+          {/* Patients buy from any pharmacy now, so nobody here sees the box.
+              Reads it back and compares it with what was prescribed — and points
+              at NAFDAC for the authenticity question we cannot answer. */}
+          <CheckMyPack />
+          <LabMonitoringCard patientId={subjectId} />
+        </div>
+      </div>
       {/* Pharmacy ORDERING is dormant while no pharmacy partner is
           contracted: patients buy wherever suits them and record it on the
           medication itself. PharmacyCatalogue/PharmacyOrdersList are kept

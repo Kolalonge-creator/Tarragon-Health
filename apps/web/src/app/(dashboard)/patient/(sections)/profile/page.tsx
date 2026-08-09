@@ -23,29 +23,36 @@ export default async function PatientProfilePage() {
           Your patient ID: <span className="font-mono font-medium text-charcoal-ink">{profile.patient_number}</span>
         </p>
       )}
-      {/* Identity verification lives here rather than in onboarding: it is
-          optional and non-blocking, and asking a first-time visitor for a
-          government ID before they have done anything is the single most
-          off-putting step in the signup path. */}
-      <IdentityVerificationCard patientId={subjectId} />
-      <PatientLocationForm
-        initial={{ state: profile.state, city: profile.city, area: profile.area }}
-      />
-      <ConditionLanguageForm
-        initial={{ condition_language_preference: profile.condition_language_preference }}
-      />
-      <EmergencyContactForm
-        initial={{
-          emergency_contact_name: profile.emergency_contact_name,
-          emergency_contact_phone: profile.emergency_contact_phone,
-          emergency_contact_relationship: profile.emergency_contact_relationship,
-          emergency_contact_consent: profile.emergency_contact_consent,
-          next_of_kin_name: profile.next_of_kin_name,
-          next_of_kin_phone: profile.next_of_kin_phone,
-        }}
-      />
-      <ChangePasswordForm />
-      <AiUsageDisclosure />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
+          {/* Identity verification lives here rather than in onboarding: it is
+              optional and non-blocking, and asking a first-time visitor for a
+              government ID before they have done anything is the single most
+              off-putting step in the signup path. */}
+          <IdentityVerificationCard patientId={subjectId} />
+          <PatientLocationForm
+            initial={{ state: profile.state, city: profile.city, area: profile.area }}
+          />
+          <EmergencyContactForm
+            initial={{
+              emergency_contact_name: profile.emergency_contact_name,
+              emergency_contact_phone: profile.emergency_contact_phone,
+              emergency_contact_relationship: profile.emergency_contact_relationship,
+              emergency_contact_consent: profile.emergency_contact_consent,
+              next_of_kin_name: profile.next_of_kin_name,
+              next_of_kin_phone: profile.next_of_kin_phone,
+            }}
+          />
+        </div>
+
+        <div className="space-y-4">
+          <ConditionLanguageForm
+            initial={{ condition_language_preference: profile.condition_language_preference }}
+          />
+          <ChangePasswordForm />
+          <AiUsageDisclosure />
+        </div>
+      </div>
     </DashboardSection>
   );
 }
