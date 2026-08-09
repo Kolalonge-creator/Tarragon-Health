@@ -87,21 +87,36 @@ export function scanForClinicalDevices(
   onDeviceFound: (device: Device, deviceType: SupportedDeviceType) => void,
   onError: (error: Error) => void
 ): () => void {
-  const serviceUuids = Object.values(BLE_SERVICE_UUID);
-  getManager().startDeviceScan(serviceUuids, { allowDuplicates: false }, (error, device) => {
-    if (error) {
-      onError(error);
-      return;
-    }
-    if (!device) return;
-    const matchedService = device.serviceUUIDs?.find(
-      (uuid) => SERVICE_TO_DEVICE_TYPE[uuid.toLowerCase()]
-    );
-    if (!matchedService) return;
-    onDeviceFound(device, SERVICE_TO_DEVICE_TYPE[matchedService.toLowerCase()]);
-  });
+  // getManager() touches the native BLE bridge for the first time here —
+  // under Expo Go (no native module compiled in) that throws synchronously
+  // rather than rejecting, so it must be caught rather than left to become
+  // an unhandled rejection in the caller's .then().
+  try {
+    const serviceUuids = Object.values(BLE_SERVICE_UUID);
+    getManager().startDeviceScan(serviceUuids, { allowDuplicates: false }, (error, device) => {
+      if (error) {
+        onError(error);
+        return;
+      }
+      if (!device) return;
+      const matchedService = device.serviceUUIDs?.find(
+        (uuid) => SERVICE_TO_DEVICE_TYPE[uuid.toLowerCase()]
+      );
+      if (!matchedService) return;
+      onDeviceFound(device, SERVICE_TO_DEVICE_TYPE[matchedService.toLowerCase()]);
+    });
+  } catch (error) {
+    onError(error instanceof Error ? error : new Error("Bluetooth is unavailable on this build."));
+    return () => {};
+  }
 
-  return () => getManager().stopDeviceScan();
+  return () => {
+    try {
+      getManager().stopDeviceScan();
+    } catch {
+      // Nothing to stop if the manager never started.
+    }
+  };
 }
 
 export type ParsedReading =
