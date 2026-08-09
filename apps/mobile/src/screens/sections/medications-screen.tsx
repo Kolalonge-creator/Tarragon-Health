@@ -10,9 +10,13 @@ import { WebViewScreen } from "@/screens/webview-screen";
 interface MedicationsScreenProps {
   patientId: string;
   organisationId: string;
+  /** Set to the supported person's name when acting for someone
+   * (home-shell.tsx), so the heading never implies these are the device
+   * owner's own doses while marking somebody else's. */
+  subjectName?: string;
 }
 
-export function MedicationsScreen({ patientId, organisationId }: MedicationsScreenProps) {
+export function MedicationsScreen({ patientId, organisationId, subjectName }: MedicationsScreenProps) {
   const [doses, setDoses] = useState<DoseChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cabinetOpen, setCabinetOpen] = useState(false);
@@ -40,8 +44,14 @@ export function MedicationsScreen({ patientId, organisationId }: MedicationsScre
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Medications</Text>
-        <MutedText>Today&apos;s doses and your medicines cabinet.</MutedText>
+        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
+          {subjectName ? `${subjectName}'s medications` : "Medications"}
+        </Text>
+        <MutedText>
+          {subjectName
+            ? `${subjectName}'s doses today and their medicines cabinet.`
+            : "Today's doses and your medicines cabinet."}
+        </MutedText>
       </View>
 
       <Card style={{ gap: 4 }}>

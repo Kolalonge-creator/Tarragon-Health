@@ -7,6 +7,10 @@ import { Card, MutedText, SecondaryButton } from "@/ui/components";
 interface HealthPassportScreenProps {
   patientId: string;
   organisationId: string;
+  /** Set to the supported person's name when acting for someone
+   * (home-shell.tsx), so the heading never claims to be "yours" while
+   * showing somebody else's record. */
+  subjectName?: string;
 }
 
 const VITAL_LABELS: Record<string, { label: string; format: (v: Record<string, unknown>) => string }> = {
@@ -15,7 +19,7 @@ const VITAL_LABELS: Record<string, { label: string; format: (v: Record<string, u
   weight: { label: "Weight", format: (v) => `${v.weight_kg} kg` },
 };
 
-export function HealthPassportScreen({ patientId, organisationId }: HealthPassportScreenProps) {
+export function HealthPassportScreen({ patientId, organisationId, subjectName }: HealthPassportScreenProps) {
   const [data, setData] = useState<HealthPassportSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,8 +40,14 @@ export function HealthPassportScreen({ patientId, organisationId }: HealthPasspo
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
-        <Text style={{ fontSize: 19, fontWeight: "700", color: colors.ink }}>Your Health Passport</Text>
-        <MutedText>A summary of your record — for you, or to share with another doctor.</MutedText>
+        <Text style={{ fontSize: 19, fontWeight: "700", color: colors.ink }}>
+          {subjectName ? `${subjectName}'s Health Passport` : "Your Health Passport"}
+        </Text>
+        <MutedText>
+          {subjectName
+            ? `A summary of ${subjectName}'s record — to view, or share with another doctor.`
+            : "A summary of your record — for you, or to share with another doctor."}
+        </MutedText>
       </View>
 
       <SecondaryButton
