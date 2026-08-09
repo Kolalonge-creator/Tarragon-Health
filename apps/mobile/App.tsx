@@ -1,36 +1,29 @@
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  StatusBar,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, SafeAreaView, StatusBar, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
+import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
 import { LoginScreen } from "@/screens/login-screen";
+import { HomeShell } from "@/screens/home-shell";
 import { DevicesScreen } from "@/screens/devices-screen";
 import { SyncScreen } from "@/screens/sync-screen";
-import { PlatformScreen } from "@/screens/platform-screen";
+import { colors } from "@/ui/theme";
 
 type PatientDevice = Tables<"patient_devices">;
-
-type Tab = "platform" | "devices";
+type Tab = "home" | "devices";
 
 /**
- * Deliberately simple state-machine navigation (no react-navigation/
- * expo-router): two tabs — the full platform rendered from the live web
- * deployment (so it updates with every web deploy, no store release), and
- * the native Bluetooth device pairing/sync layer, which is the one thing
- * the web can't do.
+ * App-level shape: a native auth gate (Splash → Login) in front of both
+ * tabs, then Home (the native shell + per-section WebViews, see
+ * home-shell.tsx) and Devices (native BLE pairing/sync + Apple Health) —
+ * the two tabs from the Claude Design prototype's iOS frame.
  */
 export default function App() {
-  const [tab, setTab] = useState<Tab>("platform");
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const [organisationId, setOrganisationId] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<PatientIdentity | null | undefined>(undefined);
+  const [tab, setTab] = useState<Tab>("home");
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
 
   useEffect(() => {
@@ -43,76 +36,66 @@ export default function App() {
 
   useEffect(() => {
     if (!session?.user.id) {
-      setOrganisationId(null);
+      setIdentity(session === null ? null : undefined);
       return;
     }
-    supabase
-      .from("profiles")
-      .select("organisation_id")
-      .eq("id", session.user.id)
-      .single()
-      .then(({ data }) => setOrganisationId(data?.organisation_id ?? null));
-  }, [session?.user.id]);
+    setIdentity(undefined);
+    loadPatientIdentity(session.user.id).then(setIdentity);
+  }, [session]);
+
+  if (session === undefined || (session && identity === undefined)) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.brand} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!session || !identity) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="dark-content" />
+        <LoginScreen />
+      </SafeAreaView>
+    );
+  }
 
   function renderDevicesTab() {
-    if (session === undefined) {
-      return (
-        <View style={{ flex: 1, justifyContent: "center" }}>
-          <ActivityIndicator />
-        </View>
-      );
-    }
-    if (!session) return <LoginScreen />;
-    if (!organisationId) {
-      return (
-        <View style={{ flex: 1, justifyContent: "center" }}>
-          <ActivityIndicator />
-        </View>
-      );
-    }
     if (openDevice) {
       return <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />;
     }
     return (
-      <DevicesScreen
-        patientId={session.user.id}
-        organisationId={organisationId}
-        onOpenDevice={setOpenDevice}
-      />
+      <DevicesScreen patientId={session!.user.id} organisationId={identity!.organisationId} onOpenDevice={setOpenDevice} />
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
       <StatusBar barStyle="dark-content" />
       <View style={{ flex: 1 }}>
-        {/* The WebView stays mounted while on the devices tab so platform
-            state (scroll position, form input) survives tab switches. */}
-        <View style={{ flex: 1, display: tab === "platform" ? "flex" : "none" }}>
-          <PlatformScreen />
+        {/* Both tabs stay mounted so switching back preserves scroll/section
+            state, same rationale as the old all-WebView Home tab had. */}
+        <View style={{ flex: 1, display: tab === "home" ? "flex" : "none" }}>
+          <HomeShell
+            userId={session.user.id}
+            organisationId={identity.organisationId}
+            patientName={identity.fullName}
+            patientNumber={identity.patientNumber}
+            initials={identity.initials}
+          />
         </View>
-        {tab === "devices" ? renderDevicesTab() : null}
+        <View style={{ flex: 1, display: tab === "devices" ? "flex" : "none" }}>{renderDevicesTab()}</View>
       </View>
       <View
         style={{
           flexDirection: "row",
           borderTopWidth: 1,
-          borderTopColor: "#E5E7EB",
-          backgroundColor: "#FFFFFF",
+          borderTopColor: colors.border,
+          backgroundColor: colors.card,
         }}
       >
-        <TabButton
-          label="Home"
-          icon="home"
-          active={tab === "platform"}
-          onPress={() => setTab("platform")}
-        />
-        <TabButton
-          label="Devices"
-          icon="bluetooth"
-          active={tab === "devices"}
-          onPress={() => setTab("devices")}
-        />
+        <TabButton label="Home" icon="home" active={tab === "home"} onPress={() => setTab("home")} />
+        <TabButton label="Devices" icon="bluetooth" active={tab === "devices"} onPress={() => setTab("devices")} />
       </View>
     </SafeAreaView>
   );
@@ -139,13 +122,13 @@ function TabButton({
       <Ionicons
         name={active ? icon : (`${icon}-outline` as const)}
         size={22}
-        color={active ? "#0E7C52" : "#6B7280"}
+        color={active ? colors.brand : colors.muted}
       />
       <Text
         style={{
           fontSize: 11,
           fontWeight: active ? "700" : "500",
-          color: active ? "#0E7C52" : "#6B7280",
+          color: active ? colors.brand : colors.muted,
         }}
       >
         {label}

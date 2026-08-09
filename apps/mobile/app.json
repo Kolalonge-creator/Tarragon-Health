@@ -38,7 +38,8 @@
       "bundleIdentifier": "com.tarragonhealth.mobile",
       "supportsTablet": false,
       "infoPlist": {
-        "NSBluetoothAlwaysUsageDescription": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale."
+        "NSBluetoothAlwaysUsageDescription": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale.",
+        "NSFaceIDUsageDescription": "TarragonHealth uses Face ID to lock the app so only you can open your health record."
       }
     },
     "android": {
