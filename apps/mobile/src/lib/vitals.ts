@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { postVitalReading } from "./api";
+import { postVitalReading, type VitalReadingPayload } from "./api";
 import { classifyBpLevel, type BpLevel } from "./bp-classification";
 
 export interface BpReading {
@@ -50,6 +50,15 @@ export function computeSevenDayAverage(readings: BpReading[]): SevenDayAverage |
  * triggers the same BP-control/health-score reassessment a web-logged one
  * does — see apps/web/src/app/api/mobile/vitals/route.ts. */
 export async function logBpReading(systolic: number, diastolic: number): Promise<{ error?: string }> {
-  const result = await postVitalReading({ systolic, diastolic });
+  const result = await postVitalReading({ vital_type: "blood_pressure", systolic, diastolic });
+  return result.success ? {} : { error: result.error };
+}
+
+/** Glucose/weight/temperature/SpO2/pulse quick-log (MOBILE_APP_SPEC.md §2.2) —
+ * same escalation-preserving API path as logBpReading. */
+export async function logOtherVital(
+  payload: Exclude<VitalReadingPayload, { vital_type: "blood_pressure" }>
+): Promise<{ error?: string }> {
+  const result = await postVitalReading(payload);
   return result.success ? {} : { error: result.error };
 }

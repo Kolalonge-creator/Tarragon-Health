@@ -32,6 +32,24 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
     load().finally(() => setLoading(false));
   }, [load]);
 
+  // Live-feeling updates while foregrounded (MOBILE_APP_SPEC.md §2.6) via
+  // polling, not Postgres Realtime: care_messages/care_message_threads
+  // aren't in the supabase_realtime publication yet, and turning that on
+  // needs a migration plus verifying Realtime actually respects this
+  // table's RLS (postgres_changes doesn't apply RLS by default — an
+  // unverified enable here risks leaking one patient's thread to another,
+  // the same class of bug as past cross-tenant incidents in this codebase).
+  // That's paused for the same reason as the other production-DB items.
+  useEffect(() => {
+    if (!threadId) return;
+    const interval = setInterval(() => {
+      loadThreadMessages(threadId)
+        .then((fresh) => setMessages((prev) => (fresh.length !== prev.length ? fresh : prev)))
+        .catch(() => {});
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [threadId]);
+
   async function handleSend() {
     const body = draft.trim();
     if (!body) return;

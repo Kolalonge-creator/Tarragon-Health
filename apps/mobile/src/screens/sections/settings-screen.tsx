@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
+import * as WebBrowser from "expo-web-browser";
 import { colors, spacing } from "@/ui/theme";
 import { Card, MutedText, SecondaryButton } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
+import { PLATFORM_URL } from "@/lib/platform-url";
 import { supabase } from "@/lib/supabase";
 
 const APP_LOCK_KEY = "settings-app-lock-v1";
@@ -91,7 +93,13 @@ export function SettingsScreen() {
         </Text>
         <MutedText>Contact info, identity verification, data export/delete, and your subscription open in your browser.</MutedText>
         <SecondaryButton title="Personal details & privacy" onPress={() => setWebviewPath("/patient/profile")} />
-        <SecondaryButton title="Manage subscription" onPress={() => setWebviewPath("/patient/subscription")} />
+        {/* System browser, never the in-app WebView — MOBILE_APP_SPEC.md §7:
+            embedding checkout risks Apple App Store Review 3.1.1 (digital
+            subscriptions must use IAP unless bought outside the app). */}
+        <SecondaryButton
+          title="Manage subscription"
+          onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/subscription`)}
+        />
       </Card>
 
       <SecondaryButton title="Sign out" onPress={() => void supabase.auth.signOut()} />

@@ -32,6 +32,20 @@
           "NSHealthUpdateUsageDescription": false,
           "background": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0E7C52"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "TarragonHealth uses your camera to photograph a lab result so it can be read into your record.",
+          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed."
+        }
       ]
     ],
     "ios": {

@@ -9,6 +9,7 @@ import { WebViewScreen } from "@/screens/webview-screen";
 import { OverviewScreen } from "@/screens/sections/overview-screen";
 import { VitalsScreen } from "@/screens/sections/vitals-screen";
 import { MedicationsScreen } from "@/screens/sections/medications-screen";
+import { LabsScreen } from "@/screens/sections/labs-screen";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
 import { HealthPassportScreen } from "@/screens/sections/health-passport-screen";
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
@@ -54,6 +55,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         )}
         {section === "vitals" && <VitalsScreen patientId={userId} />}
         {section === "medications" && <MedicationsScreen patientId={userId} organisationId={organisationId} />}
+        {section === "labs" && <LabsScreen />}
         {section === "messages" && <MessagesScreen patientId={userId} />}
         {section === "passport" && <HealthPassportScreen patientId={userId} organisationId={organisationId} />}
         {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
