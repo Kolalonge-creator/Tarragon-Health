@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { CohortAnalyticsResponse } from "@tarragon/shared";
@@ -8,15 +8,25 @@ import type { CohortAnalyticsResponse } from "@tarragon/shared";
  * by the HMO dashboard (same cohort-analytics pipeline, org-agnostic —
  * see load-cohort-analytics.ts), rather than duplicating this rendering.
  */
-export function CohortSummary({ analytics }: { analytics: CohortAnalyticsResponse }) {
+export function CohortSummary({
+  analytics,
+  entityLabel = "staff",
+}: {
+  analytics: CohortAnalyticsResponse;
+  /** "staff" (default, corporate) or "member" (HMO) — copy only, same data. */
+  entityLabel?: "staff" | "member";
+}) {
+  const plural = entityLabel === "member" ? "members" : "staff";
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            Workforce overview
+            {entityLabel === "member" ? "Membership overview" : "Workforce overview"}
           </CardTitle>
+          <CardDescription>Anonymised cohort snapshot.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -36,6 +46,7 @@ export function CohortSummary({ analytics }: { analytics: CohortAnalyticsRespons
             <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             Chronic condition prevalence
           </CardTitle>
+          <CardDescription>Share of enrolled {plural}.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3">
           {Object.entries(analytics.chronic_condition_prevalence_percent).map(([condition, pct]) => (
@@ -56,19 +67,15 @@ export function CohortSummary({ analytics }: { analytics: CohortAnalyticsRespons
             <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             CVD risk distribution
           </CardTitle>
+          <CardDescription>
+            10-year cardiovascular risk
+            {analytics.cvd_risk_mean_percent !== null ? `, mean ${analytics.cvd_risk_mean_percent}%.` : "."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3">
           {Object.entries(analytics.cvd_risk_level_distribution).map(([level, count]) => (
             <StatTile key={level} icon={SEMANTIC_ICON.bp} label={humanize(level)} value={String(count)} />
           ))}
-          {analytics.cvd_risk_mean_percent !== null && (
-            <StatTile
-              icon={SEMANTIC_ICON.bp}
-              label="Mean 10yr CVD risk"
-              value={String(analytics.cvd_risk_mean_percent)}
-              unit="%"
-            />
-          )}
         </CardContent>
       </Card>
 
@@ -78,6 +85,7 @@ export function CohortSummary({ analytics }: { analytics: CohortAnalyticsRespons
             <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             Screening compliance
           </CardTitle>
+          <CardDescription>Overdue rate and top abnormal flags, anonymised.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3">

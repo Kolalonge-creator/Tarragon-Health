@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { ResourcesManager } from "./resources-manager";
@@ -10,11 +9,12 @@ export default async function AdminResourcesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/admin" className="text-sm text-brand-green hover:underline">
-          ← Back to admin
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Resources</h1>
+        <p className="text-charcoal-ink/60">
+          The education and content library patients see across the app and marketing site.
+        </p>
       </div>
       <ResourcesManager />
     </div>

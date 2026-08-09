@@ -33,9 +33,16 @@ import { z } from "zod";
  * engines (see project_vitals_red_flag_escalation_20260807 memory), so no
  * app-layer assessor call is needed for those two beyond the health score.
  *
- * Scoped to the signed-in user only, no "acting for a dependant" support —
- * same simplification as the other /api/mobile/* routes (device-readings,
- * cgm-readings, health-samples), none of which resolve acting-for either.
+ * Optionally scoped to a beneficiary_profile_id instead of the signed-in
+ * user — the mobile equivalent of web's acting-for cookie
+ * (apps/web/src/lib/acting/acting-for.ts). A native app has no cookie jar for
+ * its bearer-authenticated API calls, so the client passes the beneficiary id
+ * explicitly and it is re-checked here against private.can_act_for on every
+ * request, same as resolveSubjectId does for web — a stale or forged id gets
+ * nothing, only a live 'manage' grant does. Other /api/mobile/* routes
+ * (device-readings, cgm-readings, health-samples) still have no acting-for
+ * support; this one needed it because the native Vitals screen is the
+ * mobile equivalent of logVital, which already has it.
  */
 const mobileVitalsSchema = z
   .discriminatedUnion("vital_type", [
@@ -91,10 +98,33 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const { taken_at, ...reading } = parsed.data;
 
+  // beneficiary_profile_id is validated separately rather than folded into
+  // mobileVitalsSchema's discriminated union, so each vital-type branch
+  // doesn't need to repeat it — mobileVitalsSchema.safeParse above already
+  // ignores this extra key (none of the vital schemas are .strict()).
+  const beneficiaryParsed = z
+    .object({ beneficiary_profile_id: z.string().uuid().optional() })
+    .safeParse(body);
+  const beneficiaryId = beneficiaryParsed.success
+    ? beneficiaryParsed.data.beneficiary_profile_id
+    : undefined;
+
+  let subjectId = user.id;
+  if (beneficiaryId) {
+    const { data: allowed } = await supabase.rpc("can_act_for", { p_beneficiary: beneficiaryId });
+    if (allowed !== true) {
+      return NextResponse.json(
+        { error: "You don't have permission to log this for that person." },
+        { status: 403 }
+      );
+    }
+    subjectId = beneficiaryId;
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("organisation_id")
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.organisation_id) {
     return NextResponse.json({ error: "No organisation on file" }, { status: 400 });
@@ -105,7 +135,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const row: TablesInsert<"vitals_readings"> =
     reading.vital_type === "glucose"
       ? {
-          patient_id: user.id,
+          patient_id: subjectId,
           organisation_id: profile.organisation_id,
           source: "manual",
           vital_type: "glucose",
@@ -114,7 +144,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           note: reading.note ?? null,
         }
       : {
-          patient_id: user.id,
+          patient_id: subjectId,
           organisation_id: profile.organisation_id,
           source: "manual",
           ...reading,
@@ -128,15 +158,15 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   if (row.vital_type === "blood_pressure") {
-    await assessBpControlBestEffort(supabase, user.id, profile.organisation_id);
+    await assessBpControlBestEffort(supabase, subjectId, profile.organisation_id);
   }
   if (row.vital_type === "pulse") {
-    await assessHeartRateBestEffort(supabase, user.id, profile.organisation_id);
+    await assessHeartRateBestEffort(supabase, subjectId, profile.organisation_id);
   }
   if (row.vital_type === "glucose") {
-    await assessGlucoseBestEffort(supabase, user.id, profile.organisation_id);
+    await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
   }
-  await assessHealthScoreBestEffort(supabase, user.id, profile.organisation_id);
+  await assessHealthScoreBestEffort(supabase, subjectId, profile.organisation_id);
 
   return NextResponse.json({ success: true });
 }

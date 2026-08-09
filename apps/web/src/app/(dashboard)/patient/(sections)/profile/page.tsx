@@ -2,7 +2,6 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { NAV_ICON } from "@/lib/icons";
 import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
-import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 import { ConditionLanguageForm } from "@/app/(dashboard)/patient/condition-language-form";
 import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contact-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
@@ -15,7 +14,7 @@ export default async function PatientProfilePage() {
     <DashboardSection
       id="profile"
       title="Profile & settings"
-      description="Keep your location and emergency contacts up to date."
+      description="Keep your emergency contacts and care preferences up to date."
       icon={NAV_ICON.settings}
     >
       {profile.patient_number && (
@@ -28,11 +27,10 @@ export default async function PatientProfilePage() {
           {/* Identity verification lives here rather than in onboarding: it is
               optional and non-blocking, and asking a first-time visitor for a
               government ID before they have done anything is the single most
-              off-putting step in the signup path. */}
+              off-putting step in the signup path. Location moved to the
+              shared /account page (see account/page.tsx) so it isn't edited
+              in two places. */}
           <IdentityVerificationCard patientId={subjectId} />
-          <PatientLocationForm
-            initial={{ state: profile.state, city: profile.city, area: profile.area }}
-          />
           <EmergencyContactForm
             initial={{
               emergency_contact_name: profile.emergency_contact_name,

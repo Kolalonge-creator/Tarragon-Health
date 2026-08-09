@@ -204,7 +204,14 @@ export default function ClinicianReferralsPage() {
   const { data, isLoading, isError } = useOrgSpecialistReferrals();
 
   return (
-    <Card>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Referrals</h1>
+        <p className="text-sm text-charcoal-ink/60">
+          Specialist referrals you have sent or need to action.
+        </p>
+      </div>
+      <Card>
       <CardHeader className="flex items-center justify-between">
         <CardTitle>Specialist referrals</CardTitle>
         <Link href="/clinician/referrals/waitlisted" className="text-xs text-brand-green hover:underline">
@@ -268,6 +275,7 @@ export default function ClinicianReferralsPage() {
           </ul>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
