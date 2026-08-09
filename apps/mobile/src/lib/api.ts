@@ -19,6 +19,26 @@ export async function postDeviceReading(payload: Record<string, unknown>): Promi
   return result.ok ? { success: true } : { success: false, error: result.error };
 }
 
+export interface PostVitalReadingResult {
+  success: boolean;
+  error?: string;
+}
+
+/** Manual BP quick-log — goes through the API (not a direct client insert)
+ * because it must trigger the same BP-control/health-score reassessment a
+ * web-logged reading does; see apps/web/src/app/api/mobile/vitals/route.ts. */
+export async function postVitalReading(payload: {
+  systolic: number;
+  diastolic: number;
+  note?: string;
+}): Promise<PostVitalReadingResult> {
+  const result = await request<Record<string, never>>("/api/mobile/vitals", "POST", {
+    vital_type: "blood_pressure",
+    ...payload,
+  });
+  return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
 export interface HealthSyncCursor {
   cursor: string | null;
   last_synced_at: string | null;

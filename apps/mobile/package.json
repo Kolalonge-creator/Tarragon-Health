@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.45.4",
     "@tarragon/shared": "workspace:*",
     "expo": "~51.0.0",
+    "expo-local-authentication": "~14.0.1",
     "expo-secure-store": "~13.0.2",
     "react": "18.2.0",
     "react-native": "0.74.5",
