@@ -160,7 +160,7 @@ export default async function HealthCheckPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 py-6">
+    <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your Health Check</h1>
         <p className="mt-1 text-sm text-charcoal-ink/70">
@@ -213,8 +213,10 @@ export default async function HealthCheckPage() {
 
       {/* Lipid results + the CV-risk gloss they feed — both self-hide until
           there's real data, so nothing renders until a lipid panel lands. */}
-      <LipidProfileCard patientId={profile.id} />
-      <RiskSignalsCard patientId={profile.id} />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <LipidProfileCard patientId={profile.id} />
+        <RiskSignalsCard patientId={profile.id} />
+      </div>
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>

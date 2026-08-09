@@ -23,7 +23,9 @@ export default async function LifestylePage() {
   if (!hasAccess) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Your lifestyle programme</h1>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
+          Your lifestyle programme
+        </h1>
         <UpgradePrompt feature="lifestyle_coaching" />
       </div>
     );

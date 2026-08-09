@@ -172,8 +172,9 @@ export function SubscriptionManager() {
                 Your plan renews automatically at the end of each{" "}
                 {subscription.plan?.interval === "yearly" ? "year" : "month"} so your care never
                 lapses. You can turn off auto-renewal any time. Subscriptions are non-refundable:
-                the {subscription.plan?.interval === "yearly" ? "year" : "month"} you&apos;ve paid
-                for runs to the end, and turning off auto-renewal simply stops the next charge.
+                the {subscription.plan?.interval === "yearly" ? "year" : "month"}
+                {" "}you&apos;ve paid for runs to the end, and turning off auto-renewal simply
+                stops the next charge.
               </p>
             )}
 
@@ -263,8 +264,8 @@ export function SubscriptionManager() {
               {otherPlans.length > 0 && (
                 <p className="text-xs text-charcoal-ink/60">
                   Switching charges the new plan&apos;s price immediately and renews automatically
-                  every {otherPlans[0]?.interval === "yearly" ? "year" : "billing period"} until
-                  you cancel. Payments aren&apos;t refundable.
+                  every {otherPlans[0]?.interval === "yearly" ? "year" : "billing period"}
+                  {" "}until you cancel. Payments aren&apos;t refundable.
                 </p>
               )}
               {otherPlans.length === 0 ? (
