@@ -7,6 +7,11 @@ export interface NavItem {
   href: string;
   icon: AppIconName;
   exact?: boolean;
+  /** Renders with the clinical-red treatment instead of the normal
+   * active/hover states — reserved for safety-critical links (currently just
+   * the patient's Emergency card) that should visually stand apart from
+   * routine navigation, matching how the design itself calls it out. */
+  variant?: "danger";
 }
 
 /** A labelled group of sidebar links. `label` is omitted for the top group. */
@@ -29,7 +34,7 @@ export function getNavSections(
    * somebody else and lent to them. They get their own short menu instead.
    *
    * Somebody who is BOTH a supporter and a patient falls through to the full
-   * patient menu, which already carries People you support in third place. The
+   * patient menu, which still carries People you support (see below). The
    * two are independent, so there is no combined case to special-case.
    */
   receivesCare?: boolean | null,
@@ -50,23 +55,43 @@ export function getNavSections(
           },
         ];
       }
+      // Flat, single-level menu (2026-08-09 dashboard redesign) — replaces the
+      // old split between this sidebar and the second-level PatientNav pill-tab
+      // bar that used to live only inside /patient itself. Vitals, Medications,
+      // Labs, Care & support and Profile are promoted here so every section is
+      // one click away, matching the "Tarragon Health Web Dashboard" design.
+      // Health Check and Lifestyle coaching are deliberately not top-level
+      // entries any more — both stay reachable inline from Prevention/Care
+      // (Prevention already links to Health Check; Care and several
+      // lifestyle-adjacent pages already link to Lifestyle coaching), matching
+      // how the design itself surfaces "Resume Health Check" as a button
+      // inside a page rather than as its own sidebar slot.
       return [
         {
           items: [
-            { label: "Dashboard", href: "/patient", icon: "dashboard", exact: true },
-            { label: "Messages", href: "/patient/messages", icon: "messages" },
-            // Somebody funding a parent's care is here for this and nothing
-            // else. It used to sit tenth, below the caller's own wellness
-            // points, which buried the entire reason a sponsor logs in.
-            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            { label: "Overview", href: "/patient", icon: "dashboard", exact: true },
+            { label: "Vitals & symptoms", href: "/patient/vitals", icon: "bp" },
+            { label: "Medications", href: "/patient/medications", icon: "medication" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
-            { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
+            { label: "Family", href: "/patient/family", icon: "family" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
-            { label: "Emergency card", href: "/patient/emergency-card", icon: "passport" },
-            { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
-            { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
-            { label: "Your people", href: "/patient/family", icon: "family" },
+            { label: "Labs", href: "/patient/labs", icon: "labs" },
+            { label: "Wellness", href: "/patient/wellness", icon: "wellness" },
+            { label: "Messages", href: "/patient/messages", icon: "messages" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
+            { label: "Profile", href: "/patient/profile", icon: "settings" },
+            // Real feature the design's own single-persona mock doesn't happen
+            // to show (that patient supports nobody) — kept reachable rather
+            // than regressed, just moved off the mock's primary 12 to match
+            // its ordering as closely as possible.
+            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            {
+              label: "Emergency card",
+              href: "/patient/emergency-card",
+              icon: "warning",
+              variant: "danger",
+            },
           ],
         },
       ];
