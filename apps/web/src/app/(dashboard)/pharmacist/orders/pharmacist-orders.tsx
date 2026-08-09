@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   usePharmacistOrders,
   usePharmacistOrderAllergies,
@@ -12,29 +12,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { itemsSummary, type PharmacistOrderRow } from "../_lib/items";
+import { statusMeta, isOpenStatus, isAwaitingStatus } from "../_lib/order-status";
+import { formatRequestedAt } from "../_lib/format";
 
-type OrderRow = {
-  order_id: string;
-  order_number: string | null;
-  status: string;
-  patient_name: string | null;
-  patient_number: string | null;
-  items: unknown;
-  requested_at: string;
-};
+const FILTERS = [
+  { key: "open", label: "Open" },
+  { key: "awaiting", label: "Awaiting" },
+  { key: "all", label: "All" },
+] as const;
 
-function itemsSummary(items: unknown): string {
-  if (!Array.isArray(items)) return "";
-  return items
-    .map((i) => {
-      const it = i as { drug_name?: string; quantity?: number };
-      return it.drug_name ? `${it.drug_name}${it.quantity ? ` × ${it.quantity}` : ""}` : "";
-    })
-    .filter(Boolean)
-    .join(", ");
-}
+type FilterKey = (typeof FILTERS)[number]["key"];
 
-function OrderCard({ order }: { order: OrderRow }) {
+function OrderCard({ order }: { order: PharmacistOrderRow }) {
   const [expanded, setExpanded] = useState(false);
   const { data: allergies } = usePharmacistOrderAllergies(order.order_id, expanded);
   const { data: medications } = usePharmacistOrderMedications(order.order_id, expanded);
@@ -46,38 +37,40 @@ function OrderCard({ order }: { order: OrderRow }) {
     new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }),
   );
 
+  const meta = statusMeta(order.status);
+
   return (
-    <li className="space-y-2 py-3">
+    <li className="flex flex-col gap-2 py-3.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-charcoal-ink">
+        <span className="text-sm font-semibold text-charcoal-ink">
           {order.patient_name ?? "Patient"}
           {order.patient_number ? ` · ${order.patient_number}` : ""}
         </span>
-        {order.order_number && (
-          <Badge variant="blue">{order.order_number}</Badge>
-        )}
+        {order.order_number && <Badge variant="blue">{order.order_number}</Badge>}
+        <Badge variant={meta.badge}>{meta.label}</Badge>
       </div>
       <p className="text-xs text-charcoal-ink/60">{itemsSummary(order.items)}</p>
+      <p className="text-[11px] text-charcoal-ink/45">Requested {formatRequestedAt(order.requested_at)}</p>
 
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/70"
+        className="h-7 w-fit px-0 text-xs font-semibold text-charcoal-ink/65 hover:bg-transparent hover:text-charcoal-ink"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
       >
-        {expanded ? "Hide" : "Show"} allergies & current medications
+        {expanded ? "Hide" : "Show"} allergies &amp; current medications
       </Button>
 
       {expanded && (
-        <div className="space-y-2 rounded-md bg-charcoal-ink/5 p-3">
+        <div className="flex flex-col gap-3 rounded-lg bg-charcoal-ink/[0.03] p-3.5">
           <div>
-            <p className="text-xs font-medium text-charcoal-ink/70">Allergies</p>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-charcoal-ink/55">Allergies</p>
             {allergies && allergies.length > 0 ? (
-              <ul className="mt-1 space-y-0.5">
+              <ul className="space-y-0.5">
                 {allergies.map((a, i) => (
-                  <li key={i} className="text-sm text-red-700">
+                  <li key={i} className="text-sm text-red-600">
                     {a.allergen}
                     {a.severity ? ` (${a.severity})` : ""}
                     {a.reaction ? `: ${a.reaction}` : ""}
@@ -85,13 +78,15 @@ function OrderCard({ order }: { order: OrderRow }) {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-charcoal-ink/60">No known allergies on file.</p>
+              <p className="text-sm text-charcoal-ink/50">No known allergies on file.</p>
             )}
           </div>
           <div>
-            <p className="text-xs font-medium text-charcoal-ink/70">Current medications</p>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-charcoal-ink/55">
+              Current medications
+            </p>
             {medications && medications.length > 0 ? (
-              <ul className="mt-1 space-y-0.5">
+              <ul className="space-y-0.5">
                 {medications.map((m, i) => (
                   <li key={i} className="text-sm text-charcoal-ink">
                     {m.drug_name}
@@ -101,13 +96,15 @@ function OrderCard({ order }: { order: OrderRow }) {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-charcoal-ink/60">None on file.</p>
+              <p className="text-sm text-charcoal-ink/50">None on file.</p>
             )}
           </div>
 
-          <div className="border-t border-charcoal-ink/10 pt-2">
-            <p className="text-xs font-medium text-charcoal-ink/70">Record dispensed</p>
-            <div className="mt-1 flex flex-wrap items-end gap-2">
+          <div className="border-t border-charcoal-ink/10 pt-2.5">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-charcoal-ink/55">
+              Record dispensed
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-40 flex-1 space-y-1">
                 <Label htmlFor={`d_drug_${order.order_id}`} className="text-xs">
                   Medication
@@ -144,7 +141,6 @@ function OrderCard({ order }: { order: OrderRow }) {
               </div>
               <Button
                 size="sm"
-                variant="outline"
                 disabled={record.isPending || !drugName.trim()}
                 onClick={() =>
                   record.mutate(
@@ -153,14 +149,12 @@ function OrderCard({ order }: { order: OrderRow }) {
                   )
                 }
               >
-                {record.isPending ? "Saving…" : "Save"}
+                {record.isPending ? "Saving…" : order.status === "dispensed" ? "Log another" : "Save"}
               </Button>
             </div>
-            {record.isError && (
-              <p className="mt-1 text-xs text-red-600">Could not record. Try again.</p>
-            )}
+            {record.isError && <p className="mt-1.5 text-xs text-red-600">Could not record. Try again.</p>}
             {record.isSuccess && !record.isPending && (
-              <p className="mt-1 text-xs text-brand-green">Recorded.</p>
+              <p className="mt-1.5 text-xs text-brand-green">Recorded.</p>
             )}
           </div>
         </div>
@@ -169,24 +163,55 @@ function OrderCard({ order }: { order: OrderRow }) {
   );
 }
 
-export function PharmacistWorklist() {
+export function PharmacistOrders() {
   const { data, isLoading, isError } = usePharmacistOrders();
+  const [filter, setFilter] = useState<FilterKey>("open");
+
+  const visibleOrders = useMemo(() => {
+    const rows = (data ?? []) as PharmacistOrderRow[];
+    if (filter === "all") return rows;
+    if (filter === "open") return rows.filter((o) => isOpenStatus(o.status));
+    return rows.filter((o) => isAwaitingStatus(o.status));
+  }, [data, filter]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="flex flex-col gap-4">
+      <div className="rounded-xl border border-brand-green/15 bg-brand-green/5 p-4 text-[13px] leading-relaxed text-charcoal-ink/70">
+        Orders routed to your pharmacy. Check allergies and current medications before dispensing, then log what
+        was given.
+      </div>
+
+      <div className="flex gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setFilter(f.key)}
+            className={cn(
+              "rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors",
+              filter === f.key
+                ? "border-brand-green bg-brand-green text-white"
+                : "border-charcoal-ink/15 bg-white text-charcoal-ink hover:bg-charcoal-ink/5",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <Card>
-        <CardHeader>
-          <CardTitle>Orders to fulfil</CardTitle>
+        <CardHeader className="sr-only">
+          <CardTitle>Orders</CardTitle>
         </CardHeader>
-        <CardContent>
-          {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-          {isError && <p className="text-sm text-red-600">Could not load your orders.</p>}
-          {data && data.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No orders routed to your pharmacy yet.</p>
+        <CardContent className="p-0 px-5">
+          {isLoading && <p className="py-5 text-sm text-charcoal-ink/60">Loading…</p>}
+          {isError && <p className="py-5 text-sm text-red-600">Could not load your orders.</p>}
+          {!isLoading && !isError && visibleOrders.length === 0 && (
+            <p className="py-5 text-sm text-charcoal-ink/60">No orders in this filter.</p>
           )}
-          {data && data.length > 0 && (
+          {visibleOrders.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
-              {(data as OrderRow[]).map((order) => (
+              {visibleOrders.map((order) => (
                 <OrderCard key={order.order_id} order={order} />
               ))}
             </ul>

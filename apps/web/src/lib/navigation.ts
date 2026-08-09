@@ -1,4 +1,5 @@
 import type { AppIconName } from "@/lib/icons";
+import { ANALYTICS_GROUP_ORDER, ANALYTICS_SECTIONS } from "@/lib/analytics/sections";
 
 /** One sidebar link. `exact` marks role-root dashboards so `/patient` doesn't
  * light up while the user is on `/patient/family`. */
@@ -7,6 +8,11 @@ export interface NavItem {
   href: string;
   icon: AppIconName;
   exact?: boolean;
+  /** Renders with the clinical-red treatment instead of the normal
+   * active/hover states — reserved for safety-critical links (currently just
+   * the patient's Emergency card) that should visually stand apart from
+   * routine navigation, matching how the design itself calls it out. */
+  variant?: "danger";
 }
 
 /** A labelled group of sidebar links. `label` is omitted for the top group. */
@@ -29,7 +35,7 @@ export function getNavSections(
    * somebody else and lent to them. They get their own short menu instead.
    *
    * Somebody who is BOTH a supporter and a patient falls through to the full
-   * patient menu, which already carries People you support in third place. The
+   * patient menu, which still carries People you support (see below). The
    * two are independent, so there is no combined case to special-case.
    */
   receivesCare?: boolean | null,
@@ -50,23 +56,43 @@ export function getNavSections(
           },
         ];
       }
+      // Flat, single-level menu (2026-08-09 dashboard redesign) — replaces the
+      // old split between this sidebar and the second-level PatientNav pill-tab
+      // bar that used to live only inside /patient itself. Vitals, Medications,
+      // Labs, Care & support and Profile are promoted here so every section is
+      // one click away, matching the "Tarragon Health Web Dashboard" design.
+      // Health Check and Lifestyle coaching are deliberately not top-level
+      // entries any more — both stay reachable inline from Prevention/Care
+      // (Prevention already links to Health Check; Care and several
+      // lifestyle-adjacent pages already link to Lifestyle coaching), matching
+      // how the design itself surfaces "Resume Health Check" as a button
+      // inside a page rather than as its own sidebar slot.
       return [
         {
           items: [
-            { label: "Dashboard", href: "/patient", icon: "dashboard", exact: true },
-            { label: "Messages", href: "/patient/messages", icon: "messages" },
-            // Somebody funding a parent's care is here for this and nothing
-            // else. It used to sit tenth, below the caller's own wellness
-            // points, which buried the entire reason a sponsor logs in.
-            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            { label: "Overview", href: "/patient", icon: "dashboard", exact: true },
+            { label: "Vitals & symptoms", href: "/patient/vitals", icon: "bp" },
+            { label: "Medications", href: "/patient/medications", icon: "medication" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
-            { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
+            { label: "Family", href: "/patient/family", icon: "family" },
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
-            { label: "Emergency card", href: "/patient/emergency-card", icon: "passport" },
-            { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
-            { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
-            { label: "Your people", href: "/patient/family", icon: "family" },
+            { label: "Labs", href: "/patient/labs", icon: "labs" },
+            { label: "Wellness", href: "/patient/wellness", icon: "wellness" },
+            { label: "Messages", href: "/patient/messages", icon: "messages" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
+            { label: "Profile", href: "/patient/profile", icon: "settings" },
+            // Real feature the design's own single-persona mock doesn't happen
+            // to show (that patient supports nobody) — kept reachable rather
+            // than regressed, just moved off the mock's primary 12 to match
+            // its ordering as closely as possible.
+            { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            {
+              label: "Emergency card",
+              href: "/patient/emergency-card",
+              icon: "warning",
+              variant: "danger",
+            },
           ],
         },
       ];
@@ -74,7 +100,10 @@ export function getNavSections(
     case "care_coordinator":
       // Care Coordinators share the clinician surfaces they can act on
       // (logistics-only work: orders, bookings, inboxes); clinical judgment
-      // pages self-gate server-side.
+      // pages self-gate server-side. The old separate "Outreach" link now
+      // lives inside the Dashboard's own tabs (Overview / Outreach worklist /
+      // Follow-ups / Contact log — see dashboard/care-coordinator/layout.tsx)
+      // instead of duplicating that worklist as its own top-level page.
       return role === "care_coordinator"
         ? [
             {
@@ -85,7 +114,6 @@ export function getNavSections(
                   icon: "dashboard",
                   exact: true,
                 },
-                { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
               ],
@@ -93,42 +121,52 @@ export function getNavSections(
           ]
         : [
             {
-              items: [
-                { label: "Dashboard", href: "/clinician", icon: "dashboard", exact: true },
-                { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
-              ],
+              items: [{ label: "Dashboard", href: "/clinician", icon: "dashboard", exact: true }],
             },
             {
-              label: "Worklists",
+              // Inboxes — anything a patient or a colleague is waiting on a
+              // reply to.
+              label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
-                { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
-                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
-                { label: "Availability", href: "/clinician/availability", icon: "booking" },
-                { label: "Orders", href: "/clinician/orders", icon: "logistics" },
-                { label: "Referrals", href: "/clinician/referrals", icon: "referral" },
-                { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
-                { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
-                { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination" },
-                { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle" },
+                { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
               ],
             },
             {
-              label: "Reviews",
+              label: "Patients & Care",
               items: [
+                { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
+                { label: "Care plan review", href: "/clinician/care-plan-review", icon: "carePlan" },
                 { label: "Medication reviews", href: "/clinician/medication-reviews", icon: "medication" },
+                { label: "Lifestyle reviews", href: "/clinician/lifestyle-reviews", icon: "lifestyle" },
+                { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive" },
-                { label: "Lifestyle reviews", href: "/clinician/lifestyle-reviews", icon: "lifestyle" },
-                { label: "Care plan review", href: "/clinician/care-plan-review", icon: "carePlan" },
-                { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
               ],
             },
             {
-              label: "Messaging",
+              label: "Orders & Referrals",
               items: [
-                { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
-                { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                { label: "Referrals", href: "/clinician/referrals", icon: "referral" },
+                { label: "Orders", href: "/clinician/orders", icon: "logistics" },
+                { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination" },
+              ],
+            },
+            {
+              label: "Quality & Growth",
+              items: [
+                { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
+                { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
+                { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
+                { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
+              ],
+            },
+            {
+              label: "My work",
+              items: [
+                { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
               ],
             },
           ];
@@ -144,6 +182,7 @@ export function getNavSections(
           label: "Operations",
           items: [
             { label: "Members & access", href: "/admin/settings/members", icon: "members" },
+            { label: "Clinical staff", href: "/admin/settings/clinical-staff", icon: "clinicianFollowUp" },
             { label: "Partners", href: "/admin/settings/partners", icon: "corporate" },
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
@@ -176,7 +215,10 @@ export function getNavSections(
       return [
         {
           items: [
-            { label: "Dashboard", href: "/pharmacist", icon: "dashboard", exact: true },
+            { label: "Overview", href: "/pharmacist", icon: "dashboard", exact: true },
+            { label: "Orders", href: "/pharmacist/orders", icon: "pharmacy" },
+            { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
+            { label: "Pharmacy profile", href: "/pharmacist/profile", icon: "settings" },
           ],
         },
       ];
@@ -197,12 +239,25 @@ export function getNavSections(
         },
       ];
     case "analyst":
+      // Full grouped category nav (Financial/People/Growth/Operations/
+      // Governance) matching the "Tarragon Health Analyst Dashboard" design —
+      // this is the analyst's entire surface, so the sidebar carries all 16
+      // categories rather than the single-link + in-page pill-tab pattern
+      // admin (who has this console plus everything else) still uses. Built
+      // from lib/analytics/sections.ts, the shared source of truth also used
+      // by the per-page header and the Overview page's quick-link cards.
       return [
         {
-          items: [
-            { label: "Analytics console", href: "/analytics", icon: "analytics", exact: true },
-          ],
+          items: [{ label: "Overview", href: "/analytics", icon: "dashboard", exact: true }],
         },
+        ...ANALYTICS_GROUP_ORDER.map((group) => ({
+          label: group,
+          items: ANALYTICS_SECTIONS.filter((s) => s.group === group).map((s) => ({
+            label: s.label,
+            href: s.href,
+            icon: s.icon,
+          })),
+        })),
       ];
     case "finance":
       return [

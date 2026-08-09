@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { AnnualHealthCheckBooking } from "@/app/(dashboard)/patient/annual-health-check-booking";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
@@ -47,29 +48,30 @@ export default async function PreventionHubPage() {
   const location = { state: profile.state, city: profile.city, area: profile.area };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 py-6">
-      <div>
-        <h1 className="flex items-center gap-2 font-heading text-2xl font-semibold text-charcoal-ink">
-          <SEMANTIC_ICON.preventive className="h-6 w-6 text-deep-forest" strokeWidth={2} />
-          Prevention
-        </h1>
-        <p className="mt-1 text-sm text-charcoal-ink/70">
-          You don&apos;t need to be unwell to be here. Screenings, vaccinations, and the
-          yearly checks that keep healthy people healthy: all in one place, built around
-          your age, sex, and history.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Your yearly Health Check</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <p className="text-charcoal-ink/70">
-            A guided, whole-body check-in: your health profile, wellbeing, measurements,
-            screenings, and immunisations, reviewed by a doctor at the end.
-          </p>
-          <Link href="/patient/health-check" className="text-sm text-brand-green hover:underline">
+    <DashboardSection
+      id="prevention"
+      title="Prevention"
+      description="You don't need to be unwell to be here. Screenings, vaccinations, and the yearly checks that keep healthy people healthy — all built around your age, sex, and history."
+      icon={SEMANTIC_ICON.preventive}
+    >
+      <Card className="border-brand-green/25">
+        <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-soft-sage">
+            <SEMANTIC_ICON.preventive className="h-6 w-6 text-deep-forest" strokeWidth={2} />
+          </span>
+          <div className="flex-1">
+            <p className="font-heading text-base font-semibold text-charcoal-ink">
+              Your yearly Health Check
+            </p>
+            <p className="mt-1 text-sm text-charcoal-ink/70">
+              A guided, whole-body check-in: your health profile, wellbeing, measurements,
+              screenings, and immunisations, reviewed by a doctor at the end.
+            </p>
+          </div>
+          <Link
+            href="/patient/health-check"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-brand-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-deep-forest"
+          >
             Open this year&apos;s Health Check →
           </Link>
         </CardContent>
@@ -92,13 +94,39 @@ export default async function PreventionHubPage() {
       {/* Anchor ids are the Health Check journey's stage-link targets
           (/patient/prevention#screenings etc.) — keep in sync with
           health-check/page.tsx. scroll-mt clears the sticky app-shell chrome. */}
-      <div id="screenings" className="scroll-mt-24 space-y-6">
-        <PreventiveScreeningCalendar
+      <div id="screenings" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
+          <PreventiveScreeningCalendar
+            patientId={subjectId}
+            organisationId={profile.organisation_id}
+            bookingEnabled={screeningBookingEnabled}
+          />
+          {!screeningBookingEnabled && <UpgradePrompt feature="prevention_coordination" />}
+        </div>
+
+        <div id="vaccinations" className="scroll-mt-24">
+          <VaccinationForFamily
+            self={{
+              id: subjectId,
+              label: "Me",
+              ageYears: ageFromDateOfBirth(profile.date_of_birth),
+              dateOfBirth: profile.date_of_birth,
+              sex: profile.sex,
+            }}
+            patientLocation={location}
+          />
+        </div>
+      </div>
+
+      <div id="risk-assessment" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
+          <RiskAssessmentForm patientId={subjectId} />
+          <RiskAssessmentDisplay patientId={subjectId} />
+        </div>
+        <CareProgrammeRecommendations
           patientId={subjectId}
-          organisationId={profile.organisation_id}
-          bookingEnabled={screeningBookingEnabled}
+          conditionLanguagePreference={profile.condition_language_preference}
         />
-        {!screeningBookingEnabled && <UpgradePrompt feature="prevention_coordination" />}
       </div>
 
       <PreventiveProgrammes
@@ -107,32 +135,9 @@ export default async function PreventionHubPage() {
         sex={profile.sex}
       />
 
-      <CareProgrammeRecommendations
-        patientId={subjectId}
-        conditionLanguagePreference={profile.condition_language_preference}
-      />
-
       {profile.sex === "female" && profile.organisation_id && (
         <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
       )}
-
-      <div id="risk-assessment" className="scroll-mt-24 space-y-6">
-        <RiskAssessmentForm patientId={subjectId} />
-        <RiskAssessmentDisplay patientId={subjectId} />
-      </div>
-
-      <div id="vaccinations" className="scroll-mt-24 space-y-6">
-        <VaccinationForFamily
-          self={{
-            id: subjectId,
-            label: "Me",
-            ageYears: ageFromDateOfBirth(profile.date_of_birth),
-            dateOfBirth: profile.date_of_birth,
-            sex: profile.sex,
-          }}
-          patientLocation={location}
-        />
-      </div>
 
       {/* Annual Doctor Review is retired as a standalone product — folded into
           Comprehensive Screen. No entitlement gate: renders only for a
@@ -151,6 +156,6 @@ export default async function PreventionHubPage() {
           />
         </RequiresEntitlement>
       )}
-    </div>
+    </DashboardSection>
   );
 }

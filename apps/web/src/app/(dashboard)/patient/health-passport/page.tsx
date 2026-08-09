@@ -88,65 +88,67 @@ export default async function HealthPassportPage() {
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vitals</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data.vitals.length === 0 && data.bmi === null && (
-            <p className="text-sm text-charcoal-ink/60">No vitals logged in this period.</p>
-          )}
-          {(data.vitals.length > 0 || data.bmi !== null) && (
-            <ul className="divide-y divide-charcoal-ink/10">
-              {data.bmi !== null && (
-                <li className="flex items-center justify-between py-2">
-                  <span className="text-sm font-medium text-charcoal-ink">BMI</span>
-                  <span className="text-sm text-charcoal-ink/60">{data.bmi} kg/m²</span>
-                </li>
-              )}
-              {data.vitals.map((v) => (
-                <li key={v.vitalType} className="flex items-center justify-between py-2">
-                  <span className="text-sm font-medium text-charcoal-ink">
-                    {VITAL_LABEL[v.vitalType] ?? v.vitalType}
-                  </span>
-                  <span className="text-sm text-charcoal-ink/60">
-                    {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
-                    period · last logged {new Date(v.takenAt).toLocaleDateString()}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Vitals</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.vitals.length === 0 && data.bmi === null && (
+              <p className="text-sm text-charcoal-ink/60">No vitals logged in this period.</p>
+            )}
+            {(data.vitals.length > 0 || data.bmi !== null) && (
+              <ul className="divide-y divide-charcoal-ink/10">
+                {data.bmi !== null && (
+                  <li className="flex items-center justify-between py-2">
+                    <span className="text-sm font-medium text-charcoal-ink">BMI</span>
+                    <span className="text-sm text-charcoal-ink/60">{data.bmi} kg/m²</span>
+                  </li>
+                )}
+                {data.vitals.map((v) => (
+                  <li key={v.vitalType} className="flex items-center justify-between py-2">
+                    <span className="text-sm font-medium text-charcoal-ink">
+                      {VITAL_LABEL[v.vitalType] ?? v.vitalType}
+                    </span>
+                    <span className="text-sm text-charcoal-ink/60">
+                      {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
+                      period · last logged {new Date(v.takenAt).toLocaleDateString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Preventive screenings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data.screenings.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No screenings due in this period.</p>
-          )}
-          {data.screenings.length > 0 && (
-            <ul className="divide-y divide-charcoal-ink/10">
-              {data.screenings.map((s, i) => (
-                <li key={i} className="py-2">
-                  <p className="text-sm font-medium text-charcoal-ink">
-                    {s.screenTypeName}: {s.status}
-                  </p>
-                  {s.resultStatus && (
-                    <p className="text-xs text-charcoal-ink/60">
-                      Result: {s.resultStatus}
-                      {s.resultSummary ? `, ${s.resultSummary}` : ""}
+        <Card>
+          <CardHeader>
+            <CardTitle>Preventive screenings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.screenings.length === 0 && (
+              <p className="text-sm text-charcoal-ink/60">No screenings due in this period.</p>
+            )}
+            {data.screenings.length > 0 && (
+              <ul className="divide-y divide-charcoal-ink/10">
+                {data.screenings.map((s, i) => (
+                  <li key={i} className="py-2">
+                    <p className="text-sm font-medium text-charcoal-ink">
+                      {s.screenTypeName}: {s.status}
                     </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+                    {s.resultStatus && (
+                      <p className="text-xs text-charcoal-ink/60">
+                        Result: {s.resultStatus}
+                        {s.resultSummary ? `, ${s.resultSummary}` : ""}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

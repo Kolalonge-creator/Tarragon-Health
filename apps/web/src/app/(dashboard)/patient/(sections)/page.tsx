@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
-import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
+import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { RiskSignalsCard } from "@/app/(dashboard)/patient/risk-signals-card";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
@@ -22,24 +23,13 @@ export default async function PatientOverviewPage() {
   const prevention = await getPatientPreventionStats(subjectId);
 
   return (
-    <DashboardSection
-      id="overview"
-      title="Overview"
-      description={
-        prevention.hasActiveCarePlan
-          ? "Today at a glance: your numbers, your care team, and recent activity."
-          : "Staying well at a glance: your prevention plan, your care team, and recent activity."
-      }
-      icon={NAV_ICON.dashboard}
-    >
+    <div id="overview" className="space-y-6">
+      {/* Hero — the one thing the page leads with. Its copy and link are the
+          same real, priority-ordered "next best step" as before; only the
+          presentation moved from an inline card to this banner (Tarragon
+          Health Web Dashboard design, 2026-08-09). */}
       <NextBestAction patientId={subjectId} />
-      <HealthResetCard patientId={subjectId} />
-      <RiskSignalsCard patientId={subjectId} />
-      {/* The thing a one-off lab visit structurally cannot tell someone: what
-          has moved across several results. Renders nothing until there is
-          genuinely enough history for a pattern. */}
-      <HealthTrendsCard patientId={subjectId} audience="patient" />
-      <CareScheduleCard patientId={subjectId} />
+
       {/* Dual-state overview: a patient in a chronic programme leads with
           monitoring numbers; a healthy patient leads with prevention. Both
           states read the same shared record — nothing is hidden, only led
@@ -113,6 +103,23 @@ export default async function PatientOverviewPage() {
           )}
         </>
       )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+        <VitalsTrendChart patientId={subjectId} />
+        <TodaysDoses patientId={subjectId} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <CareScheduleCard patientId={subjectId} />
+        <PatientTimeline patientId={subjectId} limit={6} />
+      </div>
+
+      <HealthResetCard patientId={subjectId} />
+      <RiskSignalsCard patientId={subjectId} />
+      {/* The thing a one-off lab visit structurally cannot tell someone: what
+          has moved across several results. Renders nothing until there is
+          genuinely enough history for a pattern. */}
+      <HealthTrendsCard patientId={subjectId} audience="patient" />
       <HealthScoreCard patientId={subjectId} />
       <YourCareTeam patientId={subjectId} />
       {/* Messaging your care team sits right here, not buried in Care &
@@ -122,7 +129,6 @@ export default async function PatientOverviewPage() {
       <RequiresEntitlement feature="doctor_checkin" fallback={<UpgradePrompt feature="doctor_checkin" />}>
         <CareTeamContact patientId={subjectId} />
       </RequiresEntitlement>
-      <PatientTimeline patientId={subjectId} />
-    </DashboardSection>
+    </div>
   );
 }

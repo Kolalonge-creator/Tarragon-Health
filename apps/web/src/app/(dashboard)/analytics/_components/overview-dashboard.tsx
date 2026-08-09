@@ -1,87 +1,141 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Activity,
-  AlertTriangle,
-  Building2,
-  CreditCard,
-  Percent,
-  ScrollText,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { Building2, CreditCard, HeartPulse, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
+import { Card } from "@/components/ui/card";
 import {
-  useAuditSummary,
   useBusinessSummary,
+  useClinicalOutcomes,
+  useFacilityEngagement,
   useFinancialSummary,
-  usePopulationSummary,
+  useGovernanceSummary,
+  useInvestorSummary,
 } from "@/lib/analytics/queries";
 import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
-import { SectionCard } from "./primitives";
+import { ANALYTICS_GROUP_ORDER, ANALYTICS_SECTIONS } from "@/lib/analytics/sections";
 
-export function OverviewDashboard() {
+export function OverviewDashboard({ firstName }: { firstName: string | null }) {
   const business = useBusinessSummary();
   const financial = useFinancialSummary();
-  const population = usePopulationSummary();
-  const audit = useAuditSummary();
+  const investor = useInvestorSummary();
+  const governance = useGovernanceSummary();
+  const facilities = useFacilityEngagement();
+  const outcomes = useClinicalOutcomes();
 
-  const ngnMrr = financial.data?.mrr_by_currency.find((m) => m.currency === "NGN")?.mrr_minor ?? 0;
-  const careGapTotal = (population.data?.care_gaps ?? []).reduce((sum, g) => sum + g.count, 0);
+  const ngnRevenue =
+    financial.data?.revenue_by_currency.find((r) => r.currency === "NGN")?.total_minor ??
+    financial.data?.revenue_by_currency[0]?.total_minor ??
+    0;
+  const momGrowth = investor.data?.mom_growth_pct;
+  const verificationPct = governance.data?.clinical?.verification_pct ?? 0;
+  const openRisk = governance.data?.risk?.open ?? 0;
+  const totalFacilities = facilities.data?.total_facilities ?? 0;
+  const facilitiesWithUsage = facilities.data?.facilities_with_usage ?? 0;
+  const utilizationPct = totalFacilities > 0 ? (facilitiesWithUsage / totalFacilities) * 100 : 0;
+  const bpControlled = outcomes.data?.bp_control.controlled ?? 0;
+  const bpTotal = outcomes.data?.bp_control.total ?? 0;
+  const bpPct = outcomes.data?.bp_control.pct ?? 0;
+
+  const bannerParts: string[] = [];
+  if (momGrowth !== undefined && momGrowth !== 0) {
+    bannerParts.push(
+      `MRR is ${momGrowth >= 0 ? "up" : "down"} ${formatPercent(Math.abs(momGrowth))} month over month`
+    );
+  }
+  bannerParts.push(`${formatNumber(business.data?.total_patients ?? 0)} patients on the platform`);
+  if (governance.data) {
+    bannerParts.push(`staff verification is holding at ${formatPercent(verificationPct)}`);
+  }
+  const bannerCopy =
+    bannerParts.join(", ") +
+    (openRisk > 0
+      ? ` — ${formatNumber(openRisk)} open risk item${openRisk === 1 ? "" : "s"} still need review.`
+      : ".");
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Building2} label="Organisations" value={formatNumber(business.data?.total_orgs ?? 0)} />
-        <StatTile icon={Users} label="Patients" value={formatNumber(business.data?.total_patients ?? 0)} />
-        <StatTile icon={TrendingUp} label="MRR (NGN)" value={formatMinor(ngnMrr, "NGN")} />
-        <StatTile
-          icon={CreditCard}
-          label="Active subscriptions"
-          value={formatNumber(financial.data?.active_subscriptions ?? 0)}
-        />
-        <StatTile icon={Percent} label="Churn rate" value={formatPercent(financial.data?.churn_rate ?? 0)} />
-        <StatTile
-          icon={AlertTriangle}
-          label="Abnormal screening rate"
-          value={formatPercent(population.data?.abnormal_screening_rate ?? 0)}
-        />
-        <StatTile icon={Activity} label="Open care gaps" value={formatNumber(careGapTotal)} />
-        <StatTile icon={ScrollText} label="Audit events" value={formatNumber(audit.data?.total ?? 0)} />
+      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-clinical-navy to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
+        <div>
+          <h2 className="font-heading text-2xl font-semibold sm:text-3xl">
+            Welcome back{firstName ? `, ${firstName}` : ""}
+          </h2>
+          <p className="mt-1 max-w-xl text-sm text-white/80">{bannerCopy}</p>
+        </div>
+        <Link
+          href="/analytics/governance"
+          className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-clinical-navy transition-colors hover:bg-white/90"
+        >
+          View governance
+        </Link>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { href: "/analytics/acquisition", title: "Acquisition", copy: "Visitors, geography, referrers, funnel." },
-          { href: "/analytics/engagement", title: "Engagement", copy: "DAU/WAU/MAU, adoption, retention." },
-          { href: "/analytics/users", title: "Users", copy: "Active/dormant, by plan, condition, state." },
-          { href: "/analytics/business", title: "Business", copy: "Growth, accounts, geography." },
-          { href: "/analytics/financial", title: "Financial", copy: "MRR, revenue, commissions, churn." },
-          { href: "/analytics/investor", title: "Investor", copy: "NRR/GRR, LTV/CAC, Rule of 40, runway." },
-          { href: "/analytics/accounting", title: "Accounting", copy: "Rev-rec, deferred, AR aging, reconciliation." },
-          { href: "/analytics/doctors", title: "Doctor performance", copy: "Panels, throughput, response speed." },
-          { href: "/analytics/team", title: "Team activity", copy: "Staff logins, sessions, time on platform." },
-          { href: "/analytics/patient-activity", title: "Patient activity", copy: "Forensic per-patient engagement lookup." },
-          { href: "/analytics/governance", title: "Governance", copy: "Credentials, consent, risk register." },
-          {
-            href: "/analytics/population",
-            title: "Population health",
-            copy: "Conditions, risk, screening, care gaps.",
-          },
-          { href: "/analytics/outcomes", title: "Clinical outcomes", copy: "Control rates, risk migration, SLA." },
-          { href: "/analytics/operations", title: "Operations", copy: "Workload, queues, deliverability." },
-          { href: "/analytics/facilities", title: "Facilities", copy: "Engagement, users per facility." },
-          { href: "/analytics/audit", title: "Audit log", copy: "Every platform event, filterable." },
-        ].map((c) => (
-          <Link key={c.href} href={c.href} className="block">
-            <SectionCard title={c.title} className="h-full transition-shadow hover:shadow-md">
-              <p className="text-sm text-charcoal-ink/60">{c.copy}</p>
-              <span className="mt-3 inline-block text-sm font-medium text-brand-green">Open →</span>
-            </SectionCard>
-          </Link>
-        ))}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatTile
+          icon={CreditCard}
+          label="Total revenue"
+          value={formatMinor(ngnRevenue, "NGN")}
+          delta={{
+            text: `${formatMinor(financial.data?.receivables_kobo ?? 0, "NGN")} receivable`,
+            direction: "flat",
+          }}
+        />
+        <StatTile
+          icon={Users}
+          label="Total patients"
+          value={formatNumber(business.data?.total_patients ?? 0)}
+          delta={{ text: `${formatNumber(business.data?.active_patients ?? 0)} active`, direction: "flat" }}
+        />
+        <StatTile
+          icon={TrendingUp}
+          label="ARR"
+          value={formatMinor(investor.data?.arr_minor ?? 0, "NGN")}
+          delta={
+            momGrowth !== undefined
+              ? { text: `${formatPercent(Math.abs(momGrowth))} MoM`, direction: momGrowth >= 0 ? "up" : "down" }
+              : undefined
+          }
+        />
+        <StatTile
+          icon={ShieldCheck}
+          label="Compliance score"
+          value={formatPercent(verificationPct)}
+          delta={{
+            text: openRisk > 0 ? `${formatNumber(openRisk)} open risk items` : "No open risk items",
+            direction: openRisk > 0 ? "down" : "up",
+          }}
+        />
+        <StatTile
+          icon={Building2}
+          label="Avg facility utilization"
+          value={formatPercent(utilizationPct)}
+          delta={{ text: `${formatNumber(facilitiesWithUsage)} of ${formatNumber(totalFacilities)} active`, direction: "flat" }}
+        />
+        <StatTile
+          icon={HeartPulse}
+          label="BP control rate"
+          value={formatPercent(bpPct)}
+          delta={bpTotal > 0 ? { text: `${formatNumber(bpControlled)} of ${formatNumber(bpTotal)} controlled`, direction: "flat" } : undefined}
+        />
       </div>
+
+      {ANALYTICS_GROUP_ORDER.map((group) => (
+        <Card key={group} className="p-5">
+          <h3 className="mb-3 font-heading text-base font-semibold text-charcoal-ink">{group}</h3>
+          <div className="flex flex-wrap gap-2.5">
+            {ANALYTICS_SECTIONS.filter((s) => s.group === group).map((s) => (
+              <Link
+                key={s.href}
+                href={s.href}
+                title={s.subtitle}
+                className="rounded-lg border border-charcoal-ink/12 bg-warm-ivory px-3.5 py-2 text-sm font-semibold text-charcoal-ink transition-colors hover:border-brand-green/40 hover:bg-soft-sage/50"
+              >
+                {s.label}
+              </Link>
+            ))}
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }

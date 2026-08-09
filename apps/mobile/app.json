@@ -15,7 +15,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "plugins": [
       [
         "react-native-ble-plx",
@@ -24,13 +26,37 @@
           "modes": [],
           "bluetoothAlwaysPermission": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale."
         }
-      ]
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "TarragonHealth reads the blood pressure, blood sugar, weight, oxygen level, heart rate and step data you already keep in Apple Health, so your care team sees it alongside the rest of your record.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0E7C52"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "TarragonHealth uses your camera to photograph a lab result so it can be read into your record.",
+          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed."
+        }
+      ],
+      "expo-secure-store"
     ],
     "ios": {
       "bundleIdentifier": "com.tarragonhealth.mobile",
       "supportsTablet": false,
       "infoPlist": {
-        "NSBluetoothAlwaysUsageDescription": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale."
+        "NSBluetoothAlwaysUsageDescription": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale.",
+        "NSFaceIDUsageDescription": "TarragonHealth uses Face ID to lock the app so only you can open your health record."
       }
     },
     "android": {
@@ -39,7 +65,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "ACCESS_FINE_LOCATION"
+      ]
     }
   }
 }

@@ -6,6 +6,7 @@ import { OutcomeReportsPanel } from "../corporate/outcome-reports-panel";
 import { CareGapPanel } from "./care-gap-panel";
 import { loadHmoDashboardData } from "./dashboard-data";
 import { HmoNav } from "./hmo-nav";
+import { HmoPageHeader } from "./hmo-page-header";
 
 /** Same reasoning as dashboard/corporate/layout.tsx — every degraded state
  * renders exactly as it did before the tab split; only the fully-loaded
@@ -76,7 +77,7 @@ export default async function HmoLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="space-y-6">
-      {header}
+      <HmoPageHeader />
       <HmoNav />
       {children}
     </div>

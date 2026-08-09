@@ -19,12 +19,19 @@ export default async function PatientVitalsPage() {
       description="Log readings and symptoms, and see how they trend over time."
       icon={SEMANTIC_ICON.bp}
     >
-      <VitalsForm patientId={subjectId} />
-      <HbpmSummaryCard patientId={subjectId} />
-      <VitalsHistory patientId={subjectId} />
       <VitalsTrendChart patientId={subjectId} />
-      <SymptomLogForm patientId={subjectId} />
-      <SymptomLogHistory patientId={subjectId} />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <VitalsForm patientId={subjectId} />
+        <HbpmSummaryCard patientId={subjectId} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <SymptomLogForm patientId={subjectId} />
+        <SymptomLogHistory patientId={subjectId} />
+      </div>
+
+      <VitalsHistory patientId={subjectId} />
       <WearableConnectSection patientId={subjectId} />
     </DashboardSection>
   );

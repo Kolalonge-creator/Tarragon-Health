@@ -123,7 +123,9 @@ export async function logVital(
   if (row.vital_type === "glucose" || row.vital_type === "ketones") {
     await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
   }
-  await assessHealthScoreBestEffort(supabase, user.id, profile.organisation_id);
+  // subjectId, not user.id: a supporter logging for someone they act for
+  // must reassess THAT person's health score, not their own.
+  await assessHealthScoreBestEffort(supabase, subjectId, profile.organisation_id);
 
   return { success: true };
 }

@@ -408,7 +408,7 @@ export async function uploadResultAsLabPartner(
     p_original_filename: file.name,
     p_mime_type: file.type,
     p_file_size_bytes: file.size,
-    p_note: note ?? null,
+    p_note: (note ?? null) as unknown as string,
   });
   if (insertError) {
     await service.storage.from(RESULT_DOC_BUCKET).remove([path]);

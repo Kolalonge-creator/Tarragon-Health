@@ -112,3 +112,17 @@ export function MutedText({ children }: { children: ReactNode }) {
 export function ErrorText({ children }: { children: ReactNode }) {
   return <Text style={{ color: colors.danger, fontSize: 14 }}>{children}</Text>;
 }
+
+const BADGE_TONES = {
+  brand: { bg: "#E7EEE7", text: colors.brandPressed },
+  neutral: { bg: "rgba(23,23,23,0.08)", text: colors.muted },
+} as const;
+
+export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: keyof typeof BADGE_TONES }) {
+  const c = BADGE_TONES[tone];
+  return (
+    <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
+      <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{children}</Text>
+    </View>
+  );
+}

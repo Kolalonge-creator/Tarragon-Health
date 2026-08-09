@@ -178,9 +178,9 @@ export async function createGoalAction(
     p_enrollment_id: enrollmentId,
     p_module: module,
     p_title: title,
-    p_target_value: targetValue ?? null,
-    p_target_unit: targetUnit ?? null,
-    p_target_date: targetDate ?? null,
+    p_target_value: targetValue ?? undefined,
+    p_target_unit: targetUnit ?? undefined,
+    p_target_date: targetDate ?? undefined,
   });
   if (error) return { error: error.message || "Could not save your goal" };
 

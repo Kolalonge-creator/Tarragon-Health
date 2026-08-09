@@ -111,7 +111,7 @@ export async function upsertTaxRateAction(input: {
 }): Promise<FinanceActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("finance_upsert_tax_rate", {
-    p_id: input.id,
+    p_id: input.id as unknown as string,
     p_jurisdiction: input.jurisdiction,
     p_tax_type: input.tax_type,
     p_name: input.name,
@@ -204,7 +204,7 @@ export async function runRevenueRecognitionAction(): Promise<FinanceActionResult
 
 export async function approveRequestAction(id: string, note: string): Promise<FinanceActionResult> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("finance_approve_request", { p_id: id, p_note: note || null });
+  const { data, error } = await supabase.rpc("finance_approve_request", { p_id: id, p_note: note || undefined });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
   return { ok: true, data };
@@ -261,11 +261,11 @@ export async function upsertBudgetAction(input: {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("finance_upsert_budget", {
     p_account_code: input.account_code,
-    p_cost_center_code: input.cost_center_code ?? null,
+    p_cost_center_code: (input.cost_center_code ?? null) as unknown as string,
     p_period_month: input.period_month,
     p_currency: input.currency,
     p_amount_minor: input.amount_minor,
-    p_notes: input.notes ?? null,
+    p_notes: (input.notes ?? null) as unknown as string,
   });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
@@ -293,14 +293,14 @@ export async function upsertVendorAction(input: {
 }): Promise<FinanceActionResult> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("finance_upsert_vendor", {
-    p_id: input.id,
+    p_id: input.id as unknown as string,
     p_name: input.name,
     p_vendor_type: input.vendor_type,
     p_contact_email: input.contact_email,
     p_contact_phone: input.contact_phone,
     p_tin: input.tin,
     p_wht_applicable: input.wht_applicable,
-    p_wht_rate_pct: input.wht_rate_pct,
+    p_wht_rate_pct: input.wht_rate_pct as unknown as number,
     p_is_active: input.is_active,
   });
   if (error) return { ok: false, error: error.message };
@@ -322,12 +322,12 @@ export async function createBillAction(input: {
   const { data, error } = await supabase.rpc("finance_create_bill", {
     p_vendor_id: input.vendor_id,
     p_bill_date: input.bill_date,
-    p_due_date: input.due_date ?? null,
+    p_due_date: (input.due_date ?? null) as unknown as string,
     p_currency: input.currency,
     p_amount_minor: input.amount_minor,
     p_expense_account_code: input.expense_account_code,
-    p_cost_center_code: input.cost_center_code ?? null,
-    p_description: input.description ?? null,
+    p_cost_center_code: (input.cost_center_code ?? null) as unknown as string,
+    p_description: (input.description ?? null) as unknown as string,
   });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
@@ -381,9 +381,9 @@ export async function markFiledAction(input: {
     p_period_label: input.period_label,
     p_due_date: input.due_date,
     p_remittance_reference: input.remittance_reference,
-    p_amount_minor: input.amount_minor ?? null,
+    p_amount_minor: (input.amount_minor ?? null) as unknown as number,
     p_currency: input.currency,
-    p_notes: input.notes ?? null,
+    p_notes: (input.notes ?? null) as unknown as string,
   });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();

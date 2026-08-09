@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { ContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 
@@ -13,20 +13,17 @@ export function ContractStatusCard({ performance }: { performance: ContractPerfo
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle>Contract status</CardTitle>
+        <Badge variant="blue" className="shrink-0">
+          {CONTRACT_TYPE_LABEL[performance.contractType]}
+        </Badge>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-charcoal-ink">
-          <span className="font-medium">{CONTRACT_TYPE_LABEL[performance.contractType]}</span>
-          <span className="text-charcoal-ink/60">
-            {" "}
-            · effective {new Date(performance.effectiveFrom).toLocaleDateString()}
-          </span>
-        </p>
-        {performance.payoutTerms && (
-          <p className="text-sm text-charcoal-ink/70">{performance.payoutTerms}</p>
-        )}
+        <CardDescription>
+          Effective {new Date(performance.effectiveFrom).toLocaleDateString()}
+          {performance.payoutTerms ? ` · ${performance.payoutTerms}` : ""}
+        </CardDescription>
         {performance.thresholds.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {performance.thresholds.map((t) => (
