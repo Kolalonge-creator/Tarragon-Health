@@ -1,13 +1,36 @@
 import { Platform } from "react-native";
-import Healthkit, {
-  BloodGlucoseUnit,
-  HKCorrelationTypeIdentifier,
-  HKQuantityTypeIdentifier,
-  HKStatisticsOptions,
-  HKUnits,
-  type HealthkitReadAuthorization,
-  type HKQuantitySample,
-} from "@kingstinct/react-native-healthkit";
+import type * as HealthkitPackage from "@kingstinct/react-native-healthkit";
+import type { QuantitySample } from "@kingstinct/react-native-healthkit";
+
+/**
+ * Loaded lazily via require(), never as a static top-level import. The
+ * package (v14, Nitro-based) eagerly binds its native module the moment it
+ * is imported — src/modules.ts calls NitroModules.createHybridObject() at
+ * module scope, which throws immediately when the native binary isn't
+ * linked. Expo Go never has this third-party module compiled in, so a
+ * static `import ... from "@kingstinct/react-native-healthkit"` at the top
+ * of this file crashed the entire JS bundle before AppRegistry ever
+ * registered the app — surfaced natively as "main has not been registered",
+ * not as a HealthKit-specific error, because devices-screen.tsx (and this
+ * module transitively) is imported unconditionally by App.tsx. Deferring
+ * the require() to first use, inside try/catch, contains the failure to
+ * "HealthKit unavailable" the way every function below already assumed it
+ * would, instead of taking down app boot. Revisit once a real EAS
+ * development build (with the native module actually compiled in) replaces
+ * Expo Go for testing this feature.
+ */
+let cachedModule: typeof HealthkitPackage | null | undefined;
+
+function loadHealthkit(): typeof HealthkitPackage | null {
+  if (cachedModule !== undefined) return cachedModule;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    cachedModule = require("@kingstinct/react-native-healthkit") as typeof HealthkitPackage;
+  } catch {
+    cachedModule = null;
+  }
+  return cachedModule;
+}
 
 /**
  * Apple Health (HealthKit) bridge.
@@ -51,17 +74,24 @@ export interface HealthSample {
   external_reading_id: string;
 }
 
-const READ_PERMISSIONS: HealthkitReadAuthorization[] = [
-  HKQuantityTypeIdentifier.bloodPressureSystolic,
-  HKQuantityTypeIdentifier.bloodPressureDiastolic,
-  HKQuantityTypeIdentifier.bloodGlucose,
-  HKQuantityTypeIdentifier.restingHeartRate,
-  HKQuantityTypeIdentifier.bodyMass,
-  HKQuantityTypeIdentifier.oxygenSaturation,
-  HKQuantityTypeIdentifier.heartRateVariabilitySDNN,
-  HKQuantityTypeIdentifier.stepCount,
-  HKCorrelationTypeIdentifier.bloodPressure,
-];
+// v14's identifiers are plain string literals (no more HK*Identifier enums) —
+// see the package's src/generated/healthkit.generated.ts.
+const READ_PERMISSIONS = [
+  "HKQuantityTypeIdentifierBloodPressureSystolic",
+  "HKQuantityTypeIdentifierBloodPressureDiastolic",
+  "HKQuantityTypeIdentifierBloodGlucose",
+  "HKQuantityTypeIdentifierRestingHeartRate",
+  "HKQuantityTypeIdentifierBodyMass",
+  "HKQuantityTypeIdentifierOxygenSaturation",
+  "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+  "HKQuantityTypeIdentifierStepCount",
+  "HKCorrelationTypeIdentifierBloodPressure",
+] as const;
+
+/** HealthKit's molar-mass unit string for blood glucose in mmol/L — the
+ * package dropped the BloodGlucoseUnit enum in v14, this literal is the
+ * direct replacement for what was BloodGlucoseUnit.GlucoseMmolPerL. */
+const GLUCOSE_MMOL_PER_L_UNIT = "mmol<180.15588000005408>/l";
 
 /** Per-type ceiling on one read. A patient who has been logging for years
  * would otherwise hand back a decade of samples on first connect. */
@@ -78,8 +108,10 @@ export function isHealthKitPlatform(): boolean {
 
 export async function isHealthKitAvailable(): Promise<boolean> {
   if (!isHealthKitPlatform()) return false;
+  const healthkit = loadHealthkit();
+  if (!healthkit) return false;
   try {
-    return await Healthkit.isHealthDataAvailable();
+    return await healthkit.isHealthDataAvailable();
   } catch {
     return false;
   }
@@ -94,8 +126,10 @@ export async function isHealthKitAvailable(): Promise<boolean> {
  */
 export async function requestHealthKitPermissions(): Promise<boolean> {
   if (!isHealthKitPlatform()) return false;
+  const healthkit = loadHealthkit();
+  if (!healthkit) return false;
   try {
-    return await Healthkit.requestAuthorization(READ_PERMISSIONS);
+    return await healthkit.requestAuthorization({ toRead: READ_PERMISSIONS });
   } catch {
     return false;
   }
@@ -110,25 +144,25 @@ export async function readHealthSamples(since: Date, until: Date): Promise<Healt
     readBloodPressure(since, until),
     readQuantity(
       "glucose",
-      HKQuantityTypeIdentifier.bloodGlucose,
-      BloodGlucoseUnit.GlucoseMmolPerL,
+      "HKQuantityTypeIdentifierBloodGlucose",
+      GLUCOSE_MMOL_PER_L_UNIT,
       "mmol/L",
       since,
       until
     ),
     readQuantity(
       "resting_heart_rate",
-      HKQuantityTypeIdentifier.restingHeartRate,
+      "HKQuantityTypeIdentifierRestingHeartRate",
       "count/min",
       "bpm",
       since,
       until
     ),
-    readQuantity("weight", HKQuantityTypeIdentifier.bodyMass, "kg", "kg", since, until),
+    readQuantity("weight", "HKQuantityTypeIdentifierBodyMass", "kg", "kg", since, until),
     readOxygenSaturation(since, until),
     readQuantity(
       "hrv_ms",
-      HKQuantityTypeIdentifier.heartRateVariabilitySDNN,
+      "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
       "ms",
       "ms",
       since,
@@ -147,14 +181,19 @@ export async function readHealthSamples(since: Date, until: Date): Promise<Healt
  * band. The correlation's own UUID is the dedupe key.
  */
 async function readBloodPressure(since: Date, until: Date): Promise<HealthSample[]> {
+  const healthkit = loadHealthkit();
+  if (!healthkit) return [];
   try {
-    const correlations = await Healthkit.queryCorrelationSamples(
-      HKCorrelationTypeIdentifier.bloodPressure,
-      { from: since, to: until }
+    const correlations = await healthkit.queryCorrelationSamples(
+      "HKCorrelationTypeIdentifierBloodPressure",
+      {
+        filter: { date: { startDate: since, endDate: until } },
+        limit: PER_TYPE_LIMIT,
+      }
     );
 
     const samples: HealthSample[] = [];
-    for (const correlation of correlations.slice(0, PER_TYPE_LIMIT)) {
+    for (const correlation of correlations) {
       let systolic: number | null = null;
       let diastolic: number | null = null;
       // A correlation has no UUID of its own, so the systolic sample's UUID
@@ -167,11 +206,11 @@ async function readBloodPressure(since: Date, until: Date): Promise<HealthSample
         // preferred unit changed underneath us and the number would be
         // wrong, so it is skipped rather than stored.
         if (typeof object.unit === "string" && !object.unit.includes("mmHg")) continue;
-        if (object.quantityType === HKQuantityTypeIdentifier.bloodPressureSystolic) {
+        if (object.quantityType === "HKQuantityTypeIdentifierBloodPressureSystolic") {
           systolic = object.quantity;
           systolicUuid = object.uuid;
         }
-        if (object.quantityType === HKQuantityTypeIdentifier.bloodPressureDiastolic) {
+        if (object.quantityType === "HKQuantityTypeIdentifierBloodPressureDiastolic") {
           diastolic = object.quantity;
         }
       }
@@ -201,8 +240,8 @@ async function readBloodPressure(since: Date, until: Date): Promise<HealthSample
 async function readOxygenSaturation(since: Date, until: Date): Promise<HealthSample[]> {
   const fractions = await readQuantity(
     "spo2",
-    HKQuantityTypeIdentifier.oxygenSaturation,
-    HKUnits.Percent,
+    "HKQuantityTypeIdentifierOxygenSaturation",
+    "%",
     "%",
     since,
     until
@@ -217,22 +256,26 @@ async function readOxygenSaturation(since: Date, until: Date): Promise<HealthSam
 
 async function readQuantity(
   readingType: HealthSample["reading_type"],
-  identifier: HKQuantityTypeIdentifier,
+  identifier: string,
   healthKitUnit: string,
   reportedUnit: string,
   since: Date,
   until: Date
 ): Promise<HealthSample[]> {
+  const healthkit = loadHealthkit();
+  if (!healthkit) return [];
   try {
-    const samples = await Healthkit.queryQuantitySamples(identifier, {
-      from: since,
-      to: until,
-      limit: PER_TYPE_LIMIT,
-      ascending: true,
-      // The library's unit type is narrowed per identifier; every call site
-      // above passes the unit that identifier actually accepts.
-      unit: healthKitUnit,
-    } as Parameters<typeof Healthkit.queryQuantitySamples>[1]);
+    const samples = await healthkit.queryQuantitySamples(
+      // The library's identifier/unit types are narrowed per call; every
+      // site above passes the unit that identifier actually accepts.
+      identifier as Parameters<typeof healthkit.queryQuantitySamples>[0],
+      {
+        filter: { date: { startDate: since, endDate: until } },
+        limit: PER_TYPE_LIMIT,
+        ascending: true,
+        unit: healthKitUnit,
+      } as Parameters<typeof healthkit.queryQuantitySamples>[1]
+    );
 
     return samples.map((sample) => ({
       reading_type: readingType,
@@ -254,16 +297,16 @@ async function readQuantity(
  * deduplicates across sources, which is the whole reason to use it here.
  */
 async function readDailySteps(since: Date, until: Date): Promise<HealthSample[]> {
+  const healthkit = loadHealthkit();
+  if (!healthkit) return [];
   try {
     const anchor = startOfDay(since);
-    const buckets = await Healthkit.queryStatisticsCollectionForQuantity(
-      HKQuantityTypeIdentifier.stepCount,
-      [HKStatisticsOptions.cumulativeSum, HKStatisticsOptions.mostRecent],
+    const buckets = await healthkit.queryStatisticsCollectionForQuantity(
+      "HKQuantityTypeIdentifierStepCount",
+      ["cumulativeSum", "mostRecent"],
       anchor,
       { day: 1 },
-      since,
-      until,
-      HKUnits.Count
+      { filter: { date: { startDate: since, endDate: until } }, unit: "count" }
     );
 
     const samples: HealthSample[] = [];
@@ -298,7 +341,7 @@ async function readDailySteps(since: Date, until: Date): Promise<HealthSample[]>
   }
 }
 
-function isQuantitySample(value: unknown): value is HKQuantitySample {
+function isQuantitySample(value: unknown): value is QuantitySample {
   return (
     typeof value === "object" &&
     value !== null &&

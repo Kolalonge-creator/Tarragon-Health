@@ -5,7 +5,8 @@ import type { DoseChecklistItem } from "./medications";
  * scheduled local notification only appears once the app is backgrounded. */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -66,7 +67,7 @@ export async function syncDoseReminders(doses: DoseChecklistItem[]): Promise<voi
           body: `Time for your ${item.drugName} dose (${item.time}).`,
           data: { medicationId: item.medicationId, time: item.time },
         },
-        trigger: fireAt,
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: fireAt },
       });
     }
 
