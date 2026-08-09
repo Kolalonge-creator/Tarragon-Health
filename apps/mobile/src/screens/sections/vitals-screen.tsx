@@ -15,6 +15,10 @@ import { WebViewScreen } from "@/screens/webview-screen";
 
 interface VitalsScreenProps {
   patientId: string;
+  /** Set when the signed-in user currently has this patient's account open
+   * (lib/acting.ts) — passed through to the write API so the reading is
+   * logged for them, not the caller. Undefined when logging for yourself. */
+  beneficiaryProfileId?: string;
 }
 
 const inputStyle = {
@@ -49,7 +53,7 @@ const GLUCOSE_CONTEXTS: { id: GlucoseContext; label: string }[] = [
   { id: "night", label: "Night" },
 ];
 
-export function VitalsScreen({ patientId }: VitalsScreenProps) {
+export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenProps) {
   const [readings, setReadings] = useState<BpReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [sys, setSys] = useState("");
@@ -75,7 +79,7 @@ export function VitalsScreen({ patientId }: VitalsScreenProps) {
     }
     setSaving(true);
     setError(null);
-    const result = await logBpReading(systolic, diastolic);
+    const result = await logBpReading(systolic, diastolic, beneficiaryProfileId);
     setSaving(false);
     if (result.error) {
       setError(result.error);
@@ -165,7 +169,7 @@ export function VitalsScreen({ patientId }: VitalsScreenProps) {
         )}
       </Card>
 
-      <OtherVitalCard />
+      <OtherVitalCard beneficiaryProfileId={beneficiaryProfileId} />
 
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Log a symptom</Text>
@@ -188,7 +192,7 @@ export function VitalsScreen({ patientId }: VitalsScreenProps) {
 /** Glucose, weight, temperature, SpO2, pulse — the rest of MOBILE_APP_SPEC.md
  * §2.2's native quick-log list, alongside the always-visible BP card above
  * (BP stays its own card since it's the highest-frequency write). */
-function OtherVitalCard() {
+function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: string }) {
   const [type, setType] = useState<OtherVitalType>("glucose");
   const [value, setValue] = useState("");
   const [glucoseUnit, setGlucoseUnit] = useState<"mmol_l" | "mg_dl">("mmol_l");
@@ -235,7 +239,7 @@ function OtherVitalCard() {
         break;
     }
 
-    const result = await logOtherVital(payload);
+    const result = await logOtherVital(payload, beneficiaryProfileId);
     setSaving(false);
     if (result.error) {
       setError(result.error);

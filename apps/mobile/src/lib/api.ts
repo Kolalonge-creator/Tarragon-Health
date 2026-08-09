@@ -43,9 +43,18 @@ export type VitalReadingPayload =
 
 /** Goes through the API (not a direct client insert) so a dangerous reading
  * triggers the same red-flag/health-score reassessment a web-logged one
- * does; see apps/web/src/app/api/mobile/vitals/route.ts. */
-export async function postVitalReading(payload: VitalReadingPayload): Promise<PostVitalReadingResult> {
-  const result = await request<Record<string, never>>("/api/mobile/vitals", "POST", payload);
+ * does; see apps/web/src/app/api/mobile/vitals/route.ts.
+ *
+ * beneficiaryProfileId is the mobile equivalent of web's acting-for cookie
+ * (see lib/acting.ts) — set when the signed-in user currently has a
+ * supported person's account open, so the reading is logged for them, not
+ * for the caller. The route re-checks the live 'manage' grant itself. */
+export async function postVitalReading(
+  payload: VitalReadingPayload,
+  beneficiaryProfileId?: string
+): Promise<PostVitalReadingResult> {
+  const body = beneficiaryProfileId ? { ...payload, beneficiary_profile_id: beneficiaryProfileId } : payload;
+  const result = await request<Record<string, never>>("/api/mobile/vitals", "POST", body);
   return result.ok ? { success: true } : { success: false, error: result.error };
 }
 

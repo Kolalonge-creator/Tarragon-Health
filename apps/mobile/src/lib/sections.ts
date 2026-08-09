@@ -8,6 +8,7 @@ export type SectionId =
   | "care"
   | "prevention"
   | "family"
+  | "supporting"
   | "passport"
   | "messages"
   | "emergency"
@@ -36,6 +37,11 @@ export const SECTIONS: SectionDef[] = [
     webviewPath: "/patient/prevention",
   },
   { id: "family", label: "Your people", icon: "people-outline", webviewPath: "/patient/family" },
+  {
+    id: "supporting",
+    label: "People you support",
+    icon: "hand-left-outline",
+  },
   { id: "passport", label: "Health Passport", icon: "id-card-outline" },
   { id: "messages", label: "Messages", icon: "chatbox-ellipses-outline" },
   { id: "emergency", label: "Emergency card", icon: "alert-circle-outline" },

@@ -48,17 +48,26 @@ export function computeSevenDayAverage(readings: BpReading[]): SevenDayAverage |
 
 /** Goes through the API (not a direct insert) so a dangerous reading
  * triggers the same BP-control/health-score reassessment a web-logged one
- * does — see apps/web/src/app/api/mobile/vitals/route.ts. */
-export async function logBpReading(systolic: number, diastolic: number): Promise<{ error?: string }> {
-  const result = await postVitalReading({ vital_type: "blood_pressure", systolic, diastolic });
+ * does — see apps/web/src/app/api/mobile/vitals/route.ts.
+ *
+ * beneficiaryProfileId, when set, logs this for the person whose account is
+ * currently open (lib/acting.ts) rather than for the signed-in device
+ * owner — the route re-checks the live 'manage' grant server-side. */
+export async function logBpReading(
+  systolic: number,
+  diastolic: number,
+  beneficiaryProfileId?: string
+): Promise<{ error?: string }> {
+  const result = await postVitalReading({ vital_type: "blood_pressure", systolic, diastolic }, beneficiaryProfileId);
   return result.success ? {} : { error: result.error };
 }
 
 /** Glucose/weight/temperature/SpO2/pulse quick-log (MOBILE_APP_SPEC.md §2.2) —
- * same escalation-preserving API path as logBpReading. */
+ * same escalation-preserving API path and acting-for support as logBpReading. */
 export async function logOtherVital(
-  payload: Exclude<VitalReadingPayload, { vital_type: "blood_pressure" }>
+  payload: Exclude<VitalReadingPayload, { vital_type: "blood_pressure" }>,
+  beneficiaryProfileId?: string
 ): Promise<{ error?: string }> {
-  const result = await postVitalReading(payload);
+  const result = await postVitalReading(payload, beneficiaryProfileId);
   return result.success ? {} : { error: result.error };
 }
