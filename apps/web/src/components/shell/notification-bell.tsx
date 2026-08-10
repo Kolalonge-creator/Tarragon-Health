@@ -185,6 +185,12 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: sourceTable === "clinician_alerts" ? "/clinician/escalations" : "/admin",
     };
   }
+  if (n.template === "result_interpretation_ready") {
+    return {
+      text: "A doctor sent you an interpretation of a lab result you uploaded",
+      href: "/patient/labs",
+    };
+  }
   if (n.template === "emergency_card_viewed") {
     const on = String(payload.viewed_on ?? "");
     return {

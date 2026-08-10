@@ -220,7 +220,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Vaccination schedule, reminders, and verified certificates, including catch-up HPV dosing outside the free government age bracket", label: "INCLUDED" },
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
-      { feature: "Any lab, any format: upload a result and a doctor reads it back to you in plain language within minutes, not just once a year", label: "INCLUDED" },
+      { feature: "Any lab, any format: upload a result and a doctor's plain-language interpretation is sent to you in the app, with next steps suggested if anything needs attention, not just once a year", label: "INCLUDED" },
       { feature: "Screening lab tests, paid straight to the lab you choose", label: "YOU PAY THE LAB" },
       { feature: "Core Screen: we say what to get, you use any lab or upload a result you already have, and a doctor reads it", label: "INCLUDED" },
     ],

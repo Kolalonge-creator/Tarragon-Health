@@ -6065,12 +6065,15 @@ export type Database = {
           file_path: string
           file_size_bytes: number | null
           id: string
+          interpretation_sent_at: string | null
           lab_order_id: string | null
           mime_type: string | null
+          next_steps: string | null
           note: string | null
           organisation_id: string
           original_filename: string | null
           patient_id: string
+          patient_interpretation: string | null
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -6084,12 +6087,15 @@ export type Database = {
           file_path: string
           file_size_bytes?: number | null
           id?: string
+          interpretation_sent_at?: string | null
           lab_order_id?: string | null
           mime_type?: string | null
+          next_steps?: string | null
           note?: string | null
           organisation_id: string
           original_filename?: string | null
           patient_id: string
+          patient_interpretation?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -6103,12 +6109,15 @@ export type Database = {
           file_path?: string
           file_size_bytes?: number | null
           id?: string
+          interpretation_sent_at?: string | null
           lab_order_id?: string | null
           mime_type?: string | null
+          next_steps?: string | null
           note?: string | null
           organisation_id?: string
           original_filename?: string | null
           patient_id?: string
+          patient_interpretation?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
