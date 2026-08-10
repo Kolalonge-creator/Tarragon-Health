@@ -15566,6 +15566,10 @@ export type Database = {
         | "swelling"
         | "nausea"
         | "other"
+        | "chest_pain"
+        | "severe_headache"
+        | "visual_disturbance"
+        | "confusion"
       timeline_event_type:
         | "lab_completed"
         | "lab_abnormal"
@@ -16295,6 +16299,10 @@ export const Constants = {
         "swelling",
         "nausea",
         "other",
+        "chest_pain",
+        "severe_headache",
+        "visual_disturbance",
+        "confusion",
       ],
       timeline_event_type: [
         "lab_completed",

@@ -3,6 +3,7 @@ import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { VitalsForm } from "@/app/(dashboard)/patient/vitals-form";
 import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
+import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
 import { VitalsHistory } from "@/app/(dashboard)/patient/vitals-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
@@ -23,7 +24,10 @@ export default async function PatientVitalsPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <VitalsForm patientId={subjectId} />
-        <HbpmSummaryCard patientId={subjectId} />
+        <div className="space-y-4">
+          <HbpmSummaryCard patientId={subjectId} />
+          <GlucoseInsights patientId={subjectId} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
