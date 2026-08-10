@@ -71,9 +71,34 @@ interface NotificationRow {
 
 interface PushSubscriptionRow {
   id: string;
+  platform: "web" | "ios" | "android";
+  endpoint: string | null;
+  p256dh_key: string | null;
+  auth_key: string | null;
+  expo_push_token: string | null;
+}
+
+// Narrowed shapes sendWebPush/sendExpoPush actually operate on, so neither
+// helper has to null-check fields the DB's push_subscriptions_shape_check
+// constraint already guarantees are present for that platform.
+interface WebPushSubscription {
+  id: string;
   endpoint: string;
   p256dh_key: string;
   auth_key: string;
+}
+
+interface NativePushSubscription {
+  id: string;
+  expo_push_token: string;
+}
+
+function isWebPushSubscription(sub: PushSubscriptionRow): sub is PushSubscriptionRow & WebPushSubscription {
+  return sub.platform === "web" && sub.endpoint !== null && sub.p256dh_key !== null && sub.auth_key !== null;
+}
+
+function isNativePushSubscription(sub: PushSubscriptionRow): sub is PushSubscriptionRow & NativePushSubscription {
+  return (sub.platform === "ios" || sub.platform === "android") && sub.expo_push_token !== null;
 }
 
 interface TemplateRender {
@@ -381,6 +406,34 @@ const TEMPLATE_MAP: Record<
       smsText:
         `Hi, your lifestyle programme review is due ${dueDate}. Your care team will be in ` +
         `touch — open the app to see details. — Tarragon Health`,
+    };
+  },
+  // Sent once, ~24h before an active wellness challenge's deadline, only if
+  // the patient hasn't hit the target yet (see private.queue_wellness_
+  // challenge_ending_nudges) — private.evaluate_wellness_challenges silently
+  // expires it with no warning otherwise. Reminder only; logging progress and
+  // claiming the reward always happen in-app.
+  wellness_challenge_ending: (payload) => {
+    const title = String(payload.challenge_title ?? "your challenge");
+    const progress = String(payload.progress ?? "0");
+    const target = String(payload.target ?? "0");
+    const path = "/patient/wellness";
+    return {
+      metaTemplateName: "wellness_challenge_ending",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: title },
+            { type: "text", text: `${progress}/${target}` },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, your "${title}" challenge ends in 24 hours and you're at ${progress}/${target}. ` +
+        `Finish it in the Tarragon Health app. — Tarragon Health`,
+      pushUrl: path,
     };
   },
   // Proactive-outreach nudge (see private.queue_care_outreach). One aggregated,
@@ -1431,7 +1484,7 @@ async function sendTermiiVoiceCall(
  * rows rather than retrying them forever.
  */
 async function sendWebPush(
-  subscriptions: PushSubscriptionRow[],
+  subscriptions: WebPushSubscription[],
   payload: { title: string; body: string; url: string; notificationId: string },
 ): Promise<SendResult & { goneSubscriptionIds: string[] }> {
   if (subscriptions.length === 0) {
@@ -1479,6 +1532,75 @@ async function sendWebPush(
   return anyOk
     ? { ok: true, goneSubscriptionIds }
     : { ok: false, error: lastError ?? "push send failed", goneSubscriptionIds };
+}
+
+/**
+ * Expo push (https://exp.host/--/api/v2/push/send) — the native (iOS/Android)
+ * counterpart to sendWebPush. Same contract: one batched call for every
+ * device token the recipient has, ok if any ticket isn't an error, and any
+ * ticket reporting DeviceNotRegistered goes into goneSubscriptionIds for the
+ * same disabled_at cleanup sendWebPush's caller already does. Expo accepts
+ * an array of messages in a single call (no per-token round trip needed),
+ * and returns tickets in the same order as the request array.
+ */
+async function sendExpoPush(
+  subscriptions: NativePushSubscription[],
+  payload: { title: string; body: string; url: string; notificationId: string },
+): Promise<SendResult & { goneSubscriptionIds: string[] }> {
+  if (subscriptions.length === 0) {
+    return { ok: false, error: "no active push subscription", goneSubscriptionIds: [] };
+  }
+
+  const messages = subscriptions.map((sub) => ({
+    to: sub.expo_push_token,
+    title: payload.title,
+    body: payload.body,
+    data: { url: payload.url, notificationId: payload.notificationId },
+  }));
+
+  const result = await withExternalCall((signal) =>
+    fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+      },
+      body: JSON.stringify(messages),
+    })
+  );
+
+  if (!result.ok || !result.response) {
+    return { ok: false, error: result.error ?? "expo push send failed", goneSubscriptionIds: [] };
+  }
+
+  type ExpoTicket = { status: "ok" | "error"; message?: string; details?: { error?: string } };
+  let tickets: ExpoTicket[];
+  try {
+    const json = (await result.response.json()) as { data?: ExpoTicket[] };
+    tickets = json.data ?? [];
+  } catch {
+    return { ok: false, error: "invalid expo push response", goneSubscriptionIds: [] };
+  }
+
+  const goneSubscriptionIds: string[] = [];
+  let anyOk = false;
+  let lastError: string | undefined;
+  tickets.forEach((ticket, i) => {
+    if (ticket.status === "ok") {
+      anyOk = true;
+      return;
+    }
+    lastError = ticket.message ?? "expo push ticket error";
+    if (ticket.details?.error === "DeviceNotRegistered") {
+      goneSubscriptionIds.push(subscriptions[i].id);
+    }
+  });
+
+  return anyOk
+    ? { ok: true, goneSubscriptionIds }
+    : { ok: false, error: lastError ?? "expo push send failed", goneSubscriptionIds };
 }
 
 async function sendEmail(
@@ -1548,7 +1670,7 @@ Deno.serve(async () => {
 
   const { data: subscriptions } = await supabase
     .from("push_subscriptions")
-    .select("id, profile_id, endpoint, p256dh_key, auth_key")
+    .select("id, profile_id, platform, endpoint, p256dh_key, auth_key, expo_push_token")
     .in("profile_id", recipientIds)
     .is("disabled_at", null)
     .returns<Array<PushSubscriptionRow & { profile_id: string }>>();
@@ -1648,12 +1770,27 @@ Deno.serve(async () => {
       const pushBody = render.smsText.length > PUSH_BODY_MAX_CHARS
         ? `${render.smsText.slice(0, PUSH_BODY_MAX_CHARS - 1)}…`
         : render.smsText;
-      const pushResult = await sendWebPush(subs, {
+      const pushPayload = {
         title: "Tarragon Health",
         body: pushBody,
         url: render.pushUrl ?? "/",
         notificationId: row.id,
-      });
+      };
+
+      // Same recipient may have a browser subscription and/or a phone with
+      // the native app installed — fan out to whichever transports they
+      // have, exactly the way sendWebPush already fans out across multiple
+      // browser subscriptions for one user.
+      const [webResult, nativeResult] = await Promise.all([
+        sendWebPush(subs.filter(isWebPushSubscription), pushPayload),
+        sendExpoPush(subs.filter(isNativePushSubscription), pushPayload),
+      ]);
+      const pushOk = webResult.ok || nativeResult.ok;
+      const pushResult = {
+        ok: pushOk,
+        error: pushOk ? undefined : (webResult.error ?? nativeResult.error),
+        goneSubscriptionIds: [...webResult.goneSubscriptionIds, ...nativeResult.goneSubscriptionIds],
+      };
 
       if (pushResult.goneSubscriptionIds.length > 0) {
         // Best-effort cleanup — never lets a push-service-side error affect
