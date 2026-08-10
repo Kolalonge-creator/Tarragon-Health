@@ -100,17 +100,33 @@ export async function assessGlucoseBestEffort(
   // Suspected type-1 clue (§4): annotate a hyperglycaemia flag for a young/lean
   // patient so the doctor doesn't assume type 2 and delay insulin. Only reached
   // when a flag already fired, so it adds at most one small profile lookup.
+  //
+  // Stands down once the type is actually KNOWN, rather than guessed:
+  // - already type_1 (confirmed or self-reported) — nothing to suspect, the
+  //   patient is already on insulin.
+  // - confirmed_type = type_2 by a clinician — trust that clinical judgement
+  //   over the heuristic. A patient's own unconfirmed self-report of type_2
+  //   does NOT suppress this: that's exactly the "wrongly assumed type 2"
+  //   case the pathway is guarding against, so the heuristic keeps running
+  //   until a doctor has actually confirmed it.
   if (HYPERGLYCAEMIA_KINDS.includes(flag.kind)) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("date_of_birth")
-      .eq("id", patientId)
-      .maybeSingle();
+    const [{ data: profile }, { data: diabetesProfile }] = await Promise.all([
+      supabase.from("profiles").select("date_of_birth").eq("id", patientId).maybeSingle(),
+      supabase
+        .from("patient_diabetes_profile")
+        .select("patient_reported_type, confirmed_type")
+        .eq("patient_id", patientId)
+        .maybeSingle(),
+    ]);
+    const effectiveType = diabetesProfile?.confirmed_type ?? diabetesProfile?.patient_reported_type ?? null;
+    const typeAlreadyKnown =
+      effectiveType === "type_1" || diabetesProfile?.confirmed_type === "type_2";
+
     const ageYears = profile?.date_of_birth ? ageFromDateOfBirth(profile.date_of_birth) : null;
     // BMI needs height, which the vitals record doesn't carry — pass null, and
     // suspectsType1 errs toward suspicion for a young patient with unknown BMI
     // (per the pathway: a lean/young clue must not be missed).
-    if (suspectsType1({ ageYears, bmi: null })) {
+    if (!typeAlreadyKnown && suspectsType1({ ageYears, bmi: null })) {
       flag.detail +=
         " ⚠ Young patient — consider TYPE 1 / ketosis-prone diabetes: do not assume type 2, do not delay insulin, and arrange same-day review + specialist linkage (§4).";
     }

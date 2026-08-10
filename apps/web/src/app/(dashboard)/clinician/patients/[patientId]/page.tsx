@@ -27,6 +27,7 @@ import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
+import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
@@ -77,6 +78,15 @@ export default async function ClinicianPatientPage({
     .eq("patient_id", patientId)
     .maybeSingle();
   const isPregnant = pregnancy?.is_pregnant ?? false;
+
+  // Diabetes type: patient's own self-report, shown to the confirming
+  // clinician as context (never trusted as the authoritative record — see
+  // diabetes-type-form.tsx).
+  const { data: diabetesProfile } = await supabase
+    .from("patient_diabetes_profile")
+    .select("patient_reported_type")
+    .eq("patient_id", patientId)
+    .maybeSingle();
 
   // Current-year Health Check status for the "Review & communicate" control.
   const year = new Date().getFullYear();
@@ -244,6 +254,12 @@ export default async function ClinicianPatientPage({
                 {/* Foot-risk classification is a clinical act — only an active
                     clinical_staff member (not a Care Coordinator) sees the form. */}
                 {callerStaff && <GlucoseTargetForm patientId={patient.id} />}
+                {callerStaff && (
+                  <DiabetesTypeForm
+                    patientId={patient.id}
+                    patientReportedType={diabetesProfile?.patient_reported_type ?? null}
+                  />
+                )}
                 {callerStaff && <FootAssessmentForm patientId={patient.id} />}
                 {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
               </>
