@@ -2,19 +2,12 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import {
-  enrollAction,
-  logReadingAction,
-  resolveGoalAction,
-  type LifestyleActionState,
-} from "./actions";
+import { enrollAction, type LifestyleActionState } from "./actions";
 import type { LifestyleEnrollmentView, PastLifestyleGoalView } from "@/lib/lifestyle/service";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalsDialog } from "./goals-dialog";
+import { ConditionEnrollmentCard } from "./condition-enrollment-card";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { useWeightGoal } from "@/lib/queries/weight-goal";
 import { useLatestWeightKg } from "@/lib/queries/vitals";
@@ -56,7 +49,7 @@ const TRACKERS = [
  * edit. Nothing here is a new source of truth: every number is read from the
  * same tables/hooks their own dedicated pages already use.
  */
-function AtAGlancePanel({ patientId }: { patientId: string }) {
+export function AtAGlancePanel({ patientId }: { patientId: string }) {
   const { data: weightGoal } = useWeightGoal(patientId);
   const { data: latestWeight } = useLatestWeightKg(patientId);
   const { data: activityGoal } = useActivityGoal(patientId);
@@ -139,12 +132,6 @@ function enrollableFor(
   ];
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "paused" ? "amber" : status === "active" ? "green" : "grey";
-  return <Badge variant={tone}>{status}</Badge>;
-}
-
 export function LifestyleClient({
   patientId,
   enrollments,
@@ -181,53 +168,7 @@ export function LifestyleClient({
       <AtAGlancePanel patientId={patientId} />
 
       {enrollments.map((e) => (
-        <Card key={e.id}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">
-              {e.programmeName ?? e.condition}
-            </CardTitle>
-            <StatusBadge status={e.status} />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {e.status === "paused" ? (
-              <p className="text-sm text-muted-foreground">
-                This programme is paused while your care team checks in with you.
-                We&apos;re here to support you.
-              </p>
-            ) : (
-              <>
-                {e.currentPhaseName && (
-                  <p className="text-sm">
-                    Current phase:{" "}
-                    <span className="font-medium">{e.currentPhaseName}</span>
-                  </p>
-                )}
-                {e.goals.length > 0 && (
-                  <ul className="space-y-2 text-sm">
-                    {e.goals.map((g) => (
-                      <li key={g.id} className="flex items-center justify-between gap-2">
-                        <span>
-                          <span className="text-muted-foreground capitalize">{g.module}</span>{" "}
-                          {g.title}
-                        </span>
-                        {g.personalised && <ResolveGoalControls goalId={g.id} />}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {e.nextReviewDue && (
-                  <p className="text-muted-foreground text-xs">
-                    Next care-team review:{" "}
-                    {new Date(e.nextReviewDue).toLocaleDateString()}
-                  </p>
-                )}
-                {e.conditionKey && (
-                  <LogForm enrollmentId={e.id} conditionKey={e.conditionKey} />
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <ConditionEnrollmentCard key={e.id} enrollment={e} />
       ))}
 
       {available.length > 0 && (
@@ -274,95 +215,5 @@ export function LifestyleClient({
         </Card>
       )}
     </div>
-  );
-}
-
-function LogForm({
-  enrollmentId,
-  conditionKey,
-}: {
-  enrollmentId: string;
-  conditionKey: "obesity" | "htn" | "diabetes";
-}) {
-  const [state, log] = useActionState<LifestyleActionState, FormData>(
-    logReadingAction,
-    undefined,
-  );
-  return (
-    <form action={log} className="space-y-3 rounded-md border p-3">
-      <input type="hidden" name="enrollmentId" value={enrollmentId} />
-      <input type="hidden" name="conditionKey" value={conditionKey} />
-      <p className="text-sm font-medium">Quick check-in</p>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label htmlFor={`type-${enrollmentId}`}>What are you logging?</Label>
-          <select
-            id={`type-${enrollmentId}`}
-            name="type"
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-            defaultValue="mood"
-          >
-            <option value="mood">How I&apos;m feeling</option>
-            <option value="weight">Weight (kg)</option>
-            <option value="activity_minutes">Active minutes</option>
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`value-${enrollmentId}`}>Value</Label>
-          <Input
-            id={`value-${enrollmentId}`}
-            name="value"
-            type="number"
-            step="any"
-            placeholder="e.g. 3"
-          />
-        </div>
-      </div>
-
-      {conditionKey === "obesity" && (
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="strugglingWithFood" />
-          I&apos;ve been struggling with food or eating lately
-        </label>
-      )}
-
-      {state?.message && <p className="text-sm text-brand-green">{state.message}</p>}
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
-
-      <Button type="submit" size="sm">
-        Log check-in
-      </Button>
-    </form>
-  );
-}
-
-function ResolveGoalControls({ goalId }: { goalId: string }) {
-  const [state, resolve] = useActionState<LifestyleActionState, FormData>(
-    resolveGoalAction,
-    undefined,
-  );
-
-  if (state?.success) {
-    return <span className="text-xs text-brand-green">{state.message}</span>;
-  }
-
-  return (
-    <span className="flex shrink-0 gap-2">
-      <form action={resolve}>
-        <input type="hidden" name="goalId" value={goalId} />
-        <input type="hidden" name="status" value="achieved" />
-        <button type="submit" className="text-xs text-brand-green hover:underline">
-          Mark achieved
-        </button>
-      </form>
-      <form action={resolve}>
-        <input type="hidden" name="goalId" value={goalId} />
-        <input type="hidden" name="status" value="abandoned" />
-        <button type="submit" className="text-xs text-muted-foreground hover:underline">
-          Let this go
-        </button>
-      </form>
-    </span>
   );
 }
