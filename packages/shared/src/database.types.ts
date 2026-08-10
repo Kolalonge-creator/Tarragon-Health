@@ -8490,6 +8490,61 @@ export type Database = {
           },
         ]
       }
+      patient_diabetes_profile: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_type: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at: string
+          organisation_id: string
+          patient_id: string
+          patient_reported_type: Database["public"]["Enums"]["diabetes_type"] | null
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_type?: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at?: string
+          organisation_id: string
+          patient_id: string
+          patient_reported_type?: Database["public"]["Enums"]["diabetes_type"] | null
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_type?: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at?: string
+          organisation_id?: string
+          patient_id?: string
+          patient_reported_type?: Database["public"]["Enums"]["diabetes_type"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_diabetes_profile_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_diabetes_profile_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_diabetes_profile_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_glucose_targets: {
         Row: {
           category: Database["public"]["Enums"]["glycaemic_target_category"]
@@ -13777,11 +13832,16 @@ export type Database = {
     Views: {
       diabetes_quality_metrics: {
         Row: {
+          avg_glucose_flag_to_contact_hours: number | null
+          complete_complication_screen: number | null
           diabetic_patients: number | null
           foot_uptodate: number | null
+          hba1c_at_target: number | null
           organisation_id: string | null
           renal_uptodate: number | null
           retinal_uptodate: number | null
+          severe_hypo_dka_events_90d: number | null
+          severe_hypo_dka_per_100_patients: number | null
           target_set: number | null
         }
         Relationships: [
@@ -14617,6 +14677,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_patient_reported_diabetes_type: {
+        Args: { p_type: Database["public"]["Enums"]["diabetes_type"] }
+        Returns: undefined
+      }
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
@@ -14909,6 +14973,7 @@ export type Database = {
         | "paid"
         | "active"
       currency: "NGN" | "GBP" | "USD"
+      diabetes_type: "type_1" | "type_2" | "gestational" | "other"
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
@@ -15585,6 +15650,7 @@ export const Constants = {
         "active",
       ],
       currency: ["NGN", "GBP", "USD"],
+      diabetes_type: ["type_1", "type_2", "gestational", "other"],
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",

@@ -179,3 +179,58 @@ export async function setGlucoseTarget(
   revalidatePath(`/clinician/patients/${parsed.data.patient_id}`);
   return { success: true };
 }
+
+/**
+ * Clinician confirmation of a patient's diabetes type. confirmed_by is
+ * server-derived from the caller's clinical_staff row, never trusted from the
+ * client — same shape as recordFootAssessment. Confirmed takes precedence
+ * over the patient's own self-report everywhere this is read (G25's
+ * suspected-type-1 heuristic, the metformin ladder), but never overwrites
+ * patient_reported_type — the two stay independent columns.
+ */
+export async function confirmDiabetesType(
+  _prev: FootAssessmentState,
+  formData: FormData
+): Promise<FootAssessmentState> {
+  const { confirmDiabetesTypeSchema } = await import("@/lib/validation/diabetes-type");
+  const parsed = confirmDiabetesTypeSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("id, organisation_id")
+    .eq("profile_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
+  if (!staff) return { error: "Only a Tarragon care-team doctor can confirm a diabetes type" };
+
+  const { data: patient } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", parsed.data.patient_id)
+    .maybeSingle();
+  const organisationId = patient?.organisation_id ?? staff.organisation_id;
+
+  const { error } = await supabase
+    .from("patient_diabetes_profile")
+    .upsert(
+      {
+        patient_id: parsed.data.patient_id,
+        organisation_id: organisationId,
+        confirmed_type: parsed.data.diabetes_type,
+        confirmed_by: staff.id,
+        confirmed_at: new Date().toISOString(),
+      },
+      { onConflict: "patient_id" }
+    );
+  if (error) return { error: error.message };
+
+  revalidatePath(`/clinician/patients/${parsed.data.patient_id}`);
+  return { success: true };
+}
