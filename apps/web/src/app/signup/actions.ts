@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { signupSchema } from "@/lib/validation/auth";
+import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 export type SignupActionState = { error?: string; success?: boolean } | undefined;
 
@@ -30,6 +31,19 @@ export async function signUp(
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  // IP-scoped (10/hour) blunts scripted mass account creation; email-scoped
+  // (3/hour) stops someone repeatedly triggering Supabase's confirmation
+  // email at one address.
+  const limited = await checkAuthRateLimit(
+    "signup",
+    parsed.data.email,
+    { limit: 10, windowSeconds: 3600 },
+    { limit: 3, windowSeconds: 3600 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE };
   }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;

@@ -5,6 +5,7 @@ import { egfrFromReading, type EgfrWithProvenance } from "@/lib/rules/egfr";
 import { combineKdigoRisk, type KdigoRiskResult } from "@/lib/rules/kdigo-ckd-risk";
 import {
   assessMedicationSafety,
+  type AllergyInput,
   type MedicationInput,
   type SafetyReport,
 } from "@/lib/rules/drug-safety";
@@ -89,7 +90,7 @@ function deriveCkdRisk(
     return {
       ckdRisk: null,
       ckdRiskUnavailableReason:
-        "No urine albumin-to-creatinine ratio on file. eGFR alone can miss a real risk that only shows up with albuminuria — add a urine ACR to complete the KDIGO CKD risk picture.",
+        "No urine albumin-to-creatinine ratio on file. eGFR alone can miss a real risk that only shows up with albuminuria; add a urine ACR to complete the KDIGO CKD risk picture.",
     };
   }
 
@@ -147,11 +148,14 @@ export interface MedicationSafetyView {
   ckdRisk: KdigoRiskResult | null;
   ckdRiskUnavailableReason: string | null;
   medicationCount: number;
+  /** The patient's recorded allergies, for the UI to list independently of any finding firing. */
+  allergies: AllergyInput[];
 }
 
 /**
  * The full medication safety picture for a patient: their active medicines,
- * checked against each other and against their own kidney function.
+ * checked against each other, against their own kidney function, and against
+ * their recorded allergies.
  */
 export async function loadMedicationSafety(
   supabase: SupabaseClient<Database>,
@@ -159,11 +163,18 @@ export async function loadMedicationSafety(
 ): Promise<MedicationSafetyView> {
   const context = await loadPatientClinicalContext(supabase, patientId);
 
-  const { data: medications } = await supabase
-    .from("medications")
-    .select("id, drug_name, dose, prescriber_name, source")
-    .eq("patient_id", patientId)
-    .eq("is_active", true);
+  const [{ data: medications }, { data: allergyRows }] = await Promise.all([
+    supabase
+      .from("medications")
+      .select("id, drug_name, dose, prescriber_name, source")
+      .eq("patient_id", patientId)
+      .eq("is_active", true),
+    supabase
+      .from("patient_allergies")
+      .select("id, allergen, reaction, severity, source")
+      .eq("patient_id", patientId)
+      .order("allergen"),
+  ]);
 
   const inputs: MedicationInput[] = (medications ?? []).map((m) => ({
     id: m.id,
@@ -173,9 +184,18 @@ export async function loadMedicationSafety(
     source: m.source,
   }));
 
+  const allergies: AllergyInput[] = (allergyRows ?? []).map((a) => ({
+    id: a.id,
+    allergen: a.allergen,
+    reaction: a.reaction,
+    severity: a.severity,
+    source: a.source,
+  }));
+
   const report = assessMedicationSafety(inputs, {
     egfr: context.egfr?.egfr ?? null,
     egfrStale: context.egfr?.stale ?? false,
+    allergies,
   });
 
   return {
@@ -185,5 +205,6 @@ export async function loadMedicationSafety(
     ckdRisk: context.ckdRisk,
     ckdRiskUnavailableReason: context.ckdRiskUnavailableReason,
     medicationCount: inputs.length,
+    allergies,
   };
 }

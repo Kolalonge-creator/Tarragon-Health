@@ -180,6 +180,22 @@ export async function unmatchPaymentAction(paymentTransactionId: string): Promis
   return { ok: true };
 }
 
+export async function resolveReconciliationFlagAction(
+  id: string,
+  status: "resolved" | "ignored",
+  note?: string,
+): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_resolve_reconciliation_flag", {
+    p_id: id,
+    p_status: status,
+    p_note: note,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
 export async function postSettlementAction(settlementId: string): Promise<FinanceActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("finance_post_settlement", { p_settlement_id: settlementId });
@@ -400,6 +416,65 @@ export async function unmarkFiledAction(
     p_period_label: periodLabel,
   });
   if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
+/**
+ * Company legal/registration profile — admin/settings/company-profile only.
+ * The RPC re-checks private.is_admin() itself; this action never bypasses it.
+ */
+export interface CompanyProfileInput {
+  legal_name: string;
+  trading_name: string;
+  rc_number: string;
+  tin: string;
+  vat_registration_number: string;
+  nsitf_number: string;
+  itf_number: string;
+  pension_pfa_code: string;
+  registered_address: string;
+  principal_business_activity: string;
+  incorporation_date: string;
+  financial_year_end: string;
+  registered_email: string;
+  registered_phone: string;
+  directors_text: string;
+  company_secretary_name: string;
+  auditor_name: string;
+  bank_name: string;
+  bank_account_name: string;
+  bank_account_number: string;
+}
+
+export async function upsertCompanyProfileAction(
+  input: CompanyProfileInput,
+): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_company_profile_upsert", {
+    p_legal_name: input.legal_name || undefined,
+    p_trading_name: input.trading_name || undefined,
+    p_rc_number: input.rc_number || undefined,
+    p_tin: input.tin || undefined,
+    p_vat_registration_number: input.vat_registration_number || undefined,
+    p_nsitf_number: input.nsitf_number || undefined,
+    p_itf_number: input.itf_number || undefined,
+    p_pension_pfa_code: input.pension_pfa_code || undefined,
+    p_registered_address: input.registered_address || undefined,
+    p_principal_business_activity: input.principal_business_activity || undefined,
+    p_incorporation_date: input.incorporation_date || undefined,
+    p_financial_year_end: input.financial_year_end || "31 December",
+    p_registered_email: input.registered_email || undefined,
+    p_registered_phone: input.registered_phone || undefined,
+    p_directors_text: input.directors_text || undefined,
+    p_company_secretary_name: input.company_secretary_name || undefined,
+    p_auditor_name: input.auditor_name || undefined,
+    p_bank_name: input.bank_name || undefined,
+    p_bank_account_name: input.bank_account_name || undefined,
+    p_bank_account_number: input.bank_account_number || undefined,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/settings/company-profile");
   revalidateFinance();
   return { ok: true };
 }

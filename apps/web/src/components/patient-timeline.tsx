@@ -2,6 +2,7 @@
 
 import { usePatientTimeline, type TimelineEvent, type TimelineEventType } from "@/lib/queries/patient-timeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 
 /**
  * The shared unified activity timeline. Rendered on both the patient dashboard
@@ -54,10 +55,17 @@ function formatWhen(value: string): string {
   });
 }
 
-// Null-gated doctor attribution: only ever rendered from event.actor, which is
-// a real clinical_staff row (FK-guaranteed). No actor → no attribution line.
+// Null-gated attribution: only ever rendered from event.actor, which is a
+// real clinical_staff row (FK-guaranteed) — but a real row is not the same as
+// a real doctor. isClinicalTier excludes a Care Coordinator's active row
+// (doctor_tier = 'care_coordinator'), so an event they caused (e.g. raising
+// an escalation, sending a care message) reads "By your care team" rather
+// than a fabricated "Dr. <coordinator's name>".
 function ActorAttribution({ actor }: { actor: TimelineEvent["actor"] }) {
   if (!actor?.full_name) return null;
+  if (!isClinicalTier(actor)) {
+    return <p className="text-xs text-charcoal-ink/60">By your care team</p>;
+  }
   const credential =
     actor.credential_type && actor.credential_number
       ? ` · ${actor.credential_type} ${actor.credential_number}`

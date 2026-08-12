@@ -5,17 +5,17 @@ type DoctorTier = NonNullable<Tables<"clinical_staff">["doctor_tier"]>;
 /** docs/Tarragon_Health_Master_Operating_Plan_v4.md §4 — the 5-tier doctor ladder plus Care Coordinator. */
 export const DOCTOR_TIER_LABEL: Record<DoctorTier, string> = {
   care_coordinator: "Care Coordinator",
-  tier_1: "Tier 1 — Medical Officer (<3yrs)",
-  tier_2: "Tier 2 — Medical Officer (3+yrs)",
-  tier_3: "Tier 3 — Senior Medical Officer",
-  tier_4_senior_registrar: "Tier 4 — Senior Registrar",
-  tier_5_partner_specialist: "Tier 5 — Partner Specialist",
+  tier_1: "Tier 1: Medical Officer (<3yrs)",
+  tier_2: "Tier 2: Medical Officer (3+yrs)",
+  tier_3: "Tier 3: Senior Medical Officer",
+  tier_4_senior_registrar: "Tier 4: Senior Registrar",
+  tier_5_partner_specialist: "Tier 5: Partner Specialist",
 };
 
 /** Short blurb of each tier's clinical authority — master plan §4's role table, patient/staff-facing tone. */
 export const DOCTOR_TIER_AUTHORITY_BLURB: Partial<Record<DoctorTier, string>> = {
   tier_1:
-    "First-line review of routine, in-protocol readings and stable follow-up. Confirms and continues existing stable prescriptions — starting a new medication needs Tier 2 or above.",
+    "First-line review of routine, in-protocol readings and stable follow-up. Confirms and continues existing stable prescriptions; starting a new medication needs Tier 2 or above.",
   tier_2:
     "Initiates new medications and standard dose adjustments per protocol; handles escalations Tier 1 flags.",
   tier_3:
@@ -23,7 +23,7 @@ export const DOCTOR_TIER_AUTHORITY_BLURB: Partial<Record<DoctorTier, string>> = 
   tier_4_senior_registrar:
     "Pre-referral consults, sets referral urgency, approves referrals, owns clinical protocols, supervises Tiers 1–3.",
   tier_5_partner_specialist:
-    "Complex/procedural input on referral, telemedicine-first — hands routine follow-up back to Tier 3/4.",
+    "Complex/procedural input on referral, telemedicine-first; hands routine follow-up back to Tier 3/4.",
 };
 
 type PrescribingAuthority = Pick<
@@ -82,6 +82,23 @@ const EMERGENCY_ESCALATION_TIERS: DoctorTier[] = [
   "tier_4_senior_registrar",
   "tier_5_partner_specialist",
 ];
+
+/**
+ * True for anyone who may act as a doctor in the clinical sense: any tier on
+ * the ladder, or the Clinical Director flag. False for `care_coordinator` (a
+ * doctor_tier value, but explicitly non-clinical — see CLINICAL_TIERS above)
+ * and for a null tier. Use this, not a bare truthy `staff` check, to gate any
+ * UI that must never reach a Care Coordinator even though they carry an
+ * active clinical_staff row (added alongside the doctor-tier ladder,
+ * 20260715172711) — a plain `staff &&` gate silently admits them.
+ */
+export function isClinicalTier(staff: PrescribingAuthority | null): boolean {
+  if (!staff) return false;
+  return (
+    staff.is_clinical_director ||
+    (staff.doctor_tier !== null && CLINICAL_TIERS.includes(staff.doctor_tier))
+  );
+}
 
 /**
  * Mirrors private.can_confirm_medication_refill()

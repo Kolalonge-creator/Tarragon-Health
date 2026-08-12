@@ -6,6 +6,7 @@ import { CtaBand } from "../_components/cta-band";
 import { TrustPillars } from "../_components/trust-pillars";
 import { LeadershipGrid } from "../_components/leadership-panel";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
 /**
  * Honest operating commitments, not vanity metrics — TarragonHealth is
@@ -36,12 +37,12 @@ const ABOUT_COMMITMENTS = [
   },
 ] as const;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "About",
   description:
     "Why TarragonHealth exists: continuity of care between doctor visits, for Nigerians and the people who love them.",
-  alternates: { canonical: MARKETING_ROUTES.about },
-};
+  path: MARKETING_ROUTES.about,
+});
 
 export default function AboutPage() {
   return (

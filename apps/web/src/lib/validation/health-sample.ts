@@ -2,13 +2,17 @@ import { z } from "zod";
 import { WEARABLE_READING_TYPES } from "@/lib/wearables/normalise";
 
 /**
- * A batch of Apple Health (HealthKit) samples uploaded by the Expo app.
+ * A batch of on-device health-store samples uploaded by the Expo app —
+ * Apple Health (HealthKit) or Android Health Connect.
  *
- * HealthKit has no cloud API — its data is device-local, so unlike every
- * other wearable provider there is no server-side OAuth redirect and no
- * webhook. The phone is the only thing that can read it, which is why this
- * arrives as an authenticated upload from the mobile app rather than as an
- * inbound provider callback.
+ * Neither platform's health store has a cloud API — the data is
+ * device-local, so unlike every other wearable provider there is no
+ * server-side OAuth redirect and no webhook. The phone is the only thing
+ * that can read it, which is why this arrives as an authenticated upload
+ * from the mobile app rather than as an inbound provider callback. `provider`
+ * distinguishes the two rather than splitting this into two routes/schemas —
+ * they share one ingestion contract because they produce the exact same
+ * HealthSample shape (apps/mobile/src/lib/healthkit.ts and health-connect.ts).
  *
  * The reading_type vocabulary is shared with the cloud-sync path on purpose:
  * once a sample is named, it goes through exactly the same routing rule
@@ -16,6 +20,9 @@ import { WEARABLE_READING_TYPES } from "@/lib/wearables/normalise";
  * wearable_readings) as a Fitbit or Oura reading. One ingestion contract,
  * two ways in.
  */
+
+export const DEVICE_LOCAL_HEALTH_PROVIDERS = ["apple_health", "android_health_connect"] as const;
+export type DeviceLocalHealthProvider = (typeof DEVICE_LOCAL_HEALTH_PROVIDERS)[number];
 
 export const healthSampleSchema = z
   .object({
@@ -34,8 +41,11 @@ export const healthSampleSchema = z
   );
 
 export const healthSampleBatchSchema = z.object({
-  // HealthKit can return a very long history on a first sync; the app pages
-  // rather than posting everything at once.
+  // Defaults to apple_health for back-compat with the app version that
+  // predates the Android bridge, which never sent this field.
+  provider: z.enum(DEVICE_LOCAL_HEALTH_PROVIDERS).default("apple_health"),
+  // Either health store can return a very long history on a first sync; the
+  // app pages rather than posting everything at once.
   samples: z.array(healthSampleSchema).min(1).max(500),
 });
 

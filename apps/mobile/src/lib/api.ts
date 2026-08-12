@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import type { HealthSample } from "./healthkit";
+import type { HealthProvider } from "./health-sync";
 
 /**
  * The mobile app is a separate deployment from the web app, so it hits the
@@ -63,10 +64,15 @@ export interface HealthSyncCursor {
   last_synced_at: string | null;
 }
 
-/** Where the last Apple Health sync got to, so the app reads a delta rather
- * than re-reading (and re-uploading) the same history every time. */
-export async function getHealthSyncCursor(): Promise<HealthSyncCursor | null> {
-  const result = await request<HealthSyncCursor>("/api/mobile/health-samples", "GET");
+/** Where the last sync for this provider got to, so the app reads a delta
+ * rather than re-reading (and re-uploading) the same history every time.
+ * Apple Health and Android Health Connect are two independent connections
+ * on the server (see route.ts), each with their own cursor. */
+export async function getHealthSyncCursor(provider: HealthProvider): Promise<HealthSyncCursor | null> {
+  const result = await request<HealthSyncCursor>(
+    `/api/mobile/health-samples?provider=${provider}`,
+    "GET"
+  );
   return result.ok ? result.data : null;
 }
 
@@ -78,9 +84,13 @@ export interface PostHealthSamplesResult {
 }
 
 export async function postHealthSamples(
-  samples: HealthSample[]
+  samples: HealthSample[],
+  provider: HealthProvider
 ): Promise<{ ok: true; data: PostHealthSamplesResult } | { ok: false; error: string }> {
-  return request<PostHealthSamplesResult>("/api/mobile/health-samples", "POST", { samples });
+  return request<PostHealthSamplesResult>("/api/mobile/health-samples", "POST", {
+    samples,
+    provider,
+  });
 }
 
 type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string };

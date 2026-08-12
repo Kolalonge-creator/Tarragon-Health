@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { NutritionFlow } from "../nutrition-flow";
 
@@ -17,26 +17,19 @@ export default async function NutritionPage() {
   }
 
   return (
-    <DashboardPlaceholder greeting="Meal & nutrition" roleLabel="Patient" comingUp={[]}>
-      <div className="flex justify-end">
-        <Link
-          href="/patient/lifestyle"
-          className="text-sm font-medium text-brand-green hover:underline"
-        >
-          ← Back to lifestyle coaching
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Log what you eat, with a photo if you like. We&apos;ll estimate the portions and carbs to
-        help you and your care team spot patterns. It&apos;s a coaching guide, not a medical
-        measurement.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Meals & nutrition"
+        icon={SEMANTIC_ICON.nutrition}
+        backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
+        description="Log what you eat, with a photo if you like. We'll estimate the portions and carbs to help you and your care team spot patterns. It's a coaching guide, not a medical measurement."
+      />
       <RequiresEntitlement
         feature="lifestyle_coaching"
         fallback={<UpgradePrompt feature="lifestyle_coaching" />}
       >
         <NutritionFlow patientId={profile.id} visionConfigured={isMealVisionConfigured()} />
       </RequiresEntitlement>
-    </DashboardPlaceholder>
+    </div>
   );
 }

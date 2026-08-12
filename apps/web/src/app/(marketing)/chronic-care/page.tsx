@@ -6,17 +6,18 @@ import { ServiceCardLink } from "../_components/service-card";
 import { StepsExplorer } from "../_components/steps-explorer";
 import { SERVICE_CARDS } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const revalidate = 300;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Chronic care",
   description:
     "Ongoing monitoring for chronic conditions like hypertension, diabetes, and weight management: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
-  alternates: { canonical: MARKETING_ROUTES.chronicCare },
-};
+  path: MARKETING_ROUTES.chronicCare,
+});
 
 const CHRONIC_KEYS = ["hypertension", "diabetes", "obesity"] as const;
 const CHRONIC_CARDS = SERVICE_CARDS.filter((card) =>
@@ -46,6 +47,7 @@ export default async function ChronicCarePage() {
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Chronic care"
           title="Steady, followed-up care for long-term conditions"
           description="Chronic disease isn't managed in the clinic, it's managed in the days between visits. Tarragon keeps watch on your readings, medication, and labs, and acts when something changes."

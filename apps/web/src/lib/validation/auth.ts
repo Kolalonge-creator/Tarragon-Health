@@ -34,6 +34,14 @@ export const passwordResetEmailSchema = z.object({
 });
 export type PasswordResetEmailInput = z.infer<typeof passwordResetEmailSchema>;
 
+export const mfaCodeSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app"),
+});
+export type MfaCodeInput = z.infer<typeof mfaCodeSchema>;
+
 export const newPasswordSchema = z
   .object({
     password: z.string().min(8, "Password must be at least 8 characters"),

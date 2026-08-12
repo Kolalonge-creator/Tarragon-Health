@@ -15,6 +15,13 @@ const KIND_LABEL: Record<FindingKind, string> = {
   duplicate_therapy: "Duplicate therapy",
   renal_dosing: "Kidney function",
   drug_specific: "Drug note",
+  allergy: "Allergy",
+};
+
+const ALLERGY_SEVERITY_VARIANT: Record<string, "red" | "amber" | "grey"> = {
+  severe: "red",
+  moderate: "amber",
+  mild: "grey",
 };
 
 const CKD_RISK_VARIANT: Record<string, "red" | "amber" | "grey" | "green"> = {
@@ -34,7 +41,7 @@ const CKD_RISK_VARIANT: Record<string, "red" | "amber" | "grey" | "green"> = {
  */
 export async function MedicationSafetyPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount } =
+  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies } =
     await loadMedicationSafety(supabase, patientId);
 
   return (
@@ -42,19 +49,39 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
       <CardHeader>
         <CardTitle>Medication safety</CardTitle>
         <CardDescription>
-          Interactions, duplicate therapy, and kidney-function dosing across the {medicationCount}{" "}
-          active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory — nothing here changes
-          a prescription.
+          Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing across the{" "}
+          {medicationCount} active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory:
+          nothing here changes a prescription.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Allergies next to the medicine count so a clean findings list below can never be misread as "no allergies". */}
+        <div className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
+          <p className="text-sm font-medium text-charcoal-ink">Recorded allergies</p>
+          {allergies.length === 0 ? (
+            <p className="mt-0.5 text-xs text-charcoal-ink/60">
+              None on file; this means none has been recorded, not that the patient is confirmed
+              allergy-free.
+            </p>
+          ) : (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {allergies.map((a) => (
+                <Badge key={a.id} variant={(a.severity && ALLERGY_SEVERITY_VARIANT[a.severity]) || "grey"}>
+                  {a.allergen}
+                  {a.reaction ? `: ${a.reaction}` : ""}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Kidney function first: it is the input half these checks depend on. */}
         <div className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
           {egfr ? (
             <>
               <p className="text-sm font-medium text-charcoal-ink">
                 eGFR {egfr.egfr} mL/min/1.73m²{" "}
-                <span className="font-normal text-charcoal-ink/60">— {egfr.categoryLabel}</span>
+                <span className="font-normal text-charcoal-ink/60">({egfr.categoryLabel})</span>
               </p>
               <p className="mt-0.5 text-xs text-charcoal-ink/60">
                 {egfr.equation}, from a creatinine taken{" "}
@@ -79,7 +106,7 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
                   <span className="text-xs text-charcoal-ink/60">
                     ACR {ckdRisk.acrCategoryLabel}
                     {ckdRisk.invisibleToEgfrAlone
-                      ? " — eGFR alone would have looked reassuring here"
+                      ? ", eGFR alone would have looked reassuring here"
                       : ""}
                   </span>
                 </div>
@@ -96,8 +123,8 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
           <p className="text-sm text-charcoal-ink/60">No active medicines on file.</p>
         ) : report.findings.length === 0 ? (
           <p className="text-sm text-charcoal-ink/70">
-            No interaction, duplicate-therapy or renal-dosing rule fired for this list. That is not
-            the same as a clearance — these checks cover a curated rule set, not a complete
+            No interaction, duplicate-therapy, allergy or renal-dosing rule fired for this list. That
+            is not the same as a clearance; these checks cover a curated rule set, not a complete
             interaction database.
           </p>
         ) : (

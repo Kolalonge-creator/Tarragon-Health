@@ -95,6 +95,51 @@ export function useEscalateAlert() {
   });
 }
 
+/**
+ * Raises a new escalation with no pre-existing clinician_alert — the path a
+ * Care Coordinator (or any org staff) uses to hand a case to a doctor from
+ * outside the automated alert pipeline, e.g. an outreach task that turns out
+ * to need clinical judgment rather than logistics. clinician_alert_id stays
+ * null, so the doctor worklist ranks it as routine severity with no SLA (see
+ * rankOf in lib/worklist/priority.ts) — anything time-critical enough to be a
+ * red flag already reaches doctors through the automated escalation
+ * pipeline, not this manual path.
+ */
+export function useRaiseEscalation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      patientId,
+      organisationId,
+      reason,
+    }: {
+      patientId: string;
+      organisationId: string;
+      reason: string;
+    }) => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { error } = await supabase.from("escalations").insert({
+        organisation_id: organisationId,
+        patient_id: patientId,
+        clinician_alert_id: null,
+        status: "open",
+        raised_by: user.id,
+        assigned_doctor_id: null,
+        reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["escalations"] });
+    },
+  });
+}
+
 /** Claims an unclaimed escalation for the current doctor; no-ops if already claimed. */
 export function useClaimEscalation() {
   const queryClient = useQueryClient();

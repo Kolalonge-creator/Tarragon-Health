@@ -2,11 +2,20 @@ import "server-only";
 /**
  * Content-embedding population for pgvector personalisation (spec §11).
  *
- * Pluggable embedder. With no provider configured (`LIFESTYLE_EMBEDDING_MODEL`
- * unset) this is a graceful no-op that reports why — retrieval falls back to the
- * condition/module/risk tags until a real embedding provider + a clinician-vetted
- * content library exist. Wiring a provider = implement `Embedder` and pass it in;
- * nothing else changes.
+ * Pluggable embedder. With no provider configured (no `embedder` argument
+ * passed) this is a graceful no-op that reports why. A real Voyage AI
+ * provider now exists (voyage-embedder.ts, `createVoyageEmbedderFromEnv`) —
+ * this stays a no-op only until `VOYAGE_API_KEY` is actually set in the
+ * environment, at which point the cron route that calls this
+ * (`/api/cron/lpe-embed-content`) starts populating embeddings for every
+ * content block with `embedding is null` on its next run, no further code
+ * changes needed. A 58-block draft content library exists
+ * (20260810032440_lpe_content_library_starter.sql +
+ * 20260810034049_lpe_content_library_expansion.sql), so there's real content
+ * ready to embed; it's still all `clinician_reviewed = false`, and RLS
+ * (20260810034122_gate_lpe_content_blocks_read_on_review_status.sql) now
+ * keeps unreviewed rows out of any non-admin session regardless of whether
+ * retrieval code filters on it too.
  */
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 

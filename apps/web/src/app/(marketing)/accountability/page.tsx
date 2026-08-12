@@ -6,12 +6,15 @@ import {
   getPublishedCommitments,
   humaniseMinutes,
 } from "@/lib/marketing/accountability-data";
+import { pageMetadata } from "@/lib/marketing/site";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
-export const metadata: Metadata = {
-  title: "How we hold ourselves accountable: TarragonHealth",
+export const metadata: Metadata = pageMetadata({
+  title: "How we hold ourselves accountable",
   description:
     "How fast TarragonHealth responds when something looks wrong, who signed off on those commitments, where your health data is stored, and who can see it.",
-};
+  path: MARKETING_ROUTES.accountability,
+});
 
 export const revalidate = 300;
 

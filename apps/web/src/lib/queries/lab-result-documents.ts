@@ -18,12 +18,23 @@ const EXT_BY_MIME: Record<string, string> = {
  * source='patient'. The insert trigger flags it for clinician review; because
  * the patient uploaded it themselves, no patient notification is queued.
  *
+ * `screeningCompletionId` links this upload back to a self-reported
+ * screening_completions row (see useLogScreeningCompletion) when the patient
+ * uploads right after confirming a screening was done — optional, since this
+ * hook is also used for the general "upload any result" flow with no such
+ * confirmation. The insert policy re-verifies the id belongs to this patient
+ * server-side, so a forged id from the client is rejected, not just ignored.
+ *
  * Mirrors useAttachVaccinationCertificate — never a public URL, viewed later via
  * a short-lived signed URL.
  */
 export function useUploadOwnResultDocument() {
   return useMutation({
-    mutationFn: async (input: { file: File; note?: string }): Promise<void> => {
+    mutationFn: async (input: {
+      file: File;
+      note?: string;
+      screeningCompletionId?: string;
+    }): Promise<void> => {
       const supabase = createClient();
       const {
         data: { user },
@@ -56,6 +67,7 @@ export function useUploadOwnResultDocument() {
         file_size_bytes: input.file.size,
         source: "patient",
         note: input.note?.trim() || null,
+        screening_completion_id: input.screeningCompletionId ?? null,
       });
       if (insertError) {
         await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);

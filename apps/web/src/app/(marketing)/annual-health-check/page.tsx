@@ -5,13 +5,14 @@ import { ConfidentialResultNotice } from "@/components/confidential-result-notic
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
     "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. We say what to get and why, you use any lab you like, and a doctor reads the result with you.",
-  alternates: { canonical: MARKETING_ROUTES.annualHealthCheck },
-};
+  path: MARKETING_ROUTES.annualHealthCheck,
+});
 
 /**
  * The trust block for the page where somebody actually decides to hand over

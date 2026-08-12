@@ -1,6 +1,6 @@
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SECTIONS, type SectionId } from "@/lib/sections";
+import { SECTIONS, SECTION_GROUP_ORDER, type SectionId } from "@/lib/sections";
 import { colors } from "./theme";
 
 interface NavDrawerProps {
@@ -55,37 +55,81 @@ export function NavDrawer({
             </Pressable>
           </View>
 
-          <View style={{ flex: 1, paddingHorizontal: 10, gap: 2 }}>
-            {SECTIONS.map((section) => {
-              const active = section.id === activeSection;
+          {/* Banded and scrollable. The list grew from twelve entries to
+              seventeen when the five missing sections were added, which is
+              past what fits on a small phone and well past what anyone scans
+              as one flat column — same reasoning, and the same band names, as
+              the web sidebar. */}
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 12 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {SECTION_GROUP_ORDER.map((group) => {
+              const items = SECTIONS.filter((s) => s.group === group);
+              if (items.length === 0) return null;
               return (
-                <Pressable
-                  key={section.id}
-                  accessibilityRole="button"
-                  onPress={() => onSelect(section.id)}
-                  style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: 10,
-                    borderRadius: 8,
-                    backgroundColor: active ? "#E7EEE7" : pressed ? "#F5F5F4" : "transparent",
-                  })}
-                >
-                  <Ionicons name={section.icon} size={17} color={active ? colors.brandPressed : colors.muted} />
-                  <Text
-                    style={{
-                      fontSize: 13.5,
-                      fontWeight: "500",
-                      color: active ? colors.brandPressed : colors.ink,
-                    }}
-                  >
-                    {section.label}
-                  </Text>
-                </Pressable>
+                <View key={group} style={{ marginBottom: 8 }}>
+                  {group !== "top" && (
+                    <Text
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: "700",
+                        letterSpacing: 0.6,
+                        textTransform: "uppercase",
+                        color: colors.faint,
+                        paddingHorizontal: 10,
+                        paddingTop: 8,
+                        paddingBottom: 4,
+                      }}
+                    >
+                      {group}
+                    </Text>
+                  )}
+                  <View style={{ gap: 2 }}>
+                    {items.map((section) => {
+                      const active = section.id === activeSection;
+                      return (
+                        <Pressable
+                          key={section.id}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          onPress={() => onSelect(section.id)}
+                          style={({ pressed }) => ({
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: 10,
+                            borderRadius: 8,
+                            backgroundColor: active
+                              ? "#E7EEE7"
+                              : pressed
+                                ? "#F5F5F4"
+                                : "transparent",
+                          })}
+                        >
+                          <Ionicons
+                            name={section.icon}
+                            size={17}
+                            color={active ? colors.brandPressed : colors.muted}
+                          />
+                          <Text
+                            style={{
+                              fontSize: 13.5,
+                              fontWeight: "500",
+                              color: active ? colors.brandPressed : colors.ink,
+                            }}
+                          >
+                            {section.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
               );
             })}
-          </View>
+          </ScrollView>
 
           <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 16, gap: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>

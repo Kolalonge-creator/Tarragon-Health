@@ -8,14 +8,18 @@ import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
+import { NGN_TIERS } from "../_content/pricing";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+const ESSENTIAL_CARE_TIER = NGN_TIERS.find((tier) => tier.id === "essential")!;
+
+export const metadata: Metadata = pageMetadata({
   title: "For you",
   description:
     "What TarragonHealth does for you as an individual: doctor-reviewed monitoring for hypertension, diabetes, and weight management, preventive screening, medication support, and lab coordination on one record.",
-  alternates: { canonical: MARKETING_ROUTES.forYou },
-};
+  path: MARKETING_ROUTES.forYou,
+});
 
 /** Everything an individual patient uses. Caring for a parent has its own page. */
 const FOR_YOU_CARDS = SERVICE_CARDS.filter((card) => card.key !== "parentcare");
@@ -87,7 +91,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "A doctor actually reviews your numbers",
-    body: "On paid plans, a doctor reviews your trends every month (weekly on Complete Care), even when you feel fine. That's the difference between owning a BP monitor and being monitored.",
+    body: "On paid plans, a doctor sets your care plan and reviews your trends on a scheduled basis, even when you feel fine. That's the difference between owning a BP monitor and being monitored.",
   },
   {
     title: "Labs and refills are arranged for you",
@@ -230,8 +234,9 @@ export default function ForYouPage() {
           <p>
             Tarragon Free lets you track your own numbers forever, at no cost; it never expires and
             never converts to a paid plan on its own. When you want a doctor actually reviewing your
-            readings, Essential Care starts at ₦8,000/month for one condition, and Complete Care
-            covers hypertension, diabetes, and weight together with weekly review.
+            readings, Essential Care starts at {ESSENTIAL_CARE_TIER.priceMain}/month for one
+            condition, and Complete Care covers hypertension, diabetes, and weight together on one
+            scheduled care plan.
           </p>
           <p>
             Not sure which fits? The three-question plan finder on the{" "}

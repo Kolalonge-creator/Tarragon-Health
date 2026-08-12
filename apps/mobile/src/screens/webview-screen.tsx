@@ -4,6 +4,7 @@ import { ActivityIndicator, BackHandler, Linking, Platform, Text, View } from "r
 import { WebView } from "react-native-webview";
 import type { WebViewNavigation } from "react-native-webview";
 import { isPlatformUrl, PLATFORM_URL } from "@/lib/platform-url";
+import { supabase } from "@/lib/supabase";
 import { colors, spacing } from "@/ui/theme";
 import { PrimaryButton } from "@/ui/components";
 
@@ -12,23 +13,56 @@ interface WebViewScreenProps {
   path: string;
 }
 
+/** Appended to the WebView's User-Agent. The web app looks for exactly this
+ * token to decide it is embedded — keep it in sync with
+ * apps/web/src/lib/embedded-webview.ts. */
+const EMBEDDED_UA_TOKEN = "TarragonHealthApp";
+
 /**
  * Embeds one section of the full web platform inline in the native shell —
  * the "[WEBVIEW]" screens from docs/MOBILE_APP_SPEC.md. The native shell
  * never re-implements these; every web deploy updates them with zero
  * app-store release.
  *
- * Known gap: this WebView has its own cookie jar, separate from the native
- * Supabase session used for the rest of the app. The first time a signed-in
- * patient opens a WebView section, the platform's own auth gate will ask
- * them to sign in again inside the WebView (same as the app's previous
- * all-web "Home" tab already required) — cookies then persist across future
- * opens. A shared-session bridge is future work, not attempted here.
+ * This WebView has its own cookie jar, separate from the native Supabase
+ * session used for the rest of the app. Rather than showing the platform's
+ * own login page to an already-signed-in patient, the initial load is
+ * routed through /auth/mobile-bridge with the native session's tokens in the
+ * URL fragment (never sent to a server, unlike a query string) — that page
+ * calls setSession() to establish a cookie-backed web session, then
+ * continues to `path`. See
+ * apps/web/src/app/auth/mobile-bridge/mobile-bridge-gate.tsx for the other
+ * half. sharedCookiesEnabled means the resulting cookie is then reused by
+ * future WebView opens without going through the bridge again.
  */
 export function WebViewScreen({ path }: WebViewScreenProps) {
   const webViewRef = useRef<WebView>(null);
   const canGoBackRef = useRef(false);
   const [failed, setFailed] = useState(false);
+  const [uri, setUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      const session = data.session;
+      if (!session) {
+        // Not expected on an authenticated screen, but falls back to the
+        // platform's own login page rather than a dead WebView.
+        setUri(`${PLATFORM_URL}${path}`);
+        return;
+      }
+      const fragment = new URLSearchParams({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        next: path,
+      });
+      setUri(`${PLATFORM_URL}/auth/mobile-bridge#${fragment.toString()}`);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -69,10 +103,18 @@ export function WebViewScreen({ path }: WebViewScreenProps) {
     );
   }
 
+  if (!uri) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.brand} />
+      </View>
+    );
+  }
+
   return (
     <WebView
       ref={webViewRef}
-      source={{ uri: `${PLATFORM_URL}${path}` }}
+      source={{ uri }}
       onNavigationStateChange={handleNavigationStateChange}
       onError={() => setFailed(true)}
       onShouldStartLoadWithRequest={(request) => {
@@ -89,6 +131,15 @@ export function WebViewScreen({ path }: WebViewScreenProps) {
       allowsBackForwardNavigationGestures
       domStorageEnabled
       sharedCookiesEnabled
+      // Tells the platform it is being rendered inside the native shell, so
+      // it drops its own sidebar, header and bottom tab bar and renders the
+      // page content alone. Without it the patient saw the app's chrome and
+      // the web app's chrome stacked — two "TarragonHealth" headers and two
+      // identical bottom tab bars on one screen. A User-Agent suffix rather
+      // than a query parameter because it survives every in-WebView
+      // navigation automatically; the web side reads it server-side in
+      // (dashboard)/layout.tsx.
+      applicationNameForUserAgent={EMBEDDED_UA_TOKEN}
       style={{ flex: 1 }}
     />
   );

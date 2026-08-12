@@ -9,6 +9,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { NAV_ICON } from "@/lib/icons";
+
+/** Phone-only way back to the conversation list — on lg the list is still
+ * sitting there beside this pane, so the control would be meaningless. */
+function BackToList({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Back to messages"
+      className="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-charcoal-ink/60 hover:bg-charcoal-ink/5 hover:text-charcoal-ink lg:hidden"
+    >
+      <NAV_ICON.chevronRight className="h-5 w-5 rotate-180" strokeWidth={2} aria-hidden />
+    </button>
+  );
+}
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -46,10 +62,21 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
   };
 
   const openThread = (threads ?? []).find((t) => t.id === openId) ?? null;
+  /* Phones get one pane at a time — the list, or the conversation you picked,
+     with a way back. Two panes side by side needs about 600px; inside a
+     375px-wide dashboard column the 288px list left the conversation itself
+     roughly 50px wide and clipped off the edge of the card, so a patient on a
+     phone could see that they had messages but never read one. Unchanged from
+     lg up, where there is room for both. */
+  const showDetail = composing || openThread !== null;
 
   return (
-    <Card className="flex h-[560px] overflow-hidden p-0">
-      <div className="flex w-72 shrink-0 flex-col border-r border-charcoal-ink/10">
+    <Card className="flex h-[560px] flex-col overflow-hidden p-0 lg:flex-row">
+      <div
+        className={`${
+          showDetail ? "hidden lg:flex" : "flex"
+        } w-full min-h-0 shrink-0 flex-col border-charcoal-ink/10 lg:w-72 lg:border-r`}
+      >
         <div className="flex items-center justify-between border-b border-charcoal-ink/10 p-4">
           <CardTitle className="text-base">Messages</CardTitle>
           <Button
@@ -97,11 +124,19 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col">
+      <div className={`${showDetail ? "flex" : "hidden lg:flex"} min-h-0 flex-1 flex-col`}>
         {composing ? (
-          <div className="flex flex-1 flex-col">
-            <div className="border-b border-charcoal-ink/10 p-4 font-heading text-sm font-semibold text-charcoal-ink">
-              New message to your care team
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex items-center gap-2 border-b border-charcoal-ink/10 p-4">
+              <BackToList
+                onClick={() => {
+                  setComposing(false);
+                  setError(null);
+                }}
+              />
+              <span className="font-heading text-sm font-semibold text-charcoal-ink">
+                New message to your care team
+              </span>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto p-5">
               <div className="grid gap-2">
@@ -137,14 +172,15 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
             </div>
           </div>
         ) : openThread ? (
-          <div className="flex flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b border-charcoal-ink/10 p-4">
-              <span className="font-heading text-sm font-semibold text-charcoal-ink">
+              <BackToList onClick={() => setOpenId(null)} />
+              <span className="min-w-0 truncate font-heading text-sm font-semibold text-charcoal-ink">
                 {openThread.subject}
               </span>
               {openThread.status === "closed" && <Badge variant="grey">Closed</Badge>}
             </div>
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <CareMessageThread threadId={openThread.id} closed={openThread.status === "closed"} />
             </div>
           </div>

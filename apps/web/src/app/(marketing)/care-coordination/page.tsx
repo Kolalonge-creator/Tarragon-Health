@@ -4,13 +4,14 @@ import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Care coordination",
   description:
     "TarragonHealth works out which tests you need and when, writes you a request to take to any laboratory you like, reads every result that comes back, and follows up. You pay the lab directly and we take nothing on it.",
-  alternates: { canonical: MARKETING_ROUTES.careCoordination },
-};
+  path: MARKETING_ROUTES.careCoordination,
+});
 
 const COORDINATION_KEYS = ["medication", "labs"] as const;
 const COORDINATION_CARDS = SERVICE_CARDS.filter((card) =>
@@ -60,6 +61,7 @@ export default function CareCoordinationPage() {
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Care coordination"
           title="The pieces of your care, kept connected"
           description="In most of Nigeria, you are your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication, carrying paper records between hospitals. Tarragon takes that job off you: one care team coordinating labs, pharmacies, and specialists from one shared record."

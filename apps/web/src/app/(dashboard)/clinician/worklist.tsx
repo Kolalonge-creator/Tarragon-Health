@@ -174,6 +174,11 @@ export function Worklist() {
                         >
                           Acknowledge
                         </Button>
+                        {acknowledge.isError && acknowledge.variables === alert.id && (
+                          <p className="max-w-48 text-xs text-red-600">
+                            {(acknowledge.error as Error).message}
+                          </p>
+                        )}
                         {ESCALATABLE_LEVELS.has(level) && (
                           <Button
                             size="sm"

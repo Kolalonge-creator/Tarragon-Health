@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   useOutreachTasks,
@@ -21,6 +22,7 @@ interface PatientRef {
   id: string;
   fullName: string | null;
   patientNumber: string | null;
+  phone: string | null;
   /** An open outreach task to link a new contact entry to, if one exists. */
   taskId: string | null;
   preview: string | null;
@@ -47,6 +49,7 @@ export function CareCoordinatorContactLog() {
           id: t.patient_id,
           fullName: t.patient?.full_name ?? null,
           patientNumber: t.patient?.patient_number ?? null,
+          phone: t.patient?.phone ?? null,
           taskId: t.id,
           preview: null,
         });
@@ -56,11 +59,13 @@ export function CareCoordinatorContactLog() {
       const existing = map.get(c.patient_id);
       if (existing) {
         existing.preview ??= c.note;
+        existing.phone ??= c.patient?.phone ?? null;
       } else {
         map.set(c.patient_id, {
           id: c.patient_id,
           fullName: c.patient?.full_name ?? null,
           patientNumber: c.patient?.patient_number ?? null,
+          phone: c.patient?.phone ?? null,
           taskId: null,
           preview: c.note,
         });
@@ -135,11 +140,21 @@ function ContactThread({ patient }: { patient: PatientRef }) {
   return (
     <>
       <div className="shrink-0 border-b border-charcoal-ink/8 px-5 py-3">
-        <p className="text-sm font-semibold text-charcoal-ink">
-          {patient.fullName ?? "Patient"}
-          {patient.patientNumber ? ` · ${patient.patientNumber}` : ""}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-charcoal-ink">
+            {patient.fullName ?? "Patient"}
+            {patient.patientNumber ? ` · ${patient.patientNumber}` : ""}
+          </p>
+          <Link
+            href={`/clinician/patients/${patient.id}`}
+            className="text-xs font-semibold text-brand-green hover:underline"
+          >
+            View full profile →
+          </Link>
+        </div>
+        <p className="text-xs text-charcoal-ink/50">
+          {patient.phone ? `Phone: ${patient.phone} · ` : ""}Outreach contact log, not a live chat
         </p>
-        <p className="text-xs text-charcoal-ink/50">Outreach contact log — not a live chat</p>
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-5">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

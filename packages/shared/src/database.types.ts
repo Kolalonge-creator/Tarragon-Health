@@ -1546,6 +1546,7 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at: string
           id: string
+          multi_condition_notified_at: string | null
           notes: string | null
           organisation_id: string
           patient_id: string
@@ -1558,6 +1559,7 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
           id?: string
+          multi_condition_notified_at?: string | null
           notes?: string | null
           organisation_id: string
           patient_id: string
@@ -1570,6 +1572,7 @@ export type Database = {
           condition?: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
           id?: string
+          multi_condition_notified_at?: string | null
           notes?: string | null
           organisation_id?: string
           patient_id?: string
@@ -4420,6 +4423,92 @@ export type Database = {
           },
         ]
       }
+      finance_company_profile: {
+        Row: {
+          auditor_name: string | null
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          company_secretary_name: string | null
+          directors_text: string | null
+          financial_year_end: string
+          incorporation_date: string | null
+          itf_number: string | null
+          legal_name: string | null
+          nsitf_number: string | null
+          pension_pfa_code: string | null
+          principal_business_activity: string | null
+          rc_number: string | null
+          registered_address: string | null
+          registered_email: string | null
+          registered_phone: string | null
+          singleton: boolean
+          tin: string | null
+          trading_name: string | null
+          updated_at: string
+          updated_by: string | null
+          vat_registration_number: string | null
+        }
+        Insert: {
+          auditor_name?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          company_secretary_name?: string | null
+          directors_text?: string | null
+          financial_year_end?: string
+          incorporation_date?: string | null
+          itf_number?: string | null
+          legal_name?: string | null
+          nsitf_number?: string | null
+          pension_pfa_code?: string | null
+          principal_business_activity?: string | null
+          rc_number?: string | null
+          registered_address?: string | null
+          registered_email?: string | null
+          registered_phone?: string | null
+          singleton?: boolean
+          tin?: string | null
+          trading_name?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vat_registration_number?: string | null
+        }
+        Update: {
+          auditor_name?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          company_secretary_name?: string | null
+          directors_text?: string | null
+          financial_year_end?: string
+          incorporation_date?: string | null
+          itf_number?: string | null
+          legal_name?: string | null
+          nsitf_number?: string | null
+          pension_pfa_code?: string | null
+          principal_business_activity?: string | null
+          rc_number?: string | null
+          registered_address?: string | null
+          registered_email?: string | null
+          registered_phone?: string | null
+          singleton?: boolean
+          tin?: string | null
+          trading_name?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vat_registration_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_company_profile_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_compliance_obligation_types: {
         Row: {
           agency: string
@@ -4992,6 +5081,7 @@ export type Database = {
       health_education_content: {
         Row: {
           body: string
+          category: Database["public"]["Enums"]["health_education_category"]
           clinician_reviewed: boolean
           code: string
           condition: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -5013,6 +5103,7 @@ export type Database = {
         }
         Insert: {
           body: string
+          category: Database["public"]["Enums"]["health_education_category"]
           clinician_reviewed?: boolean
           code: string
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -5034,6 +5125,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          category?: Database["public"]["Enums"]["health_education_category"]
           clinician_reviewed?: boolean
           code?: string
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -6065,15 +6157,19 @@ export type Database = {
           file_path: string
           file_size_bytes: number | null
           id: string
+          interpretation_sent_at: string | null
           lab_order_id: string | null
           mime_type: string | null
+          next_steps: string | null
           note: string | null
           organisation_id: string
           original_filename: string | null
           patient_id: string
+          patient_interpretation: string | null
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          screening_completion_id: string | null
           source: Database["public"]["Enums"]["lab_result_document_source"]
           updated_at: string
           uploaded_by: string | null
@@ -6084,15 +6180,19 @@ export type Database = {
           file_path: string
           file_size_bytes?: number | null
           id?: string
+          interpretation_sent_at?: string | null
           lab_order_id?: string | null
           mime_type?: string | null
+          next_steps?: string | null
           note?: string | null
           organisation_id: string
           original_filename?: string | null
           patient_id: string
+          patient_interpretation?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          screening_completion_id?: string | null
           source: Database["public"]["Enums"]["lab_result_document_source"]
           updated_at?: string
           uploaded_by?: string | null
@@ -6103,15 +6203,19 @@ export type Database = {
           file_path?: string
           file_size_bytes?: number | null
           id?: string
+          interpretation_sent_at?: string | null
           lab_order_id?: string | null
           mime_type?: string | null
+          next_steps?: string | null
           note?: string | null
           organisation_id?: string
           original_filename?: string | null
           patient_id?: string
+          patient_interpretation?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          screening_completion_id?: string | null
           source?: Database["public"]["Enums"]["lab_result_document_source"]
           updated_at?: string
           uploaded_by?: string | null
@@ -6150,6 +6254,13 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_screening_completion_id_fkey"
+            columns: ["screening_completion_id"]
+            isOneToOne: false
+            referencedRelation: "screening_completions"
             referencedColumns: ["id"]
           },
           {
@@ -7650,6 +7761,7 @@ export type Database = {
           created_at: string
           id: string
           logged_at: string
+          logged_by_profile_id: string | null
           medication_id: string
           organisation_id: string
           patient_id: string
@@ -7662,6 +7774,7 @@ export type Database = {
           created_at?: string
           id?: string
           logged_at?: string
+          logged_by_profile_id?: string | null
           medication_id: string
           organisation_id: string
           patient_id: string
@@ -7674,6 +7787,7 @@ export type Database = {
           created_at?: string
           id?: string
           logged_at?: string
+          logged_by_profile_id?: string | null
           medication_id?: string
           organisation_id?: string
           patient_id?: string
@@ -7683,6 +7797,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["medication_log_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "medication_logs_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "medication_logs_medication_id_fkey"
             columns: ["medication_id"]
@@ -8301,6 +8422,7 @@ export type Database = {
           ai_estimate: Json | null
           ai_status: string
           confirmed_carbs_g: number | null
+          confirmed_sodium_mg: number | null
           created_at: string
           description: string | null
           id: string
@@ -8316,6 +8438,7 @@ export type Database = {
           ai_estimate?: Json | null
           ai_status?: string
           confirmed_carbs_g?: number | null
+          confirmed_sodium_mg?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -8331,6 +8454,7 @@ export type Database = {
           ai_estimate?: Json | null
           ai_status?: string
           confirmed_carbs_g?: number | null
+          confirmed_sodium_mg?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -9195,6 +9319,7 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          reminder_sent_at: string | null
           started_at: string
           status: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at: string
@@ -9206,6 +9331,7 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          reminder_sent_at?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at: string
@@ -9217,6 +9343,7 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          reminder_sent_at?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at?: string
@@ -9355,6 +9482,67 @@ export type Database = {
             foreignKeyName: "patient_devices_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_diabetes_profile: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_type: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at: string
+          organisation_id: string
+          patient_id: string
+          patient_reported_type:
+            | Database["public"]["Enums"]["diabetes_type"]
+            | null
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_type?: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at?: string
+          organisation_id: string
+          patient_id: string
+          patient_reported_type?:
+            | Database["public"]["Enums"]["diabetes_type"]
+            | null
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_type?: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at?: string
+          organisation_id?: string
+          patient_id?: string
+          patient_reported_type?:
+            | Database["public"]["Enums"]["diabetes_type"]
+            | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_diabetes_profile_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_diabetes_profile_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_diabetes_profile_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -10096,6 +10284,91 @@ export type Database = {
           },
         ]
       }
+      payment_reconciliation_flags: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"] | null
+          detail: Json
+          detected_at: string
+          flag_type: string
+          id: string
+          local_amount_minor: number | null
+          local_status: string | null
+          organisation_id: string | null
+          payment_transaction_id: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          provider_amount_minor: number | null
+          provider_reference: string
+          provider_status: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          detail?: Json
+          detected_at?: string
+          flag_type: string
+          id?: string
+          local_amount_minor?: number | null
+          local_status?: string | null
+          organisation_id?: string | null
+          payment_transaction_id?: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          provider_amount_minor?: number | null
+          provider_reference: string
+          provider_status?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          detail?: Json
+          detected_at?: string
+          flag_type?: string
+          id?: string
+          local_amount_minor?: number | null
+          local_status?: string | null
+          organisation_id?: string | null
+          payment_transaction_id?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
+          provider_amount_minor?: number | null
+          provider_reference?: string
+          provider_status?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_reconciliation_flags_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_reconciliation_flags_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_reconciliation_flags_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_transactions: {
         Row: {
           amount_minor: number | null
@@ -10739,6 +11012,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          protocol_slug: string
           review_cadence_months: number
         }
         Insert: {
@@ -10749,6 +11023,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          protocol_slug: string
           review_cadence_months?: number
         }
         Update: {
@@ -10759,6 +11034,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          protocol_slug?: string
           review_cadence_months?: number
         }
         Relationships: []
@@ -11178,38 +11454,44 @@ export type Database = {
       }
       push_subscriptions: {
         Row: {
-          auth_key: string
+          auth_key: string | null
           created_at: string
           disabled_at: string | null
-          endpoint: string
+          endpoint: string | null
+          expo_push_token: string | null
           id: string
           last_seen_at: string
           organisation_id: string
-          p256dh_key: string
+          p256dh_key: string | null
+          platform: string
           profile_id: string
           user_agent: string | null
         }
         Insert: {
-          auth_key: string
+          auth_key?: string | null
           created_at?: string
           disabled_at?: string | null
-          endpoint: string
+          endpoint?: string | null
+          expo_push_token?: string | null
           id?: string
           last_seen_at?: string
           organisation_id: string
-          p256dh_key: string
+          p256dh_key?: string | null
+          platform?: string
           profile_id: string
           user_agent?: string | null
         }
         Update: {
-          auth_key?: string
+          auth_key?: string | null
           created_at?: string
           disabled_at?: string | null
-          endpoint?: string
+          endpoint?: string | null
+          expo_push_token?: string | null
           id?: string
           last_seen_at?: string
           organisation_id?: string
-          p256dh_key?: string
+          p256dh_key?: string | null
+          platform?: string
           profile_id?: string
           user_agent?: string | null
         }
@@ -11689,6 +11971,68 @@ export type Database = {
           sex_applicability?: Database["public"]["Enums"]["screen_applicability"]
         }
         Relationships: []
+      }
+      screening_completions: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          performed_date: string
+          schedule_id: string | null
+          screen_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          performed_date: string
+          schedule_id?: string | null
+          screen_type_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          performed_date?: string
+          schedule_id?: string | null
+          screen_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_completions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_completions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_completions_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "screening_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_completions_screen_type_id_fkey"
+            columns: ["screen_type_id"]
+            isOneToOne: false
+            referencedRelation: "screen_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       screening_pathway_coverage: {
         Row: {
@@ -14044,11 +14388,16 @@ export type Database = {
     Views: {
       diabetes_quality_metrics: {
         Row: {
+          avg_glucose_flag_to_contact_hours: number | null
+          complete_complication_screen: number | null
           diabetic_patients: number | null
           foot_uptodate: number | null
+          hba1c_at_target: number | null
           organisation_id: string | null
           renal_uptodate: number | null
           retinal_uptodate: number | null
+          severe_hypo_dka_events_90d: number | null
+          severe_hypo_dka_per_100_patients: number | null
           target_set: number | null
         }
         Relationships: [
@@ -14400,8 +14749,38 @@ export type Database = {
         Args: { p_currency?: string; p_from: string; p_to: string }
         Returns: Json
       }
+      finance_company_profile_get: { Args: never; Returns: Json }
+      finance_company_profile_upsert: {
+        Args: {
+          p_auditor_name?: string
+          p_bank_account_name?: string
+          p_bank_account_number?: string
+          p_bank_name?: string
+          p_company_secretary_name?: string
+          p_directors_text?: string
+          p_financial_year_end?: string
+          p_incorporation_date?: string
+          p_itf_number?: string
+          p_legal_name?: string
+          p_nsitf_number?: string
+          p_pension_pfa_code?: string
+          p_principal_business_activity?: string
+          p_rc_number?: string
+          p_registered_address?: string
+          p_registered_email?: string
+          p_registered_phone?: string
+          p_tin?: string
+          p_trading_name?: string
+          p_vat_registration_number?: string
+        }
+        Returns: undefined
+      }
       finance_compliance_calendar: {
         Args: { p_months_ahead?: number }
+        Returns: Json
+      }
+      finance_compliance_calendar_for_year: {
+        Args: { p_year: number }
         Returns: Json
       }
       finance_compliance_suggested_amount: {
@@ -14496,9 +14875,17 @@ export type Database = {
         Args: { p_settlement_id: string }
         Returns: string
       }
+      finance_reconciliation_flags: {
+        Args: { p_status?: string }
+        Returns: Json
+      }
       finance_reconciliation_summary: { Args: never; Returns: Json }
       finance_reject_request: {
         Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      finance_resolve_reconciliation_flag: {
+        Args: { p_id: string; p_note?: string; p_status: string }
         Returns: undefined
       }
       finance_reverse_journal: {
@@ -14611,10 +14998,41 @@ export type Database = {
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
       hbpm_summary: { Args: { p_patient: string }; Returns: Json }
+      health_education_category_counts: {
+        Args: never
+        Returns: {
+          category: Database["public"]["Enums"]["health_education_category"]
+          item_count: number
+        }[]
+      }
       health_education_feed: {
         Args: never
         Returns: {
           body: string
+          check_score: number
+          check_total: number
+          clinician_reviewed: boolean
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          estimated_minutes: number
+          has_knowledge_check: boolean
+          knowledge_check: Json
+          reviewed_by_name: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+          video_url: string
+        }[]
+      }
+      health_education_library: {
+        Args: {
+          p_category?: Database["public"]["Enums"]["health_education_category"]
+        }
+        Returns: {
+          body: string
+          category: Database["public"]["Enums"]["health_education_category"]
           check_score: number
           check_total: number
           clinician_reviewed: boolean
@@ -14638,6 +15056,22 @@ export type Database = {
         Returns: Json
       }
       htn_quality_metrics: { Args: { p_org: string }; Returns: Json }
+      insert_audited_lab_result_document: {
+        Args: {
+          p_actor_id: string
+          p_file_path: string
+          p_file_size_bytes: number
+          p_lab_order_id: string | null
+          p_mime_type: string
+          p_note: string | null
+          p_organisation_id: string
+          p_original_filename: string
+          p_patient_id: string
+          p_source: Database["public"]["Enums"]["lab_result_document_source"]
+          p_uploaded_by: string
+        }
+        Returns: string
+      }
       lab_partner_order_patient: {
         Args: { p_order_id: string }
         Returns: string
@@ -14686,6 +15120,35 @@ export type Database = {
           provider_id: string
           provider_name: string
           suppressed: boolean
+        }[]
+      }
+      log_patient_record_view: {
+        Args: { p_patient_id: string }
+        Returns: undefined
+      }
+      mark_emergency_contact_notified: {
+        Args: { p_actor_id: string; p_event_id: string }
+        Returns: undefined
+      }
+      mark_identity_verified: {
+        Args: { p_actor_id: string; p_patient_id: string; p_verified_at: string }
+        Returns: undefined
+      }
+      match_lpe_content_blocks: {
+        Args: {
+          filter_condition?: Database["public"]["Enums"]["care_plan_condition"]
+          filter_module?: Database["public"]["Enums"]["lpe_module"]
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          body_md: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          id: string
+          key: string
+          module: Database["public"]["Enums"]["lpe_module"]
+          similarity: number
+          title: string
         }[]
       }
       mint_health_passport: {
@@ -14795,6 +15258,15 @@ export type Database = {
       }
       propose_video_visit_alternate_slots: {
         Args: { p_request_id: string; p_slot_ids: string[] }
+        Returns: undefined
+      }
+      provision_dependent_profile_basics: {
+        Args: {
+          p_actor_id: string
+          p_child_id: string
+          p_date_of_birth: string
+          p_sex: Database["public"]["Enums"]["sex"] | null
+        }
         Returns: undefined
       }
       public_price_list: {
@@ -14993,6 +15465,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_patient_reported_diabetes_type: {
+        Args: { p_type: Database["public"]["Enums"]["diabetes_type"] }
+        Returns: undefined
       }
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
@@ -15252,6 +15728,7 @@ export type Database = {
         | "paid"
         | "active"
       currency: "NGN" | "GBP" | "USD"
+      diabetes_type: "type_1" | "type_2" | "gestational" | "other"
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
@@ -15317,6 +15794,21 @@ export type Database = {
         | "hcv_rna_pending"
         | "hcv_active"
         | "hcv_cleared"
+      health_education_category:
+        | "hypertension"
+        | "diabetes"
+        | "weight"
+        | "heart"
+        | "kidney"
+        | "respiratory"
+        | "cancer_screening"
+        | "womens_health"
+        | "mens_health"
+        | "mental_health"
+        | "nutrition"
+        | "medicines"
+        | "family_child"
+        | "getting_started"
       health_education_content_type: "article" | "video"
       health_education_status: "seen" | "understood" | "needs_review"
       health_passport_attestation_status:
@@ -15566,6 +16058,10 @@ export type Database = {
         | "swelling"
         | "nausea"
         | "other"
+        | "chest_pain"
+        | "severe_headache"
+        | "visual_disturbance"
+        | "confusion"
       timeline_event_type:
         | "lab_completed"
         | "lab_abnormal"
@@ -15646,6 +16142,7 @@ export type Database = {
         | "fitbit"
         | "dexcom"
         | "libre"
+        | "android_health_connect"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -15947,6 +16444,7 @@ export const Constants = {
         "active",
       ],
       currency: ["NGN", "GBP", "USD"],
+      diabetes_type: ["type_1", "type_2", "gestational", "other"],
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
@@ -16019,6 +16517,22 @@ export const Constants = {
         "hcv_rna_pending",
         "hcv_active",
         "hcv_cleared",
+      ],
+      health_education_category: [
+        "hypertension",
+        "diabetes",
+        "weight",
+        "heart",
+        "kidney",
+        "respiratory",
+        "cancer_screening",
+        "womens_health",
+        "mens_health",
+        "mental_health",
+        "nutrition",
+        "medicines",
+        "family_child",
+        "getting_started",
       ],
       health_education_content_type: ["article", "video"],
       health_education_status: ["seen", "understood", "needs_review"],
@@ -16295,6 +16809,10 @@ export const Constants = {
         "swelling",
         "nausea",
         "other",
+        "chest_pain",
+        "severe_headache",
+        "visual_disturbance",
+        "confusion",
       ],
       timeline_event_type: [
         "lab_completed",
@@ -16384,6 +16902,7 @@ export const Constants = {
         "fitbit",
         "dexcom",
         "libre",
+        "android_health_connect",
       ],
       wellness_challenge_metric: [
         "vitals_logs",

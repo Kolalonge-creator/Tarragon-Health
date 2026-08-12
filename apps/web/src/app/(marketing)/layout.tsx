@@ -32,6 +32,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    site: `@${SITE.twitterHandle}`,
   },
   robots: {
     index: true,

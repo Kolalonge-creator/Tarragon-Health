@@ -18,6 +18,18 @@ create temp table results(check_name text, expected text, actual text) on commit
 -- 1. Every RLS-enabled table carries the privilege its own policies imply.
 --    A SELECT-only policy needs only SELECT; no policy for an action means no
 --    grant is expected for it. This can never demand an over-grant.
+--
+--    has_table_privilege() alone is not sufficient here: a table that has
+--    been deliberately narrowed to column-level grants (e.g.
+--    wearable_connections, see 20260808030359_wearable_pull_ingestion.sql,
+--    which revokes the table-wide grant and grants SELECT/INSERT/UPDATE on
+--    only the non-credential columns so `authenticated` can never read
+--    access_token/refresh_token) reports false on has_table_privilege for
+--    every action even though the app can do exactly what its policy
+--    intends, on the columns it's meant to touch. A false failure here is
+--    exactly as misleading as a missed real one, so this check accepts
+--    either a table-level grant OR privilege on at least one column as
+--    proof the action isn't silently ungranted.
 insert into results
 select 'no RLS table missing the privilege its policy implies',
        'NONE',
@@ -34,6 +46,11 @@ from (
      and (p.roles && array['authenticated','public']::name[])
      and p.cmd in ('ALL', x.action)
      and not has_table_privilege('authenticated','public.'||quote_ident(c.relname), x.action)
+     and not exists (
+       select 1 from information_schema.columns col
+        where col.table_schema = 'public' and col.table_name = c.relname
+          and has_column_privilege('authenticated', 'public.'||quote_ident(c.relname), col.column_name, x.action)
+     )
    group by c.relname, x.action
 ) s;
 

@@ -61,7 +61,24 @@ begin
   v_val := private.escalation_sla_minutes('general', 'routine');
   if v_val <> 10080 then raise exception 'FAIL: general/routine = % (expected 10080)', v_val; end if;
 
-  raise notice 'PASS 1: all 12 escalation_slas entries resolve to their expected as-transcribed values';
+  -- Added by vitals_red_flag_notification_wiring (2026-08-07) — proves the
+  -- new v_next config version both resolves its own 4 new entries AND kept
+  -- every pre-existing entry intact (checked above), confirming the
+  -- read-old/deactivate/insert-new `config || '[...]'::jsonb` append in that
+  -- migration didn't drop anything.
+  v_val := private.escalation_sla_minutes('spo2_vitals_red_flag', 'urgent_escalation');
+  if v_val <> 30 then raise exception 'FAIL: spo2_vitals_red_flag/urgent_escalation = % (expected 30)', v_val; end if;
+
+  v_val := private.escalation_sla_minutes('spo2_vitals_red_flag', 'clinician_review');
+  if v_val <> 4320 then raise exception 'FAIL: spo2_vitals_red_flag/clinician_review = % (expected 4320)', v_val; end if;
+
+  v_val := private.escalation_sla_minutes('temperature_vitals_red_flag', 'urgent_escalation');
+  if v_val <> 60 then raise exception 'FAIL: temperature_vitals_red_flag/urgent_escalation = % (expected 60)', v_val; end if;
+
+  v_val := private.escalation_sla_minutes('temperature_vitals_red_flag', 'clinician_review');
+  if v_val <> 4320 then raise exception 'FAIL: temperature_vitals_red_flag/clinician_review = % (expected 4320)', v_val; end if;
+
+  raise notice 'PASS 1: all 16 escalation_slas entries resolve to their expected as-transcribed values';
 end $$;
 
 -- ---------------------------------------------------------------------------

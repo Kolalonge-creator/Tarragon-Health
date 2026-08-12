@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import type * as HealthkitPackage from "@kingstinct/react-native-healthkit";
 import type { QuantitySample } from "@kingstinct/react-native-healthkit";
 
@@ -21,8 +22,29 @@ import type { QuantitySample } from "@kingstinct/react-native-healthkit";
  */
 let cachedModule: typeof HealthkitPackage | null | undefined;
 
+/**
+ * Expo Go never has this third-party native module compiled in, and — the
+ * part that matters — the resulting Nitro failure is NOT catchable from JS.
+ * Wrapping the require() in try/catch was tried and demonstrably does not
+ * contain it: the error still reached LogBox as a full-screen "Uncaught
+ * Error: NitroModules are not supported in Expo Go", re-appearing as fast as
+ * it could be dismissed, the moment a patient signed in. It has to not be
+ * required at all.
+ *
+ * `storeClient` is the Expo Go execution environment; a real EAS development
+ * build or a store build reports `standalone`/`bare` and loads the module
+ * normally, so this costs production nothing. expo-constants is JS-level
+ * config already present inside the Expo Go runtime and autolinked in EAS
+ * builds, so depending on it needs no native rebuild.
+ */
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 function loadHealthkit(): typeof HealthkitPackage | null {
   if (cachedModule !== undefined) return cachedModule;
+  if (IS_EXPO_GO) {
+    cachedModule = null;
+    return cachedModule;
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     cachedModule = require("@kingstinct/react-native-healthkit") as typeof HealthkitPackage;
@@ -88,6 +110,13 @@ const READ_PERMISSIONS = [
   "HKCorrelationTypeIdentifierBloodPressure",
 ] as const;
 
+/** Same list as READ_PERMISSIONS, typed for the background-delivery/observer
+ * APIs (SampleTypeIdentifier), which is everything above except it excludes
+ * nothing here — all seven quantity types plus the BP correlation are valid
+ * observer-query targets. Kept as its own constant rather than re-deriving
+ * it, since the two APIs want slightly different TypeScript shapes. */
+const BACKGROUND_TYPES = READ_PERMISSIONS;
+
 /** HealthKit's molar-mass unit string for blood glucose in mmol/L — the
  * package dropped the BloodGlucoseUnit enum in v14, this literal is the
  * direct replacement for what was BloodGlucoseUnit.GlucoseMmolPerL. */
@@ -133,6 +162,84 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Registers this app's HealthKit background observers natively
+ * (`BackgroundDeliveryManager`, via the `background: true` config plugin
+ * option in app.json) and calls Apple's own `enableBackgroundDelivery` for
+ * every type read here. This is real — it genuinely wakes the app process
+ * when HealthKit data changes, per Apple's documented behaviour.
+ *
+ * What it does NOT do, as of @kingstinct/react-native-healthkit 14.0.2: wire
+ * that native wake to a JS callback. The library's own
+ * BackgroundDeliveryManager.swift defines `setCallback`/`drainPendingEvents`
+ * for exactly that purpose, but nothing in the package's exposed Nitro spec
+ * ever calls them — confirmed by reading the vendored ios/CoreModule.swift,
+ * whose `subscribeToObserverQuery` (what `subscribeToChanges` below calls)
+ * creates its own independent, JS-runtime-only HKObserverQuery rather than
+ * draining BackgroundDeliveryManager's queue. So this call is a real,
+ * worthwhile signal to iOS (background delivery only fires while the mode
+ * is registered, and it's a general precondition for iOS granting the app
+ * background execution at all) but it is not, on its own, a way to run
+ * `syncAppleHealth()` on a cold background launch — `background-sync.ts`'s
+ * periodic expo-background-task is what actually does that on both
+ * platforms. See `subscribeToIOSHealthChanges` below for the mechanism that
+ * genuinely does call back into JS, and its own narrower scope.
+ */
+export async function configureIOSBackgroundDelivery(): Promise<void> {
+  if (!isHealthKitPlatform()) return;
+  // loadHealthkit() is inside the try as well: binding the native module is
+  // itself the throwing step in Expo Go, and leaving it outside is what let
+  // that error escape as an unhandled rejection.
+  try {
+    const healthkit = loadHealthkit();
+    if (!healthkit) return;
+    await healthkit.configureBackgroundTypes([...BACKGROUND_TYPES], healthkit.UpdateFrequency.immediate);
+  } catch {
+    // Best-effort: a patient who never finishes the permission sheet, or an
+    // iOS version quirk, should not block the rest of the app.
+  }
+}
+
+/**
+ * The one genuinely-wired live-callback path in this library version:
+ * `subscribeToChanges` creates a per-type HKObserverQuery scoped to the
+ * current JS runtime and fires `onChange` whenever a value of that type is
+ * written, for as long as the app's JS is alive (foreground, or the brief
+ * window iOS gives an app after backgrounding before suspending it). It
+ * does not survive a cold background launch — see the caveat on
+ * `configureIOSBackgroundDelivery` above. Call once at app startup after
+ * permissions are granted; the returned function tears every subscription
+ * down.
+ */
+export function subscribeToIOSHealthChanges(onChange: () => void): () => void {
+  if (!isHealthKitPlatform()) return () => {};
+  // Same reasoning as configureIOSBackgroundDelivery: the module load is the
+  // step that throws when the native binary is absent, so it belongs inside
+  // the guard rather than in front of it.
+  let healthkit: ReturnType<typeof loadHealthkit>;
+  try {
+    healthkit = loadHealthkit();
+  } catch {
+    return () => {};
+  }
+  if (!healthkit) return () => {};
+  const hk = healthkit;
+
+  const subscriptions = BACKGROUND_TYPES.map((identifier) => {
+    try {
+      return hk.subscribeToChanges(identifier, () => onChange());
+    } catch {
+      return null;
+    }
+  });
+
+  return () => {
+    for (const subscription of subscriptions) {
+      subscription?.remove();
+    }
+  };
 }
 
 export async function readHealthSamples(since: Date, until: Date): Promise<HealthSample[]> {

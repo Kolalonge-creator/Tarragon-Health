@@ -7,6 +7,7 @@ import {
   usePharmacistOrderMedications,
   usePharmacistRecordDispense,
 } from "@/lib/queries/pharmacist";
+import { assessAllergyFindings, type AllergyInput, type MedicationInput } from "@/lib/rules/drug-safety";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,30 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
   );
 
   const meta = statusMeta(order.status);
+
+  // Point-of-dispense allergy check: cross-checks the drug about to be
+  // dispensed, live, against this patient's recorded allergies and current
+  // medications. Advisory only — it never blocks Save; the pharmacist decides.
+  const dispenseAllergyWarnings = useMemo(() => {
+    const typed = drugName.trim();
+    if (!typed || !allergies || allergies.length === 0) return [];
+
+    const allergyInputs: AllergyInput[] = allergies.map((a, i) => ({
+      id: `a${i}`,
+      allergen: a.allergen,
+      reaction: a.reaction,
+      severity: a.severity as AllergyInput["severity"],
+    }));
+    const currentMeds: MedicationInput[] = (medications ?? []).map((m, i) => ({
+      id: `m${i}`,
+      drugName: m.drug_name,
+    }));
+    const candidate: MedicationInput = { id: "__dispensing__", drugName: typed };
+
+    return assessAllergyFindings([...currentMeds, candidate], allergyInputs).filter((f) =>
+      f.medicationIds.includes("__dispensing__"),
+    );
+  }, [drugName, allergies, medications]);
 
   return (
     <li className="flex flex-col gap-2 py-3.5">
@@ -152,6 +177,25 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
                 {record.isPending ? "Saving…" : order.status === "dispensed" ? "Log another" : "Save"}
               </Button>
             </div>
+            {dispenseAllergyWarnings.length > 0 && (
+              <ul className="mt-2 space-y-1.5">
+                {dispenseAllergyWarnings.map((finding, i) => (
+                  <li
+                    key={`${finding.title}-${i}`}
+                    className={cn(
+                      "rounded border p-2 text-xs leading-relaxed",
+                      finding.severity === "contraindicated"
+                        ? "border-red-300 bg-red-50 text-red-900"
+                        : finding.severity === "caution"
+                          ? "border-amber-300 bg-amber-50 text-amber-900"
+                          : "border-charcoal-ink/15 bg-charcoal-ink/[0.03] text-charcoal-ink/70",
+                    )}
+                  >
+                    <span className="font-semibold">{finding.title}.</span> {finding.message}
+                  </li>
+                ))}
+              </ul>
+            )}
             {record.isError && <p className="mt-1.5 text-xs text-red-600">Could not record. Try again.</p>}
             {record.isSuccess && !record.isPending && (
               <p className="mt-1.5 text-xs text-brand-green">Recorded.</p>
