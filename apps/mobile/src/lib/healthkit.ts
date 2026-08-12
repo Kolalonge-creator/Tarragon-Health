@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import type * as HealthkitPackage from "@kingstinct/react-native-healthkit";
 import type { QuantitySample } from "@kingstinct/react-native-healthkit";
+import { recordSyncError } from "./sync-diagnostics";
 
 /**
  * Loaded lazily via require(), never as a static top-level import. The
@@ -88,6 +89,13 @@ const READ_PERMISSIONS = [
   "HKCorrelationTypeIdentifierBloodPressure",
 ] as const;
 
+/** Same list as READ_PERMISSIONS, typed for the background-delivery/observer
+ * APIs (SampleTypeIdentifier), which is everything above except it excludes
+ * nothing here — all seven quantity types plus the BP correlation are valid
+ * observer-query targets. Kept as its own constant rather than re-deriving
+ * it, since the two APIs want slightly different TypeScript shapes. */
+const BACKGROUND_TYPES = READ_PERMISSIONS;
+
 /** HealthKit's molar-mass unit string for blood glucose in mmol/L — the
  * package dropped the BloodGlucoseUnit enum in v14, this literal is the
  * direct replacement for what was BloodGlucoseUnit.GlucoseMmolPerL. */
@@ -112,7 +120,8 @@ export async function isHealthKitAvailable(): Promise<boolean> {
   if (!healthkit) return false;
   try {
     return await healthkit.isHealthDataAvailable();
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", "isHealthDataAvailable", error);
     return false;
   }
 }
@@ -130,9 +139,81 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
   if (!healthkit) return false;
   try {
     return await healthkit.requestAuthorization({ toRead: READ_PERMISSIONS });
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", "requestAuthorization", error);
     return false;
   }
+}
+
+/**
+ * Registers this app's HealthKit background observers natively
+ * (`BackgroundDeliveryManager`, via the `background: true` config plugin
+ * option in app.json) and calls Apple's own `enableBackgroundDelivery` for
+ * every type read here. This is real — it genuinely wakes the app process
+ * when HealthKit data changes, per Apple's documented behaviour.
+ *
+ * What it does NOT do, as of @kingstinct/react-native-healthkit 14.0.2: wire
+ * that native wake to a JS callback. The library's own
+ * BackgroundDeliveryManager.swift defines `setCallback`/`drainPendingEvents`
+ * for exactly that purpose, but nothing in the package's exposed Nitro spec
+ * ever calls them — confirmed by reading the vendored ios/CoreModule.swift,
+ * whose `subscribeToObserverQuery` (what `subscribeToChanges` below calls)
+ * creates its own independent, JS-runtime-only HKObserverQuery rather than
+ * draining BackgroundDeliveryManager's queue. So this call is a real,
+ * worthwhile signal to iOS (background delivery only fires while the mode
+ * is registered, and it's a general precondition for iOS granting the app
+ * background execution at all) but it is not, on its own, a way to run
+ * `syncAppleHealth()` on a cold background launch — `background-sync.ts`'s
+ * periodic expo-background-task is what actually does that on both
+ * platforms. See `subscribeToIOSHealthChanges` below for the mechanism that
+ * genuinely does call back into JS, and its own narrower scope.
+ */
+export async function configureIOSBackgroundDelivery(): Promise<void> {
+  if (!isHealthKitPlatform()) return;
+  const healthkit = loadHealthkit();
+  if (!healthkit) return;
+  try {
+    await healthkit.configureBackgroundTypes([...BACKGROUND_TYPES], healthkit.UpdateFrequency.immediate);
+  } catch (error) {
+    // Best-effort: a patient who never finishes the permission sheet, or an
+    // iOS version quirk, should not block the rest of the app — but still
+    // worth recording, since a silently-failed registration here is exactly
+    // the kind of "background sync never actually fires" bug that's
+    // otherwise invisible until a patient notices stale data.
+    recordSyncError("apple_health", "configureBackgroundTypes", error);
+  }
+}
+
+/**
+ * The one genuinely-wired live-callback path in this library version:
+ * `subscribeToChanges` creates a per-type HKObserverQuery scoped to the
+ * current JS runtime and fires `onChange` whenever a value of that type is
+ * written, for as long as the app's JS is alive (foreground, or the brief
+ * window iOS gives an app after backgrounding before suspending it). It
+ * does not survive a cold background launch — see the caveat on
+ * `configureIOSBackgroundDelivery` above. Call once at app startup after
+ * permissions are granted; the returned function tears every subscription
+ * down.
+ */
+export function subscribeToIOSHealthChanges(onChange: () => void): () => void {
+  if (!isHealthKitPlatform()) return () => {};
+  const healthkit = loadHealthkit();
+  if (!healthkit) return () => {};
+
+  const subscriptions = BACKGROUND_TYPES.map((identifier) => {
+    try {
+      return healthkit.subscribeToChanges(identifier, () => onChange());
+    } catch (error) {
+      recordSyncError("apple_health", `subscribeToChanges:${identifier}`, error);
+      return null;
+    }
+  });
+
+  return () => {
+    for (const subscription of subscriptions) {
+      subscription?.remove();
+    }
+  };
 }
 
 export async function readHealthSamples(since: Date, until: Date): Promise<HealthSample[]> {
@@ -226,7 +307,8 @@ async function readBloodPressure(since: Date, until: Date): Promise<HealthSample
       });
     }
     return samples;
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", "blood_pressure", error);
     return [];
   }
 }
@@ -284,7 +366,8 @@ async function readQuantity(
       recorded_at: sample.startDate.toISOString(),
       external_reading_id: sample.uuid,
     }));
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", readingType, error);
     return [];
   }
 }
@@ -336,7 +419,8 @@ async function readDailySteps(since: Date, until: Date): Promise<HealthSample[]>
       });
     });
     return samples;
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", "steps", error);
     return [];
   }
 }
