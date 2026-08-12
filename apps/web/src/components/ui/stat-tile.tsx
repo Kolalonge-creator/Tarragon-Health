@@ -43,9 +43,14 @@ export function StatTile({
   className,
 }: StatTileProps) {
   return (
+    // Icon stacks above the text on phones. Side by side, a wide value like
+    // "120/80 mmHg" cannot fit beside the icon in a half-width grid cell at
+    // 375px: the text block has no room to shrink, so the tile pushed the
+    // whole document 68px wider than the viewport and every patient page
+    // using these tiles scrolled sideways.
     <div
       className={cn(
-        "flex items-start gap-4 rounded-xl border border-charcoal-ink/10 bg-white p-5 shadow-sm",
+        "flex flex-col gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:flex-row sm:items-start sm:gap-4 sm:p-5",
         className
       )}
     >
@@ -57,9 +62,11 @@ export function StatTile({
       >
         <Icon className={cn("h-5 w-5", iconClassName ?? "text-deep-forest")} strokeWidth={2} />
       </div>
-      <div>
+      {/* min-w-0 lets the value wrap instead of forcing the flex row wider
+          than its cell. */}
+      <div className="min-w-0">
         <p className="text-sm text-charcoal-ink/60">{label}</p>
-        <p className="font-heading text-3xl font-semibold text-charcoal-ink">
+        <p className="font-heading text-2xl font-semibold break-words text-charcoal-ink sm:text-3xl">
           {value}
           {unit && <span className="ml-1 text-base font-normal text-charcoal-ink/50">{unit}</span>}
         </p>

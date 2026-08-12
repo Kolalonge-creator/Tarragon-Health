@@ -6,15 +6,23 @@ import {
   enrollAction,
   logReadingAction,
   resolveGoalAction,
+  submitObesityEdScreenAndEnrollAction,
   type LifestyleActionState,
 } from "./actions";
 import type { LifestyleEnrollmentView, PastLifestyleGoalView } from "@/lib/lifestyle/service";
+import {
+  ED_DISORDERED_BEHAVIOURS,
+  ED_DISORDERED_BEHAVIOUR_LABELS,
+} from "@/lib/validation/obesity";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { GoalsDialog } from "./goals-dialog";
+import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { useWeightGoal } from "@/lib/queries/weight-goal";
 import { useLatestWeightKg } from "@/lib/queries/vitals";
@@ -68,10 +76,10 @@ function AtAGlancePanel({ patientId }: { patientId: string }) {
     const current = latestWeight.weight_kg;
     if (!weightGoal?.goal_weight_kg) return `${current} kg logged`;
     const remaining = current - weightGoal.goal_weight_kg;
-    if (Math.abs(remaining) < 0.1) return `${current} kg — at your goal`;
+    if (Math.abs(remaining) < 0.1) return `${current} kg, at your goal`;
     return remaining > 0
-      ? `${current} kg — ${remaining.toFixed(1)} kg to your ${weightGoal.goal_weight_kg} kg goal`
-      : `${current} kg — ${Math.abs(remaining).toFixed(1)} kg past your ${weightGoal.goal_weight_kg} kg goal`;
+      ? `${current} kg, ${remaining.toFixed(1)} kg to your ${weightGoal.goal_weight_kg} kg goal`
+      : `${current} kg, ${Math.abs(remaining).toFixed(1)} kg past your ${weightGoal.goal_weight_kg} kg goal`;
   })();
 
   const stepGoal = activityGoal?.daily_step_goal ?? 7500;
@@ -150,11 +158,13 @@ export function LifestyleClient({
   enrollments,
   pastGoals,
   conditionLanguagePreference,
+  coachAccess,
 }: {
   patientId: string;
   enrollments: LifestyleEnrollmentView[];
   pastGoals: PastLifestyleGoalView[];
   conditionLanguagePreference?: string | null;
+  coachAccess: boolean;
 }) {
   const [enrollState, enroll] = useActionState<LifestyleActionState, FormData>(
     enrollAction,
@@ -165,20 +175,19 @@ export function LifestyleClient({
   const available = enrollableFor(conditionLanguagePreference).filter(
     (c) => !enrolledConditions.has(c.key),
   );
+  // Once the screen+enrol action succeeds, `enrollments` (server props) will
+  // include obesity on the next render — drop back to the normal buttons
+  // instead of leaving the screen form stuck showing after success.
+  const showEdScreenGate = enrollState?.needsEdScreen && !enrolledConditions.has("obesity");
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-            Your lifestyle programme
-          </h1>
-          <p className="text-sm text-charcoal-ink/60">
-            Small, steady changes, logged here, supported by your care team.
-          </p>
-        </div>
-        <GoalsDialog enrollments={enrollments} pastGoals={pastGoals} />
-      </div>
+      <PageHeader
+        title="Lifestyle coaching"
+        icon={NAV_ICON.lifestyle}
+        description="Small, steady changes, logged here, supported by your care team."
+        actions={<GoalsDialog enrollments={enrollments} pastGoals={pastGoals} />}
+      />
 
       <AtAGlancePanel patientId={patientId} />
 
@@ -232,6 +241,8 @@ export function LifestyleClient({
         </Card>
       ))}
 
+      {coachAccess && <AiCoachChat patientId={patientId} />}
+
       {available.length > 0 && (
         <Card>
           <CardHeader>
@@ -244,38 +255,121 @@ export function LifestyleClient({
             {enrollState?.error && (
               <p className="text-sm text-destructive">{enrollState.error}</p>
             )}
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={consented}
-                onChange={(e) => setConsented(e.target.checked)}
-              />
-              <span className="text-muted-foreground">
-                I agree that my logged readings and check-ins can be reviewed by
-                my Tarragon care team to support this programme, and I can
-                withdraw at any time.
-              </span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {available.map((c) => (
-                <form key={c.key} action={enroll}>
-                  <input type="hidden" name="conditionKey" value={c.key} />
+
+            {showEdScreenGate ? (
+              <ObesityEdScreenGateForm consented={consented} />
+            ) : (
+              <>
+                <label className="flex items-start gap-2 text-sm">
                   <input
-                    type="hidden"
-                    name="consent"
-                    value={consented ? "on" : "off"}
+                    type="checkbox"
+                    className="mt-1"
+                    checked={consented}
+                    onChange={(e) => setConsented(e.target.checked)}
                   />
-                  <Button type="submit" variant="outline" disabled={!consented}>
-                    {c.label}
-                  </Button>
-                </form>
-              ))}
-            </div>
+                  <span className="text-muted-foreground">
+                    I agree that my logged readings and check-ins can be reviewed by
+                    my Tarragon care team to support this programme, and I can
+                    withdraw at any time.
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {available.map((c) => (
+                    <form key={c.key} action={enroll}>
+                      <input type="hidden" name="conditionKey" value={c.key} />
+                      <input
+                        type="hidden"
+                        name="consent"
+                        value={consented ? "on" : "off"}
+                      />
+                      <Button type="submit" variant="outline" disabled={!consented}>
+                        {c.label}
+                      </Button>
+                    </form>
+                  ))}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
     </div>
+  );
+}
+
+const SCOFF_ITEMS: { name: string; label: string }[] = [
+  { name: "scoff_sick", label: "Do you make yourself sick because you feel uncomfortably full?" },
+  { name: "scoff_control", label: "Do you worry you have lost control over how much you eat?" },
+  { name: "scoff_one_stone", label: "Have you recently lost more than 6 kg in the last 3 months?" },
+  { name: "scoff_fat", label: "Do you believe yourself to be fat when others say you are too thin?" },
+  { name: "scoff_food_dominates", label: "Would you say that food dominates your life?" },
+];
+
+/**
+ * The mandatory ED/mental-health screen (§6.5, §16, §18), shown in place of
+ * the enrol buttons whenever `enrollAction` reports no screen is on file yet
+ * for this patient — the pathway's own rule is that no weight-loss plan
+ * starts before this exists. Submitting it enrols the patient in the same
+ * step (`submitObesityEdScreenAndEnrollAction`); a positive answer never
+ * blocks support, it just starts the programme paused for a doctor to check
+ * in first, which the "paused" card above already explains kindly.
+ */
+function ObesityEdScreenGateForm({ consented }: { consented: boolean }) {
+  const [state, submit] = useActionState<LifestyleActionState, FormData>(
+    submitObesityEdScreenAndEnrollAction,
+    undefined,
+  );
+
+  return (
+    <form action={submit} className="space-y-4">
+      <input type="hidden" name="consent" value={consented ? "on" : "off"} />
+      <p className="text-sm text-muted-foreground">
+        Before we start on weight or eating goals, a few quick questions: this
+        is just so your care team can support you well from day one.
+      </p>
+
+      <fieldset className="space-y-2">
+        {SCOFF_ITEMS.map((item) => (
+          <label key={item.name} className="flex items-start gap-2 text-sm">
+            <input type="checkbox" name={item.name} className="mt-1" />
+            <span>{item.label}</span>
+          </label>
+        ))}
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-charcoal-ink">
+          Any of these lately?
+        </legend>
+        {ED_DISORDERED_BEHAVIOURS.map((code) => (
+          <label key={code} className="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="disordered_behaviours" value={code} className="mt-1" />
+            <span>{ED_DISORDERED_BEHAVIOUR_LABELS[code]}</span>
+          </label>
+        ))}
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="low_mood" className="mt-1" />
+          <span>Feeling low, hopeless, or more anxious than usual lately</span>
+        </label>
+        <label className="flex items-start gap-2 text-sm font-medium">
+          <input type="checkbox" name="self_harm_risk" className="mt-1" />
+          <span>Any thoughts of harming yourself</span>
+        </label>
+      </fieldset>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="ed_notes">Anything else you&apos;d like your care team to know?</Label>
+        <Textarea id="ed_notes" name="notes" rows={2} />
+      </div>
+
+      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      <Button type="submit" disabled={!consented}>
+        Continue
+      </Button>
+    </form>
   );
 }
 

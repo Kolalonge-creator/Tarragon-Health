@@ -273,10 +273,20 @@ export function SubscriptionManager() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {otherPlans.map((plan: SubscriptionPlan) => (
-                    <form key={plan.id} action={changeAction}>
+                    <form key={plan.id} action={changeAction} className="w-full sm:w-auto">
                       <input type="hidden" name="subscriptionId" value={subscription.id} />
                       <input type="hidden" name="planCode" value={plan.code} />
-                      <Button type="submit" size="sm" variant="outline" disabled={changePending}>
+                      {/* Button defaults to whitespace-nowrap, and a label like
+                          "Switch to Complete Care (yearly) (₦200,000/year)" is
+                          wider than a phone — it pushed the page sideways.
+                          Allowed to wrap, full-width on small screens. */}
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="outline"
+                        disabled={changePending}
+                        className="h-auto w-full whitespace-normal py-2 text-left sm:w-auto"
+                      >
                         Switch to {plan.name} (
                         {formatPrice(plan.price_minor, plan.currency as Currency, plan.interval)})
                       </Button>
@@ -344,10 +354,16 @@ export function SubscriptionManager() {
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {attachableAddOns.map((addOn) => (
-                      <form key={addOn.id} action={attachAction}>
+                      <form key={addOn.id} action={attachAction} className="w-full sm:w-auto">
                         <input type="hidden" name="subscriptionId" value={subscription.id} />
                         <input type="hidden" name="addOnCode" value={addOn.code} />
-                        <Button type="submit" size="sm" disabled={attachPending}>
+                        {/* Same wrap treatment as the plan-switch buttons above. */}
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={attachPending}
+                          className="h-auto w-full whitespace-normal py-2 text-left sm:w-auto"
+                        >
                           Add {addOn.name} (
                           {formatPrice(addOn.price_minor, addOn.currency as Currency, addOn.interval)})
                         </Button>

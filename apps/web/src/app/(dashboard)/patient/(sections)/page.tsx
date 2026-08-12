@@ -4,6 +4,7 @@ import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashbo
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
@@ -29,6 +30,12 @@ export default async function PatientOverviewPage() {
           presentation moved from an inline card to this banner (Tarragon
           Health Web Dashboard design, 2026-08-09). */}
       <NextBestAction patientId={subjectId} />
+
+      {/* The everyday jobs, one tap from the top of the page — including the
+          Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
+          Above the stat tiles deliberately: doing beats reading, and on a
+          phone this row is what's on screen when the page opens. */}
+      <QuickActions />
 
       {/* Dual-state overview: a patient in a chronic programme leads with
           monitoring numbers; a healthy patient leads with prevention. Both
@@ -114,21 +121,36 @@ export default async function PatientOverviewPage() {
         <PatientTimeline patientId={subjectId} limit={6} />
       </div>
 
+      {/* Conditional clinical cards — each self-hides when the patient has no
+          data behind it, so for most people this band renders nothing at all.
+          Kept full-width and stacked rather than paired into a grid for that
+          reason: a two-column row whose other half returns null leaves a hole
+          in the page. */}
       <HealthResetCard patientId={subjectId} />
       <RiskSignalsCard patientId={subjectId} />
       {/* The thing a one-off lab visit structurally cannot tell someone: what
           has moved across several results. Renders nothing until there is
           genuinely enough history for a pattern. */}
       <HealthTrendsCard patientId={subjectId} audience="patient" />
-      <HealthScoreCard patientId={subjectId} />
-      <YourCareTeam patientId={subjectId} />
-      {/* Messaging your care team sits right here, not buried in Care &
-          support — it's the primary way to reach someone, so it needs to
-          be visible without scrolling (see 2026-07-30 patient-experience
-          pass in CLAUDE.md). */}
-      <RequiresEntitlement feature="doctor_checkin" fallback={<UpgradePrompt feature="doctor_checkin" />}>
-        <CareTeamContact patientId={subjectId} />
-      </RequiresEntitlement>
+
+      {/* Who's looking after you, and how to reach them. Paired into a row so
+          the page ends in two columns instead of four more full-width cards.
+          Reaching the care team no longer depends on scrolling this far —
+          "Message your care team" is a quick action at the top of the page —
+          but the thread itself still belongs on Overview rather than buried
+          in Care & support (2026-07-30 patient-experience pass). */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <HealthScoreCard patientId={subjectId} />
+        <div className="space-y-4">
+          <YourCareTeam patientId={subjectId} />
+          <RequiresEntitlement
+            feature="doctor_checkin"
+            fallback={<UpgradePrompt feature="doctor_checkin" />}
+          >
+            <CareTeamContact patientId={subjectId} />
+          </RequiresEntitlement>
+        </div>
+      </div>
     </div>
   );
 }
