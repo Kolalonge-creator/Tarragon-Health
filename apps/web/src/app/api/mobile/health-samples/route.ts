@@ -147,6 +147,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     vitals_inserted: result.vitalsInserted,
     wearable_inserted: result.wearableInserted,
     implausible: result.implausible,
+    // Step days written to the patient-facing activity log, and days left
+    // alone because the patient had typed their own count. Reported
+    // separately so "steps synced but the meter didn't move" is diagnosable
+    // from the response rather than by reading two tables.
+    step_days_recorded: result.stepDaysRecorded,
+    step_days_deferred_to_manual: result.stepDaysDeferredToManual,
     cursor: newestSample,
   });
 }
