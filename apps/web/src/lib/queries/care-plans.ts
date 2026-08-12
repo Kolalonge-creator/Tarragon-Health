@@ -4,6 +4,12 @@ import type { Tables } from "@tarragon/shared";
 
 export type CarePlan = Tables<"care_plans"> & {
   assigned_clinician: { full_name: string | null } | null;
+  /** False only when this condition's scheduled-review cadence is gated
+   * behind Complete Care (multi_condition_review) — see
+   * private.ensure_medication_review(). A plan that has simply never had a
+   * review row can't otherwise happen: the scheduling trigger runs
+   * synchronously in the same transaction that activates the care plan. */
+  hasScheduledReview: boolean;
 };
 
 /**
@@ -32,6 +38,14 @@ export function useCarePlans(patientId: string) {
       if (plansError) throw plansError;
       if (namesError) throw namesError;
 
+      const planIds = (plans ?? []).map((p) => p.id);
+      const { data: reviews, error: reviewsError } =
+        planIds.length > 0
+          ? await supabase.from("medication_reviews").select("care_plan_id").in("care_plan_id", planIds)
+          : { data: [], error: null };
+      if (reviewsError) throw reviewsError;
+      const planIdsWithReview = new Set((reviews ?? []).map((r) => r.care_plan_id));
+
       const nameByPlanId = new Map(
         (names ?? []).map((n) => [n.care_plan_id, n.clinician_full_name])
       );
@@ -40,6 +54,7 @@ export function useCarePlans(patientId: string) {
         assigned_clinician: plan.assigned_clinician_id
           ? { full_name: nameByPlanId.get(plan.id) ?? null }
           : null,
+        hasScheduledReview: planIdsWithReview.has(plan.id),
       })) as CarePlan[];
     },
     enabled: !!patientId,

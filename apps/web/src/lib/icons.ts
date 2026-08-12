@@ -71,6 +71,8 @@ import {
   Clock4,
   UserSearch,
   Gavel,
+  GraduationCap,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -116,6 +118,7 @@ export const SEMANTIC_ICON = {
   weightTrend: TrendingDown,
   steps: Footprints,
   workout: Dumbbell,
+  learn: GraduationCap,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Meal-type tab icons for the "Log a meal" picker — a page-local visual set,
@@ -165,6 +168,7 @@ export const NAV_ICON = {
   close: X,
   signOut: LogOut,
   chevronRight: ChevronRight,
+  security: KeyRound,
   // Platform Analytics console category icons — the `analyst` role's sidebar
   // (apps/web/src/lib/analytics/sections.ts is the single source of truth for
   // which category gets which of these).

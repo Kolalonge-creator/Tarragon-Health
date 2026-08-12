@@ -2,8 +2,6 @@ import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -16,21 +14,33 @@ import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-h
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
 import { RiskAssessmentDisplay } from "@/app/(dashboard)/patient/risk-assessment-display";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
-import { HealthEducation } from "@/app/(dashboard)/patient/health-education";
-import { AnnualReviewCard } from "@/app/(dashboard)/patient/annual-review-card";
+import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 
 /**
  * The prevention hub — one destination for everything that keeps a healthy
  * person healthy: the yearly Health Check journey, the Annual Health Check
- * booking, the personal screening calendar, preventive programmes,
- * vaccinations, and learning. Pure composition over the same components the
- * dashboard renders (same entitlement gates, same RLS) — no new data paths.
+ * booking, the personal screening calendar, preventive programmes, and
+ * vaccinations. Pure composition over the same components the dashboard
+ * renders (same entitlement gates, same RLS) — no new data paths.
+ *
+ * Health education used to live here as a "Learn" tab; it now has its own
+ * top-level "Learn" nav entry (/patient/learn) since it spans chronic care
+ * and general wellness topics too, not just prevention — being buried as
+ * the last tab of a five-tab hub was part of why patients weren't finding it.
  * Was previously reachable two ways with two independently-resolved contexts
  * (this standalone route, and a near-duplicate "Prevention" section on the
  * old single-page /patient dashboard) — the dashboard restructure retired the
  * duplicate and folded its two extra pieces (CareProgrammeRecommendations,
  * ReproductiveHealthCard) and its richer family-aware vaccination component
  * in here, so this is now the one real implementation.
+ *
+ * Grouped into tabs (PreventionTabs) rather than one long scroll — patients
+ * were missing screenings/vaccinations/risk-assessment content buried below
+ * the fold. Anchor ids (#health-check, #screenings, #vaccinations,
+ * #risk-assessment) are the Health Check journey's stage-link targets
+ * (/patient/prevention#screenings etc., see health-check/page.tsx) and
+ * onboarding's redirect target — keep them in sync with PreventionTabs'
+ * anchorIds so those deep links keep landing on the right tab.
  */
 export default async function PreventionHubPage() {
   const { profile, subjectId } = await getPatientDashboardContext();
@@ -46,12 +56,93 @@ export default async function PreventionHubPage() {
     (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
 
   const location = { state: profile.state, city: profile.city, area: profile.area };
+  const ageYears = ageFromDateOfBirth(profile.date_of_birth);
+
+  const tabs: PreventionTab[] = [
+    {
+      id: "health-check",
+      label: "Health Check",
+      anchorIds: ["health-check"],
+      content: (
+        // Where somebody who signed up specifically to book a one-off check
+        // is sent after onboarding (see completeOnboarding) — also the
+        // default tab, so the first thing they see is the thing they came for.
+        <div id="health-check" className="space-y-6">
+          <AnnualHealthCheckBooking
+            patientId={subjectId}
+            organisationId={profile.organisation_id}
+            sex={profile.sex}
+            screensEnabled={screeningBookingEnabled}
+          />
+          <ResultsTrendsCard patientId={subjectId} />
+        </div>
+      ),
+    },
+    {
+      id: "screenings",
+      label: "Screenings & Vaccinations",
+      anchorIds: ["screenings", "vaccinations"],
+      content: (
+        <div id="screenings" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <div className="space-y-4">
+            <PreventiveScreeningCalendar
+              patientId={subjectId}
+              organisationId={profile.organisation_id}
+              bookingEnabled={screeningBookingEnabled}
+            />
+          </div>
+
+          <div id="vaccinations" className="scroll-mt-24">
+            <VaccinationForFamily
+              self={{
+                id: subjectId,
+                label: "Me",
+                ageYears,
+                dateOfBirth: profile.date_of_birth,
+                sex: profile.sex,
+              }}
+              patientLocation={location}
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "risk-assessment",
+      label: "Risk Assessment",
+      anchorIds: ["risk-assessment"],
+      content: (
+        <div id="risk-assessment" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <div className="space-y-4">
+            <RiskAssessmentForm patientId={subjectId} />
+            <RiskAssessmentDisplay patientId={subjectId} />
+          </div>
+          <CareProgrammeRecommendations
+            patientId={subjectId}
+            conditionLanguagePreference={profile.condition_language_preference}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "programmes",
+      label: "Programmes",
+      content: (
+        <div className="space-y-6">
+          <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
+          {profile.sex === "female" && profile.organisation_id && (
+            <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <DashboardSection
       id="prevention"
       title="Prevention"
-      description="You don't need to be unwell to be here. Screenings, vaccinations, and the yearly checks that keep healthy people healthy — all built around your age, sex, and history."
+      description="You don't need to be unwell to be here. Screenings, vaccinations, and the yearly checks that keep healthy people healthy, all built around your age, sex, and history."
       icon={SEMANTIC_ICON.preventive}
     >
       <Card className="border-brand-green/25">
@@ -77,85 +168,7 @@ export default async function PreventionHubPage() {
         </CardContent>
       </Card>
 
-      {/* #health-check is where somebody who signed up specifically to book a
-          one-off check is sent after onboarding (see completeOnboarding), so
-          the first thing they see is the thing they came for. */}
-      <div id="health-check" className="scroll-mt-24">
-        <AnnualHealthCheckBooking
-          patientId={subjectId}
-          organisationId={profile.organisation_id}
-          sex={profile.sex}
-          screensEnabled={screeningBookingEnabled}
-        />
-      </div>
-
-      <ResultsTrendsCard patientId={subjectId} />
-
-      {/* Anchor ids are the Health Check journey's stage-link targets
-          (/patient/prevention#screenings etc.) — keep in sync with
-          health-check/page.tsx. scroll-mt clears the sticky app-shell chrome. */}
-      <div id="screenings" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <div className="space-y-4">
-          <PreventiveScreeningCalendar
-            patientId={subjectId}
-            organisationId={profile.organisation_id}
-            bookingEnabled={screeningBookingEnabled}
-          />
-          {!screeningBookingEnabled && <UpgradePrompt feature="prevention_coordination" />}
-        </div>
-
-        <div id="vaccinations" className="scroll-mt-24">
-          <VaccinationForFamily
-            self={{
-              id: subjectId,
-              label: "Me",
-              ageYears: ageFromDateOfBirth(profile.date_of_birth),
-              dateOfBirth: profile.date_of_birth,
-              sex: profile.sex,
-            }}
-            patientLocation={location}
-          />
-        </div>
-      </div>
-
-      <div id="risk-assessment" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <div className="space-y-4">
-          <RiskAssessmentForm patientId={subjectId} />
-          <RiskAssessmentDisplay patientId={subjectId} />
-        </div>
-        <CareProgrammeRecommendations
-          patientId={subjectId}
-          conditionLanguagePreference={profile.condition_language_preference}
-        />
-      </div>
-
-      <PreventiveProgrammes
-        patientId={subjectId}
-        ageYears={ageFromDateOfBirth(profile.date_of_birth)}
-        sex={profile.sex}
-      />
-
-      {profile.sex === "female" && profile.organisation_id && (
-        <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
-      )}
-
-      {/* Annual Doctor Review is retired as a standalone product — folded into
-          Comprehensive Screen. No entitlement gate: renders only for a
-          pre-existing in-progress row, nothing for everyone else. */}
-      <AnnualReviewCard patientId={subjectId} />
-
-      {profile.organisation_id && (
-        <RequiresEntitlement
-          feature="health_education"
-          fallback={<UpgradePrompt feature="health_education" />}
-        >
-          <HealthEducation
-            patientId={subjectId}
-            organisationId={profile.organisation_id}
-            conditionLanguagePreference={profile.condition_language_preference}
-          />
-        </RequiresEntitlement>
-      )}
+      <PreventionTabs tabs={tabs} />
     </DashboardSection>
   );
 }

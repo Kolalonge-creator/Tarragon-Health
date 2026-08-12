@@ -121,16 +121,24 @@ regress them:
   cuff, glucometer, weight scale, thermometer, pulse oximeter) → `POST /api/mobile/device-readings`.
 - **Sync screen** (`sync-screen.tsx`) — per-device read/parse/upload.
 - **Apple Health card** (`apple-health-card.tsx`, `lib/healthkit.ts`) — read-only, iOS-only,
-  patient-initiated, incremental via server-held cursor → `POST /api/mobile/health-samples`. **Never
-  run on real hardware** — HealthKit doesn't work in Expo Go, needs an EAS dev build on a physical
-  iPhone before calling it working.
+  incremental via server-held cursor → `POST /api/mobile/health-samples`.
+- **Health Connect card** (`android-health-connect-card.tsx`, `lib/health-connect.ts`) — the Android
+  peer, built 2026-08-12 on explicit ask. Same shape: read-only, incremental via the same
+  timestamp-window cursor pattern (not Health Connect's own token-based `getChanges` API — see the
+  migration header on `20260812161742_wearable_provider_android_health_connect.sql` for why), same
+  `POST /api/mobile/health-samples` route, now provider-aware via a `provider` field rather than a
+  second endpoint.
+- **Background sync** (`lib/background-sync.ts`) — a shared periodic `expo-background-task`
+  (BGTaskScheduler on iOS / WorkManager on Android) drives both cards without the patient needing to
+  open the app; iOS additionally gets a live `subscribeToChanges` listener on top for while the app is
+  already running. See CLAUDE.md's Device & Wearable Integration section for the full mechanism,
+  including why HealthKit's own native background delivery isn't the thing actually doing the
+  waking here.
 
-### Android gap
-**Health Connect has no equivalent build yet.** This is the Android peer of the HealthKit bridge and
-is the single biggest platform gap if Android ships alongside iOS. Same shape as the HealthKit work:
-`react-native-health-connect` or the native Health Connect API, incremental sync via the same cursor
-pattern, uploading to a new `/api/mobile/health-samples` variant (or the same endpoint with a
-`platform` field). Not started — budget it as its own workstream, don't assume parity with iOS.
+**None of this has ever run on real hardware.** HealthKit doesn't work in Expo Go; Health Connect's
+native module throws on import outside a real EAS/prebuild binary; `expo-background-task`'s iOS half
+doesn't work in the Simulator at all. All three need an EAS development build on physical iPhone and
+Android devices before any of this can be called confirmed-working.
 
 ---
 

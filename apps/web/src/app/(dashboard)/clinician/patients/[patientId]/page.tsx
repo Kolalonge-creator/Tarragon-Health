@@ -3,6 +3,7 @@ import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import {
   canConfirmMedicationRefill,
   hasPrescribingAuthority,
+  isClinicalTier,
 } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MaskedCallButton } from "@/components/masked-call-button";
@@ -242,10 +243,14 @@ export default async function ClinicianPatientPage({
                   initialProfile={cvProfile ?? null}
                 />
                 {/* Foot-risk classification is a clinical act — only an active
-                    clinical_staff member (not a Care Coordinator) sees the form. */}
-                {callerStaff && <GlucoseTargetForm patientId={patient.id} />}
-                {callerStaff && <FootAssessmentForm patientId={patient.id} />}
-                {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
+                    clinical_staff member (not a Care Coordinator) sees the form.
+                    isClinicalTier, not a bare callerStaff truthy check: Care
+                    Coordinators carry an active clinical_staff row too
+                    (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
+                    no longer excludes them. */}
+                {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <FootAssessmentForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <ComplicationCheckForm patientId={patient.id} />}
               </>
             ),
           },

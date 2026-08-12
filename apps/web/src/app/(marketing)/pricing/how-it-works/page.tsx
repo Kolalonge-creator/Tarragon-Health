@@ -4,6 +4,7 @@ import { Section, SectionHeading } from "../../_components/section";
 import { CtaBand } from "../../_components/cta-band";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 import {
   BOOKING_STEPS,
   CARE_VOUCHER_INTRO,
@@ -18,12 +19,12 @@ import {
   PRICING_PROMISES,
 } from "../../_content/pricing";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "How pricing works",
   description:
     "Our No-Hidden-Cost Promise, free trials of real clinical care, care vouchers, how Tarragon compares to your HMO, and booking step-by-step.",
-  alternates: { canonical: MARKETING_ROUTES.howPricingWorks },
-};
+  path: MARKETING_ROUTES.howPricingWorks,
+});
 
 export const revalidate = 3600;
 
@@ -32,6 +33,7 @@ export default function HowPricingWorksPage() {
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Pricing, in detail"
           title="How pricing works"
           description="The promise behind every price, how free trials work, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."

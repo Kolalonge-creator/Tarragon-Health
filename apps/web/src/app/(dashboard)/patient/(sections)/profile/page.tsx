@@ -5,7 +5,6 @@ import { IdentityVerificationCard } from "@/app/onboarding/identity-verification
 import { ConditionLanguageForm } from "@/app/(dashboard)/patient/condition-language-form";
 import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contact-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
-import { AiUsageDisclosure } from "@/app/(dashboard)/patient/ai-usage-disclosure";
 
 export default async function PatientProfilePage() {
   const { profile, subjectId } = await getPatientDashboardContext();
@@ -48,7 +47,6 @@ export default async function PatientProfilePage() {
             initial={{ condition_language_preference: profile.condition_language_preference }}
           />
           <ChangePasswordForm />
-          <AiUsageDisclosure />
         </div>
       </div>
     </DashboardSection>

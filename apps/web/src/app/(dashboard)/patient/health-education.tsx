@@ -4,8 +4,13 @@ import { useMemo, useState } from "react";
 import {
   useHealthEducationFeed,
   useHealthEducationLockedCount,
+  useHealthEducationCategoryCounts,
+  useHealthEducationLibrary,
   useMarkContentProgress,
+  HEALTH_EDUCATION_CATEGORIES,
   type HealthEducationFeedItem,
+  type HealthEducationLibraryItem,
+  type HealthEducationCategory,
 } from "@/lib/queries/health-education";
 import {
   parseKnowledgeCheck,
@@ -16,7 +21,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -24,15 +31,22 @@ const CONDITION_LABEL: Record<string, string> = {
   diabetes: "Diabetes",
   ckd: "Kidney health",
   cardiovascular: "Heart health",
+  asthma: "Asthma",
+  copd: "COPD",
+  heart_failure: "Heart failure",
   other: "General",
 };
 
 function conditionLabelFor(
   condition: string,
-  preference: string | null | undefined,
+  preference: string | null | undefined
 ): string {
-  return condition === "obesity" ? obesityLabelTitleCase(preference) : (CONDITION_LABEL[condition] ?? condition);
+  return condition === "obesity"
+    ? obesityLabelTitleCase(preference)
+    : (CONDITION_LABEL[condition] ?? condition);
 }
+
+type AnyEducationItem = HealthEducationFeedItem | HealthEducationLibraryItem;
 
 function KnowledgeCheck({
   questions,
@@ -121,7 +135,7 @@ function EducationItem({
   organisationId,
   conditionLanguagePreference,
 }: {
-  item: HealthEducationFeedItem;
+  item: AnyEducationItem;
   patientId: string;
   organisationId: string;
   conditionLanguagePreference?: string | null;
@@ -218,7 +232,7 @@ function EducationItem({
   );
 }
 
-export function HealthEducation({
+function RecommendedForYou({
   patientId,
   organisationId,
   conditionLanguagePreference,
@@ -227,31 +241,144 @@ export function HealthEducation({
   organisationId: string;
   conditionLanguagePreference?: string | null;
 }) {
-  const { data, isLoading, isError } = useHealthEducationFeed(patientId);
+  const { data, isLoading } = useHealthEducationFeed(patientId);
   const { data: lockedCount } = useHealthEducationLockedCount(patientId);
-  const Icon = SEMANTIC_ICON.preventive;
+
+  const items = (data ?? []).filter((item) => item.status !== "understood").slice(0, 4);
+
+  if (isLoading) {
+    return <p className="text-sm text-charcoal-ink/60">Loading your recommendations…</p>;
+  }
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card className="border-brand-green/25 bg-soft-sage/30">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <SEMANTIC_ICON.aiCoach className="h-4.5 w-4.5 text-brand-green" aria-hidden />
+          Recommended for you
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y divide-charcoal-ink/10">
+          {items.map((item) => (
+            <EducationItem
+              key={item.content_id}
+              item={item}
+              patientId={patientId}
+              organisationId={organisationId}
+              conditionLanguagePreference={conditionLanguagePreference}
+            />
+          ))}
+        </ul>
+        {(lockedCount ?? 0) > 0 && (
+          <p className="mt-3 text-xs text-charcoal-ink/50">
+            {lockedCount} more personalised lesson{lockedCount === 1 ? "" : "s"} unlock over the
+            coming weeks, paced so each one sticks. The full library below is never locked, read
+            anything, any time.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CategoryGrid({
+  onSelect,
+}: {
+  onSelect: (category: HealthEducationCategory) => void;
+}) {
+  const { data: counts, isLoading } = useHealthEducationCategoryCounts();
+  const countByCategory = new Map((counts ?? []).map((c) => [c.category, c.item_count]));
+
+  return (
+    <div>
+      <h3 className="mb-3 font-heading text-base font-semibold text-charcoal-ink">
+        Browse by topic
+      </h3>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {HEALTH_EDUCATION_CATEGORIES.map(({ value, label }) => {
+          const count = countByCategory.get(value) ?? 0;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onSelect(value)}
+              disabled={isLoading || count === 0}
+              className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 bg-white p-4 text-left transition-colors hover:border-brand-green hover:bg-soft-sage/40 disabled:cursor-default disabled:opacity-50"
+            >
+              <span className="font-medium text-charcoal-ink">{label}</span>
+              <span className="shrink-0 text-xs text-charcoal-ink/50">
+                {isLoading ? "…" : `${count} topic${count === 1 ? "" : "s"}`}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CategoryDetail({
+  category,
+  onBack,
+  patientId,
+  organisationId,
+  conditionLanguagePreference,
+}: {
+  category: HealthEducationCategory;
+  onBack: () => void;
+  patientId: string;
+  organisationId: string;
+  conditionLanguagePreference?: string | null;
+}) {
+  const { data, isLoading, isError } = useHealthEducationLibrary(category);
+  const [query, setQuery] = useState("");
+
+  const label = HEALTH_EDUCATION_CATEGORIES.find((c) => c.value === category)?.label ?? category;
+
+  const items = (data ?? []).filter((item) => {
+    if (!query.trim()) return true;
+    const q = query.trim().toLowerCase();
+    return item.title.toLowerCase().includes(q) || (item.summary ?? "").toLowerCase().includes(q);
+  });
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Icon className="h-5 w-5 text-brand-green" aria-hidden />
-          Learning for you
-        </CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <button
+              type="button"
+              onClick={onBack}
+              className="mb-1 text-xs font-medium text-charcoal-ink/60 hover:text-brand-green"
+            >
+              ← All topics
+            </button>
+            <CardTitle>{label}</CardTitle>
+          </div>
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search this topic…"
+            className="w-full sm:w-56"
+            aria-label={`Search ${label}`}
+          />
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && (
-          <p className="text-sm text-red-600">Could not load your learning right now.</p>
-        )}
-        {data && data.length === 0 && (
+        {isError && <p className="text-sm text-red-600">Could not load this topic right now.</p>}
+        {data && items.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            Nothing new to read just yet, check back as your care progresses.
+            {query ? "Nothing matches that search." : "Nothing here yet."}
           </p>
         )}
-        {data && data.length > 0 && (
+        {items.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
-            {data.map((item) => (
+            {items.map((item) => (
               <EducationItem
                 key={item.content_id}
                 item={item}
@@ -262,13 +389,51 @@ export function HealthEducation({
             ))}
           </ul>
         )}
-        {(lockedCount ?? 0) > 0 && (
-          <p className="mt-3 text-xs text-charcoal-ink/50">
-            {lockedCount} more lesson{lockedCount === 1 ? "" : "s"} unlock over the coming
-            weeks; the pace is deliberate, so each one sticks.
-          </p>
-        )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * The full patient-facing health library: a "Recommended for you" rail
+ * (personalised + paced, from health_education_feed) sitting above a
+ * genuinely browsable library of every active topic (health_education_library,
+ * deliberately ungated by condition/drip) that the patient can choose into
+ * regardless of what's on their own chart. Replaces the old narrow
+ * condition-matched, drip-throttled single feed that used to be the entire
+ * "Learning for you" card — a patient with no diagnosed condition used to
+ * see almost nothing; the library view fixes that.
+ */
+export function HealthEducationLibrary({
+  patientId,
+  organisationId,
+  conditionLanguagePreference,
+}: {
+  patientId: string;
+  organisationId: string;
+  conditionLanguagePreference?: string | null;
+}) {
+  const [activeCategory, setActiveCategory] = useState<HealthEducationCategory | null>(null);
+
+  return (
+    <div className={cn("space-y-6")}>
+      <RecommendedForYou
+        patientId={patientId}
+        organisationId={organisationId}
+        conditionLanguagePreference={conditionLanguagePreference}
+      />
+
+      {activeCategory ? (
+        <CategoryDetail
+          category={activeCategory}
+          onBack={() => setActiveCategory(null)}
+          patientId={patientId}
+          organisationId={organisationId}
+          conditionLanguagePreference={conditionLanguagePreference}
+        />
+      ) : (
+        <CategoryGrid onSelect={setActiveCategory} />
+      )}
+    </div>
   );
 }

@@ -14,14 +14,14 @@ export type OutreachContact = Tables<"care_outreach_contacts">;
 export type OutreachContactChannel = Enums<"outreach_contact_channel">;
 
 export type OutreachContactWithPatient = OutreachContact & {
-  patient: { full_name: string | null; patient_number: string | null } | null;
+  patient: { full_name: string | null; patient_number: string | null; phone: string | null } | null;
 };
 
 const TASK_SELECT =
   "*, patient:profiles!care_outreach_tasks_patient_id_fkey(full_name, patient_number, phone)";
 
 const CONTACT_SELECT =
-  "*, patient:profiles!care_outreach_contacts_patient_id_fkey(full_name, patient_number)";
+  "*, patient:profiles!care_outreach_contacts_patient_id_fkey(full_name, patient_number, phone)";
 
 export const outreachKeys = {
   org: ["care-outreach", "org"] as const,

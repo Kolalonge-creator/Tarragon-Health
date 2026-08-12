@@ -15,22 +15,25 @@ interface CapturedPhoto {
 /**
  * Native camera-capture lab result upload, the one native win §2.5 of
  * MOBILE_APP_SPEC.md calls out over a web file picker — everything else
- * (catalogue, self-book, facility selector, orders, results/trends) stays
- * WebView, low weekly-touch frequency, already built once on web.
+ * (orders, results, trends) stays WebView, low weekly-touch frequency,
+ * already built once on web. Self-book and facility selection are not part
+ * of that WebView — both were suspended platform-wide by the 2026-08-03
+ * self-arranged-fulfilment decision (no partner labs, no facility
+ * directory) — so this screen must not promise either.
  */
 export function LabsScreen() {
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [catalogueOpen, setCatalogueOpen] = useState(false);
+  const [labDetailOpen, setLabDetailOpen] = useState(false);
 
   async function takePhoto() {
     setError(null);
     setSuccess(false);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      setError("Camera access is off — enable it in your phone's Settings to photograph a result.");
+      setError("Camera access is off. Enable it in your phone's Settings to photograph a result.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
@@ -48,7 +51,7 @@ export function LabsScreen() {
     setSuccess(false);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setError("Photo access is off — enable it in your phone's Settings to choose a photo.");
+      setError("Photo access is off. Enable it in your phone's Settings to choose a photo.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
@@ -79,7 +82,7 @@ export function LabsScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Labs &amp; results</Text>
-        <MutedText>Photograph a result from any lab you've used — we'll read it into your record.</MutedText>
+        <MutedText>Photograph a result from any lab you've used, and we'll read it into your record.</MutedText>
       </View>
 
       <Card style={{ gap: 10 }}>
@@ -97,9 +100,9 @@ export function LabsScreen() {
           </>
         ) : (
           <>
-            <MutedText>You pay the lab directly — this is just how the result gets back to your record.</MutedText>
+            <MutedText>You pay the lab directly; this is just how the result gets back to your record.</MutedText>
             {error ? <ErrorText>{error}</ErrorText> : null}
-            {success ? <MutedText>Uploaded — your care team will review it shortly.</MutedText> : null}
+            {success ? <MutedText>Uploaded. Your care team will review it shortly.</MutedText> : null}
             <PrimaryButton title="Take a photo" onPress={takePhoto} />
             <SecondaryButton title="Choose from library" onPress={chooseFromLibrary} />
           </>
@@ -107,15 +110,15 @@ export function LabsScreen() {
       </Card>
 
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Catalogue, orders &amp; trends</Text>
-        <MutedText>Browse tests, pick a facility, and see past results and trends in the full patient app.</MutedText>
-        <SecondaryButton title="Open lab catalogue" onPress={() => setCatalogueOpen(true)} />
+        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Orders &amp; results</Text>
+        <MutedText>See your past results, active requests, and trends in the full patient app.</MutedText>
+        <SecondaryButton title="View orders & results" onPress={() => setLabDetailOpen(true)} />
       </Card>
 
-      <Modal visible={catalogueOpen} animationType="slide" onRequestClose={() => setCatalogueOpen(false)}>
+      <Modal visible={labDetailOpen} animationType="slide" onRequestClose={() => setLabDetailOpen(false)}>
         <View style={{ flex: 1 }}>
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setCatalogueOpen(false)} />
+            <SecondaryButton title="Close" onPress={() => setLabDetailOpen(false)} />
           </View>
           <WebViewScreen path="/patient/labs" />
         </View>

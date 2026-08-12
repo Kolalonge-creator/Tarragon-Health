@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { MarketingMediaSlot } from "./media";
+import { pageMetadata } from "@/lib/marketing/site";
 
 export type B2bStat = {
   label: string;
@@ -61,12 +62,12 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       },
     ],
     ctaLabel: "Request employer health plan",
-    metadata: {
+    metadata: pageMetadata({
       title: "Corporate Health",
       description:
         "Corporate wellness plans that surface workforce chronic disease risk and close care gaps early, with anonymised reporting for HR.",
-      alternates: { canonical: "/corporate" },
-    },
+      path: "/corporate",
+    }),
   },
   hmo: {
     slug: "hmo",
@@ -106,12 +107,12 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       },
     ],
     ctaLabel: "Talk to Tarragon Health",
-    metadata: {
+    metadata: pageMetadata({
       title: "HMO Support",
       description:
         "Monitor member risk, close care gaps, and generate outcome evidence: chronic disease and preventive care for HMO members.",
-      alternates: { canonical: "/hmo" },
-    },
+      path: "/hmo",
+    }),
   },
 };
 

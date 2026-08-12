@@ -1,22 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   useOutreachTasks,
   useUpdateOutreachTask,
   type OutreachTaskWithPatient,
   type OutreachTriggerType,
 } from "@/lib/queries/care-outreach";
+import { useStartThread } from "@/lib/queries/care-messages";
+import { useRaiseEscalation } from "@/lib/queries/escalations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   high_risk_score: "High risk score",
   overdue_screening: "Overdue screening",
   stale_monitoring: "No recent monitoring",
-  unactioned_abnormal: "Abnormal result — not yet in a programme",
+  unactioned_abnormal: "Abnormal result, not yet in a programme",
   awaiting_result: "Self-arranged test not yet uploaded",
 };
 
@@ -50,22 +54,179 @@ const DEFAULT_COPY: TaskRowCopy = {
   notePlaceholder: "Outcome note (e.g. booked review, no answer ×2)",
 };
 
+/** Inline "message the patient" composer — an in-app care_messages thread,
+ * never WhatsApp (see the two-way-conversation-stays-in-app rule in
+ * CLAUDE.md). Any org staff account, including a Care Coordinator, may open
+ * one via start_care_thread; nothing here needs clinical authority. */
+function MessagePatientPanel({
+  patientId,
+  patientName,
+  defaultSubject,
+  onClose,
+}: {
+  patientId: string;
+  patientName: string;
+  defaultSubject: string;
+  onClose: () => void;
+}) {
+  const start = useStartThread();
+  const [subject, setSubject] = useState(defaultSubject);
+  const [body, setBody] = useState("");
+  const [sent, setSent] = useState(false);
+
+  if (sent) {
+    return (
+      <div className="space-y-2 rounded-md border border-brand-green/20 bg-brand-green/5 p-3">
+        <p className="text-xs text-charcoal-ink/80">
+          Message sent to {patientName}. They&apos;ll see it in the app, and any reply shows up in
+          Patient messages.
+        </p>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border border-charcoal-ink/10 bg-warm-ivory/60 p-3">
+      <p className="text-xs font-medium text-charcoal-ink/70">
+        New in-app message to {patientName}
+      </p>
+      <Input
+        value={subject}
+        onChange={(event) => setSubject(event.target.value)}
+        placeholder="Subject"
+        className="h-8 text-xs"
+      />
+      <Textarea
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+        placeholder="Message"
+        rows={3}
+        className="text-xs"
+      />
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          disabled={start.isPending || subject.trim().length < 3 || body.trim().length === 0}
+          onClick={() =>
+            start.mutate(
+              { patientId, subject: subject.trim(), body: body.trim() },
+              { onSuccess: () => setSent(true) }
+            )
+          }
+        >
+          {start.isPending ? "Sending…" : "Send"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        {start.isError && (
+          <span className="text-xs text-red-600">
+            {(start.error as Error).message || "Could not send."}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Inline "hand this to a doctor" composer. Raises an escalation with no
+ * pre-existing clinician_alert (useRaiseEscalation) — the manual path for a
+ * case that needs clinical judgment, not logistics. A Care Coordinator may
+ * raise one but never claims or resolves it themselves; see the isClinicalTier
+ * gating on /clinician/escalations. */
+function EscalateToDoctorPanel({
+  patientId,
+  organisationId,
+  patientName,
+  defaultReason,
+  onClose,
+}: {
+  patientId: string;
+  organisationId: string;
+  patientName: string;
+  defaultReason: string;
+  onClose: () => void;
+}) {
+  const raise = useRaiseEscalation();
+  const [reason, setReason] = useState(defaultReason);
+  const [escalated, setEscalated] = useState(false);
+
+  if (escalated) {
+    return (
+      <div className="space-y-2 rounded-md border border-brand-green/20 bg-brand-green/5 p-3">
+        <p className="text-xs text-charcoal-ink/80">
+          Escalated {patientName}&apos;s case to the doctor team. It now shows in Escalations.
+        </p>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border border-charcoal-ink/10 bg-warm-ivory/60 p-3">
+      <p className="text-xs font-medium text-charcoal-ink/70">
+        Hand {patientName}&apos;s case to a doctor
+      </p>
+      <Textarea
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        placeholder="Why does this need a doctor?"
+        rows={3}
+        className="text-xs"
+      />
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          disabled={raise.isPending || reason.trim().length === 0}
+          onClick={() =>
+            raise.mutate(
+              { patientId, organisationId, reason: reason.trim() },
+              { onSuccess: () => setEscalated(true) }
+            )
+          }
+        >
+          {raise.isPending ? "Escalating…" : "Escalate"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        {raise.isError && (
+          <span className="text-xs text-red-600">
+            {(raise.error as Error).message || "Could not escalate."}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TaskRow({ task, copy }: { task: OutreachTaskWithPatient; copy: TaskRowCopy }) {
   const update = useUpdateOutreachTask();
   const [note, setNote] = useState("");
+  const [messaging, setMessaging] = useState(false);
+  const [escalating, setEscalating] = useState(false);
   const context = triggerContext(task);
+  const patientName = task.patient?.full_name ?? "this patient";
+  const triggerLabel = TRIGGER_LABEL[task.trigger_type] ?? task.trigger_type;
 
   return (
     <li className="space-y-2 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-medium text-charcoal-ink">
-          {task.patient?.full_name ?? "Patient"}
+          <Link href={`/clinician/patients/${task.patient_id}`} className="hover:underline">
+            {task.patient?.full_name ?? "Patient"}
+          </Link>
           {task.patient?.patient_number ? ` · ${task.patient.patient_number}` : ""}
         </p>
         <Badge variant={task.priority === 1 ? "red" : task.priority === 2 ? "amber" : "grey"}>
           {task.priority === 1 ? "Act first" : task.priority === 2 ? "Soon" : "Routine"}
         </Badge>
-        <Badge variant="blue">{TRIGGER_LABEL[task.trigger_type] ?? task.trigger_type}</Badge>
+        <Badge variant="blue">{triggerLabel}</Badge>
         {task.status !== "open" && (
           <Badge variant="grey">
             {task.status === "in_progress" ? "In progress" : "Contacted"}
@@ -122,7 +283,44 @@ function TaskRow({ task, copy }: { task: OutreachTaskWithPatient; copy: TaskRowC
         >
           Dismiss
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setMessaging((v) => !v);
+            setEscalating(false);
+          }}
+        >
+          {messaging ? "Cancel message" : "Message patient"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setEscalating((v) => !v);
+            setMessaging(false);
+          }}
+        >
+          {escalating ? "Cancel escalation" : "Escalate to doctor"}
+        </Button>
       </div>
+      {messaging && (
+        <MessagePatientPanel
+          patientId={task.patient_id}
+          patientName={patientName}
+          defaultSubject={triggerLabel}
+          onClose={() => setMessaging(false)}
+        />
+      )}
+      {escalating && (
+        <EscalateToDoctorPanel
+          patientId={task.patient_id}
+          organisationId={task.organisation_id}
+          patientName={patientName}
+          defaultReason={`Outreach task: ${triggerLabel}${context ? ` (${context})` : ""}. `}
+          onClose={() => setEscalating(false)}
+        />
+      )}
       {update.isError && (
         <p className="text-xs text-red-600">
           {(update.error as Error).message || "Could not update this task."}
@@ -165,7 +363,7 @@ function OutreachTaskList({
   onlyTriggerTypes,
   excludeTriggerTypes,
   showPriorityFilter = true,
-  emptyMessage = "Nothing waiting — nice and quiet.",
+  emptyMessage = "Nothing waiting, nice and quiet.",
   copy: copyOverride,
 }: OutreachTaskListProps) {
   const { data, isLoading, isError } = useOutreachTasks();
@@ -248,7 +446,7 @@ export function OutreachWorklist({
   return (
     <OutreachTaskList
       title="Proactive outreach"
-      description="Patients surfaced automatically from risk scores and open care gaps. Reach out, help them book, and note the outcome — clinical questions still route through escalations."
+      description="Patients surfaced automatically from risk scores and open care gaps. Reach out, help them book, and note the outcome; clinical questions still route through escalations."
       excludeTriggerTypes={excludeTriggerTypes}
     />
   );
@@ -268,10 +466,10 @@ export function FollowUpTracker() {
   return (
     <OutreachTaskList
       title="Follow-ups"
-      description="Self-arranged lab tests issued 21+ days ago with no result uploaded yet. The patient books and pays their own lab — nudge them to go and to upload the result, then mark it followed up."
+      description="Self-arranged lab tests issued 21+ days ago with no result uploaded yet. The patient books and pays their own lab; nudge them to go and to upload the result, then mark it followed up."
       onlyTriggerTypes={["awaiting_result"]}
       showPriorityFilter={false}
-      emptyMessage="Nothing waiting — every self-arranged test is either done or not yet overdue."
+      emptyMessage="Nothing waiting, every self-arranged test is either done or not yet overdue."
       copy={{
         contactedLabel: "Remind patient",
         resolveLabel: "Mark followed up",

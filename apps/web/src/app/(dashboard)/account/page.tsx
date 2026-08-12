@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -57,6 +58,11 @@ export default async function AccountPage() {
   const idLabel = isPatient ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
   const idValue = isPatient ? profile.patient_number : staffNumber;
 
+  const supabase = await createClient();
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const verifiedFactorId =
+    factors?.totp.find((f) => f.status === "verified")?.id ?? null;
+
   return (
     <div className="max-w-2xl space-y-6">
       <div>
@@ -89,7 +95,7 @@ export default async function AccountPage() {
           <CardHeader>
             <CardTitle>Clinical record</CardTitle>
             <CardDescription>
-              Set and verified by your organisation&apos;s admin — contact them to update any of
+              Set and verified by your organisation&apos;s admin; contact them to update any of
               this.
             </CardDescription>
           </CardHeader>
@@ -129,6 +135,7 @@ export default async function AccountPage() {
       )}
 
       <ChangePasswordForm />
+      <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
     </div>
   );
 }

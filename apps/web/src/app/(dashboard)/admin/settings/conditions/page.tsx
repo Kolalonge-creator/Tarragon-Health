@@ -24,7 +24,7 @@ export default async function ConditionsSettingsPage() {
           enforced at the database.
         </p>
       </div>
-      <ConditionsManager />
+      <ConditionsManager organisationId={profile.organisation_id} />
     </div>
   );
 }

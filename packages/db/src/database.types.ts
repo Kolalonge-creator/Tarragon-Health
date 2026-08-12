@@ -1546,6 +1546,7 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at: string
           id: string
+          multi_condition_notified_at: string | null
           notes: string | null
           organisation_id: string
           patient_id: string
@@ -1558,6 +1559,7 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
           id?: string
+          multi_condition_notified_at?: string | null
           notes?: string | null
           organisation_id: string
           patient_id: string
@@ -1570,6 +1572,7 @@ export type Database = {
           condition?: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
           id?: string
+          multi_condition_notified_at?: string | null
           notes?: string | null
           organisation_id?: string
           patient_id?: string
@@ -4992,6 +4995,7 @@ export type Database = {
       health_education_content: {
         Row: {
           body: string
+          category: Database["public"]["Enums"]["health_education_category"]
           clinician_reviewed: boolean
           code: string
           condition: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -5013,6 +5017,7 @@ export type Database = {
         }
         Insert: {
           body: string
+          category: Database["public"]["Enums"]["health_education_category"]
           clinician_reviewed?: boolean
           code: string
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -5034,6 +5039,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          category?: Database["public"]["Enums"]["health_education_category"]
           clinician_reviewed?: boolean
           code?: string
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -6077,6 +6083,7 @@ export type Database = {
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          screening_completion_id: string | null
           source: Database["public"]["Enums"]["lab_result_document_source"]
           updated_at: string
           uploaded_by: string | null
@@ -6099,6 +6106,7 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          screening_completion_id?: string | null
           source: Database["public"]["Enums"]["lab_result_document_source"]
           updated_at?: string
           uploaded_by?: string | null
@@ -6121,6 +6129,7 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          screening_completion_id?: string | null
           source?: Database["public"]["Enums"]["lab_result_document_source"]
           updated_at?: string
           uploaded_by?: string | null
@@ -6159,6 +6168,13 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_screening_completion_id_fkey"
+            columns: ["screening_completion_id"]
+            isOneToOne: false
+            referencedRelation: "screening_completions"
             referencedColumns: ["id"]
           },
           {
@@ -7659,6 +7675,7 @@ export type Database = {
           created_at: string
           id: string
           logged_at: string
+          logged_by_profile_id: string | null
           medication_id: string
           organisation_id: string
           patient_id: string
@@ -7671,6 +7688,7 @@ export type Database = {
           created_at?: string
           id?: string
           logged_at?: string
+          logged_by_profile_id?: string | null
           medication_id: string
           organisation_id: string
           patient_id: string
@@ -7683,6 +7701,7 @@ export type Database = {
           created_at?: string
           id?: string
           logged_at?: string
+          logged_by_profile_id?: string | null
           medication_id?: string
           organisation_id?: string
           patient_id?: string
@@ -7692,6 +7711,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["medication_log_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "medication_logs_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "medication_logs_medication_id_fkey"
             columns: ["medication_id"]
@@ -8310,6 +8336,7 @@ export type Database = {
           ai_estimate: Json | null
           ai_status: string
           confirmed_carbs_g: number | null
+          confirmed_sodium_mg: number | null
           created_at: string
           description: string | null
           id: string
@@ -8325,6 +8352,7 @@ export type Database = {
           ai_estimate?: Json | null
           ai_status?: string
           confirmed_carbs_g?: number | null
+          confirmed_sodium_mg?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -8340,6 +8368,7 @@ export type Database = {
           ai_estimate?: Json | null
           ai_status?: string
           confirmed_carbs_g?: number | null
+          confirmed_sodium_mg?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -9204,6 +9233,7 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          reminder_sent_at: string | null
           started_at: string
           status: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at: string
@@ -9215,6 +9245,7 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          reminder_sent_at?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at: string
@@ -9226,6 +9257,7 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          reminder_sent_at?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at?: string
@@ -9364,6 +9396,67 @@ export type Database = {
             foreignKeyName: "patient_devices_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_diabetes_profile: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_type: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at: string
+          organisation_id: string
+          patient_id: string
+          patient_reported_type:
+            | Database["public"]["Enums"]["diabetes_type"]
+            | null
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_type?: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at?: string
+          organisation_id: string
+          patient_id: string
+          patient_reported_type?:
+            | Database["public"]["Enums"]["diabetes_type"]
+            | null
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_type?: Database["public"]["Enums"]["diabetes_type"] | null
+          created_at?: string
+          organisation_id?: string
+          patient_id?: string
+          patient_reported_type?:
+            | Database["public"]["Enums"]["diabetes_type"]
+            | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_diabetes_profile_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_diabetes_profile_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_diabetes_profile_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -10748,6 +10841,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          protocol_slug: string
           review_cadence_months: number
         }
         Insert: {
@@ -10758,6 +10852,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          protocol_slug: string
           review_cadence_months?: number
         }
         Update: {
@@ -10768,6 +10863,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          protocol_slug?: string
           review_cadence_months?: number
         }
         Relationships: []
@@ -11187,38 +11283,44 @@ export type Database = {
       }
       push_subscriptions: {
         Row: {
-          auth_key: string
+          auth_key: string | null
           created_at: string
           disabled_at: string | null
-          endpoint: string
+          endpoint: string | null
+          expo_push_token: string | null
           id: string
           last_seen_at: string
           organisation_id: string
-          p256dh_key: string
+          p256dh_key: string | null
+          platform: string
           profile_id: string
           user_agent: string | null
         }
         Insert: {
-          auth_key: string
+          auth_key?: string | null
           created_at?: string
           disabled_at?: string | null
-          endpoint: string
+          endpoint?: string | null
+          expo_push_token?: string | null
           id?: string
           last_seen_at?: string
           organisation_id: string
-          p256dh_key: string
+          p256dh_key?: string | null
+          platform?: string
           profile_id: string
           user_agent?: string | null
         }
         Update: {
-          auth_key?: string
+          auth_key?: string | null
           created_at?: string
           disabled_at?: string | null
-          endpoint?: string
+          endpoint?: string | null
+          expo_push_token?: string | null
           id?: string
           last_seen_at?: string
           organisation_id?: string
-          p256dh_key?: string
+          p256dh_key?: string | null
+          platform?: string
           profile_id?: string
           user_agent?: string | null
         }
@@ -11698,6 +11800,68 @@ export type Database = {
           sex_applicability?: Database["public"]["Enums"]["screen_applicability"]
         }
         Relationships: []
+      }
+      screening_completions: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          performed_date: string
+          schedule_id: string | null
+          screen_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          performed_date: string
+          schedule_id?: string | null
+          screen_type_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          performed_date?: string
+          schedule_id?: string | null
+          screen_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_completions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_completions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_completions_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "screening_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_completions_screen_type_id_fkey"
+            columns: ["screen_type_id"]
+            isOneToOne: false
+            referencedRelation: "screen_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       screening_pathway_coverage: {
         Row: {
@@ -14053,11 +14217,16 @@ export type Database = {
     Views: {
       diabetes_quality_metrics: {
         Row: {
+          avg_glucose_flag_to_contact_hours: number | null
+          complete_complication_screen: number | null
           diabetic_patients: number | null
           foot_uptodate: number | null
+          hba1c_at_target: number | null
           organisation_id: string | null
           renal_uptodate: number | null
           retinal_uptodate: number | null
+          severe_hypo_dka_events_90d: number | null
+          severe_hypo_dka_per_100_patients: number | null
           target_set: number | null
         }
         Relationships: [
@@ -14620,10 +14789,41 @@ export type Database = {
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
       hbpm_summary: { Args: { p_patient: string }; Returns: Json }
+      health_education_category_counts: {
+        Args: never
+        Returns: {
+          category: Database["public"]["Enums"]["health_education_category"]
+          item_count: number
+        }[]
+      }
       health_education_feed: {
         Args: never
         Returns: {
           body: string
+          check_score: number
+          check_total: number
+          clinician_reviewed: boolean
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          estimated_minutes: number
+          has_knowledge_check: boolean
+          knowledge_check: Json
+          reviewed_by_name: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+          video_url: string
+        }[]
+      }
+      health_education_library: {
+        Args: {
+          p_category?: Database["public"]["Enums"]["health_education_category"]
+        }
+        Returns: {
+          body: string
+          category: Database["public"]["Enums"]["health_education_category"]
           check_score: number
           check_total: number
           clinician_reviewed: boolean
@@ -14697,6 +14897,23 @@ export type Database = {
           suppressed: boolean
         }[]
       }
+      match_lpe_content_blocks: {
+        Args: {
+          filter_condition?: Database["public"]["Enums"]["care_plan_condition"]
+          filter_module?: Database["public"]["Enums"]["lpe_module"]
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          body_md: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          id: string
+          key: string
+          module: Database["public"]["Enums"]["lpe_module"]
+          similarity: number
+          title: string
+        }[]
+      }
       mint_health_passport: {
         Args: { p_attestation_request_id?: string }
         Returns: Json
@@ -14721,6 +14938,16 @@ export type Database = {
           reset_id: string
           started_at: string
           trial_claimed_at: string
+        }[]
+      }
+      pharmacist_dispense_history: {
+        Args: { p_limit?: number }
+        Returns: {
+          dispense_id: string
+          dispensed_on: string
+          drug_name: string
+          patient_name: string
+          quantity: string
         }[]
       }
       pharmacist_order_allergies: {
@@ -14751,12 +14978,40 @@ export type Database = {
           status: string
         }[]
       }
+      pharmacist_profile: {
+        Args: never
+        Returns: {
+          city: string
+          contact_email: string
+          contact_phone: string
+          delivery: boolean
+          license_expires_at: string
+          license_number: string
+          name: string
+          regions: string[]
+          state: string
+        }[]
+      }
       pharmacist_record_dispense: {
         Args: {
           p_dispensed_on: string
           p_drug_name: string
           p_order_id: string
           p_quantity: string
+        }
+        Returns: undefined
+      }
+      pharmacist_update_profile: {
+        Args: {
+          p_city: string
+          p_contact_email: string
+          p_contact_phone: string
+          p_delivery: boolean
+          p_license_expires_at: string
+          p_license_number: string
+          p_name: string
+          p_regions: string[]
+          p_state: string
         }
         Returns: undefined
       }
@@ -14964,6 +15219,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_patient_reported_diabetes_type: {
+        Args: { p_type: Database["public"]["Enums"]["diabetes_type"] }
+        Returns: undefined
       }
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
@@ -15223,6 +15482,7 @@ export type Database = {
         | "paid"
         | "active"
       currency: "NGN" | "GBP" | "USD"
+      diabetes_type: "type_1" | "type_2" | "gestational" | "other"
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
@@ -15288,6 +15548,21 @@ export type Database = {
         | "hcv_rna_pending"
         | "hcv_active"
         | "hcv_cleared"
+      health_education_category:
+        | "hypertension"
+        | "diabetes"
+        | "weight"
+        | "heart"
+        | "kidney"
+        | "respiratory"
+        | "cancer_screening"
+        | "womens_health"
+        | "mens_health"
+        | "mental_health"
+        | "nutrition"
+        | "medicines"
+        | "family_child"
+        | "getting_started"
       health_education_content_type: "article" | "video"
       health_education_status: "seen" | "understood" | "needs_review"
       health_passport_attestation_status:
@@ -15621,6 +15896,7 @@ export type Database = {
         | "fitbit"
         | "dexcom"
         | "libre"
+        | "android_health_connect"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -15922,6 +16198,7 @@ export const Constants = {
         "active",
       ],
       currency: ["NGN", "GBP", "USD"],
+      diabetes_type: ["type_1", "type_2", "gestational", "other"],
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
@@ -15994,6 +16271,22 @@ export const Constants = {
         "hcv_rna_pending",
         "hcv_active",
         "hcv_cleared",
+      ],
+      health_education_category: [
+        "hypertension",
+        "diabetes",
+        "weight",
+        "heart",
+        "kidney",
+        "respiratory",
+        "cancer_screening",
+        "womens_health",
+        "mens_health",
+        "mental_health",
+        "nutrition",
+        "medicines",
+        "family_child",
+        "getting_started",
       ],
       health_education_content_type: ["article", "video"],
       health_education_status: ["seen", "understood", "needs_review"],
@@ -16363,6 +16656,7 @@ export const Constants = {
         "fitbit",
         "dexcom",
         "libre",
+        "android_health_connect",
       ],
       wellness_challenge_metric: [
         "vitals_logs",

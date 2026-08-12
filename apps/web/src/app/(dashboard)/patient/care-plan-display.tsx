@@ -4,6 +4,7 @@ import { useCarePlans } from "@/lib/queries/care-plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 
 function humanize(value: string) {
   return value
@@ -61,6 +62,9 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
                   )}
                   {plan.notes && (
                     <p className="text-xs text-charcoal-ink/60">{plan.notes}</p>
+                  )}
+                  {!plan.hasScheduledReview && (
+                    <UpgradePrompt feature="multi_condition_review" />
                   )}
                 </li>
               );

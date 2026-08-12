@@ -13,7 +13,7 @@ const int = z.number().int();
 export const dashboardSummarySchema = z.object({
   cash_ngn: num,
   deferred_revenue_ngn: num,
-  wallet_liability_ngn: num,
+  care_voucher_liability_ngn: num,
   receivables_ngn: num,
   vat_payable_ngn: num,
   wht_payable_ngn: num,
@@ -424,11 +424,39 @@ export type KpiSummary = z.infer<typeof kpiSummarySchema>;
 export const riskFlagsSchema = z.object({
   pending_approvals_count: int,
   aged_unreconciled_count: int,
+  reconciliation_flags_count: int,
   ap_due_soon_count: int,
   ap_overdue_count: int,
   compliance_overdue_count: int,
 });
 export type RiskFlags = z.infer<typeof riskFlagsSchema>;
+
+/**
+ * payment_reconciliation_flags — automated Paystack/Stripe drift detection
+ * (20260812023750_payment_reconciliation_flags.sql). Detection only; see
+ * that migration and apps/web/src/lib/finance/reconciliation-sweep.ts for
+ * how a flag gets written.
+ */
+export const reconciliationFlagsSchema = z.array(
+  z.object({
+    id: z.string(),
+    provider: z.string(),
+    flag_type: z.enum(["missing_locally", "amount_mismatch", "status_mismatch"]),
+    provider_reference: z.string(),
+    payment_transaction_id: z.string().nullable(),
+    local_amount_minor: num.nullable(),
+    provider_amount_minor: num.nullable(),
+    local_status: z.string().nullable(),
+    provider_status: z.string().nullable(),
+    currency: z.string().nullable(),
+    detail: z.record(z.string(), z.unknown()).nullable(),
+    status: z.enum(["open", "resolved", "ignored"]),
+    detected_at: z.string(),
+    resolved_at: z.string().nullable(),
+    resolved_note: z.string().nullable(),
+  }),
+);
+export type ReconciliationFlag = z.infer<typeof reconciliationFlagsSchema>[number];
 
 export const financeAuditLogSchema = z.array(
   z.object({
@@ -451,3 +479,34 @@ export const complianceSuggestedAmountSchema = z.object({
   basis: z.string().optional(),
 });
 export type ComplianceSuggestedAmount = z.infer<typeof complianceSuggestedAmountSchema>;
+
+/**
+ * Company legal/registration profile — the letterhead facts (RC number, TIN,
+ * registered address, directors…) every printed government-filing/investor/
+ * audit report needs. Editable only by a true super admin
+ * (admin/settings/company-profile); the finance console only ever reads it.
+ */
+export const companyProfileSchema = z.object({
+  legal_name: z.string().nullable().default(null),
+  trading_name: z.string().nullable().default(null),
+  rc_number: z.string().nullable().default(null),
+  tin: z.string().nullable().default(null),
+  vat_registration_number: z.string().nullable().default(null),
+  nsitf_number: z.string().nullable().default(null),
+  itf_number: z.string().nullable().default(null),
+  pension_pfa_code: z.string().nullable().default(null),
+  registered_address: z.string().nullable().default(null),
+  principal_business_activity: z.string().nullable().default(null),
+  incorporation_date: z.string().nullable().default(null),
+  financial_year_end: z.string().default("31 December"),
+  registered_email: z.string().nullable().default(null),
+  registered_phone: z.string().nullable().default(null),
+  directors_text: z.string().nullable().default(null),
+  company_secretary_name: z.string().nullable().default(null),
+  auditor_name: z.string().nullable().default(null),
+  bank_name: z.string().nullable().default(null),
+  bank_account_name: z.string().nullable().default(null),
+  bank_account_number: z.string().nullable().default(null),
+  updated_at: z.string().nullable().default(null),
+});
+export type CompanyProfile = z.infer<typeof companyProfileSchema>;

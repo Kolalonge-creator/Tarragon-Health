@@ -4,19 +4,21 @@ import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { AUDIENCE_TABS } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Who it's for",
   description:
     "TarragonHealth is built for individuals managing their health, families looking after a parent, employers, and HMOs.",
-  alternates: { canonical: MARKETING_ROUTES.whoItsFor },
-};
+  path: MARKETING_ROUTES.whoItsFor,
+});
 
 export default function WhoItsForPage() {
   return (
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Who it's for"
           title="Whoever you're looking after, Tarragon speaks your language."
           description="The same connected record works whether you're managing your own health, keeping watch over a parent, or overseeing a whole workforce or membership."

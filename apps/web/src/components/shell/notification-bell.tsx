@@ -24,7 +24,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text:
         count > 1
-          ? `${count} new lessons ready — starting with "${title}"`
+          ? `${count} new lessons ready, starting with "${title}"`
           : `New lesson ready: "${title}"`,
       href: "/patient/prevention",
     };
@@ -50,13 +50,13 @@ function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "health_reset_complete") {
     return {
-      text: "Your 90-Day Health Reset is complete — claim your free trial",
+      text: "Your 90-Day Health Reset is complete: claim your free trial",
       href: "/patient",
     };
   }
   if (n.template === "video_visit_alternate_proposed") {
     return {
-      text: "Your doctor offered a different time for your video visit — pick one",
+      text: "Your doctor offered a different time for your video visit: pick one",
       href: "/patient/care",
     };
   }
@@ -64,7 +64,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     const name = String(payload.initiator_name ?? "Someone");
     const level = payload.permission_level === "manage" ? "manage" : "view";
     return {
-      text: `${name} sent a request to ${level} care — respond in Your people`,
+      text: `${name} sent a request to ${level} care: respond in Your people`,
       href: "/patient/family",
     };
   }
@@ -156,7 +156,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     const name = String(payload.person_name ?? "someone you support");
     const days = Number(payload.quiet_days ?? 0);
     return {
-      text: `${name} hasn't logged a reading in ${days} days — a call might help`,
+      text: `${name} hasn't logged a reading in ${days} days; a call might help`,
       href: "/patient/supporting",
     };
   }
@@ -181,7 +181,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     // way, this is purely "a notification chain needs a human look."
     const sourceTable = String(payload.source_table ?? "");
     return {
-      text: "A critical alert went unconfirmed on every channel — needs a look",
+      text: "A critical alert went unconfirmed on every channel: needs a look",
       href: sourceTable === "clinician_alerts" ? "/clinician/escalations" : "/admin",
     };
   }
@@ -189,6 +189,19 @@ function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text: "A doctor sent you an interpretation of a lab result you uploaded",
       href: "/patient/labs",
+    };
+  }
+  if (n.template === "free_tier_reading_self_care_suggestion") {
+    // From private.raise_dangerous_reading_ai_suggestion() / assess-glucose.ts
+    // raiseGlucoseAlert() — the Tarragon Free alternative to doctor escalation
+    // for a dangerous vitals/symptom reading (20260810120000_gate_vitals_red_
+    // flag_escalation_to_paid_plans.sql). Deterministic self-care copy, not a
+    // doctor's assessment — the full text lives in payload.self_care_note so
+    // it can be specific to what was actually flagged.
+    const vital = String(payload.vital_label ?? "a reading");
+    return {
+      text: `${vital}: ${String(payload.self_care_note ?? "please take a moment to check on this.")}`,
+      href: "/patient/subscription",
     };
   }
   if (n.template === "emergency_card_viewed") {
@@ -200,8 +213,106 @@ function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "emergency_card_expiring_soon") {
     return {
-      text: "Your emergency card link expires soon — renew it to keep it working",
+      text: "Your emergency card link expires soon; renew it to keep it working",
       href: "/patient/emergency-card",
+    };
+  }
+  if (n.template === "lab_order_patient_confirmation") {
+    const test = String(payload.test_name ?? "your test");
+    const lab = String(payload.lab_name ?? "the lab");
+    return { text: `Your order for ${test} at ${lab} is confirmed`, href: "/patient/labs" };
+  }
+  if (n.template === "lab_order_requested_patient") {
+    const test = String(payload.test_name ?? "a lab test");
+    const selfBooked = payload.self_booked === true;
+    return {
+      text: selfBooked
+        ? `${test} is ready: take it to your chosen lab`
+        : `${test} has been requested for you`,
+      href: "/patient/labs",
+    };
+  }
+  if (n.template === "medication_prescribed_patient") {
+    const drug = String(payload.drug_name ?? "A medication");
+    return { text: `${drug} was prescribed for you`, href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_patient_confirmation") {
+    const items = String(payload.items_summary ?? "your medication");
+    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/pharmacy" };
+  }
+  if (n.template === "referral_patient_confirmation") {
+    const specialist = String(payload.specialist_name ?? "your specialist");
+    return { text: `Your referral to ${specialist} is confirmed`, href: "/patient/referrals" };
+  }
+  if (n.template === "result_document_available") {
+    return { text: "A new lab result document is available", href: "/patient/labs" };
+  }
+  if (n.template === "emergency_followup") {
+    return { text: "Checking in after your recent emergency alert. How are you doing?", href: "/patient" };
+  }
+  if (n.template === "region_now_available") {
+    const name = String(payload.display_name ?? "Tarragon");
+    return { text: `${name} is now available in your area`, href: "/patient" };
+  }
+  if (n.template === "annual_review_due") {
+    return { text: "Your Annual Health Review is due", href: "/patient/health-check" };
+  }
+  if (n.template === "booking_reminder") {
+    const service = String(payload.service_type ?? "your appointment");
+    const days = Number(payload.days_before ?? 0);
+    return {
+      text: days > 0 ? `${service} is coming up in ${days} day${days === 1 ? "" : "s"}` : `${service} is coming up`,
+      href: "/patient/care",
+    };
+  }
+  if (n.template === "care_outreach_checkin") {
+    return { text: "Your care team wants to check in with you", href: "/patient" };
+  }
+  if (n.template === "diabetes_complication_check_due") {
+    const checkType = String(payload.check_type ?? "complication");
+    return { text: `Your ${checkType} check is due`, href: "/patient/care" };
+  }
+  if (n.template === "health_check_due_soon") {
+    const bundle = String(payload.bundle_name ?? "your health check");
+    return { text: `${bundle} is due again soon`, href: "/patient/health-check" };
+  }
+  if (n.template === "health_check_rebook_due") {
+    const bundle = String(payload.bundle_name ?? "your health check");
+    return { text: `Time to rebook ${bundle}`, href: "/patient/health-check" };
+  }
+  if (n.template === "lifestyle_review_due") {
+    return { text: "Your lifestyle review is due", href: "/patient/lifestyle" };
+  }
+  if (n.template === "medication_review_due") {
+    return { text: "Your medication review is due", href: "/patient/medications" };
+  }
+  if (n.template === "preventive_review_due") {
+    return { text: "Your preventive review is due", href: "/patient/prevention" };
+  }
+  if (n.template === "screening_due") {
+    const screen = String(payload.screen_type_name ?? "A screening");
+    return { text: `${screen} is due`, href: "/patient/prevention" };
+  }
+  if (n.template === "vaccination_due") {
+    const vaccine = String(payload.vaccine_name ?? "A vaccination");
+    return { text: `${vaccine} is due`, href: "/patient/prevention" };
+  }
+  if (n.template === "vitals_reminder") {
+    return { text: "Time to log your vitals", href: "/patient/vitals" };
+  }
+  if (n.template === "wellness_challenge_ending") {
+    const title = String(payload.challenge_title ?? "Your challenge");
+    return { text: `${title} ends soon, keep going`, href: "/patient/wellness" };
+  }
+  if (n.template === "second_condition_needs_upgrade") {
+    // From private.ensure_medication_review() — the patient's second
+    // concurrent active condition. Framed as good news (caught early), not
+    // a block: the condition itself, and any urgent escalation on it, are
+    // never gated — only its own scheduled review cadence is.
+    const condition = String(payload.condition ?? "a condition").replace(/_/g, " ");
+    return {
+      text: `We're now tracking ${condition} for you too. Complete Care adds a scheduled review for it`,
+      href: "/patient/subscription",
     };
   }
   return { text: "You have an update", href: "/patient" };

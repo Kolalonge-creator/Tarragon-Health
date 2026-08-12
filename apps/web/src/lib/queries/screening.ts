@@ -1,14 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
+import type { LogScreeningCompletionInput } from "@/lib/validation/screening-completion";
 
 export type ScreeningSchedule = Tables<"screening_schedules"> & {
   screen_type: { name: string; code: string } | null;
 };
 
+export function screeningSchedulesKey(patientId: string) {
+  return ["screening-schedules", patientId];
+}
+
 export function useScreeningSchedules(patientId: string) {
   return useQuery({
-    queryKey: ["screening-schedules", patientId],
+    queryKey: screeningSchedulesKey(patientId),
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -21,5 +26,54 @@ export function useScreeningSchedules(patientId: string) {
       return data as ScreeningSchedule[];
     },
     enabled: !!patientId,
+  });
+}
+
+/**
+ * Patient self-reports a due screening as done, with the date it was
+ * actually performed. Writes through the patient's own RLS-scoped session
+ * (screening_completions is patient-insert-own, same trust level as
+ * vaccination_records); the private.refresh_screening_schedule_on_completion
+ * trigger closes the matching schedule row and schedules the next cycle from
+ * performed_date — not from today, and not a fixed cadence — mirroring
+ * generateVaccinationScheduleBestEffort's "next dose off the logged date"
+ * contract. Returns the new completion id so the caller can immediately link
+ * an uploaded result document to it (see useUploadOwnResultDocument).
+ */
+export function useLogScreeningCompletion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      input: LogScreeningCompletionInput & { patientId: string }
+    ): Promise<string> => {
+      const supabase = createClient();
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", input.patientId)
+        .single();
+      if (profileError) throw profileError;
+      if (!profile?.organisation_id) {
+        throw new Error("This patient has no organisation on file");
+      }
+
+      const { patientId, schedule_id, note, ...rest } = input;
+      const { data, error } = await supabase
+        .from("screening_completions")
+        .insert({
+          ...rest,
+          patient_id: patientId,
+          organisation_id: profile.organisation_id,
+          schedule_id: schedule_id ?? null,
+          note: note?.trim() || null,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: screeningSchedulesKey(variables.patientId) });
+    },
   });
 }

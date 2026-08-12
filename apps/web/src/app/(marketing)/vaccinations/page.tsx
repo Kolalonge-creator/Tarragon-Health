@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Vaccinations",
   description:
     "A personal vaccination schedule for you and your children, reminders when a dose is due, and a doctor-verified certificate you'll never lose. Get the dose wherever suits you, then log it.",
-  alternates: { canonical: MARKETING_ROUTES.vaccinations },
-};
+  path: MARKETING_ROUTES.vaccinations,
+});
 
 const HOW_IT_WORKS = [
   {

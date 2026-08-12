@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Give the Gift of Health",
   description:
     "Buy a parent or family member a named health check they can use whenever suits them. Not a balance, not a gift card, a real appointment already paid for.",
-  alternates: { canonical: MARKETING_ROUTES.gift },
-};
+  path: MARKETING_ROUTES.gift,
+});
 
 const WAYS_TO_GIVE = [
   {

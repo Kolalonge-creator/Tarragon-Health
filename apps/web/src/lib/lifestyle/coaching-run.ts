@@ -9,14 +9,20 @@ import "server-only";
  * without ML, per the never-throw ml-client contract. Paused programmes are
  * excluded (they are a doctor's, not the coach's), so a nudge can never be sent
  * to a paused patient even before the agent's guardrail runs.
+ *
+ * `send_nudge`'s copy is personalised via createLifestyleCoachingProposer
+ * (Claude, grounded in the patient's real programme/phase/goals) — but which
+ * *action* to take is still decided deterministically (proposeNextAction),
+ * and runCoachingLoop always routes the result through applyGuardrails, so
+ * this is additive to the existing safety contract, not a change to it.
  */
 import { createMlClientFromEnv } from "@tarragon/shared";
-import {
-  decideCoachingAction,
-  type ProgrammeSignals,
-} from "@tarragon/lifestyle-engine";
+import { runCoachingLoop, type ProgrammeSignals } from "@tarragon/lifestyle-engine";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createLifestyleMessagingGateway } from "./messaging-gateway";
+import { createLifestyleCoachingProposer } from "./coaching-proposer";
+import { CONDITION_LABEL, getLifestyleState } from "./service";
+import { createVoyageEmbedderFromEnv } from "./voyage-embedder";
 
 export interface CoachingRunResult {
   processed: number;
@@ -29,10 +35,14 @@ const WINDOW_MS = 30 * 86_400_000;
 export async function runLifestyleCoaching(): Promise<CoachingRunResult> {
   const svc = createServiceRoleClient();
   const ml = createMlClientFromEnv();
+  // Built once, reused for every patient this run — `null` when
+  // VOYAGE_API_KEY is unset, so reference-material retrieval is skipped
+  // gracefully for the whole run rather than per-patient.
+  const embedder = createVoyageEmbedderFromEnv();
 
   const { data: enrollments } = await svc
     .from("lpe_enrollments")
-    .select("id, patient_id, organisation_id, status")
+    .select("id, patient_id, organisation_id, status, condition")
     .in("status", ["active", "maintenance"]);
 
   let nudged = 0;
@@ -97,7 +107,30 @@ export async function runLifestyleCoaching(): Promise<CoachingRunResult> {
       plateauDetected,
     };
 
-    const action = decideCoachingAction(signals);
+    // Grounding for the proposer's copy, not for the (already-computed)
+    // signals above — reuses the same getLifestyleState() the AI Coach's
+    // context.ts and the patient-facing /patient/lifestyle page already
+    // call, no parallel query path.
+    const enrollmentViews = await getLifestyleState(svc, e.patient_id);
+    const view = enrollmentViews.find((v) => v.id === e.id);
+    const recentWeightKg = (meas ?? [])
+      .filter((m) => m.type === "weight" && m.value_num !== null)
+      .slice(0, 5)
+      .map((m) => ({ value: m.value_num as number, takenAt: m.taken_at }));
+
+    const proposer = createLifestyleCoachingProposer(
+      {
+        condition: e.condition,
+        conditionLabel: CONDITION_LABEL[e.condition] ?? e.condition,
+        programmeName: view?.programmeName ?? null,
+        currentPhaseName: view?.currentPhaseName ?? null,
+        goalTitles: view?.goals.map((g) => g.title) ?? [],
+        recentWeightKg,
+      },
+      { supabase: svc, embedder },
+    );
+
+    const { action } = await runCoachingLoop(signals, { proposer });
 
     if (action.kind === "send_nudge") {
       const gateway = createLifestyleMessagingGateway(e.organisation_id);
@@ -105,6 +138,7 @@ export async function runLifestyleCoaching(): Promise<CoachingRunResult> {
         patientId: e.patient_id,
         templateKey: "lifestyle_nudge",
         messageClass: "coaching_nudge",
+        variables: action.message ? { message: action.message } : undefined,
       });
       if (r.ok) nudged++;
     } else if (action.kind === "request_doctor_review") {

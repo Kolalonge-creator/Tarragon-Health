@@ -5,6 +5,7 @@ import {
   useAllChronicProgrammes,
   useConditionProtocols,
   useSetChronicProgrammeActive,
+  useHtnQualityMetrics,
   type ChronicProgramme,
   type ConditionProtocol,
 } from "@/lib/queries/chronic-programmes";
@@ -86,14 +87,64 @@ function SignProtocolForm({
   );
 }
 
+/** H16 (§22) KPI snapshot — hypertension only, the only condition with the RPC built so far. */
+function HtnQualityCard({ organisationId }: { organisationId: string | null | undefined }) {
+  const { data, isLoading, isError } = useHtnQualityMetrics(organisationId);
+
+  if (isLoading) return <p className="text-xs text-charcoal-ink/50">Loading KPIs…</p>;
+  if (isError || !data) return null;
+
+  const stats: Array<{ label: string; value: string | number; tone?: "red" | "amber" }> = [
+    {
+      label: "Control rate",
+      value: data.control_rate_pct !== null ? `${data.control_rate_pct}%` : "—",
+    },
+    { label: "HTN patients", value: data.htn_patients },
+    { label: "Open Priority-1 (red)", value: data.open_red_alerts, tone: "red" },
+    { label: "Open amber review", value: data.open_amber_alerts, tone: "amber" },
+    { label: "Emergencies (30d)", value: data.bp_emergencies_30d, tone: data.bp_emergencies_30d > 0 ? "red" : undefined },
+    { label: "Missing expected readings", value: data.patients_missing_readings },
+  ];
+
+  return (
+    <div className="rounded-md border border-charcoal-ink/10 bg-mist-grey/40 p-3">
+      <p className="mb-2 text-xs font-medium text-charcoal-ink/60">
+        Clinical-audit KPIs (§22): {data.htn_patients} enrolled patient
+        {data.htn_patients === 1 ? "" : "s"}
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {stats.map((s) => (
+          <div key={s.label} className="rounded bg-white p-2">
+            <p
+              className={
+                "text-lg font-semibold " +
+                (s.tone === "red"
+                  ? "text-red-600"
+                  : s.tone === "amber"
+                    ? "text-amber-600"
+                    : "text-charcoal-ink")
+              }
+            >
+              {s.value}
+            </p>
+            <p className="text-[11px] leading-tight text-charcoal-ink/60">{s.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProgrammeRow({
   programme,
   protocol,
   isSigned,
+  organisationId,
 }: {
   programme: ChronicProgramme;
   protocol: ConditionProtocol | undefined;
   isSigned: boolean;
+  organisationId: string | null | undefined;
 }) {
   const setActive = useSetChronicProgrammeActive();
   const [showProtocol, setShowProtocol] = useState(false);
@@ -151,6 +202,10 @@ function ProgrammeRow({
           <p className="text-sm text-red-600">{(setActive.error as Error).message}</p>
         )}
 
+        {programme.condition === "hypertension" && (
+          <HtnQualityCard organisationId={organisationId} />
+        )}
+
         <div className="flex flex-wrap gap-3 text-sm">
           {protocol && (
             <button
@@ -190,7 +245,11 @@ function ProgrammeRow({
   );
 }
 
-export function ConditionsManager() {
+export function ConditionsManager({
+  organisationId,
+}: {
+  organisationId?: string | null;
+}) {
   const programmes = useAllChronicProgrammes();
   const protocols = useConditionProtocols();
   const versions = useProtocolVersions();
@@ -215,6 +274,7 @@ export function ConditionsManager() {
           programme={programme}
           protocol={protocolByCondition.get(programme.condition)}
           isSigned={signedSlugs.has(programme.protocol_slug)}
+          organisationId={organisationId}
         />
       ))}
     </div>

@@ -1,0 +1,79 @@
+name: Release Integrity
+
+# Catches three deployment/release failure modes that ci.yml (compile/lint/test) never touches,
+# because it never talks to the live Vercel project or the live Supabase project:
+#
+#   1. A push to main builds successfully on Vercel but never gets promoted to production
+#      (CLAUDE.md's 2026-08-04 entry — happened twice with no CI check catching it).
+#   2. A deployed Supabase edge function drifts behind its own committed source
+#      (send-pending-notifications specifically, "found stale and redeployed at least half a
+#      dozen separate times" per CLAUDE.md).
+#   3. A migration is live on the production database from a feature branch that never got
+#      merged into main-dev/main (or, going the other way, committed locally but never applied) —
+#      recurred at least three separate times per the reference_migration_filename_version_drift
+#      memory note, most recently confirmed live again on 2026-08-12.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions):
+#   VERCEL_TOKEN            Personal or team token with read access to the tarragon-health-web
+#                            Vercel project (vercel.com/account/tokens).
+#   SUPABASE_ACCESS_TOKEN   Personal access token for the Supabase account that owns the
+#                            "Tarragon Health" project (supabase.com/dashboard/account/tokens).
+# Project/team IDs (not secret) are hardcoded as script defaults; override via env if they ever
+# change. Until both secrets are added, every job here will fail closed with a clear "token not
+# set" message rather than silently skipping.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-integrity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-production-promotion:
+    name: Vercel production promotion
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for this commit to be READY and promoted to production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/release-integrity/verify-vercel-promotion.mjs ${{ github.sha }}
+
+  check-edge-function-drift:
+    name: Edge function drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Compare deployed edge functions against origin/main
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/release-integrity/check-edge-function-drift.mjs origin/main
+
+  check-migration-drift:
+    name: Migration / branch merge drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch all branches (needed to trace an orphaned migration to its owning branch)
+        run: git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Compare applied migrations against committed migration files
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/release-integrity/check-migration-drift.mjs

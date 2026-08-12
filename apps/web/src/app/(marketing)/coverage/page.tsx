@@ -4,12 +4,15 @@ import { CtaBand } from "../_components/cta-band";
 import { getServiceCoverage } from "@/lib/marketing/coverage-data";
 import { gatedServices, itemsFor } from "@/lib/coverage/what-works-where";
 import { CoverageChecker } from "./coverage-checker";
+import { pageMetadata } from "@/lib/marketing/site";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
-export const metadata: Metadata = {
-  title: "Where TarragonHealth works: coverage by state",
+export const metadata: Metadata = pageMetadata({
+  title: "Where we work: coverage by state",
   description:
     "Check which TarragonHealth services are live in any Nigerian state before you sign up, and see exactly what works from anywhere in the world.",
-};
+  path: MARKETING_ROUTES.coverage,
+});
 
 // The coverage answer changes only when ops contracts a partner or switches a
 // state on, so a short cache is plenty and keeps the page fast for anon traffic.

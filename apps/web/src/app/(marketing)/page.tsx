@@ -22,13 +22,14 @@ import {
   WHAT_YOU_GET,
 } from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "TarragonHealth | Care that stays with you",
   description:
     "Health monitoring for chronic disease, preventive health, and care coordination. Track vitals, medication, labs, and preventive checks in one secure platform.",
-  alternates: { canonical: "/" },
-};
+  path: "/",
+});
 
 export default function MarketingHomePage() {
   const { homepage } = MARKETING_MEDIA;

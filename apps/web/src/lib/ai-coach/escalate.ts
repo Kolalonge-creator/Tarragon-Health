@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
-export interface EscalateParams {
+export interface AiCoachAlertParams {
   organisationId: string;
   patientId: string;
   conversationId: string;
-  /** The patient's message that triggered the emergency tier, for the
-   * clinician's context — never the coach's own reply. */
+  /** The patient's message that triggered the tier, for the clinician's
+   * context — never the coach's own reply. */
   triggerMessage: string;
 }
 
@@ -23,10 +23,10 @@ export interface EscalateParams {
  */
 export async function logAiCoachEscalation(
   serviceRoleSupabase: SupabaseClient<Database>,
-  params: EscalateParams
+  params: AiCoachAlertParams
 ): Promise<string> {
   const { organisationId, patientId, conversationId, triggerMessage } = params;
-  const detail = `AI Coach conversation ${conversationId} — patient wrote: "${triggerMessage}"`;
+  const detail = `AI Coach conversation ${conversationId}: patient wrote "${triggerMessage}"`;
 
   const { data: alert, error: alertError } = await serviceRoleSupabase
     .from("clinician_alerts")
@@ -82,6 +82,47 @@ export async function logAiCoachEscalation(
     entity_id: alert.id,
     event: { conversation_id: conversationId },
   });
+
+  return alert.id;
+}
+
+/**
+ * Writes just the clinician_alerts row for an AI-Coach turn tiered
+ * `clinician_review` — flagged, but not urgent enough to be an escalation.
+ * Deliberately lighter than logAiCoachEscalation above: no `escalations` or
+ * `emergency_events` row, because clinician_review isn't an escalation, it's
+ * a "worth a doctor's look" flag. Before this existed, a clinician_review
+ * turn only ever wrote an audit_log entry (see graph.ts's logReview node) —
+ * correct for the record, but nobody's dashboard reads audit_log, so a real
+ * concern could sit unseen indefinitely. Same service-role rationale as
+ * logAiCoachEscalation: clinician_alerts is staff-write-only.
+ */
+export async function logAiCoachReviewFlag(
+  serviceRoleSupabase: SupabaseClient<Database>,
+  params: AiCoachAlertParams
+): Promise<string> {
+  const { organisationId, patientId, conversationId, triggerMessage } = params;
+  const detail = `AI Coach conversation ${conversationId}: patient wrote "${triggerMessage}"`;
+
+  const { data: alert, error } = await serviceRoleSupabase
+    .from("clinician_alerts")
+    .insert({
+      organisation_id: organisationId,
+      patient_id: patientId,
+      level: "clinician_review",
+      status: "open",
+      title: "AI Coach: flagged for clinician review",
+      detail,
+      // Same 72-hour SLA convention already used for the clinician_review
+      // level elsewhere (private.handle_lpe_red_flag()'s amber mapping) —
+      // not urgent, but must not silently vanish.
+      sla_due_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    })
+    .select("id")
+    .single();
+  if (error || !alert) {
+    throw new Error(error?.message ?? "Could not create clinician alert");
+  }
 
   return alert.id;
 }

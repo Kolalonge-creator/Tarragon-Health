@@ -31,6 +31,9 @@ export const SCREEN_TYPE_LABELS: Record<(typeof SCREENING_RESULT_SCREEN_TYPES)[n
   cervical_smear: "Cervical smear",
   fit: "FIT (colorectal)",
   clinical_breast_exam: "Clinical breast exam",
+  breast_imaging: "Breast imaging (ultrasound/mammography)",
+  abdominal_ultrasound: "Abdominal ultrasound",
+  prostate_ultrasound: "Prostate ultrasound",
   bone_density: "Bone density scan",
   colonoscopy: "Colonoscopy",
   vision_check: "Vision check",
@@ -41,6 +44,8 @@ export const SCREEN_TYPE_LABELS: Record<(typeof SCREENING_RESULT_SCREEN_TYPES)[n
   urinalysis: "Urinalysis",
   urine_acr: "Urine albumin:creatinine ratio",
   ecg_resting: "Resting 12-lead ECG",
+  hearing_check: "Hearing / audiometry screening",
+  dental_check: "Dental / oral health check-up",
 };
 
 type ScreenType = (typeof SCREENING_RESULT_SCREEN_TYPES)[number];

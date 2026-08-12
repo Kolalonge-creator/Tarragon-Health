@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Health Education",
   description:
     "Learning built around your own conditions and risk, reviewed by our clinical team, with short knowledge checks so you can see what's actually sticking.",
-  alternates: { canonical: MARKETING_ROUTES.healthEducation },
-};
+  path: MARKETING_ROUTES.healthEducation,
+});
 
 const WHATS_INCLUDED = [
   {

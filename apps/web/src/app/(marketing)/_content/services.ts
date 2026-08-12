@@ -56,7 +56,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
     key: "labs",
     href: MARKETING_ROUTES.labs,
     title: "Labs",
-    description: "Know what tests are due, book them, and track follow-up.",
+    description: "Know what tests are due, take the request to any lab, and track follow-up.",
     built: true,
   },
 ];
@@ -139,7 +139,7 @@ export const HOW_IT_WORKS_STEPS = [
   { step: 1, title: "Sign up", body: "Create your account in minutes, for yourself or a loved one." },
   { step: 2, title: "Onboard", body: "Share your health history and what you want Tarragon to watch." },
   { step: 3, title: "Monitor", body: "Log vitals, take medication, and complete preventive checks." },
-  { step: 4, title: "Doctor review", body: "Your care team reviews your readings and follows up." },
+  { step: 4, title: "Care protocol checks", body: "Every reading you log is checked against care protocols automatically." },
   { step: 5, title: "Doctor escalation", body: "When closer care is needed, we escalate; you are never alone." },
   {
     step: 6,
@@ -173,7 +173,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     points: [
       "BP, glucose, and weight logging with trend review",
       "Medication reminders and refill alerts",
-      "Monthly doctor check-in, doctor escalation when needed",
+      "Scheduled doctor check-in, doctor escalation when needed",
     ],
     stats: [
       { label: "Blood pressure", value: "124 / 79", pill: { text: "In range", tone: "green" } },

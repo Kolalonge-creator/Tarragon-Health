@@ -336,9 +336,16 @@ update public.specialist_providers set state = 'Lagos', city = 'Ikeja' where sta
 -- Entitlement features granted to the comprehensive tiers by later migrations
 -- (annual_review 20260717123000, lifestyle_coaching 20260717141000,
 -- health_education 20260717151000 + gap fix 20260719213449, async_doctor_visit
--- 20260723010040) are INLINED in these arrays: on `supabase db reset` those
--- migrations' UPDATEs run before this seed file, so the inserts here must
--- carry the full live-DB feature set themselves (2026-07-23 reconciliation).
+-- 20260723010040, ai_coach 20260810131959) are INLINED in these arrays: on
+-- `supabase db reset` those migrations' UPDATEs run before this seed file, so
+-- the inserts here must carry the full live-DB feature set themselves
+-- (2026-07-23 reconciliation). Note: as of 20260729130000_restore_subscription_
+-- price_book.sql, these specific complete*/complete_yearly* rows are actually
+-- migration-created (that migration's own `insert ... on conflict do update`
+-- wins over whatever this seed file tries afterward), so inlining here is
+-- belt-and-suspenders documentation, not load-bearing, for this block —
+-- still worth keeping accurate so a reader grepping this file for a feature
+-- code sees the true live set.
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features)
 values
@@ -356,11 +363,11 @@ values
   ('complete', 'Complete Care',
      'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
      1500000, 'NGN', 'monthly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit']),
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'ai_coach', 'health_education', 'async_doctor_visit']),
   ('complete_yearly', 'Complete Care (yearly)',
      'Complete Care billed annually — 2 months free.',
      15000000, 'NGN', 'yearly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'])
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'ai_coach', 'health_education', 'async_doctor_visit'])
 on conflict (code) do nothing;
 
 
@@ -431,9 +438,9 @@ values
   ('essential_yearly_usd', 'Essential Care (yearly)', 'Essential Care billed annually — 2 months free.',
      19000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills'], false),
   ('complete_usd', 'Complete Care', 'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
-     3900, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false),
+     3900, 'USD', 'monthly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'ai_coach', 'health_education', 'async_doctor_visit'], false),
   ('complete_yearly_usd', 'Complete Care (yearly)', 'Complete Care billed annually — 2 months free.',
-     39000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'health_education', 'async_doctor_visit'], false)
+     39000, 'USD', 'yearly', array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'ai_coach', 'health_education', 'async_doctor_visit'], false)
 on conflict (code) do nothing;
 
 insert into public.add_ons (code, name, description, price_minor, currency, interval, features, restricted_to_plan_code, is_active)

@@ -1,5 +1,5 @@
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
-import { canHandleEmergencyEscalation } from "@/lib/clinical/doctor-tier";
+import { canHandleEmergencyEscalation, isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { EscalationWorklist } from "./escalation-worklist";
 
 /**
@@ -7,12 +7,20 @@ import { EscalationWorklist } from "./escalation-worklist";
  * founder decision 2026-07-31) can view and work this queue, not just a
  * former Tier 4/5 subset. Ranked by severity + SLA breach, not raise order.
  * Claiming/resolving an emergency-level case is the one action still gated
- * to Tier 2+/Clinical Director — see canHandleEmergencyEscalation.
+ * to Tier 2+/Clinical Director — see canHandleEmergencyEscalation. Claiming
+ * *any* case at all is gated to isClinicalTier: a Care Coordinator can raise
+ * an escalation (hand a case to a doctor) but must never claim or resolve
+ * one themselves — see the "Care Coordinator write access" rule in
+ * CLAUDE.md. That rule is enforced here at the app layer, not in RLS (same
+ * pattern as the Clinical Director protocol-signing gate), since Care
+ * Coordinators carry an active clinical_staff row too and read the same
+ * org-wide escalations_select policy as everyone else.
  * Detail view: ./[escalationId].
  */
 export default async function ClinicianEscalationsPage() {
   const staff = await getCurrentClinicalStaff();
   const canHandleEmergency = canHandleEmergencyEscalation(staff);
+  const canClaim = isClinicalTier(staff);
 
   return (
     <div className="space-y-6">
@@ -22,7 +30,7 @@ export default async function ClinicianEscalationsPage() {
           Cases escalated for senior review, most urgent first.
         </p>
       </div>
-      <EscalationWorklist canHandleEmergency={canHandleEmergency} />
+      <EscalationWorklist canHandleEmergency={canHandleEmergency} canClaim={canClaim} />
     </div>
   );
 }

@@ -5,13 +5,14 @@ import { ActivityIntensityCalculator } from "../_components/activity-intensity-c
 import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Physical Activity Intensity Calculator",
   description:
     "Free physical activity intensity calculator. Estimate calories burned and see how your session counts toward WHO's weekly activity guideline, no sign-up required.",
-  alternates: { canonical: MARKETING_ROUTES.activityCalculator },
-};
+  path: MARKETING_ROUTES.activityCalculator,
+});
 
 const FAQS = [
   {
@@ -37,6 +38,7 @@ export default function ActivityCalculatorPage() {
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Free tool"
           title="Physical Activity Intensity Calculator"
           description="Estimate the calories burned and intensity of what you just did, and see how it stacks up against WHO's weekly activity guideline. No account, no email required."

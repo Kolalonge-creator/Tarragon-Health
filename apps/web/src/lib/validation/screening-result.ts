@@ -36,6 +36,14 @@ export const PROCEDURAL_SCREEN_TYPES = [
   "cervical_smear",
   "fit",
   "clinical_breast_exam",
+  // Self-arranged like mammography/fit as of 20260811222950/20260811233511
+  // — status-only, no ML lab-interpretation shape, same as every other
+  // imaging/procedural code here. echo is deliberately excluded: it's
+  // conditional on an ECG/BP/symptom finding, not a self-arranged calendar
+  // screen, and isn't in any panel_bundle's test_codes.
+  "breast_imaging",
+  "abdominal_ultrasound",
+  "prostate_ultrasound",
   "bone_density",
   "colonoscopy",
   "vision_check",
@@ -46,6 +54,11 @@ export const PROCEDURAL_SCREEN_TYPES = [
   "urinalysis",
   "ecg_resting",
   "urine_acr",
+  // hearing_check/dental_check added 2026-08-10 (screen_types migration
+  // 20260810033458) — status-only like vision_check, no ML lab-interpretation
+  // shape.
+  "hearing_check",
+  "dental_check",
 ] as const;
 
 export const SCREENING_RESULT_SCREEN_TYPES = [

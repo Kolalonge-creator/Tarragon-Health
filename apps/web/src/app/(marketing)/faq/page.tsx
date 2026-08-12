@@ -4,13 +4,14 @@ import { CtaBand } from "../_components/cta-band";
 import { Section, SectionHeading } from "../_components/section";
 import { HOMEPAGE_FAQS } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "FAQ",
   description:
     "Clear answers about how TarragonHealth works, what's included, and how care and escalation happen, before you sign up.",
-  alternates: { canonical: MARKETING_ROUTES.faq },
-};
+  path: MARKETING_ROUTES.faq,
+});
 
 /** FAQPage structured data; eligible for the FAQ rich result in search. */
 const faqJsonLd = {
@@ -32,6 +33,7 @@ export default function FaqPage() {
       />
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Questions"
           title="What families usually ask first"
           description="Clear answers before anyone signs up, because trust starts with knowing what is included."

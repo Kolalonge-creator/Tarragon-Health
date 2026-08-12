@@ -3,12 +3,18 @@ import { ScreenOrderChecklist, type ScreenOrderChecklistItem } from "./screen-or
 import { SCREEN_TYPE_LABELS } from "./screening-result-form";
 
 /**
- * Dormant imaging codes (no imaging partner exists yet — see
- * 20260802010000's own assertion block) are never shown as outstanding; a
- * Comprehensive Screen order that only lacks these already reads
- * "resulted" per private.check_screen_order_completeness.
+ * A Comprehensive Screen order that only lacks a dormant code already reads
+ * "resulted" per private.check_screen_order_completeness — it's never shown
+ * as outstanding. breast_imaging (20260811222950) and abdominal_ultrasound/
+ * prostate_ultrasound (20260811233511) are no longer in this set — all
+ * three are self-arranged like fit/mammography now (patient takes the order
+ * to any imaging facility near them and uploads the result), so a
+ * Comprehensive Screen order genuinely needs them resulted before it
+ * auto-resolves. echo stays dormant: it's conditional on an ECG/BP/symptom
+ * finding, not a calendar screen, and was never added to any
+ * panel_bundles.test_codes in the first place.
  */
-const DORMANT_CODES = new Set(["abdominal_ultrasound", "breast_imaging", "prostate_ultrasound", "echo"]);
+const DORMANT_CODES = new Set(["echo"]);
 /** Same once-per-lifetime set as private.check_screen_order_completeness. */
 const ONCE_PER_LIFETIME = new Set(["sickle_cell_genotype", "blood_group"]);
 const SCREEN_BUNDLE_CODES = ["screen_core", "screen_advanced", "screen_comprehensive"];

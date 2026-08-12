@@ -1,20 +1,28 @@
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { healthSampleBatchSchema } from "@/lib/validation/health-sample";
+import {
+  DEVICE_LOCAL_HEALTH_PROVIDERS,
+  healthSampleBatchSchema,
+  type DeviceLocalHealthProvider,
+} from "@/lib/validation/health-sample";
 import { ingestReadings } from "@/lib/wearables/ingest";
 import type { NormalisedReading } from "@/lib/wearables/normalise";
 
 /**
- * Apple Health ingestion boundary for the Expo mobile app.
+ * On-device health-store ingestion boundary for the Expo mobile app —
+ * Apple Health (iOS) and Android Health Connect.
  *
  * CLAUDE.md's Device & Wearable Integration section calls this out
- * explicitly: HealthKit has no cloud OAuth API at all, its data is
- * device-local, so syncing it needs the mobile app's own HealthKit bridge —
- * the same shape as the BLE clinical-device pairing, not a server-side
- * redirect. That is why apple_health is a wearable_provider enum value but
- * deliberately not a CloudOAuthWearableProvider, and why this route exists
- * alongside api/wearables/webhook rather than inside it.
+ * explicitly: neither platform's health store has a cloud OAuth API at all,
+ * their data is device-local, so syncing needs the mobile app's own bridge
+ * (healthkit.ts / health-connect.ts) — the same shape as the BLE
+ * clinical-device pairing, not a server-side redirect. That is why
+ * apple_health/android_health_connect are wearable_provider enum values but
+ * deliberately not CloudOAuthWearableProvider, and why this route exists
+ * alongside api/wearables/webhook rather than inside it. One route handles
+ * both providers, distinguished by a `provider` field, because they upload
+ * the exact same HealthSample shape.
  *
  * Mirrors api/mobile/device-readings: bearer-authenticated with the mobile
  * session's own JWT, patient identity taken from the verified token and
@@ -25,22 +33,30 @@ import type { NormalisedReading } from "@/lib/wearables/normalise";
  * private.enforce_vitals_reading_source_lock.
  */
 
+function parseProvider(value: string | null): DeviceLocalHealthProvider {
+  return (DEVICE_LOCAL_HEALTH_PROVIDERS as readonly string[]).includes(value ?? "")
+    ? (value as DeviceLocalHealthProvider)
+    : "apple_health";
+}
+
 /**
- * The app asks where to resume before reading HealthKit, so a device that
- * has synced before uploads a delta instead of its whole history. Returns
- * null on a first-ever sync, which the app treats as "read a bounded initial
- * window" rather than "read everything ever recorded".
+ * The app asks where to resume before reading its health store, so a device
+ * that has synced before uploads a delta instead of its whole history.
+ * Returns null on a first-ever sync, which the app treats as "read a
+ * bounded initial window" rather than "read everything ever recorded".
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
+
+  const provider = parseProvider(new URL(request.url).searchParams.get("provider"));
 
   const svc = createServiceRoleClient();
   const { data } = await svc
     .from("wearable_connections")
     .select("sync_cursor, last_synced_at")
     .eq("patient_id", auth.userId)
-    .eq("provider", "apple_health")
+    .eq("provider", provider)
     .eq("status", "active")
     .maybeSingle();
 
@@ -79,10 +95,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "No organisation on file" }, { status: 400 });
   }
 
+  const provider = parsed.data.provider;
   const svc = createServiceRoleClient();
-  const connection = await resolveOrCreateConnection(svc, userId, profile.organisation_id);
+  const connection = await resolveOrCreateConnection(svc, userId, profile.organisation_id, provider);
   if (!connection) {
-    return NextResponse.json({ error: "Could not open an Apple Health connection" }, { status: 500 });
+    return NextResponse.json({ error: "Could not open a health-store connection" }, { status: 500 });
   }
 
   const readings: NormalisedReading[] = parsed.data.samples.map((sample) => ({
@@ -91,9 +108,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     secondaryValue: sample.secondary_value,
     unit: sample.unit,
     recordedAt: sample.recorded_at,
-    // HealthKit sample UUIDs are unique per device, not per platform, so they
-    // are namespaced the same way every cloud provider's ids are.
-    externalReadingId: `apple_health:${sample.external_reading_id}`,
+    // Namespaced by provider, not just "apple_health:" — an iOS and an
+    // Android reading could otherwise coincidentally share a raw id and
+    // collide on the dedupe index.
+    externalReadingId: `${provider}:${sample.external_reading_id}`,
   }));
 
   const result = await ingestReadings(
@@ -154,25 +172,27 @@ async function authenticate(request: Request): Promise<AuthOk | { response: Next
 }
 
 /**
- * One active apple_health connection per patient, matching the partial
+ * One active connection per (patient, provider), matching the partial
  * unique index on (patient_id, provider) where status='active'. Created
- * server-side rather than by the app: since the 20260808023332 migration a
+ * server-side rather than by the app: since the 20260808030359 migration a
  * patient session cannot insert a connection row at all, which is what stops
- * anyone from claiming a cloud provider account that isn't theirs.
+ * anyone from claiming a provider account that isn't theirs.
  *
- * external_id is left null deliberately — HealthKit has no provider-side
- * account to point at, which is the whole reason it needs this route.
+ * external_id is left null deliberately — neither HealthKit nor Health
+ * Connect has a provider-side account to point at, which is the whole
+ * reason they need this route instead of an OAuth callback.
  */
 async function resolveOrCreateConnection(
   svc: ReturnType<typeof createServiceRoleClient>,
   patientId: string,
-  organisationId: string
+  organisationId: string,
+  provider: DeviceLocalHealthProvider
 ): Promise<{ id: string } | null> {
   const { data: existing } = await svc
     .from("wearable_connections")
     .select("id")
     .eq("patient_id", patientId)
-    .eq("provider", "apple_health")
+    .eq("provider", provider)
     .eq("status", "active")
     .maybeSingle();
   if (existing) return existing;
@@ -182,7 +202,7 @@ async function resolveOrCreateConnection(
     .insert({
       organisation_id: organisationId,
       patient_id: patientId,
-      provider: "apple_health",
+      provider,
       status: "active",
     })
     .select("id")
@@ -196,7 +216,7 @@ async function resolveOrCreateConnection(
         .from("wearable_connections")
         .select("id")
         .eq("patient_id", patientId)
-        .eq("provider", "apple_health")
+        .eq("provider", provider)
         .eq("status", "active")
         .maybeSingle();
       return raced ?? null;

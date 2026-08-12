@@ -146,7 +146,29 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, it's time to log your vitals (due ${dueDate}). ` +
-        `Tap to log it: ${appUrl(path)} — Tarragon Health`,
+        `Tap to log it: ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  // Sent by the daily lifestyle-coaching cron (coaching-run.ts via
+  // messaging-gateway.ts) when a patient's engagement signals call for a
+  // supportive nudge. `message` is LLM-personalised copy when available
+  // (coaching-proposer.ts) — already screened by toneGuard before this row
+  // was ever queued — falling back to a generic check-in line when absent
+  // (rules-only decision, or the LLM call failed). Falls back to SMS until
+  // the Meta template is approved, same as the other not-yet-approved
+  // templates in this file.
+  lifestyle_nudge: (payload) => {
+    const message = String(
+      payload.message ??
+        "Checking in on your lifestyle programme; log a quick update when you get a chance.",
+    );
+    const path = "/patient/lifestyle";
+    return {
+      metaTemplateName: "lifestyle_nudge",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -168,7 +190,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, your ${drugName} refill is due ${refillDate}. ` +
-        `Sort it here: ${appUrl(path)} — Tarragon Health`,
+        `Sort it here: ${appUrl(path)} Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -193,7 +215,7 @@ const TEMPLATE_MAP: Record<
       smsText:
         `Hi, reminder: your ${serviceType} request at ${facilityName} is for ${requestedDate} ` +
         `(${daysBefore} day${daysBefore === "1" ? "" : "s"} from now). ` +
-        `Reply on WhatsApp or open the app. — Tarragon Health`,
+        `Reply on WhatsApp or open the app. Tarragon Health`,
     };
   },
   // Sent to the patient as a scheduled adherence check-in comes due (see
@@ -223,7 +245,7 @@ const TEMPLATE_MAP: Record<
           ],
         },
       ],
-      smsText: `${prompt} Answer here: ${appUrl(path)} — Tarragon Health`,
+      smsText: `${prompt} Answer here: ${appUrl(path)} Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -239,8 +261,8 @@ const TEMPLATE_MAP: Record<
         { type: "body", parameters: [{ type: "text", text: dueDate }] },
       ],
       smsText:
-        `Hi, your medication review is due ${dueDate}. Your care team will be in touch — ` +
-        `open the app to see details. — Tarragon Health`,
+        `Hi, your medication review is due ${dueDate}. Your care team will be in touch; ` +
+        `open the app to see details. Tarragon Health`,
     };
   },
   // Sent to the patient as a scheduled vaccination comes due (see
@@ -263,7 +285,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, your ${vaccineName} is due ${dueDate}. Open the Tarragon Health app to book or ` +
-        `log it. — Tarragon Health`,
+        `log it. Tarragon Health`,
     };
   },
   // Sent to the patient as a scheduled screening comes due (see
@@ -287,7 +309,34 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, your ${screenTypeName} is due ${dueDate}. Open the Tarragon Health app to book it. ` +
-        `— Tarragon Health`,
+        `Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  // Sent ~1 month before a patient's next annual Health Check (Core/Advanced/
+  // Comprehensive Screen) is due — see
+  // private.queue_health_check_due_reminders. Reminder only — ordering the
+  // check and uploading the result always happen in-app, never over
+  // WhatsApp/SMS.
+  health_check_due_soon: (payload) => {
+    const bundleName = String(payload.bundle_name ?? "your annual Health Check");
+    const dueDate = String(payload.due_date ?? "soon");
+    const path = "/patient/prevention#health-check";
+    return {
+      metaTemplateName: "health_check_due_soon",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: bundleName },
+            { type: "text", text: dueDate },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, your ${bundleName} is due ${dueDate}, about a month from now. Open the Tarragon ` +
+        `Health app to book it in good time. Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -316,8 +365,8 @@ const TEMPLATE_MAP: Record<
         },
       ],
       smsText:
-        `Hi, ${label} ${reason}. Your care team is aware — open the Tarragon Health app to see ` +
-        `more. — Tarragon Health`,
+        `Hi, ${label} ${reason}. Your care team is aware; open the Tarragon Health app to see ` +
+        `more. Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -331,7 +380,7 @@ const TEMPLATE_MAP: Record<
       components: [{ type: "body", parameters: [] }],
       smsText:
         "You have a new message from your care team. Open the Tarragon Health app to read and " +
-        "reply. — Tarragon Health",
+        "reply. Tarragon Health",
     };
   },
   // Sent to the patient as a scheduled periodic health review comes due (see
@@ -346,8 +395,8 @@ const TEMPLATE_MAP: Record<
         { type: "body", parameters: [{ type: "text", text: dueDate }] },
       ],
       smsText:
-        `Hi, your preventive health review is due ${dueDate}. Your care team will be in touch — ` +
-        `open the app to see details. — Tarragon Health`,
+        `Hi, your preventive health review is due ${dueDate}. Your care team will be in touch; ` +
+        `open the app to see details. Tarragon Health`,
     };
   },
   // Sent to an entitled patient when their yearly Annual Health Review cycle
@@ -363,7 +412,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, your ${cycleYear} Annual Health Review has started. Your care team will guide ` +
-        `you through it — open the app to see what's next. — Tarragon Health`,
+        `you through it; open the app to see what's next. Tarragon Health`,
     };
   },
   // Sent to the patient after they confirm a video-consult slot for their
@@ -389,7 +438,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Your Annual Health Review video consult is confirmed for ${when}. ` +
-        `The join link is in the Tarragon Health app. — Tarragon Health`,
+        `The join link is in the Tarragon Health app. Tarragon Health`,
     };
   },
   // Sent to the patient as a lifestyle programme review comes due (see
@@ -405,7 +454,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, your lifestyle programme review is due ${dueDate}. Your care team will be in ` +
-        `touch — open the app to see details. — Tarragon Health`,
+        `touch; open the app to see details. Tarragon Health`,
     };
   },
   // Sent once, ~24h before an active wellness challenge's deadline, only if
@@ -432,7 +481,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Hi, your "${title}" challenge ends in 24 hours and you're at ${progress}/${target}. ` +
-        `Finish it in the Tarragon Health app. — Tarragon Health`,
+        `Finish it in the Tarragon Health app. Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -447,7 +496,7 @@ const TEMPLATE_MAP: Record<
       components: [{ type: "body", parameters: [] }],
       smsText:
         "Hi, your recent health record suggests a quick check-in would help. Open the " +
-        "Tarragon Health app to see what's due — booking takes a minute. — Tarragon Health",
+        "Tarragon Health app to see what's due; booking takes a minute. Tarragon Health",
     };
   },
   // Sent when a doctor answers the patient's ask-a-doctor consult (see
@@ -459,7 +508,7 @@ const TEMPLATE_MAP: Record<
       components: [{ type: "body", parameters: [] }],
       smsText:
         "A doctor has answered your question. Open the Tarragon Health app to read it. " +
-        "— Tarragon Health",
+        "Tarragon Health",
     };
   },
   // Sent after a patient self-books a video check-in slot (bookVideoVisit).
@@ -484,7 +533,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `Your video check-in with your Tarragon doctor is booked for ${when}. ` +
-        `The join link is in the app. — Tarragon Health`,
+        `The join link is in the app. Tarragon Health`,
     };
   },
   // Sent when a doctor offers alternate times instead of the patient's
@@ -497,7 +546,7 @@ const TEMPLATE_MAP: Record<
       languageCode: "en",
       components: [{ type: "body", parameters: [] }],
       smsText:
-        "Your doctor offered different times for your video visit. Pick one in the app within 24 hours, or you'll be refunded in full. — Tarragon Health",
+        "Your doctor offered different times for your video visit. Pick one in the app within 24 hours, or you'll be refunded in full. Tarragon Health",
     };
   },
   // Sent when a doctor declines a paid video-visit request, or nobody
@@ -513,7 +562,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `We couldn't schedule your video visit${reason ? ` (${reason})` : ""}. ` +
-        `Your payment will be refunded in full. You can request another time in the app. — Tarragon Health`,
+        `Your payment will be refunded in full. You can request another time in the app. Tarragon Health`,
     };
   },
   // Admin broadcast / announcement (see public.admin_send_broadcast). Free-text
@@ -541,7 +590,7 @@ const TEMPLATE_MAP: Record<
           ],
         },
       ],
-      smsText: `${subject}: ${body} — Tarragon Health`,
+      smsText: `${subject}: ${body} Tarragon Health`,
       email: {
         subject,
         html:
@@ -551,7 +600,7 @@ const TEMPLATE_MAP: Record<
           `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
-        text: `${subject}\n\n${body}\n\n— Tarragon Health`,
+        text: `${subject}\n\n${body}\n\nTarragon Health`,
       },
     };
   },
@@ -568,7 +617,7 @@ const TEMPLATE_MAP: Record<
     const smsText =
       `Hi ${patientName}, your Tarragon Health order ${orderNumber} (${itemsSummary}) is confirmed. ` +
       `Show order ${orderNumber} and your patient ID ${patientNumber} at ${pharmacyName} to collect. ` +
-      `— Tarragon Health`;
+      `Tarragon Health`;
     return {
       metaTemplateName: "pharmacy_order_patient_confirmation",
       languageCode: "en",
@@ -614,8 +663,8 @@ const TEMPLATE_MAP: Record<
     const patientNumber = String(payload.patient_number ?? "");
     const itemsSummary = String(payload.items_summary ?? "");
     const smsText =
-      `New Tarragon Health order ${orderNumber}: ${patientName} (patient ID ${patientNumber}) — ` +
-      `${itemsSummary}. Please prepare for collection. — Tarragon Health`;
+      `New Tarragon Health order ${orderNumber}: ${patientName} (patient ID ${patientNumber}): ` +
+      `${itemsSummary}. Please prepare for collection. Tarragon Health`;
     return {
       metaTemplateName: "pharmacy_order_pharmacy_alert",
       languageCode: "en",
@@ -624,7 +673,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText,
       email: {
-        subject: `New Tarragon Health order ${orderNumber} — ${patientName}`,
+        subject: `New Tarragon Health order ${orderNumber}: ${patientName}`,
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hello ${pharmacyName},</p>` +
@@ -636,7 +685,7 @@ const TEMPLATE_MAP: Record<
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Medication</td><td style="padding:4px 0">${itemsSummary}</td></tr>` +
           `</table>` +
           `<p>The patient will present order ${orderNumber} and their patient ID at collection.</p>` +
-          `<p style="color:#5b6b78;font-size:13px">Tarragon Health — Care that stays with you.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health: Care that stays with you.</p>` +
           `</div>`,
         text: smsText,
       },
@@ -838,7 +887,7 @@ const TEMPLATE_MAP: Record<
     const smsText =
       `Hi ${patientName}, your Tarragon Health order ${orderNumber} (${testName}) is confirmed at ${labName}. ` +
       `Show order ${orderNumber} and your patient ID ${patientNumber} when you arrive. ` +
-      `— Tarragon Health`;
+      `Tarragon Health`;
     return {
       metaTemplateName: "lab_order_patient_confirmation",
       languageCode: "en",
@@ -883,8 +932,8 @@ const TEMPLATE_MAP: Record<
     const patientNumber = String(payload.patient_number ?? "");
     const testName = String(payload.test_name ?? "");
     const smsText =
-      `New Tarragon Health order ${orderNumber}: ${patientName} (patient ID ${patientNumber}) — ` +
-      `${testName}. Please prepare to receive this patient. — Tarragon Health`;
+      `New Tarragon Health order ${orderNumber}: ${patientName} (patient ID ${patientNumber}): ` +
+      `${testName}. Please prepare to receive this patient. Tarragon Health`;
     return {
       metaTemplateName: "lab_order_lab_alert",
       languageCode: "en",
@@ -893,7 +942,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText,
       email: {
-        subject: `New Tarragon Health order ${orderNumber} — ${patientName}`,
+        subject: `New Tarragon Health order ${orderNumber}: ${patientName}`,
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hello ${labName},</p>` +
@@ -905,7 +954,7 @@ const TEMPLATE_MAP: Record<
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Test</td><td style="padding:4px 0">${testName}</td></tr>` +
           `</table>` +
           `<p>The patient will present order ${orderNumber} and their patient ID on arrival.</p>` +
-          `<p style="color:#5b6b78;font-size:13px">Tarragon Health — Care that stays with you.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health: Care that stays with you.</p>` +
           `</div>`,
         text: smsText,
       },
@@ -921,7 +970,7 @@ const TEMPLATE_MAP: Record<
     const patientNumber = String(payload.patient_number ?? "");
     const smsText =
       `Hi ${patientName}, your Tarragon Health referral ${referralNumber} to ${specialistName} is confirmed. ` +
-      `Your care team will follow up on booking your appointment. — Tarragon Health`;
+      `Your care team will follow up on booking your appointment. Tarragon Health`;
     return {
       metaTemplateName: "referral_patient_confirmation",
       languageCode: "en",
@@ -967,8 +1016,8 @@ const TEMPLATE_MAP: Record<
     const specialistType = String(payload.specialist_type ?? "");
     const referralReason = String(payload.referral_reason ?? "");
     const smsText =
-      `New Tarragon Health referral ${referralNumber}: ${patientName} (patient ID ${patientNumber}) — ` +
-      `${specialistType}. Please expect contact to arrange this patient's appointment. — Tarragon Health`;
+      `New Tarragon Health referral ${referralNumber}: ${patientName} (patient ID ${patientNumber}): ` +
+      `${specialistType}. Please expect contact to arrange this patient's appointment. Tarragon Health`;
     return {
       metaTemplateName: "referral_specialist_alert",
       languageCode: "en",
@@ -977,7 +1026,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText,
       email: {
-        subject: `New Tarragon Health referral ${referralNumber} — ${patientName}`,
+        subject: `New Tarragon Health referral ${referralNumber}: ${patientName}`,
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hello ${specialistName},</p>` +
@@ -992,7 +1041,7 @@ const TEMPLATE_MAP: Record<
             ? `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Reason</td><td style="padding:4px 0">${referralReason}</td></tr>`
             : "") +
           `</table>` +
-          `<p style="color:#5b6b78;font-size:13px">Tarragon Health — Care that stays with you.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health: Care that stays with you.</p>` +
           `</div>`,
         text: smsText,
       },
@@ -1025,8 +1074,8 @@ const TEMPLATE_MAP: Record<
 
     const forWhom = careRecipient ? ` for ${careRecipient}` : "";
     const smsText =
-      `Good news ${requesterName} — TarragonHealth is now live in ${state}${forWhom}. ` +
-      `You can now book ${servicesPretty} in the app. — Tarragon Health`;
+      `Good news ${requesterName}, TarragonHealth is now live in ${state}${forWhom}. ` +
+      `You can now book ${servicesPretty} in the app. Tarragon Health`;
 
     return {
       metaTemplateName: "region_now_available",
@@ -1046,10 +1095,10 @@ const TEMPLATE_MAP: Record<
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hi ${requesterName},</p>` +
-          `<p>Great news — TarragonHealth is now live in <strong>${state}</strong>${careRecipient ? ` for ${careRecipient}` : ""}. ` +
+          `<p>Great news, TarragonHealth is now live in <strong>${state}</strong>${careRecipient ? ` for ${careRecipient}` : ""}. ` +
           `The services you asked us to tell you about are ready to book:</p>` +
           `<p style="margin:16px 0"><strong>${servicesPretty}</strong></p>` +
-          `<p>Open the Tarragon Health app to book — everything is in one place.</p>` +
+          `<p>Open the Tarragon Health app to book; everything is in one place.</p>` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
@@ -1072,7 +1121,7 @@ const TEMPLATE_MAP: Record<
     const prescriberName = String(payload.prescriber_name ?? "");
     const smsText =
       `Hi ${patientName}, a new medication has been added to your care plan: ${details}. ` +
-      `See the full details in the Tarragon Health app. — Tarragon Health`;
+      `See the full details in the Tarragon Health app. Tarragon Health`;
     return {
       metaTemplateName: "medication_prescribed_patient",
       languageCode: "en",
@@ -1121,9 +1170,9 @@ const TEMPLATE_MAP: Record<
       : `Your care team has requested a lab test for you.`;
     const smsText = selfBooked
       ? `Hi ${patientName}, your lab order is confirmed: ${testName} (order ${orderNumber}). ` +
-        `Show order ${orderNumber} at the lab to have it done. — Tarragon Health`
+        `Show order ${orderNumber} at the lab to have it done. Tarragon Health`
       : `Hi ${patientName}, a lab test has been requested for you: ${testName} ` +
-        `(order ${orderNumber}). See the details in the Tarragon Health app. — Tarragon Health`;
+        `(order ${orderNumber}). See the details in the Tarragon Health app. Tarragon Health`;
     return {
       metaTemplateName: "lab_order_requested_patient",
       languageCode: "en",
@@ -1171,7 +1220,7 @@ const TEMPLATE_MAP: Record<
     const nextLine = nextDose ? ` Your next dose is due ${nextDose}.` : "";
     const smsText =
       `Hi ${patientName}, your ${vaccineName} has been verified by your Tarragon care team ` +
-      `(certificate ${serial}). Download it in the app.${nextLine} — Tarragon Health`;
+      `(certificate ${serial}). Download it in the app.${nextLine} Tarragon Health`;
     return {
       metaTemplateName: "vaccination_verified",
       languageCode: "en",
@@ -1186,7 +1235,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText,
       email: {
-        subject: `Your ${vaccineName} is verified — Tarragon certificate ${serial}`,
+        subject: `Your ${vaccineName} is verified: Tarragon certificate ${serial}`,
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Hi ${patientName},</p>` +
@@ -1221,7 +1270,7 @@ const TEMPLATE_MAP: Record<
     const smsText =
       `${contactName}, this is an urgent alert from Tarragon Health. ${patientName} reported a ` +
       `possible medical emergency and may need your help. Please try to reach them now. If you ` +
-      `cannot and it is an emergency, help them get to the nearest hospital. — Tarragon Health`;
+      `cannot and it is an emergency, help them get to the nearest hospital. Tarragon Health`;
     return {
       metaTemplateName: "emergency_contact_alert",
       languageCode: "en",
@@ -1262,7 +1311,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `New Priority 1 alert: ${patientName}'s screening result needs review (${conditionLabel}). ` +
-        `See your Tarragon Health worklist. — Tarragon Health`,
+        `See your Tarragon Health worklist. Tarragon Health`,
     };
   },
   // Sent to org clinicians when an emergency_events row is raised — any
@@ -1290,7 +1339,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `New Priority 1 alert: ${patientName}'s case needs review (${sourceLabel}). ` +
-        `See your Tarragon Health worklist. — Tarragon Health`,
+        `See your Tarragon Health worklist. Tarragon Health`,
     };
   },
   // Sent to org clinicians when a RED/AMBER vitals red-flag trigger raises or
@@ -1317,7 +1366,7 @@ const TEMPLATE_MAP: Record<
       ],
       smsText:
         `${levelLabel}: ${patientName}'s ${vitalLabel} needs review. ` +
-        `See your Tarragon Health worklist. — Tarragon Health`,
+        `See your Tarragon Health worklist. Tarragon Health`,
     };
   },
   // Sent to the patient after the follow-up window on an emergency event
@@ -1329,7 +1378,7 @@ const TEMPLATE_MAP: Record<
     const smsText =
       `Hi ${patientName}, we noticed you recently reported an emergency. We hope you're okay. ` +
       `When you can, open the Tarragon Health app to let your care team know how you're doing. ` +
-      `— Tarragon Health`;
+      `Tarragon Health`;
     return {
       metaTemplateName: "emergency_followup",
       languageCode: "en",

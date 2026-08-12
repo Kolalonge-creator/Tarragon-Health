@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Device } from "react-native-ble-plx";
 import type { Tables } from "@tarragon/shared";
 import { requestBlePermissions, scanForClinicalDevices, type SupportedDeviceType } from "@/lib/ble";
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
+import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
 import { colors, spacing } from "@/ui/theme";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
 
@@ -207,35 +208,5 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
         </View>
       </Modal>
     </View>
-  );
-}
-
-/** Android's HealthKit equivalent — genuinely unbuilt (see
- * docs/MOBILE_APP_SPEC.md §3 "Android gap"), shown as a disabled placeholder
- * rather than a working toggle so an Android patient isn't misled. */
-function AndroidHealthConnectCard() {
-  if (Platform.OS !== "android") return null;
-  return (
-    <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, borderStyle: "dashed" }}>
-      <View
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          backgroundColor: "#F5F5F4",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Ionicons name="fitness-outline" size={18} color={colors.faint} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Health Connect</Text>
-        <Text style={{ color: colors.muted, fontSize: 12 }}>Android sync — not yet built</Text>
-      </View>
-      <View style={{ borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10, backgroundColor: "rgba(23,23,23,0.08)" }}>
-        <Text style={{ fontSize: 11, fontWeight: "500", color: colors.muted }}>Planned</Text>
-      </View>
-    </Card>
   );
 }
