@@ -52,11 +52,14 @@ export function localStatusOf(row: LocalTxnRow): string {
   return "pending";
 }
 
-/** Stripe rows never get amount_minor/currency set at insert time (see
- * reconciliation-sweep's own findings — supabase/functions/stripe-webhook
- * never populates either column), so the local amount for a Stripe row is
- * recovered from its own stored raw_payload rather than trusted from the
- * amount_minor column, which is always null. */
+/** supabase/functions/stripe-webhook/index.ts populates amount_minor/
+ * currency at insert as of 2026-08-12 (fixed same day this sweep's own dry
+ * run found every historical Stripe row had both null) — but any row
+ * written before that fix still has nulls forever, since this is a webhook
+ * insert, not a backfillable column. Recovering from the row's own stored
+ * raw_payload keeps the sweep correct for those pre-fix rows without a
+ * migration; for anything written after the fix this is just a slower path
+ * to the same value already in amount_minor. */
 export function localStripeAmount(row: LocalTxnRow): { amountMinor: number | null; currency: string | null } {
   if (row.amount_minor != null) return { amountMinor: row.amount_minor, currency: row.currency };
   const payload = row.raw_payload as { data?: { object?: Record<string, unknown> }; type?: string } | null;

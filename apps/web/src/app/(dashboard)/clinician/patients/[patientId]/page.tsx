@@ -68,6 +68,17 @@ export default async function ClinicianPatientPage({
     );
   }
 
+  // Read-access audit: a trigger can log who changed a patient row, but not who merely
+  // opened it — this is the one explicit read-logging call site on the platform so far
+  // (see 20260812034612_clinician_patient_record_view_audit.sql). Best-effort: a logging
+  // failure must never block the clinician from seeing the chart.
+  const { error: viewLogError } = await supabase.rpc("log_patient_record_view", {
+    p_patient_id: patient.id,
+  });
+  if (viewLogError) {
+    console.error("Failed to log patient record view", viewLogError);
+  }
+
   const callerStaff = await getCurrentClinicalStaff();
   const canPrescribe = hasPrescribingAuthority(callerStaff);
   const currentUser = await getCurrentUser();

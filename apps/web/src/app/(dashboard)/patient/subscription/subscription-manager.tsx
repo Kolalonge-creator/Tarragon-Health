@@ -7,6 +7,7 @@ import {
   useAvailableAddOns,
 } from "@/lib/queries/subscriptions";
 import { useActivePatientPlans, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
+import { selectAttachableAddOns } from "@/lib/subscriptions/attachable-add-ons";
 import { changePlan, attachAddOn, detachAddOn, cancelSubscription, resumeSubscription } from "./actions";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 import { CurrencyTabs } from "@/components/currency-tabs";
@@ -96,13 +97,18 @@ export function SubscriptionManager() {
           (a, b) => (a.interval === "yearly" ? 0 : 1) - (b.interval === "yearly" ? 0 : 1),
         )
       : switchablePlans;
-  const attachedCodes = new Set((addOns ?? []).map((a) => a.add_on?.code).filter(Boolean));
-  const attachableAddOns = (catalogue ?? []).filter(
-    (a) =>
-      !attachedCodes.has(a.code) &&
-      a.currency === currency &&
-      (a.restricted_to_plan_code === null || a.restricted_to_plan_code === currentPlanCode),
-  );
+  // Never offers an add-on whose features this patient already has — see
+  // lib/subscriptions/attachable-add-ons.ts for why that mattered.
+  const attachableAddOns = selectAttachableAddOns({
+    catalogue: catalogue ?? [],
+    planFeatures: subscription.plan?.features,
+    attached: (addOns ?? []).map((a) => ({
+      code: a.add_on?.code,
+      features: a.add_on?.features,
+    })),
+    currency,
+    currentPlanCode,
+  });
 
   const isPaid = !!subscription.plan && subscription.plan.price_minor > 0;
   const scheduledToCancel = subscription.cancel_at_period_end && subscription.status !== "cancelled";

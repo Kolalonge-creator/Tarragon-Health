@@ -15106,6 +15106,10 @@ export type Database = {
           suppressed: boolean
         }[]
       }
+      log_patient_record_view: {
+        Args: { p_patient_id: string }
+        Returns: undefined
+      }
       match_lpe_content_blocks: {
         Args: {
           filter_condition?: Database["public"]["Enums"]["care_plan_condition"]

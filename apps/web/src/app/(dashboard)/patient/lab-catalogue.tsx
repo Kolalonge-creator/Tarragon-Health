@@ -2,6 +2,7 @@
 
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { testCodeLabels } from "@/lib/labs/test-code-labels";
 
 /**
  * Read-only per the clinician-originated-orders guardrail (see
@@ -43,7 +44,7 @@ export function LabCatalogue() {
                     <p className="text-xs text-charcoal-ink/60">{bundle.description}</p>
                   )}
                   <p className="text-xs text-charcoal-ink/60">
-                    Includes: {bundle.test_codes.join(", ")}
+                    Includes: {testCodeLabels(bundle.test_codes).join(", ")}
                   </p>
                 </li>
               ))}
