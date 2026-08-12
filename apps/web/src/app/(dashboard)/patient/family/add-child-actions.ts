@@ -61,10 +61,15 @@ export async function addChildDependentAction(
   }
   const childId = created.user.id;
 
-  const { error: updateError } = await svc
-    .from("profiles")
-    .update({ date_of_birth, sex: sex ?? null, is_dependent_account: true })
-    .eq("id", childId);
+  // Routed through an RPC (rather than a raw .update()) so the write can be attributed to the
+  // provisioning parent in public.audit_log despite running on the service-role client — see
+  // 20260812041044_service_role_write_actor_attribution.sql.
+  const { error: updateError } = await svc.rpc("provision_dependent_profile_basics", {
+    p_child_id: childId,
+    p_date_of_birth: date_of_birth,
+    p_sex: sex ?? null,
+    p_actor_id: parent.id,
+  });
   if (updateError) {
     return { error: updateError.message };
   }

@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import type * as HealthConnectPackage from "react-native-health-connect";
 import type { HealthSample } from "./healthkit";
 
@@ -16,8 +17,21 @@ import type { HealthSample } from "./healthkit";
  */
 let cachedModule: typeof HealthConnectPackage | null | undefined;
 
+/**
+ * Skipped outright in Expo Go, same as healthkit.ts. TurboModuleRegistry's
+ * `getEnforcing` does throw synchronously and so is genuinely caught by the
+ * try/catch below — unlike Nitro's, which is not — but not requiring the
+ * module at all is both cheaper and immune to that distinction changing
+ * under a library upgrade.
+ */
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 function loadHealthConnect(): typeof HealthConnectPackage | null {
   if (cachedModule !== undefined) return cachedModule;
+  if (IS_EXPO_GO) {
+    cachedModule = null;
+    return cachedModule;
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     cachedModule = require("react-native-health-connect") as typeof HealthConnectPackage;

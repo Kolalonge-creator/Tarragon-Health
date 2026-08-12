@@ -112,22 +112,26 @@ export async function uploadResultDocumentForPatient(
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const { data: inserted, error: insertError } = await service
-    .from("lab_result_documents")
-    .insert({
-      organisation_id: patient.organisation_id,
-      patient_id: patientId,
-      lab_order_id: labOrderId ?? null,
-      file_path: path,
-      original_filename: file.name,
-      mime_type: file.type,
-      file_size_bytes: file.size,
-      source,
-      uploaded_by: user.id,
-      note: note ?? null,
-    })
-    .select("id")
-    .single();
+  // Routed through an RPC (rather than a raw .insert()) so the write can be attributed to the
+  // uploading staff member in public.audit_log despite running on the service-role client — see
+  // 20260812041044_service_role_write_actor_attribution.sql.
+  const { data: insertedId, error: insertError } = await service.rpc(
+    "insert_audited_lab_result_document",
+    {
+      p_organisation_id: patient.organisation_id,
+      p_patient_id: patientId,
+      p_lab_order_id: labOrderId ?? null,
+      p_file_path: path,
+      p_original_filename: file.name,
+      p_mime_type: file.type,
+      p_file_size_bytes: file.size,
+      p_source: source,
+      p_uploaded_by: user.id,
+      p_note: note ?? null,
+      p_actor_id: user.id,
+    }
+  );
+  const inserted = insertedId ? { id: insertedId } : null;
   if (insertError || !inserted) {
     // Roll back the orphaned object so a failed insert leaves no stray file.
     await service.storage.from(RESULT_DOC_BUCKET).remove([path]);

@@ -721,10 +721,13 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     return { error: notifyError.message };
   }
 
-  await serviceRole
-    .from("emergency_events")
-    .update({ contact_notified_at: new Date().toISOString() })
-    .eq("id", eventId);
+  // Routed through an RPC so the write can be attributed to the patient in public.audit_log
+  // despite running on the service-role client — see
+  // 20260812041044_service_role_write_actor_attribution.sql.
+  await serviceRole.rpc("mark_emergency_contact_notified", {
+    p_event_id: eventId,
+    p_actor_id: user.id,
+  });
 
   return { success: true };
 }

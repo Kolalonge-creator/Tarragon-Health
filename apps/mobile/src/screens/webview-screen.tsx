@@ -13,6 +13,11 @@ interface WebViewScreenProps {
   path: string;
 }
 
+/** Appended to the WebView's User-Agent. The web app looks for exactly this
+ * token to decide it is embedded — keep it in sync with
+ * apps/web/src/lib/embedded-webview.ts. */
+const EMBEDDED_UA_TOKEN = "TarragonHealthApp";
+
 /**
  * Embeds one section of the full web platform inline in the native shell —
  * the "[WEBVIEW]" screens from docs/MOBILE_APP_SPEC.md. The native shell
@@ -126,6 +131,15 @@ export function WebViewScreen({ path }: WebViewScreenProps) {
       allowsBackForwardNavigationGestures
       domStorageEnabled
       sharedCookiesEnabled
+      // Tells the platform it is being rendered inside the native shell, so
+      // it drops its own sidebar, header and bottom tab bar and renders the
+      // page content alone. Without it the patient saw the app's chrome and
+      // the web app's chrome stacked — two "TarragonHealth" headers and two
+      // identical bottom tab bars on one screen. A User-Agent suffix rather
+      // than a query parameter because it survives every in-WebView
+      // navigation automatically; the web side reads it server-side in
+      // (dashboard)/layout.tsx.
+      applicationNameForUserAgent={EMBEDDED_UA_TOKEN}
       style={{ flex: 1 }}
     />
   );

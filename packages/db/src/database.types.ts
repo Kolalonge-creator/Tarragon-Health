@@ -14847,6 +14847,22 @@ export type Database = {
         Returns: Json
       }
       htn_quality_metrics: { Args: { p_org: string }; Returns: Json }
+      insert_audited_lab_result_document: {
+        Args: {
+          p_actor_id: string
+          p_file_path: string
+          p_file_size_bytes: number
+          p_lab_order_id: string | null
+          p_mime_type: string
+          p_note: string | null
+          p_organisation_id: string
+          p_original_filename: string
+          p_patient_id: string
+          p_source: Database["public"]["Enums"]["lab_result_document_source"]
+          p_uploaded_by: string
+        }
+        Returns: string
+      }
       lab_partner_order_patient: {
         Args: { p_order_id: string }
         Returns: string
@@ -14899,6 +14915,14 @@ export type Database = {
       }
       log_patient_record_view: {
         Args: { p_patient_id: string }
+        Returns: undefined
+      }
+      mark_emergency_contact_notified: {
+        Args: { p_actor_id: string; p_event_id: string }
+        Returns: undefined
+      }
+      mark_identity_verified: {
+        Args: { p_actor_id: string; p_patient_id: string; p_verified_at: string }
         Returns: undefined
       }
       match_lpe_content_blocks: {
@@ -15025,6 +15049,15 @@ export type Database = {
       }
       propose_video_visit_alternate_slots: {
         Args: { p_request_id: string; p_slot_ids: string[] }
+        Returns: undefined
+      }
+      provision_dependent_profile_basics: {
+        Args: {
+          p_actor_id: string
+          p_child_id: string
+          p_date_of_birth: string
+          p_sex: Database["public"]["Enums"]["sex"] | null
+        }
         Returns: undefined
       }
       public_price_list: {

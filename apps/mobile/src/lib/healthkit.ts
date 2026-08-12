@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import type * as HealthkitPackage from "@kingstinct/react-native-healthkit";
 import type { QuantitySample } from "@kingstinct/react-native-healthkit";
 
@@ -21,8 +22,29 @@ import type { QuantitySample } from "@kingstinct/react-native-healthkit";
  */
 let cachedModule: typeof HealthkitPackage | null | undefined;
 
+/**
+ * Expo Go never has this third-party native module compiled in, and — the
+ * part that matters — the resulting Nitro failure is NOT catchable from JS.
+ * Wrapping the require() in try/catch was tried and demonstrably does not
+ * contain it: the error still reached LogBox as a full-screen "Uncaught
+ * Error: NitroModules are not supported in Expo Go", re-appearing as fast as
+ * it could be dismissed, the moment a patient signed in. It has to not be
+ * required at all.
+ *
+ * `storeClient` is the Expo Go execution environment; a real EAS development
+ * build or a store build reports `standalone`/`bare` and loads the module
+ * normally, so this costs production nothing. expo-constants is JS-level
+ * config already present inside the Expo Go runtime and autolinked in EAS
+ * builds, so depending on it needs no native rebuild.
+ */
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 function loadHealthkit(): typeof HealthkitPackage | null {
   if (cachedModule !== undefined) return cachedModule;
+  if (IS_EXPO_GO) {
+    cachedModule = null;
+    return cachedModule;
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     cachedModule = require("@kingstinct/react-native-healthkit") as typeof HealthkitPackage;
@@ -167,9 +189,12 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
  */
 export async function configureIOSBackgroundDelivery(): Promise<void> {
   if (!isHealthKitPlatform()) return;
-  const healthkit = loadHealthkit();
-  if (!healthkit) return;
+  // loadHealthkit() is inside the try as well: binding the native module is
+  // itself the throwing step in Expo Go, and leaving it outside is what let
+  // that error escape as an unhandled rejection.
   try {
+    const healthkit = loadHealthkit();
+    if (!healthkit) return;
     await healthkit.configureBackgroundTypes([...BACKGROUND_TYPES], healthkit.UpdateFrequency.immediate);
   } catch {
     // Best-effort: a patient who never finishes the permission sheet, or an
@@ -190,12 +215,21 @@ export async function configureIOSBackgroundDelivery(): Promise<void> {
  */
 export function subscribeToIOSHealthChanges(onChange: () => void): () => void {
   if (!isHealthKitPlatform()) return () => {};
-  const healthkit = loadHealthkit();
+  // Same reasoning as configureIOSBackgroundDelivery: the module load is the
+  // step that throws when the native binary is absent, so it belongs inside
+  // the guard rather than in front of it.
+  let healthkit: ReturnType<typeof loadHealthkit>;
+  try {
+    healthkit = loadHealthkit();
+  } catch {
+    return () => {};
+  }
   if (!healthkit) return () => {};
+  const hk = healthkit;
 
   const subscriptions = BACKGROUND_TYPES.map((identifier) => {
     try {
-      return healthkit.subscribeToChanges(identifier, () => onChange());
+      return hk.subscribeToChanges(identifier, () => onChange());
     } catch {
       return null;
     }

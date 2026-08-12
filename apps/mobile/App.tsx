@@ -46,7 +46,11 @@ export default function App() {
 
   useEffect(() => {
     if (session && identity) {
-      registerBackgroundHealthSync();
+      // Fire-and-forget, but never unhandled: background health sync is a
+      // best-effort enhancement, and a rejection here used to redbox the app
+      // for every patient signing in under Expo Go (no Nitro native module).
+      // Nothing the patient does depends on this resolving.
+      registerBackgroundHealthSync().catch(() => {});
     }
   }, [session, identity]);
 

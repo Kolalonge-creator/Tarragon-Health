@@ -71,10 +71,27 @@ export async function registerBackgroundHealthSync(): Promise<void> {
   }
 
   if (Platform.OS === "ios") {
-    await configureIOSBackgroundDelivery();
-    iosChangeSubscriptionRemove?.();
-    iosChangeSubscriptionRemove = subscribeToIOSHealthChanges(() => {
-      syncAppleHealth();
-    });
+    // Every HealthKit entry point here has to be treated as throwing, not
+    // just as returning nothing useful. The library binds its native module
+    // eagerly (Nitro), and in Expo Go — where that binary does not exist —
+    // the failure escaped loadHealthkit()'s own try/catch and surfaced as an
+    // unhandled rejection, which LogBox renders as a full-screen "Uncaught
+    // Error: NitroModules are not supported in Expo Go". That redbox landed
+    // the moment a patient signed in, because App.tsx calls this on session
+    // resolve, and it re-appeared as fast as you could dismiss it.
+    //
+    // Belt and braces on purpose: this guard, and a .catch() at the call
+    // site. HealthKit genuinely is unavailable in Expo Go, so the correct
+    // behaviour is to degrade to "no Apple Health sync" silently, exactly as
+    // the rest of this module already assumed it would.
+    try {
+      await configureIOSBackgroundDelivery();
+      iosChangeSubscriptionRemove?.();
+      iosChangeSubscriptionRemove = subscribeToIOSHealthChanges(() => {
+        syncAppleHealth();
+      });
+    } catch {
+      iosChangeSubscriptionRemove = null;
+    }
   }
 }
