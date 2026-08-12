@@ -35,6 +35,30 @@
 -- log drain) is a deliberately separate, unbuilt follow-up if long-term retention is required for
 -- compliance evidence.
 --
+-- Verified live, not just asserted: after applying, a SELECT against public.profiles and a
+-- concurrent (unrelated) INSERT into public.clinical_staff from live traffic both produced real
+-- "AUDIT: OBJECT,...,READ,SELECT,..." / "...,WRITE,INSERT,..." lines in the Postgres log. Despite
+-- only SELECT being granted to pgaudit_patient_read (see below), pgAudit's object-audit matching
+-- logs BOTH reads and writes on a relation once ANY privilege is granted on it -- it does not
+-- restrict itself to the specific privilege type granted. So this migration, named for its READ
+-- intent, also produces a Postgres-log-level WRITE trail on the same 21 tables as a side effect,
+-- overlapping (harmlessly -- different storage, different retention) with the row-change trigger
+-- migration's public.audit_log entries.
+--
+-- Residual, confirmed-unfixable-from-this-session finding: `create extension pgaudit` installs
+-- two internal C event-trigger handler functions (pgaudit_ddl_command_end, pgaudit_sql_drop) into
+-- the public schema as SECURITY DEFINER, owned by supabase_admin -- NOT by "postgres" -- with a
+-- NULL proacl (implicit default ACL, meaning PUBLIC has EXECUTE). get_advisors correctly flags
+-- both as anon/authenticated-callable via /rest/v1/rpc/<name> (WARN level). `postgres` is not a
+-- member of supabase_admin and cannot SET ROLE to it, so `revoke ... from public/anon/authenticated`
+-- is a confirmed no-op here (proacl stays NULL) -- ownership, not a missing REVOKE target, is the
+-- blocker; closing this fully needs a Supabase support request, not anything achievable from a
+-- tenant SQL session. Practical risk verified empirically as near-nil: both functions declare
+-- `returns event_trigger`, and calling either directly (`select public.pgaudit_ddl_command_end();`)
+-- returns null with no observable side effect -- Postgres does not error, but the C implementation
+-- itself no-ops outside a real event-trigger firing context. Left open, tracked, not silently
+-- accepted.
+--
 -- Same 21-table scope as the write-trigger migration, for symmetry between the read and write
 -- halves of the audit story: vitals_readings, medications, medication_logs, medication_reviews,
 -- screening_results, lab_result_documents, lab_analyte_readings, clinician_alerts, escalations,

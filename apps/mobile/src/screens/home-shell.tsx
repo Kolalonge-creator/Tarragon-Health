@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { supabase } from "@/lib/supabase";
-import { SECTIONS, type SectionId } from "@/lib/sections";
+import { sectionWebviewPath, type SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
+import { BottomTabBar } from "@/ui/bottom-tab-bar";
 import { ActingForBanner } from "@/ui/acting-for-banner";
 import { colors } from "@/ui/theme";
 import { WebViewScreen } from "@/screens/webview-screen";
@@ -27,10 +28,14 @@ interface HomeShellProps {
 }
 
 /**
- * The authenticated "Home" tab: top bar + drawer + one of the eleven
- * sections from docs/MOBILE_APP_SPEC.md §2 — native screens render directly,
- * the rest embed the matching web page. Mirrors the Claude Design
- * prototype's drawer + section-router structure.
+ * The authenticated "Home" tab: top bar + bottom tab bar + drawer + one of the
+ * sections in lib/sections.ts — native screens render directly, the rest embed
+ * the matching web page through the signed-in WebView bridge.
+ *
+ * Navigation is a bottom tab bar for the everyday sections with the drawer
+ * behind More, rather than the drawer alone: hiding every destination behind a
+ * hamburger is a web pattern, and it cost a tap and a scan of a long list
+ * before a patient could do the thing they opened the app for.
  *
  * Also resolves "acting for" — the native equivalent of web's
  * ActingForBanner/dashboard-context.ts (lib/acting.ts) — so that when this
@@ -97,6 +102,11 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   }
 
   const subjectId = acting?.profileId ?? userId;
+  // Any section without a native screen renders the matching web page,
+  // signed in through /auth/mobile-bridge. Resolved from the registry rather
+  // than listed here, so adding a section is a one-line change in
+  // lib/sections.ts and cannot leave a drawer entry that routes nowhere.
+  const webviewPath = sectionWebviewPath(section);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -148,10 +158,14 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         )}
         {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
         {section === "settings" && <SettingsScreen />}
-        {(section === "care" || section === "prevention" || section === "family") && (
-          <WebViewScreen path={SECTIONS.find((s) => s.id === section)!.webviewPath!} />
-        )}
+        {webviewPath && <WebViewScreen key={webviewPath} path={webviewPath} />}
       </View>
+
+      <BottomTabBar
+        activeSection={section}
+        onSelect={setSection}
+        onMore={() => setDrawerOpen(true)}
+      />
 
       <NavDrawer
         visible={drawerOpen}
