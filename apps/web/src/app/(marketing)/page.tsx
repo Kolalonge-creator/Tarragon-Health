@@ -13,14 +13,8 @@ import { AppDashboardMockup } from "./_components/app-dashboard-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
-import { ServiceCardLink } from "./_components/service-card";
 import { AnimatedNumber } from "./_components/animated-number";
-import {
-  PREVENTION_CALLOUT,
-  PROOF_STATS,
-  SERVICE_CARDS,
-  WHAT_YOU_GET,
-} from "./_content/services";
+import { PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -166,20 +160,32 @@ export default function MarketingHomePage() {
         </div>
       </Section>
 
-      <Section>
+      <Section className="py-10 sm:py-14">
         <SectionHeading
           eyebrow="Chronic care programmes"
           title="Hypertension, diabetes, and weight, managed with follow-up"
           description="Three conditions drive most preventable emergencies in Nigeria. Tarragon runs a structured, doctor-reviewed programme for each, on one shared record, so related conditions are watched together, not separately."
         />
-        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-3">
+        <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3">
           {SERVICE_CARDS.filter((card) =>
             ["hypertension", "diabetes", "obesity"].includes(card.key)
           ).map((service) => (
-            <ServiceCardLink key={service.key} service={service} />
+            <Link
+              key={service.key}
+              href={service.href}
+              className="group rounded-full border border-charcoal-ink/10 bg-white px-5 py-2.5 text-sm font-medium text-charcoal-ink transition-colors hover:border-brand-green/40 hover:text-brand-green"
+            >
+              {service.title}
+              <span
+                aria-hidden
+                className="ml-1.5 inline-block transition-transform group-hover:translate-x-0.5"
+              >
+                →
+              </span>
+            </Link>
           ))}
         </div>
-        <p className="mt-8 text-center">
+        <p className="mt-6 text-center">
           <Link
             href={MARKETING_ROUTES.chronicCare}
             className="text-sm font-medium text-deep-forest hover:underline"
@@ -226,23 +232,6 @@ export default function MarketingHomePage() {
         </div>
       </Section>
 
-      <Section variant="sage">
-        <SectionHeading eyebrow="What you get" title="Monitoring that stays connected" />
-        <div className="grid gap-6 md:grid-cols-3">
-          {WHAT_YOU_GET.map((pillar) => (
-            <div
-              key={pillar.title}
-              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 transition duration-200 hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-md"
-            >
-              <h3 className="font-heading text-xl font-semibold text-charcoal-ink">
-                {pillar.title}
-              </h3>
-              <p className="mt-3 text-charcoal-ink/70">{pillar.body}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
       <Section>
         <div className="mx-auto grid max-w-5xl items-center gap-8 overflow-hidden rounded-2xl border border-brand-green/20 bg-white p-8 shadow-sm sm:p-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12 lg:p-12">
           <AppDashboardMockup className="relative mx-auto" />
@@ -264,6 +253,7 @@ export default function MarketingHomePage() {
                 "Get reminders for medication, screenings, and reviews",
                 "Message your care team any time, right in the app",
                 "Share your Health Passport with any doctor",
+                "Automatic sync from Apple Health, Health Connect, and wearables, rolling out device by device",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-sm text-charcoal-ink/75">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-green" aria-hidden />

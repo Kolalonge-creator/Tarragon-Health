@@ -83,7 +83,7 @@ const CARE_COMPARISON: {
 const MONTH_WITH_TARRAGON = [
   {
     title: "You log, in seconds",
-    body: "A blood pressure reading after breakfast, a glucose check, your weight once a week: each takes under a minute in the app, and lands on one secure record instead of a paper notebook.",
+    body: "A blood pressure reading after breakfast, a glucose check, your weight once a week: each takes under a minute in the app, and lands on one secure record instead of a paper notebook. We're also rolling out automatic sync from Apple Health, Health Connect, and trackers like Fitbit, Garmin, Oura, WHOOP, and Dexcom, connection by connection, for when you'd rather it fill itself in.",
   },
   {
     title: "Reminders keep you consistent",

@@ -84,21 +84,6 @@ export const PROOF_STATS = [
   },
 ] as const;
 
-export const WHAT_YOU_GET = [
-  {
-    title: "Monitor",
-    body: "Log BP, glucose, weight, medication, and preventive checks through the app or web, all in one health record.",
-  },
-  {
-    title: "Review",
-    body: "Your care team watches your trends, screens for care gaps, and follows up when something needs attention, including abnormal results.",
-  },
-  {
-    title: "Coordinate",
-    body: "Preventive checks, labs, medication, and doctor escalation stay connected instead of scattered.",
-  },
-] as const;
-
 /** Preventive health is a platform wedge, not a secondary add-on (FEATURE_SPEC Cat 2→1 upgrade).
  * Framed for the HEALTHY visitor first (prevention-first repositioning,
  * 2026-07-23): staying well is the aspiration; catching things early is the
@@ -106,7 +91,7 @@ export const WHAT_YOU_GET = [
 export const PREVENTION_CALLOUT = {
   title: "Healthy? Tarragon is built for you too",
   body:
-    "You don't need a diagnosis to belong here. Tarragon Prevent gives you and your children a personal screening and vaccination calendar, a yearly Health Check, and education that makes sense of your numbers, so most years, you simply get confirmation that all is well. And if a check ever finds something, a doctor follows up the same day and it's caught years earlier, when it's easiest to treat.",
+    "You don't need a diagnosis to belong here. Tarragon Prevent builds you and your children a personal screening and vaccination calendar and a yearly Health Check: most years, that's simply confirmation you're doing fine, and if something's ever found, a doctor follows up the same day.",
 } as const;
 
 /** Everything the shared record actually watches (services page capability
@@ -120,6 +105,7 @@ export const WHAT_WE_TRACK = [
   "kidney function",
   "medication adherence",
   "refills before you run out",
+  "connected devices & wearables",
   "cervical screening",
   "breast screening",
   "prostate (PSA) screening",
@@ -289,6 +275,11 @@ export const HOMEPAGE_FAQS = [
     question: "How do I log my blood pressure, glucose, or weight?",
     answer:
       "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team any time in the app for support. Logging itself happens on app or web.",
+  },
+  {
+    question: "Can I connect a fitness tracker, smartwatch, or Bluetooth device?",
+    answer:
+      "That's part of the platform, and we're bringing connections online one at a time: Apple Health, Health Connect, and trackers including Fitbit, Garmin, Oura, WHOOP, and Dexcom. Manual logging works today, in seconds, on every plan, so you're never waiting on a connection to keep your record current.",
   },
   {
     question: "What about preventive checks and screening results?",
