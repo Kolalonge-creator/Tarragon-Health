@@ -27,6 +27,7 @@ export type Database = {
           note: string | null
           organisation_id: string
           patient_id: string
+          source: Database["public"]["Enums"]["vital_source"]
           step_count: number | null
         }
         Insert: {
@@ -41,6 +42,7 @@ export type Database = {
           note?: string | null
           organisation_id: string
           patient_id: string
+          source?: Database["public"]["Enums"]["vital_source"]
           step_count?: number | null
         }
         Update: {
@@ -55,6 +57,7 @@ export type Database = {
           note?: string | null
           organisation_id?: string
           patient_id?: string
+          source?: Database["public"]["Enums"]["vital_source"]
           step_count?: number | null
         }
         Relationships: [
@@ -15314,6 +15317,15 @@ export type Database = {
           p_voucher: string
         }
         Returns: string
+      }
+      record_wearable_step_count: {
+        Args: {
+          p_logged_on: string
+          p_organisation_id: string
+          p_patient_id: string
+          p_step_count: number
+        }
+        Returns: boolean
       }
       redeem_care_voucher: {
         Args: { p_order_id: string; p_order_type: string; p_voucher: string }

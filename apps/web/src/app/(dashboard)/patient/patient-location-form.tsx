@@ -11,9 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 /**
- * Saves the patient's state/city/area so the "choose a facility near me" pickers
- * (labs, vaccination centres, pharmacies) pre-fill. Optional — leaving it blank
- * just means the patient types their location each time they book.
+ * Saves the patient's state/city/area. Nearby-facility pickers (labs,
+ * vaccination centres, pharmacies) that would have used this are suspended
+ * platform-wide (founder decision 2026-08-03, see vaccination-booking.tsx) —
+ * this just gets the location on file for when a partner is contracted and
+ * they're re-enabled. Entirely optional today.
  */
 export function PatientLocationForm({
   initial,
@@ -37,8 +39,8 @@ export function PatientLocationForm({
           Your location
         </CardTitle>
         <CardDescription>
-          Save where you are so we can pre-fill nearby labs, vaccination centres, and pharmacies
-          when you book.
+          Save where you are. We&apos;ll use it to show nearby labs, vaccination centres, and
+          pharmacies as soon as that&apos;s available in your area.
         </CardDescription>
       </CardHeader>
       <CardContent>

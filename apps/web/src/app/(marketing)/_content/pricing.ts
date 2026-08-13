@@ -741,9 +741,9 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
       "Yes. All payments are processed through Paystack (Nigeria) or Stripe (diaspora). Tarragon does not store your card details.",
   },
   {
-    question: "How do I place an order for a test, refill, or add-on?",
+    question: "How do I get a test done, a refill tracked, or an add-on added?",
     answer:
-      "Tap the relevant button in the app (“Request a Test,” “Request Refill,” “Add a Service”). For an add-on, you'll always see Tarragon's exact price before confirming. For a test or refill, the app gives you a request to take to whichever laboratory or pharmacy you choose, and you pay them directly; if your doctor flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
+      "For a test: message your care team in the app, or tap “Get this test” on a screening that's come due, and either way you get a request to take to whichever laboratory you choose, paying them directly. For a refill: your care team tracks your refill date and reminds you when it's due; you still buy from whichever pharmacy suits you. For an add-on: open Plans in the app, where you'll always see Tarragon's exact price before confirming.",
   },
   {
     question: "What is a care voucher?",

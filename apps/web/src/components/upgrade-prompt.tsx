@@ -17,12 +17,12 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
     body: "Message your care team directly and get a scheduled doctor check-in on Essential Care or higher.",
   },
   lab_coordination: {
-    title: "Lab test coordination is part of a paid plan",
-    body: "Your doctor books and coordinates lab tests for you on Essential Care or higher.",
+    title: "Lab test requests are part of a paid plan",
+    body: "On Essential Care or higher, message your care team for any lab test you need and they'll write you a request to take to a lab of your choice. You pay the lab directly; we take nothing on it.",
   },
   medication_refills: {
-    title: "Medication refill coordination is part of a paid plan",
-    body: "Upgrade to have your doctor coordinate refills through partner pharmacies for you.",
+    title: "Refill-date tracking is part of a paid plan",
+    body: "On Essential Care or higher, we track your refill dates and remind you before one's due. You still buy from whichever pharmacy suits you.",
   },
   annual_review: {
     title: "The Annual Doctor Review is part of a paid plan",

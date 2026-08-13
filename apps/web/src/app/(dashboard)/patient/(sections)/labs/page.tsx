@@ -26,7 +26,7 @@ export default async function PatientLabsPage() {
     <DashboardSection
       id="labs"
       title="Labs & bookings"
-      description="Book lab tests, track orders and results, and find facilities near you."
+      description="Request lab tests, and track your requests and results."
       icon={SEMANTIC_ICON.labs}
     >
       {/* lab_coordination (chronic plans) OR prevention_coordination
