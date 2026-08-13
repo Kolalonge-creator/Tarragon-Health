@@ -27,7 +27,7 @@ const CHRONIC_CARDS = SERVICE_CARDS.filter((card) =>
 const HOW = [
   {
     title: "Consistent monitoring",
-    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, all on one longitudinal record.",
+    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, or let a connected BP cuff, glucometer, or wearable fill in the reading as we bring each device online. Either way, it lands on one longitudinal record.",
   },
   {
     title: "Reviewed between visits",
