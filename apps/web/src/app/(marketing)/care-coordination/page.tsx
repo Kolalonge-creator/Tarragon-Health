@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
@@ -74,6 +75,30 @@ export default function CareCoordinationPage() {
       </Section>
 
       <Section variant="sage">
+        <div className="mx-auto grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              One care team, everywhere you already go
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Labs, pharmacies, and specialists, coordinated from one record
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              Tarragon doesn&apos;t own a lab, a pharmacy, or a specialist practice. It coordinates the
+              ones you already use, wherever you like, so nothing you need falls through the gap
+              between providers.
+            </p>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "care-network",
+              imageAlt: "Your care team coordinating between a lab, a pharmacy, and a specialist",
+            }}
+          />
+        </div>
+      </Section>
+
+      <Section>
         <SectionHeading
           eyebrow="What we connect"
           title="One record, less chasing"

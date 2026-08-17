@@ -14,7 +14,8 @@ import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
 import { AnimatedNumber } from "./_components/animated-number";
-import { PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
+import { StepsExplorer } from "./_components/steps-explorer";
+import { HOW_IT_WORKS_STEPS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -144,17 +145,33 @@ export default function MarketingHomePage() {
         />
       </Section>
 
+      {/* The spec's numbered "how it works" sequence (§3.1.5), reusing the
+          exact HOW_IT_WORKS_STEPS/StepsExplorer pair already built for
+          /services rather than a duplicate list — this is the one place on
+          the homepage where a real sequence justifies numbering. */}
       <Section>
         <SectionHeading
-          eyebrow="The solution"
+          eyebrow="How it works"
           title="Tarragon monitors, reminds, reviews, coordinates, and escalates"
-          description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not. See how it works, end to end, on our services page."
+          description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not."
         />
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button asChild>
-            <Link href={MARKETING_ROUTES.services}>See how Tarragon works</Link>
-          </Button>
+        <div className="mx-auto grid max-w-5xl items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
+          <StepsExplorer
+            steps={HOW_IT_WORKS_STEPS.map(({ title, body }) => ({ title, body }))}
+            tone="green"
+          />
+          <MarketingMediaFrame
+            media={{
+              illustration: "connected-care",
+              imageAlt: "Readings, reminders, and doctor review in one connected record",
+            }}
+          />
+        </div>
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline">
+            <Link href={MARKETING_ROUTES.services}>See the full walkthrough</Link>
+          </Button>
+          <Button asChild variant="ghost">
             <Link href={MARKETING_ROUTES.about}>About Tarragon</Link>
           </Button>
         </div>
