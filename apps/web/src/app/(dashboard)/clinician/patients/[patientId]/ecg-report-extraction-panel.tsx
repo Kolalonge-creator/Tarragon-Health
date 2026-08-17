@@ -9,7 +9,8 @@ import {
   extractEcgReportAction,
 } from "@/lib/ecg-reports/extraction-actions";
 import { getEcgParameter } from "@/lib/ecg-reports/ecg-parameter-catalogue";
-import { looksTwelveLeadFlags, type ExtractedParameter } from "@/lib/ecg-reports/extract";
+import type { ExtractedParameter } from "@/lib/ecg-reports/extract";
+import { checkLooksTwelveLead } from "@/lib/ecg-reports/qc";
 
 export interface EcgExtractionView {
   id: string;
@@ -161,7 +162,7 @@ export function EcgReportExtractionPanel({
     patientName &&
     !looksLikeSameName(extraction.patientNameOnReport, patientName);
 
-  const twelveLeadFlags = looksTwelveLeadFlags(extraction.looksTwelveLead);
+  const twelveLeadFlags = checkLooksTwelveLead(extraction.looksTwelveLead);
   const selectedCount = readyParams.filter((p) => selected[p.code as string]).length;
 
   function submit() {

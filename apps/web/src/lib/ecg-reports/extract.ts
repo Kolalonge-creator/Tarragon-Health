@@ -11,7 +11,6 @@ import {
 import {
   checkQtNotShorterThanQrs,
   checkQtcBazettConsistency,
-  checkLooksTwelveLead,
   type QcFlag,
 } from "./qc";
 
@@ -398,7 +397,3 @@ export async function extractEcgReport(input: {
   }
 }
 
-/** Re-exported for the review UI: whether this extraction's 12-lead plausibility check passed. */
-export function looksTwelveLeadFlags(looksTwelveLead: boolean): QcFlag[] {
-  return checkLooksTwelveLead(looksTwelveLead);
-}
