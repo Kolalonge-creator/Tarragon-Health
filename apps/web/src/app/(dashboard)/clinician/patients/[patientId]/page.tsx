@@ -17,6 +17,7 @@ import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
+import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
@@ -273,6 +274,7 @@ export default async function ClinicianPatientPage({
                 {/* Each uploaded document carries its own read-and-file panel
                     inline, so checking a value against the page is one glance. */}
                 <ResultDocumentsSection patientId={patient.id} />
+                <EcgReportDocumentsSection patientId={patient.id} />
                 <MentalHealthSummary patientId={patient.id} showScores />
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />
