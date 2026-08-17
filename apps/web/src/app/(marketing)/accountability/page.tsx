@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import {
   TIER_COPY,
   getPublishedCommitments,
@@ -37,11 +38,27 @@ export default async function AccountabilityPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading
-          eyebrow="Response times"
-          title="What happens when something looks wrong"
-          description="These are the times we commit to, and they are read straight out of the version our Clinical Director signed. If that document changes, this page changes with it. We cannot quote you a number nobody has approved."
-        />
+        <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              Response times
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              What happens when something looks wrong
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              These are the times we commit to, and they are read straight out of the version our
+              Clinical Director signed. If that document changes, this page changes with it. We
+              cannot quote you a number nobody has approved.
+            </p>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "response-clock",
+              imageAlt: "A deadline attached to every flagged reading",
+            }}
+          />
+        </div>
 
         {published ? (
           <div className="mx-auto max-w-3xl space-y-4">

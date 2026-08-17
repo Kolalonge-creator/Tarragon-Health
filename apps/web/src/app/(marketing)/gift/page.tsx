@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
@@ -92,11 +93,26 @@ export default function GiftPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading
-          eyebrow="Two ways to give"
-          title="A named check, not a balance"
-          description="You are buying a service, not topping up an account. That is a real difference, and it is the one that makes the gift worth something."
-        />
+        <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              Two ways to give
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              A named check, not a balance
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              You are buying a service, not topping up an account. That is a real difference, and
+              it is the one that makes the gift worth something.
+            </p>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "gift-record",
+              imageAlt: "A year of care, given as a named gift rather than a balance",
+            }}
+          />
+        </div>
         <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
           {WAYS_TO_GIVE.map((item) => (
             <div key={item.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">

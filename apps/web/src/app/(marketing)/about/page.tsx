@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { TrustPillars } from "../_components/trust-pillars";
 import { LeadershipGrid } from "../_components/leadership-panel";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -103,11 +104,28 @@ export default function AboutPage() {
       </Section>
 
       <Section>
-        <SectionHeading
-          eyebrow="The thesis"
-          title="Continuity, not just monitoring"
-          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same care team follow a person from a routine screening through an ongoing condition, and the story never resets."
-        />
+        <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              The thesis
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Continuity, not just monitoring
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              Prevention and chronic disease management share the same patient record at
+              TarragonHealth. The same family, the same phone, and the same care team follow a
+              person from a routine screening through an ongoing condition, and the story never
+              resets.
+            </p>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "continuity-thread",
+              imageAlt: "A single continuous record following someone from screening through ongoing care",
+            }}
+          />
+        </div>
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {[
             {
