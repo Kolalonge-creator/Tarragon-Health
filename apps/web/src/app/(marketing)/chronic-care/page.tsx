@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { StepsExplorer } from "../_components/steps-explorer";
@@ -60,8 +61,25 @@ export default async function ChronicCarePage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="How chronic care works" title="Monitor, review, escalate" />
-        <StepsExplorer steps={HOW} tone="navy" />
+        <div className="mx-auto grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              How chronic care works
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Monitor, review, escalate
+            </h2>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "care-loop",
+              imageAlt: "A continuous loop: monitor, review, and escalate when needed",
+            }}
+          />
+        </div>
+        <div className="mt-10">
+          <StepsExplorer steps={HOW} tone="navy" />
+        </div>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Looking after a parent with a long-term condition?{" "}
           <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
