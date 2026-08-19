@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ClinicalStaffAvatar } from "@/components/clinical-staff-avatar";
 
 function formatReviewedDate(reviewedAt: string): string {
   return new Date(reviewedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
@@ -11,7 +12,9 @@ function formatReviewedDate(reviewedAt: string): string {
  * reviewing doctor's own resolve action). If reviewed_by is set but no
  * matching clinical_staff record exists, falls back to a generic
  * clinician-attributed line rather than guessing a name — the guardrail
- * that makes false attribution structurally impossible.
+ * that makes false attribution structurally impossible. Photo/specialty are
+ * per-case attribution only (this case's reviewer), never a standing "your
+ * doctor" profile — see CLAUDE.md's no-continuous-named-doctor correction.
  */
 export async function ReviewedByDoctor({ escalationId }: { escalationId: string }) {
   const supabase = await createClient();
@@ -28,7 +31,7 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
 
   const { data: doctor } = await supabase
     .from("clinical_staff")
-    .select("full_name, credential_type, credential_number")
+    .select("full_name, credential_type, credential_number, photo_url, specialty")
     .eq("profile_id", escalation.reviewed_by)
     .eq("active", true)
     .maybeSingle();
@@ -47,13 +50,17 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
       : null;
 
   return (
-    <p className="text-sm text-charcoal-ink">
-      Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
-      {credential && <span className="text-charcoal-ink/60"> · {credential}</span>}
-      <span className="text-charcoal-ink/60"> · {reviewedDate}</span>
-      {escalation.resolution_note && (
-        <span className="block text-charcoal-ink/70">{escalation.resolution_note}</span>
-      )}
-    </p>
+    <div className="flex items-start gap-3">
+      <ClinicalStaffAvatar fullName={doctor.full_name} photoUrl={doctor.photo_url} />
+      <p className="text-sm text-charcoal-ink">
+        Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
+        {doctor.specialty && <span className="text-charcoal-ink/60"> · {doctor.specialty}</span>}
+        {credential && <span className="text-charcoal-ink/60"> · {credential}</span>}
+        <span className="text-charcoal-ink/60"> · {reviewedDate}</span>
+        {escalation.resolution_note && (
+          <span className="block text-charcoal-ink/70">{escalation.resolution_note}</span>
+        )}
+      </p>
+    </div>
   );
 }
