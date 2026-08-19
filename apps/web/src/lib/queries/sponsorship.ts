@@ -495,10 +495,10 @@ export function useSponsorSetBasics() {
       const supabase = createClient();
       const { error } = await supabase.rpc("sponsor_set_dependent_basics", {
         p_beneficiary: input.beneficiaryId,
-        p_date_of_birth: input.dateOfBirth ?? null,
-        p_sex: input.sex ?? null,
-        p_state: input.state ?? null,
-        p_city: input.city ?? null,
+        p_date_of_birth: input.dateOfBirth ?? undefined,
+        p_sex: input.sex ?? undefined,
+        p_state: input.state ?? undefined,
+        p_city: input.city ?? undefined,
       });
       if (error) throw error;
     },

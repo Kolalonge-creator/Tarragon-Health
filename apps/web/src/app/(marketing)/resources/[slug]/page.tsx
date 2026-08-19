@@ -27,17 +27,31 @@ export async function generateMetadata({
   const { slug } = await params;
   const article = await loadResourceArticle(slug);
   if (!article) return {};
+  const url = absoluteUrl(`/resources/${article.slug}`);
   return {
     title: article.title,
     description: article.description,
-    alternates: { canonical: absoluteUrl(`/resources/${article.slug}`) },
+    alternates: { canonical: url },
     openGraph: {
       type: "article",
+      siteName: SITE.name,
+      locale: SITE.locale,
       title: article.title,
       description: article.description,
-      url: absoluteUrl(`/resources/${article.slug}`),
+      url,
       ...(article.publishedAt ? { publishedTime: article.publishedAt } : {}),
       ...(article.updatedAt ? { modifiedTime: article.updatedAt } : {}),
+    },
+    // Next replaces the whole resolved twitter object with whatever this
+    // segment declares (see pageMetadata's doc comment in lib/marketing/site
+    // for the resolver trace) — omitting this entirely, as before, meant the
+    // layout's bare {card} object won unchanged and no twitter:title/
+    // description ever rendered for an article.
+    twitter: {
+      card: "summary_large_image",
+      site: `@${SITE.twitterHandle}`,
+      title: article.title,
+      description: article.description,
     },
   };
 }

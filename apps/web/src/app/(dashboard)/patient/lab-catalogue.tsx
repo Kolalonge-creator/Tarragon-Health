@@ -2,7 +2,7 @@
 
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { koboToNaira } from "@tarragon/shared";
+import { testCodeLabels } from "@/lib/labs/test-code-labels";
 
 /**
  * Read-only per the clinician-originated-orders guardrail (see
@@ -12,6 +12,13 @@ import { koboToNaira } from "@tarragon/shared";
  * only self-service lab booking path is a currently-due screening on
  * PreventiveScreeningCalendar; anything else needs a clinician to generate
  * the order.
+ *
+ * No price shown: since the 2026-08-03 self-arranged-fulfilment decision,
+ * Tarragon does not bill for tests — `bundle.price_kobo` is a stale
+ * pre-pivot figure that would read as "this is what Tarragon charges,"
+ * exactly the framing the marketing site (`YOU PAY THE LAB`, see
+ * `_content/pricing.ts`) deliberately never shows. What a patient actually
+ * pays depends on the lab they choose.
  */
 export function LabCatalogue() {
   const { data: bundles, isLoading, isError } = useLabCatalogue();
@@ -31,25 +38,22 @@ export function LabCatalogue() {
           <>
             <ul className="divide-y divide-charcoal-ink/10">
               {bundles.map((bundle) => (
-                <li key={bundle.id} className="flex items-start justify-between gap-2 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
-                    {bundle.description && (
-                      <p className="text-xs text-charcoal-ink/60">{bundle.description}</p>
-                    )}
-                    <p className="text-xs text-charcoal-ink/60">
-                      Includes: {bundle.test_codes.join(", ")}
-                    </p>
-                  </div>
-                  <p className="shrink-0 text-sm font-medium text-charcoal-ink">
-                    ₦{koboToNaira(bundle.price_kobo).toLocaleString()}
+                <li key={bundle.id} className="py-3">
+                  <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
+                  {bundle.description && (
+                    <p className="text-xs text-charcoal-ink/60">{bundle.description}</p>
+                  )}
+                  <p className="text-xs text-charcoal-ink/60">
+                    Includes: {testCodeLabels(bundle.test_codes).join(", ")}
                   </p>
                 </li>
               ))}
             </ul>
             <p className="text-sm text-charcoal-ink/70">
               Due screenings can be booked directly from your screening calendar below. For
-              anything else here, message your care team in the app and they&apos;ll arrange it.
+              anything else here, message your care team in the app and they&apos;ll write you a
+              request to take to a laboratory of your choice. You pay the lab directly, at
+              whatever they charge, and we take nothing on top.
             </p>
           </>
         )}

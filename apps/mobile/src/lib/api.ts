@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import type { HealthSample } from "./healthkit";
+import type { HealthProvider } from "./health-sync";
 
 /**
  * The mobile app is a separate deployment from the web app, so it hits the
@@ -19,15 +20,59 @@ export async function postDeviceReading(payload: Record<string, unknown>): Promi
   return result.ok ? { success: true } : { success: false, error: result.error };
 }
 
+export interface PostVitalReadingResult {
+  success: boolean;
+  error?: string;
+}
+
+/** Mirrors the mobileVitalsSchema union in
+ * apps/web/src/app/api/mobile/vitals/route.ts — the six vital types the
+ * native quick-log screen collects (MOBILE_APP_SPEC.md §2.2). */
+export type VitalReadingPayload =
+  | { vital_type: "blood_pressure"; systolic: number; diastolic: number; note?: string }
+  | {
+      vital_type: "glucose";
+      glucose_value: number;
+      glucose_unit: "mmol_l" | "mg_dl";
+      glucose_context: "fasting" | "pre_meal" | "post_meal" | "bedtime" | "night" | "random";
+      note?: string;
+    }
+  | { vital_type: "weight"; weight_kg: number; note?: string }
+  | { vital_type: "pulse"; pulse_bpm: number; note?: string }
+  | { vital_type: "temperature"; temperature_c: number; note?: string }
+  | { vital_type: "spo2"; spo2_pct: number; note?: string };
+
+/** Goes through the API (not a direct client insert) so a dangerous reading
+ * triggers the same red-flag/health-score reassessment a web-logged one
+ * does; see apps/web/src/app/api/mobile/vitals/route.ts.
+ *
+ * beneficiaryProfileId is the mobile equivalent of web's acting-for cookie
+ * (see lib/acting.ts) — set when the signed-in user currently has a
+ * supported person's account open, so the reading is logged for them, not
+ * for the caller. The route re-checks the live 'manage' grant itself. */
+export async function postVitalReading(
+  payload: VitalReadingPayload,
+  beneficiaryProfileId?: string
+): Promise<PostVitalReadingResult> {
+  const body = beneficiaryProfileId ? { ...payload, beneficiary_profile_id: beneficiaryProfileId } : payload;
+  const result = await request<Record<string, never>>("/api/mobile/vitals", "POST", body);
+  return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
 export interface HealthSyncCursor {
   cursor: string | null;
   last_synced_at: string | null;
 }
 
-/** Where the last Apple Health sync got to, so the app reads a delta rather
- * than re-reading (and re-uploading) the same history every time. */
-export async function getHealthSyncCursor(): Promise<HealthSyncCursor | null> {
-  const result = await request<HealthSyncCursor>("/api/mobile/health-samples", "GET");
+/** Where the last sync for this provider got to, so the app reads a delta
+ * rather than re-reading (and re-uploading) the same history every time.
+ * Apple Health and Android Health Connect are two independent connections
+ * on the server (see route.ts), each with their own cursor. */
+export async function getHealthSyncCursor(provider: HealthProvider): Promise<HealthSyncCursor | null> {
+  const result = await request<HealthSyncCursor>(
+    `/api/mobile/health-samples?provider=${provider}`,
+    "GET"
+  );
   return result.ok ? result.data : null;
 }
 
@@ -39,9 +84,13 @@ export interface PostHealthSamplesResult {
 }
 
 export async function postHealthSamples(
-  samples: HealthSample[]
+  samples: HealthSample[],
+  provider: HealthProvider
 ): Promise<{ ok: true; data: PostHealthSamplesResult } | { ok: false; error: string }> {
-  return request<PostHealthSamplesResult>("/api/mobile/health-samples", "POST", { samples });
+  return request<PostHealthSamplesResult>("/api/mobile/health-samples", "POST", {
+    samples,
+    provider,
+  });
 }
 
 type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string };

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useThreadMessages, usePostMessage, type CareMessage } from "@/lib/queries/care-messages";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -27,9 +28,11 @@ function when(iso: string): string {
  */
 function authorLabel(message: CareMessage): string {
   // Null-gated clinician attribution: only name a doctor when a real
-  // clinical_staff row backs the message.
+  // clinical_staff row backs the message AND it's an actual clinical tier —
+  // a Care Coordinator's own active clinical_staff row (doctor_tier =
+  // 'care_coordinator') must never render as "Dr. <coordinator's name>".
   if (message.author_role === "care_team") {
-    if (message.actor?.full_name) {
+    if (message.actor?.full_name && isClinicalTier(message.actor)) {
       const credential =
         message.actor.credential_type && message.actor.credential_number
           ? ` · ${message.actor.credential_type} ${message.actor.credential_number}`

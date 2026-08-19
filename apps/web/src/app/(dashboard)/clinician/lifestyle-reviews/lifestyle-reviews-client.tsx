@@ -18,7 +18,7 @@ export function LifestyleReviewsClient({ reviews }: { reviews: PendingReview[] }
   if (reviews.length === 0) {
     return (
       <Card>
-        <CardContent className="text-muted-foreground py-8 text-center text-sm">
+        <CardContent className="text-charcoal-ink/60 py-8 text-center text-sm">
           Nothing waiting. All lifestyle reviews are up to date.
         </CardContent>
       </Card>

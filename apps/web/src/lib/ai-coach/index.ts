@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CoachChatMessage, CoachTier, Database, Json } from "@tarragon/shared";
 import { buildCoachGraph, type CoachGraphDeps } from "./graph";
+import { COACH_ACCESS_DENIED_REPLY, hasCoachAccess } from "./entitlement";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
 
 export interface RunCoachTurnParams {
@@ -71,6 +72,27 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       throw new Error(error?.message ?? "Could not start a conversation");
     }
     conversationId = data.id;
+  }
+
+  // Defense in depth: care/page.tsx and lifestyle/page.tsx only render the
+  // chat UI when hasCoachAccess() is true, but neither of them re-checks it
+  // on every send, and this function is meant to be transport-agnostic (see
+  // its docstring) — a future caller with no UI gate at all would otherwise
+  // skip this check entirely. Same short-circuit shape as the daily-limit
+  // block below: append a canned reply, return normally, no thrown error.
+  const hasAccess = await hasCoachAccess(supabase);
+  if (!hasAccess) {
+    const now = new Date().toISOString();
+    const userMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "user", content: message, created_at: now };
+    const assistantMessage: CoachChatMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: COACH_ACCESS_DENIED_REPLY,
+      tier: "routine",
+      created_at: now,
+    };
+    await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+    return { conversationId, reply: COACH_ACCESS_DENIED_REPLY, tier: "routine" };
   }
 
   const [messagesToday, dailyLimit] = await Promise.all([

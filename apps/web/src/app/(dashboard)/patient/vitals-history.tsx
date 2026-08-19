@@ -5,16 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { mmolLToMgDl, type Tables } from "@tarragon/shared";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
+import { classifySpo2Level, SPO2_LEVEL_LABEL, type Spo2Level } from "@/lib/rules/spo2-classification";
+import {
+  classifyTemperatureLevel,
+  TEMPERATURE_LEVEL_LABEL,
+  type TemperatureLevel,
+} from "@/lib/rules/temperature-classification";
 
 // Clinical dashboard status colours (a separate system from brand colour, per
 // the brand guide). Non-diagnostic label; the actual escalation is raised
-// server-side by the BP red-flag trigger.
-const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = {
+// server-side by the vitals red-flag triggers (BP/SpO2/temperature).
+const LEVEL_STYLE: Record<"green" | "amber" | "red" | "emergency", string> = {
   green: "bg-emerald-100 text-emerald-800",
   amber: "bg-amber-100 text-amber-800",
   red: "bg-red-100 text-red-800",
   emergency: "bg-red-600 text-white",
 };
+const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = LEVEL_STYLE;
 
 function BpLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
   const level = classifyBpLevel(reading.systolic, reading.diastolic);
@@ -24,6 +31,34 @@ function BpLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
       className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${BP_LEVEL_STYLE[level]}`}
     >
       {BP_LEVEL_LABEL[level]}
+    </span>
+  );
+}
+
+const SPO2_LEVEL_STYLE: Record<Exclude<Spo2Level, "unknown">, string> = LEVEL_STYLE;
+
+function Spo2LevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
+  const level = classifySpo2Level(reading.spo2_pct);
+  if (level === "unknown") return null;
+  return (
+    <span
+      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${SPO2_LEVEL_STYLE[level]}`}
+    >
+      {SPO2_LEVEL_LABEL[level]}
+    </span>
+  );
+}
+
+const TEMPERATURE_LEVEL_STYLE: Record<Exclude<TemperatureLevel, "unknown">, string> = LEVEL_STYLE;
+
+function TemperatureLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
+  const level = classifyTemperatureLevel(reading.temperature_c);
+  if (level === "unknown") return null;
+  return (
+    <span
+      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${TEMPERATURE_LEVEL_STYLE[level]}`}
+    >
+      {TEMPERATURE_LEVEL_LABEL[level]}
     </span>
   );
 }
@@ -84,6 +119,10 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                     {formatReading(reading)}
                     {reading.vital_type === "blood_pressure" && (
                       <BpLevelBadge reading={reading} />
+                    )}
+                    {reading.vital_type === "spo2" && <Spo2LevelBadge reading={reading} />}
+                    {reading.vital_type === "temperature" && (
+                      <TemperatureLevelBadge reading={reading} />
                     )}
                   </p>
                   {reading.note && (

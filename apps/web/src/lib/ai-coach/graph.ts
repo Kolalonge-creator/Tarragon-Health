@@ -12,7 +12,11 @@ import {
 } from "./prompts";
 import { detectEmergencyKeywords } from "./keyword-guardrail";
 import { loadPatientContext } from "./context";
-import { logAiCoachEscalation } from "./escalate";
+import { logAiCoachEscalation, logAiCoachReviewFlag } from "./escalate";
+import { buildAnthropicModel } from "./model";
+import type { Embedder } from "@/lib/lifestyle/embed-content";
+import { createVoyageEmbedderFromEnv } from "@/lib/lifestyle/voyage-embedder";
+import { findRelevantLifestyleContent } from "@/lib/lifestyle/find-relevant-content";
 
 const structuredReplySchema = z.object({
   tier: z.enum(COACH_TIERS),
@@ -41,23 +45,11 @@ export interface CoachGraphDeps {
   getServiceRoleSupabase: () => SupabaseClient<Database>;
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic;
-}
-
-function buildModel(): ChatAnthropic {
-  return new ChatAnthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
-    maxTokens: 500,
-    // @langchain/anthropic@0.3.x unconditionally sends temperature/top_p/
-    // top_k on every request (defaulting top_p/top_k to a -1 "unset"
-    // sentinel it only omits for a few hardcoded older model-name
-    // substrings). The claude-sonnet-5 API rejects all three outright for
-    // this model generation ("`top_p` cannot be set to -1", "`temperature`
-    // is deprecated") — invocationKwargs is spread last in this package's
-    // request-building code, so setting them to `undefined` here overrides
-    // the class defaults and omits the keys from the request entirely.
-    invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
-  });
+  /** Injectable for tests; defaults to a real Voyage AI client built from
+   * VOYAGE_API_KEY (voyage-embedder.ts). `null` (the default when unset)
+   * means "no embedder configured" — content retrieval is skipped
+   * gracefully, same no-op contract as populateContentEmbeddings. */
+  embedder?: Embedder | null;
 }
 
 /** Builds the AI Coach's LangGraph turn:
@@ -90,10 +82,69 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
 
   async function llmTurn(state: CoachGraphState) {
     const context = await loadPatientContext(deps.supabase, state.profileId);
-    const contextLine =
-      context.elevatedConditions.length > 0
-        ? `The patient currently has an elevated risk tier for: ${context.elevatedConditions.join(", ")}.`
-        : "";
+    const contextLines: string[] = [];
+    if (context.elevatedConditions.length > 0) {
+      contextLines.push(
+        `The patient currently has an elevated risk tier for: ${context.elevatedConditions.join(", ")}.`
+      );
+    }
+    // Per-programme grounding. A paused/flagged programme gets a deference
+    // instruction instead of goal talk — mirrors, at the prompt level, the
+    // same hard rule @tarragon/lifestyle-engine's applyGuardrails() enforces
+    // in code (never push weight-loss/programme content at a paused or
+    // flagged enrolment). The deterministic keyword guardrail and the
+    // tier-classification instructions above remain the real enforcement
+    // backstops regardless of what's injected here.
+    for (const p of context.lifestyleProgrammes) {
+      if (p.status === "paused" || p.hasOpenRedFlag) {
+        contextLines.push(
+          `The patient's ${p.conditionLabel} lifestyle programme is currently paused or flagged ` +
+            `for a doctor's review. Do not encourage progress toward its goals or suggest pushing ` +
+            `forward — acknowledge it supportively and point them to their care team if they bring it up.`
+        );
+      } else {
+        const goalsPart =
+          p.goalTitles.length > 0 ? ` Current goals: ${p.goalTitles.join(", ")}.` : "";
+        contextLines.push(
+          `The patient is enrolled in a ${p.conditionLabel} lifestyle programme` +
+            (p.currentPhaseName ? `, currently in the "${p.currentPhaseName}" phase.` : ".") +
+            goalsPart
+        );
+      }
+    }
+
+    // Reference-material retrieval (find-relevant-content.ts), scoped to the
+    // patient's own active (non-paused, non-flagged) lifestyle programme —
+    // paused/flagged programmes already got a deference instruction above
+    // and shouldn't also be handed goal-adjacent reading material. Never
+    // throws; this whole block is a no-op today (no VOYAGE_API_KEY
+    // configured, and no lpe_content_blocks row is clinician_reviewed yet —
+    // see the 58-block draft library) and starts surfacing content
+    // automatically the moment both exist, no further code change needed.
+    const activeProgramme = context.lifestyleProgrammes.find(
+      (p) => p.status !== "paused" && !p.hasOpenRedFlag
+    );
+    if (activeProgramme) {
+      const embedder = deps.embedder ?? createVoyageEmbedderFromEnv();
+      if (embedder) {
+        const relevant = await findRelevantLifestyleContent(
+          deps.supabase,
+          embedder,
+          state.incomingMessage,
+          { matchCount: 2, conditionFilter: activeProgramme.condition }
+        );
+        if (relevant.length > 0) {
+          contextLines.push(
+            "Clinician-approved reference material that may be relevant to this message " +
+              "(use it to inform your answer in your own words and voice, don't quote it at " +
+              "length or present it as a document):\n" +
+              relevant.map((r) => `- ${r.title}: ${r.bodyMd}`).join("\n")
+          );
+        }
+      }
+    }
+
+    const contextLine = contextLines.join("\n\n");
 
     const history = state.priorMessages.map((message) =>
       message.role === "user" ? new HumanMessage(message.content) : new AIMessage(message.content)
@@ -102,7 +153,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     try {
       // Built inside the try block, not at graph-build time — a missing/invalid
       // ANTHROPIC_API_KEY must degrade this turn, not throw before we can catch it.
-      const model = deps.model ?? buildModel();
+      const model = deps.model ?? buildAnthropicModel({ maxTokens: 500 });
       const structuredModel = model.withStructuredOutput(structuredReplySchema);
       const result = await structuredModel.invoke([
         new SystemMessage(contextLine ? `${COACH_SYSTEM_PROMPT}\n\n${contextLine}` : COACH_SYSTEM_PROMPT),
@@ -135,6 +186,17 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
   }
 
   async function logReview(state: CoachGraphState) {
+    // Previously audit_log only — correct for the record, but nobody's
+    // dashboard reads audit_log, so a real concern could sit unseen
+    // indefinitely (see logAiCoachReviewFlag's docstring). Now also opens a
+    // real clinician_alerts row so a flagged-but-non-emergency turn actually
+    // reaches a worklist, not just a log.
+    await logAiCoachReviewFlag(deps.getServiceRoleSupabase(), {
+      organisationId: state.organisationId,
+      patientId: state.profileId,
+      conversationId: state.conversationId,
+      triggerMessage: state.incomingMessage,
+    });
     await deps.supabase.from("audit_log").insert({
       organisation_id: state.organisationId,
       actor_id: state.profileId,

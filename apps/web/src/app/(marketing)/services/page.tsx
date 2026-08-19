@@ -8,19 +8,21 @@ import { ConditionsMarquee } from "../_components/conditions-marquee";
 import { StepsExplorer } from "../_components/steps-explorer";
 import { HOW_IT_WORKS_STEPS, SERVICE_CARDS, WHAT_WE_TRACK } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Services",
   description:
     "Everything TarragonHealth helps you manage: chronic disease, preventive health, medication, labs, and care coordination, in one connected record.",
-  alternates: { canonical: MARKETING_ROUTES.services },
-};
+  path: MARKETING_ROUTES.services,
+});
 
 export default function ServicesPage() {
   return (
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Services"
           title="What we help you manage"
           description="Chronic disease, preventive health, medication, and labs, all on one shared record so nothing falls through the cracks between visits."

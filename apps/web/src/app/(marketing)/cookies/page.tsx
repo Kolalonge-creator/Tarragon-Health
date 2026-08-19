@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 import { Section } from "../_components/section";
 import { LegalCrossLinks } from "../_components/legal-document";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
-import { absoluteUrl } from "@/lib/marketing/site";
+import { pageMetadata } from "@/lib/marketing/site";
 import { ManageCookiePreferencesButton } from "@/components/consent/manage-cookie-preferences-button";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Cookie Policy",
   description:
     "What cookies, local storage, and analytics TarragonHealth uses, why, and how to control them.",
-  alternates: { canonical: absoluteUrl(MARKETING_ROUTES.cookies) },
-};
+  path: MARKETING_ROUTES.cookies,
+});
 
 const LAST_UPDATED = "30 July 2026";
 

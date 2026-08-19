@@ -30,12 +30,16 @@ export function SectionHeading({
   title,
   description,
   invert = false,
+  as = "h2",
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
   invert?: boolean;
+  /** The page's first SectionHeading should be "h1" — every marketing page needs exactly one. */
+  as?: "h1" | "h2";
 }) {
+  const Heading = as;
   return (
     <div className="mx-auto mb-10 max-w-2xl text-center">
       {eyebrow ? (
@@ -48,14 +52,14 @@ export function SectionHeading({
           {eyebrow}
         </p>
       ) : null}
-      <h2
+      <Heading
         className={cn(
           "font-heading text-3xl font-semibold sm:text-4xl",
           invert ? "text-white" : "text-charcoal-ink"
         )}
       >
         {title}
-      </h2>
+      </Heading>
       {description ? (
         <p className={cn("mt-4 text-lg", invert ? "text-white/70" : "text-charcoal-ink/70")}>
           {description}

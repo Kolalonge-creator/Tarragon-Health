@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { getLifestyleState, getPastLifestyleGoals } from "@/lib/lifestyle/service";
+import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { LifestyleClient } from "./lifestyle-client";
 
 /**
@@ -23,13 +26,17 @@ export default async function LifestylePage() {
   if (!hasAccess) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Your lifestyle programme</h1>
+        <PageHeader
+          title="Lifestyle coaching"
+          icon={NAV_ICON.lifestyle}
+          description="Small, steady changes, logged here, supported by your care team."
+        />
         <UpgradePrompt feature="lifestyle_coaching" />
       </div>
     );
   }
 
-  const [enrollments, pastGoals, { data: profile }] = await Promise.all([
+  const [enrollments, pastGoals, { data: profile }, coachAccess] = await Promise.all([
     getLifestyleState(supabase, user.id),
     getPastLifestyleGoals(supabase, user.id),
     supabase
@@ -37,6 +44,7 @@ export default async function LifestylePage() {
       .select("condition_language_preference")
       .eq("id", user.id)
       .single(),
+    hasCoachAccess(supabase),
   ]);
 
   return (
@@ -45,6 +53,7 @@ export default async function LifestylePage() {
       enrollments={enrollments}
       pastGoals={pastGoals}
       conditionLanguagePreference={profile?.condition_language_preference}
+      coachAccess={coachAccess}
     />
   );
 }

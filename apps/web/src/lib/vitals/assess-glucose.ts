@@ -10,6 +10,7 @@ import {
   type KetoneUrineBand,
 } from "./glucose-red-flags";
 import { ageFromDateOfBirth } from "@tarragon/shared";
+import { patientHasVitalsEscalationAccess, GLUCOSE_SELF_CARE_NOTE } from "@/lib/clinical/vitals-escalation-access";
 
 /** Trailing window for the pattern flags (persistent-high / recurrent-hypo). */
 const GLUCOSE_WINDOW_DAYS = 14;
@@ -112,7 +113,7 @@ export async function assessGlucoseBestEffort(
     // (per the pathway: a lean/young clue must not be missed).
     if (suspectsType1({ ageYears, bmi: null })) {
       flag.detail +=
-        " ⚠ Young patient — consider TYPE 1 / ketosis-prone diabetes: do not assume type 2, do not delay insulin, and arrange same-day review + specialist linkage (§4).";
+        " ⚠ Young patient; consider TYPE 1 / ketosis-prone diabetes: do not assume type 2, do not delay insulin, and arrange same-day review + specialist linkage (§4).";
     }
   }
 
@@ -161,6 +162,12 @@ async function raiseGlucoseEmergency(
  * Urgent / amber → a deduped clinician_alert (staff-write, so service-role,
  * same as assessHeartRateBestEffort). Urgent = same-day (§16 RED), amber =
  * routine review (§16 AMBER). Only a doctor may stand the alert down.
+ *
+ * Gated to paid plans (founder decision 2026-08-10, same reasoning as the DB
+ * red-flag triggers in 20260810120000_gate_vitals_red_flag_escalation_to_
+ * paid_plans.sql): a Free-tier patient gets no clinician_alert here — this is
+ * the one red-flag pathway that never runs as a DB trigger, so the gate has
+ * to live here in TypeScript instead of in that migration.
  */
 async function raiseGlucoseAlert(
   patientId: string,
@@ -171,6 +178,24 @@ async function raiseGlucoseAlert(
   if (!title) return;
 
   const serviceRole = createServiceRoleClient();
+
+  const hasEscalationAccess = await patientHasVitalsEscalationAccess(serviceRole, patientId);
+  if (!hasEscalationAccess) {
+    await serviceRole.from("notifications").insert({
+      organisation_id: organisationId,
+      recipient_id: patientId,
+      channel: "in_app",
+      template: "free_tier_reading_self_care_suggestion",
+      payload: {
+        vital_label: "blood glucose",
+        level_label: flag.tier === "urgent" ? "Priority" : "Review needed",
+        self_care_note:
+          GLUCOSE_SELF_CARE_NOTE[flag.kind] ??
+          "Recheck your glucose again soon and keep logging so a pattern is easy to spot. If you feel unwell, seek care promptly.",
+      },
+    });
+    return;
+  }
 
   const { data: existing } = await serviceRole
     .from("clinician_alerts")

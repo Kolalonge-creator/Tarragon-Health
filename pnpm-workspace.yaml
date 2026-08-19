@@ -28,3 +28,11 @@ overrides:
   jest-mock: "30.4.1"
   "@types/react": "19.2.17"
   "@types/react-dom": "19.2.3"
+  # 2026-08-12 security audit: both arrive transitively (sharp bundled by
+  # next's image optimisation, fast-uri via ajv -> schema-utils -> webpack's
+  # Sentry build tooling) below their patched versions. sharp<0.35.0 inherits
+  # libvips CVE-2026-33327/33328/35590/35591 (image-parsing DoS/memory
+  # issues); fast-uri<3.1.5 has a host-confusion bug via a backslash authority
+  # delimiter. Neither has a direct entry in any package.json to bump instead.
+  sharp: ">=0.35.0"
+  fast-uri: ">=3.1.5"

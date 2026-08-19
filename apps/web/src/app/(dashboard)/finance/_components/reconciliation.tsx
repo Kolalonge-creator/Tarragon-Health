@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useReconciliationSummary, financeKeys } from "@/lib/finance/queries";
+import { useReconciliationSummary, useReconciliationFlags, financeKeys } from "@/lib/finance/queries";
+import type { ReconciliationFlag } from "@/lib/finance/schemas";
 import {
   importSettlementAction,
   matchPaymentAction,
   postSettlementAction,
+  resolveReconciliationFlagAction,
 } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
@@ -26,8 +28,19 @@ const today = () => new Date().toISOString().slice(0, 10);
 export function Reconciliation() {
   const qc = useQueryClient();
   const { data, isLoading } = useReconciliationSummary();
+  const { data: flags, isLoading: flagsLoading } = useReconciliationFlags("open");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.all });
+
+  async function resolveFlag(id: string, status: "resolved" | "ignored") {
+    const res = await resolveReconciliationFlagAction(id, status);
+    if (res.ok) {
+      setMsg({ ok: true, text: status === "resolved" ? "Flag marked resolved." : "Flag ignored." });
+      invalidate();
+    } else {
+      setMsg({ ok: false, text: res.error ?? "Could not update the flag." });
+    }
+  }
 
   // import form
   const [f, setF] = useState({
@@ -90,6 +103,36 @@ export function Reconciliation() {
   return (
     <div className="space-y-6">
       {msg && <p className={`text-sm ${msg.ok ? "text-brand-green" : "text-red-600"}`}>{msg.text}</p>}
+
+      <SectionCard
+        title="Automated reconciliation flags"
+        description="Daily sweep against Paystack's and Stripe's own transaction records; detection only, nothing here is fixed automatically."
+      >
+        {flagsLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : (flags ?? []).length === 0 ? (
+          <CenterNote>No open flags. Everything the sweep checked in the last window matched. ✓</CenterNote>
+        ) : (
+          <TableShell>
+            <thead>
+              <tr className="border-b border-charcoal-ink/10 text-xs text-charcoal-ink/50">
+                <Th>Detected</Th>
+                <Th>Provider</Th>
+                <Th>Issue</Th>
+                <Th>Reference</Th>
+                <Th right>Local</Th>
+                <Th right>Provider</Th>
+                <Th> </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {(flags ?? []).map((f) => (
+                <FlagRow key={f.id} flag={f} onResolve={resolveFlag} />
+              ))}
+            </tbody>
+          </TableShell>
+        )}
+      </SectionCard>
 
       <SectionCard
         title="Import a settlement"
@@ -218,6 +261,48 @@ export function Reconciliation() {
         )}
       </SectionCard>
     </div>
+  );
+}
+
+const FLAG_TYPE_LABEL: Record<string, string> = {
+  missing_locally: "Missing locally: webhook may not have fired",
+  amount_mismatch: "Amount mismatch",
+  status_mismatch: "Status mismatch",
+};
+
+function FlagRow({
+  flag,
+  onResolve,
+}: {
+  flag: ReconciliationFlag;
+  onResolve: (id: string, status: "resolved" | "ignored") => void;
+}) {
+  const currency = flag.currency ?? "NGN";
+  return (
+    <tr className="border-b border-charcoal-ink/5">
+      <td className="py-2 pr-4 text-charcoal-ink/60">{flag.detected_at.slice(0, 10)}</td>
+      <td className="py-2 pr-4 capitalize text-charcoal-ink/70">{flag.provider}</td>
+      <td className="py-2 pr-4">
+        <Badge variant={flag.flag_type === "missing_locally" ? "red" : "amber"}>
+          {FLAG_TYPE_LABEL[flag.flag_type] ?? flag.flag_type}
+        </Badge>
+      </td>
+      <td className="py-2 pr-4 font-mono text-xs text-charcoal-ink/50">{flag.provider_reference.slice(0, 22)}</td>
+      <td className="py-2 pr-4 text-right tabular-nums">
+        {flag.local_amount_minor != null ? formatMinor(flag.local_amount_minor, currency) : "—"}
+        {flag.local_status && <div className="text-xs text-charcoal-ink/40">{flag.local_status}</div>}
+      </td>
+      <td className="py-2 pr-4 text-right tabular-nums">
+        {flag.provider_amount_minor != null ? formatMinor(flag.provider_amount_minor, currency) : "—"}
+        {flag.provider_status && <div className="text-xs text-charcoal-ink/40">{flag.provider_status}</div>}
+      </td>
+      <td className="py-2 text-right">
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => onResolve(flag.id, "resolved")}>Resolved</Button>
+          <Button size="sm" variant="outline" onClick={() => onResolve(flag.id, "ignored")}>Ignore</Button>
+        </div>
+      </td>
+    </tr>
   );
 }
 

@@ -230,10 +230,14 @@ export async function submitIdentityVerification(
           verified_at: verifiedAt,
         })
         .eq("id", request.id);
-      await service
-        .from("profiles")
-        .update({ identity_verified_at: verifiedAt })
-        .eq("id", user.id);
+      // Routed through an RPC so the write can be attributed to the patient in public.audit_log
+      // despite running on the service-role client — see
+      // 20260812041044_service_role_write_actor_attribution.sql.
+      await service.rpc("mark_identity_verified", {
+        p_patient_id: user.id,
+        p_verified_at: verifiedAt,
+        p_actor_id: user.id,
+      });
       return { status: "verified" };
     }
     // Provider reached, but the number didn't check out — a definitive fail.

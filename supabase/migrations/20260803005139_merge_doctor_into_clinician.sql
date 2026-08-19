@@ -42,6 +42,27 @@
 --     med_adherence_alert_level enum ('coach'/'doctor' adherence-escalation rungs on
 --     medication_adherence_alerts.level) — confirmed by reading both bodies in full, left
 --     untouched deliberately.
+--
+-- Real gap found across two failed apply attempts, not anticipated by the dependency audit
+-- above: ALTER COLUMN ... TYPE on profiles.role failed twice with "cannot alter type of a
+-- column used in a policy definition" — Postgres tracks a pg_depend entry for any RLS policy
+-- expression referencing a column directly. A pg_depend query (not a text search) found exactly
+-- two such policies platform-wide: leads_admin_select on public.leads, and profiles_select on
+-- public.profiles itself (every other admin/staff check in this codebase goes through a
+-- private.is_*() wrapper function, which doesn't create this dependency class — these two are
+-- the only ones written as a direct inline check). No dependent views, no dependent CHECK
+-- constraints. Both dropped before the type swap and recreated byte-for-byte identical after —
+-- confirmed via pg_depend that this is the complete list for both profiles.role and
+-- custom_roles.base_role, and via an assertion at the end that the recreated profiles_select
+-- policy's qual text matches the pre-drop capture character for character.
+
+-- ---------------------------------------------------------------------------
+-- Drop the two policies that depend on profiles.role's type. Recreated
+-- verbatim further down.
+-- ---------------------------------------------------------------------------
+
+drop policy if exists leads_admin_select on public.leads;
+drop policy if exists profiles_select on public.profiles;
 
 -- ---------------------------------------------------------------------------
 -- user_role: drop 'doctor'. Rename the old type out of the way, create the
@@ -79,6 +100,42 @@ alter table public.custom_roles
   using (
     case when base_role::text = 'doctor' then 'clinician' else base_role::text end
   )::public.user_role;
+
+-- ---------------------------------------------------------------------------
+-- Recreate both dropped policies, byte-for-byte identical expressions
+-- (captured live via pg_policies before dropping).
+-- ---------------------------------------------------------------------------
+
+create policy leads_admin_select on public.leads
+  as permissive for select to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = (select auth.uid()) and profiles.role = 'admin'::public.user_role
+    )
+  );
+
+create policy profiles_select on public.profiles
+  as permissive for select to authenticated
+  using (
+    id = (select auth.uid())
+    or private.is_admin()
+    or (organisation_id is not null and private.is_org_staff(organisation_id))
+    or (
+      private.is_lab_liaison()
+      and role = 'patient'::public.user_role
+      and organisation_id is not null
+      and organisation_id = private.current_org_id()
+    )
+    or exists (
+      select 1 from public.care_plans cp
+      where cp.assigned_clinician_id = profiles.id and cp.patient_id = (select auth.uid())
+    )
+    or exists (
+      select 1 from public.profile_access pa
+      where pa.profile_id = profiles.id and pa.grantee_user_id = (select auth.uid())
+    )
+  );
 
 -- ---------------------------------------------------------------------------
 -- private.current_role(): its return type is public.user_role by name, which
@@ -396,6 +453,13 @@ declare
   v_doctor_custom_role_count int;
   v_enum_value_count int;
   v_current_role public.user_role;
+  v_leads_policy_count int;
+  v_profiles_select_qual text;
+  v_expected_qual text := '((id = ( SELECT auth.uid() AS uid)) OR private.is_admin() OR ((organisation_id IS NOT NULL) AND private.is_org_staff(organisation_id)) OR (private.is_lab_liaison() AND (role = ''patient''::user_role) AND (organisation_id IS NOT NULL) AND (organisation_id = private.current_org_id())) OR (EXISTS ( SELECT 1
+   FROM care_plans cp
+  WHERE ((cp.assigned_clinician_id = profiles.id) AND (cp.patient_id = ( SELECT auth.uid() AS uid))))) OR (EXISTS ( SELECT 1
+   FROM profile_access pa
+  WHERE ((pa.profile_id = profiles.id) AND (pa.grantee_user_id = ( SELECT auth.uid() AS uid))))))';
 begin
   select count(*) into v_doctor_enum_count
   from pg_enum where enumtypid = 'public.user_role'::regtype and enumlabel = 'doctor';
@@ -419,6 +483,26 @@ begin
   from public.custom_roles where base_role::text = 'doctor';
   if v_doctor_custom_role_count <> 0 then
     raise exception '% custom_roles still report base_role=doctor', v_doctor_custom_role_count;
+  end if;
+
+  select count(*) into v_leads_policy_count
+  from pg_policy pol
+  join pg_class c on c.oid = pol.polrelid
+  where c.relname = 'leads' and pol.polname = 'leads_admin_select';
+  if v_leads_policy_count <> 1 then
+    raise exception 'leads_admin_select policy was not correctly recreated (found %)', v_leads_policy_count;
+  end if;
+
+  select pg_get_expr(pol.polqual, pol.polrelid) into v_profiles_select_qual
+  from pg_policy pol
+  join pg_class c on c.oid = pol.polrelid
+  where c.relname = 'profiles' and pol.polname = 'profiles_select';
+
+  if v_profiles_select_qual is null then
+    raise exception 'profiles_select policy was not recreated';
+  end if;
+  if v_profiles_select_qual <> v_expected_qual then
+    raise exception 'profiles_select policy expression drifted from the pre-drop capture. Got: %', v_profiles_select_qual;
   end if;
 
   -- Proves private.current_role() rebound to the new type and still

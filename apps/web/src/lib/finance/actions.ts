@@ -111,7 +111,7 @@ export async function upsertTaxRateAction(input: {
 }): Promise<FinanceActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("finance_upsert_tax_rate", {
-    p_id: input.id,
+    p_id: input.id as unknown as string,
     p_jurisdiction: input.jurisdiction,
     p_tax_type: input.tax_type,
     p_name: input.name,
@@ -180,6 +180,22 @@ export async function unmatchPaymentAction(paymentTransactionId: string): Promis
   return { ok: true };
 }
 
+export async function resolveReconciliationFlagAction(
+  id: string,
+  status: "resolved" | "ignored",
+  note?: string,
+): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_resolve_reconciliation_flag", {
+    p_id: id,
+    p_status: status,
+    p_note: note,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
 export async function postSettlementAction(settlementId: string): Promise<FinanceActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("finance_post_settlement", { p_settlement_id: settlementId });
@@ -204,7 +220,7 @@ export async function runRevenueRecognitionAction(): Promise<FinanceActionResult
 
 export async function approveRequestAction(id: string, note: string): Promise<FinanceActionResult> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("finance_approve_request", { p_id: id, p_note: note || null });
+  const { data, error } = await supabase.rpc("finance_approve_request", { p_id: id, p_note: note || undefined });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
   return { ok: true, data };
@@ -261,11 +277,11 @@ export async function upsertBudgetAction(input: {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("finance_upsert_budget", {
     p_account_code: input.account_code,
-    p_cost_center_code: input.cost_center_code ?? null,
+    p_cost_center_code: (input.cost_center_code ?? null) as unknown as string,
     p_period_month: input.period_month,
     p_currency: input.currency,
     p_amount_minor: input.amount_minor,
-    p_notes: input.notes ?? null,
+    p_notes: (input.notes ?? null) as unknown as string,
   });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
@@ -293,14 +309,14 @@ export async function upsertVendorAction(input: {
 }): Promise<FinanceActionResult> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("finance_upsert_vendor", {
-    p_id: input.id,
+    p_id: input.id as unknown as string,
     p_name: input.name,
     p_vendor_type: input.vendor_type,
     p_contact_email: input.contact_email,
     p_contact_phone: input.contact_phone,
     p_tin: input.tin,
     p_wht_applicable: input.wht_applicable,
-    p_wht_rate_pct: input.wht_rate_pct,
+    p_wht_rate_pct: input.wht_rate_pct as unknown as number,
     p_is_active: input.is_active,
   });
   if (error) return { ok: false, error: error.message };
@@ -322,12 +338,12 @@ export async function createBillAction(input: {
   const { data, error } = await supabase.rpc("finance_create_bill", {
     p_vendor_id: input.vendor_id,
     p_bill_date: input.bill_date,
-    p_due_date: input.due_date ?? null,
+    p_due_date: (input.due_date ?? null) as unknown as string,
     p_currency: input.currency,
     p_amount_minor: input.amount_minor,
     p_expense_account_code: input.expense_account_code,
-    p_cost_center_code: input.cost_center_code ?? null,
-    p_description: input.description ?? null,
+    p_cost_center_code: (input.cost_center_code ?? null) as unknown as string,
+    p_description: (input.description ?? null) as unknown as string,
   });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
@@ -381,9 +397,9 @@ export async function markFiledAction(input: {
     p_period_label: input.period_label,
     p_due_date: input.due_date,
     p_remittance_reference: input.remittance_reference,
-    p_amount_minor: input.amount_minor ?? null,
+    p_amount_minor: (input.amount_minor ?? null) as unknown as number,
     p_currency: input.currency,
-    p_notes: input.notes ?? null,
+    p_notes: (input.notes ?? null) as unknown as string,
   });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
@@ -400,6 +416,65 @@ export async function unmarkFiledAction(
     p_period_label: periodLabel,
   });
   if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
+/**
+ * Company legal/registration profile — admin/settings/company-profile only.
+ * The RPC re-checks private.is_admin() itself; this action never bypasses it.
+ */
+export interface CompanyProfileInput {
+  legal_name: string;
+  trading_name: string;
+  rc_number: string;
+  tin: string;
+  vat_registration_number: string;
+  nsitf_number: string;
+  itf_number: string;
+  pension_pfa_code: string;
+  registered_address: string;
+  principal_business_activity: string;
+  incorporation_date: string;
+  financial_year_end: string;
+  registered_email: string;
+  registered_phone: string;
+  directors_text: string;
+  company_secretary_name: string;
+  auditor_name: string;
+  bank_name: string;
+  bank_account_name: string;
+  bank_account_number: string;
+}
+
+export async function upsertCompanyProfileAction(
+  input: CompanyProfileInput,
+): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_company_profile_upsert", {
+    p_legal_name: input.legal_name || undefined,
+    p_trading_name: input.trading_name || undefined,
+    p_rc_number: input.rc_number || undefined,
+    p_tin: input.tin || undefined,
+    p_vat_registration_number: input.vat_registration_number || undefined,
+    p_nsitf_number: input.nsitf_number || undefined,
+    p_itf_number: input.itf_number || undefined,
+    p_pension_pfa_code: input.pension_pfa_code || undefined,
+    p_registered_address: input.registered_address || undefined,
+    p_principal_business_activity: input.principal_business_activity || undefined,
+    p_incorporation_date: input.incorporation_date || undefined,
+    p_financial_year_end: input.financial_year_end || "31 December",
+    p_registered_email: input.registered_email || undefined,
+    p_registered_phone: input.registered_phone || undefined,
+    p_directors_text: input.directors_text || undefined,
+    p_company_secretary_name: input.company_secretary_name || undefined,
+    p_auditor_name: input.auditor_name || undefined,
+    p_bank_name: input.bank_name || undefined,
+    p_bank_account_name: input.bank_account_name || undefined,
+    p_bank_account_number: input.bank_account_number || undefined,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/settings/company-profile");
   revalidateFinance();
   return { ok: true };
 }

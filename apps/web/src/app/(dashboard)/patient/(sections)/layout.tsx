@@ -3,7 +3,6 @@ import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { ActingForBanner } from "@/app/(dashboard)/patient/acting-for-banner";
 import { EmergencyAlert } from "@/app/(dashboard)/patient/emergency-alert";
 import { DangerSymptomCheck } from "@/app/(dashboard)/patient/danger-symptom-check";
-import { PatientNav } from "@/app/(dashboard)/patient/patient-nav";
 
 /**
  * Shared chrome for the 7 real dashboard sections (Overview, Vitals,
@@ -15,13 +14,18 @@ import { PatientNav } from "@/app/(dashboard)/patient/patient-nav";
  * fetches and renders when it's actually the one selected — the previous
  * version mounted and server-rendered all 7 sections' content on every
  * request regardless of which one the reader was looking at.
+ *
+ * The second-level PatientNav pill-tab bar that used to live here was
+ * retired 2026-08-09: all 7 sections are now top-level entries in the main
+ * sidebar (see lib/navigation.ts), so a second in-page nav for the same
+ * links was pure duplication.
  */
 export default async function PatientSectionsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { profile, acting, subjectId } = await getPatientDashboardContext();
+  const { profile, acting, subjectId, subjectState } = await getPatientDashboardContext();
 
   return (
     <DashboardPlaceholder
@@ -42,10 +46,9 @@ export default async function PatientSectionsLayout({
       <EmergencyAlert
         patientId={subjectId}
         hasEmergencyContact={!!profile.emergency_contact_phone}
+        state={subjectState}
       />
       <DangerSymptomCheck patientId={subjectId} />
-
-      <PatientNav />
 
       <div className="space-y-6">{children}</div>
     </DashboardPlaceholder>

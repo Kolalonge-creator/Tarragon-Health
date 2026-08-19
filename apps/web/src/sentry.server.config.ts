@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubPiiBeforeSend } from "@/lib/sentry/scrub-pii";
 
 /**
  * Optional. Unset SENTRY_DSN means Sentry.init() is never called, so any
@@ -10,5 +11,6 @@ if (process.env.SENTRY_DSN) {
     dsn: process.env.SENTRY_DSN,
     environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
     tracesSampleRate: 1.0,
+    beforeSend: scrubPiiBeforeSend,
   });
 }

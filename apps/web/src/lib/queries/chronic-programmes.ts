@@ -155,6 +155,39 @@ export function useEnrolChronicProgramme() {
   });
 }
 
+export type HtnQualityMetrics = {
+  htn_patients: number;
+  with_home_average: number;
+  at_target: number;
+  control_rate_pct: number | null;
+  open_red_alerts: number;
+  open_amber_alerts: number;
+  bp_emergencies_30d: number;
+  patients_missing_readings: number;
+};
+
+/**
+ * H16 (TH-CP-HTN-001 §22) clinical-audit KPIs — control rate, open red-flag
+ * alerts, 30-day emergencies, overdue-reading count. The RPC itself enforces
+ * `private.is_org_staff(p_org)`, so this is safe to call from any admin/staff
+ * surface; org id must be the caller's own (passed down from a server
+ * component that already resolved it via getCurrentProfile()).
+ */
+export function useHtnQualityMetrics(organisationId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["htn-quality-metrics", organisationId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("htn_quality_metrics", {
+        p_org: organisationId as string,
+      });
+      if (error) throw error;
+      return data as unknown as HtnQualityMetrics;
+    },
+    enabled: !!organisationId,
+  });
+}
+
 /** Staff withdraws a chronic enrolment (status -> withdrawn). */
 export function useWithdrawChronicEnrolment() {
   const queryClient = useQueryClient();

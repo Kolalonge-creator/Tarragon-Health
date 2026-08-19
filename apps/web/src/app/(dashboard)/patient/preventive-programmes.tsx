@@ -93,6 +93,16 @@ export function PreventiveProgrammes({
     return new Map((enrolments.data ?? []).map((row) => [row.programme_id, row]));
   }, [enrolments.data]);
 
+  /** Men's/Women's Health are sex-specific tracks — never offer the wrong one.
+   * Sex unknown (not yet recorded) hides both rather than guessing. */
+  const visibleProgrammes = useMemo(() => {
+    return (programmes.data ?? []).filter((programme) => {
+      if (programme.code === "mens_health") return sex === "male";
+      if (programme.code === "womens_health") return sex === "female";
+      return true;
+    });
+  }, [programmes.data, sex]);
+
   const isLoading = programmes.isLoading || enrolments.isLoading;
   const isError = programmes.isError || enrolments.isError;
 
@@ -118,12 +128,12 @@ export function PreventiveProgrammes({
         {isError && (
           <p className="text-sm text-red-600">Could not load preventive programmes.</p>
         )}
-        {programmes.data && programmes.data.length === 0 && (
+        {programmes.data && visibleProgrammes.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">No programmes available yet.</p>
         )}
-        {programmes.data && programmes.data.length > 0 && (
+        {programmes.data && visibleProgrammes.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
-            {programmes.data.map((programme) => {
+            {visibleProgrammes.map((programme) => {
               const enrolment = enrolmentByProgramme.get(programme.id);
               const rationale = recommendedByCode.get(programme.code);
               return (

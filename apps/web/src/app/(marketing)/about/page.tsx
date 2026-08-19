@@ -3,9 +3,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { TrustPillars } from "../_components/trust-pillars";
 import { LeadershipGrid } from "../_components/leadership-panel";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
 /**
  * Honest operating commitments, not vanity metrics — TarragonHealth is
@@ -36,12 +38,12 @@ const ABOUT_COMMITMENTS = [
   },
 ] as const;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "About",
   description:
     "Why TarragonHealth exists: continuity of care between doctor visits, for Nigerians and the people who love them.",
-  alternates: { canonical: MARKETING_ROUTES.about },
-};
+  path: MARKETING_ROUTES.about,
+});
 
 export default function AboutPage() {
   return (
@@ -102,11 +104,28 @@ export default function AboutPage() {
       </Section>
 
       <Section>
-        <SectionHeading
-          eyebrow="The thesis"
-          title="Continuity, not just monitoring"
-          description="Prevention and chronic disease management share the same patient record at TarragonHealth. The same family, the same phone, and the same care team follow a person from a routine screening through an ongoing condition, and the story never resets."
-        />
+        <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              The thesis
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Continuity, not just monitoring
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              Prevention and chronic disease management share the same patient record at
+              TarragonHealth. The same family, the same phone, and the same care team follow a
+              person from a routine screening through an ongoing condition, and the story never
+              resets.
+            </p>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "continuity-thread",
+              imageAlt: "A single continuous record following someone from screening through ongoing care",
+            }}
+          />
+        </div>
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {[
             {
@@ -149,16 +168,16 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="Team"
           title="The people building TarragonHealth"
-          description="Meet our founder, and see the seats we're building out next as TarragonHealth grows beyond one person. Click a card for the full story."
+          description="Meet the clinical leadership. Click a card for the full story."
         />
         <LeadershipGrid />
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Think you&rsquo;re a fit for one of the open seats?{" "}
+          We&rsquo;re also hiring as TarragonHealth grows past one founder.{" "}
           <Link
-            href={`${MARKETING_ROUTES.contact}?source=careers`}
+            href={MARKETING_ROUTES.careers}
             className="font-medium text-deep-forest hover:underline"
           >
-            Get in touch
+            See our open roles
           </Link>
           .
         </p>

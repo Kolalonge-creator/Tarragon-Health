@@ -2,15 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Vaccinations",
   description:
     "A personal vaccination schedule for you and your children, reminders when a dose is due, and a doctor-verified certificate you'll never lose. Get the dose wherever suits you, then log it.",
-  alternates: { canonical: MARKETING_ROUTES.vaccinations },
-};
+  path: MARKETING_ROUTES.vaccinations,
+});
 
 const HOW_IT_WORKS = [
   {
@@ -94,11 +96,26 @@ export default function VaccinationsPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading
-          eyebrow="What's included"
-          title="Everything a paper card should have been"
-          description="Built for families in Nigeria, where a lost card usually means starting the record over from nothing."
-        />
+        <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              What&apos;s included
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Everything a paper card should have been
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              Built for families in Nigeria, where a lost card usually means starting the record
+              over from nothing.
+            </p>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "vaccine-record",
+              imageAlt: "A doctor-verified vaccination certificate that can't be lost",
+            }}
+          />
+        </div>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {WHATS_INCLUDED.map((item) => (
             <div

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   useOrgPreventiveReviews,
   useCompletePreventiveReview,
@@ -64,11 +63,10 @@ export default function PreventiveReviewsPage() {
   const { data, isLoading, isError } = useOrgPreventiveReviews();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Preventive reviews</h1>
+        <p className="text-sm text-charcoal-ink/60">Screenings and preventive-care gaps to close.</p>
       </div>
       <Card>
         <CardHeader>

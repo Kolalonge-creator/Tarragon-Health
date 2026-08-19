@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
 import { vaccinationVerificationDecisionSchema } from "@/lib/validation/vaccination";
+import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 
 export type VerificationActionResult = { error?: string; success?: boolean };
 
@@ -19,9 +20,13 @@ export type VerificationActionResult = { error?: string; success?: boolean };
  *
  * The write runs through the acting clinician's own RLS-scoped session so
  * auth.uid() (and therefore verified_by) is genuinely them. Verifying is a
- * clinical judgement, so it is gated on an active clinical_staff record —
- * a Care Coordinator (org staff but non-clinical) is excluded here, the same
- * app-layer clinical-authority pattern used for medications/protocols.
+ * clinical judgement, so it is gated on isClinicalTier — a Care Coordinator
+ * (org staff but non-clinical) is excluded here, the same app-layer
+ * clinical-authority pattern used for medications/protocols. This check is
+ * only a friendly early refusal; private.enforce_vaccination_verification's
+ * own is_clinical_tier check on the trigger is the real enforcement
+ * boundary (a bare "has an active clinical_staff row" check, used here
+ * previously, does NOT exclude a Care Coordinator — they have one too).
  */
 export async function decideVaccinationVerification(input: {
   recordId: string;
@@ -44,15 +49,15 @@ export async function decideVaccinationVerification(input: {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" };
 
-  // App-layer clinical-authority gate: only an active clinical_staff member
-  // (a doctor) may verify a dose — not a Care Coordinator or other org staff.
+  // App-layer clinical-authority gate: only a clinical-tier doctor may verify
+  // a dose — not a Care Coordinator or other non-clinical org staff.
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("id")
+    .select("doctor_tier, is_clinical_director")
     .eq("profile_id", user.id)
     .eq("active", true)
     .maybeSingle();
-  if (!staff) {
+  if (!isClinicalTier(staff ?? null)) {
     return { error: "Only a Tarragon care-team doctor can verify a vaccination certificate" };
   }
 

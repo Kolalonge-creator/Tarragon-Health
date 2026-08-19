@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
+import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { deviceReadingSchema } from "@/lib/validation/device-reading";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
 
@@ -116,6 +117,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (vital_type === "blood_pressure") {
     await assessBpControlBestEffort(supabase, user.id, profile.organisation_id);
+  }
+  if (vital_type === "glucose") {
+    await assessGlucoseBestEffort(supabase, user.id, profile.organisation_id);
   }
 
   return NextResponse.json({ success: true });

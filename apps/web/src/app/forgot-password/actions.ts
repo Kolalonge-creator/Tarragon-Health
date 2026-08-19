@@ -8,6 +8,7 @@ import {
   phoneOtpRequestSchema,
   phoneOtpVerifySchema,
 } from "@/lib/validation/auth";
+import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 export type ForgotPasswordActionState =
   | { error?: string; success?: boolean; step?: "verify"; phone?: string }
@@ -21,6 +22,21 @@ export async function requestPasswordResetEmail(
   const parsed = passwordResetEmailSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Enter a valid email" };
+  }
+
+  // Email-scoped limit stops one target address being email-bombed with
+  // reset links from many different source IPs.
+  const limited = await checkAuthRateLimit(
+    "forgot-password-email",
+    parsed.data.email,
+    { limit: 10, windowSeconds: 300 },
+    { limit: 5, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    // Safe to show plainly, unlike the errors below: the limiter keys on the
+    // submitted string itself, before any lookup, so this reveals nothing
+    // about whether the address is a real account.
+    return { error: RATE_LIMIT_MESSAGE };
   }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
@@ -56,6 +72,16 @@ export async function requestPhoneReset(
     return { error: parsed.error.issues[0]?.message ?? "Invalid phone number" };
   }
 
+  const limited = await checkAuthRateLimit(
+    "forgot-password-phone",
+    parsed.data.phone,
+    { limit: 10, windowSeconds: 300 },
+    { limit: 5, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({ phone: parsed.data.phone });
   if (error) {
@@ -83,6 +109,16 @@ export async function verifyPhoneReset(
       step: "verify",
       phone: formData.get("phone")?.toString(),
     };
+  }
+
+  const limited = await checkAuthRateLimit(
+    "forgot-password-phone-verify",
+    parsed.data.phone,
+    { limit: 20, windowSeconds: 300 },
+    { limit: 8, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE, step: "verify", phone: parsed.data.phone };
   }
 
   const supabase = await createClient();

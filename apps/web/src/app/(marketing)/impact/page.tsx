@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { loadImpactMetrics } from "@/lib/marketing/impact-data";
+import { pageMetadata } from "@/lib/marketing/site";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
-export const metadata: Metadata = {
-  title: "Our impact: TarragonHealth",
+export const metadata: Metadata = pageMetadata({
+  title: "Our impact",
   description:
     "Platform-wide numbers on what TarragonHealth's monitoring and doctor review actually catches, updated daily, with small numbers held back to protect patient privacy.",
-};
+  path: MARKETING_ROUTES.impact,
+});
 
 // The underlying table refreshes on a nightly cron; re-render at the same cadence.
 export const revalidate = 300;

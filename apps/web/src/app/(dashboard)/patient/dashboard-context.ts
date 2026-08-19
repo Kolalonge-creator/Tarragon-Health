@@ -2,6 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getActingFor as getActingForUncached } from "@/lib/acting/acting-for";
+import { createClient } from "@/lib/supabase/server";
 
 // getCurrentProfile/getCurrentUser are already React cache()-wrapped
 // (lib/supabase/server.ts); getActingFor is not, and both the shared layout
@@ -51,5 +52,21 @@ export async function getPatientDashboardContext() {
   // private.stamp_acting_supporter.
   const subjectId = acting?.profileId ?? profile.id;
 
-  return { profile, acting, subjectId };
+  // The emergency safety net must show the SUBJECT's state, not the caller's —
+  // a supporter in Lagos acting for a parent in Kano needs Kano's (or the
+  // national default's) emergency number, not their own. ActingFor only
+  // carries id/name, so fetch state separately in the rare acting case; when
+  // not acting, the caller's own already-loaded profile.state is correct.
+  let subjectState = profile.state ?? null;
+  if (acting) {
+    const supabase = await createClient();
+    const { data: subjectProfile } = await supabase
+      .from("profiles")
+      .select("state")
+      .eq("id", subjectId)
+      .maybeSingle();
+    subjectState = subjectProfile?.state ?? null;
+  }
+
+  return { profile, acting, subjectId, subjectState };
 }
