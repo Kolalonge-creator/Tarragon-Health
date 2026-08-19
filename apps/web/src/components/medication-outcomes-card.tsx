@@ -13,14 +13,18 @@ import {
  */
 export function MedicationOutcomesCard({
   outcomes,
+  entityLabel = "staff",
 }: {
   outcomes: MedicationOutcomesSummary | null;
+  /** "staff" (default, corporate) or "member" (HMO) — copy only, same data. */
+  entityLabel?: "staff" | "member";
 }) {
   if (!outcomes) return null;
   const hasAnything =
     outcomes.medsStoppedLast180Days > 0 || outcomes.bpMonitoredCount > 0;
   if (!hasAnything) return null;
 
+  const plural = entityLabel === "member" ? "members" : "staff";
   const inRangePercent =
     outcomes.bpMonitoredCount > 0
       ? Math.round((outcomes.bpInRangeCount / outcomes.bpMonitoredCount) * 100)
@@ -46,14 +50,14 @@ export function MedicationOutcomesCard({
             value={String(outcomes.medsStoppedLast180Days)}
             unit={
               outcomes.patientsWithStops > 0
-                ? `across ${outcomes.patientsWithStops} member${outcomes.patientsWithStops === 1 ? "" : "s"}`
+                ? `across ${outcomes.patientsWithStops} ${outcomes.patientsWithStops === 1 ? entityLabel : plural}`
                 : undefined
             }
           />
           {inRangePercent !== null && (
             <StatTile
               icon={SEMANTIC_ICON.bp}
-              label="Members in BP range at latest check"
+              label={`${entityLabel === "member" ? "Members" : "Staff"} in BP range at latest check`}
               value={`${inRangePercent}%`}
               unit={`of ${outcomes.bpMonitoredCount} monitored`}
             />

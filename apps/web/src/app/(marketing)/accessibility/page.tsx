@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import { Section } from "../_components/section";
 import { LegalCrossLinks } from "../_components/legal-document";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
-import { absoluteUrl } from "@/lib/marketing/site";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Accessibility Statement",
   description:
     "TarragonHealth's commitment to an accessible website and platform, what we've done, known limitations, and how to report a problem.",
-  alternates: { canonical: absoluteUrl(MARKETING_ROUTES.accessibility) },
-};
+  path: MARKETING_ROUTES.accessibility,
+});
 
 const LAST_UPDATED = "30 July 2026";
 

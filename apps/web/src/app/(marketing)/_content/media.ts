@@ -34,7 +34,16 @@ export type MarketingIllustrationId =
   | "diabetes"
   | "obesity"
   | "parentcare"
-  | "prevention";
+  | "prevention"
+  | "shared-record"
+  | "care-loop"
+  | "care-network"
+  | "continuity-thread"
+  | "response-clock"
+  | "annual-checklist"
+  | "gift-record"
+  | "personalized-learning"
+  | "vaccine-record";
 
 export type MarketingMediaSlot = {
   /** Inline SVG illustration when no photo is available yet. */

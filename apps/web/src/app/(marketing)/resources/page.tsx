@@ -4,12 +4,15 @@ import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 import { ResourceThumbnail, resourceThumbnailIcon } from "../_components/resource-thumbnail";
+import { pageMetadata } from "@/lib/marketing/site";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Health resources: plain answers to real questions",
   description:
     "Clear, honest articles on blood pressure, diabetes, weight, cholesterol and screening, written for Nigerians, in plain language.",
-};
+  path: MARKETING_ROUTES.resources,
+});
 
 // Content is admin-managed in the DB; re-render every 5 minutes so a newly
 // published article appears without a deploy.

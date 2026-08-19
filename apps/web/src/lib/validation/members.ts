@@ -47,13 +47,34 @@ const e164 = z
   .or(z.literal(""))
   .transform((v) => (v ? v : undefined));
 
-export const provisionMemberSchema = z.object({
-  email: z.string().email(),
-  fullName: z.string().min(1, "Full name is required").max(200),
-  phone: e164,
-  role: z.enum(USER_ROLES),
-  organisationId: optionalUuid,
-  password: z.string().min(8, "At least 8 characters").max(72),
-});
+export const provisionMemberSchema = z
+  .object({
+    email: z.string().email(),
+    fullName: z.string().min(1, "Full name is required").max(200),
+    phone: e164,
+    role: z.enum(USER_ROLES),
+    organisationId: optionalUuid,
+    password: z.string().min(8, "At least 8 characters").max(72),
+  })
+  // Clinicians must have a phone on file to be pageable for emergency vitals
+  // red-flags (private.enqueue_critical_notification's recipient filter is
+  // role='clinician' and phone is not null) — no other role is ever queried
+  // by that paging path, so this is deliberately scoped to clinician only.
+  .superRefine((data, ctx) => {
+    if (data.role === "clinician" && !data.phone) {
+      ctx.addIssue({
+        path: ["phone"],
+        code: z.ZodIssueCode.custom,
+        message: "Phone is required for clinician accounts — used for emergency vitals paging.",
+      });
+    }
+  });
 
 export type ProvisionMemberInput = z.infer<typeof provisionMemberSchema>;
+
+export const setMemberPhoneSchema = z.object({
+  memberId: z.string().uuid(),
+  phone: e164,
+});
+
+export type SetMemberPhoneInput = z.infer<typeof setMemberPhoneSchema>;

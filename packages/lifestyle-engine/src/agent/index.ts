@@ -31,6 +31,13 @@ export interface CoachingAction {
   kind: CoachingActionKind;
   /** Machine reason for the choice (telemetry + auditability). */
   reason: string;
+  /** Patient-facing nudge copy — only meaningful when kind === "send_nudge".
+   * Optional and additive: absent means "use the generic template". A
+   * guardrail override always constructs a fresh action object (see
+   * applyGuardrails below), so this is dropped for free whenever a proposal
+   * gets overridden — an LLM's wording never survives into a forced
+   * doctor-review. */
+  message?: string;
 }
 
 /**

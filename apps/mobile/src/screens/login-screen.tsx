@@ -1,21 +1,27 @@
 import { useState } from "react";
-import { Image, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import appIcon from "../../assets/icon.png";
 import { supabase } from "@/lib/supabase";
 import { colors, radius, spacing } from "@/ui/theme";
-import { ErrorText, MutedText, PrimaryButton } from "@/ui/components";
+import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { WebViewScreen } from "@/screens/webview-screen";
+import { ForgotPasswordScreen } from "@/screens/forgot-password-screen";
 
 /**
- * Sign-in only — account creation stays on web/app onboarding
- * (apps/web/src/app/onboarding) per CLAUDE.md: signup is app/web only, and
- * that flow already exists there. This screen exists purely so an already
- *-registered patient can authenticate this device for BLE pairing/sync.
+ * App-level auth gate in front of both tabs (promoted from being reachable
+ * only from the Devices tab — docs/MOBILE_APP_SPEC.md §1). Sign-in is
+ * native; account creation stays app/web-only per CLAUDE.md but doesn't need
+ * a native reimplementation of consent/KYC/plan-selection/payment (payment
+ * embedding is explicitly banned — see §7) — "Create your account" opens the
+ * real web signup flow inline in a WebView instead.
  */
 export function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signupOpen, setSignupOpen] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   async function handleSignIn() {
     setLoading(true);
@@ -57,7 +63,7 @@ export function LoginScreen() {
         <MutedText>Care that stays with you.</MutedText>
       </View>
       <Text style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>
-        Sign in to sync your devices
+        Sign in to your account
       </Text>
       <TextInput
         accessibilityLabel="Email"
@@ -80,9 +86,23 @@ export function LoginScreen() {
       />
       {error ? <ErrorText>{error}</ErrorText> : null}
       <PrimaryButton title="Sign in" onPress={handleSignIn} loading={loading} />
-      <MutedText>
-        New to TarragonHealth? Create your account on the Home tab first.
-      </MutedText>
+      <Pressable onPress={() => setForgotOpen(true)} style={{ alignItems: "center", paddingVertical: 4 }}>
+        <Text style={{ color: colors.brand, fontSize: 14, fontWeight: "600" }}>Forgot password?</Text>
+      </Pressable>
+      <SecondaryButton title="Create your account" onPress={() => setSignupOpen(true)} />
+
+      <Modal visible={signupOpen} animationType="slide" onRequestClose={() => setSignupOpen(false)}>
+        <View style={{ flex: 1 }}>
+          <View style={{ padding: spacing.screen, paddingTop: 56 }}>
+            <SecondaryButton title="Close" onPress={() => setSignupOpen(false)} />
+          </View>
+          <WebViewScreen path="/signup" />
+        </View>
+      </Modal>
+
+      <Modal visible={forgotOpen} animationType="slide" onRequestClose={() => setForgotOpen(false)}>
+        <ForgotPasswordScreen onClose={() => setForgotOpen(false)} />
+      </Modal>
     </View>
   );
 }

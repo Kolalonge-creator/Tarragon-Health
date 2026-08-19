@@ -9,6 +9,14 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/cron/lpe-embed-content",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-payment-providers",
+      "schedule": "0 9 * * *"
+    },
+    {
       "path": "/api/cron/video-visit-refunds",
       "schedule": "30 5 * * *"
     },

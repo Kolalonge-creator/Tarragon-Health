@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -19,22 +18,19 @@ export default async function WeightPage() {
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
   return (
-    <DashboardPlaceholder greeting="Weight" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.weight}>
-      <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green hover:underline">
-          ← Back to lifestyle coaching
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Track your weight against a goal you set. Log weight from your vitals or your lifestyle
-        check-in; either way, it shows up here.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Weight"
+        icon={SEMANTIC_ICON.weight}
+        backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
+        description="Track your weight against a goal you set. Log weight from your vitals or your lifestyle check-in; either way, it shows up here."
+      />
       <RequiresEntitlement
         feature="lifestyle_coaching"
         fallback={<UpgradePrompt feature="lifestyle_coaching" />}
       >
         <WeightClient patientId={profile.id} />
       </RequiresEntitlement>
-    </DashboardPlaceholder>
+    </div>
   );
 }

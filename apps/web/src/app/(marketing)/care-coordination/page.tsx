@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Care coordination",
   description:
     "TarragonHealth works out which tests you need and when, writes you a request to take to any laboratory you like, reads every result that comes back, and follows up. You pay the lab directly and we take nothing on it.",
-  alternates: { canonical: MARKETING_ROUTES.careCoordination },
-};
+  path: MARKETING_ROUTES.careCoordination,
+});
 
 const COORDINATION_KEYS = ["medication", "labs"] as const;
 const COORDINATION_CARDS = SERVICE_CARDS.filter((card) =>
@@ -60,6 +62,7 @@ export default function CareCoordinationPage() {
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Care coordination"
           title="The pieces of your care, kept connected"
           description="In most of Nigeria, you are your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication, carrying paper records between hospitals. Tarragon takes that job off you: one care team coordinating labs, pharmacies, and specialists from one shared record."
@@ -72,6 +75,30 @@ export default function CareCoordinationPage() {
       </Section>
 
       <Section variant="sage">
+        <div className="mx-auto grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              One care team, everywhere you already go
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Labs, pharmacies, and specialists, coordinated from one record
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              Tarragon doesn&apos;t own a lab, a pharmacy, or a specialist practice. It coordinates the
+              ones you already use, wherever you like, so nothing you need falls through the gap
+              between providers.
+            </p>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "care-network",
+              imageAlt: "Your care team coordinating between a lab, a pharmacy, and a specialist",
+            }}
+          />
+        </div>
+      </Section>
+
+      <Section>
         <SectionHeading
           eyebrow="What we connect"
           title="One record, less chasing"

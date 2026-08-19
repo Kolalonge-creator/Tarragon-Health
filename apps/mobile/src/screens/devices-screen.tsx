@@ -6,6 +6,7 @@ import type { Tables } from "@tarragon/shared";
 import { requestBlePermissions, scanForClinicalDevices, type SupportedDeviceType } from "@/lib/ble";
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
+import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
 import { colors, spacing } from "@/ui/theme";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
 
@@ -116,7 +117,12 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           // Scrolls with the list rather than sitting fixed above it: on a
           // small screen a pinned card would push the paired devices —
           // the reason someone opened this tab — below the fold.
-          ListHeaderComponent={<AppleHealthCard />}
+          ListHeaderComponent={
+            <View style={{ gap: 10, marginBottom: 10 }}>
+              <AppleHealthCard />
+              <AndroidHealthConnectCard />
+            </View>
+          }
           ListEmptyComponent={
             <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
               <Ionicons name="bluetooth-outline" size={28} color={colors.faint} />

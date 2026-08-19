@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { AnalyticsNav } from "./_components/analytics-nav";
+import { AnalyticsPageHeader } from "./_components/page-header";
 
 /**
  * Platform Analytics & Audit Console — a company-wide, cross-organisation
@@ -32,16 +33,13 @@ export default async function AnalyticsLayout({ children }: { children: React.Re
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-clinical-navy">
-          Platform analytics
-        </h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Company-wide business, financial, and population-health intelligence across every
-          organisation: aggregate, visualise, and export.
-        </p>
-      </div>
-      <AnalyticsNav />
+      <AnalyticsPageHeader />
+      {/* The dedicated `analyst` role gets every category as a grouped
+       * sidebar link (see the "analyst" case in lib/navigation.ts) — this
+       * in-page pill-tab bar would just duplicate that. `admin` has this
+       * console alongside everything else, so their sidebar keeps a single
+       * "Analytics" link and still needs this bar to move between categories. */}
+      {profile.role === "admin" && <AnalyticsNav />}
       {children}
     </div>
   );

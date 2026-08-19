@@ -4,6 +4,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { MentalHealthScreenForm } from "../mental-health-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
@@ -160,15 +162,16 @@ export default async function HealthCheckPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 py-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your Health Check</h1>
-        <p className="mt-1 text-sm text-charcoal-ink/70">
-          A yearly, whole-body check: the right checks for you, and a plan to keep you well.
-          Work through each step; your care team reviews everything at the end.
-        </p>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <PageHeader
+          title="Your Health Check"
+          icon={NAV_ICON.review}
+          backTo={{ href: "/patient/prevention", label: "Prevention" }}
+          description="A yearly, whole-body check: the right checks for you, and a plan to keep you well. Work through each step; your care team reviews everything at the end."
+        />
         {tierName && (
-          <p className="mt-2 text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70">
             You&apos;re completing the <span className="font-medium">{tierName}</span> this year.
           </p>
         )}
@@ -213,8 +216,10 @@ export default async function HealthCheckPage() {
 
       {/* Lipid results + the CV-risk gloss they feed — both self-hide until
           there's real data, so nothing renders until a lipid panel lands. */}
-      <LipidProfileCard patientId={profile.id} />
-      <RiskSignalsCard patientId={profile.id} />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <LipidProfileCard patientId={profile.id} />
+        <RiskSignalsCard patientId={profile.id} />
+      </div>
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>

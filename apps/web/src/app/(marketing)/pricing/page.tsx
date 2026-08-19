@@ -9,6 +9,7 @@ import { PlanFinder } from "../_components/plan-finder";
 import { CtaBand } from "../_components/cta-band";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 import {
   ALWAYS_FREE,
   ALWAYS_FREE_NOTE,
@@ -16,12 +17,12 @@ import {
   PRICING_FAQ,
 } from "../_content/pricing";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   description:
     "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora ($). No hidden costs: every line item is clearly labelled.",
-  alternates: { canonical: MARKETING_ROUTES.pricing },
-};
+  path: MARKETING_ROUTES.pricing,
+});
 
 export const revalidate = 3600;
 
@@ -46,6 +47,7 @@ export default async function PricingPage() {
       />
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Pricing"
           title="Simple, transparent plans"
           description="Every line item carries exactly one label: included, you pay the lab, free elsewhere, or add-on. No hidden costs."

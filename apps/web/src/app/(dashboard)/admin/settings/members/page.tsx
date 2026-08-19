@@ -127,6 +127,7 @@ export default async function MembersPage() {
           keys.has("orgs.hmo.manage")
         }
         canAssignRoles={isSuperAdmin || keys.has("users.roles.assign")}
+        canEditContact={isSuperAdmin || keys.has("users.contact.edit")}
         canGrant={isSuperAdmin || keys.has("users.permissions.grant")}
         canManageRoles={isSuperAdmin || keys.has("roles.manage")}
         canViewActivity={isSuperAdmin || keys.has("members.activity.view")}

@@ -15,8 +15,12 @@ export default async function HmoReportsPage() {
   return (
     <div className="space-y-6">
       <ClaimsImpactCard estimate={data.costAvoided} />
-      <MedicationOutcomesCard outcomes={data.medicationOutcomes} />
-      <LifestyleOutcomesCard supabase={data.access.client} organisationId={data.access.organisationId} />
+      <MedicationOutcomesCard outcomes={data.medicationOutcomes} entityLabel="member" />
+      <LifestyleOutcomesCard
+        supabase={data.access.client}
+        organisationId={data.access.organisationId}
+        entityLabel="member"
+      />
       <OutcomeReportsPanel organisationId={data.organisationId} />
     </div>
   );

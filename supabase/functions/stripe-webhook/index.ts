@@ -55,6 +55,48 @@ function intervalEndFromSubscriptionItem(subscription: {
   return typeof seconds === "number" ? new Date(seconds * 1000).toISOString() : null;
 }
 
+const VALID_CURRENCIES = new Set(["NGN", "GBP", "USD"]);
+
+function toCurrencyCode(value: string | null | undefined): "NGN" | "GBP" | "USD" | null {
+  const upper = value?.toUpperCase();
+  return upper && VALID_CURRENCIES.has(upper) ? (upper as "NGN" | "GBP" | "USD") : null;
+}
+
+/**
+ * Extracts a charge amount + currency directly from the webhook payload, for
+ * payment_transactions.amount_minor/currency — populated once at record
+ * time (below) so every reader downstream (the reconciliation sweep, the
+ * finance dashboard's unmatched-payments view) sees a real value instead of
+ * always-null, the same way paystack-webhook already populates both from
+ * event.data.amount/currency at insert. Only checkout.session.completed and
+ * the two invoice.payment_* events represent money actually changing hands
+ * or being attempted — Stripe's amount lives in a different field per event
+ * type (Checkout Session vs Invoice), unlike Paystack's flat event.data
+ * shape, so this can't be a single field lookup the way Paystack's is.
+ * Currency is guarded against anything outside NGN/GBP/USD (defensively —
+ * this business only ever charges GBP/USD via Stripe) because `currency` is
+ * a Postgres enum: an unrecognised value would fail the insert outright and
+ * silently drop the event Stripe just sent, the exact failure mode this
+ * webhook's own header promises never happens.
+ */
+function extractChargeAmount(
+  event: Stripe.Event,
+): { amountMinor: number | null; currency: "NGN" | "GBP" | "USD" | null } {
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    return { amountMinor: session.amount_total ?? null, currency: toCurrencyCode(session.currency) };
+  }
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object as Stripe.Invoice;
+    return { amountMinor: invoice.amount_paid ?? null, currency: toCurrencyCode(invoice.currency) };
+  }
+  if (event.type === "invoice.payment_failed") {
+    const invoice = event.data.object as Stripe.Invoice;
+    return { amountMinor: invoice.amount_due ?? null, currency: toCurrencyCode(invoice.currency) };
+  }
+  return { amountMinor: null, currency: null };
+}
+
 Deno.serve(async (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -102,12 +144,15 @@ Deno.serve(async (req) => {
   // on_conflict, and no row means "already handled, stop here." Stripe's
   // event.id is always present and stable (unlike Paystack's fallback chain
   // of reference/id/subscription_code).
+  const { amountMinor, currency } = extractChargeAmount(event);
   const { data: txnRow, error: insertError } = await supabase
     .from("payment_transactions")
     .insert({
       provider: "stripe",
       provider_event_id: event.id,
       event_type: (event.type as string) ?? "other",
+      amount_minor: amountMinor,
+      currency,
       raw_payload: event as unknown as Record<string, unknown>,
     })
     .select("id")

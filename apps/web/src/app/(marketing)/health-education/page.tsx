@@ -2,15 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Health Education",
   description:
     "Learning built around your own conditions and risk, reviewed by our clinical team, with short knowledge checks so you can see what's actually sticking.",
-  alternates: { canonical: MARKETING_ROUTES.healthEducation },
-};
+  path: MARKETING_ROUTES.healthEducation,
+});
 
 const WHATS_INCLUDED = [
   {
@@ -86,10 +88,22 @@ export default function HealthEducationPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading
-          eyebrow="What's included"
-          title="Made to fit your record, not a generic library"
-        />
+        <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              What&apos;s included
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Made to fit your record, not a generic library
+            </h2>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "personalized-learning",
+              imageAlt: "Learning content matched to your own record, not a generic library",
+            }}
+          />
+        </div>
         <div className="grid gap-6 md:grid-cols-2">
           {WHATS_INCLUDED.map((item) => (
             <div

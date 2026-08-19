@@ -30,32 +30,7 @@ export type AnnualReviewWithContext = AnnualReview & {
 const REVIEW_SELECT =
   "*, patient:profiles!annual_reviews_patient_id_fkey(full_name, patient_number), reviewed_by_staff:clinical_staff!annual_reviews_reviewed_by_fkey(full_name, credential_type, credential_number), workup_items:annual_review_workup_items(*), video_consult:video_consultations!annual_reviews_video_consultation_id_fkey(id, proposed_slots, scheduled_at, join_url, status)";
 
-const patientKey = (patientId: string) => ["annual-reviews", "patient", patientId] as const;
 const orgKey = ["annual-reviews", "org"] as const;
-
-/**
- * The patient's most recent annual review (this cycle first) with its workup
- * checklist and null-gated reviewer attribution. Null when the patient has
- * never had one opened (not yet entitled, or scheduler hasn't run for them).
- */
-export function usePatientAnnualReview(patientId: string) {
-  return useQuery({
-    queryKey: patientKey(patientId),
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("annual_reviews")
-        .select(REVIEW_SELECT)
-        .eq("patient_id", patientId)
-        .order("cycle_year", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as AnnualReviewWithContext | null) ?? null;
-    },
-    enabled: !!patientId,
-  });
-}
 
 /**
  * Org-staff worklist — open annual reviews (pending/in_progress), soonest-due

@@ -112,22 +112,26 @@ export async function uploadResultDocumentForPatient(
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const { data: inserted, error: insertError } = await service
-    .from("lab_result_documents")
-    .insert({
-      organisation_id: patient.organisation_id,
-      patient_id: patientId,
-      lab_order_id: labOrderId ?? null,
-      file_path: path,
-      original_filename: file.name,
-      mime_type: file.type,
-      file_size_bytes: file.size,
-      source,
-      uploaded_by: user.id,
-      note: note ?? null,
-    })
-    .select("id")
-    .single();
+  // Routed through an RPC (rather than a raw .insert()) so the write can be attributed to the
+  // uploading staff member in public.audit_log despite running on the service-role client — see
+  // 20260812041044_service_role_write_actor_attribution.sql.
+  const { data: insertedId, error: insertError } = await service.rpc(
+    "insert_audited_lab_result_document",
+    {
+      p_organisation_id: patient.organisation_id,
+      p_patient_id: patientId,
+      p_lab_order_id: labOrderId ?? null,
+      p_file_path: path,
+      p_original_filename: file.name,
+      p_mime_type: file.type,
+      p_file_size_bytes: file.size,
+      p_source: source,
+      p_uploaded_by: user.id,
+      p_note: note ?? null,
+      p_actor_id: user.id,
+    }
+  );
+  const inserted = insertedId ? { id: insertedId } : null;
   if (insertError || !inserted) {
     // Roll back the orphaned object so a failed insert leaves no stray file.
     await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
@@ -270,26 +274,36 @@ export async function uploadResultDocumentAsPatient(
 }
 
 /**
- * A clinician marks an uploaded document reviewed (they've interpreted it).
- * Runs through the clinician's own RLS-scoped session so the insert-guard
- * trigger stamps reviewed_by = their auth.uid() (never spoofable). Gated on an
- * active clinical_staff record — a Care Coordinator (org staff, non-clinical)
- * cannot review, matching the vaccination-verification pattern. Interpreting a
- * result is a clinical judgement; recording an abnormal finding is a separate,
- * deliberate step via the screening-result form (never auto-derived here).
+ * A clinician marks an uploaded document reviewed AND sends the patient a
+ * plain-language interpretation of it, with next steps if the result needs
+ * them to do something. Runs through the clinician's own RLS-scoped session
+ * so the update-guard trigger stamps reviewed_by = their auth.uid() (never
+ * spoofable). Gated on an active clinical_staff record — a Care Coordinator
+ * (org staff, non-clinical) cannot review, matching the
+ * vaccination-verification pattern. Interpreting a result is a clinical
+ * judgement; recording an abnormal finding is a separate, deliberate step via
+ * the screening-result form (never auto-derived here).
+ *
+ * reviewed_at and interpretation_sent_at are set in the SAME update call so
+ * the DB trigger (private.enforce_lab_result_document_update) freezes both
+ * together and fires the patient's in-app notification exactly once.
  */
 export async function markResultDocumentReviewed(input: {
   documentId: string;
+  interpretation: string;
+  nextSteps?: string;
   note?: string;
 }): Promise<ResultUploadResult> {
   const parsed = markResultReviewedSchema.safeParse({
     document_id: input.documentId,
+    interpretation: input.interpretation,
+    next_steps: input.nextSteps,
     note: input.note,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { document_id: documentId, note } = parsed.data;
+  const { document_id: documentId, interpretation, next_steps: nextSteps, note } = parsed.data;
 
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
@@ -313,9 +327,16 @@ export async function markResultDocumentReviewed(input: {
   if (docError || !doc) return { error: "Document not found." };
   if (doc.reviewed_at) return { error: "This result was already marked reviewed." };
 
+  const now = new Date().toISOString();
   const { error: updateError } = await supabase
     .from("lab_result_documents")
-    .update({ reviewed_at: new Date().toISOString(), review_note: note ?? null })
+    .update({
+      reviewed_at: now,
+      review_note: note ?? null,
+      patient_interpretation: interpretation,
+      next_steps: nextSteps ?? null,
+      interpretation_sent_at: now,
+    })
     .eq("id", documentId);
   if (updateError) return { error: updateError.message };
 
@@ -333,6 +354,7 @@ export async function markResultDocumentReviewed(input: {
 
   revalidatePath("/clinician");
   revalidatePath(`/clinician/patients/${doc.patient_id}`);
+  revalidatePath("/patient/labs");
   return { success: true };
 }
 
@@ -408,7 +430,7 @@ export async function uploadResultAsLabPartner(
     p_original_filename: file.name,
     p_mime_type: file.type,
     p_file_size_bytes: file.size,
-    p_note: note ?? null,
+    p_note: (note ?? null) as unknown as string,
   });
   if (insertError) {
     await service.storage.from(RESULT_DOC_BUCKET).remove([path]);

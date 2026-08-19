@@ -7,15 +7,16 @@ import { EmergencyNotice } from "../_components/emergency-notice";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
 export const revalidate = 300;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "BMI & Calorie Calculator",
   description:
     "Free BMI calculator and daily calorie estimate. See your body mass index range and an estimated calorie target for maintaining, losing, or gaining weight, no sign-up required.",
-  alternates: { canonical: MARKETING_ROUTES.bmiCalculator },
-};
+  path: MARKETING_ROUTES.bmiCalculator,
+});
 
 const FAQS = [
   {
@@ -44,6 +45,7 @@ export default async function BmiCalculatorPage() {
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Free tool"
           title="BMI & Calorie Calculator"
           description="A quick, honest starting point: your body mass index range and an estimated daily calorie target. No account, no email required."

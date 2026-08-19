@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useAllClinicalStaff,
   useCreateClinicalStaff,
+  useUpdateClinicalStaff,
   useVerifyClinicalStaff,
   useSetClinicalStaffActive,
   useSetClinicalStaffIndemnity,
@@ -15,6 +16,7 @@ import {
   type ClinicalStaff,
   type ClinicalStaffIndemnityExemption,
 } from "@/lib/queries/clinical-staff";
+import { ClinicalStaffAvatar } from "@/components/clinical-staff-avatar";
 import {
   Card,
   CardContent,
@@ -200,6 +202,94 @@ function IndemnityForm({
   );
 }
 
+/** Edits specialty/bio/photo on an existing record — the fields the manager had no way to change after "Add clinical staff". */
+function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone: () => void }) {
+  const update = useUpdateClinicalStaff();
+  const [specialty, setSpecialty] = useState(staff.specialty ?? "");
+  const [bio, setBio] = useState(staff.bio ?? "");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+
+  const photoFileUrl = useMemo(() => (photoFile ? URL.createObjectURL(photoFile) : null), [photoFile]);
+  useEffect(() => {
+    return () => {
+      if (photoFileUrl) URL.revokeObjectURL(photoFileUrl);
+    };
+  }, [photoFileUrl]);
+
+  const previewUrl = photoFileUrl ?? (removePhoto ? null : staff.photo_url);
+
+  return (
+    <div className="mt-3 rounded-lg border border-charcoal-ink/10 bg-warm-ivory p-3">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-charcoal-ink/60">
+        Edit profile
+      </p>
+      <div className="flex items-start gap-3">
+        <ClinicalStaffAvatar fullName={staff.full_name} photoUrl={previewUrl} />
+        <div className="flex-1 space-y-2">
+          <Input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              setPhotoFile(e.target.files?.[0] ?? null);
+              setRemovePhoto(false);
+            }}
+          />
+          {staff.photo_url && !photoFile && (
+            <label className="flex items-center gap-2 text-xs text-charcoal-ink/70">
+              <input
+                type="checkbox"
+                checked={removePhoto}
+                onChange={(e) => setRemovePhoto(e.target.checked)}
+              />
+              Remove current photo
+            </label>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <Input
+          placeholder="Specialty"
+          value={specialty}
+          onChange={(e) => setSpecialty(e.target.value)}
+        />
+        <Textarea
+          placeholder="Bio"
+          rows={2}
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+        />
+      </div>
+      {update.isError && <p className="mt-2 text-sm text-red-600">{(update.error as Error).message}</p>}
+      <div className="mt-2 flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={update.isPending}
+          onClick={() =>
+            update.mutate(
+              {
+                clinicalStaffId: staff.id,
+                organisationId: staff.organisation_id,
+                specialty,
+                bio,
+                photoFile: photoFile ?? undefined,
+                removePhoto,
+              },
+              { onSuccess: onDone }
+            )
+          }
+        >
+          {update.isPending ? "Saving…" : "Save"}
+        </Button>
+        <Button size="sm" variant="ghost" disabled={update.isPending} onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 type ExemptionScope = "org_wide" | "director" | "tier_4_senior_registrar" | "tier_5_partner_specialist";
 
 const EXEMPTION_SCOPE_LABEL: Record<ExemptionScope, string> = {
@@ -328,6 +418,9 @@ export function ClinicalStaffManager() {
   const [specialty, setSpecialty] = useState("");
   const [bio, setBio] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoInputKey, setPhotoInputKey] = useState(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
   if (isError || !staff) {
@@ -408,6 +501,20 @@ export function ClinicalStaffManager() {
             <Textarea id="bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="photo">Photo (optional)</Label>
+            <Input
+              key={photoInputKey}
+              id="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            />
+            <p className="text-xs text-charcoal-ink/60">
+              Shown on this doctor&apos;s per-case attribution to patients — a professional headshot,
+              not required.
+            </p>
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="profile-phone">Link to existing login (optional)</Label>
             <Input
               id="profile-phone"
@@ -432,6 +539,7 @@ export function ClinicalStaffManager() {
                   specialty: specialty.trim(),
                   bio: bio.trim(),
                   profilePhone: profilePhone.trim(),
+                  photoFile: photoFile ?? undefined,
                 },
                 {
                   onSuccess: () => {
@@ -441,6 +549,8 @@ export function ClinicalStaffManager() {
                     setSpecialty("");
                     setBio("");
                     setProfilePhone("");
+                    setPhotoFile(null);
+                    setPhotoInputKey((k) => k + 1);
                   },
                 }
               );
@@ -473,34 +583,44 @@ export function ClinicalStaffManager() {
                 return (
                   <li key={s.id} className="py-3">
                     <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-charcoal-ink">
-                          {s.full_name}
-                          <span className="text-charcoal-ink/60">
-                            , {s.is_clinical_director ? `Clinical Director · ${tierLabel}` : tierLabel}
-                          </span>
-                        </p>
-                        <p className="text-xs text-charcoal-ink/60">
-                          {s.staff_number && (
-                            <span className="font-medium text-charcoal-ink/70">{s.staff_number} · </span>
-                          )}
-                          {s.credential_type && s.credential_number && `${s.credential_type} ${s.credential_number} · `}
-                          {s.license_verified_at
-                            ? `Verified ${formatDate(s.license_verified_at)}`
-                            : "Not verified"}
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          {!hasCredentialOnFile(s) && <MissingCredentialBadge staff={s} />}
-                          {s.license_verified_at && (
-                            <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
-                          )}
-                          <AttestationBadge expiresAt={attestations?.[s.id] ?? null} />
+                      <div className="flex items-start gap-3">
+                        <ClinicalStaffAvatar fullName={s.full_name} photoUrl={s.photo_url} />
+                        <div>
+                          <p className="text-sm font-medium text-charcoal-ink">
+                            {s.full_name}
+                            <span className="text-charcoal-ink/60">
+                              , {s.is_clinical_director ? `Clinical Director · ${tierLabel}` : tierLabel}
+                            </span>
+                          </p>
+                          <p className="text-xs text-charcoal-ink/60">
+                            {s.staff_number && (
+                              <span className="font-medium text-charcoal-ink/70">{s.staff_number} · </span>
+                            )}
+                            {s.credential_type && s.credential_number && `${s.credential_type} ${s.credential_number} · `}
+                            {s.license_verified_at
+                              ? `Verified ${formatDate(s.license_verified_at)}`
+                              : "Not verified"}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {!hasCredentialOnFile(s) && <MissingCredentialBadge staff={s} />}
+                            {s.license_verified_at && (
+                              <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
+                            )}
+                            <AttestationBadge expiresAt={attestations?.[s.id] ?? null} />
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={s.active ? "green" : "grey"}>
                           {s.active ? "Active" : "Inactive"}
                         </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingId(editingId === s.id ? null : s.id)}
+                        >
+                          {editingId === s.id ? "Close" : "Edit profile"}
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -526,6 +646,9 @@ export function ClinicalStaffManager() {
                         </Button>
                       </div>
                     </div>
+                    {editingId === s.id && (
+                      <EditClinicalStaffForm staff={s} onDone={() => setEditingId(null)} />
+                    )}
                     {requiresIndemnity && (
                       <IndemnityForm staff={s} orgExemptions={orgExemptions ?? []} />
                     )}

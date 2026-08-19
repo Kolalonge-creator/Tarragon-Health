@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {
-  Banknote, Scale, Receipt, TrendingUp, Wallet, FileText, Landmark, AlertCircle,
+  Banknote, Scale, Receipt, TrendingUp, Ticket, FileText, Landmark, AlertCircle,
   Percent, Gauge, Clock, PiggyBank,
 } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -26,6 +26,7 @@ export function FinanceOverview() {
   const flagCount =
     (flags.data?.pending_approvals_count ?? 0) +
     (flags.data?.aged_unreconciled_count ?? 0) +
+    (flags.data?.reconciliation_flags_count ?? 0) +
     (flags.data?.ap_overdue_count ?? 0) +
     (flags.data?.compliance_overdue_count ?? 0);
 
@@ -48,6 +49,11 @@ export function FinanceOverview() {
             {(flags.data?.aged_unreconciled_count ?? 0) > 0 && (
               <Link href="/finance/reconciliation">
                 <Badge variant="red">{flags.data?.aged_unreconciled_count} unreconciled payment{flags.data?.aged_unreconciled_count === 1 ? "" : "s"} &gt;7 days old</Badge>
+              </Link>
+            )}
+            {(flags.data?.reconciliation_flags_count ?? 0) > 0 && (
+              <Link href="/finance/reconciliation">
+                <Badge variant="red">{flags.data?.reconciliation_flags_count} reconciliation flag{flags.data?.reconciliation_flags_count === 1 ? "" : "s"}</Badge>
               </Link>
             )}
             {(flags.data?.ap_overdue_count ?? 0) > 0 && (
@@ -76,7 +82,7 @@ export function FinanceOverview() {
         <StatTile icon={FileText} label="Receivables" value={formatMinor(data?.receivables_ngn ?? 0, "NGN")} />
         <StatTile icon={Receipt} label="VAT payable" value={formatMinor(data?.vat_payable_ngn ?? 0, "NGN")} />
         <StatTile icon={Landmark} label="WHT payable" value={formatMinor(data?.wht_payable_ngn ?? 0, "NGN")} />
-        <StatTile icon={Wallet} label="Customer prepayments" value={formatMinor(data?.wallet_liability_ngn ?? 0, "NGN")} />
+        <StatTile icon={Ticket} label="Customer prepayments" value={formatMinor(data?.care_voucher_liability_ngn ?? 0, "NGN")} />
         <StatTile
           icon={AlertCircle}
           label="Unreconciled payments"

@@ -31,6 +31,40 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // The mobile app's WebView session bridge (apps/mobile/src/screens/
+  // webview-screen.tsx) must run its own client-side setSession() exchange
+  // and `next` redirect every time it's hit — authenticated or not. Without
+  // this, the isPublicPath() branch below (which exists to bounce an
+  // already-signed-in visitor away from /auth/callback and friends) would
+  // intercept every WebView open *after* the first — once sharedCookiesEnabled
+  // has carried a cookie over from an earlier bridge visit, this route would
+  // otherwise redirect straight to the role home before the page's own JS,
+  // and the fresh token pair + intended `next` path, ever got a chance to run.
+  if (pathname === "/auth/mobile-bridge") {
+    return response;
+  }
+
+  // MFA step-up gate. Only fires for a caller who has already verified a
+  // TOTP factor (self-enrolled via /account) and whose current session
+  // hasn't completed the challenge yet — everyone who hasn't turned MFA on
+  // is completely unaffected. Without this, /login/mfa-challenge would be
+  // pure decoration: Supabase issues a valid aal1 session the instant a
+  // password/OTP check passes, so anyone who knew just the password could
+  // reach a dashboard directly and skip the challenge page entirely. This is
+  // the single choke point for it, same reasoning as the supporter-only gate
+  // below — a per-page check would have to be remembered everywhere a
+  // protected route is added. `/auth/*` is exempt because those routes are
+  // themselves mid-flow token exchanges (email confirm, mobile bridge) that
+  // must be allowed to complete.
+  if (user && pathname !== "/login/mfa-challenge" && !pathname.startsWith("/auth/")) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel) {
+      const challengeUrl = new URL("/login/mfa-challenge", request.url);
+      challengeUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(challengeUrl);
+    }
+  }
+
   // app.tarragonhealth.com (or app.localhost): "/" is platform entry, not marketing homepage
   if (isApp && pathname === "/") {
     if (!user) {
@@ -136,6 +170,28 @@ export async function proxy(request: NextRequest) {
     !pathMatchesRole(pathname, profile.role) &&
     profile.role !== "admin"
   ) {
+    // A Care Coordinator's own home is /dashboard/care-coordinator, so
+    // /clinician/* is "somebody else's role home" as far as isRoleHomePrefixed
+    // is concerned — without this exception every /clinician/* link a
+    // Coordinator's nav offers (lib/navigation.ts) bounces straight back here,
+    // including the pre-existing Orders/Support inbox links, not just the
+    // Patients/Patient messages/Escalations links added alongside this
+    // exception. Deliberately a fixed allow-list, not "any /clinician/*
+    // path": a Coordinator must never reach clinical-judgment-only surfaces
+    // like care-plan review or medication reviews just because they share the
+    // /clinician/ prefix. Each listed page still self-gates any
+    // clinician-only action server-side (isClinicalTier, doctor-tier.ts) —
+    // this only opens the door, same division of labour as isDelegatableArea
+    // below.
+    const isCoordinatorClinicianPath =
+      profile.role === "care_coordinator" &&
+      ["/clinician/patients", "/clinician/messages", "/clinician/escalations", "/clinician/orders", "/clinician/support-inbox"].some(
+        (allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`)
+      );
+    if (isCoordinatorClinicianPath) {
+      return response;
+    }
+
     // A member the super admin has delegated a capability to (a direct grant or
     // an assigned custom role) may enter the /admin or /finance area to reach
     // the specific surface they were granted — each page independently self-gates

@@ -15,6 +15,14 @@ export interface ResultDocumentView {
   reviewedBy: string | null;
   reviewedAt: string | null;
   reviewNote: string | null;
+  /** Doctor-authored, patient-facing explanation — null until a clinician
+   * sends one via markResultDocumentReviewed. */
+  patientInterpretation: string | null;
+  /** Optional doctor-authored next steps, populated only when the result
+   * needs the patient to do something. */
+  nextSteps: string | null;
+  /** Set once, alongside patientInterpretation — gates patient visibility. */
+  interpretationSentAt: string | null;
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
   isPdf: boolean;
@@ -46,7 +54,7 @@ export async function loadResultDocuments(
   const { data: rows } = await supabase
     .from("lab_result_documents")
     .select(
-      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note",
+      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -64,6 +72,9 @@ export async function loadResultDocuments(
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at,
       reviewNote: row.review_note,
+      patientInterpretation: row.patient_interpretation,
+      nextSteps: row.next_steps,
+      interpretationSentAt: row.interpretation_sent_at,
       signedUrl: await signResultDocumentPath(row.file_path),
       isPdf: row.mime_type === "application/pdf",
     })),

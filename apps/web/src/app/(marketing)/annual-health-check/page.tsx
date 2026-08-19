@@ -3,15 +3,17 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { CtaBand } from "../_components/cta-band";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
     "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. We say what to get and why, you use any lab you like, and a doctor reads the result with you.",
-  alternates: { canonical: MARKETING_ROUTES.annualHealthCheck },
-};
+  path: MARKETING_ROUTES.annualHealthCheck,
+});
 
 /**
  * The trust block for the page where somebody actually decides to hand over
@@ -146,11 +148,28 @@ export default function AnnualHealthCheckPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading
-          eyebrow="What's included"
-          title="Six things, one visit"
-          description="Chosen because they catch the conditions that quietly account for most avoidable illness in Nigeria: diabetes, heart disease, and late-found cancers. Blood sugar, cholesterol, BP & BMI, and a doctor's read are on every tier below, starting with Core Screen; cancer screening is added on Advanced Screen."
-        />
+        <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              What&apos;s included
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Six things, one visit
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              Chosen because they catch the conditions that quietly account for most avoidable
+              illness in Nigeria: diabetes, heart disease, and late-found cancers. Blood sugar,
+              cholesterol, BP &amp; BMI, and a doctor&apos;s read are on every tier below, starting
+              with Core Screen; cancer screening is added on Advanced Screen.
+            </p>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "annual-checklist",
+              imageAlt: "Six checks, reviewed by a doctor, once a year",
+            }}
+          />
+        </div>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {WHATS_INCLUDED.map((item) => (
             <div

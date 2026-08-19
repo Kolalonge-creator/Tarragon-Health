@@ -35,7 +35,7 @@ export function BookingRequestsList({ patientId }: { patientId: string }) {
           !bookingRequests.isError &&
           bookingRequests.data?.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">
-              No booking requests yet, find a facility above to get started.
+              No booking requests on file.
             </p>
           )}
         {bookingRequests.data && bookingRequests.data.length > 0 && (

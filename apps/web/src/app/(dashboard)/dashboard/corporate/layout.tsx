@@ -5,6 +5,7 @@ import { RosterManager } from "./roster-manager";
 import { OutcomeReportsPanel } from "./outcome-reports-panel";
 import { loadCorporateDashboardData } from "./dashboard-data";
 import { CorporateNav } from "./corporate-nav";
+import { CorporatePageHeader } from "./corporate-page-header";
 
 /**
  * Every degraded state (no org, no verified access, cohort too small to
@@ -75,7 +76,7 @@ export default async function CorporateLayout({ children }: { children: React.Re
 
   return (
     <div className="space-y-6">
-      {header}
+      <CorporatePageHeader />
       <CorporateNav />
       {children}
     </div>

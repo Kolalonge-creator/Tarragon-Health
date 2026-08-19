@@ -71,7 +71,9 @@ export function AppleHealthCard() {
       <MutedText>
         We read your blood pressure, blood sugar, weight, oxygen level, resting heart rate and
         steps. Your care team sees them alongside everything else on your record. We never write
-        anything back to Apple Health, and you choose what to share on the next screen.
+        anything back to Apple Health, and you choose what to share on the next screen. Once
+        you&apos;ve synced, we&apos;ll also keep checking for new readings in the background; tap
+        Sync any time you want the latest right now.
       </MutedText>
 
       <PrimaryButton
@@ -106,7 +108,7 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
   return (
     <Text style={{ color: colors.success, fontSize: 14, fontWeight: "600" }}>
       {saved === 0
-        ? "Already up to date — these readings were on your record."
+        ? "Already up to date. These readings were on your record."
         : `Added ${saved} ${saved === 1 ? "reading" : "readings"} to your record.`}
     </Text>
   );
