@@ -243,57 +243,100 @@ export const AUDIENCE_TABS: AudienceTab[] = [
   },
 ];
 
-// Ordered most-asked first: the homepage surfaces the top 4 and links out to
-// the rest (pricing FAQ + contact); the full set stays here as the source.
+// Ordered most-asked first within each category; the homepage surfaces the
+// top 4 and links out to the rest (pricing FAQ + contact). `category` splits
+// the FAQ page into "General" (practicalities, cost, comfort with tech) vs.
+// "Clinical" (doctor involvement, escalation, what the review actually is) —
+// the second group exists to answer the skeptical-reader questions before
+// they have to be asked out loud, not just how the product works.
 export const HOMEPAGE_FAQS = [
   {
+    category: "general",
     question: "What is Tarragon Health?",
     answer:
       "TarragonHealth is a health monitoring platform for chronic disease (hypertension, diabetes, and weight management), preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
   },
   {
+    category: "general",
     question: "I'm healthy, is Tarragon for me?",
     answer:
       "Yes: prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check, and education matched to you keep healthy people healthy. Most members just get confirmation each year that all is well; if a check ever finds something, a doctor follows up the same day.",
   },
   {
-    question: "What happens when readings are high?",
-    answer:
-      "Your readings are reviewed against care protocols. If they need attention, your care team follows up and escalates to a doctor when closer care is needed.",
-  },
-  {
+    category: "general",
     question: "Can I use Tarragon for my parent while I live abroad?",
     answer:
       "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for their plan from anywhere; the tests and refills themselves are still paid directly to whichever laboratory or pharmacy they use in Nigeria, at their price.",
   },
   {
+    category: "general",
     question: "How much does it cost?",
     answer:
       "Pricing is shown clearly with no hidden costs. Some services are included, some you pay directly to a laboratory or pharmacy you choose (we take nothing on those), and some are add-ons. See the pricing page for every plan and add-on in full.",
   },
   {
+    category: "general",
     question: "How do I log my blood pressure, glucose, or weight?",
     answer:
       "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team any time in the app for support. Logging itself happens on app or web.",
   },
   {
+    category: "general",
     question: "Can I connect a fitness tracker, smartwatch, or Bluetooth device?",
     answer:
       "That's part of the platform, and we're bringing connections online one at a time: Apple Health, Health Connect, and trackers including Fitbit, Garmin, Oura, WHOOP, and Dexcom. Manual logging works today, in seconds, on every plan, so you're never waiting on a connection to keep your record current.",
   },
   {
-    question: "What about preventive checks and screening results?",
-    answer:
-      "Tarragon tracks what checks may be due, reminds you to complete them, and reviews results when they come back. An abnormal screening result triggers doctor follow-up and can upgrade you into chronic care monitoring when needed.",
-  },
-  {
+    category: "general",
     question: "Do I need a smartphone?",
     answer:
       "You need a smartphone or computer to use the app or web dashboard, where your health record, care actions, and messages with your care team all live. WhatsApp and SMS still bring you reminders and alerts.",
   },
   {
+    category: "general",
     question: "Is there a Tarragon app?",
     answer:
       "Yes. Open Tarragon in your phone's browser and add it to your home screen (Safari's Share menu on iPhone, Chrome's Install option on Android). It opens like a regular app, with no app-store download needed.",
   },
+  {
+    category: "general",
+    question: "Will my health data be kept private?",
+    answer:
+      "Your health record is protected by access controls enforced at the database level: only your own care team can see it, and it's never shared with an employer, insurer, or anyone else without your consent. If a relative or institution has visibility into your care, it's because you specifically granted it, not by default.",
+  },
+  {
+    category: "general",
+    question: "What if I'm not comfortable with health tech?",
+    answer:
+      "You don't need to be. Adding Tarragon to your home screen takes one tap and no app-store account, logging a reading takes seconds, and WhatsApp or SMS will still remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
+  },
+  {
+    category: "clinical",
+    question: "What happens when readings are high?",
+    answer:
+      "Your readings are reviewed against care protocols. If they need attention, your care team follows up and escalates to a doctor when closer care is needed.",
+  },
+  {
+    category: "clinical",
+    question: "What about preventive checks and screening results?",
+    answer:
+      "Tarragon tracks what checks may be due, reminds you to complete them, and reviews results when they come back. An abnormal screening result triggers doctor follow-up and can upgrade you into chronic care monitoring when needed.",
+  },
+  {
+    category: "clinical",
+    question: "Does Tarragon replace my doctor?",
+    answer:
+      "No. Tarragon is the layer that keeps watching between visits: logging your numbers, reviewing them against care protocols, and coordinating labs, pharmacies, and specialist referrals on one record. Every review and escalation is still a real doctor's clinical judgement, made by the team of MDCN-registered doctors Tarragon employs, not an app or an algorithm on its own.",
+  },
+  {
+    category: "clinical",
+    question: "Is a real doctor actually reviewing my results?",
+    answer:
+      "Yes. Any result, escalation, or verified document that shows a doctor's name reflects a real review by a real doctor on that date, never a placeholder. Care is delivered by a team with coverage shared across shifts, so it won't always be the same individual, but every review is still genuinely theirs.",
+  },
 ] as const;
+
+export const FAQ_CATEGORY_LABEL: Record<(typeof HOMEPAGE_FAQS)[number]["category"], string> = {
+  general: "General",
+  clinical: "Clinical & trust",
+};
