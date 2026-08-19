@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SERVICE_LABEL, gatedServices, itemsFor } from "@/lib/coverage/what-works-where";
+import { NIGERIA_ZONES } from "@/lib/nigeria-zones";
 import type { StateCoverage } from "@/lib/marketing/coverage-data";
+import { cn } from "@/lib/utils";
 
 /**
  * "Does any of this work where my mother lives?", answered before signing up.
@@ -33,13 +35,72 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
 
   const liveCount = selected ? services.filter((s) => selected.services[s]).length : 0;
 
+  const liveCountFor = (row: StateCoverage) => services.filter((s) => row.services[s]).length;
+
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-4xl">
+      {coverage.length > 0 && (
+        <div className="mb-8">
+          <p className="text-sm font-medium text-charcoal-ink">
+            Tap a zone, then a state
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {NIGERIA_ZONES.slice()
+              .sort((a, b) => a.row - b.row || a.col - b.col)
+              .map((zone) => (
+                <div
+                  key={zone.id}
+                  className="rounded-xl border border-charcoal-ink/10 bg-white p-3"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50">
+                    {zone.label}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {zone.states.map((stateValue) => {
+                      const row = coverage.find((c) => c.state === stateValue);
+                      const isSelected = state === stateValue;
+                      const live = row ? liveCountFor(row) > 0 : false;
+                      return (
+                        <button
+                          key={stateValue}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => setState(stateValue)}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                            isSelected
+                              ? "border-brand-green bg-brand-green text-white"
+                              : "border-charcoal-ink/15 bg-warm-ivory text-charcoal-ink/80 hover:border-brand-green/50"
+                          )}
+                        >
+                          <span
+                            aria-hidden
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              live ? "bg-brand-green" : isSelected ? "bg-white/60" : "bg-charcoal-ink/25"
+                            )}
+                          />
+                          {row?.displayName ?? stateValue}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+          </div>
+          <p className="mt-3 text-xs text-charcoal-ink/50">
+            The dot only tracks home sample collection and medication delivery — the two services
+            that still wait on a contracted logistics partner. Everything else on this page already
+            works the same way in all 37, so most states look identical today.
+          </p>
+        </div>
+      )}
+
       <label
         htmlFor="coverage-state"
         className="block text-sm font-medium text-charcoal-ink"
       >
-        Which state do they live in?
+        Or choose a state directly
       </label>
       <select
         id="coverage-state"
