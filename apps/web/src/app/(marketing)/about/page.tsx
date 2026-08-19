@@ -168,16 +168,16 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="Team"
           title="The people building TarragonHealth"
-          description="Meet our founder, and see the seats we're building out next as TarragonHealth grows beyond one person. Click a card for the full story."
+          description="Meet the clinical leadership. Click a card for the full story."
         />
         <LeadershipGrid />
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Think you&rsquo;re a fit for one of the open seats?{" "}
+          We&rsquo;re also hiring as TarragonHealth grows past one founder.{" "}
           <Link
-            href={`${MARKETING_ROUTES.contact}?source=careers`}
+            href={MARKETING_ROUTES.careers}
             className="font-medium text-deep-forest hover:underline"
           >
-            Get in touch
+            See our open roles
           </Link>
           .
         </p>

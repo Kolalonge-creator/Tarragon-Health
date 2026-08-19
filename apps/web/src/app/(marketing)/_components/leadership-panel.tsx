@@ -2,10 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { ArrowRight, User, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { cn } from "@/lib/utils";
 
 function LinkedInGlyph({ className }: { className?: string }) {
@@ -32,10 +29,9 @@ function LinkedInButton({ href }: { href: string }) {
 
 /**
  * TarragonHealth's team, styled after Function Health's leadership grid:
- * click a card, a bio (or role brief) opens in a panel on the right. Real
- * people and still-open seats share one grid/pattern — `kind` decides what
- * the card and panel show. Add a `person` entry here (not to a separate
- * list) the moment a role above is actually filled.
+ * click a card, a bio opens in a panel on the right. Open roles live on
+ * their own /careers page, not here — this grid is people only. Add a
+ * `person` entry here the moment a role is actually filled.
  */
 type PersonMember = {
   kind: "person";
@@ -50,15 +46,7 @@ type PersonMember = {
   linkedinUrl?: string;
 };
 
-type OpenRoleMember = {
-  kind: "role";
-  id: string;
-  title: string;
-  teaser: string;
-  scope: string;
-};
-
-type TeamMember = PersonMember | OpenRoleMember;
+type TeamMember = PersonMember;
 
 const TEAM: TeamMember[] = [
   {
@@ -100,30 +88,6 @@ const TEAM: TeamMember[] = [
       "Healthcare innovation only matters when it improves care for real patients. Our responsibility at TarragonHealth is to build clinical systems that can scale across different healthcare environments while maintaining the quality, safety, and human judgement that patients deserve.",
     linkedinUrl: "https://www.linkedin.com/in/adefola-richmond-adetunbi-a85b14121/",
   },
-  {
-    kind: "role",
-    id: "head-engineering",
-    title: "Head of Engineering",
-    teaser: "Owns the platform and ML microservice",
-    scope:
-      "Owns the TypeScript platform and ML microservice, the system of record behind every reading, reminder, and escalation.",
-  },
-  {
-    kind: "role",
-    id: "head-partnerships",
-    title: "Head of Partnerships",
-    teaser: "Grows the lab, pharmacy, and specialist network",
-    scope:
-      "Grows and manages the lab, pharmacy, and specialist network that Care Coordination runs on.",
-  },
-  {
-    kind: "role",
-    id: "head-growth",
-    title: "Head of Growth & Commercial",
-    teaser: "Leads corporate wellness and HMO partnerships",
-    scope:
-      "Leads corporate wellness and HMO partnerships, turning the B2B & Institutional pipeline into revenue.",
-  },
 ];
 
 export function LeadershipGrid() {
@@ -149,46 +113,34 @@ export function LeadershipGrid() {
             onClick={() => setOpenId(member.id)}
             className="flex flex-col items-center rounded-2xl border border-charcoal-ink/10 bg-white p-6 text-center transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
           >
-            {member.kind === "person" ? (
-              member.photoSrc ? (
-                <div className="h-20 w-20 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30">
-                  <Image
-                    src={member.photoSrc}
-                    alt={member.photoAlt ?? member.name}
-                    width={160}
-                    height={160}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div
-                  className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-soft-sage/60 text-deep-forest shadow-lg ring-2 ring-brand-green/30"
-                  role="img"
-                  aria-label={member.photoAlt ?? member.name}
-                >
-                  <User className="h-8 w-8" strokeWidth={1.25} />
-                </div>
-              )
+            {member.photoSrc ? (
+              <div className="h-20 w-20 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30">
+                <Image
+                  src={member.photoSrc}
+                  alt={member.photoAlt ?? member.name}
+                  width={160}
+                  height={160}
+                  className="h-full w-full object-cover"
+                />
+              </div>
             ) : (
               <div
-                className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-charcoal-ink/20 text-charcoal-ink/40"
+                className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-soft-sage/60 text-deep-forest shadow-lg ring-2 ring-brand-green/30"
                 role="img"
-                aria-label={`Placeholder for ${member.title}`}
+                aria-label={member.photoAlt ?? member.name}
               >
-                <User className="h-7 w-7" strokeWidth={1.25} />
+                <User className="h-8 w-8" strokeWidth={1.25} />
               </div>
             )}
             <span className="mt-3 inline-flex rounded-full bg-brand-green/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deep-forest">
-              {member.kind === "person" ? member.title : "Open role"}
+              {member.title}
             </span>
             <h3 className="mt-3 font-heading text-lg font-semibold text-charcoal-ink">
-              {member.kind === "person" ? member.name : member.title}
+              {member.name}
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
-              {member.kind === "person" ? member.title : member.teaser}
-            </p>
+            <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{member.title}</p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-deep-forest">
-              {member.kind === "person" ? `Meet ${member.name.split(" ")[1] ?? member.name}` : "View this role"}
+              Meet {member.name.split(" ")[1] ?? member.name}
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
             </span>
           </button>
@@ -196,12 +148,7 @@ export function LeadershipGrid() {
       </div>
 
       {active ? (
-        <div
-          className="fixed inset-0 z-50"
-          role="dialog"
-          aria-modal="true"
-          aria-label={active.kind === "person" ? `About ${active.name}` : `About the ${active.title} role`}
-        >
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={`About ${active.name}`}>
           <button
             aria-label="Close"
             className="absolute inset-0 bg-charcoal-ink/50"
@@ -210,7 +157,7 @@ export function LeadershipGrid() {
           <div className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-6 py-4">
               <p className="text-sm font-medium uppercase tracking-wide text-charcoal-ink/50">
-                {active.kind === "person" ? `About ${active.name.split(" ")[1] ?? active.name}` : "Open role"}
+                About {active.name.split(" ")[1] ?? active.name}
               </p>
               <button
                 type="button"
@@ -225,63 +172,41 @@ export function LeadershipGrid() {
             </div>
 
             <div className="flex-1 px-6 py-8">
-              {active.kind === "person" ? (
-                <>
-                  {active.photoSrc ? (
-                    <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30">
-                      <Image
-                        src={active.photoSrc}
-                        alt={active.photoAlt ?? active.name}
-                        width={224}
-                        height={224}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-soft-sage/60 text-deep-forest shadow-lg ring-2 ring-brand-green/30"
-                      role="img"
-                      aria-label={active.photoAlt ?? active.name}
-                    >
-                      <User className="h-11 w-11" strokeWidth={1.25} />
-                    </div>
-                  )}
-                  <h2 className="mt-5 font-heading text-2xl font-semibold text-charcoal-ink">
-                    {active.name}
-                  </h2>
-                  <p className="mt-1 text-sm font-medium text-charcoal-ink/60">{active.title}</p>
-                  {active.credentials ? (
-                    <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/40">
-                      {active.credentials}
-                    </p>
-                  ) : null}
-                  <p className="mt-5 leading-relaxed text-charcoal-ink/70">{active.bio}</p>
-                  {active.quote ? (
-                    <blockquote className="mt-6 rounded-xl border-l-4 border-brand-green bg-soft-sage/60 px-5 py-4 italic leading-relaxed text-charcoal-ink/80">
-                      &ldquo;{active.quote}&rdquo;
-                    </blockquote>
-                  ) : null}
-                  {active.linkedinUrl ? <LinkedInButton href={active.linkedinUrl} /> : null}
-                </>
+              {active.photoSrc ? (
+                <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white shadow-lg ring-2 ring-brand-green/30">
+                  <Image
+                    src={active.photoSrc}
+                    alt={active.photoAlt ?? active.name}
+                    width={224}
+                    height={224}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
               ) : (
-                <>
-                  <span className="inline-flex rounded-full bg-brand-green/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deep-forest">
-                    Open role
-                  </span>
-                  <h2 className="mt-3 font-heading text-2xl font-semibold text-charcoal-ink">
-                    {active.title}
-                  </h2>
-                  <p className="mt-5 leading-relaxed text-charcoal-ink/70">{active.scope}</p>
-                  <p className="mt-5 text-sm leading-relaxed text-charcoal-ink/60">
-                    This is one of the seats we&rsquo;re building out as TarragonHealth grows
-                    past one founder. No one&rsquo;s in it yet, so if it sounds like you, we&rsquo;d
-                    like to hear from you.
-                  </p>
-                  <Button asChild className="mt-6">
-                    <Link href={`${MARKETING_ROUTES.contact}?source=careers`}>Get in touch</Link>
-                  </Button>
-                </>
+                <div
+                  className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-soft-sage/60 text-deep-forest shadow-lg ring-2 ring-brand-green/30"
+                  role="img"
+                  aria-label={active.photoAlt ?? active.name}
+                >
+                  <User className="h-11 w-11" strokeWidth={1.25} />
+                </div>
               )}
+              <h2 className="mt-5 font-heading text-2xl font-semibold text-charcoal-ink">
+                {active.name}
+              </h2>
+              <p className="mt-1 text-sm font-medium text-charcoal-ink/60">{active.title}</p>
+              {active.credentials ? (
+                <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/40">
+                  {active.credentials}
+                </p>
+              ) : null}
+              <p className="mt-5 leading-relaxed text-charcoal-ink/70">{active.bio}</p>
+              {active.quote ? (
+                <blockquote className="mt-6 rounded-xl border-l-4 border-brand-green bg-soft-sage/60 px-5 py-4 italic leading-relaxed text-charcoal-ink/80">
+                  &ldquo;{active.quote}&rdquo;
+                </blockquote>
+              ) : null}
+              {active.linkedinUrl ? <LinkedInButton href={active.linkedinUrl} /> : null}
             </div>
           </div>
         </div>
