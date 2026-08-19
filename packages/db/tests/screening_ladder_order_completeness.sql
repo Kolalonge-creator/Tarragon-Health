@@ -5,8 +5,8 @@
 -- once-per-lifetime (genotype/blood group) vs annual vs dormant-imaging vs
 -- sex/age-gated (psa) distinctions all hold. Rolled back, no residue.
 --
--- total_kobo is 0 and status is never 'pending_payment' throughout — every
--- Screen-tier order is self-arranged fulfilment as of
+-- total_kobo is 0 and status is never 'pending_payment'/'payment_confirmed'
+-- throughout — every Screen-tier order is self-arranged fulfilment as of
 -- 20260803124833_self_arranged_lab_fulfilment.sql, and
 -- private.enforce_lab_order_origin rejects both for a self_arranged order
 -- (which lab_orders.fulfilment now defaults to).
@@ -15,16 +15,6 @@
 -- auth.users rows: one with sex=null (age ~41), one male (age ~66, born
 -- 1960), and one female (age ~71) — swap the ids below if any stops
 -- existing.
---
--- check1 can read false on a shared dev database even when everything else
--- is correct: private.link_screen_order_to_annual_check's own conflict
--- resolution is `lab_order_id = coalesce(existing.lab_order_id, new.id)` —
--- once ANY annual_health_checks row exists for (patient_id, year), its
--- lab_order_id is permanent, so check1 can only pass the first time this
--- patient fixture is ever used in a given year. The sex-null fixture above
--- already has a real row from 2026-08-03 pointing at a different
--- lab_order_id, so check1 is expected to read false here — that's this
--- shared fixture's accumulated history, not a regression.
 begin;
 
 create temporary table test_results (case_name text, passed boolean) on commit drop;
@@ -47,14 +37,28 @@ begin
   select id into v_core_bundle from public.panel_bundles where code = 'screen_core';
   select id into v_comp_bundle from public.panel_bundles where code = 'screen_comprehensive';
 
-  -- Order 1: screen_core, entering results one code at a time.
+  -- All three fixtures are real, pre-existing patients and may already carry
+  -- a real annual_health_checks row for this year from their own live orders
+  -- (this reused v_patient id is, in fact, the real patient behind the
+  -- platform's one live self-arranged Screen order) -- delete any such row
+  -- inside this rolled-back transaction so check1 below observes a clean
+  -- insert-creates-the-link rather than tripping the "first order of the
+  -- year keeps the link" coalesce behaviour against unrelated real data.
+  delete from public.annual_health_checks where patient_id in (v_patient, v_male, v_female) and year = v_year;
+
+  -- Order 1: screen_core, self-arranged -- the only shape the real app ever
+  -- inserts today (apps/web/src/lib/queries/lab-orders.ts's
+  -- useCreateLabOrder/useOrderLabTest both insert status='ordered',
+  -- total_kobo=0, and rely on fulfilment's table default of
+  -- 'self_arranged'; private.enforce_lab_order_origin rejects anything
+  -- else for a self_arranged row, so a pending_payment/payment_confirmed
+  -- fixture here would not exercise -- and previously did not even survive
+  -- -- the real trigger stack). Entering results one code at a time.
   insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
   values (v_org, v_patient, v_core_bundle, 'ordered', 0, 'patient_initiated', 1)
   returning id into v_order1;
 
-  update public.lab_orders set status = 'payment_confirmed' where id = v_order1;
-
-  insert into test_results select 'check1_payment_confirmed_links_annual_check',
+  insert into test_results select 'check1_self_arranged_insert_links_annual_check',
     exists(select 1 from public.annual_health_checks where patient_id = v_patient and year = v_year
       and lab_order_id = v_order1 and status = 'in_progress');
 
@@ -72,13 +76,13 @@ begin
     (v_org, v_patient, v_order1, 'hep_c', 'normal');
 
   insert into test_results select 'check2_not_resulted_until_complete',
-    (select status = 'payment_confirmed' from public.lab_orders where id = v_order1);
+    (select status = 'ordered' from public.lab_orders where id = v_order1);
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status, follow_up_action)
   values (v_org, v_patient, v_order1, 'blood_group', 'abnormal', 'test follow-up action stored');
 
   insert into test_results select 'check3_still_missing_genotype',
-    (select status = 'payment_confirmed' from public.lab_orders where id = v_order1);
+    (select status = 'ordered' from public.lab_orders where id = v_order1);
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
   values (v_org, v_patient, v_order1, 'sickle_cell_genotype', 'normal');
@@ -93,7 +97,7 @@ begin
   -- Order 2: a fresh screen_core order, same patient -- once-per-lifetime
   -- genotype/blood group already satisfied without a fresh entry.
   insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_patient, v_core_bundle, 'payment_confirmed', 0, 'patient_initiated', 1)
+  values (v_org, v_patient, v_core_bundle, 'ordered', 0, 'patient_initiated', 1)
   returning id into v_order2;
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
@@ -120,7 +124,7 @@ begin
   -- three imaging codes it's never excluded here on sex grounds -- it's
   -- required and supplied below, same as any other non-dormant code.
   insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_patient, v_comp_bundle, 'payment_confirmed', 0, 'patient_initiated', 1)
+  values (v_org, v_patient, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1)
   returning id into v_order3;
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
@@ -152,7 +156,7 @@ begin
   -- Order 4: MALE patient -- psa genuinely required, gated on shared
   -- decision-making (private.enforce_psa_sdm_gate).
   insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_male, v_comp_bundle, 'payment_confirmed', 0, 'patient_initiated', 1)
+  values (v_org, v_male, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1)
   returning id into v_order4;
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
@@ -178,7 +182,7 @@ begin
     (v_org, v_male, v_order4, 'prostate_ultrasound', 'normal');
 
   insert into test_results select 'check9_male_missing_psa_stays_unresolved',
-    (select status = 'payment_confirmed' from public.lab_orders where id = v_order4);
+    (select status = 'ordered' from public.lab_orders where id = v_order4);
 
   insert into public.patient_shared_decisions (organisation_id, patient_id, screen_type_code, notes)
   values (v_org, v_male, 'psa', 'test SDM fixture');
@@ -197,7 +201,7 @@ begin
   -- supplied up front below alongside everything else so breast_imaging is
   -- the sole thing missing for check11/check12 to isolate.
   insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_female, v_comp_bundle, 'payment_confirmed', 0, 'patient_initiated', 1)
+  values (v_org, v_female, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1)
   returning id into v_order5;
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
@@ -222,7 +226,7 @@ begin
     (v_org, v_female, v_order5, 'abdominal_ultrasound', 'normal');
 
   insert into test_results select 'check11_female_missing_breast_imaging_stays_unresolved',
-    (select status = 'payment_confirmed' from public.lab_orders where id = v_order5);
+    (select status = 'ordered' from public.lab_orders where id = v_order5);
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
   values (v_org, v_female, v_order5, 'breast_imaging', 'normal');
