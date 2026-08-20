@@ -12,6 +12,7 @@ import {
   readHealthConnectSamples,
   requestHealthConnectPermissions,
 } from "./health-connect";
+import { countSyncErrorsSince } from "./sync-diagnostics";
 
 /**
  * One health-store sync, shared by both platforms: ask the server where
@@ -39,9 +40,9 @@ const UPLOAD_PAGE_SIZE = 200;
 
 export type HealthSyncResult =
   | { status: "unavailable" }
-  | { status: "no_new_data" }
+  | { status: "no_new_data"; partial?: boolean }
   | { status: "error"; message: string }
-  | { status: "synced"; vitals: number; wearable: number; total: number };
+  | { status: "synced"; vitals: number; wearable: number; total: number; partial?: boolean };
 
 export async function syncAppleHealth(): Promise<HealthSyncResult> {
   if (!(await isHealthKitAvailable())) return { status: "unavailable" };
@@ -81,8 +82,18 @@ async function syncHealthReadings(
     return { status: "error", message: "Couldn't work out where the last sync finished." };
   }
 
+  // Captured before the read so countSyncErrorsSince can tell "a reader
+  // failed during this attempt" apart from stale entries left over from an
+  // earlier sync — readHealthSamples/readHealthConnectSamples already log
+  // into sync-diagnostics per reader rather than throwing, so this is the
+  // only way this function learns a read was incomplete.
+  const startedAt = new Date().toISOString();
   const samples = await readSamples(since, until);
-  if (samples.length === 0) return { status: "no_new_data" };
+  const readerErrors = countSyncErrorsSince(provider, startedAt);
+
+  if (samples.length === 0) {
+    return readerErrors > 0 ? { status: "no_new_data", partial: true } : { status: "no_new_data" };
+  }
 
   let vitals = 0;
   let wearable = 0;
@@ -93,7 +104,13 @@ async function syncHealthReadings(
     wearable += result.data.wearable_inserted;
   }
 
-  return { status: "synced", vitals, wearable, total: samples.length };
+  return {
+    status: "synced",
+    vitals,
+    wearable,
+    total: samples.length,
+    ...(readerErrors > 0 ? { partial: true } : {}),
+  };
 }
 
 function paginate<T>(items: T[], size: number): T[][] {

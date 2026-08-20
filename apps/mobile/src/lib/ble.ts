@@ -15,6 +15,17 @@ import {
   type TemperatureReading,
   type WeightReading,
 } from "@tarragon/shared";
+import { recordSyncError } from "./sync-diagnostics";
+
+/** Native react-native-ble-plx option, so a peripheral that never answers
+ * the connection request is torn down by the OS-level BLE stack rather than
+ * hanging forever — see connectAndSubscribe. */
+const CONNECT_TIMEOUT_MS = 15_000;
+
+/** discoverAllServicesAndCharacteristics has no native timeout option
+ * (unlike connectToDevice), so a peripheral that connects but stalls during
+ * discovery needs this JS-level backstop instead — see connectAndSubscribe. */
+const DISCOVERY_TIMEOUT_MS = 15_000;
 
 export type SupportedDeviceType =
   | "bp_cuff"
@@ -142,11 +153,44 @@ function parseForDeviceType(deviceType: SupportedDeviceType, bytes: Uint8Array):
 }
 
 /**
+ * Rejects with a clear, patient-facing-safe error if `promise` doesn't
+ * settle within `ms` — the backstop for the one step in this flow
+ * (discoverAllServicesAndCharacteristics) that has no native timeout of its
+ * own. Never tested against real hardware, so a peripheral that connects but
+ * stalls mid-discovery is exactly the failure mode this exists to catch
+ * rather than leave sync-screen.tsx's "Connecting…" spinner hanging forever.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out. Make sure the device is on and nearby, then try again.`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    );
+  });
+}
+
+/**
  * Connect to an already-discovered (or previously paired) peripheral and
  * subscribe to its measurement characteristic, decoding each notification/
  * indication via the shared GATT parsers (monitorCharacteristicForService
  * handles both — weight/temperature measurements are indications per spec).
  * Returns a teardown function.
+ *
+ * Both connection and discovery are bounded (CONNECT_TIMEOUT_MS,
+ * DISCOVERY_TIMEOUT_MS) rather than left to hang: on real hardware a
+ * peripheral that's off, out of range, or already connected to another app
+ * won't reject on its own within any useful time, and this path has never
+ * been exercised against a real device to know how long "never" actually
+ * takes.
  */
 export async function connectAndSubscribe(
   bleDeviceId: string,
@@ -154,8 +198,25 @@ export async function connectAndSubscribe(
   onReading: (reading: ParsedReading) => void,
   onError: (error: Error) => void
 ): Promise<() => void> {
-  const device = await getManager().connectToDevice(bleDeviceId);
-  await device.discoverAllServicesAndCharacteristics();
+  let device: Device;
+  try {
+    device = await getManager().connectToDevice(bleDeviceId, { timeout: CONNECT_TIMEOUT_MS });
+    await withTimeout(
+      device.discoverAllServicesAndCharacteristics(),
+      DISCOVERY_TIMEOUT_MS,
+      "Discovering services"
+    );
+  } catch (error) {
+    const normalised = error instanceof Error ? error : new Error(String(error));
+    recordSyncError("ble", `connect:${deviceType}`, normalised);
+    // A connection that timed out mid-establishment can still be considered
+    // "connecting" by the native stack; best-effort cancel so a later retry
+    // isn't blocked by a half-open connection this call gave up on.
+    getManager()
+      .cancelDeviceConnection(bleDeviceId)
+      .catch(() => undefined);
+    throw normalised;
+  }
 
   const { service, characteristic } = DEVICE_TYPE_TO_GATT[deviceType];
 
