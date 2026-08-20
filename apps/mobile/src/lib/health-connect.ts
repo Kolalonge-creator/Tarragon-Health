@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type * as HealthConnectPackage from "react-native-health-connect";
 import type { HealthSample } from "./healthkit";
+import { recordSyncError } from "./sync-diagnostics";
 
 /**
  * Loaded lazily via require(), never as a static top-level import — same
@@ -106,7 +107,8 @@ export async function isHealthConnectAvailable(): Promise<boolean> {
     const status = await hc.getSdkStatus();
     if (status !== hc.SdkAvailabilityStatus.SDK_AVAILABLE) return false;
     return await hc.initialize();
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "getSdkStatus/initialize", error);
     return false;
   }
 }
@@ -133,7 +135,8 @@ export async function requestHealthConnectPermissions(): Promise<boolean> {
       { accessType: "read", recordType: "BackgroundAccessPermission" },
     ]);
     return granted.length > 0;
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "requestPermission", error);
     return false;
   }
 }
@@ -208,7 +211,8 @@ async function readDailySteps(
       });
     }
     return samples;
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "steps", error);
     return [];
   }
 }
@@ -238,7 +242,8 @@ async function readBloodPressure(
       recorded_at: record.time,
       external_reading_id: externalId(record.metadata?.id, `bp:${record.time}`),
     }));
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "blood_pressure", error);
     return [];
   }
 }
@@ -265,7 +270,8 @@ async function readBloodGlucose(
       recorded_at: record.time,
       external_reading_id: externalId(record.metadata?.id, `glucose:${record.time}`),
     }));
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "glucose", error);
     return [];
   }
 }
@@ -289,7 +295,8 @@ async function readWeight(
       recorded_at: record.time,
       external_reading_id: externalId(record.metadata?.id, `weight:${record.time}`),
     }));
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "weight", error);
     return [];
   }
 }
@@ -321,7 +328,8 @@ async function readOxygenSaturation(
       recorded_at: record.time,
       external_reading_id: externalId(record.metadata?.id, `spo2:${record.time}`),
     }));
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "spo2", error);
     return [];
   }
 }
@@ -345,7 +353,8 @@ async function readHeartRateVariability(
       recorded_at: record.time,
       external_reading_id: externalId(record.metadata?.id, `hrv:${record.time}`),
     }));
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "hrv_ms", error);
     return [];
   }
 }
@@ -369,7 +378,8 @@ async function readRestingHeartRate(
       recorded_at: record.time,
       external_reading_id: externalId(record.metadata?.id, `rhr:${record.time}`),
     }));
-  } catch {
+  } catch (error) {
+    recordSyncError("android_health_connect", "resting_heart_rate", error);
     return [];
   }
 }

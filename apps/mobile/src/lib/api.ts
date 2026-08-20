@@ -95,6 +95,36 @@ export async function postHealthSamples(
 
 type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
+/** Nigerian mobile networks routinely go slow-but-not-dead rather than
+ * cleanly failing, and React Native's fetch has no built-in timeout — left
+ * unbounded, a stalled request hangs the calling screen (a sync "Syncing…"
+ * button, a vitals save) indefinitely instead of ever reaching the catch
+ * below. 20s is generous enough for a genuinely slow connection to still
+ * succeed, short enough that a dead one doesn't strand the UI. */
+const REQUEST_TIMEOUT_MS = 20_000;
+
+/** One retry, after a fixed pause, and only for a request that never got a
+ * response at all (timed out, or the radio dropped mid-request) — not for
+ * one that reached the server and got an HTTP error back, since that may
+ * already have taken effect server-side and retrying it blind isn't safe to
+ * assume is free. A single flaky beat on a poor connection is exactly what
+ * this recovers from without a caller having to notice or handle it. */
+const RETRY_DELAY_MS = 1_500;
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function request<T>(
   path: string,
   method: "GET" | "POST",
@@ -107,15 +137,30 @@ async function request<T>(
     return { ok: false, error: "Not signed in" };
   }
 
+  const url = `${API_BASE_URL}${path}`;
+  const init: RequestInit = {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  };
+
+  let response: Response;
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    response = await fetchWithTimeout(url, init);
+  } catch {
+    // First attempt never got a response — worth one retry before giving up.
+    try {
+      await sleep(RETRY_DELAY_MS);
+      response = await fetchWithTimeout(url, init);
+    } catch {
+      return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+    }
+  }
+
+  try {
     const json = (await response.json()) as T & { error?: string };
     if (!response.ok) {
       return { ok: false, error: json.error ?? `Request failed (${response.status})` };
