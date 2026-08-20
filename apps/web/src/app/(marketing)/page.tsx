@@ -17,6 +17,7 @@ import { AnimatedNumber } from "./_components/animated-number";
 import { StepsExplorer } from "./_components/steps-explorer";
 import { HOW_IT_WORKS_STEPS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { getChannelHero } from "./_content/channel-heroes";
+import { PILLARS, PILLARS_SECTION_COPY } from "./_content/pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -210,6 +211,31 @@ export default async function MarketingHomePage({
           caption={walkthroughVideo.caption}
           poster={walkthroughVideo.poster}
         />
+      </Section>
+
+      {/* The "beyond the numbers" habit framing (competitive-teardown addition,
+          2026-08-20): five daily-habit areas keyed 1:1 to the Lifestyle
+          Programme Engine's lpe_module enum (see _content/pillars.ts), so
+          this copy never drifts from what the product actually tracks. Text
+          only, no icons, matching TrustPillars' card pattern rather than
+          inventing a new visual language for one section. */}
+      <Section>
+        <SectionHeading
+          eyebrow={PILLARS_SECTION_COPY.eyebrow}
+          title={PILLARS_SECTION_COPY.title}
+          description={PILLARS_SECTION_COPY.description}
+        />
+        <div className="grid gap-px overflow-hidden rounded-2xl bg-charcoal-ink/10 sm:grid-cols-2 lg:grid-cols-5">
+          {PILLARS.map((pillar) => (
+            <div
+              key={pillar.module}
+              className="relative bg-white p-6 transition-transform duration-300 hover:z-10 hover:-translate-y-1 hover:shadow-lg"
+            >
+              <h3 className="font-heading text-base font-semibold text-charcoal-ink">{pillar.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{pillar.body}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section>
