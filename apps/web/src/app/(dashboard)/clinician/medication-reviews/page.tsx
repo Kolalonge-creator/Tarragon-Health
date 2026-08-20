@@ -19,6 +19,13 @@ function formatCondition(condition: string): string {
     .join(" ");
 }
 
+// A bare toLocaleDateString() resolves the server's locale on first render and
+// the browser's on hydration, producing a mismatch. Fixed locale + timezone
+// keeps server and client in sync.
+function formatDueDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
+}
+
 function ReviewRow({ review }: { review: MedicationReviewWithContext }) {
   const complete = useCompleteMedicationReview();
   const [notes, setNotes] = useState("");
@@ -35,7 +42,7 @@ function ReviewRow({ review }: { review: MedicationReviewWithContext }) {
           <Badge variant="green">{formatCondition(review.care_plan.condition)}</Badge>
         )}
         <Badge variant={overdue ? "red" : "amber"}>
-          {overdue ? "Overdue" : "Due"} {new Date(review.due_date).toLocaleDateString()}
+          {overdue ? "Overdue" : "Due"} {formatDueDate(review.due_date)}
         </Badge>
       </div>
       <div className="space-y-1">
