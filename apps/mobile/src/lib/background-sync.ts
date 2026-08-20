@@ -4,6 +4,7 @@ import * as BackgroundTask from "expo-background-task";
 import { supabase } from "./supabase";
 import { configureIOSBackgroundDelivery, subscribeToIOSHealthChanges } from "./healthkit";
 import { syncAppleHealth, syncHealthConnect } from "./health-sync";
+import { recordSyncError } from "./sync-diagnostics";
 
 /**
  * The reliable background-sync backbone for both platforms.
@@ -43,13 +44,25 @@ TaskManager.defineTask(TASK_NAME, async () => {
     } = await supabase.auth.getSession();
     if (!session) return BackgroundTask.BackgroundTaskResult.Success;
 
-    if (Platform.OS === "ios") {
-      await syncAppleHealth();
-    } else if (Platform.OS === "android") {
-      await syncHealthConnect();
+    const result =
+      Platform.OS === "ios"
+        ? await syncAppleHealth()
+        : Platform.OS === "android"
+          ? await syncHealthConnect()
+          : null;
+
+    // A HealthSyncResult of "error" is a real failure even though nothing
+    // threw — reporting it as Failed (not Success) matters beyond logging:
+    // it's the signal BGTaskScheduler/WorkManager use to back off retry
+    // timing, so treating a silent sync failure as "succeeded" would make
+    // the OS trust a run that accomplished nothing.
+    if (result?.status === "error") {
+      recordSyncError("background_sync", `${Platform.OS}:run`, result.message);
+      return BackgroundTask.BackgroundTaskResult.Failed;
     }
     return BackgroundTask.BackgroundTaskResult.Success;
-  } catch {
+  } catch (error) {
+    recordSyncError("background_sync", `${Platform.OS}:run`, error);
     return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
@@ -65,9 +78,13 @@ let iosChangeSubscriptionRemove: (() => void) | null = null;
 export async function registerBackgroundHealthSync(): Promise<void> {
   try {
     await BackgroundTask.registerTaskAsync(TASK_NAME, { minimumInterval: 15 });
-  } catch {
+  } catch (error) {
     // Best-effort — a platform that refuses background execution (e.g. a
-    // restrictive battery setting) should not block the rest of the app.
+    // restrictive battery setting) should not block the rest of the app —
+    // but still worth recording: a registration failure here means the
+    // periodic task never runs at all, which otherwise looks identical to
+    // "it's running, just found nothing to sync."
+    recordSyncError("background_sync", `${Platform.OS}:registerTaskAsync`, error);
   }
 
   if (Platform.OS === "ios") {
