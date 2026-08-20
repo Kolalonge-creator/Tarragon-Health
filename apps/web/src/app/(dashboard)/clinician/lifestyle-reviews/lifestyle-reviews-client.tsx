@@ -14,6 +14,13 @@ export interface PendingReview {
   dueDate: string;
 }
 
+// A bare toLocaleDateString() resolves the server's locale on first render and
+// the browser's on hydration, producing a mismatch (e.g. server "11/10/2026"
+// vs. client "10/11/2026"). Fixed locale + timezone keeps server and client in sync.
+function formatDueDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
+}
+
 export function LifestyleReviewsClient({ reviews }: { reviews: PendingReview[] }) {
   if (reviews.length === 0) {
     return (
@@ -45,7 +52,7 @@ function ReviewRow({ review }: { review: PendingReview }) {
             {review.condition}
           </Badge>
           <Badge variant={overdue ? "red" : "blue"}>
-            Due {new Date(review.dueDate).toLocaleDateString()}
+            Due {formatDueDate(review.dueDate)}
           </Badge>
         </div>
       </CardHeader>
