@@ -186,6 +186,23 @@ export function getHealthScoreTips(components: HealthScoreComponent[]): string[]
   return components.filter((c) => c.value < TIP_THRESHOLD).map((c) => COMPONENT_TIP[c.key]);
 }
 
+/**
+ * The single component with the most room to improve, i.e. the lowest
+ * sub-score below TIP_THRESHOLD — surfaced separately so the patient gets one
+ * "start here" suggestion instead of a flat list to triage themselves.
+ * Working the weakest component first gets the biggest lift to the overall
+ * score, since every component is weighted the same 0-100 scale. Returns
+ * null when nothing is below threshold, same as an empty getHealthScoreTips.
+ */
+export function getPriorityHealthScoreTip(
+  components: HealthScoreComponent[],
+): { key: HealthScoreComponent["key"]; tip: string } | null {
+  const below = components.filter((c) => c.value < TIP_THRESHOLD);
+  if (below.length === 0) return null;
+  const lowest = below.reduce((min, c) => (c.value < min.value ? c : min));
+  return { key: lowest.key, tip: COMPONENT_TIP[lowest.key] };
+}
+
 export interface HealthScoreTrendPoint {
   score: number;
   inputs: unknown;

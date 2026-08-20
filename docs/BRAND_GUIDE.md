@@ -55,10 +55,21 @@ Shield silhouette (protection, continuous monitoring) + sprout crown (two leafle
 | Tarragon Green | `#0E7C52` | Mark, primary buttons, positive states, brand presence |
 | Clinical Navy | `#12324B` | B2B, investor, and clinical-document contexts (institutional register) |
 | Sprout Gold | *(see design token file)* | Screening reminders, upgrade prompts, premium moments — used sparingly, **never for alarm** |
-| Soft Sage / Warm Ivory | *(see design token file)* | Calm default backgrounds |
+| Soft Sage / Warm Ivory | *(see design token file)* | Accent bands and card surfaces — not the page canvas |
 | Charcoal Ink | *(see design token file)* | Standard text colour (not pure black) |
 
-Usage ratio: 60% Ivory/Sage/White (space to breathe) · 25% Green/Forest/Navy (brand presence) · 10% Charcoal Ink (text) · 5% Sprout Gold (accents only).
+**Corrected 2026-08-19 — white is the default canvas, not Warm Ivory.** Every major healthcare
+platform we benchmarked against runs a white page background; a full-page ivory tint reads as a
+templated, slightly hazy default rather than a deliberate choice, and was flattening the site's
+photography and clinical-status colours alike. White is now the base for every page and section —
+the marketing site, the signed-in app, dashboards, login/signup. Warm Ivory and Soft Sage are still
+real brand colours, just demoted to what they're actually good at: an accent band between white
+sections for rhythm (`<Section variant="sage">`), or a tinted card/chip surface sitting on white
+(a stat card, a nav pill, a table row) — never the base a whole page or section sits on.
+
+Usage ratio: 65% White (the canvas) · 15% Ivory/Sage (accent bands and card surfaces) · 15%
+Green/Forest/Navy (brand presence) · 5% Sprout Gold (accents only), Charcoal Ink layered on top for
+text throughout.
 
 *(Full hex values for Sprout Gold, Soft Sage, Warm Ivory, Charcoal Ink, and Deep Forest are defined in the project's existing CSS design-token file — pull from there, don't re-derive.)*
 
@@ -79,6 +90,22 @@ Single rounded-stroke set, 2px weight, single colour (Deep Forest or Tarragon Gr
 ## 8. Photography & Illustration
 **Show:** adult children with parents, Nigerian families in natural settings, older adults using BP monitors, clinicians on calm follow-up calls, people reassured (not sick), clean homes, technology used simply.
 **Avoid:** emergency scenes, critically ill people, overly Western stock, hospital corridors only, doctors pointing at charts, fake call-centre smiles, generic wellness yoga imagery.
+
+**Corrected 2026-08-19 — real photography is the primary hero treatment, not the fallback.**
+Every hero banner (homepage, each condition/programme page, and the equivalent across the site)
+should lead with a real photo of a person, not a line illustration or an abstract gradient/blob
+decoration — the latter is what makes a page read as a generic, AI-templated site rather than a
+platform built around real people. Line illustration (§7) stays the correct choice for inline
+icons, diagrams, and a slot with no suitable photo sourced yet; it is not a substitute hero visual.
+A hero photo pairs with a white page background (§5) and needs no other decoration — no blurred
+colour-blob shapes behind it, no gradient wash. Source photography from the curated Nigeria
+photography library the founder maintains (Midjourney-generated, explicitly brand-checked against
+this section before use — see its own `INDEX.md`), not generic stock. **Never caption or imply a
+specific photo is a real Tarragon patient, family member, or doctor** — alt text and captions stay
+generic ("a woman checking her blood pressure at home"), matching the rule against fabricated
+testimonials in `docs/CLINICAL_TRUST_MODEL_SPEC.md`. A specific clinical encounter (a diagnosis, a
+named condition being treated) should never appear in decorative hero photography — that's a claim,
+not atmosphere.
 
 ## 9. Dashboard UI Pattern
 Card-based, never dense clinical tables for patients/families. Each card: current status (green/amber/red) · relevant trend · one clear next action.

@@ -31,6 +31,12 @@ export function ProductPageTemplate({
   // on prevention/neutral pages sharing this template, which use "Get started".
   const isChronicCondition = ["hypertension", "diabetes", "obesity"].includes(content.slug);
   const ctaLabel = isChronicCondition ? "Start monitoring" : "Get started";
+  // Prevention is the one page on this template where "start today, not once
+  // something's wrong" is the actual pitch, not just a closing nudge.
+  const ctaDescription =
+    content.slug === "prevention"
+      ? "Good health tomorrow starts with looking after it today. Join TarragonHealth and keep it that way."
+      : "Join TarragonHealth and bring continuity to your care.";
   // dohealth-style full-bleed photo hero (see marketing-photo-banner-hero.tsx)
   // is the site's primary hero now, same as the homepage — but only once a
   // real photo is sourced for this slug (media.ts's productHero map). A slug
@@ -131,7 +137,7 @@ export function ProductPageTemplate({
       <Section>
         <CtaBand
           title="Ready to get started?"
-          description="Join TarragonHealth and bring continuity to your care."
+          description={ctaDescription}
           primaryLabel={ctaLabel}
           secondaryHref={PRICING_HREF}
           secondaryLabel="View pricing"
