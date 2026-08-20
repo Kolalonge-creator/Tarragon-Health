@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+// A bare toLocaleDateString() resolves the server's locale on first render and
+// the browser's on hydration, producing a mismatch. Fixed locale + timezone
+// keeps server and client in sync.
+function formatDueDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
+}
+
 function ReviewRow({ review }: { review: PreventiveReviewWithContext }) {
   const complete = useCompletePreventiveReview();
   const [notes, setNotes] = useState("");
@@ -27,7 +34,7 @@ function ReviewRow({ review }: { review: PreventiveReviewWithContext }) {
         </p>
         {programmeName && <Badge variant="green">{programmeName}</Badge>}
         <Badge variant={overdue ? "red" : "amber"}>
-          {overdue ? "Overdue" : "Due"} {new Date(review.due_date).toLocaleDateString()}
+          {overdue ? "Overdue" : "Due"} {formatDueDate(review.due_date)}
         </Badge>
       </div>
       <div className="space-y-1">
