@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
+import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
+import { MARKETING_MEDIA } from "../_content/media";
 import { OPEN_ROLES } from "@/lib/marketing/open-roles";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
@@ -17,20 +19,22 @@ export const metadata: Metadata = pageMetadata({
 export default function CareersPage() {
   return (
     <>
-      <Section className="pt-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Careers</p>
-          <h1 className="mt-4 font-heading text-4xl font-bold leading-[1.05] text-charcoal-ink sm:text-5xl">
-            Help us build the care between visits.
-          </h1>
-          <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/75">
-            TarragonHealth is growing past one founder. These are the seats we&rsquo;re currently
-            hiring for, each one owning a real, load-bearing part of the platform from day one.
-          </p>
-        </div>
-      </Section>
+      {/* Rendered outside Section on purpose — full-bleed spans the full
+          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
+      <PhotoBannerHero
+        eyebrow="Careers"
+        title="Help us build the care between visits."
+        description="TarragonHealth is growing past one founder. These are the seats we're currently hiring for, each one owning a real, load-bearing part of the platform from day one."
+        primaryHref="#roles"
+        primaryLabel="See open roles"
+        secondaryHref={`${MARKETING_ROUTES.contact}?source=careers`}
+        secondaryLabel="Get in touch"
+        imageSrc={MARKETING_MEDIA.pageHero.careers.imageSrc ?? ""}
+        imageAlt={MARKETING_MEDIA.pageHero.careers.imageAlt ?? ""}
+        imagePosition={MARKETING_MEDIA.pageHero.careers.imageFocus}
+      />
 
-      <Section id="roles" variant="sage">
+      <Section id="roles" variant="sage" className="pt-14">
         <SectionHeading
           eyebrow="Open roles"
           title="Current openings"

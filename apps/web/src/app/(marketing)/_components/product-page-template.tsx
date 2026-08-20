@@ -31,31 +31,38 @@ export function ProductPageTemplate({
   // on prevention/neutral pages sharing this template, which use "Get started".
   const isChronicCondition = ["hypertension", "diabetes", "obesity"].includes(content.slug);
   const ctaLabel = isChronicCondition ? "Start monitoring" : "Get started";
+  // Prevention is the one page on this template where "start today, not once
+  // something's wrong" is the actual pitch, not just a closing nudge.
+  const ctaDescription =
+    content.slug === "prevention"
+      ? "Good health tomorrow starts with looking after it today. Join TarragonHealth and keep it that way."
+      : "Join TarragonHealth and bring continuity to your care.";
   // dohealth-style full-bleed photo hero (see marketing-photo-banner-hero.tsx)
   // is the site's primary hero now, same as the homepage — but only once a
-  // real photo is sourced for this slug (media.ts's productHero map). A slug
-  // with no imageSrc yet (currently only "prevention") falls back to the
-  // older text-beside-a-card MarketingHero rather than stretching an
-  // illustration across a full-bleed banner it was never designed for.
+  // real photo is sourced for this slug (media.ts's productHero map). Every
+  // slug on this template has one as of 2026-08-20; a future slug added here
+  // with no imageSrc yet would fall back to the older text-beside-a-card
+  // MarketingHero rather than stretching an illustration across a full-bleed
+  // banner it was never designed for.
   const hasPhoto = Boolean(heroMedia.imageSrc);
 
   return (
     <>
       {hasPhoto ? (
-        <Section className="pt-6 sm:pt-8">
-          <PhotoBannerHero
-            eyebrow={content.campaignLine}
-            title={content.headline}
-            description={content.intro}
-            primaryHref="/signup"
-            primaryLabel={ctaLabel}
-            secondaryHref={PRICING_HREF}
-            secondaryLabel="View pricing"
-            imageSrc={heroMedia.imageSrc ?? ""}
-            imageAlt={heroMedia.imageAlt ?? ""}
-            imagePosition={heroMedia.imageFocus}
-          />
-        </Section>
+        // Rendered outside Section on purpose — full-bleed spans the full
+        // viewport width; see marketing-photo-banner-hero.tsx's header comment.
+        <PhotoBannerHero
+          eyebrow={content.campaignLine}
+          title={content.headline}
+          description={content.intro}
+          primaryHref="/signup"
+          primaryLabel={ctaLabel}
+          secondaryHref={PRICING_HREF}
+          secondaryLabel="View pricing"
+          imageSrc={heroMedia.imageSrc ?? ""}
+          imageAlt={heroMedia.imageAlt ?? ""}
+          imagePosition={heroMedia.imageFocus}
+        />
       ) : (
         <Section className="relative overflow-hidden pt-20">
           <div
@@ -131,7 +138,7 @@ export function ProductPageTemplate({
       <Section>
         <CtaBand
           title="Ready to get started?"
-          description="Join TarragonHealth and bring continuity to your care."
+          description={ctaDescription}
           primaryLabel={ctaLabel}
           secondaryHref={PRICING_HREF}
           secondaryLabel="View pricing"

@@ -6,19 +6,20 @@
  * `illustration` unset. To add a walkthrough video, set `youtubeId` to the
  * ID from a YouTube URL (https://youtube.com/watch?v=THIS_PART).
  *
- * Hero photography (2026-08-19): every primary hero slot below (`homepage.hero`,
- * every `productHero.*` except `prevention`) is a real photo under
+ * Hero photography (2026-08-19, gift.hero added 2026-08-20, prevention +
+ * b2b.ts's corporate/hmo heroes closed 2026-08-20): every primary hero slot
+ * below (`homepage.hero`, `gift.hero`, every `productHero.*`, and
+ * `corporate`/`hmo` in `_content/b2b.ts`) is a real photo under
  * `public/marketing/photos/hero/`, sourced from the curated Nigeria
  * photography library the founder maintains outside this repo (see the
  * `06-MARKETING/creative-assets/source-files/midjourney-library/INDEX.md`
  * working directory — its brand-check pass already vetted these against
  * `docs/BRAND_GUIDE.md` §8) — real people, not the ambient hands/objects
  * video loop or the line-illustration fallback. Illustration stays the
- * fallback for a slot with no photo yet (currently `prevention`, pending a
- * corrected product shot) and for `serviceCard` icons, which are
- * deliberately abstract by design. None of these photos are captioned or
- * claimed as a real Tarragon patient, family, or doctor — generic alt text
- * only, matching the brand rule against fabricated testimonials (see
+ * fallback only for `serviceCard` icons, which are deliberately abstract by
+ * design. None of these photos are captioned or claimed as a real Tarragon
+ * patient, family, or doctor — generic alt text only, matching the brand
+ * rule against fabricated testimonials (see
  * `docs/CLINICAL_TRUST_MODEL_SPEC.md`).
  *
  * Video strategy (Omada/Virta pattern; never a raw YouTube player in a hero):
@@ -132,10 +133,9 @@ export const MARKETING_MEDIA = {
       imageFocus: "center 50%",
     } as MarketingMediaSlot,
     prevention: {
-      // No real photo sourced yet for this slot; the brand illustration is
-      // the deliberate fallback until one is (see the file header note).
-      illustration: "prevention",
-      imageAlt: "A calendar and checklist representing a personal preventive screening plan",
+      imageSrc: "/marketing/photos/hero/prevention.jpg",
+      imageAlt: "A woman reviewing her personal health notes at home",
+      imageFocus: "center 28%",
     } as MarketingMediaSlot,
     medication: {
       imageSrc: "/marketing/photos/hero/medication.jpg",
@@ -156,6 +156,52 @@ export const MARKETING_MEDIA = {
     prevention: { illustration: "prevention" } satisfies MarketingMediaSlot,
     medication: { illustration: "connected-care" } satisfies MarketingMediaSlot,
     labs: { illustration: "prevention" } satisfies MarketingMediaSlot,
+  },
+  gift: {
+    hero: {
+      imageSrc: "/marketing/photos/hero/gift.jpg",
+      imageAlt: "A grandmother, mother, and child together outdoors in golden-hour light",
+      imageFocus: "center 55%",
+    } as MarketingMediaSlot,
+  },
+  /**
+   * Full-bleed hero photos (2026-08-20) for the remaining top-of-funnel
+   * marketing pages that previously had a plain text `<h1>` with no visual
+   * hero at all — about, careers, services, who-its-for, chronic-care, and
+   * care-coordination. Same PhotoBannerHero component and sourcing as
+   * productHero above; see that block's comment for provenance.
+   */
+  pageHero: {
+    about: {
+      imageSrc: "/marketing/photos/hero/about.jpg",
+      imageAlt: "A doctor thoughtfully reviewing patient notes at a laptop in the evening",
+      imageFocus: "center 25%",
+    } as MarketingMediaSlot,
+    careers: {
+      imageSrc: "/marketing/photos/hero/careers.jpg",
+      imageAlt: "Colleagues talking together warmly in a bright office",
+      imageFocus: "center 38%",
+    } as MarketingMediaSlot,
+    services: {
+      imageSrc: "/marketing/photos/hero/services.jpg",
+      imageAlt: "A hand holding a phone beside a blood pressure cuff on a table",
+      imageFocus: "center 45%",
+    } as MarketingMediaSlot,
+    whoItsFor: {
+      imageSrc: "/marketing/photos/hero/who-its-for.jpg",
+      imageAlt: "An adult daughter and her mother smiling together at a phone",
+      imageFocus: "center 26%",
+    } as MarketingMediaSlot,
+    chronicCare: {
+      imageSrc: "/marketing/photos/hero/chronic-care.jpg",
+      imageAlt: "A clinician reviewing a tablet with a seated older patient",
+      imageFocus: "center 20%",
+    } as MarketingMediaSlot,
+    careCoordination: {
+      imageSrc: "/marketing/photos/hero/care-coordination.jpg",
+      imageAlt: "Three clinicians reviewing a case together around a laptop",
+      imageFocus: "center 30%",
+    } as MarketingMediaSlot,
   },
 } as const;
 

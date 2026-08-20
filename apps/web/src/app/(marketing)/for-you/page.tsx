@@ -117,6 +117,9 @@ export default function ForYouPage() {
             <h1 className="mt-2 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
               Track your health without carrying it alone
             </h1>
+            <p className="mt-4 font-heading text-lg text-brand-green">
+              Your numbers are yours. Your risk is yours. Your plan should be too.
+            </p>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Most people only discover a problem when it becomes an emergency. Tarragon gives you
               what a well-run clinic gives its best-followed patients: someone watching your numbers

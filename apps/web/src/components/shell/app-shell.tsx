@@ -249,7 +249,7 @@ export function AppShell({
   );
 
   return (
-    <div className="flex min-h-screen bg-warm-ivory print:block print:min-h-0 print:bg-white">
+    <div className="flex min-h-screen bg-white print:block print:min-h-0">
       {/* Desktop sidebar */}
       {hasNav && (
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden">

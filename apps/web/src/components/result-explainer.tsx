@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -31,12 +31,19 @@ export function ResultExplainer({
   kind,
   subjectKey,
   label,
+  defaultOpen = false,
 }: {
   kind: ExplainerKind;
   subjectKey: string;
   label: string;
+  /** Skip the "help me understand this" ask and show the explanation right
+   * away. For a result worth understanding without waiting to be asked
+   * (e.g. a high/very_high risk signal) — still the same non-diagnostic,
+   * AI-drafted card, just not gated behind a click. Leave false everywhere
+   * else; most results should stay collapsed until the patient asks. */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [isPending, setIsPending] = useState(false);
   const [result, setResult] = useState<{
     status: "generated" | "failed";
@@ -51,6 +58,19 @@ export function ResultExplainer({
       setIsPending(false);
     }
   }
+
+  useEffect(() => {
+    if (!defaultOpen) return;
+    // Deferred a tick so load()'s setIsPending(true) isn't a same-frame
+    // setState-in-effect (react-hooks/set-state-in-effect) -- functionally
+    // still "on mount" for the patient, load() is still shared with the
+    // click handler below.
+    const id = setTimeout(() => void load(), 0);
+    return () => clearTimeout(id);
+    // Only ever auto-loads once, on mount, for the subject this instance was
+    // given -- not meant to re-fire on every re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!open) {
     return (

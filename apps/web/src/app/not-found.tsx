@@ -17,7 +17,7 @@ const LINKS = [
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-warm-ivory px-4 py-16 text-center text-charcoal-ink">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-16 text-center text-charcoal-ink">
       <Link
         href={MARKETING_ROUTES.home}
         aria-label="TarragonHealth home"

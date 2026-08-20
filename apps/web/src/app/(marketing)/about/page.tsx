@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
+import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
 import { TrustPillars } from "../_components/trust-pillars";
 import { LeadershipGrid } from "../_components/leadership-panel";
+import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -48,41 +49,32 @@ export const metadata: Metadata = pageMetadata({
 export default function AboutPage() {
   return (
     <>
-      <Section className="pt-20">
-        <div className="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-start lg:gap-16">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              About TarragonHealth
-            </p>
-            <h1 className="mt-4 font-heading text-4xl font-bold leading-[1.05] text-charcoal-ink sm:text-5xl lg:text-6xl">
-              Built on one conviction: care shouldn&apos;t stop when the appointment ends.
-            </h1>
-          </div>
-          <div className="lg:pt-3">
-            <p className="text-lg leading-relaxed text-charcoal-ink/75">
-              Chronic disease isn&apos;t managed in a fifteen-minute consultation. It&apos;s
-              managed in the weeks after, in the dose that gets missed, the reading nobody
-              sees, and the follow-up call that never comes. TarragonHealth exists to close
-              that gap.
-            </p>
-            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/75">
-              We started in the emergency department, watching people arrive in crisis with
-              conditions that were entirely manageable days or weeks earlier, if someone had
-              been watching. That&apos;s the gap we built TarragonHealth to close, for families
-              in Nigeria and for the people keeping watch on them from abroad.
-            </p>
-            <p className="mt-6 font-heading text-2xl font-semibold text-deep-forest">
-              Care that stays with you.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href="/signup">Get started</Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="#team">Meet our team</Link>
-              </Button>
-            </div>
-          </div>
+      {/* Rendered outside Section on purpose — full-bleed spans the full
+          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
+      <PhotoBannerHero
+        eyebrow="About TarragonHealth"
+        title="Built on one conviction: care shouldn't stop when the appointment ends."
+        description="Chronic disease isn't managed in a fifteen-minute consultation. It's managed in the weeks after: in the dose that gets missed, the reading nobody sees, and the follow-up call that never comes. TarragonHealth exists to close that gap."
+        primaryHref="/signup"
+        primaryLabel="Get started"
+        secondaryHref="#team"
+        secondaryLabel="Meet our team"
+        imageSrc={MARKETING_MEDIA.pageHero.about.imageSrc ?? ""}
+        imageAlt={MARKETING_MEDIA.pageHero.about.imageAlt ?? ""}
+        imagePosition={MARKETING_MEDIA.pageHero.about.imageFocus}
+      />
+
+      <Section className="pt-14">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-lg leading-relaxed text-charcoal-ink/75">
+            We started in the emergency department, watching people arrive in crisis with
+            conditions that were entirely manageable days or weeks earlier, if someone had
+            been watching. That&apos;s the gap we built TarragonHealth to close, for families
+            in Nigeria and for the people keeping watch on them from abroad.
+          </p>
+          <p className="mt-6 font-heading text-2xl font-semibold text-deep-forest">
+            Care that stays with you.
+          </p>
         </div>
       </Section>
 
