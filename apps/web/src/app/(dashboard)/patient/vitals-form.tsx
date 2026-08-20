@@ -311,7 +311,9 @@ export function VitalsForm({
 
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">Reading logged.</p>
+            <p role="status" aria-live="polite" className="text-sm text-brand-green">
+              Reading logged.
+            </p>
           )}
 
           {!crosscheck && (

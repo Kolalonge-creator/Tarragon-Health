@@ -80,7 +80,9 @@ export function SymptomLogForm({ patientId }: { patientId: string }) {
 
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">Symptom logged.</p>
+            <p role="status" aria-live="polite" className="text-sm text-brand-green">
+              Symptom logged.
+            </p>
           )}
 
           <Button type="submit" disabled={pending}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { TriangleAlert, Phone, Hospital } from "lucide-react";
 import { useActiveEmergency, activeEmergencyKey } from "@/lib/queries/emergency";
@@ -29,6 +29,23 @@ export function EmergencyAlert({
   const [pending, setPending] = useState<"ack" | "contact" | null>(null);
   const [contactAlerted, setContactAlerted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // Move focus into the dialog when an emergency becomes active, and restore
+  // it to whatever had focus before once acknowledged/cleared. Keyed on the
+  // event id rather than the event object itself, which gets a fresh
+  // reference on every 30s poll — otherwise an unchanged, still-active
+  // emergency would keep stealing focus back from whatever the patient is
+  // doing on the page.
+  useEffect(() => {
+    if (!event) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    headingRef.current?.focus();
+    return () => {
+      previouslyFocused?.focus?.();
+    };
+  }, [event?.id]);
 
   if (!event) return null;
 
@@ -58,18 +75,53 @@ export function EmergencyAlert({
     setContactAlerted(true);
   }
 
+  function handleDialogKeyDown(keyEvent: React.KeyboardEvent<HTMLDivElement>) {
+    if (keyEvent.key === "Escape") {
+      keyEvent.preventDefault();
+      if (pending === null) handleAcknowledge();
+      return;
+    }
+    if (keyEvent.key !== "Tab") return;
+    const container = dialogRef.current;
+    if (!container) return;
+    const focusable = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (keyEvent.shiftKey) {
+      if (active === first || !container.contains(active)) {
+        keyEvent.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || !container.contains(active)) {
+      keyEvent.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <div
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="emergency-alert-title"
+      onKeyDown={handleDialogKeyDown}
       className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-ink/70 p-4"
     >
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div ref={dialogRef} className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
         <div className="rounded-t-2xl bg-red-600 px-6 py-5 text-white">
           <div className="flex items-center gap-3">
             <TriangleAlert className="h-7 w-7 shrink-0" strokeWidth={2.5} />
-            <h2 id="emergency-alert-title" className="font-heading text-xl font-semibold">
+            <h2
+              id="emergency-alert-title"
+              ref={headingRef}
+              tabIndex={-1}
+              className="font-heading text-xl font-semibold outline-none"
+            >
               This may be a medical emergency
             </h2>
           </div>

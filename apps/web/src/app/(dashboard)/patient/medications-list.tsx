@@ -255,7 +255,7 @@ function ConfirmRefillForm({
         </p>
       )}
       {success && !confirmRefill.isPending && (
-        <p className="text-xs text-brand-green basis-full">
+        <p role="status" aria-live="polite" className="text-xs text-brand-green basis-full">
           Refill confirmed as still valid.
         </p>
       )}
@@ -319,7 +319,7 @@ function StopMedicationForm({
         Cancel
       </Button>
       {stopMedication.isError && (
-        <p className="basis-full text-xs text-red-600">
+        <p role="status" aria-live="polite" className="basis-full text-xs text-red-600">
           {(stopMedication.error as Error).message || "Could not stop this medication."}
         </p>
       )}
