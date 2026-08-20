@@ -93,6 +93,11 @@ function formatReading(reading: Tables<"vitals_readings">): string {
 
 export function VitalsHistory({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useVitalsReadings(patientId);
+  // Falls back to [] rather than gating on `data &&` — a query that hasn't
+  // started fetching yet (e.g. momentarily disabled) has isLoading: false,
+  // isError: false, and data: undefined all at once, which a `data &&` guard
+  // renders as nothing at all instead of a state the patient can read.
+  const readings = data ?? [];
 
   return (
     <Card>
@@ -107,12 +112,12 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
         {isError && (
           <p className="text-sm text-red-600">Could not load your readings.</p>
         )}
-        {data && data.length === 0 && (
+        {!isLoading && !isError && readings.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">No readings logged yet.</p>
         )}
-        {data && data.length > 0 && (
+        {!isLoading && !isError && readings.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
-            {data.map((reading) => (
+            {readings.map((reading) => (
               <li key={reading.id} className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">

@@ -22,6 +22,11 @@ const SYMPTOM_LABEL: Record<string, string> = {
 
 export function SymptomLogHistory({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useSymptomLogs(patientId);
+  // Falls back to [] rather than gating on `data &&` — a query that hasn't
+  // started fetching yet (e.g. momentarily disabled) has isLoading: false,
+  // isError: false, and data: undefined all at once, which a `data &&` guard
+  // renders as nothing at all instead of a state the patient can read.
+  const symptoms = data ?? [];
 
   return (
     <Card>
@@ -36,12 +41,12 @@ export function SymptomLogHistory({ patientId }: { patientId: string }) {
         {isError && (
           <p className="text-sm text-red-600">Could not load your symptom log.</p>
         )}
-        {data && data.length === 0 && (
+        {!isLoading && !isError && symptoms.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">No symptoms logged yet.</p>
         )}
-        {data && data.length > 0 && (
+        {!isLoading && !isError && symptoms.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
-            {data.map((symptom) => (
+            {symptoms.map((symptom) => (
               <li key={symptom.id} className="flex items-center justify-between gap-4 py-2">
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">
