@@ -39,29 +39,30 @@ export function ProductPageTemplate({
       : "Join TarragonHealth and bring continuity to your care.";
   // dohealth-style full-bleed photo hero (see marketing-photo-banner-hero.tsx)
   // is the site's primary hero now, same as the homepage — but only once a
-  // real photo is sourced for this slug (media.ts's productHero map). A slug
-  // with no imageSrc yet (currently only "prevention") falls back to the
-  // older text-beside-a-card MarketingHero rather than stretching an
-  // illustration across a full-bleed banner it was never designed for.
+  // real photo is sourced for this slug (media.ts's productHero map). Every
+  // slug on this template has one as of 2026-08-20; a future slug added here
+  // with no imageSrc yet would fall back to the older text-beside-a-card
+  // MarketingHero rather than stretching an illustration across a full-bleed
+  // banner it was never designed for.
   const hasPhoto = Boolean(heroMedia.imageSrc);
 
   return (
     <>
       {hasPhoto ? (
-        <Section className="pt-6 sm:pt-8">
-          <PhotoBannerHero
-            eyebrow={content.campaignLine}
-            title={content.headline}
-            description={content.intro}
-            primaryHref="/signup"
-            primaryLabel={ctaLabel}
-            secondaryHref={PRICING_HREF}
-            secondaryLabel="View pricing"
-            imageSrc={heroMedia.imageSrc ?? ""}
-            imageAlt={heroMedia.imageAlt ?? ""}
-            imagePosition={heroMedia.imageFocus}
-          />
-        </Section>
+        // Rendered outside Section on purpose — full-bleed spans the full
+        // viewport width; see marketing-photo-banner-hero.tsx's header comment.
+        <PhotoBannerHero
+          eyebrow={content.campaignLine}
+          title={content.headline}
+          description={content.intro}
+          primaryHref="/signup"
+          primaryLabel={ctaLabel}
+          secondaryHref={PRICING_HREF}
+          secondaryLabel="View pricing"
+          imageSrc={heroMedia.imageSrc ?? ""}
+          imageAlt={heroMedia.imageAlt ?? ""}
+          imagePosition={heroMedia.imageFocus}
+        />
       ) : (
         <Section className="relative overflow-hidden pt-20">
           <div

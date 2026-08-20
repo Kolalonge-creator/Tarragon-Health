@@ -597,6 +597,30 @@ export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }
 export const HMO_COMPARE_NOTE =
   "Keep your HMO: you'll still need it the day you're admitted. Tarragon is the layer that watches your numbers between hospital visits so that day comes later, or not at all. We already work alongside Nigerian HMOs, and if your employer or HMO wants Tarragon for its members, they can talk to us directly.";
 
+/**
+ * "Tarragon vs a one-off checkup": the other comparison people actually make
+ * before signing up — not against an HMO, but against paying for a single
+ * private lab panel or annual checkup somewhere and being handed a PDF.
+ * Same non-disparaging rule as HMO_COMPARE_ROWS: no named competitor, and
+ * both still cost the same "you pay the lab" way, since Tarragon has no
+ * contracted lab either. The difference this table draws is what happens
+ * before and after the result, not who is cheaper.
+ */
+export const CHECKUP_COMPARE_INTRO =
+  "A one-off checkup and Tarragon both send you to a laboratory you choose, and you pay that laboratory directly, at their price. What's different is everything around the result.";
+
+export const CHECKUP_COMPARE_ROWS: { need: string; oneOff: boolean; tarragon: boolean }[] = [
+  { need: "Gives you a written result", oneOff: true, tarragon: true },
+  { need: "Explains what the numbers actually mean, in plain language", oneOff: false, tarragon: true },
+  { need: "A doctor follows up if something comes back abnormal", oneOff: false, tarragon: true },
+  { need: "Keeps last time's result so you can see the trend, not just today's number", oneOff: false, tarragon: true },
+  { need: "Tells you when your next check is actually due, and why", oneOff: false, tarragon: true },
+  { need: "One record your family can see, with your consent", oneOff: false, tarragon: true },
+];
+
+export const CHECKUP_COMPARE_NOTE =
+  "Nothing here is a claim that a one-off checkup is a bad idea; it's a fine way to get a snapshot. Tarragon is for when you want that snapshot to turn into an ongoing picture, with someone actually reading it and following up.";
+
 export const ALWAYS_FREE: PricingLineItem & { description: string } = {
   feature: "HPV vaccine for girls aged 9–14",
   label: "FREE ELSEWHERE",
