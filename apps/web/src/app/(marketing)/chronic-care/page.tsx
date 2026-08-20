@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
-import { Section, SectionHeading } from "../_components/section";
+import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
+import { Section } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { StepsExplorer } from "../_components/steps-explorer";
 import { SERVICE_CARDS } from "../_content/services";
+import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 import { ResourceCarousel } from "../_components/resource-carousel";
@@ -46,13 +48,22 @@ export default async function ChronicCarePage() {
 
   return (
     <>
-      <Section className="pt-20">
-        <SectionHeading
-          as="h1"
-          eyebrow="Chronic care"
-          title="Steady, followed-up care for long-term conditions"
-          description="Chronic disease isn't managed in the clinic, it's managed in the days between visits. Tarragon keeps watch on your readings, medication, and labs, and acts when something changes."
-        />
+      {/* Rendered outside Section on purpose — full-bleed spans the full
+          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
+      <PhotoBannerHero
+        eyebrow="Chronic care"
+        title="Steady, followed-up care for long-term conditions"
+        description="Chronic disease isn't managed in the clinic, it's managed in the days between visits. Tarragon keeps watch on your readings, medication, and labs, and acts when something changes."
+        primaryHref="/signup"
+        primaryLabel="Start monitoring"
+        secondaryHref={MARKETING_ROUTES.pricing}
+        secondaryLabel="View pricing"
+        imageSrc={MARKETING_MEDIA.pageHero.chronicCare.imageSrc ?? ""}
+        imageAlt={MARKETING_MEDIA.pageHero.chronicCare.imageAlt ?? ""}
+        imagePosition={MARKETING_MEDIA.pageHero.chronicCare.imageFocus}
+      />
+
+      <Section className="pt-14">
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {CHRONIC_CARDS.map((service) => (
             <ServiceCardLink key={service.key} service={service} />

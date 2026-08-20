@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
+import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
+import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -60,13 +62,22 @@ const JOURNEY = [
 export default function CareCoordinationPage() {
   return (
     <>
-      <Section className="pt-20">
-        <SectionHeading
-          as="h1"
-          eyebrow="Care coordination"
-          title="The pieces of your care, kept connected"
-          description="In most of Nigeria, you are your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication, carrying paper records between hospitals. Tarragon takes that job off you: one care team coordinating labs, pharmacies, and specialists from one shared record."
-        />
+      {/* Rendered outside Section on purpose — full-bleed spans the full
+          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
+      <PhotoBannerHero
+        eyebrow="Care coordination"
+        title="The pieces of your care, kept connected"
+        description="In most of Nigeria, you're your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication. Tarragon takes that job off you, one care team coordinating labs, pharmacies, and specialists from one shared record."
+        primaryHref="/signup"
+        primaryLabel="Get started"
+        secondaryHref={MARKETING_ROUTES.pricing}
+        secondaryLabel="View pricing"
+        imageSrc={MARKETING_MEDIA.pageHero.careCoordination.imageSrc ?? ""}
+        imageAlt={MARKETING_MEDIA.pageHero.careCoordination.imageAlt ?? ""}
+        imagePosition={MARKETING_MEDIA.pageHero.careCoordination.imageFocus}
+      />
+
+      <Section className="pt-14">
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
           {COORDINATION_CARDS.map((service) => (
             <ServiceCardLink key={service.key} service={service} />

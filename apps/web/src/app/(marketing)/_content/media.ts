@@ -164,6 +164,45 @@ export const MARKETING_MEDIA = {
       imageFocus: "center 55%",
     } as MarketingMediaSlot,
   },
+  /**
+   * Full-bleed hero photos (2026-08-20) for the remaining top-of-funnel
+   * marketing pages that previously had a plain text `<h1>` with no visual
+   * hero at all — about, careers, services, who-its-for, chronic-care, and
+   * care-coordination. Same PhotoBannerHero component and sourcing as
+   * productHero above; see that block's comment for provenance.
+   */
+  pageHero: {
+    about: {
+      imageSrc: "/marketing/photos/hero/about.jpg",
+      imageAlt: "A doctor thoughtfully reviewing patient notes at a laptop in the evening",
+      imageFocus: "center 25%",
+    } as MarketingMediaSlot,
+    careers: {
+      imageSrc: "/marketing/photos/hero/careers.jpg",
+      imageAlt: "Colleagues talking together warmly in a bright office",
+      imageFocus: "center 38%",
+    } as MarketingMediaSlot,
+    services: {
+      imageSrc: "/marketing/photos/hero/services.jpg",
+      imageAlt: "A hand holding a phone beside a blood pressure cuff on a table",
+      imageFocus: "center 45%",
+    } as MarketingMediaSlot,
+    whoItsFor: {
+      imageSrc: "/marketing/photos/hero/who-its-for.jpg",
+      imageAlt: "An adult daughter and her mother smiling together at a phone",
+      imageFocus: "center 26%",
+    } as MarketingMediaSlot,
+    chronicCare: {
+      imageSrc: "/marketing/photos/hero/chronic-care.jpg",
+      imageAlt: "A clinician reviewing a tablet with a seated older patient",
+      imageFocus: "center 20%",
+    } as MarketingMediaSlot,
+    careCoordination: {
+      imageSrc: "/marketing/photos/hero/care-coordination.jpg",
+      imageAlt: "Three clinicians reviewing a case together around a laptop",
+      imageFocus: "center 30%",
+    } as MarketingMediaSlot,
+  },
 } as const;
 
 export type ProductVideo = {
