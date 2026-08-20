@@ -408,7 +408,10 @@ export async function uploadResultAsLabPartner(
     p_original_filename: file.name,
     p_mime_type: file.type,
     p_file_size_bytes: file.size,
-    p_note: note ?? null,
+    // The SQL function does coalesce(p_note, '') before storing, so an empty
+    // string here produces the exact same stored result ('' -> NULL via
+    // nullif) as an absent note would - satisfies the required string type.
+    p_note: note ?? "",
   });
   if (insertError) {
     await service.storage.from(RESULT_DOC_BUCKET).remove([path]);

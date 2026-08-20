@@ -188,7 +188,9 @@ export function useLinkLabPartner() {
       const supabase = createClient();
       const { error } = await supabase.rpc("admin_link_lab_partner", {
         p_profile_id: profileId,
-        p_lab_provider_id: labProviderId,
+        // Generated arg type is non-nullable (no SQL DEFAULT), but the
+        // function explicitly treats a null p_lab_provider_id as "unlink".
+        p_lab_provider_id: labProviderId as string,
       });
       if (error) throw error;
     },

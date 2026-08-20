@@ -495,10 +495,14 @@ export function useSponsorSetBasics() {
       const supabase = createClient();
       const { error } = await supabase.rpc("sponsor_set_dependent_basics", {
         p_beneficiary: input.beneficiaryId,
-        p_date_of_birth: input.dateOfBirth ?? null,
-        p_sex: input.sex ?? null,
-        p_state: input.state ?? null,
-        p_city: input.city ?? null,
+        // The SQL function coalesces each of these against the existing row
+        // value ("blank means leave alone"), so null and undefined are
+        // already equivalent at runtime - collapse null to satisfy the
+        // generated (optional, non-nullable) arg type.
+        p_date_of_birth: input.dateOfBirth ?? undefined,
+        p_sex: input.sex ?? undefined,
+        p_state: input.state ?? undefined,
+        p_city: input.city ?? undefined,
       });
       if (error) throw error;
     },

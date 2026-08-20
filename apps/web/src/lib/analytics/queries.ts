@@ -343,7 +343,7 @@ export function useLogPatientAccess() {
     mutationFn: async ({ patientId, reason }: { patientId: string; reason: string }) => {
       const { error } = await createClient().rpc("analytics_log_patient_access", {
         p_patient_id: patientId,
-        p_reason: reason || null,
+        p_reason: reason,
       });
       if (error) throw error;
     },
@@ -413,14 +413,18 @@ export function useUpsertRisk() {
   return useMutation({
     mutationFn: async (r: RiskInput) => {
       const { error } = await createClient().rpc("analytics_upsert_risk", {
-        p_id: r.id ?? null,
+        // The generated RPC arg types are non-nullable because the SQL params
+        // have no DEFAULT, but the function itself treats null as meaningful:
+        // null p_id means "insert new", and p_owner/p_mitigation are optional
+        // columns written through untouched.
+        p_id: (r.id ?? null) as string,
         p_title: r.title,
         p_category: r.category,
         p_likelihood: r.likelihood,
         p_impact: r.impact,
         p_status: r.status,
-        p_owner: r.owner ?? null,
-        p_mitigation: r.mitigation ?? null,
+        p_owner: (r.owner ?? null) as string,
+        p_mitigation: (r.mitigation ?? null) as string,
       });
       if (error) throw error;
     },
@@ -476,8 +480,11 @@ export function useUpsertFinanceInput() {
         p_opex: f.operating_expense_minor,
         p_cash: f.cash_balance_minor,
         p_margin: f.gross_margin_pct,
-        p_new_customers: f.new_customers ?? null,
-        p_notes: f.notes ?? null,
+        // Generated arg types are non-nullable (no SQL DEFAULT), but the
+        // function stores these directly against nullable columns with no
+        // coalesce - null is a legitimate "not provided" value.
+        p_new_customers: (f.new_customers ?? null) as number,
+        p_notes: (f.notes ?? null) as string,
       });
       if (error) throw error;
     },

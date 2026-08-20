@@ -54,7 +54,7 @@ export async function requestMaskedCall(
     p_patient_id: parsed.data.patientId,
     p_staff_profile_id: parsed.data.staffProfileId,
     p_context: parsed.data.context,
-    p_escalation_id: parsed.data.escalationId ?? null,
+    p_escalation_id: parsed.data.escalationId,
   });
   if (rpcError || !sessionId) {
     return { error: rpcError?.message ?? "Could not request the call" };
@@ -171,7 +171,6 @@ export async function endMaskedCall(sessionId: string): Promise<{ error: string 
   const supabase = await createClient();
   const { error } = await supabase.rpc("close_masked_call", {
     p_session_id: parsed.data,
-    p_reason: null,
   });
   if (error) {
     return { error: error.message };
