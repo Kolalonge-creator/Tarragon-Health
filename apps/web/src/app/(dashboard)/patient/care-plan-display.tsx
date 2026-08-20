@@ -3,6 +3,8 @@
 import { useCarePlans } from "@/lib/queries/care-plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 
@@ -25,14 +27,24 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-44" />
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load your care plan.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">
-            No care plan yet, your doctor will assign one after reviewing your health data.
-          </p>
+          <EmptyState
+            icon={SEMANTIC_ICON.carePlan}
+            title="No care plan yet"
+            description="Your doctor will assign one after reviewing your health data."
+          />
         )}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

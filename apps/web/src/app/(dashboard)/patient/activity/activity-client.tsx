@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 const GOAL_QUERY_KEY = "activity-goal";
@@ -122,9 +124,25 @@ export function ActivityClient({ patientId }: { patientId: string }) {
           <CardTitle>History</CardTitle>
         </CardHeader>
         <CardContent>
-          {entries.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {entries.isLoading && (
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-charcoal-ink/10 p-3">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {!entries.isLoading && grouped.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">Nothing logged yet.</p>
+            <EmptyState
+              icon={SEMANTIC_ICON.steps}
+              title="Nothing logged yet"
+              description="Log your steps or a workout above to start building your activity history."
+            />
           )}
           <div className="space-y-5">
             {grouped.map(([dateKey, rows]) => (

@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { NAV_ICON } from "@/lib/icons";
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { CareMessageThread } from "@/components/care-message-thread";
 import { useCareThreads, useStartThread } from "@/lib/queries/care-messages";
@@ -851,9 +854,14 @@ function SupporterConversation({ person }: { person: SupportedPerson }) {
         </div>
       )}
 
-      {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {isLoading && (
+        <div className="space-y-2 py-1">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-3 w-1/3" />
+        </div>
+      )}
       {!isLoading && (threads ?? []).length === 0 && !composing && (
-        <p className="text-sm text-charcoal-ink/60">No conversations yet.</p>
+        <EmptyState icon={NAV_ICON.messages} title="No conversations yet" />
       )}
 
       <ul className="divide-y divide-charcoal-ink/10">

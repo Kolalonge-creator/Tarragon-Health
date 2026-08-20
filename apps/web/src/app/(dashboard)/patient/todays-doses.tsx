@@ -5,6 +5,8 @@ import { buildTodaysDoseChecklist, type DoseStatus } from "@/lib/medication-sche
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<DoseStatus, { variant: BadgeProps["variant"]; label: string }> = {
@@ -48,9 +50,24 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-32" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-32" />
+            </div>
+          </div>
+        )}
         {!isLoading && checklist.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No scheduled doses today.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.medication}
+            title="No doses today"
+            description="You have no medications scheduled for today."
+          />
         )}
         {checklist.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

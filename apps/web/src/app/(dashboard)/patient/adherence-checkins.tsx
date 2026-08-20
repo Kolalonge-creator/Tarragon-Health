@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function CheckinRow({ checkin, patientId }: { checkin: AdherenceCheckinWithDrug; patientId: string }) {
   const respond = useRespondToCheckin(patientId);
@@ -55,7 +56,12 @@ export function AdherenceCheckins({ patientId }: { patientId: string }) {
         <CardTitle>Medication check-in</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-56" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+        )}
         {isError && <p className="text-sm text-red-600">Could not load your check-ins.</p>}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

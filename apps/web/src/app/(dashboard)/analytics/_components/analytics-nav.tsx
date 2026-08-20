@@ -2,44 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Activity,
-  BarChart3,
-  Building,
-  Calculator,
-  Gavel,
-  Globe,
-  HeartPulse,
-  LayoutDashboard,
-  Landmark,
-  ScrollText,
-  Clock4,
-  Stethoscope,
-  UserRound,
-  UserSearch,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/analytics", label: "Overview", icon: LayoutDashboard },
-  { href: "/analytics/acquisition", label: "Acquisition", icon: Globe },
-  { href: "/analytics/engagement", label: "Engagement", icon: Users },
-  { href: "/analytics/users", label: "Users", icon: UserRound },
-  { href: "/analytics/business", label: "Business", icon: BarChart3 },
-  { href: "/analytics/financial", label: "Financial", icon: Wallet },
-  { href: "/analytics/investor", label: "Investor", icon: Landmark },
-  { href: "/analytics/accounting", label: "Accounting", icon: Calculator },
-  { href: "/analytics/population", label: "Population health", icon: HeartPulse },
-  { href: "/analytics/outcomes", label: "Clinical outcomes", icon: Stethoscope },
-  { href: "/analytics/operations", label: "Operations", icon: Activity },
-  { href: "/analytics/facilities", label: "Facilities", icon: Building },
-  { href: "/analytics/doctors", label: "Doctor performance", icon: Stethoscope },
-  { href: "/analytics/team", label: "Team activity", icon: Clock4 },
-  { href: "/analytics/patient-activity", label: "Patient activity", icon: UserSearch },
-  { href: "/analytics/governance", label: "Governance", icon: Gavel },
-  { href: "/analytics/audit", label: "Audit log", icon: ScrollText },
+  { href: "/analytics", label: "Overview", icon: NAV_ICON.dashboard },
+  { href: "/analytics/acquisition", label: "Acquisition", icon: NAV_ICON.acquisition },
+  { href: "/analytics/engagement", label: "Engagement", icon: NAV_ICON.engagement },
+  { href: "/analytics/users", label: "Users", icon: NAV_ICON.users },
+  { href: "/analytics/business", label: "Business", icon: NAV_ICON.business },
+  { href: "/analytics/financial", label: "Financial", icon: NAV_ICON.financial },
+  { href: "/analytics/investor", label: "Investor", icon: NAV_ICON.investor },
+  { href: "/analytics/accounting", label: "Accounting", icon: NAV_ICON.accounting },
+  { href: "/analytics/population", label: "Population health", icon: NAV_ICON.population },
+  { href: "/analytics/outcomes", label: "Clinical outcomes", icon: NAV_ICON.outcomes },
+  { href: "/analytics/operations", label: "Operations", icon: NAV_ICON.operations },
+  { href: "/analytics/facilities", label: "Facilities", icon: NAV_ICON.facilities },
+  { href: "/analytics/doctors", label: "Doctor performance", icon: NAV_ICON.doctors },
+  { href: "/analytics/team", label: "Team activity", icon: NAV_ICON.team },
+  { href: "/analytics/patient-activity", label: "Patient activity", icon: NAV_ICON.patientActivity },
+  { href: "/analytics/governance", label: "Governance", icon: NAV_ICON.governance },
+  { href: "/analytics/audit", label: "Audit log", icon: NAV_ICON.auditLog },
 ] as const;
 
 export function AnalyticsNav() {

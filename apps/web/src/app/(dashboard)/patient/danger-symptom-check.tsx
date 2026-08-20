@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, TriangleAlert } from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { reportDangerSymptoms } from "./actions";
 import { DANGER_SIGNS, DANGER_SIGN_LABEL, type DangerSign } from "@/lib/validation/emergency";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
@@ -58,12 +58,12 @@ export function DangerSymptomCheck({ patientId }: { patientId: string }) {
         className="flex w-full flex-col items-start gap-1.5 px-5 py-3.5 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-red-700">
-          <TriangleAlert className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
+          <NAV_ICON.warning className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
           Feeling something serious right now?
         </span>
         <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-red-700">
           {expanded ? "Hide" : "Get emergency guidance"}
-          <ChevronDown
+          <NAV_ICON.chevronDown
             className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")}
             strokeWidth={2}
           />

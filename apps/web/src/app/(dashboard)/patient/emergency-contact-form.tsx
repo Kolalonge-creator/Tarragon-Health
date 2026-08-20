@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldAlert } from "lucide-react";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { updateEmergencyContact } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ export function EmergencyContactForm({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.emergencyContact className="h-5 w-5 text-deep-forest" strokeWidth={2} />
           Emergency contact &amp; next of kin
         </CardTitle>
         <CardDescription>

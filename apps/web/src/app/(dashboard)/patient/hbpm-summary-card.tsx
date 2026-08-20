@@ -2,6 +2,7 @@
 
 import { useHbpmSummary } from "@/lib/queries/bp";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 /**
@@ -22,7 +23,13 @@ export function HbpmSummaryCard({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-40" />
+            <Skeleton className="h-3 w-56" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load your average.</p>
         )}

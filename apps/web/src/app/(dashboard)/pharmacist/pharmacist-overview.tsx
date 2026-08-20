@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Clock4, Truck, Pill, ShoppingBag } from "lucide-react";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import {
   usePharmacistOrders,
   usePharmacistDispenseHistory,
@@ -35,28 +35,28 @@ export function PharmacistOverview() {
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          icon={Clock4}
+          icon={NAV_ICON.team}
           tintClassName="bg-amber-100"
           iconClassName="text-amber-700"
           label="Orders awaiting"
           value={ordersLoading ? "—" : String(awaitingOrders.length)}
         />
         <StatTile
-          icon={Truck}
+          icon={SEMANTIC_ICON.logistics}
           tintClassName="bg-blue-100"
           iconClassName="text-blue-700"
           label="In progress"
           value={ordersLoading ? "—" : String(inProgressOrders.length)}
         />
         <StatTile
-          icon={Pill}
+          icon={SEMANTIC_ICON.medication}
           tintClassName="bg-green-100"
           iconClassName="text-green-700"
           label="Dispensed today"
           value={dispensesLoading ? "—" : String(dispensedToday.length)}
         />
         <StatTile
-          icon={ShoppingBag}
+          icon={SEMANTIC_ICON.pharmacy}
           iconTint="ivory"
           label="Total open orders"
           value={ordersLoading ? "—" : String(openOrders.length)}

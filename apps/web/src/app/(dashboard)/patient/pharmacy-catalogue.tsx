@@ -14,6 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
 
 /**
@@ -156,10 +159,23 @@ export function PharmacyCatalogue({
           service="pharmacy"
           serviceLabel="Pharmacy ordering"
         >
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-2 py-1">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+        )}
         {isError && <p className="text-sm text-red-600">Could not load the pharmacy catalogue.</p>}
         {catalogue && catalogue.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No medications available yet.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.pharmacy}
+            title="No medications available yet"
+            description="Check back soon, we're adding to the catalogue."
+          />
         )}
         {catalogue && catalogue.length > 0 && drugGroups.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">

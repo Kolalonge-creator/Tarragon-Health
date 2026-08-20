@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, UserMinus, UserRoundCheck, Users } from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useUserSegments } from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/analytics/format";
@@ -14,10 +14,10 @@ export function UsersDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Users} label="Total patients" value={formatNumber(a?.total ?? 0)} />
-        <StatTile icon={UserRoundCheck} label="Active (30 days)" value={formatNumber(a?.active_30d ?? 0)} />
-        <StatTile icon={UserMinus} label="Dormant (30+ days)" value={formatNumber(a?.dormant_30d ?? 0)} />
-        <StatTile icon={UserMinus} label="Churned (cancelled)" value={formatNumber(data?.churned ?? 0)} />
+        <StatTile icon={NAV_ICON.headcount} label="Total patients" value={formatNumber(a?.total ?? 0)} />
+        <StatTile icon={NAV_ICON.activeUser} label="Active (30 days)" value={formatNumber(a?.active_30d ?? 0)} />
+        <StatTile icon={NAV_ICON.inactiveUser} label="Dormant (30+ days)" value={formatNumber(a?.dormant_30d ?? 0)} />
+        <StatTile icon={NAV_ICON.inactiveUser} label="Churned (cancelled)" value={formatNumber(data?.churned ?? 0)} />
       </div>
 
       <SectionCard
@@ -110,7 +110,7 @@ export function UsersDashboard() {
         </SectionCard>
         <SectionCard title="Geography note">
           <p className="flex items-start gap-2 text-sm text-charcoal-ink/60">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
+            <NAV_ICON.region className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
             State here is the patient&rsquo;s saved profile location. Visitor geography (including
             anonymous traffic) lives on the Acquisition tab.
           </p>

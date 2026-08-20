@@ -16,6 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 const SOURCE_BADGE: Record<
@@ -62,12 +64,27 @@ export function MedicationsList({
       </CardHeader>
       <CardContent>
         <CabinetSummary patientId={patientId} />
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-48" />
+            </div>
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load medications.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No active medications.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.medication}
+            title="No active medications"
+            description="Medications your care team prescribes or you add yourself will show up here."
+          />
         )}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

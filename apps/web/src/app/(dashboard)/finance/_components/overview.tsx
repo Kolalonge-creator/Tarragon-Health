@@ -1,10 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Banknote, Scale, Receipt, TrendingUp, Ticket, FileText, Landmark, AlertCircle,
-  Percent, Gauge, Clock, PiggyBank,
-} from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Badge } from "@/components/ui/badge";
 import { useFinanceDashboard, useKpiSummary, useRiskFlags } from "@/lib/finance/queries";
@@ -76,15 +73,15 @@ export function FinanceOverview() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Banknote} label="Cash & clearing (NGN)" value={formatMinor(data?.cash_ngn ?? 0, "NGN")} />
-        <StatTile icon={TrendingUp} label="Revenue YTD (NGN)" value={formatMinor(data?.revenue_ytd_ngn ?? 0, "NGN")} />
-        <StatTile icon={Scale} label="Deferred revenue" value={formatMinor(data?.deferred_revenue_ngn ?? 0, "NGN")} />
-        <StatTile icon={FileText} label="Receivables" value={formatMinor(data?.receivables_ngn ?? 0, "NGN")} />
-        <StatTile icon={Receipt} label="VAT payable" value={formatMinor(data?.vat_payable_ngn ?? 0, "NGN")} />
-        <StatTile icon={Landmark} label="WHT payable" value={formatMinor(data?.wht_payable_ngn ?? 0, "NGN")} />
-        <StatTile icon={Ticket} label="Customer prepayments" value={formatMinor(data?.care_voucher_liability_ngn ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.cash} label="Cash & clearing (NGN)" value={formatMinor(data?.cash_ngn ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.growth} label="Revenue YTD (NGN)" value={formatMinor(data?.revenue_ytd_ngn ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.reconcile} label="Deferred revenue" value={formatMinor(data?.deferred_revenue_ngn ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.receivables} label="Receivables" value={formatMinor(data?.receivables_ngn ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.tax} label="VAT payable" value={formatMinor(data?.vat_payable_ngn ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.finance} label="WHT payable" value={formatMinor(data?.wht_payable_ngn ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.voucher} label="Customer prepayments" value={formatMinor(data?.care_voucher_liability_ngn ?? 0, "NGN")} />
         <StatTile
-          icon={AlertCircle}
+          icon={NAV_ICON.flagged}
           label="Unreconciled payments"
           value={formatNumber(data?.unreconciled.count ?? 0)}
         />
@@ -95,12 +92,12 @@ export function FinanceOverview() {
           <CenterNote>Loading…</CenterNote>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile icon={Percent} label="Gross margin" value={kpis.data?.gross_margin_pct != null ? `${kpis.data.gross_margin_pct}%` : "—"} />
-            <StatTile icon={Gauge} label="Net margin" value={kpis.data?.net_margin_pct != null ? `${kpis.data.net_margin_pct}%` : "—"} />
-            <StatTile icon={TrendingUp} label="MoM revenue growth" value={pct(kpis.data?.mom_revenue_growth_pct)} />
-            <StatTile icon={TrendingUp} label="YoY revenue growth" value={pct(kpis.data?.yoy_revenue_growth_pct)} />
-            <StatTile icon={Clock} label="Days sales outstanding" value={kpis.data?.dso_days != null ? `${kpis.data.dso_days}d` : "—"} />
-            <StatTile icon={PiggyBank} label="Cash runway" value={kpis.data?.cash_runway_months != null ? `${kpis.data.cash_runway_months} mo` : "—"} />
+            <StatTile icon={NAV_ICON.percentage} label="Gross margin" value={kpis.data?.gross_margin_pct != null ? `${kpis.data.gross_margin_pct}%` : "—"} />
+            <StatTile icon={NAV_ICON.caseload} label="Net margin" value={kpis.data?.net_margin_pct != null ? `${kpis.data.net_margin_pct}%` : "—"} />
+            <StatTile icon={NAV_ICON.growth} label="MoM revenue growth" value={pct(kpis.data?.mom_revenue_growth_pct)} />
+            <StatTile icon={NAV_ICON.growth} label="YoY revenue growth" value={pct(kpis.data?.yoy_revenue_growth_pct)} />
+            <StatTile icon={NAV_ICON.duration} label="Days sales outstanding" value={kpis.data?.dso_days != null ? `${kpis.data.dso_days}d` : "—"} />
+            <StatTile icon={NAV_ICON.budget} label="Cash runway" value={kpis.data?.cash_runway_months != null ? `${kpis.data.cash_runway_months} mo` : "—"} />
           </div>
         )}
       </SectionCard>

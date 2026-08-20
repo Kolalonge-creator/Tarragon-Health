@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { StatTile } from "@/components/ui/stat-tile";
-import { Activity, ListChecks, ScrollText } from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,14 +69,14 @@ export function AuditDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile icon={ScrollText} label="Total events" value={formatNumber(summary.data?.total ?? 0)} />
+        <StatTile icon={NAV_ICON.auditLog} label="Total events" value={formatNumber(summary.data?.total ?? 0)} />
         <StatTile
-          icon={ListChecks}
+          icon={NAV_ICON.checklist}
           label="Distinct actions"
           value={formatNumber(summary.data?.by_action.length ?? 0)}
         />
         <StatTile
-          icon={Activity}
+          icon={NAV_ICON.pulse}
           label="Entity types"
           value={formatNumber(summary.data?.by_entity.length ?? 0)}
         />

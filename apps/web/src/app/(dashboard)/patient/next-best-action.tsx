@@ -8,6 +8,11 @@ type NextAction = {
   body: string;
   href: string;
   cta: string;
+  /** Sprout Gold is reserved for "screening reminders, upgrade prompts,
+   * premium moments" (BRAND_GUIDE.md §5) — the overdue-screening branch is
+   * the one case here that qualifies, so it gets the gold icon chip instead
+   * of the plain icon every other branch uses. */
+  premium?: boolean;
 };
 
 /**
@@ -98,6 +103,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       body: "Booking takes about a minute, and an early catch is the whole point of screening.",
       href: "/patient/prevention",
       cta: "Book it now",
+      premium: true,
     };
   } else if (consult.data) {
     action = {
@@ -164,7 +170,13 @@ export async function NextBestAction({ patientId }: { patientId: string }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-deep-forest to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
       <div className="flex min-w-0 items-start gap-3">
-        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-white/80" aria-hidden />
+        {action.premium ? (
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sprout-gold/25">
+            <Icon className="h-4 w-4 text-sprout-gold" aria-hidden />
+          </div>
+        ) : (
+          <Icon className="mt-0.5 h-5 w-5 shrink-0 text-white/80" aria-hidden />
+        )}
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-white/70">
             Next best step

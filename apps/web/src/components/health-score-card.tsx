@@ -3,6 +3,8 @@
 import { useLatestHealthScore, useHealthScoreHistory } from "@/lib/queries/health-score";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import {
   getHealthScoreTips,
@@ -50,12 +52,23 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-9 w-16" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+        )}
         {isError && <p className="text-sm text-red-600">Could not load your Health Score.</p>}
         {!isLoading && !isError && !data && (
-          <p className="text-sm text-charcoal-ink/60">
-            Log a reading or finish your risk assessment to get your first Health Score.
-          </p>
+          <EmptyState
+            icon={SEMANTIC_ICON.preventive}
+            title="No Health Score yet"
+            description="Log a reading or finish your risk assessment to get your first Health Score."
+          />
         )}
         {data && (
           <>

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Repeat, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
+import { NAV_ICON } from "@/lib/icons";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,10 +44,10 @@ export function EngagementDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={CalendarDays} label="Daily active (DAU)" value={formatNumber(s?.dau ?? 0)} />
-        <StatTile icon={Users} label="Weekly active (WAU)" value={formatNumber(s?.wau ?? 0)} />
-        <StatTile icon={Users} label="Monthly active (MAU)" value={formatNumber(s?.mau ?? 0)} />
-        <StatTile icon={Repeat} label="Stickiness (DAU/MAU)" value={formatPercent(s?.stickiness ?? 0)} />
+        <StatTile icon={NAV_ICON.calendarDays} label="Daily active (DAU)" value={formatNumber(s?.dau ?? 0)} />
+        <StatTile icon={NAV_ICON.engagement} label="Weekly active (WAU)" value={formatNumber(s?.wau ?? 0)} />
+        <StatTile icon={NAV_ICON.engagement} label="Monthly active (MAU)" value={formatNumber(s?.mau ?? 0)} />
+        <StatTile icon={NAV_ICON.retention} label="Stickiness (DAU/MAU)" value={formatPercent(s?.stickiness ?? 0)} />
       </div>
 
       <SectionCard

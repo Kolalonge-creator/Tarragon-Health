@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, FileCheck2, ShieldCheck, UserCheck } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,10 +52,10 @@ export function GovernanceDashboard() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={UserCheck} label="Staff credential-verified" value={formatPercent(c?.verification_pct ?? 0)} />
-        <StatTile icon={ShieldCheck} label="Indemnity expiring (30d)" value={formatNumber(c?.indemnity_expiring_30d ?? 0)} />
-        <StatTile icon={FileCheck2} label="Avg consent coverage" value={formatPercent(consentAvg)} />
-        <StatTile icon={AlertTriangle} label="Open risks" value={formatNumber(data?.risk?.open ?? 0)} />
+        <StatTile icon={NAV_ICON.personVerified} label="Staff credential-verified" value={formatPercent(c?.verification_pct ?? 0)} />
+        <StatTile icon={SEMANTIC_ICON.indemnity} label="Indemnity expiring (30d)" value={formatNumber(c?.indemnity_expiring_30d ?? 0)} />
+        <StatTile icon={SEMANTIC_ICON.consent} label="Avg consent coverage" value={formatPercent(consentAvg)} />
+        <StatTile icon={NAV_ICON.warning} label="Open risks" value={formatNumber(data?.risk?.open ?? 0)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

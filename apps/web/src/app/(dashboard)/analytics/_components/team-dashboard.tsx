@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Clock, UserCheck, Users } from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useStaffActivity } from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/analytics/format";
@@ -34,10 +34,10 @@ export function TeamDashboard() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Users} label="Team members" value={formatNumber(data?.staff_total ?? 0)} />
-        <StatTile icon={UserCheck} label="Active today" value={formatNumber(data?.active_today ?? 0)} />
-        <StatTile icon={CalendarClock} label="Active this week" value={formatNumber(data?.active_7d ?? 0)} />
-        <StatTile icon={Clock} label="Sessions (period)" value={formatNumber(data?.sessions_total ?? 0)} />
+        <StatTile icon={NAV_ICON.headcount} label="Team members" value={formatNumber(data?.staff_total ?? 0)} />
+        <StatTile icon={NAV_ICON.personVerified} label="Active today" value={formatNumber(data?.active_today ?? 0)} />
+        <StatTile icon={NAV_ICON.recentActivity} label="Active this week" value={formatNumber(data?.active_7d ?? 0)} />
+        <StatTile icon={NAV_ICON.duration} label="Sessions (period)" value={formatNumber(data?.sessions_total ?? 0)} />
       </div>
 
       <SectionCard

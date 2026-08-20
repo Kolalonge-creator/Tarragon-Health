@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileText } from "lucide-react";
 import { generateOutcomeReport } from "./actions";
 import { useOutcomeReports, useTogglePublished, reportsKey, type OutcomeReport } from "@/lib/queries/outcome-reports";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { NAV_ICON } from "@/lib/icons";
 
 /**
  * Published, shareable outcome reports (docs/FULL_SPECIFICATION_V4.md
@@ -46,7 +46,7 @@ export function OutcomeReportsPanel({ organisationId }: { organisationId: string
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <NAV_ICON.report className="h-5 w-5 text-deep-forest" strokeWidth={2} />
           Outcome reports
         </CardTitle>
         <CardDescription>

@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { UploadResultForm } from "./upload-result-form";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 function sourceLabel(source: string): string {
   return source === "patient" ? "You uploaded this" : "Uploaded by your care team";
@@ -41,7 +43,11 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {documents.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">No result documents yet.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.escalation}
+            title="No result documents yet"
+            description="Upload a lab result below and your care team will review it."
+          />
         ) : (
           <ul className="space-y-4">
             {documents.map((doc) => (

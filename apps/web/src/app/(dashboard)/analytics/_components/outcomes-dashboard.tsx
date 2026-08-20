@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, HeartPulse, ShieldCheck, TrendingUp } from "lucide-react";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useClinicalOutcomes, useEscalationQuality } from "@/lib/analytics/queries";
 import { formatNumber, formatPercent } from "@/lib/analytics/format";
@@ -36,10 +36,10 @@ export function OutcomesDashboard() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={HeartPulse} label="BP control rate" value={formatPercent(o?.bp_control.pct ?? 0)} />
-        <StatTile icon={Activity} label="Glucose control rate" value={formatPercent(o?.glucose_control.pct ?? 0)} />
-        <StatTile icon={ShieldCheck} label="Escalation SLA met" value={formatPercent(e?.sla.pct_met ?? 0)} />
-        <StatTile icon={TrendingUp} label="Avg resolution (hrs)" value={formatNumber(e?.avg_resolution_hours ?? 0)} />
+        <StatTile icon={SEMANTIC_ICON.bp} label="BP control rate" value={formatPercent(o?.bp_control.pct ?? 0)} />
+        <StatTile icon={NAV_ICON.pulse} label="Glucose control rate" value={formatPercent(o?.glucose_control.pct ?? 0)} />
+        <StatTile icon={SEMANTIC_ICON.slaCompliance} label="Escalation SLA met" value={formatPercent(e?.sla.pct_met ?? 0)} />
+        <StatTile icon={NAV_ICON.growth} label="Avg resolution (hrs)" value={formatNumber(e?.avg_resolution_hours ?? 0)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

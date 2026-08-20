@@ -3,6 +3,8 @@
 import { useSymptomLogs } from "@/lib/queries/symptoms";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 const SYMPTOM_LABEL: Record<string, string> = {
@@ -32,12 +34,27 @@ export function SymptomLogHistory({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load your symptom log.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No symptoms logged yet.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.escalation}
+            title="No symptoms yet"
+            description="Symptoms you log will show up here so your care team can spot patterns."
+          />
         )}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

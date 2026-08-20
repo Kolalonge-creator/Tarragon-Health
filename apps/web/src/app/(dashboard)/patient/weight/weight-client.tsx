@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatTile } from "@/components/ui/stat-tile";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
@@ -67,15 +69,21 @@ export function WeightClient({ patientId }: { patientId: string }) {
             ))}
           </div>
 
-          {trend.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {trend.isLoading && (
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-48 w-full" />
+            </div>
+          )}
           {trend.isError && (
             <p className="text-sm text-red-600">Could not load your weight trend.</p>
           )}
           {!trend.isLoading && !trend.isError && points.length < 2 && (
-            <p className="text-sm text-charcoal-ink/60">
-              Not enough readings in this range yet; log weight from your vitals or lifestyle
-              check-in to build the chart.
-            </p>
+            <EmptyState
+              icon={SEMANTIC_ICON.weight}
+              title="Not enough readings yet"
+              description="Log weight from your vitals or lifestyle check-in to build the chart."
+            />
           )}
           {points.length >= 2 && (
             <ChartContainer config={WEIGHT_CONFIG}>

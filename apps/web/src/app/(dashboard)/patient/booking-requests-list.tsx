@@ -3,6 +3,8 @@
 import { useBookingRequests, type BookingRequestWithFacility } from "@/lib/queries/facilities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<
@@ -27,16 +29,26 @@ export function BookingRequestsList({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {bookingRequests.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {bookingRequests.isLoading && (
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-2 py-1">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+        )}
         {bookingRequests.isError && (
           <p className="text-sm text-red-600">Could not load your booking requests.</p>
         )}
         {!bookingRequests.isLoading &&
           !bookingRequests.isError &&
           bookingRequests.data?.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">
-              No booking requests on file.
-            </p>
+            <EmptyState
+              icon={SEMANTIC_ICON.booking}
+              title="No booking requests on file"
+            />
           )}
         {bookingRequests.data && bookingRequests.data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

@@ -2,6 +2,8 @@
 
 import { useVitalsReadings } from "@/lib/queries/vitals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { mmolLToMgDl, type Tables } from "@tarragon/shared";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
@@ -103,12 +105,31 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load your readings.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No readings logged yet.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.bp}
+            title="No readings yet"
+            description="Log your first BP or glucose reading to start your trend."
+          />
         )}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

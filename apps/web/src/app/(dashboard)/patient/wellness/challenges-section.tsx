@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 function ProgressBar({ value, target }: { value: number; target: number }) {
@@ -70,7 +71,19 @@ export function ChallengesSection({ patientId }: { patientId: string }) {
         <CardDescription>Time-boxed goals that pay a points bonus when you finish.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-2">
+            {[0, 1].map((i) => (
+              <div key={i} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
+        )}
 
         {enrolments && enrolments.length > 0 && (
           <ul className="space-y-2">

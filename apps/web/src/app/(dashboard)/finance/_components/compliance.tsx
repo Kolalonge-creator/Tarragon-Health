@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
-import { AlertTriangle, Clock, CalendarClock } from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { useComplianceCalendar, financeKeys, fetchComplianceSuggestedAmount } from "@/lib/finance/queries";
 import { markFiledAction, unmarkFiledAction } from "@/lib/finance/actions";
 import type { ComplianceObligation } from "@/lib/finance/schemas";
@@ -93,9 +93,9 @@ export function ComplianceCalendar() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile icon={AlertTriangle} label="Overdue" value={String(counts.overdue)} />
-        <StatTile icon={Clock} label="Due within 7 days" value={String(counts.dueSoon)} />
-        <StatTile icon={CalendarClock} label="Upcoming" value={String(counts.upcoming)} />
+        <StatTile icon={NAV_ICON.warning} label="Overdue" value={String(counts.overdue)} />
+        <StatTile icon={NAV_ICON.duration} label="Due within 7 days" value={String(counts.dueSoon)} />
+        <StatTile icon={NAV_ICON.compliance} label="Upcoming" value={String(counts.upcoming)} />
       </div>
 
       {msg && <p className={`text-sm ${msg.ok ? "text-brand-green" : "text-red-600"}`}>{msg.text}</p>}

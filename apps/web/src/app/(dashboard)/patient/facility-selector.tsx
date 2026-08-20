@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 export type PatientLocation = {
   state: string | null;
@@ -113,12 +116,21 @@ export function FacilitySelector({
         {locationError && <span className="text-xs text-red-600">{locationError}</span>}
       </div>
 
-      {facilities.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {facilities.isLoading && (
+        <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="space-y-1.5 py-1">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+          ))}
+        </div>
+      )}
       {facilities.isError && (
         <p className="text-sm text-red-600">Could not load facilities.</p>
       )}
       {!facilities.isLoading && !facilities.isError && sorted.length === 0 && (
-        <p className="text-sm text-charcoal-ink/60">{emptyText}</p>
+        <EmptyState icon={SEMANTIC_ICON.booking} title={emptyText} />
       )}
 
       {sorted.length > 0 && (

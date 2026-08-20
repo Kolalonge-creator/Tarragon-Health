@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useThreadMessages, usePostMessage, type CareMessage } from "@/lib/queries/care-messages";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 
 function when(iso: string): string {
@@ -85,7 +86,19 @@ export function CareMessageThread({
 
   return (
     <div className="space-y-3">
-      {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {isLoading && (
+        <div className="space-y-3">
+          <div className="w-2/3 space-y-2 rounded-lg border border-charcoal-ink/10 bg-white p-3">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+          <div className="ml-auto w-2/3 space-y-2 rounded-lg border border-brand-green/20 bg-brand-green/5 p-3">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-full" />
+          </div>
+        </div>
+      )}
       <ul className="space-y-3">
         {(messages ?? []).map((message) => (
           <li

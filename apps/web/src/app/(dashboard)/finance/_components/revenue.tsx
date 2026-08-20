@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
-import { Scale, TrendingUp, CalendarClock } from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { useRevrecSummary, financeKeys } from "@/lib/finance/queries";
 import { runRevenueRecognitionAction } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, formatNumber } from "./primitives";
@@ -39,9 +39,9 @@ export function RevenueRecognition() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile icon={Scale} label="Deferred (unrecognised)" value={formatMinor(data?.total_deferred_minor ?? 0, "NGN")} />
-        <StatTile icon={TrendingUp} label="Recognised to date" value={formatMinor(data?.total_recognized_minor ?? 0, "NGN")} />
-        <StatTile icon={CalendarClock} label="Active schedules" value={formatNumber(data?.active_schedules ?? 0)} />
+        <StatTile icon={NAV_ICON.reconcile} label="Deferred (unrecognised)" value={formatMinor(data?.total_deferred_minor ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.growth} label="Recognised to date" value={formatMinor(data?.total_recognized_minor ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.schedule} label="Active schedules" value={formatNumber(data?.active_schedules ?? 0)} />
       </div>
 
       <SectionCard

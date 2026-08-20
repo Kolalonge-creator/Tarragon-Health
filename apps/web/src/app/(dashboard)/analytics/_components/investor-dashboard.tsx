@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Gauge, Percent, Repeat, TrendingUp } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
+import { NAV_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,10 +95,10 @@ export function InvestorDashboard() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={TrendingUp} label="ARR (NGN)" value={ngn(data?.arr_minor ?? 0)} />
-        <StatTile icon={Repeat} label="Net revenue retention" value={pct(data?.nrr_pct)} />
-        <StatTile icon={Percent} label="Gross revenue retention" value={pct(data?.grr_pct)} />
-        <StatTile icon={Gauge} label="Rule of 40" value={ue?.rule_of_40 == null ? "—" : formatNumber(ue.rule_of_40)} />
+        <StatTile icon={NAV_ICON.growth} label="ARR (NGN)" value={ngn(data?.arr_minor ?? 0)} />
+        <StatTile icon={NAV_ICON.retention} label="Net revenue retention" value={pct(data?.nrr_pct)} />
+        <StatTile icon={NAV_ICON.percentage} label="Gross revenue retention" value={pct(data?.grr_pct)} />
+        <StatTile icon={NAV_ICON.scoreGauge} label="Rule of 40" value={ue?.rule_of_40 == null ? "—" : formatNumber(ue.rule_of_40)} />
       </div>
 
       <SectionCard

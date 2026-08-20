@@ -22,6 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
@@ -247,7 +249,21 @@ function RecommendedForYou({
   const items = (data ?? []).filter((item) => item.status !== "understood").slice(0, 4);
 
   if (isLoading) {
-    return <p className="text-sm text-charcoal-ink/60">Loading your recommendations…</p>;
+    return (
+      <Card className="border-brand-green/25 bg-soft-sage/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <SEMANTIC_ICON.aiCoach className="h-4.5 w-4.5 text-brand-green" aria-hidden />
+            Recommended for you
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </CardContent>
+      </Card>
+    );
   }
   if (items.length === 0) {
     return null;
@@ -369,12 +385,27 @@ function CategoryDetail({
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <ul className="divide-y divide-charcoal-ink/10">
+            {[0, 1, 2].map((i) => (
+              <li key={i} className="space-y-2 py-3">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-full" />
+              </li>
+            ))}
+          </ul>
+        )}
         {isError && <p className="text-sm text-red-600">Could not load this topic right now.</p>}
         {data && items.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">
-            {query ? "Nothing matches that search." : "Nothing here yet."}
-          </p>
+          query ? (
+            <p className="text-sm text-charcoal-ink/60">Nothing matches that search.</p>
+          ) : (
+            <EmptyState
+              icon={SEMANTIC_ICON.learn}
+              title="Nothing here yet"
+              description="Check back soon, we're adding to this topic."
+            />
+          )
         )}
         {items.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

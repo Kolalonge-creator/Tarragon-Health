@@ -7,6 +7,8 @@ import { ConfirmScreeningDoneForm } from "./confirm-screening-done-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<string, { variant: BadgeProps["variant"]; label: string }> = {
@@ -43,16 +45,25 @@ export function PreventiveScreeningCalendar({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-2 py-1">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load your screening calendar.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">
-            No screenings scheduled yet. Complete your health profile (the two-minute risk
-            assessment on this page) and your personal calendar builds itself from your age,
-            sex, and history; your care team can add to it from there.
-          </p>
+          <EmptyState
+            icon={SEMANTIC_ICON.preventive}
+            title="No screenings scheduled yet"
+            description="Complete your health profile (the two-minute risk assessment on this page) and your personal calendar builds itself from your age, sex, and history; your care team can add to it from there."
+          />
         )}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

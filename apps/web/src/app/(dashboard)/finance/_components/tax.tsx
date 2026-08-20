@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
-import { Receipt, Landmark, Scale } from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { useTaxSummary, useTaxRates, financeKeys } from "@/lib/finance/queries";
 import { upsertTaxRateAction } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, formatPercent } from "./primitives";
@@ -71,10 +71,10 @@ export function TaxConsole() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Receipt} label="Output VAT" value={formatMinor(summary.data?.output_vat_minor ?? 0, currency)} />
-        <StatTile icon={Scale} label="Input VAT recoverable" value={formatMinor(summary.data?.input_vat_minor ?? 0, currency)} />
-        <StatTile icon={Receipt} label="Net VAT payable" value={formatMinor(netVat, currency)} />
-        <StatTile icon={Landmark} label="WHT payable" value={formatMinor(summary.data?.wht_payable_minor ?? 0, currency)} />
+        <StatTile icon={NAV_ICON.tax} label="Output VAT" value={formatMinor(summary.data?.output_vat_minor ?? 0, currency)} />
+        <StatTile icon={NAV_ICON.reconcile} label="Input VAT recoverable" value={formatMinor(summary.data?.input_vat_minor ?? 0, currency)} />
+        <StatTile icon={NAV_ICON.tax} label="Net VAT payable" value={formatMinor(netVat, currency)} />
+        <StatTile icon={NAV_ICON.finance} label="WHT payable" value={formatMinor(summary.data?.wht_payable_minor ?? 0, currency)} />
       </div>
 
       <SectionCard title="Revenue by VAT treatment" description={`${from} to ${to} · ${currency}`}>

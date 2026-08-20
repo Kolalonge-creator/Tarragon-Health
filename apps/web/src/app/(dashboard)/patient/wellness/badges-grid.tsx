@@ -2,6 +2,7 @@
 
 import { useWellnessBadgesCatalogue, useMyWellnessBadges } from "@/lib/queries/wellness";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,20 @@ export function BadgesGrid({ patientId }: { patientId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <li
+                key={i}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-charcoal-ink/10 p-3"
+              >
+                <Skeleton className="h-6 w-6 rounded-full" />
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-20" />
+              </li>
+            ))}
+          </ul>
+        )}
         {catalogue && catalogue.length > 0 && (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {catalogue.map((badge) => {

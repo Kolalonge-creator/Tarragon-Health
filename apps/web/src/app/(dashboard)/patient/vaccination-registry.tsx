@@ -16,7 +16,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SEMANTIC_ICON } from "@/lib/icons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<VaccinationStatus, { variant: BadgeProps["variant"]; label: string }> = {
   overdue: { variant: "red", label: "Overdue" },
@@ -215,7 +217,16 @@ export function VaccinationRegistry({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-2 py-1">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load your vaccination registry.</p>
         )}
@@ -241,7 +252,11 @@ export function VaccinationRegistry({
         )}
 
         {!isLoading && !isError && visibleStatuses.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No vaccinations in the catalogue yet.</p>
+          <EmptyState
+            icon={NAV_ICON.vaccination}
+            title="No vaccinations in the catalogue yet"
+            description="Check back soon, we're adding to the catalogue."
+          />
         )}
 
         {visibleStatuses.length > 0 && (

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Globe, MousePointerClick, Users } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import {
   ChartContainer,
@@ -47,14 +47,14 @@ export function AcquisitionDashboard() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Users} label="Visitors" value={formatNumber(s?.visitors ?? 0)} />
-        <StatTile icon={Eye} label="Pageviews" value={formatNumber(s?.pageviews ?? 0)} />
+        <StatTile icon={NAV_ICON.headcount} label="Visitors" value={formatNumber(s?.visitors ?? 0)} />
+        <StatTile icon={NAV_ICON.pageviews} label="Pageviews" value={formatNumber(s?.pageviews ?? 0)} />
         <StatTile
-          icon={MousePointerClick}
+          icon={NAV_ICON.interaction}
           label="Signed-in visitors"
           value={formatNumber(s?.logged_in_visitors ?? 0)}
         />
-        <StatTile icon={Globe} label="Countries" value={formatNumber(s?.by_country.length ?? 0)} />
+        <StatTile icon={NAV_ICON.acquisition} label="Countries" value={formatNumber(s?.by_country.length ?? 0)} />
       </div>
 
       <SectionCard

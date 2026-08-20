@@ -19,6 +19,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 /** prevention_risk_scores.tier is risk_level (has very_high); the engine works
@@ -124,12 +126,25 @@ export function PreventiveProgrammes({
             Next health review due {new Date(nextReview.data.due_date).toLocaleDateString()}.
           </p>
         )}
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-2 py-1">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            ))}
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load preventive programmes.</p>
         )}
         {programmes.data && visibleProgrammes.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No programmes available yet.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.preventive}
+            title="No programmes available yet"
+            description="Check back soon for prevention tracks to follow."
+          />
         )}
         {programmes.data && visibleProgrammes.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

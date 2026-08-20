@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, CalendarDays, LogIn, Search, ShieldAlert } from "lucide-react";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,7 @@ export function PatientActivityDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        <ShieldAlert className="mr-1 inline h-3.5 w-3.5" />
+        <SEMANTIC_ICON.sensitiveAccess className="mr-1 inline h-3.5 w-3.5" />
         Identified patient lookup for dispute / compliance purposes: shows whether and when a
         patient engaged with the platform. Every lookup is recorded to the audit log with the reason
         you enter. Handle under your data-protection policy.
@@ -73,7 +73,7 @@ export function PatientActivityDashboard() {
           </div>
           <div className="flex items-end">
             <Button size="sm" onClick={() => setSubmitted(query.trim())} disabled={query.trim().length < 2}>
-              <Search className="mr-1.5 h-4 w-4" /> Search
+              <NAV_ICON.search className="mr-1.5 h-4 w-4" /> Search
             </Button>
           </div>
         </div>
@@ -112,11 +112,11 @@ export function PatientActivityDashboard() {
       {selected && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile icon={LogIn} label="Login sessions" value={formatNumber(e?.total_login_sessions ?? 0)} />
-            <StatTile icon={CalendarDays} label="Active days" value={formatNumber(e?.active_days ?? 0)} />
-            <StatTile icon={CalendarClock} label="Activity events" value={formatNumber(e?.total_activity_events ?? 0)} />
+            <StatTile icon={NAV_ICON.login} label="Login sessions" value={formatNumber(e?.total_login_sessions ?? 0)} />
+            <StatTile icon={NAV_ICON.calendarDays} label="Active days" value={formatNumber(e?.active_days ?? 0)} />
+            <StatTile icon={NAV_ICON.recentActivity} label="Activity events" value={formatNumber(e?.total_activity_events ?? 0)} />
             <StatTile
-              icon={ShieldAlert}
+              icon={SEMANTIC_ICON.sensitiveAccess}
               label="Days since last active"
               value={e?.days_since_last == null ? "—" : formatNumber(e.days_since_last)}
             />

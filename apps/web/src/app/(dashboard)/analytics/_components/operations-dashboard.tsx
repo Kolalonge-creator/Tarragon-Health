@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Send, Stethoscope, Truck } from "lucide-react";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useDeliverability, useOperationsSummary } from "@/lib/analytics/queries";
 import { formatNumber, formatPercent } from "@/lib/analytics/format";
@@ -19,10 +19,10 @@ export function OperationsDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Stethoscope} label="Clinicians with panels" value={formatNumber(o?.clinician_load.length ?? 0)} />
-        <StatTile icon={AlertTriangle} label={`Over ${o?.target_ratio ?? 120}:1 ratio`} value={formatNumber(o?.over_target ?? 0)} />
-        <StatTile icon={AlertTriangle} label="Open escalation alerts" value={formatNumber(openAlerts)} />
-        <StatTile icon={Send} label="Notification queue" value={formatNumber(d?.queue_depth ?? 0)} />
+        <StatTile icon={NAV_ICON.doctors} label="Clinicians with panels" value={formatNumber(o?.clinician_load.length ?? 0)} />
+        <StatTile icon={NAV_ICON.warning} label={`Over ${o?.target_ratio ?? 120}:1 ratio`} value={formatNumber(o?.over_target ?? 0)} />
+        <StatTile icon={NAV_ICON.warning} label="Open escalation alerts" value={formatNumber(openAlerts)} />
+        <StatTile icon={NAV_ICON.send} label="Notification queue" value={formatNumber(d?.queue_depth ?? 0)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -74,9 +74,9 @@ export function OperationsDashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile icon={Stethoscope} label="Lab orders" value={formatNumber(orders?.lab.total ?? 0)} unit={`· ${orders?.lab.avg_turnaround_hours ?? 0}h avg`} />
-        <StatTile icon={Truck} label="Pharmacy orders" value={formatNumber(orders?.pharmacy.total ?? 0)} unit={`· ${orders?.pharmacy.avg_turnaround_hours ?? 0}h avg`} />
-        <StatTile icon={Send} label="Referrals" value={formatNumber(orders?.referral.total ?? 0)} unit={`· ${orders?.referral.confirmed ?? 0} confirmed`} />
+        <StatTile icon={NAV_ICON.doctors} label="Lab orders" value={formatNumber(orders?.lab.total ?? 0)} unit={`· ${orders?.lab.avg_turnaround_hours ?? 0}h avg`} />
+        <StatTile icon={SEMANTIC_ICON.logistics} label="Pharmacy orders" value={formatNumber(orders?.pharmacy.total ?? 0)} unit={`· ${orders?.pharmacy.avg_turnaround_hours ?? 0}h avg`} />
+        <StatTile icon={NAV_ICON.send} label="Referrals" value={formatNumber(orders?.referral.total ?? 0)} unit={`· ${orders?.referral.confirmed ?? 0} confirmed`} />
       </div>
 
       <SectionCard

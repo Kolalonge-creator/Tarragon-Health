@@ -9,6 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 const REASON_LABEL: Record<string, string> = {
@@ -49,7 +50,12 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="flex items-baseline gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+        )}
         {!isLoading && (
           <div className="flex items-baseline gap-2">
             <span className="font-heading text-3xl font-bold text-charcoal-ink">

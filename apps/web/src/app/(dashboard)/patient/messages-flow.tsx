@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { NAV_ICON } from "@/lib/icons";
 
 /** Phone-only way back to the conversation list — on lg the list is still
@@ -91,11 +93,22 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {isLoading && <p className="p-4 text-sm text-charcoal-ink/60">Loading…</p>}
+          {isLoading && (
+            <div className="space-y-4 p-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              ))}
+            </div>
+          )}
           {!isLoading && (!threads || threads.length === 0) && (
-            <p className="p-4 text-sm text-charcoal-ink/60">
-              No messages yet. Start a conversation with your care team.
-            </p>
+            <EmptyState
+              icon={NAV_ICON.messages}
+              title="No messages yet"
+              description="Start a conversation with your care team."
+            />
           )}
           <ul>
             {(threads ?? []).map((thread) => (

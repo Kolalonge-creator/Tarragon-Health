@@ -3,6 +3,8 @@
 import { useRiskScores } from "@/lib/queries/risk-assessment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
@@ -41,15 +43,24 @@ export function RiskAssessmentDisplay({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-48" />
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load your risk assessment.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">
-            Fill in the assessment above to see your personal risk tiers, a starting
-            point for your care, not a diagnosis.
-          </p>
+          <EmptyState
+            icon={SEMANTIC_ICON.preventive}
+            title="No risk tiers yet"
+            description="Fill in the assessment above to see your personal risk tiers, a starting point for your care, not a diagnosis."
+          />
         )}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

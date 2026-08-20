@@ -60,9 +60,11 @@ export function UpgradePrompt({ feature }: { feature: string }) {
   const Icon = SEMANTIC_ICON.upgrade;
 
   return (
-    <Card className="border-dashed">
+    <Card className="border-dashed border-sprout-gold/40">
       <CardContent className="flex items-start gap-3 py-4">
-        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-brand-green" aria-hidden />
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sprout-gold/15">
+          <Icon className="h-4 w-4 text-sprout-gold" aria-hidden />
+        </div>
         <div className="space-y-2">
           <div>
             <p className="text-sm font-medium text-charcoal-ink">{copy.title}</p>

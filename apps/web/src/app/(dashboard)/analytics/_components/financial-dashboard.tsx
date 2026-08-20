@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Percent, TrendingUp, Wallet } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import {
   ChartContainer,
   ChartTooltip,
@@ -55,15 +55,15 @@ export function FinancialDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={TrendingUp} label="MRR (NGN)" value={formatMinor(ngnMrr, "NGN")} />
+        <StatTile icon={NAV_ICON.growth} label="MRR (NGN)" value={formatMinor(ngnMrr, "NGN")} />
         <StatTile
-          icon={CreditCard}
+          icon={SEMANTIC_ICON.billing}
           label="Active subscriptions"
           value={formatNumber(s?.active_subscriptions ?? 0)}
         />
-        <StatTile icon={Percent} label="Churn rate" value={formatPercent(s?.churn_rate ?? 0)} />
+        <StatTile icon={NAV_ICON.percentage} label="Churn rate" value={formatPercent(s?.churn_rate ?? 0)} />
         <StatTile
-          icon={Wallet}
+          icon={NAV_ICON.financial}
           label="Receivables"
           value={formatMinor(s?.receivables_kobo ?? 0, "NGN")}
         />

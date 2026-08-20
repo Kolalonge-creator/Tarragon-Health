@@ -9,6 +9,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 function classDateTime(iso: string): string {
@@ -50,11 +52,22 @@ export function ClassesSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <ul className="space-y-2">
+            {[0, 1].map((i) => (
+              <li key={i} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-56" />
+              </li>
+            ))}
+          </ul>
+        )}
         {!isLoading && (!classes || classes.length === 0) && (
-          <p className="text-sm text-charcoal-ink/60">
-            Nothing scheduled yet; we&apos;re working on bringing partner classes to your area.
-          </p>
+          <EmptyState
+            icon={SEMANTIC_ICON.wellnessClass}
+            title="Nothing scheduled yet"
+            description="We're working on bringing partner classes to your area."
+          />
         )}
         {classes && classes.length > 0 && (
           <ul className="space-y-2">

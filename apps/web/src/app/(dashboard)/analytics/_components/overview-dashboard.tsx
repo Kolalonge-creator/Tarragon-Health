@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, CreditCard, HeartPulse, ShieldCheck, TrendingUp, Users } from "lucide-react";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Card } from "@/components/ui/card";
 import {
@@ -72,7 +72,7 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatTile
-          icon={CreditCard}
+          icon={SEMANTIC_ICON.billing}
           label="Total revenue"
           value={formatMinor(ngnRevenue, "NGN")}
           delta={{
@@ -81,13 +81,13 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
           }}
         />
         <StatTile
-          icon={Users}
+          icon={NAV_ICON.headcount}
           label="Total patients"
           value={formatNumber(business.data?.total_patients ?? 0)}
           delta={{ text: `${formatNumber(business.data?.active_patients ?? 0)} active`, direction: "flat" }}
         />
         <StatTile
-          icon={TrendingUp}
+          icon={NAV_ICON.growth}
           label="ARR"
           value={formatMinor(investor.data?.arr_minor ?? 0, "NGN")}
           delta={
@@ -97,7 +97,7 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
           }
         />
         <StatTile
-          icon={ShieldCheck}
+          icon={SEMANTIC_ICON.slaCompliance}
           label="Compliance score"
           value={formatPercent(verificationPct)}
           delta={{
@@ -106,13 +106,13 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
           }}
         />
         <StatTile
-          icon={Building2}
+          icon={SEMANTIC_ICON.corporate}
           label="Avg facility utilization"
           value={formatPercent(utilizationPct)}
           delta={{ text: `${formatNumber(facilitiesWithUsage)} of ${formatNumber(totalFacilities)} active`, direction: "flat" }}
         />
         <StatTile
-          icon={HeartPulse}
+          icon={SEMANTIC_ICON.bp}
           label="BP control rate"
           value={formatPercent(bpPct)}
           delta={bpTotal > 0 ? { text: `${formatNumber(bpControlled)} of ${formatNumber(bpTotal)} controlled`, direction: "flat" } : undefined}

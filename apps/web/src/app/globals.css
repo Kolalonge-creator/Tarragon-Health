@@ -86,6 +86,28 @@ body {
   }
 }
 
+@keyframes dashboard-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * A gentle mount-in for dashboard cards/stat tiles (StatTile, Card) — the
+ * "alive" touch a static grid otherwise lacks. Pure CSS so server-rendered
+ * grids get it for free with no client JS. Kept short and subtle: this is a
+ * calm clinical product, not a marketing page (see the more expressive
+ * marketing-hero-float/marketing-reveal-up below, which stay marketing-only).
+ */
+.dashboard-card-in {
+  animation: dashboard-card-in 0.4s ease-out both;
+}
+
 @keyframes marketing-hero-float {
   0%,
   100% {
@@ -172,6 +194,10 @@ body {
 
   .marketing-marquee-left,
   .marketing-marquee-right {
+    animation: none !important;
+  }
+
+  .dashboard-card-in {
     animation: none !important;
   }
 }

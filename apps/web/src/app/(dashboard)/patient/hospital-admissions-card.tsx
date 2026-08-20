@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 function durationLabel(admission: HospitalAdmission): string {
@@ -187,12 +189,21 @@ export function HospitalAdmissionsCard({ patientId }: { patientId: string }) {
         </form>
 
         <div className="border-t border-charcoal-ink/10 pt-4">
-          {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {isLoading && (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+          )}
           {isError && (
             <p className="text-sm text-red-600">Could not load your admissions.</p>
           )}
           {data && data.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No admissions recorded.</p>
+            <EmptyState
+              icon={SEMANTIC_ICON.clinicianFollowUp}
+              title="No admissions recorded"
+              description="Hospital admissions you log here will show up so your care team can review them."
+            />
           )}
           {data && data.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">

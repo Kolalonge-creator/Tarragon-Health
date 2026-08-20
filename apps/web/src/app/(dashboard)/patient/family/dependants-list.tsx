@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useManagedDependents } from "@/lib/queries/care-access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 
 /**
@@ -28,12 +31,23 @@ export function DependantsList() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-4">
+            {[0, 1].map((i) => (
+              <div key={i} className="space-y-2 py-1">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            ))}
+          </div>
+        )}
         {isError && <p className="text-sm text-red-600">Could not load these records.</p>}
         {dependants && dependants.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">
-            No children added yet. Add one below to start their vaccination card.
-          </p>
+          <EmptyState
+            icon={SEMANTIC_ICON.family}
+            title="No children added yet"
+            description="Add one below to start their vaccination card."
+          />
         )}
         {dependants && dependants.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

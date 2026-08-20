@@ -50,7 +50,7 @@ export function StatTile({
     // using these tiles scrolled sideways.
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:flex-row sm:items-start sm:gap-4 sm:p-5",
+        "dashboard-card-in flex flex-col gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:flex-row sm:items-start sm:gap-4 sm:p-5",
         className
       )}
     >

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { APP_ICON } from "@/lib/icons";
 
 type GoalModule = "diet" | "activity" | "behaviour" | "sleep" | "stress";
@@ -331,9 +332,11 @@ function GoalForm({
 function PastGoalsList({ goals }: { goals: PastLifestyleGoalView[] }) {
   if (goals.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No past goals yet, goals you complete or let go of will show up here.
-      </p>
+      <EmptyState
+        icon={APP_ICON.challenge}
+        title="No past goals yet"
+        description="Goals you complete or let go of will show up here."
+      />
     );
   }
   return (

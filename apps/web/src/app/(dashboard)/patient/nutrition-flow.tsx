@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MEAL_TYPE_ICON } from "@/lib/icons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MEAL_TYPE_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 const MEAL_PHOTO_BUCKET = "meal-photos";
@@ -334,9 +336,22 @@ function MealHistorySection({ patientId }: { patientId: string }) {
         <CardTitle>Recent meals</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+        )}
         {!isLoading && (!entries || entries.length === 0) && (
-          <p className="text-sm text-charcoal-ink/60">No meals logged yet.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.nutrition}
+            title="No meals logged yet"
+            description="Log a meal above to start tracking your carbs and calories."
+          />
         )}
         {grouped.length > 0 && (
           <div className="space-y-5">

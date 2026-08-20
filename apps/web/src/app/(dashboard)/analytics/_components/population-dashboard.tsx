@@ -1,8 +1,8 @@
 "use client";
 
-import { Activity, AlertTriangle, HeartPulse, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
+import { NAV_ICON } from "@/lib/icons";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { usePopulationSummary } from "@/lib/analytics/queries";
 import { formatNumber, formatPercent } from "@/lib/analytics/format";
@@ -25,18 +25,18 @@ export function PopulationDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Users} label="Patients" value={formatNumber(s?.total_patients ?? 0)} />
+        <StatTile icon={NAV_ICON.headcount} label="Patients" value={formatNumber(s?.total_patients ?? 0)} />
         <StatTile
-          icon={HeartPulse}
+          icon={NAV_ICON.population}
           label="High / very-high risk"
           value={formatNumber(highRisk)}
         />
         <StatTile
-          icon={AlertTriangle}
+          icon={NAV_ICON.warning}
           label="Abnormal screening rate"
           value={formatPercent(s?.abnormal_screening_rate ?? 0)}
         />
-        <StatTile icon={Activity} label="Open care gaps" value={formatNumber(careGapTotal)} />
+        <StatTile icon={NAV_ICON.pulse} label="Open care gaps" value={formatNumber(careGapTotal)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

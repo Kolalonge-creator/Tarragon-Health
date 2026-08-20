@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Clock, Stethoscope, Timer, Users } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
+import { NAV_ICON } from "@/lib/icons";
 import { useDoctorPerformance } from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/analytics/format";
 import { CenterNote, SectionCard } from "./primitives";
@@ -34,10 +34,10 @@ export function DoctorsDashboard() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Stethoscope} label="Doctors" value={formatNumber(doctors.length)} />
-        <StatTile icon={Users} label="Patients attached" value={formatNumber(totalPatients)} />
-        <StatTile icon={Clock} label="Cases attended" value={formatNumber(attended)} />
-        <StatTile icon={Timer} label="Responses logged" value={formatNumber(data?.recent_responses.length ?? 0)} />
+        <StatTile icon={NAV_ICON.doctors} label="Doctors" value={formatNumber(doctors.length)} />
+        <StatTile icon={NAV_ICON.headcount} label="Patients attached" value={formatNumber(totalPatients)} />
+        <StatTile icon={NAV_ICON.duration} label="Cases attended" value={formatNumber(attended)} />
+        <StatTile icon={NAV_ICON.responseTimer} label="Responses logged" value={formatNumber(data?.recent_responses.length ?? 0)} />
       </div>
 
       <SectionCard

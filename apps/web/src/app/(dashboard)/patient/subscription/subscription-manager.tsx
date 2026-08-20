@@ -14,6 +14,9 @@ import { CurrencyTabs } from "@/components/currency-tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 function formatPrice(priceMinor: number, currency: Currency, interval: string): string {
   if (priceMinor === 0) return "Free";
@@ -62,15 +65,24 @@ export function SubscriptionManager() {
     }
   }, [changeState, refetchSubscription, refetchAddOns]);
 
-  if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
+        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </div>
+    );
+  }
   if (isError) return <p className="text-sm text-red-600">Could not load your subscription.</p>;
 
   if (!subscription) {
     return (
-      <p className="text-sm text-charcoal-ink/60">
-        No plan on file yet. This shouldn&apos;t happen after onboarding. Contact support if
-        this persists.
-      </p>
+      <EmptyState
+        icon={SEMANTIC_ICON.billing}
+        title="No plan on file yet"
+        description="This shouldn't happen after onboarding. Contact support if this persists."
+        className="py-6"
+      />
     );
   }
 

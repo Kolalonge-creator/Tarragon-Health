@@ -73,6 +73,31 @@ import {
   Gavel,
   GraduationCap,
   KeyRound,
+  ChevronDown,
+  Banknote,
+  TrendingUp,
+  Ticket,
+  AlertCircle,
+  Phone,
+  Hospital,
+  ShieldAlert,
+  Clock,
+  Eye,
+  MousePointerClick,
+  ScrollText,
+  Download,
+  CalendarDays,
+  ListChecks,
+  Send,
+  LogIn,
+  Search,
+  Repeat,
+  UserRoundCheck,
+  UserMinus,
+  UserCheck,
+  Timer,
+  FileCheck2,
+  CalendarCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -119,6 +144,26 @@ export const SEMANTIC_ICON = {
   steps: Footprints,
   workout: Dumbbell,
   learn: GraduationCap,
+  hospital: Hospital,
+  emergencyContact: ShieldAlert,
+  // NDPR consent-coverage tracking (governance dashboard) — a document
+  // concept distinct from `escalation`'s FileText.
+  consent: FileCheck2,
+  // Clinical-staff indemnity insurance coverage (governance dashboard) —
+  // distinct from `preventive`, which shares the ShieldCheck glyph for a
+  // different (patient-facing prevention) meaning.
+  indemnity: ShieldCheck,
+  // Meeting an escalation/response SLA (outcomes + overview dashboards) —
+  // also ShieldCheck, but "adherence to a service commitment" rather than
+  // `preventive`'s or `indemnity`'s meanings.
+  slaCompliance: ShieldCheck,
+  // Identified patient-record lookup carries its own audit-logged privacy
+  // warning (patient-activity dashboard) — distinct from `emergencyContact`,
+  // which shares the ShieldAlert glyph for an unrelated safety-net meaning.
+  sensitiveAccess: ShieldAlert,
+  // A completed/confirmed booking (facilities dashboard) — distinct from
+  // `booking`, which uses the plain Calendar glyph.
+  bookingConfirmed: CalendarCheck,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Meal-type tab icons for the "Log a meal" picker — a page-local visual set,
@@ -168,7 +213,18 @@ export const NAV_ICON = {
   close: X,
   signOut: LogOut,
   chevronRight: ChevronRight,
+  chevronDown: ChevronDown,
   security: KeyRound,
+  cash: Banknote,
+  growth: TrendingUp,
+  voucher: Ticket,
+  receivables: FileText,
+  report: FileText,
+  flagged: AlertCircle,
+  schedule: CalendarClock,
+  percentage: Percent,
+  duration: Clock,
+  phone: Phone,
   // Platform Analytics console category icons — the `analyst` role's sidebar
   // (apps/web/src/lib/analytics/sections.ts is the single source of truth for
   // which category gets which of these).
@@ -187,6 +243,31 @@ export const NAV_ICON = {
   outcomes: Stethoscope,
   governance: Gavel,
   population: HeartPulse,
+  // Analytics dashboard stat-tile icons — generic KPI-shape icons reused
+  // across multiple apps/web/.../analytics/_components/*.tsx dashboards,
+  // where no more specific existing slot fits.
+  headcount: Users,
+  pulse: Activity,
+  auditLog: ScrollText,
+  download: Download,
+  calendarDays: CalendarDays,
+  recentActivity: CalendarClock,
+  send: Send,
+  login: LogIn,
+  search: Search,
+  scoreGauge: Gauge,
+  retention: Repeat,
+  activeUser: UserRoundCheck,
+  inactiveUser: UserMinus,
+  personVerified: UserCheck,
+  responseTimer: Timer,
+  interaction: MousePointerClick,
+  pageviews: Eye,
+  checklist: ListChecks,
+  // Accounting-dashboard concepts distinct from `cash`/`report` above (same
+  // finance domain, but a different underlying glyph than either).
+  deferredRevenue: Scale,
+  commissionReceivable: Receipt,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Combined lookup for places that must reference icons by NAME (a plain

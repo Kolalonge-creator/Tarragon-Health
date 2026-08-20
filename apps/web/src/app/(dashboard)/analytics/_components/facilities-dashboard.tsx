@@ -1,6 +1,6 @@
 "use client";
 
-import { Building, CalendarCheck, CheckCircle2, MapPin } from "lucide-react";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useFacilityEngagement } from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/analytics/format";
@@ -13,10 +13,10 @@ export function FacilitiesDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Building} label="Facilities" value={formatNumber(data?.total_facilities ?? 0)} />
-        <StatTile icon={CheckCircle2} label="Active" value={formatNumber(data?.active_facilities ?? 0)} />
-        <StatTile icon={MapPin} label="With usage" value={formatNumber(data?.facilities_with_usage ?? 0)} />
-        <StatTile icon={CalendarCheck} label="Bookings" value={formatNumber(data?.total_bookings ?? 0)} />
+        <StatTile icon={NAV_ICON.facilities} label="Facilities" value={formatNumber(data?.total_facilities ?? 0)} />
+        <StatTile icon={NAV_ICON.approvals} label="Active" value={formatNumber(data?.active_facilities ?? 0)} />
+        <StatTile icon={NAV_ICON.region} label="With usage" value={formatNumber(data?.facilities_with_usage ?? 0)} />
+        <StatTile icon={SEMANTIC_ICON.bookingConfirmed} label="Bookings" value={formatNumber(data?.total_bookings ?? 0)} />
       </div>
 
       <SectionCard

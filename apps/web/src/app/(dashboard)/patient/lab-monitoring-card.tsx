@@ -3,6 +3,7 @@
 import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function LabMonitoringCard({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = usePatientLabMonitoring(patientId);
@@ -17,7 +18,18 @@ export function LabMonitoringCard({ patientId }: { patientId: string }) {
         <CardTitle>Lab monitoring</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+            </div>
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load lab monitoring.</p>
         )}

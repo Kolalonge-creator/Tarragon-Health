@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, CreditCard, UserCheck, Users } from "lucide-react";
 import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import {
   ChartContainer,
   ChartTooltip,
@@ -35,15 +35,15 @@ export function BusinessDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Building2} label="Organisations" value={formatNumber(s?.total_orgs ?? 0)} />
-        <StatTile icon={Users} label="Patients" value={formatNumber(s?.total_patients ?? 0)} />
+        <StatTile icon={SEMANTIC_ICON.corporate} label="Organisations" value={formatNumber(s?.total_orgs ?? 0)} />
+        <StatTile icon={NAV_ICON.headcount} label="Patients" value={formatNumber(s?.total_patients ?? 0)} />
         <StatTile
-          icon={CreditCard}
+          icon={SEMANTIC_ICON.billing}
           label="Active subscriptions"
           value={formatNumber(s?.active_subscriptions ?? 0)}
         />
         <StatTile
-          icon={UserCheck}
+          icon={NAV_ICON.personVerified}
           label="Onboarded patients"
           value={formatNumber(s?.onboarded_patients ?? 0)}
         />

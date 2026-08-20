@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, FileText, Receipt, Scale } from "lucide-react";
+import { NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useAccountingSummary } from "@/lib/analytics/queries";
 import { formatMinor } from "@/lib/analytics/format";
@@ -25,10 +25,10 @@ export function AccountingDashboard() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={FileText} label="Billed (current periods)" value={formatMinor(rr?.billed_minor ?? 0, "NGN")} />
-        <StatTile icon={Banknote} label="Recognized to date" value={formatMinor(rr?.recognized_minor ?? 0, "NGN")} />
-        <StatTile icon={Scale} label="Deferred revenue" value={formatMinor(rr?.deferred_minor ?? 0, "NGN")} />
-        <StatTile icon={Receipt} label="Commission receivable" value={formatMinor(ar?.commission_receivable_kobo ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.report} label="Billed (current periods)" value={formatMinor(rr?.billed_minor ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.cash} label="Recognized to date" value={formatMinor(rr?.recognized_minor ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.deferredRevenue} label="Deferred revenue" value={formatMinor(rr?.deferred_minor ?? 0, "NGN")} />
+        <StatTile icon={NAV_ICON.commissionReceivable} label="Commission receivable" value={formatMinor(ar?.commission_receivable_kobo ?? 0, "NGN")} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

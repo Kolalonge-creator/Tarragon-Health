@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { TriangleAlert, Phone, Hospital } from "lucide-react";
+import { NAV_ICON, SEMANTIC_ICON } from "@/lib/icons";
 import { useActiveEmergency, activeEmergencyKey } from "@/lib/queries/emergency";
 import { acknowledgeEmergency, alertEmergencyContactNow } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -73,7 +73,7 @@ export function EmergencyAlert({
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
         <div className="rounded-t-2xl bg-red-600 px-6 py-5 text-white">
           <div className="flex items-center gap-3">
-            <TriangleAlert className="h-7 w-7 shrink-0" strokeWidth={2.5} />
+            <NAV_ICON.warning className="h-7 w-7 shrink-0" strokeWidth={2.5} />
             <h2 id="emergency-alert-title" className="font-heading text-xl font-semibold">
               This may be a medical emergency
             </h2>
@@ -94,14 +94,14 @@ export function EmergencyAlert({
                 href={`tel:${n.tel}`}
                 className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
-                <Phone className="h-4 w-4" strokeWidth={2.5} />
+                <NAV_ICON.phone className="h-4 w-4" strokeWidth={2.5} />
                 {n.label}: {n.number}
               </a>
             ))}
           </div>
 
           <div className="flex items-start gap-3 rounded-lg bg-red-50 p-4 text-sm text-red-800">
-            <Hospital className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
+            <SEMANTIC_ICON.hospital className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
             <p>
               Go to the nearest hospital&apos;s emergency department. Don&apos;t wait for a reply from
               your care team; your care team has also been notified and will follow up.
@@ -120,7 +120,7 @@ export function EmergencyAlert({
             {hasEmergencyContact ? (
               contactAlerted || event.contact_notified_at ? (
                 <p className="flex items-center gap-2 text-sm font-medium text-brand-green">
-                  <Phone className="h-4 w-4" strokeWidth={2} />
+                  <NAV_ICON.phone className="h-4 w-4" strokeWidth={2} />
                   Your emergency contact has been alerted.
                 </p>
               ) : (
@@ -130,7 +130,7 @@ export function EmergencyAlert({
                   disabled={pending !== null}
                   className="w-full bg-red-600 hover:bg-red-700"
                 >
-                  <Phone className="mr-2 h-4 w-4" strokeWidth={2} />
+                  <NAV_ICON.phone className="mr-2 h-4 w-4" strokeWidth={2} />
                   {pending === "contact" ? "Alerting…" : "Alert my emergency contact now"}
                 </Button>
               )

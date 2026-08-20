@@ -7,7 +7,10 @@ import { getHba1cBracket } from "@/lib/rules/hba1c-bracket";
 import { bmiCategory, type BmiCategory } from "@/lib/obesity/classify";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 /** Warm, non-clinical framing — same patient-facing wording as the public
  * BMI calculator's CATEGORY_COPY (bmi-calorie-calculator.tsx), never the
@@ -113,7 +116,12 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           </Button>
         </div>
 
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-48 w-full" />
+          </div>
+        )}
         {isError && (
           <p className="text-sm text-red-600">Could not load the trend chart.</p>
         )}
@@ -127,7 +135,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           </p>
         )}
         {!isLoading && !isError && !noHeightOnFile && points.length < 2 && (
-          <p className="text-sm text-charcoal-ink/60">Not enough readings yet.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.bp}
+            title="Not enough readings yet"
+            description="Log a couple more readings to see your trend line."
+          />
         )}
         {points.length >= 2 && mode === "blood_pressure" && (
           <ChartContainer config={BP_CONFIG}>

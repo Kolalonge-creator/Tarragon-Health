@@ -2,7 +2,10 @@
 
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { testCodeLabels } from "@/lib/labs/test-code-labels";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 /**
  * Read-only per the clinician-originated-orders guardrail (see
@@ -29,10 +32,23 @@ export function LabCatalogue() {
         <CardTitle>Lab tests</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-2 py-1">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+        )}
         {isError && <p className="text-sm text-red-600">Could not load the lab catalogue.</p>}
         {bundles && bundles.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No lab tests available yet.</p>
+          <EmptyState
+            icon={SEMANTIC_ICON.labs}
+            title="No lab tests available yet"
+            description="Check back soon, we're adding to the catalogue."
+          />
         )}
         {bundles && bundles.length > 0 && (
           <>

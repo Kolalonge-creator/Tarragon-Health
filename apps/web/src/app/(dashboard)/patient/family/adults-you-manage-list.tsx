@@ -2,6 +2,7 @@
 
 import { useAdultsIManage } from "@/lib/queries/care-access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Adults whose care this caller manages — an accepted eldercare
@@ -25,7 +26,12 @@ export function AdultsYouManageList() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && (
+          <div className="space-y-2 py-1">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-1/3" />
+          </div>
+        )}
         {isError && <p className="text-sm text-red-600">Could not load this.</p>}
         {adults && adults.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
