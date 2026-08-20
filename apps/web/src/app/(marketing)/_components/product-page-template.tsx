@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MarketingHero } from "./marketing-hero";
+import { PhotoBannerHero } from "./marketing-photo-banner-hero";
 import { Section, SectionHeading } from "./section";
 import { CtaBand } from "./cta-band";
 import { EmergencyNotice } from "./emergency-notice";
@@ -30,32 +31,56 @@ export function ProductPageTemplate({
   // on prevention/neutral pages sharing this template, which use "Get started".
   const isChronicCondition = ["hypertension", "diabetes", "obesity"].includes(content.slug);
   const ctaLabel = isChronicCondition ? "Start monitoring" : "Get started";
+  // dohealth-style full-bleed photo hero (see marketing-photo-banner-hero.tsx)
+  // is the site's primary hero now, same as the homepage — but only once a
+  // real photo is sourced for this slug (media.ts's productHero map). A slug
+  // with no imageSrc yet (currently only "prevention") falls back to the
+  // older text-beside-a-card MarketingHero rather than stretching an
+  // illustration across a full-bleed banner it was never designed for.
+  const hasPhoto = Boolean(heroMedia.imageSrc);
 
   return (
     <>
-      <Section className="relative overflow-hidden pt-20">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
-        />
-        <MarketingHero media={heroMedia}>
-          <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">
-            {content.headline}
-          </h1>
-          {content.campaignLine ? (
-            <p className="mt-6 font-heading text-xl text-brand-green">{content.campaignLine}</p>
-          ) : null}
-          <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">{content.intro}</p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
-            <Button asChild size="lg">
-              <Link href="/signup">{ctaLabel}</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href={PRICING_HREF}>View pricing</Link>
-            </Button>
-          </div>
-        </MarketingHero>
-      </Section>
+      {hasPhoto ? (
+        <Section className="pt-6 sm:pt-8">
+          <PhotoBannerHero
+            eyebrow={content.campaignLine}
+            title={content.headline}
+            description={content.intro}
+            primaryHref="/signup"
+            primaryLabel={ctaLabel}
+            secondaryHref={PRICING_HREF}
+            secondaryLabel="View pricing"
+            imageSrc={heroMedia.imageSrc ?? ""}
+            imageAlt={heroMedia.imageAlt ?? ""}
+            imagePosition={heroMedia.imageFocus}
+          />
+        </Section>
+      ) : (
+        <Section className="relative overflow-hidden pt-20">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
+          />
+          <MarketingHero media={heroMedia}>
+            <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">
+              {content.headline}
+            </h1>
+            {content.campaignLine ? (
+              <p className="mt-6 font-heading text-xl text-brand-green">{content.campaignLine}</p>
+            ) : null}
+            <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">{content.intro}</p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
+              <Button asChild size="lg">
+                <Link href="/signup">{ctaLabel}</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href={PRICING_HREF}>View pricing</Link>
+              </Button>
+            </div>
+          </MarketingHero>
+        </Section>
+      )}
 
       <Section>
         <SectionHeading title="What's included" />
