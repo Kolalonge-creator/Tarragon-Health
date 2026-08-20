@@ -85,13 +85,6 @@ function formatDueDate(value: string): string {
   return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
 }
 
-// A bare toLocaleDateString() resolves the server's locale on first render and
-// the browser's on hydration, producing a mismatch (e.g. server "11/10/2026"
-// vs. client "10/11/2026"). Fixed locale + timezone keeps server and client in sync.
-function formatDueDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
-}
-
 export function LifestyleReviewsClient({ reviews }: { reviews: PendingReview[] }) {
   if (reviews.length === 0) {
     return (
