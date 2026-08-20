@@ -8,7 +8,10 @@ import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
+import { NGN_TIERS } from "../_content/pricing";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+
+const essentialCarePrice = NGN_TIERS.find((t) => t.id === "essential")!.priceMain;
 
 export const metadata: Metadata = {
   title: "For you",
@@ -230,7 +233,7 @@ export default function ForYouPage() {
           <p>
             Tarragon Free lets you track your own numbers forever, at no cost; it never expires and
             never converts to a paid plan on its own. When you want a doctor actually reviewing your
-            readings, Essential Care starts at ₦8,000/month for one condition, and Complete Care
+            readings, Essential Care starts at {essentialCarePrice}/month for one condition, and Complete Care
             covers hypertension, diabetes, and weight together with weekly review.
           </p>
           <p>

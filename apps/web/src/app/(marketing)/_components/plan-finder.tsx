@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { NGN_TIERS, USD_TIERS } from "../_content/pricing";
+
+const ngnMonthlyPrice = (id: string) => `${NGN_TIERS.find((t) => t.id === id)!.priceMain}/month`;
+const usdMonthlyPrice = (id: string) =>
+  USD_TIERS.find((t) => t.id === id)!.priceSecondary!.replace(/^or /, "");
 
 type Who = "me" | "someone-else";
 type Health = "none" | "one" | "multiple";
@@ -37,14 +42,14 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
       ? from === "abroad"
         ? {
             plan: "Tarragon Prevent (Diaspora)",
-            price: "$2.56/month",
+            price: usdMonthlyPrice("diaspora-prevent"),
             why: "The stay-healthy plan: a screening and vaccination calendar built around them, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
             secondary:
               "Just want to self-track for now? Tarragon Free is ₦0 forever, and the Annual Health Check comes with any paid plan: we say which tests are worth doing, you use any lab in Nigeria, and a doctor reads the result.",
           }
         : {
             plan: "Tarragon Prevent",
-            price: "₦3,500/month",
+            price: ngnMonthlyPrice("prevent"),
             why: "The stay-healthy plan: a screening and vaccination calendar built around them, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
             secondary:
               "Just want to self-track for now? Tarragon Free is ₦0 forever, and the Annual Health Check comes with any paid plan: we say which tests are worth doing and a doctor reads whatever you upload.",
@@ -53,23 +58,23 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
         ? from === "abroad"
           ? {
               plan: "Essential Care (Diaspora)",
-              price: "$5.86/month",
+              price: usdMonthlyPrice("diaspora-essential"),
               why: "The same Essential Care monitoring, billed in dollars. The dollar price is the naira price converted, not a diaspora premium.",
             }
           : {
               plan: "Essential Care",
-              price: "₦8,000/month",
+              price: ngnMonthlyPrice("essential"),
               why: "Real clinical monitoring for one condition, hypertension, diabetes, or weight management: a doctor reviews the readings every month and follows up on medication.",
             }
         : from === "abroad"
           ? {
               plan: "Complete Care (Diaspora)",
-              price: "$10.99/month",
+              price: usdMonthlyPrice("diaspora-complete"),
               why: "Weekly doctor review, with hypertension, diabetes, and weight all managed together on one care plan, billed in dollars.",
             }
           : {
               plan: "Complete Care",
-              price: "₦15,000/month",
+              price: ngnMonthlyPrice("complete"),
               why: "Weekly doctor review, with hypertension, diabetes, and weight all managed together on one care plan, and priority escalation when something needs attention.",
             };
 
