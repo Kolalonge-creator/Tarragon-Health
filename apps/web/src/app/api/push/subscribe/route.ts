@@ -3,22 +3,31 @@ import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 /**
- * Stores a Web Push subscription for the signed-in user's device. Called by
- * the push-subscribe client component the first time permission is granted
- * (and again silently if the browser ever rotates the subscription).
+ * Stores a push subscription for the signed-in user's device — either a Web
+ * Push subscription (browser) or an Expo push token (apps/mobile, iOS/Android).
+ * Called by the web push-subscribe client component on first permission grant
+ * (and silently on rotation), or by apps/mobile/src/lib/push-notifications.ts
+ * right after login.
  *
  * RLS-scoped (not service-role) — push_subscriptions_insert already
  * requires profile_id = auth.uid(), so this can only ever create a
  * subscription for the caller's own account.
  */
 
-const bodySchema = z.object({
+const webBodySchema = z.object({
   endpoint: z.string().url().max(2048),
   keys: z.object({
     p256dh: z.string().min(1).max(512),
     auth: z.string().min(1).max(512),
   }),
 });
+
+const nativeBodySchema = z.object({
+  platform: z.enum(["ios", "android"]),
+  expo_push_token: z.string().min(1).max(512),
+});
+
+const bodySchema = z.union([webBodySchema, nativeBodySchema]);
 
 export async function POST(request: Request): Promise<NextResponse> {
   const user = await getCurrentUser();
@@ -36,7 +45,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: "invalid subscription" }, { status: 400 });
   }
-  const { endpoint, keys } = parsed.data;
 
   const supabase = await createClient();
 
@@ -49,19 +57,33 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "no organisation on file" }, { status: 200 });
   }
 
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    {
-      organisation_id: profile.organisation_id,
-      profile_id: user.id,
-      endpoint,
-      p256dh_key: keys.p256dh,
-      auth_key: keys.auth,
-      user_agent: request.headers.get("user-agent") ?? null,
-      last_seen_at: new Date().toISOString(),
-      disabled_at: null,
-    },
-    { onConflict: "endpoint" },
-  );
+  const { error } = "expo_push_token" in parsed.data
+    ? await supabase.from("push_subscriptions").upsert(
+        {
+          organisation_id: profile.organisation_id,
+          profile_id: user.id,
+          platform: parsed.data.platform,
+          expo_push_token: parsed.data.expo_push_token,
+          user_agent: request.headers.get("user-agent") ?? null,
+          last_seen_at: new Date().toISOString(),
+          disabled_at: null,
+        },
+        { onConflict: "expo_push_token" },
+      )
+    : await supabase.from("push_subscriptions").upsert(
+        {
+          organisation_id: profile.organisation_id,
+          profile_id: user.id,
+          platform: "web",
+          endpoint: parsed.data.endpoint,
+          p256dh_key: parsed.data.keys.p256dh,
+          auth_key: parsed.data.keys.auth,
+          user_agent: request.headers.get("user-agent") ?? null,
+          last_seen_at: new Date().toISOString(),
+          disabled_at: null,
+        },
+        { onConflict: "endpoint" },
+      );
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 200 });

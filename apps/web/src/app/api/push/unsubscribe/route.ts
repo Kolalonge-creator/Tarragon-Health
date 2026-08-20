@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
-/** Removes a Web Push subscription — called when a user disables browser
- * notification permission or the app detects the subscription. RLS-scoped:
- * push_subscriptions_delete already restricts to profile_id = auth.uid(). */
+/** Removes a push subscription — either a Web Push subscription (browser
+ * disables notification permission) or an Expo push token (apps/mobile
+ * sign-out). RLS-scoped: push_subscriptions_delete already restricts to
+ * profile_id = auth.uid(). */
 
-const bodySchema = z.object({
-  endpoint: z.string().url().max(2048),
-});
+const bodySchema = z.union([
+  z.object({ endpoint: z.string().url().max(2048) }),
+  z.object({ expo_push_token: z.string().min(1).max(512) }),
+]);
 
 export async function POST(request: Request): Promise<NextResponse> {
   const user = await getCurrentUser();
@@ -28,10 +30,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("push_subscriptions")
-    .delete()
-    .eq("endpoint", parsed.data.endpoint);
+  const query = supabase.from("push_subscriptions").delete();
+  const { error } =
+    "expo_push_token" in parsed.data
+      ? await query.eq("expo_push_token", parsed.data.expo_push_token)
+      : await query.eq("endpoint", parsed.data.endpoint);
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 200 });

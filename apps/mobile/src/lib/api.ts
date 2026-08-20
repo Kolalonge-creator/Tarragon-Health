@@ -74,6 +74,28 @@ export async function postHealthSamples(
   return request<PostHealthSamplesResult>("/api/mobile/health-samples", "POST", { samples });
 }
 
+export interface PostPushSubscriptionResult {
+  success: boolean;
+  error?: string;
+}
+
+/** Registers this device's Expo push token, mirroring the web push-subscribe
+ * flow against the same apps/web/src/app/api/push/subscribe/route.ts, which
+ * now accepts either shape. Called from lib/push-notifications.ts. */
+export async function postPushSubscription(
+  payload: { platform: "ios" | "android"; expo_push_token: string }
+): Promise<PostPushSubscriptionResult> {
+  const result = await request<Record<string, never>>("/api/push/subscribe", "POST", payload);
+  return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
+export async function deletePushSubscription(
+  payload: { expo_push_token: string }
+): Promise<PostPushSubscriptionResult> {
+  const result = await request<Record<string, never>>("/api/push/unsubscribe", "POST", payload);
+  return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
 type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 async function request<T>(

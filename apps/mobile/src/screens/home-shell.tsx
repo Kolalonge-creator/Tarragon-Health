@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { SECTIONS, type SectionId } from "@/lib/sections";
+import type { DeepLinkDestination } from "@/lib/push-notifications";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
 import { colors } from "@/ui/theme";
@@ -21,6 +22,11 @@ interface HomeShellProps {
   patientName: string;
   patientNumber: string | null;
   initials: string;
+  /** Set when a push notification was tapped (see App.tsx) — routes to the
+   * matching native section, or opens the raw path as a WebView if no
+   * native section owns it. */
+  deepLink?: DeepLinkDestination | null;
+  onDeepLinkHandled?: () => void;
 }
 
 /**
@@ -29,11 +35,32 @@ interface HomeShellProps {
  * embed the matching web page. Mirrors the Claude Design prototype's drawer
  * + section-router structure.
  */
-export function HomeShell({ userId, organisationId, patientName, patientNumber, initials }: HomeShellProps) {
+export function HomeShell({
+  userId,
+  organisationId,
+  patientName,
+  patientNumber,
+  initials,
+  deepLink,
+  onDeepLinkHandled,
+}: HomeShellProps) {
   const [section, setSection] = useState<SectionId>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [webviewOverride, setWebviewOverride] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!deepLink) return;
+    if (deepLink.kind === "section") {
+      setWebviewOverride(null);
+      setSection(deepLink.section);
+    } else {
+      setWebviewOverride(deepLink.path);
+    }
+    onDeepLinkHandled?.();
+  }, [deepLink, onDeepLinkHandled]);
 
   function handleSelect(id: SectionId) {
+    setWebviewOverride(null);
     setSection(id);
     setDrawerOpen(false);
   }
@@ -50,18 +77,27 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       />
 
       <View style={{ flex: 1 }}>
-        {section === "overview" && (
-          <OverviewScreen patientId={userId} patientName={patientName} onNavigate={handleSelect} />
-        )}
-        {section === "vitals" && <VitalsScreen patientId={userId} />}
-        {section === "medications" && <MedicationsScreen patientId={userId} organisationId={organisationId} />}
-        {section === "labs" && <LabsScreen />}
-        {section === "messages" && <MessagesScreen patientId={userId} />}
-        {section === "passport" && <HealthPassportScreen patientId={userId} organisationId={organisationId} />}
-        {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
-        {section === "settings" && <SettingsScreen />}
-        {(section === "care" || section === "prevention" || section === "family") && (
-          <WebViewScreen path={SECTIONS.find((s) => s.id === section)!.webviewPath!} />
+        {webviewOverride ? (
+          // A push tap resolved to a path with no native section (e.g.
+          // /patient/subscription) — open it directly rather than forcing it
+          // into one of the named sections below.
+          <WebViewScreen path={webviewOverride} />
+        ) : (
+          <>
+            {section === "overview" && (
+              <OverviewScreen patientId={userId} patientName={patientName} onNavigate={handleSelect} />
+            )}
+            {section === "vitals" && <VitalsScreen patientId={userId} />}
+            {section === "medications" && <MedicationsScreen patientId={userId} organisationId={organisationId} />}
+            {section === "labs" && <LabsScreen />}
+            {section === "messages" && <MessagesScreen patientId={userId} />}
+            {section === "passport" && <HealthPassportScreen patientId={userId} organisationId={organisationId} />}
+            {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
+            {section === "settings" && <SettingsScreen />}
+            {(section === "care" || section === "prevention" || section === "family") && (
+              <WebViewScreen path={SECTIONS.find((s) => s.id === section)!.webviewPath!} />
+            )}
+          </>
         )}
       </View>
 

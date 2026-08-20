@@ -8258,6 +8258,7 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          reminder_sent_at: string | null
           started_at: string
           status: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at: string
@@ -8269,6 +8270,7 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          reminder_sent_at?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at: string
@@ -8280,6 +8282,7 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          reminder_sent_at?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["wellness_challenge_status"]
           target_end_at?: string
@@ -10308,38 +10311,44 @@ export type Database = {
       }
       push_subscriptions: {
         Row: {
-          auth_key: string
+          auth_key: string | null
           created_at: string
           disabled_at: string | null
-          endpoint: string
+          endpoint: string | null
+          expo_push_token: string | null
           id: string
           last_seen_at: string
           organisation_id: string
-          p256dh_key: string
+          p256dh_key: string | null
+          platform: string
           profile_id: string
           user_agent: string | null
         }
         Insert: {
-          auth_key: string
+          auth_key?: string | null
           created_at?: string
           disabled_at?: string | null
-          endpoint: string
+          endpoint?: string | null
+          expo_push_token?: string | null
           id?: string
           last_seen_at?: string
           organisation_id: string
-          p256dh_key: string
+          p256dh_key?: string | null
+          platform?: string
           profile_id: string
           user_agent?: string | null
         }
         Update: {
-          auth_key?: string
+          auth_key?: string | null
           created_at?: string
           disabled_at?: string | null
-          endpoint?: string
+          endpoint?: string | null
+          expo_push_token?: string | null
           id?: string
           last_seen_at?: string
           organisation_id?: string
-          p256dh_key?: string
+          p256dh_key?: string | null
+          platform?: string
           profile_id?: string
           user_agent?: string | null
         }

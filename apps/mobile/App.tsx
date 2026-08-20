@@ -5,6 +5,12 @@ import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
+import {
+  registerForPushNotifications,
+  unregisterPushNotifications,
+  attachPushTapListener,
+  type DeepLinkDestination,
+} from "@/lib/push-notifications";
 import { LoginScreen } from "@/screens/login-screen";
 import { HomeShell } from "@/screens/home-shell";
 import { DevicesScreen } from "@/screens/devices-screen";
@@ -25,12 +31,16 @@ export default function App() {
   const [identity, setIdentity] = useState<PatientIdentity | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>("home");
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
+  const [deepLink, setDeepLink] = useState<DeepLinkDestination | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => setSession(newSession));
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      setSession(newSession);
+      if (event === "SIGNED_OUT") void unregisterPushNotifications();
+    });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -42,6 +52,22 @@ export default function App() {
     setIdentity(undefined);
     loadPatientIdentity(session.user.id).then(setIdentity);
   }, [session]);
+
+  // Register for remote push once signed in — a no-op until an EAS project
+  // is linked (app.json's extra.eas.projectId), see push-notifications.ts.
+  useEffect(() => {
+    if (session && identity) void registerForPushNotifications();
+  }, [session, identity]);
+
+  // Tapping a push (foregrounded, backgrounded, or cold-started by the tap
+  // itself) routes into the Home tab at the section/path the notification
+  // was about, via HomeShell's deepLink prop below.
+  useEffect(() => {
+    return attachPushTapListener((destination) => {
+      setTab("home");
+      setDeepLink(destination);
+    });
+  }, []);
 
   if (session === undefined || (session && identity === undefined)) {
     return (
@@ -82,6 +108,8 @@ export default function App() {
             patientName={identity.fullName}
             patientNumber={identity.patientNumber}
             initials={identity.initials}
+            deepLink={deepLink}
+            onDeepLinkHandled={() => setDeepLink(null)}
           />
         </View>
         <View style={{ flex: 1, display: tab === "devices" ? "flex" : "none" }}>{renderDevicesTab()}</View>
