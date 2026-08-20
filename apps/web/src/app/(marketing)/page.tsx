@@ -16,6 +16,7 @@ import { MARKETING_MEDIA } from "./_content/media";
 import { AnimatedNumber } from "./_components/animated-number";
 import { StepsExplorer } from "./_components/steps-explorer";
 import { HOW_IT_WORKS_STEPS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
+import { getChannelHero } from "./_content/channel-heroes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -26,34 +27,45 @@ export const metadata: Metadata = pageMetadata({
   path: "/",
 });
 
-export default function MarketingHomePage() {
+export default async function MarketingHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ channel?: string }>;
+}) {
   const { homepage } = MARKETING_MEDIA;
   const { walkthroughVideo } = homepage;
+  const { channel } = await searchParams;
+  const hero = getChannelHero(channel);
 
   return (
     <>
-      <Section className="pt-6 sm:pt-8">
-        {/* dohealth.co-style full-bleed photo hero: real photography with
-            overlaid text, replacing the old text-beside-a-photo-card
-            MarketingHero layout for this slot (kept for product pages with
-            no real photo sourced yet — see product-page-template.tsx). */}
-        <PhotoBannerHero
-          eyebrow="Continuity, not just monitoring"
-          title="Care that stays with you."
-          description="Health monitoring for chronic disease, prevention, and care coordination, with clinical review and escalation when closer care is needed."
-          primaryHref="/signup"
-          primaryLabel="Get started"
-          secondaryHref={MARKETING_ROUTES.services}
-          secondaryLabel="See how it works"
-          imageSrc={homepage.hero.imageSrc ?? ""}
-          imageAlt={homepage.hero.imageAlt ?? ""}
-          imagePosition={homepage.hero.imageFocus}
-        />
-        <ContinuityPath />
-      </Section>
+      {/* dohealth.co-style full-bleed photo hero: real photography with
+          overlaid text, spanning the full viewport width (rendered outside
+          Section on purpose — see the component's own header comment).
+          Replaces the old text-beside-a-photo-card MarketingHero layout for
+          this slot (kept for product pages with no real photo sourced yet —
+          see product-page-template.tsx).
 
+          Hero copy is channel-gated: `?channel=hmo|employer|diaspora` swaps
+          the headline/CTA for that traffic source (see _content/channel-
+          heroes.ts); everything below the fold is the same page for every
+          visitor. An unknown or missing value falls back to the copy every
+          other visitor sees. */}
+      <PhotoBannerHero
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        description={hero.description}
+        primaryHref={hero.primaryHref}
+        primaryLabel={hero.primaryLabel}
+        secondaryHref={hero.secondaryHref}
+        secondaryLabel={hero.secondaryLabel}
+        imageSrc={homepage.hero.imageSrc ?? ""}
+        imageAlt={homepage.hero.imageAlt ?? ""}
+        imagePosition={homepage.hero.imageFocus}
+      />
       <Section className="py-8 sm:py-10">
-        <div className="grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
+        <ContinuityPath />
+        <div className="mt-10 grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
           {PROOF_STATS.map((stat) => (
             <div
               key={stat.label}
