@@ -5,6 +5,8 @@ import { ConfidentialResultNotice } from "@/components/confidential-result-notic
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
 import { Section, SectionHeading } from "../_components/section";
+import { WhatWeMeasure } from "../_components/what-we-measure";
+import { HowTestingWorks } from "../_components/how-testing-works";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -70,7 +72,7 @@ const WHATS_INCLUDED = [
   },
   {
     title: "Your cancer screening",
-    body: "The one that fits you: cervical screening for women, prostate (PSA) for men over 40, chosen by age and sex, not one-size-fits-all. Included from Advanced Screen up.",
+    body: "The one that fits you: cervical screening for women, prostate (PSA) for men 45+, chosen by age and sex, not one-size-fits-all. Included from Advanced Screen up.",
   },
   {
     title: "Blood pressure & BMI",
@@ -181,6 +183,19 @@ export default function AnnualHealthCheckPage() {
             </div>
           ))}
         </div>
+      </Section>
+
+      <Section>
+        <SectionHeading
+          eyebrow="What we measure"
+          title="Every test, laid out plainly"
+          description="No vague promises. Here's exactly what's checked, organised by what it tells you about your body, which tier includes it, and how often it's actually re-checked, since not everything on this list repeats every single visit."
+        />
+        <WhatWeMeasure />
+      </Section>
+
+      <Section variant="sage">
+        <HowTestingWorks current="annual" />
       </Section>
 
       <Section>

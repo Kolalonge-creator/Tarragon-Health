@@ -37,13 +37,18 @@ export function ProductPageTemplate({
     content.slug === "prevention"
       ? "Good health tomorrow starts with looking after it today. Join TarragonHealth and keep it that way."
       : "Join TarragonHealth and bring continuity to your care.";
+  // dohealth-style full-bleed photo hero (see marketing-photo-banner-hero.tsx)
+  // is the site's primary hero now, same as the homepage — but only once a
+  // real photo is sourced for this slug (media.ts's productHero map). A slug
+  // with no imageSrc yet (currently only "prevention") falls back to the
+  // older text-beside-a-card MarketingHero rather than stretching an
+  // illustration across a full-bleed banner it was never designed for.
+  const hasPhoto = Boolean(heroMedia.imageSrc);
 
   return (
     <>
-      <Section className="pt-6 sm:pt-8">
-        {heroMedia.imageSrc ? (
-          // Real photo sourced for this condition: the full-bleed photo-banner
-          // hero (see marketing-photo-banner-hero.tsx and the homepage).
+      {hasPhoto ? (
+        <Section className="pt-6 sm:pt-8">
           <PhotoBannerHero
             eyebrow={content.campaignLine}
             title={content.headline}
@@ -52,13 +57,17 @@ export function ProductPageTemplate({
             primaryLabel={ctaLabel}
             secondaryHref={PRICING_HREF}
             secondaryLabel="View pricing"
-            imageSrc={heroMedia.imageSrc}
+            imageSrc={heroMedia.imageSrc ?? ""}
             imageAlt={heroMedia.imageAlt ?? ""}
             imagePosition={heroMedia.imageFocus}
           />
-        ) : (
-          // No real photo sourced yet for this slot (currently only
-          // "prevention"): fall back to the text-beside-illustration layout.
+        </Section>
+      ) : (
+        <Section className="relative overflow-hidden pt-20">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
+          />
           <MarketingHero media={heroMedia}>
             <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">
               {content.headline}
@@ -76,8 +85,8 @@ export function ProductPageTemplate({
               </Button>
             </div>
           </MarketingHero>
-        )}
-      </Section>
+        </Section>
+      )}
 
       <Section>
         <SectionHeading title="What's included" />

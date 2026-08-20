@@ -4,6 +4,7 @@ import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
 import { ScreeningJourney } from "../_components/screening-journey";
+import { HowTestingWorks } from "../_components/how-testing-works";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -51,6 +52,10 @@ export default function ScreeningJourneyPage() {
             what the day looks like, and how you get your results.
           </p>
         </div>
+      </Section>
+
+      <Section variant="sage">
+        <HowTestingWorks current="periodic" />
       </Section>
 
       <Section>
