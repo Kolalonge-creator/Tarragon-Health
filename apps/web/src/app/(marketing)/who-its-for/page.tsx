@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { AudienceTabs } from "../_components/audience-tabs";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
-import { Section, SectionHeading } from "../_components/section";
+import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
+import { Section } from "../_components/section";
 import { AUDIENCE_TABS } from "../_content/services";
+import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -17,13 +19,22 @@ export const metadata: Metadata = pageMetadata({
 export default function WhoItsForPage() {
   return (
     <>
-      <Section className="pt-20">
-        <SectionHeading
-          as="h1"
-          eyebrow="Who it's for"
-          title="Whoever you're looking after, Tarragon speaks your language."
-          description="The same connected record works whether you're managing your own health, keeping watch over a parent, or overseeing a whole workforce or membership."
-        />
+      {/* Rendered outside Section on purpose — full-bleed spans the full
+          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
+      <PhotoBannerHero
+        eyebrow="Who it's for"
+        title="Whoever you're looking after, Tarragon speaks your language."
+        description="The same connected record works whether you're managing your own health, keeping watch over a parent, or overseeing a whole workforce or membership."
+        primaryHref="/signup"
+        primaryLabel="Get started"
+        secondaryHref={MARKETING_ROUTES.pricing}
+        secondaryLabel="View pricing"
+        imageSrc={MARKETING_MEDIA.pageHero.whoItsFor.imageSrc ?? ""}
+        imageAlt={MARKETING_MEDIA.pageHero.whoItsFor.imageAlt ?? ""}
+        imagePosition={MARKETING_MEDIA.pageHero.whoItsFor.imageFocus}
+      />
+
+      <Section className="pt-14">
         <AudienceTabs tabs={AUDIENCE_TABS} />
       </Section>
 

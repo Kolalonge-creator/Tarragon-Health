@@ -10,6 +10,8 @@ import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
+import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
+import { BiomarkerCategoriesCard } from "@/app/(dashboard)/patient/biomarker-categories-card";
 import { RiskSignalsCard } from "@/app/(dashboard)/patient/risk-signals-card";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
@@ -186,7 +188,16 @@ export default async function PatientOverviewPage() {
           reason: a two-column row whose other half returns null leaves a hole
           in the page. */}
       <HealthResetCard patientId={subjectId} />
+      {/* Renders nothing without an active lifestyle-programme enrolment
+          (lib/lpe/weekly-plan.ts) — additive, not a forced habit tracker for
+          every patient, same self-hiding convention as the cards above. */}
+      <WeeklyPlanCard patientId={subjectId} />
       <RiskSignalsCard patientId={subjectId} />
+      {/* Renders nothing until at least one clinician-reviewed lab result is
+          on file — never a fabricated good/needs-attention judgement from
+          an ML-only or orientation-only signal (lib/lab-reports/
+          biomarker-categories.ts). */}
+      <BiomarkerCategoriesCard patientId={subjectId} />
       {/* The thing a one-off lab visit structurally cannot tell someone: what
           has moved across several results. Renders nothing until there is
           genuinely enough history for a pattern. */}

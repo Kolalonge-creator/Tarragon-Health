@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MarketingHero } from "./marketing-hero";
+import { PhotoBannerHero } from "./marketing-photo-banner-hero";
 import { Section, SectionHeading } from "./section";
 import { CtaBand } from "./cta-band";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -19,30 +20,48 @@ const PILL_TONE = {
 
 export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
   const contactHref = `${MARKETING_ROUTES.contact}?source=${content.slug}`;
+  const hasPhoto = Boolean(content.hero.imageSrc);
 
   return (
     <>
-      <Section className="relative overflow-hidden pt-20">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
+      {hasPhoto ? (
+        // Rendered outside Section on purpose — full-bleed spans the full
+        // viewport width; see marketing-photo-banner-hero.tsx's header comment.
+        <PhotoBannerHero
+          eyebrow={content.campaignLine}
+          title={content.headline}
+          description={content.intro}
+          primaryHref={contactHref}
+          primaryLabel={content.ctaLabel}
+          secondaryHref={MARKETING_ROUTES.pricing}
+          secondaryLabel="View pricing"
+          imageSrc={content.hero.imageSrc ?? ""}
+          imageAlt={content.hero.imageAlt ?? ""}
+          imagePosition={content.hero.imageFocus}
         />
-        <MarketingHero media={content.hero}>
-          <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">
-            {content.headline}
-          </h1>
-          <p className="mt-6 font-heading text-xl text-brand-green">{content.campaignLine}</p>
-          <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">{content.intro}</p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
-            <Button asChild size="lg">
-              <Link href={contactHref}>{content.ctaLabel}</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href={MARKETING_ROUTES.pricing}>View pricing</Link>
-            </Button>
-          </div>
-        </MarketingHero>
-      </Section>
+      ) : (
+        <Section className="relative overflow-hidden pt-20">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
+          />
+          <MarketingHero media={content.hero}>
+            <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">
+              {content.headline}
+            </h1>
+            <p className="mt-6 font-heading text-xl text-brand-green">{content.campaignLine}</p>
+            <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">{content.intro}</p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
+              <Button asChild size="lg">
+                <Link href={contactHref}>{content.ctaLabel}</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <Link href={MARKETING_ROUTES.pricing}>View pricing</Link>
+              </Button>
+            </div>
+          </MarketingHero>
+        </Section>
+      )}
 
       {content.pullQuote ? (
         <Section variant="navy">

@@ -311,10 +311,22 @@ export const HOMEPAGE_FAQS = [
       "You don't need to be. Adding Tarragon to your home screen takes one tap and no app-store account, logging a reading takes seconds, and WhatsApp or SMS will still remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
   },
   {
+    category: "general",
+    question: "I don't have time for another health app.",
+    answer:
+      "You won't need much. Logging a blood pressure reading, a glucose check, or your weight takes under a minute in the app. WhatsApp or SMS tells you when something's due, and your care team does the reviewing in the background, not you. There's no daily routine to keep up, just a few seconds whenever a reading's due.",
+  },
+  {
     category: "clinical",
     question: "What happens when readings are high?",
     answer:
       "Your readings are reviewed against care protocols. If they need attention, your care team follows up and escalates to a doctor when closer care is needed.",
+  },
+  {
+    category: "clinical",
+    question: "What's the difference between my Health Score and my Annual Health Check?",
+    answer:
+      "Your Health Score is a quick, non-diagnostic read on a handful of things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether you're keeping up with screenings and vaccinations. It updates whenever you log something new, so you can see the effect of what you're actually doing day to day. Your Annual Health Check (or Comprehensive Screen) is the wider, once-a-year safety net: a fuller panel covering areas your Health Score isn't built to see, so nothing important gets missed just because it wasn't one of the things being tracked daily. Anything it flags reaches a doctor the same day.",
   },
   {
     category: "clinical",
