@@ -27,7 +27,7 @@ export const TEST_CODE_LABELS: Readonly<Record<string, string>> = {
   blood_group: "Blood group and rhesus",
   breast_imaging: "Breast scan",
   cervical_smear: "Cervical smear",
-  ecg_resting: "Heart tracing (ECG)",
+  ecg_resting: "Heart tracing (12-lead ECG)",
   fbc: "Full blood count",
   fit: "Bowel screening test (FIT)",
   hba1c: "Average blood sugar (HbA1c)",

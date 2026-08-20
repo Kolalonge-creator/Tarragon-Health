@@ -52,7 +52,11 @@ export function useLabProviders() {
 }
 
 export type LabOrderWithDetails = Tables<"lab_orders"> & {
-  panel_bundle: { name: string } | null;
+  // test_codes drives, e.g., whether this order needs the ECG-specific
+  // uploader alongside (not instead of — a bundle can mix ecg_resting with
+  // blood tests) the generic PatientResultUpload, since an ECG is a separate
+  // physical document from a lab panel's combined PDF.
+  panel_bundle: { name: string; test_codes: string[] } | null;
   provider: { name: string; regions: string[] } | null;
   home_visit_provider: { name: string } | null;
   facility: { name: string } | null;
@@ -69,7 +73,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
  * patient-facing availability hint.
  */
 const LAB_ORDER_SELECT =
-  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name)";
+  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name)";
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
 export function usePatientLabOrders(patientId: string) {
