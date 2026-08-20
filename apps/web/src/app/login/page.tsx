@@ -10,7 +10,7 @@ export default async function LoginPage({
   const { redirect } = await searchParams;
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-warm-ivory px-4 py-12 sm:py-16">
+    <div className="flex flex-1 items-center justify-center bg-white px-4 py-12 sm:py-16">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center">
           <GuardLeafMark className="h-11 w-11" />

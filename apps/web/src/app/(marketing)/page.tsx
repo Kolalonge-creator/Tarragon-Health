@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
-import { MarketingHero } from "./_components/marketing-hero";
+import { PhotoBannerHero } from "./_components/marketing-photo-banner-hero";
 import { MarketingMediaFrame } from "./_components/marketing-media-frame";
 import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
@@ -32,44 +32,23 @@ export default function MarketingHomePage() {
 
   return (
     <>
-      <Section className="relative overflow-hidden pt-16 sm:pt-24">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
+      <Section className="pt-6 sm:pt-8">
+        {/* dohealth.co-style full-bleed photo hero: real photography with
+            overlaid text, replacing the old text-beside-a-photo-card
+            MarketingHero layout for this slot (kept for product pages with
+            no real photo sourced yet — see product-page-template.tsx). */}
+        <PhotoBannerHero
+          eyebrow="Continuity, not just monitoring"
+          title="Care that stays with you."
+          description="Health monitoring for chronic disease, prevention, and care coordination, with clinical review and escalation when closer care is needed."
+          primaryHref="/signup"
+          primaryLabel="Get started"
+          secondaryHref={MARKETING_ROUTES.services}
+          secondaryLabel="See how it works"
+          imageSrc={homepage.hero.imageSrc ?? ""}
+          imageAlt={homepage.hero.imageAlt ?? ""}
+          imagePosition={homepage.hero.imageFocus}
         />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-16 top-10 -z-10 h-[320px] w-[320px] rounded-full bg-sprout-gold/15 blur-3xl"
-        />
-        {/* No custom visual override: the default MarketingMediaFrame renders
-            homepage.hero (ambient video once videoSrc is set, otherwise the
-            calm illustration), the same framed-card treatment used for every
-            other image on the site. */}
-        <MarketingHero media={homepage.hero}>
-          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Continuity, not just monitoring
-          </p>
-          <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl lg:text-6xl">
-            Care that stays with you.
-          </h1>
-          <p className="mt-4 font-heading text-xl text-charcoal-ink/80 sm:text-2xl">
-            Health monitoring for chronic disease, prevention, and care coordination.
-          </p>
-          <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Track blood pressure, blood sugar, weight, medication, lab checks, and preventive
-            health needs in one secure platform, with clinical review and escalation when closer
-            care is needed. And if you&apos;re healthy? Screenings, vaccinations, and yearly checks
-            that keep you that way.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
-            <Button asChild size="lg">
-              <Link href="/signup">Get started</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href={MARKETING_ROUTES.services}>See how it works</Link>
-            </Button>
-          </div>
-        </MarketingHero>
         <ContinuityPath />
       </Section>
 
@@ -262,7 +241,7 @@ export default function MarketingHomePage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Add TarragonHealth to your phone&apos;s home screen and check in wherever you are.
               No app store, no separate download, the same secure record you already use on the
-              web.
+              web, with your care team in your pocket whenever you need them.
             </p>
             <ul className="mt-6 grid gap-3 sm:grid-cols-2">
               {[

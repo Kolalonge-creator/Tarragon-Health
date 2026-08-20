@@ -84,7 +84,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Weight tracked, reviewed, and followed up, not left to willpower alone.",
     campaignLine: "Weight is a health condition, managed with real support.",
     intro:
-      "Tarragon's weight management programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
+      "Tarragon's weight management programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed. The plan that works is the one you can actually keep doing, built around your routine rather than an ideal you're supposed to live up to.",
     included: [
       "Weight and waist tracking on one record",
       "A personalised lifestyle and activity plan",
