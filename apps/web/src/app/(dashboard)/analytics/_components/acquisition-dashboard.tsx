@@ -142,6 +142,20 @@ export function AcquisitionDashboard() {
           />
         </SectionCard>
         <SectionCard
+          title="Top pages"
+          description="Top 20 by pageviews. Dynamic detail pages (e.g. a patient record) are grouped as one row."
+          actions={<ExportButton filename="top-pages" rows={s?.by_page ?? []} />}
+        >
+          <MiniBarList
+            items={(s?.by_page ?? []).map((p) => ({
+              label: p.page,
+              value: p.pageviews,
+              display: `${formatNumber(p.pageviews)} · ${formatNumber(p.visitors)} visitors`,
+            }))}
+            emptyLabel="No pageviews yet."
+          />
+        </SectionCard>
+        <SectionCard
           title="Acquisition funnel"
           description="Visitor → lead → signup → onboarded → paid (indicative)."
           actions={<ExportButton filename="acquisition-funnel" rows={funnelRows} />}
