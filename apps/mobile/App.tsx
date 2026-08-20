@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
+import { registerBackgroundHealthSync } from "@/lib/background-sync";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
 import { LoginScreen } from "@/screens/login-screen";
 import { HomeShell } from "@/screens/home-shell";
@@ -42,6 +43,12 @@ export default function App() {
     setIdentity(undefined);
     loadPatientIdentity(session.user.id).then(setIdentity);
   }, [session]);
+
+  useEffect(() => {
+    if (session && identity) {
+      registerBackgroundHealthSync();
+    }
+  }, [session, identity]);
 
   if (session === undefined || (session && identity === undefined)) {
     return (

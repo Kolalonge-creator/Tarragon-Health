@@ -15,15 +15,18 @@ interface CapturedPhoto {
 /**
  * Native camera-capture lab result upload, the one native win §2.5 of
  * MOBILE_APP_SPEC.md calls out over a web file picker — everything else
- * (catalogue, self-book, facility selector, orders, results/trends) stays
- * WebView, low weekly-touch frequency, already built once on web.
+ * (orders, results, trends) stays WebView, low weekly-touch frequency,
+ * already built once on web. Self-book and facility selection are not part
+ * of that WebView — both were suspended platform-wide by the 2026-08-03
+ * self-arranged-fulfilment decision (no partner labs, no facility
+ * directory) — so this screen must not promise either.
  */
 export function LabsScreen() {
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [catalogueOpen, setCatalogueOpen] = useState(false);
+  const [labDetailOpen, setLabDetailOpen] = useState(false);
 
   async function takePhoto() {
     setError(null);
@@ -107,15 +110,15 @@ export function LabsScreen() {
       </Card>
 
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Catalogue, orders &amp; trends</Text>
-        <MutedText>Browse tests, pick a facility, and see past results and trends in the full patient app.</MutedText>
-        <SecondaryButton title="Open lab catalogue" onPress={() => setCatalogueOpen(true)} />
+        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Orders &amp; results</Text>
+        <MutedText>See your past results, active requests, and trends in the full patient app.</MutedText>
+        <SecondaryButton title="View orders & results" onPress={() => setLabDetailOpen(true)} />
       </Card>
 
-      <Modal visible={catalogueOpen} animationType="slide" onRequestClose={() => setCatalogueOpen(false)}>
+      <Modal visible={labDetailOpen} animationType="slide" onRequestClose={() => setLabDetailOpen(false)}>
         <View style={{ flex: 1 }}>
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setCatalogueOpen(false)} />
+            <SecondaryButton title="Close" onPress={() => setLabDetailOpen(false)} />
           </View>
           <WebViewScreen path="/patient/labs" />
         </View>
