@@ -143,6 +143,38 @@ update public.lab_tests lt
   from public.lab_providers p
  where p.id = lt.provider_id and p.name = 'Synlab Nigeria';
 
+-- Synlab's price list is now EXACTLY the contracted list, and nothing else.
+--
+-- This migration's own margin assertion caught why that matters: the seed had
+-- left Synlab a resting-ECG row at 6,000 that is not in the signed price list,
+-- and the earlier pricing migration had derived the PATIENT price for
+-- ecg_resting from it — giving a test Tarragon would have sold at exactly what
+-- it cost, zero margin, without anything flagging it. A stale row is worse
+-- than a missing one: private.compute_partner_cost would happily quote a cost
+-- the laboratory never agreed to, and the first anyone would know is an
+-- invoice that does not match.
+delete from public.lab_tests lt
+ using public.lab_providers p
+ where p.id = lt.provider_id
+   and p.name = 'Synlab Nigeria'
+   and lt.code not in (
+     'blood_group', 'sickle_cell_genotype', 'hep_b', 'hep_c', 'lft', 'kft', 'hba1c',
+     'lipid_panel', 'urinalysis', 'fbc', 'hiv', 'fit', 'tft', 'psa', 'cervical_smear',
+     'vitamin_b12', 'ferritin', 'syphilis', 'urine_acr', 'ogtt_fpg');
+
+-- And any patient price whose only basis was a placeholder provider's row goes
+-- back to unpriced rather than pretending to be a contracted number. Unpriced
+-- is a state the engine already handles safely — it refuses to bill a review
+-- containing the test and says which one — whereas a number with nothing
+-- behind it is exactly the failure this whole layer exists to prevent.
+update public.screen_types st
+   set price_kobo = null, price_source = null
+ where st.price_source = 'lab_price_list'
+   and not exists (
+     select 1 from public.lab_tests lt
+     join public.lab_providers p on p.id = lt.provider_id
+     where lt.code = st.code and p.name = 'Synlab Nigeria');
+
 -- ---------------------------------------------------------------------------
 -- 4. What the patient pays.
 -- ---------------------------------------------------------------------------
