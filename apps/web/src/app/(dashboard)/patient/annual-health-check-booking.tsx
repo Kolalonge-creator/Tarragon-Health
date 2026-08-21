@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { ReviewPrice } from "./review-price";
 import { cn } from "@/lib/utils";
 
 /** An order still waiting on the patient going to a lab and uploading. */
@@ -39,9 +40,14 @@ const REBOOK_AFTER_MONTHS = 11;
  * tests are needed and why, the patient takes it to whichever lab they like and
  * pays that lab directly, then uploads the result here for a doctor to read.
  *
- * Tarragon takes nothing on the test itself — there is no partner to route the
- * sample to and no charge to collect, which private.enforce_lab_order_origin
- * enforces on the row rather than leaving to this component.
+ * Tarragon takes nothing on the test itself wherever partner fulfilment is not
+ * live, which is everywhere today — there is no partner to route the sample to
+ * and no charge to collect, and private.enforce_lab_order_origin enforces that
+ * on the row rather than leaving it to this component. Where a laboratory IS
+ * contracted and switched on for the patient's state, the founder's 2026-08-21
+ * decision applies instead: Tarragon bills one price for the review, computed
+ * for that patient. Neither claim is hardcoded here — ReviewPrice reads the
+ * same region gate the database does and says whichever is true.
  *
  * `screensEnabled` gates the curated ladder as a subscription feature. What is
  * NEVER gated, on any plan: uploading a result, a doctor reading it, and the
@@ -51,12 +57,19 @@ export function AnnualHealthCheckBooking({
   patientId,
   organisationId,
   sex,
+  state,
   screensEnabled = true,
 }: {
   patientId: string;
   organisationId: string | null;
   /** Hides sex-specific single screenings (e.g. cervical smear for men). */
   sex?: string | null;
+  /**
+   * Nigerian state, used only to ask whether Tarragon is billing for tests
+   * here yet (region_service_available(state, 'lab')). ReviewPrice decides
+   * what to say about money from that; this component never asserts it.
+   */
+  state?: string | null;
   screensEnabled?: boolean;
 }) {
   const { data: bundles } = useLabCatalogue();
@@ -145,10 +158,19 @@ export function AnnualHealthCheckBooking({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
-          We tell you which tests are worth doing and why, and write you a request to take to any
-          lab you like. You pay the lab directly, we take nothing on it, and a doctor reads every
-          result with you, including the all-clear ones.
+          We tell you which tests are worth doing and why, and a doctor reads every result with
+          you, including the all-clear ones.
         </p>
+
+        {/* Who pays whom, and how much, is not stated here as a fixed fact —
+            it is whatever is actually true for this patient in this state.
+            See the note at the top of ReviewPrice. */}
+        <ReviewPrice
+          patientId={patientId}
+          bundleCode={selected?.code ?? null}
+          patientState={state}
+          className="space-y-1 text-sm text-charcoal-ink/70"
+        />
 
         {rebookDue && lastResulted && (
           <p className="rounded-md bg-soft-sage p-3 text-sm text-charcoal-ink">

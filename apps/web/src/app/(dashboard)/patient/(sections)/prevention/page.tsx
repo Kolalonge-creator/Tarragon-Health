@@ -72,6 +72,7 @@ export default async function PreventionHubPage() {
             patientId={subjectId}
             organisationId={profile.organisation_id}
             sex={profile.sex}
+            state={profile.state}
             screensEnabled={screeningBookingEnabled}
           />
           <ResultsTrendsCard patientId={subjectId} />
