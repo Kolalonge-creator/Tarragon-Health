@@ -29,6 +29,7 @@
     "expo-notifications": "~0.32.17",
     "expo-secure-store": "~15.0.8",
     "expo-task-manager": "~14.0.9",
+    "expo-updates": "~29.0.20",
     "expo-web-browser": "~15.0.11",
     "react": "19.1.0",
     "react-native": "0.81.5",
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@expo/config-plugins": "~54.0.5",
     "@types/node": "^20.19.43",
     "@types/react": "19.1.17",
     "babel-preset-expo": "~54.0.12",

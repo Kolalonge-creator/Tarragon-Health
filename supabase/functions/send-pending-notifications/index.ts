@@ -340,6 +340,34 @@ const TEMPLATE_MAP: Record<
       pushUrl: path,
     };
   },
+  // Sent to a patient on an active diabetes care plan when a retinal or
+  // renal (kidney) complication check is overdue, or has never been done
+  // (see private.queue_diabetes_complication_reminders). Reminder only —
+  // the check itself is recorded by a clinician in-app, never over
+  // WhatsApp/SMS.
+  diabetes_complication_check_due: (payload) => {
+    const checkType = String(payload.check_type ?? "");
+    const label = checkType === "retinal" ? "eye screening" : checkType === "renal" ? "kidney check" : "a complication check";
+    const dueDate = String(payload.due_date ?? "soon");
+    const path = "/patient/vitals";
+    return {
+      metaTemplateName: "diabetes_complication_check_due",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: label },
+            { type: "text", text: dueDate },
+          ],
+        },
+      ],
+      smsText:
+        `Hi, your diabetes ${label} is due ${dueDate}. Your care team can do this at your next visit — ` +
+        `open the app for details. — Tarragon Health`,
+      pushUrl: path,
+    };
+  },
   // Sent on a genuine risk-level transition surfaced by a patient_risk_scores
   // computation — currently BP-control (see assessBpControlBestEffort) and
   // the CV-risk worsening-lipid-trend escalation (see flagCvRiskEscalations).

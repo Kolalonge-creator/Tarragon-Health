@@ -171,10 +171,21 @@ export const PRICING_LABELS: Record<
     description: "Part of your plan at no extra charge",
     className: "bg-brand-green/10 text-deep-forest",
   },
+  // Founder decision 2026-08-21: Tarragon WILL bill for a review once a
+  // laboratory is actually contracted, at one price computed for that
+  // patient. Nothing is contracted yet, so every line on this page is still
+  // paid straight to the provider and this label still describes reality.
+  //
+  // What changed here is only the scope of the claim. It used to read as a
+  // standing promise about Tarragon as a company ("we take no commission");
+  // it now says what is true of the items carrying THIS label, which stays
+  // true after a billed-by-us label exists alongside it. Do not restore the
+  // company-wide wording — the first partner-billed review would make it a
+  // lie on a public page.
   "YOU PAY THE LAB": {
     title: "You pay the lab",
     description:
-      "Tarragon works out what's needed and writes the request; you take it to whichever laboratory, pharmacy, or provider you choose and pay them directly. We take no commission on it.",
+      "Tarragon works out what's needed and writes the request; you take it to whichever laboratory, pharmacy, or provider you choose and pay them directly. Tarragon takes no cut of what they charge you for it.",
     className: "bg-clinical-navy/10 text-clinical-navy",
   },
   "FREE ELSEWHERE": {
@@ -192,7 +203,7 @@ export const PRICING_LABELS: Record<
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "We will never charge you for anything without showing you the exact price first and getting your confirmation. No surprise charges. Ever.",
-  "We will always tell you clearly whether something is already included in your plan, something you'll pay the laboratory or pharmacy for directly (we set no price on it and take no cut), or something that's actually free elsewhere and we're just reminding you about it.",
+  "We will always tell you clearly how each thing is paid for and to whom: whether it is already included in your plan, something you pay the laboratory or pharmacy for directly, or something that is actually free elsewhere and we are just reminding you about it. You will never have to guess where your money is going.",
   "You will always know exactly what you are paying for: every plan and every add-on is fully listed below, with nothing left out.",
   "Paying in dollars from abroad includes a disclosed 10% international card-processing fee on top of the converted naira price: a real, cost-based charge shown as its own line next to the price, never folded silently into a bigger number.",
   "You can cancel a monthly plan at any time. Annual plans are paid upfront for the year, but you can turn off auto-renewal whenever you like: no penalty, no argument, no hard sell.",

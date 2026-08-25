@@ -9,6 +9,7 @@ import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-connect-section";
+import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
 
 export default async function PatientVitalsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -36,6 +37,9 @@ export default async function PatientVitalsPage() {
       </div>
 
       <VitalsHistory patientId={subjectId} />
+      {/* Renders nothing unless the patient has an active diabetes care
+          plan — see diabetes-daily-log.tsx for the gate. */}
+      <DiabetesDailyLog patientId={subjectId} />
       <WearableConnectSection patientId={subjectId} />
     </DashboardSection>
   );
