@@ -1,4 +1,4 @@
--- Per-patient computed review pricing (20260821174300).
+-- Per-patient computed review pricing (20260821190935).
 --
 -- Proves the three things the founder actually decided on 2026-08-21:
 --   * a review is priced from the tests THAT patient is getting, so a woman

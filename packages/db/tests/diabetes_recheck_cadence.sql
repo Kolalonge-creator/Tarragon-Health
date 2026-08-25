@@ -1,4 +1,4 @@
--- Diabetes blood-sugar recheck cadence (20260821175716).
+-- Diabetes blood-sugar recheck cadence (20260821191107).
 --
 -- The founder's decision, as clinical director, on 2026-08-21: HbA1c twice a
 -- year when stable and up to four times a year when not — INCLUDING the

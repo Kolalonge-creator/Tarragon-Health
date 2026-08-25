@@ -20,7 +20,7 @@
 -- discounted by 15% is 193,375 against a Synlab cost of 189,800, leaving
 -- Tarragon 3,575 naira, about 1.6% — thin enough that the founder removed the
 -- discount outright on 2026-08-25 (private.apply_screening_subscriber_discount
--- is now a no-op; see 20260825174115_remove_screening_subscriber_discount.sql).
+-- is now a no-op; see 20260825174142_remove_screening_subscriber_discount.sql).
 -- The subscription is still on this fixture so m2 below doubles as the
 -- regression check: a subscriber's margin must equal a non-subscriber's.
 
