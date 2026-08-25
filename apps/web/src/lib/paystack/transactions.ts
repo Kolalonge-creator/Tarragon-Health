@@ -57,6 +57,14 @@ interface InitializeTransactionData {
  * `callbackUrl` when done. Passing `plan` makes this the *first* charge of a
  * Paystack-native recurring subscription — Paystack authorizes the card and
  * drives all future renewals itself via webhooks, no cron needed here.
+ *
+ * `channels` is deliberately hard-coded to `["card"]`, not a caller-supplied
+ * param: Paystack only returns a reusable authorization for a card charge, so
+ * a non-card channel here would let this *first* payment succeed while every
+ * later auto-renewal attempt silently has nothing to charge — see
+ * apps/web/src/lib/paystack/channels.ts, which is why the Card/Bank
+ * Transfer/USSD picker only ever appears on one-off checkout
+ * (initializeOneOffTransaction), never on this recurring-plan path.
  */
 export async function initializeTransaction(args: {
   email: string;
@@ -75,6 +83,7 @@ export async function initializeTransaction(args: {
       plan: args.paystackPlanCode,
       callback_url: args.callbackUrl,
       metadata: args.metadata,
+      channels: ["card"],
     },
   });
   if (!result.ok) return result;
