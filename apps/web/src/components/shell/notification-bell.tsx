@@ -48,6 +48,13 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: supporter ? "/patient/supporting" : "/patient/messages",
     };
   }
+  if (n.template === "new_patient_message_clinician_alert") {
+    // From private.after_care_message_insert() when a patient/sponsor
+    // (never the care team itself) posts — the clinician-side counterpart
+    // to the patient-facing new_care_message case above.
+    const name = String(payload.patient_name ?? "A patient");
+    return { text: `New message from ${name}`, href: "/clinician/messages" };
+  }
   if (n.template === "health_reset_complete") {
     return {
       text: "Your 90-Day Health Reset is complete: claim your free trial",

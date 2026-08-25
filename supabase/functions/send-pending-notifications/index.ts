@@ -383,6 +383,25 @@ const TEMPLATE_MAP: Record<
         "reply. Tarragon Health",
     };
   },
+  // Sent to org clinicians/care coordinators when a patient or sponsor posts
+  // in a care-message thread (private.after_care_message_insert,
+  // 20260825_clinician_alert_on_patient_care_message.sql). Notification
+  // only, same rule as new_care_message above — the message itself is read
+  // in the app, never over WhatsApp/SMS. Routine priority: a message is not
+  // a clinical emergency, so this never enters the critical escalation
+  // ladder.
+  new_patient_message_clinician_alert: (payload) => {
+    const patientName = String(payload.patient_name ?? "A patient");
+    return {
+      metaTemplateName: "new_patient_message_clinician_alert",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: patientName }] }],
+      smsText:
+        `${patientName} sent a new message. Open your Tarragon Health worklist to read and reply. ` +
+        `Tarragon Health`,
+      pushUrl: "/clinician/messages",
+    };
+  },
   // Sent to the patient as a scheduled periodic health review comes due (see
   // private.queue_preventive_review_reminders). Reminder only — the review is
   // completed by a doctor in the clinician worklist, never over WhatsApp.

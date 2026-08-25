@@ -51,7 +51,10 @@ export function useCareThreads(patientId: string) {
   });
 }
 
-/** All threads visible to the caller's org (staff worklist), newest activity first. */
+/** All threads visible to the caller's org (staff worklist), newest activity first.
+ * Polled — a clinician's tab has no realtime subscription for new patient
+ * threads/messages, only the push/in_app alert on the message itself, so an
+ * open worklist tab needs its own refresh to catch up in between. */
 export function useOrgCareThreads() {
   return useQuery({
     queryKey: ["org-care-threads"],
@@ -64,10 +67,13 @@ export function useOrgCareThreads() {
       if (error) throw error;
       return data as unknown as CareThreadWithPatient[];
     },
+    refetchInterval: 30_000,
   });
 }
 
-/** Messages in a thread, oldest first (reading order). */
+/** Messages in a thread, oldest first (reading order). Polled while a thread
+ * is open so a reply posted from the other side (patient or clinician)
+ * appears without a manual reload — see useOrgCareThreads above. */
 export function useThreadMessages(threadId: string | null) {
   return useQuery({
     queryKey: ["care-messages", threadId],
@@ -82,6 +88,7 @@ export function useThreadMessages(threadId: string | null) {
       return data as unknown as CareMessage[];
     },
     enabled: !!threadId,
+    refetchInterval: 30_000,
   });
 }
 
