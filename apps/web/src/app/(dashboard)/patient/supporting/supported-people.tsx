@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { PaymentMethodPicker } from "@/components/payment-method-picker";
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { CareMessageThread } from "@/components/care-message-thread";
 import { useCareThreads, useStartThread } from "@/lib/queries/care-messages";
@@ -438,6 +439,7 @@ function PayBillOnMyCard({
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
       <input type="hidden" name="orderId" value={bill.order_id} />
       <input type="hidden" name="currency" value="NGN" />
+      <PaymentMethodPicker className="w-full max-w-xs" />
       <Button type="submit" disabled={pending}>
         {pending ? "Starting…" : `Pay ${naira(bill.amount_kobo)} on my card`}
       </Button>
@@ -490,6 +492,7 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
           {pending ? "Starting…" : "Pay on my card"}
         </Button>
       </div>
+      <PaymentMethodPicker className="max-w-xs" />
       {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
       <p className="text-xs text-charcoal-ink/50">
         Billed to you, held by them. They keep their own account and can cancel it themselves at any

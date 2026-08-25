@@ -19,6 +19,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PaymentMethodPicker } from "@/components/payment-method-picker";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 function formatSlot(iso: string): string {
@@ -220,6 +221,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
               ))}
             </div>
             <input type="hidden" name="slot_id" value={selectedSlot} />
+            {price?.currency === "NGN" && <PaymentMethodPicker className="max-w-xs" />}
             <Button type="submit" disabled={!selectedSlot || isPending}>
               {isPending
                 ? "Redirecting…"

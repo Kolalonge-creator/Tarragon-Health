@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { initiateVoucherPaymentCheckout } from "@/lib/billing/voucher-checkout";
+import { parsePaymentMethod } from "@/lib/paystack/channels";
 import { nairaToKobo } from "@tarragon/shared";
 import type { Currency } from "@tarragon/shared";
 
@@ -127,6 +128,7 @@ export async function payTowardVoucher(
     email: user.email,
     callbackUrl: `${origin}/patient/vouchers`,
     description: "Care voucher payment",
+    paymentMethod: parsePaymentMethod(formData.get("paymentMethod")),
   });
 
   if (!result.ok) return { error: result.error };

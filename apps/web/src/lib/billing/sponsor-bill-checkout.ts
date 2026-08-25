@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
+import type { PaymentMethod } from "@/lib/paystack/channels";
 import type { BookingOrderType } from "@/lib/billing/checkout-metadata";
 import type { Currency } from "@tarragon/shared";
 
@@ -39,6 +40,7 @@ export async function initiateSponsorBillCheckout(args: {
   payerCurrency: Currency;
   email: string;
   callbackUrl: string;
+  paymentMethod?: PaymentMethod;
 }): Promise<SponsorBillCheckoutResult> {
   const supabase = await createClient();
 
@@ -112,5 +114,6 @@ export async function initiateSponsorBillCheckout(args: {
     email: args.email,
     description: String(bill.label ?? "Care for someone you support"),
     callbackUrl: args.callbackUrl,
+    paymentMethod: args.paymentMethod,
   });
 }

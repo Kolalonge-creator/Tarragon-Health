@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { initiateSponsoredSubscriptionCheckout } from "@/lib/billing/sponsored-subscription-checkout";
 import { initiateSponsorBillCheckout } from "@/lib/billing/sponsor-bill-checkout";
+import { parsePaymentMethod } from "@/lib/paystack/channels";
 import { startActingFor, stopActingFor } from "@/lib/acting/acting-for";
 import type { Currency } from "@tarragon/shared";
 
@@ -40,6 +41,7 @@ export async function paySomeonesPlan(
     payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,
+    paymentMethod: parsePaymentMethod(formData.get("paymentMethod")),
   });
 
   if (!result.ok) return { error: result.error };
@@ -77,6 +79,7 @@ export async function paySomeonesBill(
     payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,
+    paymentMethod: parsePaymentMethod(formData.get("paymentMethod")),
   });
 
   if (!result.ok) return { error: result.error };

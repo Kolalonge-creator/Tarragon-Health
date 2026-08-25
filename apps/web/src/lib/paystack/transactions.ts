@@ -91,6 +91,11 @@ export async function initializeTransaction(args: {
  * fires `charge.success`, and never creates a subscription or expects a
  * renewal. Used for one-off booking payments (lab/pharmacy/specialist
  * referral), never for anything that should auto-renew.
+ *
+ * `channels`, when passed, restricts Paystack's hosted page to exactly those
+ * channels (e.g. `["ussd"]`) instead of showing every channel enabled on the
+ * merchant dashboard — see apps/web/src/lib/paystack/channels.ts, the single
+ * place that decides which channel values are ever offered to a patient.
  */
 export async function initializeOneOffTransaction(args: {
   email: string;
@@ -98,6 +103,7 @@ export async function initializeOneOffTransaction(args: {
   currency: "NGN" | "GBP" | "USD";
   callbackUrl: string;
   metadata: CheckoutMetadata;
+  channels?: string[];
 }): Promise<PaystackResult<{ authorizationUrl: string; reference: string }>> {
   const result = await paystackFetch<InitializeTransactionData>("/transaction/initialize", {
     method: "POST",
@@ -107,6 +113,7 @@ export async function initializeOneOffTransaction(args: {
       currency: args.currency,
       callback_url: args.callbackUrl,
       metadata: args.metadata,
+      ...(args.channels ? { channels: args.channels } : {}),
     },
   });
   if (!result.ok) return result;

@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PaymentMethodPicker } from "@/components/payment-method-picker";
 import { Select } from "@/components/ui/select";
 import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -335,23 +336,26 @@ function VoucherRow({
           </Button>
 
           {isPaying && (
-            <form action={payAction} className="flex items-end gap-2 pt-3">
+            <form action={payAction} className="space-y-2 pt-3">
               <input type="hidden" name="voucherId" value={voucher.id} />
-              <label className="block text-sm">
-                <span className="text-slate-700">Amount (₦)</span>
-                <Input
-                  name="amountNaira"
-                  type="number"
-                  min={Math.min(koboToNaira(minInstalmentKobo), koboToNaira(outstanding))}
-                  max={koboToNaira(outstanding)}
-                  defaultValue={koboToNaira(outstanding)}
-                  className="mt-1"
-                  required
-                />
-              </label>
-              <Button type="submit" size="sm" disabled={payPending}>
-                {payPending ? "Opening checkout…" : "Pay"}
-              </Button>
+              <div className="flex items-end gap-2">
+                <label className="block text-sm">
+                  <span className="text-slate-700">Amount (₦)</span>
+                  <Input
+                    name="amountNaira"
+                    type="number"
+                    min={Math.min(koboToNaira(minInstalmentKobo), koboToNaira(outstanding))}
+                    max={koboToNaira(outstanding)}
+                    defaultValue={koboToNaira(outstanding)}
+                    className="mt-1"
+                    required
+                  />
+                </label>
+                <Button type="submit" size="sm" disabled={payPending}>
+                  {payPending ? "Opening checkout…" : "Pay"}
+                </Button>
+              </div>
+              <PaymentMethodPicker className="max-w-xs" />
             </form>
           )}
           {payError && <p className="pt-1 text-xs text-red-600">{payError}</p>}

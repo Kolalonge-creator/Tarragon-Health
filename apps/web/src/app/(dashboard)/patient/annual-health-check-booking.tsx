@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
+import { PaymentMethodPicker } from "@/components/payment-method-picker";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReviewPrice } from "./review-price";
 import { cn } from "@/lib/utils";
@@ -286,8 +287,9 @@ export function AnnualHealthCheckBooking({
             {selected && !openBundleIds.has(selected.id) && (
               <div className="space-y-2 pt-1">
                 {partnerBillingAvailable ? (
-                  <form action={payAction}>
+                  <form action={payAction} className="space-y-2">
                     <input type="hidden" name="panelBundleId" value={selected.id} />
+                    <PaymentMethodPicker className="max-w-xs" />
                     <Button type="submit" size="sm" disabled={payPending}>
                       {payPending ? "Taking you to payment…" : `Book & pay for ${selected.name}`}
                     </Button>

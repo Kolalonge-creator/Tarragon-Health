@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireOwnedBookingOrder } from "@/lib/billing/booking-ownership";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
+import { parsePaymentMethod } from "@/lib/paystack/channels";
 
 export type PayForReferralState = { error?: string } | undefined;
 
@@ -48,6 +49,7 @@ export async function payForReferral(
     email: user.email,
     description: `Specialist referral (${referral.specialist_type})`,
     callbackUrl: `${origin}/patient`,
+    paymentMethod: parsePaymentMethod(formData.get("paymentMethod")),
   });
 
   if (!result.ok) {

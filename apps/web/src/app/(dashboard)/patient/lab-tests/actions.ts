@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwnedBookingOrder } from "@/lib/billing/booking-ownership";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
+import { parsePaymentMethod } from "@/lib/paystack/channels";
 
 export type PayForLabOrderState = { error?: string } | undefined;
 
@@ -54,6 +55,7 @@ export async function payForLabOrder(
     email: user.email,
     description: labOrder.panel_bundle?.name ?? "Lab test",
     callbackUrl: `${origin}/patient`,
+    paymentMethod: parsePaymentMethod(formData.get("paymentMethod")),
   });
 
   if (!result.ok) {
@@ -142,6 +144,7 @@ export async function createAndPayForPartnerLabOrder(
     email: user.email,
     description: order.panel_bundle?.name ?? "Lab review",
     callbackUrl: `${origin}/patient`,
+    paymentMethod: parsePaymentMethod(formData.get("paymentMethod")),
   });
 
   if (!result.ok) {

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
+import { paymentMethodToChannels, type PaymentMethod } from "@/lib/paystack/channels";
 import { isStripeConfigured } from "@/lib/stripe/client";
 import { createOneOffCheckoutSession } from "@/lib/stripe/checkout";
 import { resolveProvider } from "@/lib/billing/provider";
@@ -34,6 +35,8 @@ export async function initiateVoucherPaymentCheckout(args: {
   email: string;
   callbackUrl: string;
   description: string;
+  /** Paystack only — ignored on the Stripe (diaspora) branch, which has no channel picker. */
+  paymentMethod?: PaymentMethod;
 }): Promise<VoucherCheckoutResult> {
   const supabase = await createClient();
   const {
@@ -76,6 +79,7 @@ export async function initiateVoucherPaymentCheckout(args: {
       currency: "NGN",
       callbackUrl: args.callbackUrl,
       metadata,
+      channels: args.paymentMethod ? paymentMethodToChannels(args.paymentMethod) : undefined,
     });
     if (!result.ok) return { ok: false, error: result.error };
     reference = result.data.reference;

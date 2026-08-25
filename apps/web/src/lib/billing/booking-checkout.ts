@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
+import { paymentMethodToChannels, type PaymentMethod } from "@/lib/paystack/channels";
 import { isStripeConfigured } from "@/lib/stripe/client";
 import { createOneOffCheckoutSession } from "@/lib/stripe/checkout";
 import { resolveProvider } from "@/lib/billing/provider";
@@ -33,6 +34,8 @@ export async function initiateBookingCheckout(args: {
   email: string;
   description: string;
   callbackUrl: string;
+  /** Paystack only — ignored on the Stripe (diaspora) branch, which has no channel picker. */
+  paymentMethod?: PaymentMethod;
 }): Promise<BookingCheckoutResult> {
   const table = bookingTableFor(args.orderType);
   const serviceRole = createServiceRoleClient();
@@ -64,6 +67,7 @@ export async function initiateBookingCheckout(args: {
       currency: "NGN",
       callbackUrl: args.callbackUrl,
       metadata,
+      channels: args.paymentMethod ? paymentMethodToChannels(args.paymentMethod) : undefined,
     });
     if (!result.ok) return { ok: false, error: result.error };
 

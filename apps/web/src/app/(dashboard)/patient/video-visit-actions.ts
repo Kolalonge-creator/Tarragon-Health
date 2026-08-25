@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
+import { parsePaymentMethod } from "@/lib/paystack/channels";
 import { createMeeting } from "@/lib/zoom/meetings";
 import { isZoomConfigured } from "@/lib/zoom/client";
 import type { Currency } from "@tarragon/shared";
@@ -92,6 +93,7 @@ export async function requestVideoVisit(
     email: user.email,
     description: "Tarragon Health: video visit with a doctor",
     callbackUrl: `${origin}/patient`,
+    paymentMethod: parsePaymentMethod(formData.get("paymentMethod")),
   });
 
   if (!result.ok) {
