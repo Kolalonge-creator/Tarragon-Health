@@ -3189,6 +3189,69 @@ export type Database = {
           },
         ]
       }
+      device_catalog: {
+        Row: {
+          active: boolean
+          affiliate_link: string | null
+          affiliate_partner: string | null
+          category: Database["public"]["Enums"]["device_catalog_category"]
+          clinically_reviewed: boolean
+          created_at: string
+          description: string | null
+          device_name: string
+          display_order: number
+          fulfillment_type: Database["public"]["Enums"]["device_catalog_fulfillment_type"]
+          gatt_service_uuids: string[]
+          id: string
+          image_url: string | null
+          pairing_path: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          price_range_ngn: string | null
+          updated_at: string
+          vendor_name: string | null
+          vendor_sdk_ref: string | null
+        }
+        Insert: {
+          active?: boolean
+          affiliate_link?: string | null
+          affiliate_partner?: string | null
+          category: Database["public"]["Enums"]["device_catalog_category"]
+          clinically_reviewed?: boolean
+          created_at?: string
+          description?: string | null
+          device_name: string
+          display_order?: number
+          fulfillment_type?: Database["public"]["Enums"]["device_catalog_fulfillment_type"]
+          gatt_service_uuids?: string[]
+          id?: string
+          image_url?: string | null
+          pairing_path: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          price_range_ngn?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+          vendor_sdk_ref?: string | null
+        }
+        Update: {
+          active?: boolean
+          affiliate_link?: string | null
+          affiliate_partner?: string | null
+          category?: Database["public"]["Enums"]["device_catalog_category"]
+          clinically_reviewed?: boolean
+          created_at?: string
+          description?: string | null
+          device_name?: string
+          display_order?: number
+          fulfillment_type?: Database["public"]["Enums"]["device_catalog_fulfillment_type"]
+          gatt_service_uuids?: string[]
+          id?: string
+          image_url?: string | null
+          pairing_path?: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          price_range_ngn?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+          vendor_sdk_ref?: string | null
+        }
+        Relationships: []
+      }
       diabetes_complication_checks: {
         Row: {
           abnormal: boolean
@@ -15811,6 +15874,17 @@ export type Database = {
         | "paid"
         | "active"
       currency: "NGN" | "GBP" | "USD"
+      device_catalog_category:
+        | "blood_pressure"
+        | "weight"
+        | "blood_glucose"
+        | "band"
+      device_catalog_fulfillment_type: "affiliate" | "tarragon_owned"
+      device_catalog_pairing_path:
+        | "ble_open_gatt"
+        | "ble_vendor_sdk"
+        | "health_connect_bridge"
+        | "manual_only"
       diabetes_type: "type_1" | "type_2" | "gestational" | "other"
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
@@ -16528,6 +16602,19 @@ export const Constants = {
         "active",
       ],
       currency: ["NGN", "GBP", "USD"],
+      device_catalog_category: [
+        "blood_pressure",
+        "weight",
+        "blood_glucose",
+        "band",
+      ],
+      device_catalog_fulfillment_type: ["affiliate", "tarragon_owned"],
+      device_catalog_pairing_path: [
+        "ble_open_gatt",
+        "ble_vendor_sdk",
+        "health_connect_bridge",
+        "manual_only",
+      ],
       diabetes_type: ["type_1", "type_2", "gestational", "other"],
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [

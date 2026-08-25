@@ -2639,3 +2639,75 @@ across the marketing site:
   the entry above (active + self-bookable + ₦6,500 while not being promoted) is unrelated to this pass
   and still open.
 
+### 2026-08-25 — Device Pairing & Integration Spec v2: catalog schema + in-app Shop + marketing page
+
+Founder handed over "Tarragon Health — Device Pairing & Integration Spec" v1 and v2 (BP monitor / scale
+/ glucometer / wearable band pairing) and asked to build it end to end. Before writing anything,
+checked what the spec assumed already existed against the live schema and app — most of it was already
+shipped under different names, so the actual net-new work was much narrower than the spec's own phase
+list implies:
+
+- **Already built, confirmed rather than re-built:** clinical BLE device pairing (Path A open-GATT) —
+  `patient_devices` + `POST /api/mobile/device-readings` writing into `vitals_readings` with
+  `source='device'`, covering BP/glucose/weight/temperature/SpO2 (all five standard GATT profiles from
+  the spec's §2.1 table). Path B (Health Connect/HealthKit bridge) — `wearable_connections` +
+  `wearable_readings` + the mobile HealthKit/Health Connect bridges, covering the exact BP/weight/
+  glucose/heart-rate/HRV/steps set the spec's §3 calls for, writing into `vitals_readings`
+  (`source='wearable'`) for overlapping metrics and `activity_log_entries`/`wearable_readings` for
+  steps/sleep/HRV — i.e. the spec's proposed new `activity_daily_summary` daily-aggregate table already
+  exists in substance as `activity_log_entries`'s per-day steps row. **Deliberately did not build the
+  spec's `device_readings` table** — it would have been a second, parallel source of truth for exactly
+  what `vitals_readings`/`wearable_readings` already own; see CLAUDE.md's "no dual source of truth"
+  rule and the new migration's own header comment.
+- **Genuinely net-new: `device_catalog`** (migration `20260825175835_device_catalog.sql`) — the
+  extensible catalog table from spec §4, adapted to this codebase's conventions (real Postgres enums
+  for category/fulfillment_type/pairing_path rather than the spec's inline text `check`s; RLS/grants
+  copied verbatim from the `lab_tests`/`pharmacy_medications` "global catalogue: authenticated read,
+  admin write" pattern in `20260705211315_care_coordination.sql`, since this is reference data, not a
+  tenant-scoped table). Seeded the 3 curated devices from spec v1 §4 (Omron BP7450, Xiaomi Mi Scale 2,
+  Accu-Chek Instant) with `active=false, clinically_reviewed=false` — the spec's own §4.1 checklist
+  requires a real end-to-end pairing test and clinical sign-off before either flips true, neither of
+  which happened here (no hardware, no clinician review), so the gates stayed off on purpose rather than
+  being defaulted true. `price_range_ngn` left null for the same reason CLAUDE.md warns against trusting
+  a stale price. No wearable-band row seeded at all: the band is Path A-2 (vendor SDK, spec §2.3) and no
+  real Yucheng/YCAviation device model, price, or link exists to seed truthfully — the `band` category
+  and `ble_vendor_sdk` pairing_path exist in the schema so a real row can be added later without another
+  migration.
+- **In-app Shop** (`patient/(sections)/devices` + `device-shop.tsx`, nav entry "Get a device" under
+  "Your health") — reads `device_catalog` filtered to `active AND clinically_reviewed`, so it currently
+  renders its empty state until an admin flips those flags post-pairing-test. "Buy Now" logs a
+  click-through via a new server action (`device-shop-actions.ts`) before opening the affiliate link,
+  reusing the existing `audit_log` table (`action='device_affiliate_click'`) rather than building a
+  bespoke click table — `audit_log`'s existing RLS (`actor_id = auth.uid()`) already fits a
+  self-attributed click with no changes needed. No device-allocation-by-tier gating: spec §9.2 assumes
+  an existing "patient's assigned tier" allocation plan that does not exist anywhere in the codebase
+  (checked directly) — followed the same precedent CLAUDE.md already documents for the wearable Connect
+  card (2026-08-05 correction: shown to every patient, un-gated) rather than inventing a tier rule.
+- **Marketing `/devices` page** — deliberately static content (`_content/devices.ts`), NOT read from
+  `device_catalog`, because CLAUDE.md is explicit that marketing pages must not import platform/auth
+  modules and Contact/Join is the only page that writes to Supabase. This is a real divergence from spec
+  §9.1's "both render entirely from device_catalog" — the in-app Shop is DB-driven, the marketing page
+  is hand-curated and needs to be kept in sync manually if a curated device changes. Registered in
+  `MARKETING_ROUTES`/`MARKETING_ROUTES_BUILT` (so `proxy.ts`'s public-path allowlist picks it up for
+  free) and linked from the footer's Care group. Did not add a device-ownership-prerequisite claim to
+  the pricing/chronic-care/prevention pages, for the same reason as the no-tier-gating decision above —
+  no such rule is confirmed to exist.
+- **Explicitly out of scope, not attempted:** the wearable band's vendor-SDK native module bridge
+  (Yucheng/YCAviation, spec §2.3) — this needs the actual vendor SDK and real hardware, neither of which
+  exist in this environment; building a placeholder/fake bridge would have been worse than not building
+  it. Jumia/Konga affiliate *program* integration was never in scope either — the spec only asks for
+  affiliate *links* stored as catalog data, not a live API integration, and that's all that was built.
+- Verified: `pnpm --filter @tarragon/shared typecheck` clean after manually merging the new table/enum
+  types into `database.types.ts` (targeted insert at the correct alphabetical position, not a full
+  regenerate-and-overwrite, to avoid pulling in unrelated schema drift from other already-applied
+  migrations into this diff); new Zod schema test suite (`device-catalog-click.test.ts`) passes.
+  Migration applied directly to the live `koiplnmbgnqnbywhpjlf` project (the only Supabase project
+  listed — confirms the two throwaway projects flagged 2026-07-29 for owner-side deletion are in fact
+  gone); `get_advisors` shows no security findings against `device_catalog`.
+- **Not done, flagged not guessed at:** the real end-to-end pairing test (buy one of each device, pair
+  it, confirm data lands) from spec §4.1 step 5 — needs real hardware and a human, not an agent. Until
+  that happens and an admin flips `active`/`clinically_reviewed`, the Shop and marketing page will keep
+  showing their empty state / static cards respectively with no live in-app catalog to point at. Jumia
+  KOL affiliate signup status (spec §8.1's own flagged caveat) was not re-verified. Legal/ARCON review of
+  the disclosure language (spec §11) was not sought.
+
