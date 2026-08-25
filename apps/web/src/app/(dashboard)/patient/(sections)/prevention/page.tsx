@@ -13,6 +13,7 @@ import { CareProgrammeRecommendations } from "@/app/(dashboard)/patient/care-pro
 import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-health-card";
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
 import { RiskAssessmentDisplay } from "@/app/(dashboard)/patient/risk-assessment-display";
+import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
 import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 
@@ -117,6 +118,7 @@ export default async function PreventionHubPage() {
           <div className="space-y-4">
             <RiskAssessmentForm patientId={subjectId} />
             <RiskAssessmentDisplay patientId={subjectId} />
+            <FindriscCheck />
           </div>
           <CareProgrammeRecommendations
             patientId={subjectId}

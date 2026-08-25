@@ -5,14 +5,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * rules, §13.4 insulin storage). Plain, warm, non-alarmist copy per the brand
  * voice — reference the patient can open any time. It is education, never a
  * clinical instruction that replaces their doctor.
+ *
+ * `diabetesType` is the effective type (confirmed_type if a clinician has
+ * set one, else the patient's own self-report, else null/unknown) — see
+ * diabetes-daily-log.tsx. Type 1 gets its own unconditional banner up top:
+ * "never stop insulin" already appears in the general sick-day section
+ * below, but a type-1 patient's insulin is never optional, sick or well, so
+ * it earns a standalone callout rather than living inside the sick-day text.
  */
-export function DiabetesGuidance() {
+export function DiabetesGuidance({ diabetesType }: { diabetesType?: string | null }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Diabetes safety guide</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5 text-sm text-charcoal-ink/80">
+        {diabetesType === "type_1" && (
+          <div className="rounded-md border border-amber-300 bg-amber-50/60 p-3">
+            <p className="font-medium text-amber-800">Type 1: never stop your insulin</p>
+            <p className="mt-1">
+              Not eating, feeling unwell, fasting, or running low on supplies is never a reason to
+              skip a dose — your body cannot make its own insulin, so stopping it can quickly
+              become dangerous (diabetic ketoacidosis). If you&apos;re struggling to get insulin or
+              keep it down, contact your care team the same day rather than skipping a dose.
+            </p>
+          </div>
+        )}
         <section className="space-y-1.5">
           <h3 className="font-medium text-deep-forest">If your sugar goes low (a &quot;hypo&quot;)</h3>
           <p>
