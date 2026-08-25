@@ -27,7 +27,7 @@ export function LifestyleFlagsClient({ flags }: { flags: OpenFlag[] }) {
   if (flags.length === 0) {
     return (
       <Card>
-        <CardContent className="text-muted-foreground py-8 text-center text-sm">
+        <CardContent className="text-charcoal-ink/60 py-8 text-center text-sm">
           Nothing waiting. All lifestyle safety flags have been reviewed.
         </CardContent>
       </Card>
@@ -60,13 +60,13 @@ function FlagRow({ flag }: { flag: OpenFlag }) {
         <p className="text-sm">
           <span className="font-medium">{flag.ruleKey}</span>
           {flag.action === "auto_pause_weightloss" && (
-            <span className="text-muted-foreground">
+            <span className="text-charcoal-ink/60">
               {" "}
               · weight-loss auto-paused
             </span>
           )}
         </p>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-charcoal-ink/60 text-xs">
           Opened {new Date(flag.openedAt).toLocaleString()}
         </p>
         <form action={submit} className="flex flex-wrap items-end gap-2">

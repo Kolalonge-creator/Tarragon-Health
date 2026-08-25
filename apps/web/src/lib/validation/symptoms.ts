@@ -8,6 +8,10 @@ export const SYMPTOM_TYPES = [
   "palpitations",
   "swelling",
   "nausea",
+  "chest_pain",
+  "severe_headache",
+  "visual_disturbance",
+  "confusion",
   "other",
 ] as const;
 

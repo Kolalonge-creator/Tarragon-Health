@@ -3,6 +3,7 @@
 import { useScreeningSchedules } from "@/lib/queries/screening";
 import { todayIsoDate } from "@/lib/queries/medications";
 import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
+import { ConfirmScreeningDoneForm } from "./confirm-screening-done-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,13 @@ export function PreventiveScreeningCalendar({
                       )}
                     </div>
                   )}
+                  <ConfirmScreeningDoneForm
+                    patientId={patientId}
+                    scheduleId={schedule.id}
+                    screenTypeId={schedule.screen_type_id}
+                    screenTypeName={schedule.screen_type?.name ?? "screening"}
+                    alreadyCompleted={schedule.status === "completed"}
+                  />
                 </li>
               );
             })}

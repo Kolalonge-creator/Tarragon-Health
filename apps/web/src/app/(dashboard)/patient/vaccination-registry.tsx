@@ -235,7 +235,7 @@ export function VaccinationRegistry({
               ))}
             </ul>
             <p className="mt-1.5 text-xs text-charcoal-ink/60">
-              Book at a centre below, or log the dose once you&apos;ve had it.
+              Log the dose once you&apos;ve had it, at whichever clinic or provider is convenient.
             </p>
           </div>
         )}

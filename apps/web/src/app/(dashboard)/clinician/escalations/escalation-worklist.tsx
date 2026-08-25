@@ -19,8 +19,20 @@ import type { EscalationStatus } from "@tarragon/shared";
  * down, the same shape as MedicationsList's canConfirmRefill. It only
  * decides whether a row shows a Claim button or a plain-language
  * explanation; the DB trigger is what actually enforces the rule.
+ *
+ * `canClaim` mirrors isClinicalTier(staff) — false for a Care Coordinator,
+ * who may raise an escalation but must never claim/resolve one (see the
+ * page-level comment). Checked first, ahead of canHandleEmergency, so a
+ * non-clinical caller always sees the same "only a doctor" explanation
+ * regardless of the case's severity.
  */
-export function EscalationWorklist({ canHandleEmergency }: { canHandleEmergency: boolean }) {
+export function EscalationWorklist({
+  canHandleEmergency,
+  canClaim,
+}: {
+  canHandleEmergency: boolean;
+  canClaim: boolean;
+}) {
   const { data, isLoading, isError } = useDoctorEscalations();
   const claim = useClaimEscalation();
 
@@ -120,7 +132,11 @@ export function EscalationWorklist({ canHandleEmergency }: { canHandleEmergency:
                     </p>
                   </div>
                   {escalation.assigned_doctor_id === null ? (
-                    isEmergencyLocked ? (
+                    !canClaim ? (
+                      <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
+                        Only a doctor can claim this case
+                      </span>
+                    ) : isEmergencyLocked ? (
                       <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
                         Needs a Tier 2+ doctor or the Clinical Director to claim
                       </span>

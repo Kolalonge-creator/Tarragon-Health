@@ -74,18 +74,18 @@ The brand system already exists in `docs/BRAND_GUIDE.md` (Guard Leaf) — this s
 | **Tarragon Green** | `#0E7C52` — primary/brand |
 | **Clinical Navy** | `#12324B` — B2B pages, headers |
 | **Sprout Gold** | Sparingly — one accent per page, screening/upgrade moments only |
-| **Soft Sage / Warm Ivory** | Backgrounds |
+| **Soft Sage / Warm Ivory** | Accent bands and card surfaces — **not** the page canvas (corrected 2026-08-19, see `docs/BRAND_GUIDE.md` §5) |
 | **Charcoal Ink** | Text — never pure black |
-| **Ratio** | 60% ivory/sage/white · 25% green/navy · 10% charcoal text · 5% gold |
+| **Ratio** | 65% white (the page canvas) · 15% ivory/sage (accent bands/cards) · 15% green/navy · 5% gold |
 | **Clinical red/amber** | Reserved for clinical states — **never use decoratively on the marketing site** |
 
 **Type:** Sora (SemiBold/Bold) for headlines, Inter for body and UI chrome. Set a real type scale — don't let every heading be the same weight at different sizes.
 
-**Signature element:** the Guard Leaf checkmark-vein motif is the one bold move. The brand truth is continuity — *"the care between doctor visits"* — so the hero should visually imply an unbroken thread (a reading → a reminder → a clinician call → a family update) rather than a static stock photo or a generic dashboard mockup. A subtle continuous line/path motif connecting these moments, echoing the leaf's checkmark vein, is a good candidate for the one thing this page is remembered by. Keep everything else quiet around it.
+**Signature element:** the Guard Leaf checkmark-vein motif is the one bold move — as the interactive `ContinuityPath` component beneath the homepage hero (a reading → a reminder → a clinician call → a family update), not as the hero visual itself. **Corrected 2026-08-19:** the earlier version of this note called for the motif to replace "a static stock photo" as the hero. Every major healthcare platform benchmarked runs real human photography as its hero banner, and a generic gradient/blob gets read as templated rather than distinctive — see `docs/BRAND_GUIDE.md` §8. The hero is now a real photo of a real person (never a generic dashboard mockup, never decorative blur shapes behind it); the continuity thread keeps its own dedicated moment right below the hero, which is where it's actually built. Keep everything else quiet around both.
 
 **Motion:** restrained. A single orchestrated hero reveal or scroll-triggered moment beats scattered hover effects everywhere. Respect `prefers-reduced-motion`.
 
-**Photography/illustration:** per the brand guide — Nigerian families in natural settings, adult children with parents, calm clinician follow-up calls. Avoid emergency imagery, Western stock, doctors pointing at charts, or generic wellness/yoga photography. Simple line illustration in green/navy is the fallback where photography isn't available yet.
+**Photography/illustration:** per the brand guide — Nigerian families in natural settings, adult children with parents, calm clinician follow-up calls. Avoid emergency imagery, Western stock, doctors pointing at charts, or generic wellness/yoga photography. This is the primary hero treatment, not a fallback; simple line illustration in green/navy is the fallback for a slot with no photo sourced yet.
 
 **Voice:** warm, calm, credible — *"a clinician who knows your name, not a hospital PA system."* No fear-based urgency, no red medical crosses, no "revolutionary AI-powered platform" language. Copy for each page is given below — use it as the source of truth, don't rewrite the strategy.
 

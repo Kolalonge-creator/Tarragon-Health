@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { MarketingMediaSlot } from "./media";
+import { pageMetadata } from "@/lib/marketing/site";
 
 export type B2bStat = {
   label: string;
@@ -30,7 +31,11 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
     campaignLine: "Know your workforce health risks before they become costs.",
     intro:
       "Tarragon enrols your staff into clinical monitoring for hypertension, diabetes, and preventive screening, then turns what we find into a clear, anonymised risk picture your HR and benefits team can act on.",
-    hero: { illustration: "connected-care", imageAlt: "Workforce health risk dashboard" },
+    hero: {
+      imageSrc: "/marketing/photos/hero/corporate.jpg",
+      imageAlt: "Colleagues chatting warmly together during a workplace break",
+      imageFocus: "center 38%",
+    },
     included: [
       "Staff enrolment and annual health checks",
       "Anonymised risk dashboard by cohort, not by individual",
@@ -61,12 +66,12 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       },
     ],
     ctaLabel: "Request employer health plan",
-    metadata: {
+    metadata: pageMetadata({
       title: "Corporate Health",
       description:
         "Corporate wellness plans that surface workforce chronic disease risk and close care gaps early, with anonymised reporting for HR.",
-      alternates: { canonical: "/corporate" },
-    },
+      path: "/corporate",
+    }),
   },
   hmo: {
     slug: "hmo",
@@ -75,7 +80,11 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
     pullQuote: "We don't just manage chronic disease. We catch it earlier, and we can prove it.",
     intro:
       "Tarragon gives your members the same clinical monitoring, reminders, and escalation as any Tarragon patient, and gives you population-level risk data, care-gap tracking, and outcome reporting built for renewal conversations.",
-    hero: { illustration: "clinician-follow-up", imageAlt: "Population health monitoring for HMO members" },
+    hero: {
+      imageSrc: "/marketing/photos/hero/hmo.jpg",
+      imageAlt: "Two business partners shaking hands and smiling in an office lobby",
+      imageFocus: "center 24%",
+    },
     included: [
       "Population risk stratification, updated as members are monitored",
       "Care gap closure tracked to completion, not just flagged",
@@ -106,12 +115,12 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       },
     ],
     ctaLabel: "Talk to Tarragon Health",
-    metadata: {
+    metadata: pageMetadata({
       title: "HMO Support",
       description:
         "Monitor member risk, close care gaps, and generate outcome evidence: chronic disease and preventive care for HMO members.",
-      alternates: { canonical: "/hmo" },
-    },
+      path: "/hmo",
+    }),
   },
 };
 

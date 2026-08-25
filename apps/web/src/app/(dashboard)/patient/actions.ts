@@ -123,7 +123,9 @@ export async function logVital(
   if (row.vital_type === "glucose" || row.vital_type === "ketones") {
     await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
   }
-  await assessHealthScoreBestEffort(supabase, user.id, profile.organisation_id);
+  // subjectId, not user.id: a supporter logging for someone they act for
+  // must reassess THAT person's health score, not their own.
+  await assessHealthScoreBestEffort(supabase, subjectId, profile.organisation_id);
 
   return { success: true };
 }
@@ -719,10 +721,13 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     return { error: notifyError.message };
   }
 
-  await serviceRole
-    .from("emergency_events")
-    .update({ contact_notified_at: new Date().toISOString() })
-    .eq("id", eventId);
+  // Routed through an RPC so the write can be attributed to the patient in public.audit_log
+  // despite running on the service-role client — see
+  // 20260812041044_service_role_write_actor_attribution.sql.
+  await serviceRole.rpc("mark_emergency_contact_notified", {
+    p_event_id: eventId,
+    p_actor_id: user.id,
+  });
 
   return { success: true };
 }

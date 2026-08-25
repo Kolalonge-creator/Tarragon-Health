@@ -54,6 +54,8 @@ export type TherapeuticClass =
   | "tramadol_opioid"
   | "macrolide"
   | "fluoroquinolone"
+  | "penicillin"
+  | "cephalosporin"
   | "azole_antifungal"
   | "nitroimidazole"
   | "antimalarial_act"
@@ -96,6 +98,8 @@ export const CLASS_LABEL: Record<TherapeuticClass, string> = {
   tramadol_opioid: "Tramadol / opioid",
   macrolide: "Macrolide antibiotic",
   fluoroquinolone: "Fluoroquinolone antibiotic",
+  penicillin: "Penicillin",
+  cephalosporin: "Cephalosporin",
   azole_antifungal: "Azole antifungal",
   nitroimidazole: "Metronidazole / tinidazole",
   antimalarial_act: "Artemisinin-based antimalarial",
@@ -139,15 +143,25 @@ const CLASS_PATTERNS: { cls: TherapeuticClass; pattern: RegExp }[] = [
   { cls: "thiazide_diuretic", pattern: /\b(hydrochlorothiazide|hctz|bendroflumethiazide|indapamide|chlortalidone|chlorthalidone|metolazone)\b/ },
   { cls: "loop_diuretic", pattern: /\b(furosemide|frusemide|bumetanide|torasemide|torsemide)\b/ },
   { cls: "potassium_supplement", pattern: /(potassium chloride|\bkcl\b|slow[- ]?k|potassium supplement)/ },
-  { cls: "statin", pattern: /(atorvastatin|simvastatin|rosuvastatin|pravastatin|fluvastatin|lovastatin|pitavastatin|\w+statin)\b/ },
+  { cls: "statin", pattern: /(atorvastatin|simvastatin|rosuvastatin|pravastatin|fluvastatin|lovastatin|pitavastatin|\w+statin|statins?)\b/ },
   { cls: "fibrate", pattern: /\b(gemfibrozil|fenofibrate|bezafibrate|ciprofibrate)\b/ },
   { cls: "antiplatelet", pattern: /\b(aspirin|acetylsalicylic|asa|clopidogrel|ticagrelor|prasugrel|dipyridamole)\b/ },
-  { cls: "nsaid", pattern: /\b(ibuprofen|diclofenac|naproxen|indomethacin|indometacin|piroxicam|meloxicam|celecoxib|etoricoxib|ketoprofen|mefenamic|nimesulide|aceclofenac)\b/ },
+  { cls: "nsaid", pattern: /\b(ibuprofen|diclofenac|naproxen|indomethacin|indometacin|piroxicam|meloxicam|celecoxib|etoricoxib|ketoprofen|mefenamic|nimesulide|aceclofenac|nsaids?)\b/ },
   { cls: "anticoagulant", pattern: /\b(warfarin|acenocoumarol|rivaroxaban|apixaban|dabigatran|edoxaban|enoxaparin|heparin)\b/ },
   { cls: "ssri", pattern: /\b(fluoxetine|sertraline|paroxetine|citalopram|escitalopram|fluvoxamine)\b/ },
-  { cls: "tramadol_opioid", pattern: /\b(tramadol|codeine|morphine|pethidine|tapentadol|oxycodone)\b/ },
+  { cls: "tramadol_opioid", pattern: /\b(tramadol|codeine|morphine|pethidine|tapentadol|oxycodone|opioids?|co-?codamol)\b/ },
   { cls: "macrolide", pattern: /\b(clarithromycin|erythromycin|azithromycin)\b/ },
   { cls: "fluoroquinolone", pattern: /(ciprofloxacin|levofloxacin|moxifloxacin|ofloxacin|norfloxacin|\w+floxacin)\b/ },
+  {
+    cls: "penicillin",
+    pattern:
+      /\b(penicillin|amoxicillin|ampicillin|flucloxacillin|cloxacillin|dicloxacillin|piperacillin|augmentin|co-?amoxiclav|benzylpenicillin|phenoxymethylpenicillin)\b/,
+  },
+  {
+    cls: "cephalosporin",
+    pattern:
+      /\b(cephalosporin|cefuroxime|ceftriaxone|cefixime|cefpodoxime|cefotaxime|ceftazidime|cefaclor|cefadroxil|cefalexin|cephalexin|cefdinir|cefepime)\b/,
+  },
   { cls: "azole_antifungal", pattern: /(fluconazole|itraconazole|ketoconazole|voriconazole|\w+conazole)\b/ },
   { cls: "nitroimidazole", pattern: /\b(metronidazole|tinidazole|secnidazole)\b/ },
   { cls: "antimalarial_act", pattern: /(artemether|lumefantrine|artesunate|amodiaquine|dihydroartemisinin|arteether|coartem)/ },
@@ -164,7 +178,10 @@ const CLASS_PATTERNS: { cls: TherapeuticClass; pattern: RegExp }[] = [
   { cls: "methotrexate", pattern: /\b(methotrexate|mtx)\b/ },
   { cls: "gabapentinoid", pattern: /\b(gabapentin|pregabalin)\b/ },
   { cls: "nitrofurantoin", pattern: /\b(nitrofurantoin|macrodantin|macrobid)\b/ },
-  { cls: "cotrimoxazole", pattern: /\b(co[- ]?trimoxazole|cotrimoxazole|trimethoprim|sulfamethoxazole|septrin|bactrim)\b/ },
+  {
+    cls: "cotrimoxazole",
+    pattern: /\b(co[- ]?trimoxazole|cotrimoxazole|trimethoprim|sulfamethoxazole|septrin|bactrim|sulfa|sulfonamide|sulphonamide)\b/,
+  },
   { cls: "aminoglycoside", pattern: /\b(gentamicin|amikacin|tobramycin|streptomycin)\b/ },
   { cls: "lithium", pattern: /\b(lithium)\b/ },
   { cls: "amiodarone", pattern: /\b(amiodarone|dronedarone)\b/ },
@@ -208,7 +225,7 @@ export interface MedicationInput {
   source?: string | null;
 }
 
-export type FindingKind = "interaction" | "duplicate_therapy" | "renal_dosing" | "drug_specific";
+export type FindingKind = "interaction" | "duplicate_therapy" | "renal_dosing" | "drug_specific" | "allergy";
 
 export interface SafetyFinding {
   kind: FindingKind;
@@ -223,6 +240,16 @@ export interface SafetyFinding {
   drugNames: string[];
 }
 
+/** One recorded allergy as this engine sees it. Maps directly onto a `patient_allergies` row. */
+export interface AllergyInput {
+  id: string;
+  /** Free text — a drug name, a class name ("penicillin"), or a brand name. */
+  allergen: string;
+  reaction?: string | null;
+  severity?: "mild" | "moderate" | "severe" | null;
+  source?: "patient" | "clinician" | "fhir_import" | null;
+}
+
 export interface SafetyContext {
   /** From `egfrFromReading`. Null when no creatinine has ever been captured. */
   egfr?: number | null;
@@ -231,6 +258,12 @@ export interface SafetyContext {
   pregnant?: boolean;
   acutelyUnwell?: boolean;
   ageYears?: number | null;
+  /**
+   * The patient's recorded allergies. Undefined means "not checked" (the
+   * caller never loaded them) — distinct from an empty array, which means
+   * "checked, and none are on file". See `SafetyReport.allergyCheckNote`.
+   */
+  allergies?: AllergyInput[];
 }
 
 export interface SafetyReport {
@@ -241,6 +274,13 @@ export interface SafetyReport {
    * otherwise read as "renal dosing checked and fine".
    */
   renalCheckSkipped: string | null;
+  /**
+   * Non-null explains why the allergy findings above should not be read as
+   * reassurance: either allergy data was never loaded (`ctx.allergies` was
+   * undefined), or it was loaded and genuinely empty — "no known allergies"
+   * meaning nobody has recorded one, not that the patient has none.
+   */
+  allergyCheckNote: string | null;
   /**
    * Always true. A structural reminder in the return type itself that a clean
    * report means "no rule in this curated set fired", never "safe".
@@ -309,7 +349,7 @@ const INTERACTION_RULES: InteractionRule[] = [
     severity: "caution",
     title: "Kidney injury risk (NSAID with renin-angiotensin blockade)",
     message:
-      "NSAIDs blunt the blood-pressure effect and raise the risk of acute kidney injury. If a diuretic is also on the list this is the classic triple-whammy combination — review the NSAID first, it is usually the one that can go.",
+      "NSAIDs blunt the blood-pressure effect and raise the risk of acute kidney injury. If a diuretic is also on the list this is the classic triple-whammy combination; review the NSAID first, it is usually the one that can go.",
   },
   {
     a: "arb",
@@ -317,7 +357,7 @@ const INTERACTION_RULES: InteractionRule[] = [
     severity: "caution",
     title: "Kidney injury risk (NSAID with renin-angiotensin blockade)",
     message:
-      "NSAIDs blunt the blood-pressure effect and raise the risk of acute kidney injury. If a diuretic is also on the list this is the classic triple-whammy combination — review the NSAID first, it is usually the one that can go.",
+      "NSAIDs blunt the blood-pressure effect and raise the risk of acute kidney injury. If a diuretic is also on the list this is the classic triple-whammy combination; review the NSAID first, it is usually the one that can go.",
   },
   {
     a: "nsaid",
@@ -607,28 +647,28 @@ interface RenalRule {
  * gets the "avoid" line rather than the milder "reduce dose" one.
  */
 const RENAL_RULES: RenalRule[] = [
-  { cls: "metformin", below: 30, severity: "contraindicated", message: "Do not use metformin below an eGFR of 30 — lactic-acidosis risk. Stop it if the patient is already taking it." },
+  { cls: "metformin", below: 30, severity: "contraindicated", message: "Do not use metformin below an eGFR of 30: lactic-acidosis risk. Stop it if the patient is already taking it." },
   { cls: "metformin", below: 45, severity: "caution", message: "Review and reduce the metformin dose below an eGFR of 45, and monitor renal function closely." },
-  { cls: "nsaid", below: 30, severity: "contraindicated", message: "Avoid NSAIDs below an eGFR of 30 — they can precipitate a further, sometimes irreversible, fall in kidney function." },
+  { cls: "nsaid", below: 30, severity: "contraindicated", message: "Avoid NSAIDs below an eGFR of 30; they can precipitate a further, sometimes irreversible, fall in kidney function." },
   { cls: "nsaid", below: 60, severity: "caution", message: "Use NSAIDs only if unavoidable below an eGFR of 60, at the lowest dose for the shortest time, with renal function rechecked." },
-  { cls: "potassium_sparing_diuretic", below: 30, severity: "contraindicated", message: "Avoid spironolactone and other potassium-sparing diuretics below an eGFR of 30 — serious hyperkalaemia risk." },
+  { cls: "potassium_sparing_diuretic", below: 30, severity: "contraindicated", message: "Avoid spironolactone and other potassium-sparing diuretics below an eGFR of 30: serious hyperkalaemia risk." },
   { cls: "potassium_sparing_diuretic", below: 45, severity: "caution", message: "Below an eGFR of 45, use a potassium-sparing diuretic only with close potassium monitoring." },
   { cls: "nitrofurantoin", below: 45, severity: "contraindicated", message: "Nitrofurantoin does not reach effective urinary concentrations below an eGFR of 45 and toxicity rises. Choose a different agent." },
-  { cls: "digoxin", below: 60, severity: "caution", message: "Digoxin is renally cleared — reduce the dose and check a level; toxicity is easy to miss." },
+  { cls: "digoxin", below: 60, severity: "caution", message: "Digoxin is renally cleared: reduce the dose and check a level; toxicity is easy to miss." },
   { cls: "gabapentinoid", below: 60, severity: "caution", message: "Gabapentin and pregabalin need dose reduction as eGFR falls; accumulation causes sedation, confusion and unsteadiness." },
   { cls: "allopurinol", below: 60, severity: "caution", message: "Start allopurinol lower and titrate slowly in renal impairment." },
-  { cls: "colchicine", below: 30, severity: "contraindicated", message: "Avoid colchicine below an eGFR of 30 — it accumulates and causes marrow and neuromuscular toxicity." },
+  { cls: "colchicine", below: 30, severity: "contraindicated", message: "Avoid colchicine below an eGFR of 30; it accumulates and causes marrow and neuromuscular toxicity." },
   { cls: "colchicine", below: 60, severity: "caution", message: "Reduce the colchicine dose below an eGFR of 60 and keep courses short." },
-  { cls: "methotrexate", below: 45, severity: "contraindicated", message: "Avoid methotrexate below an eGFR of 45 — it is renally cleared and marrow toxicity follows quickly." },
+  { cls: "methotrexate", below: 45, severity: "contraindicated", message: "Avoid methotrexate below an eGFR of 45; it is renally cleared and marrow toxicity follows quickly." },
   { cls: "methotrexate", below: 60, severity: "caution", message: "Reduce the methotrexate dose and monitor the full blood count closely in renal impairment." },
   { cls: "aminoglycoside", below: 60, severity: "caution", message: "Aminoglycosides are nephrotoxic and ototoxic in renal impairment. Use only if essential, with levels and dose-interval adjustment." },
-  { cls: "cotrimoxazole", below: 30, severity: "caution", message: "Reduce the co-trimoxazole dose below an eGFR of 30 and watch potassium — it raises it." },
+  { cls: "cotrimoxazole", below: 30, severity: "caution", message: "Reduce the co-trimoxazole dose below an eGFR of 30 and watch potassium; it raises it." },
   { cls: "sulfonylurea", below: 45, severity: "caution", message: "Sulfonylureas accumulate in renal impairment and cause prolonged hypoglycaemia. Prefer gliclazide, use the lowest dose, and avoid glibenclamide entirely." },
-  { cls: "dpp4", below: 45, severity: "caution", message: "Most DPP-4 inhibitors need dose reduction in renal impairment — linagliptin is the exception and needs none." },
+  { cls: "dpp4", below: 45, severity: "caution", message: "Most DPP-4 inhibitors need dose reduction in renal impairment; linagliptin is the exception and needs none." },
   { cls: "sglt2", below: 30, severity: "caution", message: "Below an eGFR of 30 an SGLT2 inhibitor gives little glucose lowering, though it may still be continued for kidney or heart protection. Follow the specific product's limits." },
   { cls: "ace_inhibitor", below: 30, severity: "caution", message: "ACE inhibitors are usually still beneficial in advanced kidney disease but need specialist input, close potassium monitoring, and a plan to hold during acute illness." },
   { cls: "arb", below: 30, severity: "caution", message: "ARBs are usually still beneficial in advanced kidney disease but need specialist input, close potassium monitoring, and a plan to hold during acute illness." },
-  { cls: "thiazide_diuretic", below: 30, severity: "caution", message: "Thiazides lose effect below an eGFR of 30 — a loop diuretic is usually needed instead." },
+  { cls: "thiazide_diuretic", below: 30, severity: "caution", message: "Thiazides lose effect below an eGFR of 30; a loop diuretic is usually needed instead." },
   { cls: "statin", below: 30, severity: "info", message: "Cap rosuvastatin at 20 mg daily in severe renal impairment; other statins generally need no adjustment." },
   { cls: "lithium", below: 60, severity: "caution", message: "Lithium is renally cleared and has a narrow margin. Reduce the dose and check levels more often." },
 ];
@@ -660,7 +700,7 @@ function drugSpecificFindings(meds: MedicationInput[]): SafetyFinding[] {
       severity: "contraindicated",
       title: "Gemfibrozil with a statin",
       message:
-        "Gemfibrozil specifically should not be combined with a statin — the myopathy and rhabdomyolysis risk is far higher than with fenofibrate. Switch the fibrate or stop it.",
+        "Gemfibrozil specifically should not be combined with a statin: the myopathy and rhabdomyolysis risk is far higher than with fenofibrate. Switch the fibrate or stop it.",
       medicationIds: [...gemfibrozil, ...anyStatin].map((m) => m.id),
       drugNames: [...gemfibrozil, ...anyStatin].map((m) => m.drugName),
     });
@@ -677,6 +717,288 @@ function drugSpecificFindings(meds: MedicationInput[]): SafetyFinding[] {
       medicationIds: glibenclamide.map((m) => m.id),
       drugNames: glibenclamide.map((m) => m.drugName),
     });
+  }
+
+  return findings;
+}
+
+// -------------------------------------------------------------- allergy check
+
+/**
+ * Classes whose members are grouped together for INTERACTION purposes but are
+ * chemically or mechanistically too diverse to assume cross-reactivity for an
+ * ALLERGY. A same-class allergy match against one of these is downgraded from
+ * "contraindicated" to "caution" rather than treated as a confirmed hit —
+ * e.g. aspirin and clopidogrel share the "antiplatelet" class for interaction
+ * purposes but are chemically unrelated, so an aspirin allergy says nothing
+ * about clopidogrel.
+ */
+const COARSE_ALLERGY_CLASSES = new Set<TherapeuticClass>(["tramadol_opioid", "antipsychotic", "antiplatelet"]);
+
+/** Reactions consistent with a severe/IgE-type hypersensitivity rather than a benign side effect. */
+const SEVERE_REACTION_RE = /anaphyla|angioedema|stevens|toxic epidermal|\bten\b|laryngeal|throat|difficulty breathing|hives|urticaria/i;
+/** The ACE-inhibitor class-effect dry cough — not an allergic reaction, and not predictive of an ARB reaction. */
+const COUGH_ONLY_RE = /^\s*(a\s+)?(dry\s+)?cough\s*$/i;
+const ASPIRIN_RE = /\b(aspirin|acetylsalicylic|asa)\b/;
+
+/** Alphanumeric-only, for literal name-substring comparison (stricter than `normaliseDrugName`). */
+function bareAlnum(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+const MIN_NAME_MATCH_LEN = 5;
+
+function buildAllergyMessage(allergy: AllergyInput, lead: string): string {
+  const parts = [lead];
+  if (allergy.reaction) parts.push(`Recorded reaction: ${allergy.reaction}.`);
+  if (allergy.severity) parts.push(`Recorded severity: ${allergy.severity}.`);
+  if (allergy.source === "patient") {
+    parts.push("Self-reported by the patient, not clinician-confirmed; verify if uncertain, but do not disregard.");
+  }
+  return parts.join(" ");
+}
+
+function exactMatchFinding(allergy: AllergyInput, med: MedicationInput): SafetyFinding {
+  return {
+    kind: "allergy",
+    severity: "contraindicated",
+    title: `Recorded allergy: ${allergy.allergen}`,
+    message: buildAllergyMessage(
+      allergy,
+      `${med.drugName} matches the patient's recorded allergy to ${allergy.allergen} by name. Do not dispense without confirming this is safe.`,
+    ),
+    medicationIds: [med.id],
+    drugNames: [med.drugName, allergy.allergen],
+  };
+}
+
+function classMatchFinding(allergy: AllergyInput, med: MedicationInput, cls: TherapeuticClass): SafetyFinding {
+  const coarse = COARSE_ALLERGY_CLASSES.has(cls);
+  return {
+    kind: "allergy",
+    severity: coarse ? "caution" : "contraindicated",
+    title: `Recorded allergy: ${allergy.allergen}`,
+    message: buildAllergyMessage(
+      allergy,
+      coarse
+        ? `${med.drugName} is in the same broad ${CLASS_LABEL[cls]} group as the recorded allergy to ${allergy.allergen}. That group bundles chemically different agents, so a reaction is not certain; confirm which specific drug the allergy refers to before dispensing.`
+        : `${med.drugName} is a ${CLASS_LABEL[cls]}, the same class as the patient's recorded allergy to ${allergy.allergen}. Do not dispense without confirming this is safe.`,
+    ),
+    medicationIds: [med.id],
+    drugNames: [med.drugName, allergy.allergen],
+  };
+}
+
+const BETA_LACTAM_CROSS_REACTIVITY: { from: TherapeuticClass; to: TherapeuticClass }[] = [
+  { from: "penicillin", to: "cephalosporin" },
+  { from: "cephalosporin", to: "penicillin" },
+];
+
+/** Penicillin ↔ cephalosporin: real but low cross-reactivity, driven by side-chain similarity, not the shared beta-lactam ring. */
+function penicillinCephalosporinCrossReactivity(
+  allergy: AllergyInput,
+  allergenClasses: TherapeuticClass[],
+  classifiedMeds: { med: MedicationInput; classes: TherapeuticClass[] }[],
+  flaggedMedIds: Set<string>,
+): SafetyFinding[] {
+  const findings: SafetyFinding[] = [];
+  const reaction = allergy.reaction ?? "";
+  const severe = allergy.severity === "severe" || SEVERE_REACTION_RE.test(reaction);
+
+  for (const { from, to } of BETA_LACTAM_CROSS_REACTIVITY) {
+    if (!allergenClasses.includes(from)) continue;
+    for (const { med, classes } of classifiedMeds) {
+      if (flaggedMedIds.has(med.id) || !classes.includes(to)) continue;
+      findings.push({
+        kind: "allergy",
+        severity: severe ? "contraindicated" : "caution",
+        title: `Possible cross-reactivity between ${CLASS_LABEL[from].toLowerCase()} and ${CLASS_LABEL[to].toLowerCase()} allergy`,
+        message: severe
+          ? `The recorded ${CLASS_LABEL[from].toLowerCase()} allergy to ${allergy.allergen} was severe${reaction ? ` (${reaction})` : ""}. Avoid ${med.drugName} unless allergy testing has cleared it. Cross-reactivity between penicillins and cephalosporins is low overall (well under 5%), but a prior severe reaction is exactly when it matters most.`
+          : `Cross-reactivity between penicillins and cephalosporins is now understood to be much lower than once taught (well under 5%, and dependent on side-chain similarity, not the shared beta-lactam ring). ${med.drugName} is usually fine after a mild reaction to ${allergy.allergen}, but confirm the original reaction was not severe before dispensing, and prefer a structurally dissimilar cephalosporin where there is a choice.`,
+        medicationIds: [med.id],
+        drugNames: [med.drugName, allergy.allergen],
+      });
+    }
+  }
+  return findings;
+}
+
+/**
+ * ACE inhibitor ↔ ARB. Deliberately reaction-aware: a dry cough is the
+ * well-known ACE-inhibitor class effect and switching to an ARB is the
+ * standard next step, NOT a cross-reactivity risk — flagging it as a caution
+ * would actively discourage the guideline-recommended move. Angioedema is the
+ * genuine (small but real) cross-reactivity concern.
+ */
+function aceArbCrossReactivity(
+  allergy: AllergyInput,
+  allergenClasses: TherapeuticClass[],
+  classifiedMeds: { med: MedicationInput; classes: TherapeuticClass[] }[],
+  flaggedMedIds: Set<string>,
+): SafetyFinding[] {
+  const isAceAllergy = allergenClasses.includes("ace_inhibitor");
+  const isArbAllergy = allergenClasses.includes("arb");
+  if (!isAceAllergy && !isArbAllergy) return [];
+
+  const targetClass: TherapeuticClass = isAceAllergy ? "arb" : "ace_inhibitor";
+  const reaction = (allergy.reaction ?? "").trim();
+  const coughOnly = COUGH_ONLY_RE.test(reaction);
+  const severeSigns = SEVERE_REACTION_RE.test(reaction);
+
+  const findings: SafetyFinding[] = [];
+  for (const { med, classes } of classifiedMeds) {
+    if (flaggedMedIds.has(med.id) || !classes.includes(targetClass)) continue;
+
+    if (coughOnly) {
+      findings.push({
+        kind: "allergy",
+        severity: "info",
+        title: `${med.drugName} is the usual alternative for an ACE-inhibitor cough`,
+        message: `The recorded reaction to ${allergy.allergen} is a dry cough, the well-known ACE-inhibitor class effect. It does not predict a reaction to ${med.drugName}; switching to an ARB is the standard next step, not a cross-reactivity concern.`,
+        medicationIds: [med.id],
+        drugNames: [med.drugName, allergy.allergen],
+      });
+      continue;
+    }
+
+    findings.push({
+      kind: "allergy",
+      severity: severeSigns ? "caution" : "info",
+      title: severeSigns
+        ? "Possible cross-reactivity with an ACE inhibitor/ARB angioedema reaction"
+        : `Confirm the nature of the ${allergy.allergen} reaction before prescribing ${med.drugName}`,
+      message: severeSigns
+        ? `${allergy.allergen} caused ${reaction || "a reaction"}, consistent with angioedema. A small but real proportion of patients with ACE-inhibitor angioedema also react to an ARB. Use with caution and monitor closely in the first weeks; avoid entirely if the original reaction involved the airway or was anaphylactic.`
+        : `${allergy.allergen} is recorded as an allergy but the reaction is not described. If it was a dry cough, an ARB is the usual safe alternative; if it was swelling or angioedema, an ARB carries a small risk of recurrence and should be used with caution. Confirm which before prescribing ${med.drugName}.`,
+      medicationIds: [med.id],
+      drugNames: [med.drugName, allergy.allergen],
+    });
+  }
+  return findings;
+}
+
+/** Aspirin ↔ other NSAIDs: a shared COX-1 mechanism, not limited to one drug (classic AERD). */
+function aspirinNsaidCrossReactivity(
+  allergy: AllergyInput,
+  allergenClasses: TherapeuticClass[],
+  classifiedMeds: { med: MedicationInput; classes: TherapeuticClass[] }[],
+  flaggedMedIds: Set<string>,
+): SafetyFinding[] {
+  const allergenIsAspirin = ASPIRIN_RE.test(allergy.allergen.toLowerCase());
+  const allergenIsOtherNsaid = allergenClasses.includes("nsaid");
+  if (!allergenIsAspirin && !allergenIsOtherNsaid) return [];
+
+  const findings: SafetyFinding[] = [];
+  for (const { med, classes } of classifiedMeds) {
+    if (flaggedMedIds.has(med.id)) continue;
+    const medIsAspirin = ASPIRIN_RE.test(med.drugName.toLowerCase());
+    const medIsOtherNsaid = classes.includes("nsaid");
+
+    const crosses = (allergenIsAspirin && medIsOtherNsaid) || (allergenIsOtherNsaid && !allergenIsAspirin && medIsAspirin);
+    if (!crosses) continue;
+
+    findings.push({
+      kind: "allergy",
+      severity: "caution",
+      title: "Possible cross-reactivity across NSAIDs and aspirin",
+      message: `Aspirin and other NSAIDs share the same COX-1 mechanism, so a genuine hypersensitivity reaction to one (as recorded for ${allergy.allergen}) often extends to the whole group, including ${med.drugName}. This is a pharmacological effect, not limited to a single drug. Paracetamol is usually the safer analgesic choice; if aspirin is specifically needed for cardiovascular protection, that decision needs specialist input rather than a routine substitution.`,
+      medicationIds: [med.id],
+      drugNames: [med.drugName, allergy.allergen],
+    });
+  }
+  return findings;
+}
+
+const NON_ANTIBIOTIC_SULFONAMIDE_CLASSES: TherapeuticClass[] = ["thiazide_diuretic", "loop_diuretic", "sulfonylurea"];
+
+/**
+ * Corrective note, not a warning: the "sulfa allergy" rule historically used
+ * to avoid diuretics/sulfonylureas/celecoxib after an antibiotic sulfonamide
+ * reaction is not supported by current evidence — the sulfonamide moiety
+ * differs structurally. Surfaced as `info` precisely so it is not mistaken
+ * for a reason to withhold an otherwise-indicated medicine.
+ */
+function sulfonamideCrossReactivityNote(
+  allergy: AllergyInput,
+  allergenClasses: TherapeuticClass[],
+  classifiedMeds: { med: MedicationInput; classes: TherapeuticClass[] }[],
+  flaggedMedIds: Set<string>,
+): SafetyFinding[] {
+  if (!allergenClasses.includes("cotrimoxazole")) return [];
+
+  const findings: SafetyFinding[] = [];
+  for (const { med, classes } of classifiedMeds) {
+    if (flaggedMedIds.has(med.id)) continue;
+    const isCelecoxib = /\bcelecoxib\b/.test(med.drugName.toLowerCase());
+    const isNonAntibioticSulfonamide = classes.some((c) => NON_ANTIBIOTIC_SULFONAMIDE_CLASSES.includes(c));
+    if (!isCelecoxib && !isNonAntibioticSulfonamide) continue;
+
+    findings.push({
+      kind: "allergy",
+      severity: "info",
+      title: "Sulfonamide antibiotic allergy does not extend to this medicine",
+      message: `${allergy.allergen} is a sulfonamide antibiotic. ${med.drugName} also contains a sulfonamide group, but current evidence does not support real cross-reactivity between antibiotic and non-antibiotic sulfonamides; the "sulfa allergy" rule once used to avoid diuretics, sulfonylureas or celecoxib is not well supported. It is reasonable to continue ${med.drugName}; this note exists so it is not withheld on the old rule.`,
+      medicationIds: [med.id],
+      drugNames: [med.drugName, allergy.allergen],
+    });
+  }
+  return findings;
+}
+
+/**
+ * Cross-checks a patient's active medications against their recorded
+ * allergies. Three tiers, most specific first:
+ *
+ *   1. LITERAL NAME MATCH — the allergen and a drug name overlap as text.
+ *      Catches brand/local names outside the therapeutic-class taxonomy.
+ *   2. SAME-CLASS MATCH — the allergen classifies into the same
+ *      `TherapeuticClass` as a medication. Downgraded to a caution for
+ *      classes known to bundle chemically dissimilar agents (see
+ *      `COARSE_ALLERGY_CLASSES`) rather than treated as a confirmed hit.
+ *   3. CROSS-FAMILY — known, evidence-scoped cross-reactivity between
+ *      related-but-distinct classes (penicillin/cephalosporin, ACE/ARB,
+ *      aspirin/NSAID), plus a corrective note for the sulfa-allergy myth.
+ *      Only runs for a (allergy, medication) pair not already caught above.
+ *
+ * Like the rest of this file: a curated, evidence-scoped rule set, not a
+ * complete interaction database. A clean result means "no rule fired".
+ */
+export function assessAllergyFindings(medications: MedicationInput[], allergies: AllergyInput[]): SafetyFinding[] {
+  if (medications.length === 0 || allergies.length === 0) return [];
+
+  const classifiedMeds = medications.map((m) => ({ med: m, classes: classifyDrug(m.drugName) }));
+  const findings: SafetyFinding[] = [];
+
+  for (const allergy of allergies) {
+    if (!allergy.allergen.trim()) continue;
+    const allergenClasses = classifyDrug(allergy.allergen);
+    const allergenBare = bareAlnum(allergy.allergen);
+    const flaggedMedIds = new Set<string>();
+
+    for (const { med, classes } of classifiedMeds) {
+      const medBare = bareAlnum(med.drugName);
+      const nameMatch =
+        allergenBare.length >= MIN_NAME_MATCH_LEN &&
+        medBare.length >= MIN_NAME_MATCH_LEN &&
+        (medBare.includes(allergenBare) || allergenBare.includes(medBare));
+
+      if (nameMatch) {
+        findings.push(exactMatchFinding(allergy, med));
+        flaggedMedIds.add(med.id);
+        continue;
+      }
+
+      const sharedClasses = classes.filter((c) => allergenClasses.includes(c));
+      if (sharedClasses.length > 0) {
+        for (const cls of sharedClasses) findings.push(classMatchFinding(allergy, med, cls));
+        flaggedMedIds.add(med.id);
+      }
+    }
+
+    findings.push(...penicillinCephalosporinCrossReactivity(allergy, allergenClasses, classifiedMeds, flaggedMedIds));
+    findings.push(...aceArbCrossReactivity(allergy, allergenClasses, classifiedMeds, flaggedMedIds));
+    findings.push(...aspirinNsaidCrossReactivity(allergy, allergenClasses, classifiedMeds, flaggedMedIds));
+    findings.push(...sulfonamideCrossReactivityNote(allergy, allergenClasses, classifiedMeds, flaggedMedIds));
   }
 
   return findings;
@@ -748,7 +1070,7 @@ export function assessMedicationSafety(
           severity: rule.severity,
           title: `${CLASS_LABEL[cls]} at eGFR ${Math.round(egfr)}`,
           message: ctx.egfrStale
-            ? `${rule.message} Note this eGFR comes from a creatinine over a year old — recheck before acting on it.`
+            ? `${rule.message} Note this eGFR comes from a creatinine over a year old; recheck before acting on it.`
             : rule.message,
           medicationIds: [med.id],
           drugNames: [med.drugName],
@@ -783,9 +1105,23 @@ export function assessMedicationSafety(
     }
   }
 
+  // ---- 6. Allergy cross-check -----------------------------------------------
+  let allergyCheckNote: string | null;
+  if (ctx.allergies === undefined) {
+    allergyCheckNote =
+      "Allergy data was not checked for this report. Load the patient's recorded allergies to switch these checks on.";
+  } else if (ctx.allergies.length === 0) {
+    allergyCheckNote =
+      "No allergies are recorded for this patient. That means none has been recorded, not that the patient is confirmed allergy-free.";
+  } else {
+    allergyCheckNote = null;
+    findings.push(...assessAllergyFindings(medications, ctx.allergies));
+  }
+
   return {
     findings: dedupeAndRank(findings),
     renalCheckSkipped,
+    allergyCheckNote,
     isAdvisoryOnly: true,
   };
 }

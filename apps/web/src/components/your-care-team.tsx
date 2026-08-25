@@ -6,16 +6,23 @@ import { MaskedCallButton } from "@/components/masked-call-button";
 
 /**
  * Patient/family-facing care team card — docs/CLINICAL_TRUST_MODEL_SPEC.md
- * §2's "Onboarding / dashboard" touchpoint row. Renders nothing until a
- * care_team_assignment row exists for this patient — never shows a
- * placeholder clinician name. The Clinical Director line is a static,
- * same-for-every-patient supervision badge (never claims per-case review —
- * that's ReviewedByDoctor's job, gated separately on a real escalation).
- * The Care Coordinator line (Maven "Care Advocate" surface) is null-gated the
- * same way; the name lookup goes through the service-role client because a
- * patient's RLS can't read a coordinator's profiles row — the RLS-scoped
- * assignment SELECT above is the ownership proof, and only full_name leaves
- * the lookup.
+ * §2's "Onboarding / dashboard" touchpoint row, 2026-07-30 team-framing
+ * correction. `care_team_assignment.clinician_id` is internal routing/rota
+ * only — it is deliberately never rendered here as a named "your doctor",
+ * and there is no direct-call path to that standing individual: the spec
+ * is explicit that no single Tier 2 doctor's name/photo appears ahead of
+ * any review actually happening. A doctor is named (and, on an escalation,
+ * callable) only once they've actually reviewed something — that's
+ * ReviewedByDoctor's job elsewhere, not this card's. Renders nothing until
+ * a care_team_assignment row exists for this patient. The Clinical Director
+ * line is a static, same-for-every-patient supervision badge (protocol
+ * authorship, not per-case review). The Care Coordinator line is null-gated
+ * the same way; the name lookup goes through the service-role client
+ * because a patient's RLS can't read a coordinator's profiles row — the
+ * RLS-scoped assignment SELECT above is the ownership proof, and only
+ * full_name leaves the lookup. Calling the coordinator directly is fine
+ * (logistics, not a clinical-continuity promise — see the masked-calling
+ * build notes in docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md).
  */
 export async function YourCareTeam({ patientId }: { patientId: string }) {
   const supabase = await createClient();
@@ -32,7 +39,7 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
 
   const { data: clinician } = await supabase
     .from("clinical_staff")
-    .select("full_name, credential_type, credential_number")
+    .select("profile_id")
     .eq("profile_id", assignment.clinician_id)
     .eq("active", true)
     .maybeSingle();
@@ -62,11 +69,6 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
     coordinatorName = coordinator?.full_name ?? null;
   }
 
-  const clinicianCredential =
-    clinician.credential_type && clinician.credential_number
-      ? `${clinician.credential_type} ${clinician.credential_number}`
-      : null;
-
   return (
     <Card>
       <CardHeader>
@@ -74,24 +76,17 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-1">
         <p className="text-sm text-charcoal-ink">
-          Your doctor: <span className="font-medium">Dr. {clinician.full_name}</span>
-          {clinicianCredential && (
-            <span className="text-charcoal-ink/60"> · {clinicianCredential}</span>
-          )}
+          A team of MDCN-registered doctors follows your readings and checks in with you.
+          Whoever reviews a reading or handles a check-in is named on that specific note, not
+          assigned to you as a single doctor ahead of time.
         </p>
-        <MaskedCallButton
-          patientId={patientId}
-          staffProfileId={assignment.clinician_id}
-          otherPartyLabel="your doctor"
-          context="clinical_follow_up"
-        />
         {coordinatorName && (
           <>
             <p className="text-sm text-charcoal-ink">
-              Your care coordinator: <span className="font-medium">{coordinatorName}</span>
+              Your care coordinator: <span className="font-medium">{coordinatorName}.</span>
               <span className="text-charcoal-ink/60">
                 {" "}
-                — they help with bookings, refills and check-ins.{" "}
+                They help with bookings, refills and check-ins.{" "}
                 <Link href="/patient/messages" className="text-brand-green hover:underline">
                   Send a message
                 </Link>

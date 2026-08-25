@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { Section, SectionHeading } from "../_components/section";
 import { ContactForm } from "./contact-form";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Contact",
   description:
     "Join TarragonHealth, request an employer health plan, or talk to us about HMO partnerships.",
-  alternates: { canonical: "/contact" },
-};
+  path: "/contact",
+});
 
 export default async function ContactPage({
   searchParams,
@@ -20,6 +21,7 @@ export default async function ContactPage({
     <>
       <Section className="pt-20">
         <SectionHeading
+          as="h1"
           eyebrow="Contact"
           title="Join Tarragon Health"
           description="Tell us who you are and what you need: patient, family, employer, or HMO. We will follow up personally."

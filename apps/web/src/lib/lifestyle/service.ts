@@ -171,6 +171,32 @@ export async function getLifestyleState(
 }
 
 /**
+ * The obesity pathway's own hardest safeguard (§6.5, §16, §18): no weight-loss
+ * plan starts before an eating-disorder / mental-health screen exists. A
+ * missing screen blocks enrollment outright — the caller must collect one
+ * first. A *positive* screen still enrols the patient (so the programme +
+ * care-team relationship exists and they land on the same supportive "paused"
+ * card a later positive screen already produces via
+ * `private.handle_obesity_ed_screen`) but starts the enrollment paused rather
+ * than active, so no weight-loss task/nudge ever goes out before a doctor has
+ * reviewed.
+ */
+async function getObesityEdScreenGate(
+  svc: SupabaseClient<Database>,
+  userId: string,
+): Promise<"required" | "clear" | "needs_review"> {
+  const { data } = await svc
+    .from("obesity_ed_screens")
+    .select("positive")
+    .eq("patient_id", userId)
+    .order("screened_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return "required";
+  return data.positive ? "needs_review" : "clear";
+}
+
+/**
  * Enrol a patient into the active programme template for a condition and
  * materialise the first phase + its goals. Idempotent per (patient, condition).
  */
@@ -190,6 +216,19 @@ export async function enrollPatient(
     .eq("condition", condition)
     .maybeSingle();
   if (existing) return { ok: true };
+
+  let initialStatus: "active" | "paused" = "active";
+  let pausedReason: string | null = null;
+
+  if (conditionKey === "obesity") {
+    const gate = await getObesityEdScreenGate(svc, userId);
+    if (gate === "required") return { ok: false, reason: "ed_screen_required" };
+    if (gate === "needs_review") {
+      initialStatus = "paused";
+      pausedReason =
+        "Auto-paused: positive ED/mental-health screen; care team will review before weight-loss goals begin";
+    }
+  }
 
   // Consent is captured before the programme goes live (spec §14). A live
   // enrollment without an unrevoked consent is rejected by a DB trigger.
@@ -252,14 +291,15 @@ export async function enrollPatient(
   const startedAt = new Date().toISOString();
   const plan = buildInstantiationPlan({ phases, startedAt });
 
-  // Create enrollment (active).
+  // Create enrollment (active, unless the ED-screen gate above says otherwise).
   const { data: enrollment, error: enrErr } = await svc
     .from("lpe_enrollments")
     .insert({
       organisation_id: orgId,
       patient_id: userId,
       condition,
-      status: "active",
+      status: initialStatus,
+      paused_reason: pausedReason,
       started_at: startedAt,
       consent_id: consent.id,
     })

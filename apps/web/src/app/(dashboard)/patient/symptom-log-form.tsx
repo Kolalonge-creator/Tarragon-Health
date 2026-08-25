@@ -19,8 +19,22 @@ const SYMPTOM_LABEL: Record<SymptomLogInput["symptom_type"], string> = {
   palpitations: "Palpitations (racing/irregular heartbeat)",
   swelling: "Swelling",
   nausea: "Nausea",
+  chest_pain: "Chest pain or pressure",
+  severe_headache: "Severe headache",
+  visual_disturbance: "Vision changes (blurred, dimmed, or lost)",
+  confusion: "Confusion or drowsiness",
   other: "Other",
 };
+
+/** Severity-slider track colour: calm green low, amber mid, red only at the
+ * top end. Purely a visual cue, matches SYMPTOM_LABEL's own tone, never a
+ * verdict, and the copy below the slider stays informational rather than
+ * alarming either way (brand voice: no fear-based urgency). */
+function severityTrackColor(severity: number): string {
+  if (severity >= 8) return "accent-red-600";
+  if (severity >= 6) return "accent-amber-500";
+  return "accent-brand-green";
+}
 
 export function SymptomLogForm({ patientId }: { patientId: string }) {
   const [severity, setSeverity] = useState(5);
@@ -55,9 +69,10 @@ export function SymptomLogForm({ patientId }: { patientId: string }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="severity">
-              Severity: {severity}/10
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="severity">Severity</Label>
+              <span className="text-sm font-semibold text-charcoal-ink">{severity}/10</span>
+            </div>
             <input
               id="severity"
               name="severity"
@@ -66,7 +81,7 @@ export function SymptomLogForm({ patientId }: { patientId: string }) {
               max={10}
               value={severity}
               onChange={(event) => setSeverity(Number(event.target.value))}
-              className="w-full accent-brand-green"
+              className={`w-full ${severityTrackColor(severity)}`}
             />
             <p className="text-xs text-charcoal-ink/60">
               1 = barely noticeable, 10 = worst you&apos;ve ever felt.

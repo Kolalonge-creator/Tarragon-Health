@@ -38,32 +38,39 @@ export default async function PatientCarePage() {
           testimonial cards, being discretionary rather than clinical, sit
           below everything here so they never compete with care content
           (2026-07-30 patient-experience pass). */}
-      <RequiresEntitlement feature="clinician_review" fallback={<UpgradePrompt feature="clinician_review" />}>
-        <CarePlanDisplay patientId={subjectId} />
-        <ObesitySummary
-          patientId={subjectId}
-          conditionLanguagePreference={profile.condition_language_preference}
-        />
-      </RequiresEntitlement>
-      {/* Not entitlement-gated: the obstetric-led guard (§20.2) needs to
-          fire for anyone on a diabetes care plan regardless of tier, and
-          self-reporting pregnancy shouldn't require a paid plan. Renders a
-          plain status card for everyone else. */}
-      <PregnancyStatus patientId={subjectId} />
-      <RequiresEntitlement feature="async_doctor_visit" fallback={<UpgradePrompt feature="async_doctor_visit" />}>
-        <AskADoctor patientId={subjectId} organisationId={profile.organisation_id} />
-      </RequiresEntitlement>
-      {/* Paid per-visit service — no plan gate; the card itself carries the
-          availability + not-for-emergencies copy. */}
-      <BookVideoVisit patientId={subjectId} />
-      <PatientEscalations patientId={subjectId} />
-      <HospitalAdmissionsCard patientId={subjectId} />
-      <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>
-        <LifestyleProgressSummary patientId={subjectId} />
-      </RequiresEntitlement>
-      <YourReferrals patientId={subjectId} />
-      {coachAccess && <AiCoachChat patientId={subjectId} />}
-      <CareCircleCard />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <div className="space-y-4">
+          <RequiresEntitlement feature="clinician_review" fallback={<UpgradePrompt feature="clinician_review" />}>
+            <CarePlanDisplay patientId={subjectId} />
+            <ObesitySummary
+              patientId={subjectId}
+              conditionLanguagePreference={profile.condition_language_preference}
+            />
+          </RequiresEntitlement>
+          {/* Not entitlement-gated: the obstetric-led guard (§20.2) needs to
+              fire for anyone on a diabetes care plan regardless of tier, and
+              self-reporting pregnancy shouldn't require a paid plan. Renders a
+              plain status card for everyone else. */}
+          <PregnancyStatus patientId={subjectId} />
+          <PatientEscalations patientId={subjectId} />
+          <HospitalAdmissionsCard patientId={subjectId} />
+          <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>
+            <LifestyleProgressSummary patientId={subjectId} />
+          </RequiresEntitlement>
+        </div>
+
+        <div className="space-y-4">
+          {/* Paid per-visit service — no plan gate; the card itself carries the
+              availability + not-for-emergencies copy. */}
+          <BookVideoVisit patientId={subjectId} />
+          <RequiresEntitlement feature="async_doctor_visit" fallback={<UpgradePrompt feature="async_doctor_visit" />}>
+            <AskADoctor patientId={subjectId} organisationId={profile.organisation_id} />
+          </RequiresEntitlement>
+          {coachAccess && <AiCoachChat patientId={subjectId} />}
+          <CareCircleCard />
+          <YourReferrals patientId={subjectId} />
+        </div>
+      </div>
 
       {/* Discretionary / engagement surfaces — real features, deliberately
           lower priority than anything above. */}

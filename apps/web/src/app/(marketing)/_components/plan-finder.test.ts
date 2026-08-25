@@ -1,4 +1,8 @@
 import { recommendPlan } from "./plan-finder";
+import { NGN_TIERS, USD_TIERS } from "../_content/pricing";
+
+const ngnPrevent = NGN_TIERS.find((t) => t.id === "prevent")!;
+const usdPrevent = USD_TIERS.find((t) => t.id === "diaspora-prevent")!;
 
 /**
  * The PlanFinder mapping is a pure function and a real conversion surface;
@@ -14,7 +18,9 @@ describe("recommendPlan", () => {
   it("routes a healthy person in Nigeria to Tarragon Prevent", () => {
     const rec = recommendPlan("me", "none", "nigeria");
     expect(rec.plan).toBe("Tarragon Prevent");
-    expect(rec.price).toContain("₦3,500");
+    // Pulled live from _content/pricing.ts so this can't silently go stale
+    // against the pricing table again (see 2026-08-12 marketing-site audit).
+    expect(rec.price).toContain(ngnPrevent.priceMain);
     // Free stays reachable as the explicit self-tracking alternative.
     expect(rec.secondary).toContain("Tarragon Free");
     expect(rec.secondary).toContain("Annual Health Check");
@@ -23,7 +29,7 @@ describe("recommendPlan", () => {
   it("routes a healthy person abroad to the diaspora Prevent plan", () => {
     const rec = recommendPlan("me", "none", "abroad");
     expect(rec.plan).toBe("Tarragon Prevent (Diaspora)");
-    expect(rec.price).toContain("$2.56");
+    expect(rec.price).toContain(usdPrevent.priceSecondary!.replace(/^or\s+/, "").replace("/month", ""));
   });
 
   it("still routes one condition to Essential Care", () => {

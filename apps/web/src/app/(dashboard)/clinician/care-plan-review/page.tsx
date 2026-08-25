@@ -69,11 +69,10 @@ export default function CarePlanReviewPage() {
   const { data, isLoading, isError } = useOrgCarePlanReviewPrompts();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Care plan review</h1>
+        <p className="text-sm text-charcoal-ink/60">Care plans that may need attention.</p>
       </div>
       <Card>
         <CardHeader>

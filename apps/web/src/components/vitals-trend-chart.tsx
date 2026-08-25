@@ -2,11 +2,24 @@
 
 import { useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { useVitalsTrend, useHba1cTrend } from "@/lib/queries/vitals";
+import { useVitalsTrend, useHba1cTrend, useBmiTrend, useLatestHeightCm } from "@/lib/queries/vitals";
 import { getHba1cBracket } from "@/lib/rules/hba1c-bracket";
+import { bmiCategory, type BmiCategory } from "@/lib/obesity/classify";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+
+/** Warm, non-clinical framing — same patient-facing wording as the public
+ * BMI calculator's CATEGORY_COPY (bmi-calorie-calculator.tsx), never the
+ * doctor-facing "obesity_class_i" style labels used in the clinician panel. */
+const BMI_CATEGORY_LABEL: Record<BmiCategory, string> = {
+  underweight: "Underweight range",
+  healthy: "Healthy weight range",
+  overweight: "Overweight range",
+  obesity_class_i: "Higher weight range",
+  obesity_class_ii: "Higher weight range",
+  obesity_class_iii: "Higher weight range",
+};
 
 const BP_CONFIG: ChartConfig = {
   systolic: { label: "Systolic (mmHg)", color: "var(--color-chart-systolic)" },
@@ -29,18 +42,29 @@ const PULSE_CONFIG: ChartConfig = {
   pulse_bpm: { label: "Heart rate (bpm)", color: "var(--color-chart-systolic)" },
 };
 
+const BMI_CONFIG: ChartConfig = {
+  bmi: { label: "BMI", color: "var(--color-chart-glucose)" },
+};
+
 function formatDate(taken_at: string): string {
   return new Date(taken_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-type TrendMode = "blood_pressure" | "glucose" | "weight" | "pulse" | "hba1c";
+type TrendMode = "blood_pressure" | "glucose" | "weight" | "pulse" | "hba1c" | "bmi";
 
 export function VitalsTrendChart({ patientId }: { patientId: string }) {
   const [mode, setMode] = useState<TrendMode>("blood_pressure");
-  const vitalsTrend = useVitalsTrend(patientId, mode === "hba1c" ? "blood_pressure" : mode);
+  const vitalsTrend = useVitalsTrend(
+    patientId,
+    mode === "hba1c" || mode === "bmi" ? "blood_pressure" : mode
+  );
   const hba1cTrend = useHba1cTrend(patientId);
-  const { data, isLoading, isError } = mode === "hba1c" ? hba1cTrend : vitalsTrend;
+  const bmiTrend = useBmiTrend(patientId);
+  const heightQuery = useLatestHeightCm(patientId);
+  const { data, isLoading, isError } =
+    mode === "hba1c" ? hba1cTrend : mode === "bmi" ? bmiTrend : vitalsTrend;
   const points = (data ?? []).map((reading) => ({ ...reading, date: formatDate(reading.taken_at) }));
+  const noHeightOnFile = mode === "bmi" && !heightQuery.isLoading && heightQuery.data == null;
 
   return (
     <Card>
@@ -84,13 +108,25 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           >
             HbA1c
           </Button>
+          <Button size="sm" variant={mode === "bmi" ? "default" : "outline"} onClick={() => setMode("bmi")}>
+            BMI
+          </Button>
         </div>
 
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && (
           <p className="text-sm text-red-600">Could not load the trend chart.</p>
         )}
-        {!isLoading && !isError && points.length < 2 && (
+        {mode === "bmi" && !isLoading && !isError && noHeightOnFile && (
+          <p className="text-sm text-charcoal-ink/60">
+            Add your height in your{" "}
+            <a href="/patient/prevention#risk-assessment" className="underline">
+              risk assessment
+            </a>{" "}
+            to see your BMI trend alongside your weight.
+          </p>
+        )}
+        {!isLoading && !isError && !noHeightOnFile && points.length < 2 && (
           <p className="text-sm text-charcoal-ink/60">Not enough readings yet.</p>
         )}
         {points.length >= 2 && mode === "blood_pressure" && (
@@ -160,6 +196,27 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
               return (
                 <p className="text-xs text-charcoal-ink/60">
                   Latest: {latest.value}% ({bracket.label})
+                </p>
+              );
+            })()}
+          </div>
+        )}
+        {points.length >= 2 && mode === "bmi" && !noHeightOnFile && (
+          <div className="space-y-2">
+            <ChartContainer config={BMI_CONFIG}>
+              <LineChart data={points}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" fontSize={12} />
+                <YAxis fontSize={12} domain={["dataMin - 1", "dataMax + 1"]} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line type="monotone" dataKey="bmi" stroke="var(--color-bmi)" dot={false} />
+              </LineChart>
+            </ChartContainer>
+            {(() => {
+              const latest = points[points.length - 1] as { bmi: number };
+              return (
+                <p className="text-xs text-charcoal-ink/60">
+                  Latest: {latest.bmi.toFixed(1)} ({BMI_CATEGORY_LABEL[bmiCategory(latest.bmi)]})
                 </p>
               );
             })()}

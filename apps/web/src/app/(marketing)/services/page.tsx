@@ -2,29 +2,42 @@ import type { Metadata } from "next";
 import { CtaBand } from "../_components/cta-band";
 import { DashboardPreview } from "../_components/dashboard-preview";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
-import { Section, SectionHeading } from "../_components/section";
+import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
+import { Section } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { ConditionsMarquee } from "../_components/conditions-marquee";
 import { StepsExplorer } from "../_components/steps-explorer";
 import { HOW_IT_WORKS_STEPS, SERVICE_CARDS, WHAT_WE_TRACK } from "../_content/services";
+import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Services",
   description:
     "Everything TarragonHealth helps you manage: chronic disease, preventive health, medication, labs, and care coordination, in one connected record.",
-  alternates: { canonical: MARKETING_ROUTES.services },
-};
+  path: MARKETING_ROUTES.services,
+});
 
 export default function ServicesPage() {
   return (
     <>
-      <Section className="pt-20">
-        <SectionHeading
-          eyebrow="Services"
-          title="What we help you manage"
-          description="Chronic disease, preventive health, medication, and labs, all on one shared record so nothing falls through the cracks between visits."
-        />
+      {/* Rendered outside Section on purpose — full-bleed spans the full
+          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
+      <PhotoBannerHero
+        eyebrow="Services"
+        title="What we help you manage"
+        description="Chronic disease, preventive health, medication, and labs, all on one shared record so nothing falls through the cracks between visits."
+        primaryHref="/signup"
+        primaryLabel="Get started"
+        secondaryHref={MARKETING_ROUTES.pricing}
+        secondaryLabel="View pricing"
+        imageSrc={MARKETING_MEDIA.pageHero.services.imageSrc ?? ""}
+        imageAlt={MARKETING_MEDIA.pageHero.services.imageAlt ?? ""}
+        imagePosition={MARKETING_MEDIA.pageHero.services.imageFocus}
+      />
+
+      <Section className="pt-14">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {SERVICE_CARDS.map((service) => (
             <ServiceCardLink key={service.key} service={service} />

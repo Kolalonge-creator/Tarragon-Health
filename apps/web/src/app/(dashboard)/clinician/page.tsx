@@ -1,21 +1,33 @@
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/doctor-tier";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { StatTile } from "@/components/ui/stat-tile";
 import { ClinicalStaffSetupWarning } from "@/components/clinical/clinical-staff-setup-warning";
 import { WorklistCountStrip, type WorklistCountTile } from "@/components/clinical/worklist-count-strip";
+import { formatNumber } from "@/lib/analytics/format";
+import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
 import { createClient } from "@/lib/supabase/server";
-import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { Worklist } from "./worklist";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
+import { TodaysQueuePanel } from "./todays-queue-panel";
+import type { EscalationLevel } from "@tarragon/shared";
+
+type OverviewEscalationRow = {
+  id: string;
+  reason: string;
+  status: "open" | "under_review" | "resolved" | "referred";
+  patient: { full_name: string | null } | null;
+  clinician_alert: { level: EscalationLevel; sla_due_at: string | null } | null;
+};
 
 /**
  * Every worklist this dashboard links to, each paired with the count query
  * that answers "is there actually anything waiting here" — see
- * lib/queries/worklist-counts.ts. This is the one place that turns 13
+ * lib/queries/worklist-counts.ts. This is the one place that turns 14
  * badge-free pages into a single at-a-glance "today" view.
  */
 const WORKLIST_COUNT_TILES: WorklistCountTile[] = [
@@ -35,86 +47,38 @@ const WORKLIST_COUNT_TILES: WorklistCountTile[] = [
   { key: "carePlanReviewPrompts", href: "/clinician/care-plan-review", label: "Care plans to review", icon: "carePlan" },
 ];
 
-const QUICK_LINKS: { href: string; label: string; blurb: string; icon: LucideIcon }[] = [
-  {
-    href: "/clinician/escalations",
-    label: "Escalations",
-    blurb: "All open and resolved escalations",
-    icon: SEMANTIC_ICON.escalation,
-  },
-  {
-    href: "/clinician/support-inbox",
-    label: "Support inbox",
-    blurb: "WhatsApp support messages from patients",
-    icon: NAV_ICON.inbox,
-  },
-  {
-    href: "/clinician/messages",
-    label: "Patient messages",
-    blurb: "In-app care messaging threads",
-    icon: NAV_ICON.messages,
-  },
-  {
-    href: "/clinician/referrals",
-    label: "Specialist referrals",
-    blurb: "Refer and track specialist care",
-    icon: NAV_ICON.referral,
-  },
-  {
-    href: "/clinician/medication-reviews",
-    label: "Medication reviews",
-    blurb: "Scheduled medication review worklist",
-    icon: SEMANTIC_ICON.medication,
-  },
-  {
-    href: "/clinician/adherence",
-    label: "Adherence alerts",
-    blurb: "Missed-dose escalation ladder",
-    icon: SEMANTIC_ICON.carePlan,
-  },
-  {
-    href: "/clinician/recommendations",
-    label: "Care recommendations",
-    blurb: "Programme proposals awaiting review",
-    icon: SEMANTIC_ICON.preventive,
-  },
-  {
-    href: "/clinician/vaccinations",
-    label: "Vaccination certificates",
-    blurb: "Verify patient-uploaded certificates",
-    icon: NAV_ICON.vaccination,
-  },
-  {
-    href: "/clinician/preventive-reviews",
-    label: "Periodic health reviews",
-    blurb: "Preventive programme review cadence",
-    icon: NAV_ICON.review,
-  },
-  {
-    href: "/clinician/annual-reviews",
-    label: "Annual Doctor Reviews",
-    blurb: "Whole-year workup orchestration",
-    icon: SEMANTIC_ICON.booking,
-  },
-  {
-    href: "/clinician/lifestyle-flags",
-    label: "Lifestyle safety flags",
-    blurb: "Safety triggers from lifestyle programmes",
-    icon: NAV_ICON.lifestyle,
-  },
-  {
-    href: "/clinician/lifestyle-reviews",
-    label: "Lifestyle reviews",
-    blurb: "Progress reviews on lifestyle goals",
-    icon: NAV_ICON.review,
-  },
-  {
-    href: "/clinician/care-plan-review",
-    label: "Care plan review",
-    blurb: "Plans that may need attention",
-    icon: SEMANTIC_ICON.carePlan,
-  },
-];
+const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
+  emergency: 0,
+  urgent_escalation: 1,
+  clinician_review: 2,
+  routine: 3,
+};
+
+/** Lagos-local time of day (CLAUDE.md: timezone always Africa/Lagos), not the server's own. */
+function greetingWord(now: Date): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "Africa/Lagos",
+    }).format(now)
+  );
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function initials(name: string | null | undefined): string {
+  if (!name) return "•";
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "•"
+  );
+}
 
 export default async function ClinicianPage() {
   const profile = await getCurrentProfile();
@@ -149,12 +113,57 @@ export default async function ClinicianPage() {
   const roleLabel = staff?.doctor_tier ? DOCTOR_TIER_LABEL[staff.doctor_tier] : "Doctor";
   const authorityBlurb = staff?.doctor_tier ? DOCTOR_TIER_AUTHORITY_BLURB[staff.doctor_tier] : undefined;
 
+  // Overview KPIs + the "Urgent escalations" panel share one fetch of every
+  // open/under-review escalation — same filter as lib/queries/worklist-counts's
+  // countOpenEscalations and lib/queries/escalations's fetchDoctorEscalations,
+  // just run with the server client so this page stays a single request.
+  const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes] = await Promise.all([
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "patient"),
+    supabase
+      .from("escalations")
+      .select(
+        "id, reason, status, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level, sla_due_at)"
+      )
+      .in("status", ["open", "under_review"])
+      .order("created_at", { ascending: true })
+      .returns<OverviewEscalationRow[]>(),
+    supabase.from("medication_reviews").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase
+      .from("care_plan_review_prompts")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "open"),
+  ]);
+
+  const patientCount = patientCountRes.count ?? 0;
+  const openEscalations = escalationsRes.data ?? [];
+  const escalationCount = openEscalations.length;
+  const slaBreaches = openEscalations.filter(
+    (e) => e.clinician_alert?.sla_due_at && new Date(e.clinician_alert.sla_due_at) < new Date()
+  ).length;
+  const reviewsDue = (medReviewsRes.count ?? 0) + (carePlanReviewsRes.count ?? 0);
+
+  const urgentEscalations = openEscalations
+    .slice()
+    .sort((a, b) => {
+      const pa = LEVEL_PRIORITY[a.clinician_alert?.level ?? "routine"];
+      const pb = LEVEL_PRIORITY[b.clinician_alert?.level ?? "routine"];
+      if (pa !== pb) return pa - pb;
+      const slaA = a.clinician_alert?.sla_due_at ? new Date(a.clinician_alert.sla_due_at).getTime() : Infinity;
+      const slaB = b.clinician_alert?.sla_due_at ? new Date(b.clinician_alert.sla_due_at).getTime() : Infinity;
+      return slaA - slaB;
+    })
+    .slice(0, 5);
+
   return (
-    <DashboardPlaceholder
-      greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
-      roleLabel={roleLabel}
-      comingUp={[]}
-    >
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">
+          {greetingWord(new Date())}
+          {profile?.full_name ? `, ${profile.full_name}` : ""}
+        </h1>
+        <p className="text-sm text-charcoal-ink/60">Here&apos;s what needs you today.</p>
+      </div>
+
       {/* is_clinical_director is orthogonal to doctor_tier and to the now-
           unified account role — a Director keeps every capability this
           dashboard grants any other doctor, plus the protocol/config
@@ -174,40 +183,107 @@ export default async function ClinicianPage() {
       )}
       {staff && <RedFlagAttestation />}
       {attestationStaff && <AttestationCard expiresAt={attestationExpiresAt} />}
-      <section aria-labelledby="worklist-counts-heading" className="space-y-2">
-        <h2 id="worklist-counts-heading" className="font-heading text-sm font-medium text-charcoal-ink/60">
-          Today, at a glance
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          icon={SEMANTIC_ICON.parentCare}
+          label="Active patients"
+          value={formatNumber(patientCount)}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.escalation}
+          label="Escalations open"
+          value={String(escalationCount)}
+          delta={{
+            text: escalationCount > 0 ? "Awaiting review" : "Within target",
+            direction: escalationCount > 0 ? "down" : "up",
+          }}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.carePlan}
+          label="Reviews due"
+          value={String(reviewsDue)}
+          delta={{ text: "Across care plans & meds", direction: "flat" }}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.escalation}
+          tintClassName={slaBreaches > 0 ? "bg-red-100" : undefined}
+          iconClassName={slaBreaches > 0 ? "text-red-700" : undefined}
+          label="SLA breaches"
+          value={String(slaBreaches)}
+          delta={{
+            text: slaBreaches > 0 ? "Needs immediate attention" : "None right now",
+            direction: slaBreaches > 0 ? "down" : "up",
+          }}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>Urgent escalations</CardTitle>
+              <Link
+                href="/clinician/escalations"
+                className="shrink-0 text-sm font-medium text-brand-green hover:underline"
+              >
+                View all →
+              </Link>
+            </div>
+            <CardDescription>Ranked by severity, then how close each is to its SLA.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {urgentEscalations.length === 0 ? (
+              <p className="text-sm text-charcoal-ink/60">No open escalations right now.</p>
+            ) : (
+              <ul className="divide-y divide-charcoal-ink/10">
+                {urgentEscalations.map((escalation) => {
+                  const level = escalation.clinician_alert?.level;
+                  const levelBadge = level ? LEVEL_BADGE[level] : null;
+                  const statusBadge = ESCALATION_STATUS_BADGE[escalation.status];
+                  return (
+                    <li key={escalation.id}>
+                      <Link
+                        href={`/clinician/escalations/${escalation.id}`}
+                        className="flex items-center justify-between gap-3 py-2.5 hover:bg-charcoal-ink/[0.02]"
+                      >
+                        <span className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-soft-sage font-heading text-xs font-semibold text-deep-forest">
+                            {initials(escalation.patient?.full_name)}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium text-charcoal-ink">
+                              {escalation.patient?.full_name ?? "Unknown patient"}
+                            </span>
+                            <span className="block truncate text-xs text-charcoal-ink/55">
+                              {escalation.reason}
+                            </span>
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1.5">
+                          {levelBadge && <Badge variant={levelBadge.variant}>{levelBadge.label}</Badge>}
+                          <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <TodaysQueuePanel />
+      </div>
+
+      <Worklist />
+
+      <section aria-labelledby="all-worklists-heading" className="space-y-2">
+        <h2 id="all-worklists-heading" className="font-heading text-sm font-medium text-charcoal-ink/60">
+          All worklists
         </h2>
         <WorklistCountStrip tiles={WORKLIST_COUNT_TILES} />
       </section>
-      <Worklist />
-      <section aria-labelledby="clinician-worklists-heading" className="space-y-3">
-        <h2
-          id="clinician-worklists-heading"
-          className="font-heading text-lg font-semibold text-charcoal-ink"
-        >
-          Worklists &amp; tools
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {QUICK_LINKS.map(({ href, label, blurb, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="group flex items-start gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm transition-all hover:border-brand-green/40 hover:shadow-md"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-soft-sage">
-                <Icon className="h-4.5 w-4.5 text-deep-forest" strokeWidth={2} />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-charcoal-ink group-hover:text-deep-forest">
-                  {label}
-                </span>
-                <span className="block truncate text-xs text-charcoal-ink/55">{blurb}</span>
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
-    </DashboardPlaceholder>
+    </div>
   );
 }

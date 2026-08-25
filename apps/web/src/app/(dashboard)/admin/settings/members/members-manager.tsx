@@ -15,6 +15,7 @@ import {
   provisionMemberAction,
   createInstitutionOrgAction,
   setMemberRoleAction,
+  setMemberPhoneAction,
   grantPermissionAction,
   revokePermissionAction,
   createCustomRoleAction,
@@ -43,6 +44,7 @@ export function MembersManager({
   canProvision,
   canManageOrgs,
   canAssignRoles,
+  canEditContact,
   canGrant,
   canManageRoles,
   canViewActivity,
@@ -54,6 +56,7 @@ export function MembersManager({
   canProvision: boolean;
   canManageOrgs: boolean;
   canAssignRoles: boolean;
+  canEditContact: boolean;
   canGrant: boolean;
   canManageRoles: boolean;
   canViewActivity: boolean;
@@ -104,6 +107,7 @@ export function MembersManager({
               permissionsByCategory={grouped}
               customRoles={customRoles}
               canAssignRoles={canAssignRoles}
+              canEditContact={canEditContact}
               canGrant={canGrant}
               canViewActivity={canViewActivity}
               pending={pending}
@@ -256,6 +260,7 @@ function MemberItem({
   permissionsByCategory,
   customRoles,
   canAssignRoles,
+  canEditContact,
   canGrant,
   canViewActivity,
   pending,
@@ -265,6 +270,7 @@ function MemberItem({
   permissionsByCategory: Map<string, PermissionRow[]>;
   customRoles: CustomRoleRow[];
   canAssignRoles: boolean;
+  canEditContact: boolean;
   canGrant: boolean;
   canViewActivity: boolean;
   pending: boolean;
@@ -284,6 +290,9 @@ function MemberItem({
           <span className="text-xs text-charcoal-ink/40">· {member.organisation_name}</span>
         )}
         {!member.is_active && <span className="text-xs text-red-600">· inactive</span>}
+        {member.role === "clinician" && !member.phone && (
+          <span className="text-xs text-red-600">· no phone on file</span>
+        )}
       </summary>
 
       <div className="mt-4 space-y-5">
@@ -328,6 +337,26 @@ function MemberItem({
             </div>
             <Button type="submit" variant="outline" disabled={pending}>
               Save role
+            </Button>
+          </form>
+        )}
+
+        {canEditContact && (
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              fd.set("memberId", member.id);
+              run((f) => setMemberPhoneAction(undefined, f), fd);
+            }}
+          >
+            <div className="space-y-1">
+              <Label>Phone (E.164)</Label>
+              <Input name="phone" defaultValue={member.phone ?? ""} placeholder="+2348012345678" />
+            </div>
+            <Button type="submit" variant="outline" disabled={pending}>
+              Save phone
             </Button>
           </form>
         )}

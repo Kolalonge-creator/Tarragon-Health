@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
-import { canHandleEmergencyEscalation } from "@/lib/clinical/doctor-tier";
+import { canHandleEmergencyEscalation, isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
@@ -90,8 +90,18 @@ export default async function EscalationDetailPage({
   // which leaves the case open for a senior colleague.
   const staff = await getCurrentClinicalStaff();
   const canResolveEmergency = canHandleEmergencyEscalation(staff);
+  // A Care Coordinator carries an active clinical_staff row (doctor_tier =
+  // 'care_coordinator') but must never resolve/refer a case and have that
+  // attributed as a doctor's review — ReviewedByDoctor resolves reviewed_by
+  // against clinical_staff by profile_id with no tier check, so it would
+  // render "Reviewed by Dr. <coordinator's name>" on the patient's own
+  // dashboard otherwise. isClinicalTier is the same non-emergency gate as
+  // the escalation worklist's Claim button, checked ahead of the
+  // emergency-tier gate below.
+  const isClinicalStaff = isClinicalTier(staff);
   const resolveLocked =
-    requiresEmergencyAuthority(escalation.clinician_alert) && !canResolveEmergency;
+    !isClinicalStaff ||
+    (requiresEmergencyAuthority(escalation.clinician_alert) && !canResolveEmergency);
 
   return (
     <div className="space-y-6">
@@ -202,9 +212,9 @@ export default async function EscalationDetailPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm text-charcoal-ink/60">
-              This is an emergency-level case. Only a Tier 2+ doctor or the Clinical Director can
-              claim or resolve it. Use &quot;Start virtual review&quot; above and flag it to a
-              senior colleague — the case stays open until they act on it.
+              {!isClinicalStaff
+                ? "Only a doctor can resolve or refer this case. Use “Start virtual review” above, or leave a note, so a doctor has the context when they pick it up."
+                : "This is an emergency-level case. Only a Tier 2+ doctor or the Clinical Director can claim or resolve it. Use “Start virtual review” above and flag it to a senior colleague; the case stays open until they act on it."}
             </p>
           </CardContent>
         </Card>

@@ -5,13 +5,14 @@ import { MentalWellbeingCheck } from "../_components/mental-wellbeing-check";
 import { MentalHealthSupportNotice } from "../_components/mental-health-support-notice";
 import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Mental Well-being Check",
   description:
     "A free, anonymous two-minute check-in on how you're really doing. Not a diagnosis, nothing saved, just a quick, honest pulse-check with a next step if you want one.",
-  alternates: { canonical: MARKETING_ROUTES.mentalWellbeingCheck },
-};
+  path: MARKETING_ROUTES.mentalWellbeingCheck,
+});
 
 const FAQS = [
   {

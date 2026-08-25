@@ -6,6 +6,7 @@ import { TriangleAlert, Phone, Hospital } from "lucide-react";
 import { useActiveEmergency, activeEmergencyKey } from "@/lib/queries/emergency";
 import { acknowledgeEmergency, alertEmergencyContactNow } from "./actions";
 import { Button } from "@/components/ui/button";
+import { getEmergencyNumbers } from "@/lib/nigeria-emergency-numbers";
 
 /**
  * Site-wide emergency alert. Whenever the patient has an active, un-acknowledged
@@ -20,9 +21,11 @@ import { Button } from "@/components/ui/button";
 export function EmergencyAlert({
   patientId,
   hasEmergencyContact,
+  state,
 }: {
   patientId: string;
   hasEmergencyContact: boolean;
+  state?: string | null;
 }) {
   const { data: event } = useActiveEmergency(patientId);
   const queryClient = useQueryClient();
@@ -31,6 +34,8 @@ export function EmergencyAlert({
   const [error, setError] = useState<string | null>(null);
 
   if (!event) return null;
+
+  const emergencyNumbers = getEmergencyNumbers(state);
 
   async function handleAcknowledge() {
     if (!event) return;
@@ -79,8 +84,21 @@ export function EmergencyAlert({
           <p className="text-base leading-relaxed text-charcoal-ink">
             TarragonHealth does not provide emergency care. If this is a medical emergency, please{" "}
             <span className="font-semibold">go to your nearest hospital or emergency department now</span>
-            , or call your local emergency number.
+            , or call one of the numbers below.
           </p>
+
+          <div className="flex flex-wrap gap-2">
+            {emergencyNumbers.map((n) => (
+              <a
+                key={n.tel}
+                href={`tel:${n.tel}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                <Phone className="h-4 w-4" strokeWidth={2.5} />
+                {n.label}: {n.number}
+              </a>
+            ))}
+          </div>
 
           <div className="flex items-start gap-3 rounded-lg bg-red-50 p-4 text-sm text-red-800">
             <Hospital className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} />

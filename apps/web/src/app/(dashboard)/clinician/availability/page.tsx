@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { AvailabilityManager } from "./availability-manager";
@@ -11,11 +10,12 @@ export default async function ClinicianAvailabilityPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Availability</h1>
+        <p className="text-sm text-charcoal-ink/60">
+          Manage your booking availability and video-visit requests.
+        </p>
       </div>
       <VideoVisitRequestQueue />
       <AvailabilityManager organisationId={profile.organisation_id} />

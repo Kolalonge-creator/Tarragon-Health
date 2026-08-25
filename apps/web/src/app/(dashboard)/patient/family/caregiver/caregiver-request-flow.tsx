@@ -127,9 +127,9 @@ export function CaregiverRequestFlow() {
           <CardHeader>
             <CardTitle>Who is this for?</CardTitle>
             <CardDescription>
-              &quot;Manage&quot; access lets someone book appointments, order labs and
-              prescriptions, log doses and vitals, and see everything on the record, not just
-              follow it. It only ever starts once the other person accepts, and either side can
+              &quot;Manage&quot; access lets someone book video visits, message the care team to
+              request labs and prescriptions, log doses and vitals, and see everything on the
+              record, not just follow it. It only ever starts once the other person accepts, and either side can
               withdraw it at any time. For someone who should only be able to follow your care, not
               act on it, use{" "}
               <Link href="/patient/family" className="text-brand-green underline">

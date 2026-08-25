@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { InstitutionPrivacyNotice } from "@/components/institution-privacy-notice";
 import { ContractStatusCard } from "@/components/contract-status-card";
 import { RosterManager } from "../corporate/roster-manager";
@@ -19,8 +20,13 @@ export default async function HmoOverviewPage() {
       <InstitutionPrivacyNotice entityLabel="member" />
       <ContractStatusCard performance={data.contractPerformance} />
       <RosterManager organisationId={data.organisationId} entityLabel="member" />
-      <CohortSummary analytics={data.analytics} />
+      <CohortSummary analytics={data.analytics} entityLabel="member" />
       <CareGapPanel summary={data.careGaps} />
+      <div className="flex justify-end">
+        <Link href="/dashboard/hmo/reports" className="text-sm font-semibold text-brand-green hover:text-brand-green/80">
+          Reports &amp; outcomes →
+        </Link>
+      </div>
     </div>
   );
 }

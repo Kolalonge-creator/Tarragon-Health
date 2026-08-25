@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   useOrgMedicationReviews,
   useCompleteMedicationReview,
@@ -20,6 +19,13 @@ function formatCondition(condition: string): string {
     .join(" ");
 }
 
+// A bare toLocaleDateString() resolves the server's locale on first render and
+// the browser's on hydration, producing a mismatch. Fixed locale + timezone
+// keeps server and client in sync.
+function formatDueDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
+}
+
 function ReviewRow({ review }: { review: MedicationReviewWithContext }) {
   const complete = useCompleteMedicationReview();
   const [notes, setNotes] = useState("");
@@ -36,7 +42,7 @@ function ReviewRow({ review }: { review: MedicationReviewWithContext }) {
           <Badge variant="green">{formatCondition(review.care_plan.condition)}</Badge>
         )}
         <Badge variant={overdue ? "red" : "amber"}>
-          {overdue ? "Overdue" : "Due"} {new Date(review.due_date).toLocaleDateString()}
+          {overdue ? "Overdue" : "Due"} {formatDueDate(review.due_date)}
         </Badge>
       </div>
       <div className="space-y-1">
@@ -74,11 +80,12 @@ export default function MedicationReviewsPage() {
   const { data, isLoading, isError } = useOrgMedicationReviews();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Medication reviews</h1>
+        <p className="text-sm text-charcoal-ink/60">
+          Scheduled medication reviews and refill sign-offs.
+        </p>
       </div>
       <Card>
         <CardHeader>

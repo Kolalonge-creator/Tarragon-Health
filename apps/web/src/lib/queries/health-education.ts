@@ -11,7 +11,35 @@ import type { Database, Enums, Tables } from "@tarragon/shared";
 export type HealthEducationFeedItem =
   Database["public"]["Functions"]["health_education_feed"]["Returns"][number];
 
+export type HealthEducationLibraryItem =
+  Database["public"]["Functions"]["health_education_library"]["Returns"][number];
+
+export type HealthEducationCategoryCount =
+  Database["public"]["Functions"]["health_education_category_counts"]["Returns"][number];
+
 export type HealthEducationStatus = Enums<"health_education_status">;
+export type HealthEducationCategory = Enums<"health_education_category">;
+
+/** Display order + labels for the browsable category taxonomy — broader than
+ * the clinical `condition` used for personalisation, so a patient can read
+ * about a topic out of interest, not only if a matching diagnosis is on
+ * file. Order is roughly "most commonly relevant first". */
+export const HEALTH_EDUCATION_CATEGORIES: { value: HealthEducationCategory; label: string }[] = [
+  { value: "hypertension", label: "Blood pressure" },
+  { value: "diabetes", label: "Diabetes" },
+  { value: "heart", label: "Heart health" },
+  { value: "weight", label: "Weight & metabolic health" },
+  { value: "kidney", label: "Kidney health" },
+  { value: "respiratory", label: "Breathing & lungs" },
+  { value: "nutrition", label: "Nutrition & everyday habits" },
+  { value: "mental_health", label: "Mental & emotional wellbeing" },
+  { value: "cancer_screening", label: "Cancer & screening" },
+  { value: "womens_health", label: "Women's health" },
+  { value: "mens_health", label: "Men's health" },
+  { value: "medicines", label: "Medicines & adherence" },
+  { value: "family_child", label: "Family & child health" },
+  { value: "getting_started", label: "Getting started with Tarragon" },
+];
 
 export const healthEducationFeedKey = (patientId: string) =>
   ["health-education-feed", patientId] as const;
@@ -46,6 +74,42 @@ export function useHealthEducationLockedCount(patientId: string) {
       return data ?? 0;
     },
     enabled: !!patientId,
+  });
+}
+
+/** How many active items live in each browsable category — powers the
+ * category picker's count chips without pulling every row's body down. */
+export function useHealthEducationCategoryCounts() {
+  return useQuery({
+    queryKey: ["health-education-category-counts"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_category_counts");
+      if (error) throw error;
+      return (data ?? []) as HealthEducationCategoryCount[];
+    },
+  });
+}
+
+/**
+ * The full browsable library — every active item, optionally filtered to one
+ * category, deliberately NOT gated by condition-match, risk floor or the
+ * weekly drip (unlike `health_education_feed`, which stays personalised and
+ * paced for the "Recommended for you" rail). This is what lets a patient
+ * choose a topic out of interest rather than only see what the
+ * personalisation algorithm decided was relevant to their own diagnoses.
+ */
+export function useHealthEducationLibrary(category: HealthEducationCategory | null) {
+  return useQuery({
+    queryKey: ["health-education-library", category] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_library", {
+        p_category: category ?? undefined,
+      });
+      if (error) throw error;
+      return (data ?? []) as HealthEducationLibraryItem[];
+    },
   });
 }
 
@@ -85,6 +149,7 @@ export function useMarkContentProgress(patientId: string, organisationId: string
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: healthEducationFeedKey(patientId) });
+      queryClient.invalidateQueries({ queryKey: ["health-education-library"] });
     },
   });
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 
 export type ReviewState = { error?: string; success?: boolean } | undefined;
 
@@ -12,9 +13,14 @@ const schema = z.object({
 });
 
 /**
- * Complete a lifestyle review. Clinical-staff gated; reviewed_by is
- * server-stamped by the DB trigger from the caller's clinical_staff row
- * (never client-supplied). Completing rolls the next review at the cadence.
+ * Complete a lifestyle review. reviewed_by is server-stamped by the DB
+ * trigger from the caller's clinical_staff row (never client-supplied), and
+ * private.stamp_lpe_review_completion is the real enforcement boundary that
+ * blocks a non-clinical-tier caller (e.g. a Care Coordinator) outright. This
+ * check is only a friendly early refusal so a Care Coordinator sees a clear
+ * message instead of a raw Postgres error — it must use isClinicalTier, not
+ * a bare "has an active clinical_staff row" check, since a Care Coordinator
+ * has one of those too.
  */
 export async function completeReview(
   _prev: ReviewState,
@@ -31,12 +37,15 @@ export async function completeReview(
 
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("id")
+    .select("doctor_tier, is_clinical_director")
     .eq("profile_id", user.id)
     .eq("active", true)
     .maybeSingle();
-  if (!staff) {
-    return { error: "Only a Tarragon care-team doctor can complete a review" };
+  if (!isClinicalTier(staff ?? null)) {
+    return {
+      error:
+        "Only a clinical-tier member of the care team can complete a review. A Care Coordinator can prepare it, but a doctor must complete it.",
+    };
   }
 
   const { error } = await supabase

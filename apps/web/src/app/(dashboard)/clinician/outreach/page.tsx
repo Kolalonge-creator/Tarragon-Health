@@ -1,13 +1,13 @@
-import Link from "next/link";
 import { OutreachWorklist } from "@/components/clinical/outreach-worklist";
 
 export default function ClinicianOutreachPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Outreach</h1>
+        <p className="text-sm text-charcoal-ink/60">
+          Proactive outreach tasks to close panel gaps.
+        </p>
       </div>
       <OutreachWorklist />
     </div>

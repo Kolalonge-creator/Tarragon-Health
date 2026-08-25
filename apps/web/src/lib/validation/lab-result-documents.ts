@@ -42,9 +42,20 @@ export const patientResultUploadSchema = z.object({
 });
 export type PatientResultUploadInput = z.infer<typeof patientResultUploadSchema>;
 
-/** A clinician marking an uploaded document reviewed (interpreted). */
+/** A clinician marking an uploaded document reviewed and sending the patient a
+ * plain-language interpretation of it. `interpretation` is required — a
+ * document can't be marked reviewed without telling the patient what it
+ * means. `next_steps` is optional: only fill it in when the result needs the
+ * patient to actually do something. `note` stays internal-only, never shown
+ * to the patient. */
 export const markResultReviewedSchema = z.object({
   document_id: z.string().uuid(),
+  interpretation: z
+    .string()
+    .trim()
+    .min(10, "Write a short explanation the patient can read")
+    .max(4000),
+  next_steps: z.string().trim().max(2000).optional(),
   note: z.string().trim().max(500).optional(),
 });
 export type MarkResultReviewedInput = z.infer<typeof markResultReviewedSchema>;

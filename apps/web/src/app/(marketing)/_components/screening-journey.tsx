@@ -113,7 +113,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Test day",
-        body: "A clinical exam, with a written imaging referral to whichever facility suits you if anything warrants a closer look.",
+        body: "An imaging order (ultrasound if you're under 40, mammography from 40), which you take to any imaging facility near you. You pay them directly, at their price, and upload the result yourself, just like the rest of Comprehensive Screen.",
       },
       {
         title: "Results & what's next",

@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useOrgAsyncConsults,
@@ -87,11 +86,12 @@ export default function AsyncConsultsPage() {
   const { data, isLoading, isError } = useOrgAsyncConsults();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Async consults</h1>
+        <p className="text-sm text-charcoal-ink/60">
+          Asynchronous consult requests awaiting your response.
+        </p>
       </div>
       <Card>
         <CardHeader>

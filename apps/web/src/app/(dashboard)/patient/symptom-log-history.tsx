@@ -13,6 +13,10 @@ const SYMPTOM_LABEL: Record<string, string> = {
   palpitations: "Palpitations",
   swelling: "Swelling",
   nausea: "Nausea",
+  chest_pain: "Chest pain or pressure",
+  severe_headache: "Severe headache",
+  visual_disturbance: "Vision changes",
+  confusion: "Confusion or drowsiness",
   other: "Other",
 };
 

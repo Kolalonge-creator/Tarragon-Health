@@ -5,6 +5,22 @@ import type { Tables } from "@tarragon/shared";
 export type ClinicalStaff = Tables<"clinical_staff">;
 
 const ALL_STAFF_QUERY_KEY = ["clinical-staff", "all"];
+const CLINICAL_STAFF_PHOTO_BUCKET = "clinical-staff-photos";
+
+/** Uploads to the public clinical-staff-photos bucket and returns the resulting public URL for clinical_staff.photo_url. */
+async function uploadClinicalStaffPhoto(
+  supabase: ReturnType<typeof createClient>,
+  organisationId: string,
+  file: File
+): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${organisationId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from(CLINICAL_STAFF_PHOTO_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw error;
+  return supabase.storage.from(CLINICAL_STAFF_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+}
 
 async function getCallerOrganisationId(): Promise<string> {
   const supabase = createClient();
@@ -91,6 +107,7 @@ export function useCreateClinicalStaff() {
       specialty?: string;
       bio?: string;
       profilePhone?: string;
+      photoFile?: File;
     }) => {
       const supabase = createClient();
       const organisationId = await getCallerOrganisationId();
@@ -107,6 +124,10 @@ export function useCreateClinicalStaff() {
         profileId = linkedProfile.id;
       }
 
+      const photoUrl = input.photoFile
+        ? await uploadClinicalStaffPhoto(supabase, organisationId, input.photoFile)
+        : null;
+
       const { error } = await supabase.from("clinical_staff").insert({
         organisation_id: organisationId,
         profile_id: profileId,
@@ -117,6 +138,7 @@ export function useCreateClinicalStaff() {
         credential_number: input.credentialNumber || null,
         specialty: input.specialty || null,
         bio: input.bio || null,
+        photo_url: photoUrl,
         active: false,
       });
       if (error) throw error;
@@ -203,6 +225,57 @@ export function useSetClinicalStaffActive() {
       const { error } = await supabase
         .from("clinical_staff")
         .update({ active })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Edits specialty/bio/photo on an existing clinical_staff record — the
+ * fields the admin manager had no way to change after creation (only
+ * verify/activate existed). Name/credential/tier stay create-time-only:
+ * changing those carries more weight (re-verification, tier authority) and
+ * isn't part of this action. photoFile uploads and replaces the photo;
+ * removePhoto clears it; passing neither leaves the existing photo alone.
+ */
+export function useUpdateClinicalStaff() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clinicalStaffId,
+      organisationId,
+      specialty,
+      bio,
+      photoFile,
+      removePhoto,
+    }: {
+      clinicalStaffId: string;
+      organisationId: string;
+      specialty: string;
+      bio: string;
+      photoFile?: File;
+      removePhoto?: boolean;
+    }) => {
+      const supabase = createClient();
+
+      let photoUrl: string | null | undefined;
+      if (photoFile) {
+        photoUrl = await uploadClinicalStaffPhoto(supabase, organisationId, photoFile);
+      } else if (removePhoto) {
+        photoUrl = null;
+      }
+
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({
+          specialty: specialty.trim() || null,
+          bio: bio.trim() || null,
+          ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}),
+        })
         .eq("id", clinicalStaffId);
       if (error) throw error;
     },

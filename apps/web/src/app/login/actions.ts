@@ -7,26 +7,24 @@ import {
   phoneOtpRequestSchema,
   phoneOtpVerifySchema,
 } from "@/lib/validation/auth";
-import { getRoleHomePath } from "@/lib/auth/roles";
-import { sanitizeRedirect } from "@/lib/auth/redirect";
+import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
+import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 export type LoginActionState = { error?: string; step?: "verify"; phone?: string } | undefined;
 
+// If the account has a verified MFA factor, proxy.ts (the single choke
+// point for auth gating — see its own header comment) catches the
+// resulting aal1 session on the very next request and bounces it to
+// /login/mfa-challenge before it reaches whatever page this sends it to.
+// Nothing here needs to know about MFA at all.
 async function redirectAfterLogin(
   supabase: SupabaseClient<Database>,
   userId: string,
   redirectTo: FormDataEntryValue | null
 ) {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .single();
-
-  const home = profile ? getRoleHomePath(profile.role) : "/patient";
-  redirect(sanitizeRedirect(redirectTo?.toString()) ?? home);
+  redirect(await resolveLoginDestination(supabase, userId, redirectTo?.toString()));
 }
 
 export async function signInWithEmail(
@@ -39,6 +37,19 @@ export async function signInWithEmail(
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  // IP-scoped (20/5min) catches one source hammering many accounts;
+  // email-scoped (8/15min) catches credential stuffing spread across many
+  // IPs against one target account, which the IP limit alone would miss.
+  const limited = await checkAuthRateLimit(
+    "login-email",
+    parsed.data.email,
+    { limit: 20, windowSeconds: 300 },
+    { limit: 8, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE };
   }
 
   const supabase = await createClient();
@@ -60,6 +71,18 @@ export async function requestPhoneOtp(
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid phone number" };
+  }
+
+  // Each request sends a real SMS (Termii cost + spam-bombing surface), so
+  // this stays tighter than a plain login attempt.
+  const limited = await checkAuthRateLimit(
+    "login-phone-otp",
+    parsed.data.phone,
+    { limit: 10, windowSeconds: 300 },
+    { limit: 5, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE };
   }
 
   const supabase = await createClient();
@@ -85,6 +108,19 @@ export async function verifyPhoneOtp(
       step: "verify",
       phone: formData.get("phone")?.toString(),
     };
+  }
+
+  // A 6-digit code is only 1M possibilities — without this, the request step
+  // above being rate-limited doesn't stop someone brute-forcing a code
+  // they've already been sent.
+  const limited = await checkAuthRateLimit(
+    "login-phone-verify",
+    parsed.data.phone,
+    { limit: 20, windowSeconds: 300 },
+    { limit: 8, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: RATE_LIMIT_MESSAGE, step: "verify", phone: parsed.data.phone };
   }
 
   const supabase = await createClient();

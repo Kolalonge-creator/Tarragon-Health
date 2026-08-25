@@ -3,6 +3,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
 import { getNavSections } from "@/lib/navigation";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
+import { isEmbeddedInApp } from "@/lib/embedded-webview";
 import { Providers } from "./providers";
 import { signOut } from "../auth/actions";
 
@@ -53,6 +54,18 @@ export default async function DashboardLayout({
   // straight off plain /patient to /patient/supporting, so this route is
   // unreachable for them), lands on the shared /account page.
   const profileHref = isPatient ? "/patient/profile" : "/account";
+
+  // Inside the native app's WebView the shell is drawn natively around this
+  // page, so rendering ours too gives the patient two headers and two tab
+  // bars stacked. Content only.
+  const embedded = await isEmbeddedInApp();
+  if (embedded) {
+    return (
+      <Providers>
+        <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">{children}</main>
+      </Providers>
+    );
+  }
 
   return (
     <Providers>

@@ -3,6 +3,7 @@ import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import {
   canConfirmMedicationRefill,
   hasPrescribingAuthority,
+  isClinicalTier,
 } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MaskedCallButton } from "@/components/masked-call-button";
@@ -66,6 +67,17 @@ export default async function ClinicianPatientPage({
         </CardContent>
       </Card>
     );
+  }
+
+  // Read-access audit: a trigger can log who changed a patient row, but not who merely
+  // opened it — this is the one explicit read-logging call site on the platform so far
+  // (see 20260812034612_clinician_patient_record_view_audit.sql). Best-effort: a logging
+  // failure must never block the clinician from seeing the chart.
+  const { error: viewLogError } = await supabase.rpc("log_patient_record_view", {
+    p_patient_id: patient.id,
+  });
+  if (viewLogError) {
+    console.error("Failed to log patient record view", viewLogError);
   }
 
   const callerStaff = await getCurrentClinicalStaff();
@@ -252,16 +264,20 @@ export default async function ClinicianPatientPage({
                   initialProfile={cvProfile ?? null}
                 />
                 {/* Foot-risk classification is a clinical act — only an active
-                    clinical_staff member (not a Care Coordinator) sees the form. */}
-                {callerStaff && <GlucoseTargetForm patientId={patient.id} />}
-                {callerStaff && (
+                    clinical_staff member (not a Care Coordinator) sees the form.
+                    isClinicalTier, not a bare callerStaff truthy check: Care
+                    Coordinators carry an active clinical_staff row too
+                    (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
+                    no longer excludes them. */}
+                {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
                     patientId={patient.id}
                     patientReportedType={diabetesProfile?.patient_reported_type ?? null}
                   />
                 )}
-                {callerStaff && <FootAssessmentForm patientId={patient.id} />}
-                {callerStaff && <ComplicationCheckForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <FootAssessmentForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <ComplicationCheckForm patientId={patient.id} />}
               </>
             ),
           },
