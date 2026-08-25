@@ -11,6 +11,13 @@ function pct(n: number | null, d: number | null): string {
  * engine that proves clinical quality. Reads the security_invoker
  * diabetes_quality_metrics view, so a clinician only ever sees their own org's
  * aggregate. Targets are the pathway's launch KPIs.
+ *
+ * HbA1c-at-target, severe-hypo/DKA event rate, and average flag-to-contact
+ * time were added to the view 2026-08-10 (previously tracked "separately, as
+ * the lab-value and alert pipelines mature" — both pipelines are live now:
+ * lab_analyte_readings has real hba1c values via lab-report extraction, and
+ * the glucose red-flag engine (assess-glucose.ts) has raised real
+ * clinician_alerts / emergency_events since 2026-07-20).
  */
 export default async function DiabetesQualityPage() {
   const supabase = await createClient();
@@ -22,7 +29,32 @@ export default async function DiabetesQualityPage() {
     { label: "Up-to-date foot-risk classification", value: pct(data?.foot_uptodate ?? 0, total), target: "≥ 95%" },
     { label: "Eye (retinal) screening current", value: pct(data?.retinal_uptodate ?? 0, total), target: "≥ 90%" },
     { label: "Renal (eGFR + ACR) check current", value: pct(data?.renal_uptodate ?? 0, total), target: "≥ 90%" },
+    {
+      label: "Complete annual complication screen",
+      value: pct(data?.complete_complication_screen ?? 0, total),
+      target: "≥ 90%",
+    },
     { label: "Individual glucose target set", value: pct(data?.target_set ?? 0, total), target: "100%" },
+    { label: "At individual HbA1c target", value: pct(data?.hba1c_at_target ?? 0, total), target: "" },
+  ];
+
+  const eventRows = [
+    {
+      label: "Severe hypo / DKA events (90 days)",
+      value: String(data?.severe_hypo_dka_events_90d ?? 0),
+      note:
+        data?.severe_hypo_dka_per_100_patients != null
+          ? `${data.severe_hypo_dka_per_100_patients} per 100 patients`
+          : "—",
+    },
+    {
+      label: "Avg. time from glucose flag to doctor contact",
+      value:
+        data?.avg_glucose_flag_to_contact_hours != null
+          ? `${data.avg_glucose_flag_to_contact_hours} h`
+          : "No acknowledged flags yet",
+      note: "Urgent target ≤ 24h, routine ≤ 72h (last 90 days)",
+    },
   ];
 
   return (
@@ -45,24 +77,41 @@ export default async function DiabetesQualityPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {rows.map((r) => (
-            <Card key={r.label}>
-              <CardHeader>
-                <CardTitle className="text-base">{r.label}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold text-deep-forest">{r.value}</p>
-                <p className="text-xs text-charcoal-ink/60">Target {r.target}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {rows.map((r) => (
+              <Card key={r.label}>
+                <CardHeader>
+                  <CardTitle className="text-base">{r.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-semibold text-deep-forest">{r.value}</p>
+                  {r.target && <p className="text-xs text-charcoal-ink/60">Target {r.target}</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div>
+            <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
+              Safety events (last 90 days)
+            </h2>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              {eventRows.map((r) => (
+                <Card key={r.label}>
+                  <CardHeader>
+                    <CardTitle className="text-base">{r.label}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-semibold text-deep-forest">{r.value}</p>
+                    <p className="text-xs text-charcoal-ink/60">{r.note}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </>
       )}
-      <p className="text-xs text-charcoal-ink/50">
-        HbA1c-at-target and severe-hypo/DKA event rates are tracked separately as the lab-value and
-        alert pipelines mature; this view covers the complication-surveillance KPIs.
-      </p>
     </div>
   );
 }

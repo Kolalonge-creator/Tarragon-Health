@@ -154,6 +154,7 @@ export function getNavSections(
           label: "Stay well",
           items: [
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
+            { label: "Weight management", href: "/patient/weight-management", icon: "weight" },
             { label: "Learn", href: "/patient/learn", icon: "learn" },
             { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
           ],

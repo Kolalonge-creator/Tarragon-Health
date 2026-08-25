@@ -15337,6 +15337,10 @@ export type Database = {
         Args: { p_body: string; p_thread_id: string }
         Returns: string
       }
+      price_review_for_patient: {
+        Args: { p_bundle_code: string; p_patient_id: string }
+        Returns: Json
+      }
       propose_video_visit_alternate_slots: {
         Args: { p_request_id: string; p_slot_ids: string[] }
         Returns: undefined
