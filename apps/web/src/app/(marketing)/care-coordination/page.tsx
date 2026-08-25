@@ -12,7 +12,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Care coordination",
   description:
-    "TarragonHealth works out which tests you need and when, writes you a request to take to any laboratory you like, reads every result that comes back, and follows up. You pay the lab directly and we take nothing on it.",
+    "TarragonHealth works out which tests you need and when, books them directly with Synlab Nigeria, our partner lab, and reads every result that comes back, showing you the exact price before anything is charged.",
   path: MARKETING_ROUTES.careCoordination,
 });
 
@@ -24,7 +24,7 @@ const COORDINATION_CARDS = SERVICE_CARDS.filter((card) =>
 const CONNECTS = [
   {
     title: "Hassle-free lab tests",
-    body: "No more guessing what you should be checking or when. Tarragon works out which tests are due for you, writes the request to take to whichever laboratory suits you, and makes sure a doctor reads every result: never a report that sits unread.",
+    body: "No more guessing what you should be checking or when. Tarragon works out which tests are due for you, books them directly with Synlab Nigeria, our nationwide partner lab, and makes sure a doctor reads every result: never a report that sits unread.",
   },
   {
     title: "Refills tracked, wherever you buy",
@@ -46,12 +46,12 @@ const JOURNEY = [
     body: "A test is due, a refill is running low, or your doctor recommends a check. You see it in the app, with a reminder so it doesn't slip.",
   },
   {
-    title: "You choose where to go",
-    body: "We write the request and you take it to whichever laboratory you trust. You pay them directly, at their price, and we take nothing on it.",
+    title: "We book it with Synlab",
+    body: "For a lab test, we book it directly with Synlab Nigeria, our nationwide partner lab, and show you the exact price before you're ever charged.",
   },
   {
-    title: "You get a request to take with you",
-    body: "A written request naming exactly which tests to run and why, so the laboratory knows what to do and nothing is left to a conversation at the counter.",
+    title: "You confirm and go",
+    body: "No paper request to carry: once you confirm, your appointment is set with Synlab, at whichever location or home collection suits you.",
   },
   {
     title: "The result comes back reviewed",
@@ -161,9 +161,8 @@ export default function CareCoordinationPage() {
           ))}
         </ol>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          We do not set, quote, or collect a naira for any test. The laboratory tells you its own
-          price when you get there, and you pay them directly, so there is never a Tarragon price
-          to guess at beforehand.
+          For a lab test, you always see Synlab Nigeria&apos;s exact price in the app before you
+          confirm, and we bill you directly, so there is never a surprise price at the counter.
         </p>
       </Section>
 

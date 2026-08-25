@@ -2639,3 +2639,80 @@ across the marketing site:
   the entry above (active + self-bookable + ₦6,500 while not being promoted) is unrelated to this pass
   and still open.
 
+### 2026-08-25 — Labs (only) reverted from self-arranged back to partner-fulfilled: Synlab Nigeria signed
+
+**Founder decision: Synlab Nigeria is now a real, signed lab partner, covering every Synlab location
+nationwide** (Lagos, Abuja, and every other state via home collection — Synlab's `home_collection` flag
+was already true). This reverses the lab-testing half of the 2026-08-03 self-arranged-fulfilment
+decision — Tarragon again books and bills the patient for lab tests (commission to Synlab), exactly as
+it worked before 2026-08-03. **Scope is deliberately labs only.** Pharmacy collection and specialist
+referrals are untouched and remain self-arranged/"YOU PAY THE LAB" — nothing about the 2026-08-03
+reasoning for those two categories has changed, and this pass did not revisit it.
+
+Because the 2026-08-03 migration's own header called itself "sequencing, not a business-model reversal"
+and explicitly kept everything reversible (partner catalogues went `is_active = false`, no table/enum
+value/policy/role was dropped, "contracting a real lab is then a single UPDATE, not a migration"), this
+was a symmetric flip rather than a rebuild. Git history held the exact pre-self-arranged code for nearly
+every file touched (commits `255f241` and `5a887dd`, and `20260731215735_retire_health_wallet.sql` for
+the original `sponsor_book_care`) — the approach throughout was restore-then-adapt from those blobs, not
+rewrite from scratch.
+
+**Database** — new migration `20260825185258_lab_partner_fulfilment_restored.sql`:
+- `lab_orders.fulfilment` default flipped to `'partner'`. `private.enforce_lab_order_origin()` and
+  `private.enforce_lab_order_region()` needed **no changes** — both already fully supported the partner
+  path (that's what they were originally written for); a `self_arranged` lab order stays legal but is no
+  longer created by the app, same dormant-not-deleted posture as everything else here.
+- `lab_providers` row `'Synlab Nigeria'` set `is_active = true`, `regions` widened to all 37
+  states/FCT — nationwide, not just Lagos/Abuja. The other three seeded providers (Cerba Lancet,
+  Healthtracka, Afriglobal Medicare) stay dormant; only Synlab is actually contracted.
+- `service_regions.is_active` flipped `true` for every state (previously only Lagos). Confirmed safe for
+  pharmacy/specialist/home_visit/delivery, which stay dark, because `region_service_available` also
+  requires an active partner of that specific service type and those catalogues were left untouched.
+- `public.sponsor_book_care()` restored to its pre-2026-08-03 partner-priced form (from
+  `20260731215735_retire_health_wallet.sql`), adapted so a facility is optional — with only one active
+  partner, the provider resolves to Synlab even without a chosen facility (home collection covers it).
+  Its voucher-redemption tail is kept verbatim (inert today — `purchase_care_voucher()` for lab bundles
+  stays hard-failed, untouched, out of scope for this change — but ready if that's ever revisited).
+- `public.set_lab_order_facility()`, `private.enqueue_lab_order_lab_notifications()`, and the
+  annual-health-check `payment_confirmed` linkage branch added 2026-08-11 (`20260811225324`, written "for
+  the day a partner-billed path is live again") needed no changes — they simply start working again now
+  that `payment_confirmed` is reachable.
+- `supabase/seed/seed.sql` updated too: migrations replay against an empty `lab_providers` table before
+  seed.sql runs, so the migration's `UPDATE` alone would no-op on a local `db reset` — the nationwide
+  `regions` array and `is_active = true` had to be set directly in seed.sql's own Synlab insert as well,
+  or local dev and the live project would diverge (the standing "seed.sql only runs locally" lesson from
+  this file's own front matter).
+
+**App code** — `apps/web/src/lib/queries/lab-orders.ts`'s `useCreateLabOrder`/`useOrderLabTest` restored
+to insert `pending_payment`/priced/provider-set orders (provider auto-resolved to the sole active
+partner rather than requiring a picker — simplification from the original multi-provider design, which
+had four providers to choose among). `useSetLabOrderFacility` and its `ChooseLabFacility` card (deleted
+2026-08-03 in `5a887dd`) restored verbatim. The already-existing, already-working, simply-never-reachable
+`PayForLabOrderButton`/`payForLabOrder` checkout action (never removed in the self-arranged sweep — it
+just had nothing to trigger it) is wired back into `lab-orders-list.tsx`, gated behind `ChooseLabFacility`
+exactly like the pre-2026-08-03 design. `request-partner-lab-visit.tsx` (built 2026-08-20, always dormant)
+is retired for new orders — every new lab order is partner/Synlab from creation now, so there's nothing
+left to "upgrade" — but kept in place, unused, for any pre-2026-08-25 self-arranged order still open.
+Booking copy across the patient/clinician lab surfaces, marketing pages (`pricing.ts`'s `PricingLabel`
+gains a booked/priced value for lab line items only; pharmacy/specialist items stay `"YOU PAY THE LAB"`),
+`what-works-where.ts` (labs regain `gatedBy: "lab"`), the mobile labs screen, and two legal documents
+(`schedule-c-terms-of-service.md`, `schedule-b-telehealth-consent.md` — split their "our partner labs,
+pharmacies, or specialists" language so labs read as partner-coordinated and pharmacy/specialist read as
+self-arranged) were updated to match. `schedule-d-lab-partner-services-agreement.md` deliberately stays
+in DRAFT/NOT-FOR-EXECUTION status — real counsel review and Synlab's actual commercial terms are still
+needed before that agreement is signed; this pass did not resolve that.
+
+**Explicit follow-ups, not resolved by this change:**
+- Synlab Nigeria's `contact_email`/`contact_phone` are still `.example` placeholders seeded 2026-07-29 —
+  need real ops contact info before the lab-facing notification trigger means anything in production.
+- Real Synlab pricing/commission rate was not sourced fresh — the existing seeded placeholder values
+  (`lab_tests`/`panel_bundles.price_kobo`, marked "founder to confirm" since they were first seeded) were
+  reused as-is rather than inventing new figures. Confirm with Synlab before trusting them commercially.
+- `purchase_care_voucher()` stays hard-failed for lab bundles — re-enabling prepaid lab-bundle vouchers is
+  a separate commercial decision, not made here.
+- `docs/FEATURE_SPEC.md`, `docs/MARKETING_SITE_SPEC.md`, and `docs/Tarragon_Health_Master_Operating_Plan_v4.md`
+  were **not** rewritten — they were already stale in the *other* direction (still describing the
+  pre-2026-08-03 partner-commission model), so this change makes them closer to accurate for labs, not
+  further; a full reconciliation pass across those three files is a reasonable follow-up but wasn't done
+  here. As always, verify against live code before trusting any of them.
+

@@ -10,14 +10,18 @@ import { cn } from "@/lib/utils";
 /**
  * "Does any of this work where my mother lives?", answered before signing up.
  *
- * Since the 2026-08-03 self-arranged-fulfilment change, only home sample
- * collection and medication delivery still depend on a contracted logistics
- * partner (gatedServices() reflects that — see @/lib/coverage/what-works-where),
- * and neither is live in any state yet. Lab tests, pharmacy collection and
- * specialist referrals are self-arranged and work nationwide already, so they
- * are never in this gated list; that is a fine thing to be honest about and a
- * terrible thing to discover after paying, which until now was the only way to
- * discover it: the gate was authenticated-only.
+ * Lab tests are partner-fulfilled again as of 2026-08-25 — Synlab Nigeria is a
+ * real, signed, nationwide lab partner, so "lab" carries a gatedBy value in
+ * @/lib/coverage/what-works-where and is tracked here like any other partner
+ * service. Because Synlab is contracted in every state, lab tests read as
+ * live everywhere today. Home sample collection and medication delivery still
+ * depend on a contracted logistics partner (gatedServices() reflects that —
+ * see @/lib/coverage/what-works-where) and neither is live in any state yet.
+ * Pharmacy collection and specialist referrals are self-arranged and work
+ * nationwide regardless of any partner, so they stay outside this gated list;
+ * that is a fine thing to be honest about and a terrible thing to discover
+ * after paying, which until now was the only way to discover it: the gate was
+ * authenticated-only.
  *
  * The list is rendered from the same predicate the app itself enforces, so this
  * page cannot promise something the product will then refuse.
@@ -89,9 +93,10 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
               ))}
           </div>
           <p className="mt-3 text-xs text-charcoal-ink/50">
-            The dot only tracks home sample collection and medication delivery — the two services
-            that still wait on a contracted logistics partner. Everything else on this page already
-            works the same way in all 37, so most states look identical today.
+            The dot tracks partner-fulfilled services: lab tests (live everywhere today, through
+            our nationwide partner Synlab Nigeria), plus home sample collection and medication
+            delivery, which still wait on a contracted logistics partner and are not live anywhere
+            yet. So every dot below is lit, and it&apos;s the lab check doing that.
           </p>
         </div>
       )}
@@ -142,8 +147,8 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
             </p>
             <p className="mt-1 text-sm text-charcoal-ink/70">
               {liveCount > 0
-                ? "Everything else on this page works there today regardless, because it does not depend on a local partner."
-                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. So do lab tests, pharmacy collection and specialist referrals: those are self-arranged, so they work in every state without waiting on a partner. It is only home sample collection and medication delivery that are waiting, below."}
+                ? "Lab tests are booked directly with Synlab Nigeria, our nationwide partner lab. Everything else on this page — monitoring, doctors, pharmacy collection, and specialist referrals — works there today regardless, because those don't depend on a local partner."
+                : "Monitoring, doctors over video and text, reminders, the health record, pharmacy collection and specialist referrals all still work there today; those don't depend on a local partner. Lab tests, home sample collection, and medication delivery do, and none of the three is live there yet."}
             </p>
 
             <ul className="mt-4 space-y-2">

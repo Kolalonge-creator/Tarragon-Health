@@ -13,6 +13,16 @@ Concierge two-tier framing, "no owned clinics" scope, etc.) no longer matches wh
 built. This schedule describes the platform as it exists today; it does not attempt to fix A–C —
 that is a separate, flagged follow-up (see the accompanying session note).
 
+**Note on partner status (added 2026-08-25):** Synlab Nigeria is now a real, signed, nationwide
+lab partner — the founder reversed lab testing from the self-arranged model back to
+partner-fulfilled on 2026-08-25, and Tarragon again books and bills the patient for lab tests
+(commission to Synlab; see `CLAUDE.md`). This schedule was drafted as a generic template with a
+placeholder partner name and placeholder commercial figures below; it has not been executed with
+Synlab and does not yet reflect Synlab's actual agreed terms. It should be reviewed and finalized
+against Synlab's real, signed terms before being treated as describing the live commercial
+relationship — the DRAFT FOR INTERNAL REVIEW / NOT FOR EXECUTION status above is unchanged by this
+note and still applies in full.
+
 ---
 
 ## Part 1 — Lab Services Partnership Agreement

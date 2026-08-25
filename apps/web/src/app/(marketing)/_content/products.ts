@@ -117,7 +117,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Know how your parent is doing, even when you are not there every day.",
     campaignLine: "Your parents looked after you. Now help look after them.",
     intro:
-      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can fund their plan, in naira or dollars, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
+      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can fund their plan, in naira or dollars, from Lagos or from anywhere; their lab tests are booked directly with Synlab Nigeria, our partner lab, and billed to their account when they're due.",
     included: [
       "Their own plan and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
@@ -137,7 +137,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You cover the cost, if you want to",
-        body: "Buy them a year of their plan whenever suits you, in one go or in instalments. It's for their account alone, and is never exchangeable for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a check costs if you want to help with that too.",
+        body: "Buy them a year of their plan whenever suits you, in one go or in instalments. It's for their account alone, and is never exchangeable for cash. Their lab tests are booked directly with Synlab Nigeria and billed to their account, at Synlab's price; send them what a test costs if you want to help with that too.",
       },
     ],
     metadata: {
@@ -155,7 +155,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     included: [
       "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
       "Vaccination schedule, booking, and doctor-verified certificates",
-      "The Annual Health Check, up to a full Comprehensive Screen: we say what to get, you use any lab, a doctor reads it",
+      "The Annual Health Check, up to a full Comprehensive Screen: we say what to get, book it with Synlab Nigeria, a doctor reads it",
       "Personalised health education with short knowledge checks",
       "Doctor follow-up the same day on any result that needs attention",
       "A seamless path into chronic care monitoring in the rare case follow-up is needed: same record, no starting over",
@@ -167,7 +167,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Complete and track",
-        body: "Take your screening requests to any laboratory near you, and keep every result in one record; no more lost reports.",
+        body: "We book your screening tests directly with Synlab Nigeria, our partner lab, and keep every result in one record; no more lost reports.",
       },
       {
         title: "Stay confidently well",
@@ -214,12 +214,12 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
   },
   labs: {
     slug: "labs",
-    headline: "Know what tests are due, take the request anywhere, and track follow-up.",
+    headline: "Know what tests are due, we book them with our partner lab, and track follow-up.",
     intro:
-      "Lab work is where care between visits most often goes quiet. Tarragon keeps a running calendar of what's due, writes you a request to take to any laboratory you like, and makes sure every result is reviewed, not just filed away. You pay the lab directly; we take nothing on it.",
+      "Lab work is where care between visits most often goes quiet. Tarragon keeps a running calendar of what's due, books it directly with Synlab Nigeria, our nationwide partner lab, and makes sure every result is reviewed, not just filed away. You see the exact price and confirm before we bill you; there's no request to carry anywhere yourself.",
     included: [
       "Lab calendar synced to your chronic and preventive record",
-      "A written request you take to any laboratory near you",
+      "Booked directly with Synlab Nigeria, at their price, shown before you confirm",
       "Results explained in plain language, not jargon",
       "Immediate doctor alert for abnormal results",
       "Follow-up tracked until the loop is closed",
@@ -230,8 +230,8 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         body: "Your lab calendar reflects your conditions and screening timeline; no guessing what's overdue.",
       },
       {
-        title: "Take the request to any lab",
-        body: "Pick whichever laboratory suits you, pay them directly, and upload the result, keeping every result in one record instead of scattered reports.",
+        title: "We book it with Synlab",
+        body: "See the exact price, confirm, and we book it directly with Synlab Nigeria, our partner lab, nationwide including home collection. Your result lands straight in your record instead of a scattered report.",
       },
       {
         title: "Never lose a result",
@@ -241,7 +241,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Lab Coordination",
       description:
-        "Know what lab tests are due, take the request to any laboratory you like, and get doctor follow-up on every result.",
+        "Know what lab tests are due, and let Tarragon book them directly with Synlab Nigeria, our partner lab, with doctor follow-up on every result.",
     },
   },
 };

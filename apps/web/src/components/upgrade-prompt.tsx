@@ -18,7 +18,7 @@ const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   },
   lab_coordination: {
     title: "Lab test requests are part of a paid plan",
-    body: "On Essential Care or higher, message your care team for any lab test you need and they'll write you a request to take to a lab of your choice. You pay the lab directly; we take nothing on it.",
+    body: "On Essential Care or higher, message your care team for any lab test you need and they'll book it with Synlab Nigeria, our lab partner, and bill you for it.",
   },
   medication_refills: {
     title: "Refill-date tracking is part of a paid plan",

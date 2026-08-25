@@ -13,7 +13,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
-    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. We say what to get and why, you use any lab you like, and a doctor reads the result with you.",
+    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. We say what to get and why, book it directly with Synlab Nigeria, our partner lab, and a doctor reads the result with you.",
   path: MARKETING_ROUTES.annualHealthCheck,
 });
 
@@ -92,7 +92,7 @@ const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Book in the app",
-    body: "Take your request to any laboratory you like. You pay them directly, at their price, and we take nothing on it.",
+    body: "See Synlab Nigeria's exact price, confirm, and we book your appointment directly with them: no request to carry anywhere yourself.",
   },
   {
     step: 2,
@@ -129,8 +129,8 @@ export default function AnnualHealthCheckPage() {
             record.
           </p>
           <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
-            We take nothing on your tests
-            <span className="text-base font-normal text-charcoal-ink/60"> · you pay the lab directly · once a year</span>
+            You see the exact price first
+            <span className="text-base font-normal text-charcoal-ink/60"> · booked with Synlab Nigeria · once a year</span>
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
@@ -241,8 +241,8 @@ export default function AnnualHealthCheckPage() {
           Need just one thing? The WHO-recommended screenings (cervical screening, HIV,
           Hepatitis B, and Hepatitis C) can each be requested on their own, confidentially.
           Don&apos;t know your blood group and genotype yet? You can request that directly too.
-          Either way, you take the request to any laboratory you like and pay them directly, at
-          their price; we don&apos;t set or quote one.
+          Either way, we book it directly with Synlab Nigeria, our partner lab, and show you the
+          exact price before you confirm.
         </p>
         <div className="mx-auto mt-6 max-w-2xl">
           <ConfidentialResultNotice />

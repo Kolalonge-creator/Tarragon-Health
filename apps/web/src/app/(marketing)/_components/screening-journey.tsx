@@ -29,15 +29,17 @@ const ALL_BANDS: AgeBand[] = ["18-24", "25-39", "40-49", "50-plus"];
 /**
  * Every entry maps to something actually bookable on the platform today
  * (see /annual-health-check and /prevention, which describe these same
- * mechanisms) — nothing here is invented. No entry quotes a price:
- * Tarragon has no contracted lab, so it doesn't know or set what any
- * laboratory charges for a test — see SELF-ARRANGED FULFILMENT in
- * pricing.ts. Standalone self-booking is only offered for the
- * WHO-priority confidential screens, blood group & genotype, and the
- * Annual Health Check ladder itself; prostate and colorectal screening
- * are part of Advanced Screen, breast imaging is part of Comprehensive
- * Screen, or otherwise ordered by a doctor — never a bare self-service
- * SKU, so their "book it" step says that plainly rather than overclaiming.
+ * mechanisms) — nothing here is invented. Corrected 2026-08-25: Synlab
+ * Nigeria is now a real, signed, nationwide lab partner (see the
+ * "Corrected 2026-08-25" note in pricing.ts), so a lab-fulfilled entry's
+ * "book it" step says Tarragon books it with Synlab and bills the patient
+ * directly, not "paid to the lab, not to us." Standalone self-booking is
+ * only offered for the WHO-priority confidential screens, blood group &
+ * genotype, and the Annual Health Check ladder itself; prostate and
+ * colorectal screening are part of Advanced Screen, breast imaging is part
+ * of Comprehensive Screen, or otherwise ordered by a doctor — never a bare
+ * self-service SKU, so their "book it" step says that plainly rather than
+ * overclaiming.
  */
 export const SCREENINGS: ScreeningItem[] = [
   {
@@ -47,7 +49,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ALL_BANDS,
     category: "Heart & metabolic",
     summary: "Blood sugar (HbA1c), cholesterol, blood pressure, and BMI: the numbers behind diabetes and heart disease, years before symptoms show.",
-    price: "Paid to the lab, not to us",
+    price: "Booked with our partner lab",
     steps: [
       {
         title: "Is this for you?",
@@ -55,7 +57,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Request the Annual Health Check in the app, then take it to any laboratory you like. You pay them directly, at their price, and we take nothing on it.",
+        body: "Request the Annual Health Check in the app, and we book it directly with Synlab Nigeria, our nationwide partner lab. You see the exact price and confirm before anything is charged.",
       },
       {
         title: "Test day",
@@ -74,7 +76,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ["25-39", "40-49", "50-plus"],
     category: "Cancer screening",
     summary: "A quick, confidential test that catches changes years before they could become cervical cancer.",
-    price: "Paid to the lab, not to us",
+    price: "Booked with our partner lab",
     steps: [
       {
         title: "Is this for you?",
@@ -82,7 +84,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Request it directly and confidentially in the app, on its own, no bundle required, then take it to any laboratory or clinic you like.",
+        body: "Request it directly and confidentially in the app, on its own, no bundle required, and we book it with Synlab Nigeria, at their price, shown before you confirm.",
       },
       {
         title: "Test day",
@@ -182,7 +184,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ALL_BANDS,
     category: "Infectious disease",
     summary: "HIV, Hepatitis B, and Hepatitis C: the WHO-priority checks for Nigeria, booked quietly, on your own terms.",
-    price: "Paid to the lab, not to us",
+    price: "Booked with our partner lab",
     steps: [
       {
         title: "Is this for you?",
@@ -190,7 +192,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Book each test on its own, directly and confidentially in the app; no referral, no explanation needed to anyone.",
+        body: "Book each test on its own, directly and confidentially in the app; we book it with Synlab Nigeria and bill you, no referral or explanation needed to anyone.",
       },
       {
         title: "Test day",
@@ -209,7 +211,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ALL_BANDS,
     category: "Know your basics",
     summary: "Blood group and sickle cell genotype (AA/AS/SS): useful for marriage counselling, pregnancy planning, and emergencies, and something most Nigerians never get told plainly.",
-    price: "Paid to the lab, not to us",
+    price: "₦6,500, booked with our partner lab",
     steps: [
       {
         title: "Is this for you?",
@@ -217,7 +219,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Request it directly in the app, on its own, then take it to any lab you like.",
+        body: "Request it directly in the app, on its own, and we book it with Synlab Nigeria for ₦6,500, billed once you confirm.",
       },
       {
         title: "Test day",

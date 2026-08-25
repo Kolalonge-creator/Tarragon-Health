@@ -5,16 +5,22 @@
  * This is the honest half of the diaspora pitch. Some of the product needs
  * someone to physically be in Nigeria: labs, pharmacy collection, and
  * specialist visits, because a sample still has to be drawn and a person
- * still has to be examined somewhere. Since the 2026-08-03 self-arranged-
- * fulfilment change, none of those three wait on a contracted partner or the
- * state rollout (region_service_available) any more — Tarragon writes the
- * request or referral letter, the patient takes it to whichever provider they
- * choose, and pays them directly, in any state. Only home sample collection
- * and medication delivery still depend on a real logistics partner being
- * contracted, and none exists yet in any state, so `gatedBy` is reserved for
- * those two. The other half of the product — monitoring, doctors over video
- * and text, the record itself, and paying for someone else's care — never
- * needed Nigeria at all.
+ * still has to be examined somewhere. Pharmacy collection and specialist
+ * referrals stay self-arranged per the 2026-08-03 change — Tarragon writes
+ * the request or referral letter, the patient takes it to whichever provider
+ * they choose, and pays them directly, in any state, so neither waits on a
+ * contracted partner or the state rollout (region_service_available). Labs
+ * reverted the other way on 2026-08-25: Synlab Nigeria is a real, signed,
+ * nationwide lab partner again, so Tarragon books the test and bills the
+ * patient (commission to Synlab), same as before 2026-08-03 — `gatedBy:
+ * "lab"` is restored to reflect that this genuinely depends on an active
+ * partner again, even though in practice that dependency is invisible today
+ * since Synlab covers every state. Home sample collection and medication
+ * delivery still depend on a real logistics partner being contracted, and
+ * none exists yet in any state, so `gatedBy` covers those two the same way.
+ * The other half of the product — monitoring, doctors over video and text,
+ * the record itself, and paying for someone else's care — never needed
+ * Nigeria at all.
  *
  * Before this, that split was a sentence at the bottom of the pricing page.
  * A buyer in Houston choosing a plan for a mother in Enugu had no way to see it
@@ -115,9 +121,9 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
     key: "labs",
     label: "Lab tests and health check packages",
     detail:
-      "We write the request; you take it to any lab in Nigeria you choose, pay them directly, and upload the result. Works in every state today, since it does not wait on us signing a partner.",
+      "We book your test with Synlab Nigeria, our nationwide lab partner, and bill you for it. Works in every state today, home sample collection included.",
     locality: "in_nigeria",
-    gatedBy: null,
+    gatedBy: "lab",
   },
   {
     key: "pharmacy",

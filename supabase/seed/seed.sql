@@ -132,13 +132,27 @@ update public.vaccination_catalog
 
 -- ---------------------------------------------------------------------------
 -- lab_providers
+--
+-- Synlab Nigeria is seeded active and nationwide (regions = every state) to
+-- mirror the live project post-20260825185258_lab_partner_fulfilment_restored
+-- — that migration's UPDATE runs before this INSERT on a fresh `db reset`
+-- (migrations replay against an empty table), so the nationwide/active state
+-- has to be set here directly too, or local dev and the live project would
+-- diverge. The other three lab_providers stay inactive/regional placeholders
+-- — only Synlab is a real, signed partner.
 -- ---------------------------------------------------------------------------
-insert into public.lab_providers (name, home_collection, regions)
+insert into public.lab_providers (name, home_collection, regions, is_active)
 values
-  ('Synlab Nigeria',     true,  array['Lagos', 'Abuja']),
-  ('Cerba Lancet',       true,  array['Lagos', 'Abuja']),
-  ('Healthtracka',       true,  array['Lagos', 'Abuja']),
-  ('Afriglobal Medicare',true,  array['Lagos'])
+  ('Synlab Nigeria',     true,  array[
+     'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
+     'Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','Gombe','Imo','Jigawa',
+     'Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger',
+     'Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe',
+     'Zamfara','Abuja'
+   ], true),
+  ('Cerba Lancet',       true,  array['Lagos', 'Abuja'], false),
+  ('Healthtracka',       true,  array['Lagos', 'Abuja'], false),
+  ('Afriglobal Medicare',true,  array['Lagos'], false)
 on conflict (name) do nothing;
 
 -- Lab-facing notification contacts (migration 20260724020744) — .example

@@ -205,11 +205,14 @@ export default async function HealthCheckPage() {
         </CardContent>
       </Card>
 
-      {/* The lab tests that power stage 4. Self-arranged: we write the request,
-          the patient uses any lab, and uploads the result back here. */}
+      {/* The lab tests that power stage 4. Partner-fulfilled (restored
+          2026-08-25): we book it with Synlab Nigeria and bill the patient,
+          who confirms a facility (or leaves it for home collection) and
+          pays before it's sent for sample collection. */}
       <AnnualHealthCheckBooking
         patientId={profile.id}
         organisationId={profile.organisation_id}
+        patientLocation={{ state: profile.state, city: profile.city, area: profile.area }}
         sex={profile.sex}
         screensEnabled={screensEnabled}
       />

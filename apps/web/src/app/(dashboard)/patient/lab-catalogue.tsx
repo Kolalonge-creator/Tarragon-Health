@@ -3,6 +3,7 @@
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { testCodeLabels } from "@/lib/labs/test-code-labels";
+import { koboToNaira } from "@tarragon/shared";
 
 /**
  * Read-only per the clinician-originated-orders guardrail (see
@@ -13,12 +14,9 @@ import { testCodeLabels } from "@/lib/labs/test-code-labels";
  * PreventiveScreeningCalendar; anything else needs a clinician to generate
  * the order.
  *
- * No price shown: since the 2026-08-03 self-arranged-fulfilment decision,
- * Tarragon does not bill for tests — `bundle.price_kobo` is a stale
- * pre-pivot figure that would read as "this is what Tarragon charges,"
- * exactly the framing the marketing site (`YOU PAY THE LAB`, see
- * `_content/pricing.ts`) deliberately never shows. What a patient actually
- * pays depends on the lab they choose.
+ * Price shown (restored 2026-08-25): with Synlab Nigeria back as a real,
+ * signed, nationwide partner, `bundle.price_kobo` is what Tarragon actually
+ * bills to book the test — see `_content/pricing.ts`'s "BOOK & PAY" label.
  */
 export function LabCatalogue() {
   const { data: bundles, isLoading, isError } = useLabCatalogue();
@@ -46,14 +44,16 @@ export function LabCatalogue() {
                   <p className="text-xs text-charcoal-ink/60">
                     Includes: {testCodeLabels(bundle.test_codes).join(", ")}
                   </p>
+                  <p className="text-xs text-charcoal-ink/60">
+                    ₦{koboToNaira(bundle.price_kobo).toLocaleString()} at Synlab Nigeria
+                  </p>
                 </li>
               ))}
             </ul>
             <p className="text-sm text-charcoal-ink/70">
               Due screenings can be booked directly from your screening calendar below. For
-              anything else here, message your care team in the app and they&apos;ll write you a
-              request to take to a laboratory of your choice. You pay the lab directly, at
-              whatever they charge, and we take nothing on top.
+              anything else here, message your care team in the app and they&apos;ll book it with
+              Synlab Nigeria on your behalf.
             </p>
           </>
         )}

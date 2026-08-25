@@ -15,10 +15,12 @@ import { koboToNaira } from "@tarragon/shared";
  * gets an ad hoc (non-screening) lab test: the patient never free-books one
  * off the catalogue directly.
  *
- * Self-arranged: the clinician decides WHAT test is needed and why; Tarragon
- * does not route the sample to a partner lab or take payment for it. The
- * patient takes the order to whichever lab suits them and uploads the result.
- * No provider is chosen here because there is no partner to choose.
+ * Partner-fulfilled (restored 2026-08-25): the clinician decides WHAT test is
+ * needed; Tarragon routes it to Synlab Nigeria (the one active lab partner)
+ * and bills the patient. No provider picker here — with a single active
+ * partner there's nothing to choose — the patient picks a facility (or
+ * leaves it for home collection) via ChooseLabFacility on their own
+ * dashboard once the order exists.
  */
 export function OrderLabTestForm({
   patientId,
@@ -53,8 +55,8 @@ export function OrderLabTestForm({
         </div>
         {bundle && (
           <p className="text-xs text-charcoal-ink/60">
-            Roughly ₦{koboToNaira(bundle.price_kobo).toLocaleString()} at a typical Nigerian lab, as
-            a guide only. The patient pays the lab directly and Tarragon takes nothing on it.
+            ₦{koboToNaira(bundle.price_kobo).toLocaleString()} at Synlab Nigeria. The patient pays
+            Tarragon to confirm the booking.
           </p>
         )}
         {orderLabTest.isError && (
@@ -64,8 +66,7 @@ export function OrderLabTestForm({
         )}
         {orderLabTest.isSuccess && (
           <p className="text-sm text-brand-green">
-            Order created. The patient can download the request from their dashboard, take it to any
-            lab, and upload the result for you to review.
+            Order created. The patient can confirm a facility and pay from their dashboard.
           </p>
         )}
         <Button
@@ -76,6 +77,7 @@ export function OrderLabTestForm({
               organisationId,
               patientId,
               panelBundleId: bundle.id,
+              totalKobo: bundle.price_kobo,
             })
           }
         >

@@ -21,7 +21,7 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   overdue_screening: "Overdue screening",
   stale_monitoring: "No recent monitoring",
   unactioned_abnormal: "Abnormal result, not yet in a programme",
-  awaiting_result: "Self-arranged test not yet uploaded",
+  awaiting_result: "Lab result overdue",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {
@@ -353,9 +353,9 @@ interface OutreachTaskListProps {
 
 /**
  * Shared list/filter/action shell behind both the general Outreach worklist
- * and the narrower follow-up tracker (self-arranged tests awaiting a
- * result). Logistics only: contact, note, resolve — anything needing
- * clinical judgment still routes through the existing escalation worklists.
+ * and the narrower follow-up tracker (lab tests awaiting a result).
+ * Logistics only: contact, note, resolve — anything needing clinical
+ * judgment still routes through the existing escalation worklists.
  */
 function OutreachTaskList({
   title,
@@ -453,27 +453,32 @@ export function OutreachWorklist({
 }
 
 /**
- * Follow-up tracker for self-arranged lab tests: a test was issued 21+ days
- * ago and nothing has been uploaded against it (patient_care_gaps'
- * `awaiting_result` branch). Tarragon doesn't book or pay for the test —
- * self-arranged fulfilment means the patient chose their own lab and pays it
- * directly — so the coordinator's job is to nudge and track, never to book
- * on the patient's behalf. Copy reflects that: "Remind patient" /
- * "Mark followed up" instead of the general worklist's "Mark contacted" /
- * "Resolve".
+ * Follow-up tracker for lab tests: an order was placed 21+ days ago and no
+ * result has come back yet (patient_care_gaps' `awaiting_result` branch).
+ * Restored 2026-08-25: new lab orders are partner-fulfilled again — Tarragon
+ * books with Synlab Nigeria and bills the patient — so the coordinator's job
+ * is to check whether Synlab has actually returned the result yet and chase
+ * an overdue result from the lab, not to nudge the patient to go book their
+ * own. A small number of pre-2026-08-25 self-arranged orders may still be
+ * open and working through this same tracker — the enum/labels/UI for that
+ * path stay dormant, not deleted (see the same pattern in
+ * `lab-orders-list.tsx`) — for those, "chase" still means nudging the
+ * patient to go and upload the result themselves. Copy reflects the general
+ * case: "Chase result" / "Mark followed up" instead of the general
+ * worklist's "Mark contacted" / "Resolve".
  */
 export function FollowUpTracker() {
   return (
     <OutreachTaskList
       title="Follow-ups"
-      description="Self-arranged lab tests issued 21+ days ago with no result uploaded yet. The patient books and pays their own lab; nudge them to go and to upload the result, then mark it followed up."
+      description="Lab orders placed 21+ days ago with no result back yet. Check whether Synlab has returned it and chase them if it's overdue; for the rare still-open order a patient arranged themselves before 2026-08-25, nudge the patient to go and upload the result instead. Mark it followed up either way."
       onlyTriggerTypes={["awaiting_result"]}
       showPriorityFilter={false}
-      emptyMessage="Nothing waiting, every self-arranged test is either done or not yet overdue."
+      emptyMessage="Nothing waiting, every lab result is either back or not yet overdue."
       copy={{
-        contactedLabel: "Remind patient",
+        contactedLabel: "Chase result",
         resolveLabel: "Mark followed up",
-        notePlaceholder: "e.g. confirmed they went, will upload this week",
+        notePlaceholder: "e.g. chased Synlab, result promised this week",
       }}
     />
   );

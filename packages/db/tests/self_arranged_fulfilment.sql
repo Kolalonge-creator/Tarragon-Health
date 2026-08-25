@@ -1,6 +1,18 @@
 -- Self-arranged lab fulfilment: guards, the awaiting-result safety net, the
 -- patient upload door, and AI-extraction confirmation.
 --
+-- UPDATED 2026-08-25 (20260825185258_lab_partner_fulfilment_restored.sql):
+-- lab_orders.fulfilment's column DEFAULT flipped back to 'partner' (Synlab
+-- Nigeria, nationwide) — self_arranged is still fully legal, just no longer
+-- what an insert gets when it doesn't say. Section 1 below now proves BOTH:
+-- the new default (partner, region-gated, nationwide) and that the dormant
+-- self_arranged path still works when named explicitly. Sections 2-4 are
+-- deliberately unchanged in what they test (the self-arranged safety net /
+-- upload door / extraction pipeline are still self_arranged-specific
+-- features), they just now have to say `fulfilment => 'self_arranged'`
+-- explicitly to get the fixture they need, since they can no longer rely on
+-- the old implicit default.
+--
 -- Run inside a single transaction and ROLLED BACK. Every negative is paired
 -- with a positive control, because a check that only ever proves "nothing
 -- happened" passes just as happily against a completely broken system.
@@ -24,6 +36,7 @@ declare
   v_doc uuid; v_extraction uuid;
   v_n int; v_val numeric; v_unit text; v_confirmed uuid;
   v_claims text;
+  v_default_order uuid; v_fulfilment public.fulfilment_mode; v_available boolean;
 begin
   ------------------------------------------------------------------
   -- Fixtures. Asserted, so a lookup miss fails loudly instead of
@@ -56,41 +69,77 @@ begin
   returning id into v_staff;
 
   ------------------------------------------------------------------
-  -- 1. Fulfilment guards on lab_orders.
+  -- 1. Fulfilment guards on lab_orders. As of 20260825185258, 'partner' is
+  --    the column default and the live app-facing path again; self_arranged
+  --    is still fully legal but only reachable by naming it explicitly.
   ------------------------------------------------------------------
   update public.profiles set state = 'Enugu' where id = v_pt;
 
+  -- v_order stays a SELF-ARRANGED order for the rest of this test (sections
+  -- 2-4 below are specifically about the self-arranged safety net / upload
+  -- door / extraction pipeline) -- naming fulfilment explicitly is now
+  -- required to get that fixture, since the column default changed.
   insert into public.lab_orders
-    (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo)
-  values (v_org, v_pt, v_bundle, 'patient_initiated', 'ordered', 0)
+    (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo, fulfilment)
+  values (v_org, v_pt, v_bundle, 'patient_initiated', 'ordered', 0, 'self_arranged')
   returning id into v_order;
-  insert into r values ('1a self-arranged accepted outside Lagos', 'PASS');
-
-  begin
-    insert into public.lab_orders
-      (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo, provider_id)
-    values (v_org, v_pt, v_bundle, 'patient_initiated', 'ordered', 0, v_prov);
-    insert into r values ('1b provider on self-arranged blocked', 'FAIL - accepted');
-  exception when check_violation then
-    insert into r values ('1b provider on self-arranged blocked', 'PASS');
-  end;
-
-  begin
-    insert into public.lab_orders
-      (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo)
-    values (v_org, v_pt, v_bundle, 'patient_initiated', 'ordered', 6500000);
-    insert into r values ('1c charged self-arranged blocked', 'FAIL - accepted');
-  exception when check_violation then
-    insert into r values ('1c charged self-arranged blocked', 'PASS');
-  end;
+  insert into r values ('1a explicit self-arranged still accepted outside Lagos (dormant path)', 'PASS');
 
   begin
     insert into public.lab_orders
       (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo, provider_id, fulfilment)
-    values (v_org, v_pt, v_bundle, 'patient_initiated', 'pending_payment', 6500000, v_prov, 'partner');
-    insert into r values ('1d CONTROL partner order still region-gated', 'FAIL - accepted');
+    values (v_org, v_pt, v_bundle, 'patient_initiated', 'ordered', 0, v_prov, 'self_arranged');
+    insert into r values ('1b provider on explicit self-arranged blocked', 'FAIL - accepted');
   exception when check_violation then
-    insert into r values ('1d CONTROL partner order still region-gated', 'PASS');
+    insert into r values ('1b provider on explicit self-arranged blocked', 'PASS');
+  end;
+
+  begin
+    insert into public.lab_orders
+      (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo, fulfilment)
+    values (v_org, v_pt, v_bundle, 'patient_initiated', 'ordered', 6500000, 'self_arranged');
+    insert into r values ('1c charged explicit self-arranged blocked', 'FAIL - accepted');
+  exception when check_violation then
+    insert into r values ('1c charged explicit self-arranged blocked', 'PASS');
+  end;
+
+  ------------------------------------------------------------------
+  -- 1f-1h. The NEW default: an insert that names no fulfilment at all must
+  -- now land as 'partner' and actually flow through region-gated, and since
+  -- Synlab now covers every state (not just Lagos) that must succeed even in
+  -- a state that was dark before this migration (v_pt's Enugu, set above).
+  ------------------------------------------------------------------
+  insert into public.lab_orders
+    (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo)
+  values (v_org, v_pt, v_bundle, 'patient_initiated', 'ordered', 0)
+  returning id into v_default_order;
+
+  select fulfilment into v_fulfilment from public.lab_orders where id = v_default_order;
+  insert into r values ('1f a lab order with no explicit fulfilment now defaults to partner',
+    case when v_fulfilment = 'partner' then 'PASS' else 'FAIL - got ' || v_fulfilment::text end);
+
+  -- The insert above succeeding at all (no exception raised) against v_pt's
+  -- Enugu state -- dark before this migration, nationwide now -- IS the
+  -- region-gate proof; this line just records it as its own row.
+  insert into r values ('1g default-fulfilment order is accepted nationwide (Enugu, not Lagos)', 'PASS');
+
+  select public.region_service_available('Kano', 'lab') into v_available;
+  insert into r values ('1h region_service_available(Kano, lab) is true nationwide, not just Lagos',
+    case when v_available then 'PASS' else 'FAIL' end);
+
+  -- CONTROL: the region gate on the partner path is still real, not switched
+  -- off wholesale -- every real Nigerian state is covered by Synlab now, so
+  -- there is no genuinely dark state left to prove this with; a state string
+  -- that doesn't exist in service_regions at all is the only way left to
+  -- show the gate still discriminates rather than always passing.
+  update public.profiles set state = 'Not A Real State' where id = v_pt2;
+  begin
+    insert into public.lab_orders
+      (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo, provider_id, fulfilment)
+    values (v_org, v_pt2, v_bundle, 'patient_initiated', 'pending_payment', 6500000, v_prov, 'partner');
+    insert into r values ('1d CONTROL partner order still region-gated outside real coverage', 'FAIL - accepted');
+  exception when check_violation then
+    insert into r values ('1d CONTROL partner order still region-gated outside real coverage', 'PASS');
   end;
 
   begin
@@ -112,9 +161,13 @@ begin
   insert into r values ('2a fresh order is NOT chased yet',
     case when v_n = 0 then 'PASS' else 'FAIL - chased too early' end);
 
+  -- Explicit fulfilment: patient_care_gaps.awaiting_result is keyed on
+  -- fulfilment = 'self_arranged' specifically (a partner-fulfilled order is
+  -- never "awaiting" in this sense -- Tarragon would receive the result), so
+  -- this fixture needs to say so now that it's no longer the default.
   insert into public.lab_orders
-    (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo)
-  values (v_org, v_pt2, v_bundle, 'patient_initiated', 'ordered', 0)
+    (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo, fulfilment)
+  values (v_org, v_pt2, v_bundle, 'patient_initiated', 'ordered', 0, 'self_arranged')
   returning id into v_old_order;
   update public.lab_orders set ordered_at = now() - interval '22 days' where id = v_old_order;
 

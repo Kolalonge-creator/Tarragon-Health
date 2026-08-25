@@ -130,10 +130,27 @@
  * to "doctor" and is unchanged. (The Dedicated Care Coordinator add-on, also
  * named here previously, was withdrawn 2026-07-31 — see the note further down
  * where its card used to sit.)
+ *
+ * Corrected 2026-08-25 — PARTIAL REVERSAL of the 2026-08-03 self-arranged-
+ * fulfilment pivot above, LABS ONLY. Synlab Nigeria is now a real, signed,
+ * nationwide lab partner (Lagos, Abuja, and every other state via home
+ * collection — see the lab_partner_fulfilment_restored migration), so
+ * Tarragon goes back to booking and billing lab tests directly (commission
+ * to Synlab), exactly as it worked before 2026-08-03. Every LAB-SPECIFIC line
+ * item below now carries the new "BOOK & PAY" label instead of "YOU PAY THE
+ * LAB": Tarragon books it with Synlab, shows the exact price, and bills the
+ * patient once they confirm — no more "take a request to any lab you like."
+ * Pharmacy collection and specialist referrals are explicitly NOT part of
+ * this reversal and stay self-arranged/"YOU PAY THE LAB" exactly as the
+ * 2026-08-03 note above describes; do not extend "BOOK & PAY" to either. The
+ * TYPICAL_PRICES/LAB_PARTNERS removal note further down (2026-08-04) is
+ * superseded for labs only by this decision — see the note at that comment
+ * for the real, seeded Synlab prices now reusable in lab-specific copy.
  */
 
 export type PricingLabel =
   | "INCLUDED"
+  | "BOOK & PAY"
   | "YOU PAY THE LAB"
   | "FREE ELSEWHERE"
   | "ADD-ON";
@@ -171,10 +188,16 @@ export const PRICING_LABELS: Record<
     description: "Part of your plan at no extra charge",
     className: "bg-brand-green/10 text-deep-forest",
   },
+  "BOOK & PAY": {
+    title: "Book & pay",
+    description:
+      "Tarragon books this directly with Synlab Nigeria, our contracted lab partner, and shows you its exact price before anything is charged. You pay Tarragon, not the lab, and there's no request to carry anywhere yourself.",
+    className: "bg-deep-forest/10 text-deep-forest",
+  },
   "YOU PAY THE LAB": {
     title: "You pay the lab",
     description:
-      "Tarragon works out what's needed and writes the request; you take it to whichever laboratory, pharmacy, or provider you choose and pay them directly. We take no commission on it.",
+      "Tarragon works out what's needed and writes the request; you take it to whichever pharmacy or provider you choose and pay them directly. We take no commission on it.",
     className: "bg-clinical-navy/10 text-clinical-navy",
   },
   "FREE ELSEWHERE": {
@@ -192,7 +215,7 @@ export const PRICING_LABELS: Record<
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "We will never charge you for anything without showing you the exact price first and getting your confirmation. No surprise charges. Ever.",
-  "We will always tell you clearly whether something is already included in your plan, something you'll pay the laboratory or pharmacy for directly (we set no price on it and take no cut), or something that's actually free elsewhere and we're just reminding you about it.",
+  "We will always tell you clearly whether something is already included in your plan, something we book with our partner lab and bill you for directly (you always see the exact price first), something you'll pay a pharmacy or provider for directly (we set no price on it and take no cut), or something that's actually free elsewhere and we're just reminding you about it.",
   "You will always know exactly what you are paying for: every plan and every add-on is fully listed below, with nothing left out.",
   "Paying in dollars from abroad includes a disclosed 10% international card-processing fee on top of the converted naira price: a real, cost-based charge shown as its own line next to the price, never folded silently into a bigger number.",
   "You can cancel a monthly plan at any time. Annual plans are paid upfront for the year, but you can turn off auto-renewal whenever you like: no penalty, no argument, no hard sell.",
@@ -237,8 +260,8 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
       { feature: "Any lab, any format: upload a result and a doctor's plain-language interpretation is sent to you in the app, with next steps suggested if anything needs attention, not just once a year", label: "INCLUDED" },
-      { feature: "Screening lab tests, paid straight to the lab you choose", label: "YOU PAY THE LAB" },
-      { feature: "Core Screen: we say what to get, you use any lab or upload a result you already have, and a doctor reads it", label: "INCLUDED" },
+      { feature: "Screening lab tests, booked directly with Synlab Nigeria and billed to you", label: "BOOK & PAY" },
+      { feature: "Core Screen: we say what to get, book it with Synlab or read a result you already have, and a doctor reads it", label: "INCLUDED" },
     ],
     footnote:
       "Prevent is not a chronic-care plan: a doctor-set care plan with scheduled reviews of your readings is on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme; that's the whole point of catching it early.",
@@ -259,9 +282,9 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
       { feature: "Message your care team directly in the app", label: "INCLUDED" },
       { feature: "Personal screening calendar and vaccination schedule, the same as Tarragon Prevent", label: "INCLUDED" },
-      { feature: "Core Screen: any lab or an upload, read back to you by a doctor", label: "INCLUDED" },
+      { feature: "Core Screen: booked with Synlab or an upload, read back to you by a doctor", label: "INCLUDED" },
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
-      { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "YOU PAY THE LAB" },
+      { feature: "Lab tests (HbA1c, kidney function, lipid panel, etc.)", label: "BOOK & PAY" },
       { feature: "Medication refills, from any pharmacy you choose", label: "YOU PAY THE LAB" },
     ],
     footnote:
@@ -282,11 +305,11 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Hypertension, diabetes, and weight all managed together on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
       { feature: "Ask a doctor a one-off written question, answered within 72 hours", label: "INCLUDED" },
-      { feature: "Lab tests", label: "YOU PAY THE LAB" },
+      { feature: "Lab tests", label: "BOOK & PAY" },
       { feature: "Medication refills", label: "YOU PAY THE LAB" },
     ],
     footnote:
-      "The Screen tiers come with your plan. What comes with it is the part we do: working out which tests are worth doing for you, writing the request, reading the results, and following up. You pay the laboratory directly for the tests themselves, at whatever that lab charges, and we take nothing on top.",
+      "The Screen tiers come with your plan. What comes with it is the part we do: working out which tests are worth doing for you, booking them directly with Synlab Nigeria, reading the results, and following up. You see Synlab's exact price and confirm before we bill you for the tests themselves.",
   },
 ];
 
@@ -322,7 +345,7 @@ export const USD_TIERS: PricingTier[] = [
       "The stay-healthy plan, billed in dollars: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Monitoring, care-protocol checks, and education work from anywhere; a physical test or dose still needs whoever it's for to visit a laboratory or provider in Nigeria.",
     items: [
       { feature: "Everything in Tarragon Prevent (Naira plan)", label: "INCLUDED" },
-      { feature: "Screening lab tests, paid to a laboratory in Nigeria", label: "YOU PAY THE LAB" },
+      { feature: "Screening lab tests, booked with Synlab Nigeria and billed to the account", label: "BOOK & PAY" },
     ],
   },
   {
@@ -337,7 +360,8 @@ export const USD_TIERS: PricingTier[] = [
     highlight: true,
     items: [
       { feature: "Everything in Essential Care (Naira plan)", label: "INCLUDED" },
-      { feature: "Lab tests and medication refills in Nigeria", label: "YOU PAY THE LAB" },
+      { feature: "Lab tests, booked with Synlab Nigeria and billed to the account", label: "BOOK & PAY" },
+      { feature: "Medication refills, from any pharmacy in Nigeria", label: "YOU PAY THE LAB" },
     ],
   },
   {
@@ -351,7 +375,8 @@ export const USD_TIERS: PricingTier[] = [
     description: "Everything included is the same as Complete Care in Naira, billed in US dollars.",
     items: [
       { feature: "Everything in Complete Care (Naira plan)", label: "INCLUDED" },
-      { feature: "Lab tests and medication refills in Nigeria", label: "YOU PAY THE LAB" },
+      { feature: "Lab tests, booked with Synlab Nigeria and billed to the account", label: "BOOK & PAY" },
+      { feature: "Medication refills, from any pharmacy in Nigeria", label: "YOU PAY THE LAB" },
     ],
   },
 ];
@@ -399,7 +424,7 @@ export const DIASPORA_SPONSOR_PITCH = {
 };
 
 export const DIASPORA_ONE_PRICE_NOTE =
-  "The dollar price starts from the naira price, converted at our published rate. Tarragon runs one price list: nobody pays a different rate for the same plan because of who they are. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you fund their plan; their lab tests are still paid straight to the laboratory, not through us.";
+  "The dollar price starts from the naira price, converted at our published rate. Tarragon runs one price list: nobody pays a different rate for the same plan because of who they are. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you fund their plan; their lab tests are booked directly with Synlab Nigeria and billed through us, the same as everyone else's.";
 
 /**
  * Founder decision, 2026-08-02: an international card charge genuinely costs
@@ -421,16 +446,19 @@ export const DIASPORA_PROCESSING_FEE_NOTE =
  * platform needs most: trust.
  */
 export const DIASPORA_SELF_USE_NOTE =
-  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, your doctor-set care plan and scheduled reviews, in-app care team messaging, and health record all work wherever you are. A lab test or a medication refill still means physically visiting a laboratory or pharmacy of your own choosing, so those are for when you're home; home sample collection and medication delivery aren't live anywhere yet, ours or a partner's.";
+  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, your doctor-set care plan and scheduled reviews, in-app care team messaging, and health record all work wherever you are. A lab test still means someone physically visiting a Synlab Nigeria location, and a medication refill still means physically visiting a pharmacy of your own choosing, so those are for when you're home; home sample collection and medication delivery aren't live anywhere yet, ours or a partner's.";
 
 /** Care vouchers buy a YEAR OF A PLAN, never a test.
  *
- * Prepaid lab vouchers are retired (public.purchase_care_voucher fails closed):
- * tests are paid straight to the laboratory, so there is nothing for Tarragon
- * to sell ahead of time. A plan is different, because it is the thing Tarragon
- * actually provides. Yearly only, and the recipient starts it themselves. */
+ * Prepaid lab vouchers are retired (public.purchase_care_voucher still fails
+ * closed for prepaid_service vouchers, deliberately out of scope for the
+ * 2026-08-25 lab-partner-fulfilment restoration): a test is billed directly
+ * through Tarragon at the time it's booked, not something bought ahead of
+ * time as a standalone voucher. A plan is different, because it is the thing
+ * Tarragon actually provides. Yearly only, and the recipient starts it
+ * themselves. */
 export const CARE_VOUCHER_INTRO =
-  "You can buy a year of a plan, for yourself or for someone who has linked you to their care, and pay for it in one go or bit by bit. Whoever it is for starts their year when they are ready. It is not an account balance and it is never exchangeable for cash. Tests themselves are paid straight to the laboratory you use.";
+  "You can buy a year of a plan, for yourself or for someone who has linked you to their care, and pay for it in one go or bit by bit. Whoever it is for starts their year when they are ready. It is not an account balance and it is never exchangeable for cash. Tests themselves are booked directly through Tarragon with Synlab Nigeria and billed at the time they're needed.";
 
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
@@ -439,7 +467,7 @@ export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   },
   {
     title: "Someone can buy it for you",
-    body: "A family member, in Nigeria or abroad, can buy you a year. They see that they bought it and later that it was used, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
+    body: "A family member, in Nigeria or abroad, can buy you a year. They see that they bought it and later that it was used, and nothing about your results. Your lab tests are booked with Synlab Nigeria and billed the same way as anyone else's.",
   },
   {
     title: "Refer a friend",
@@ -468,7 +496,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "Included with your plan",
     label: "ADD-ON",
     description:
-      "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, at no extra charge. Two deeper tiers are available: Advanced Screen adds age-triggered cancer screening and an ECG, and Comprehensive Screen adds imaging and a 15-minute doctor video consult to walk through your whole result set. You pay the laboratory directly for the tests; we take nothing on them. See the full breakdown on the Annual Health Check page.",
+      "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, at no extra charge. Two deeper tiers are available: Advanced Screen adds age-triggered cancer screening and an ECG, and Comprehensive Screen adds imaging and a 15-minute doctor video consult to walk through your whole result set. We book the tests directly with Synlab Nigeria, our partner lab, and show you the exact price before billing you. See the full breakdown on the Annual Health Check page.",
     availability: "The Screen tiers come with a paid plan, from Tarragon Prevent upward. That same paid-plan review covers a result you already have, too: uploading it and having a doctor read it is included from Prevent up, not on Tarragon Free.",
   },
   {
@@ -481,12 +509,12 @@ export const ADD_ONS: PricingAddOn[] = [
     items: [
       { feature: "Personalised screening calendar (age, sex, family history)", label: "INCLUDED" },
       { feature: "WhatsApp reminders when a screening test becomes due", label: "INCLUDED" },
-      { feature: "We work out which tests you need and write the request", label: "INCLUDED" },
+      { feature: "We work out which tests you need and book them with Synlab Nigeria", label: "INCLUDED" },
       { feature: "Tracking of your results over time", label: "INCLUDED" },
-      { feature: "The actual test itself, every time it's due", label: "YOU PAY THE LAB" },
+      { feature: "The actual test itself, every time it's due", label: "BOOK & PAY" },
     ],
     availability:
-      "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Tarragon Prevent and above; this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
+      "In plain terms: this add-on means we tell you when to go and book it for you. It does not mean the test itself is free: each one is billed at Synlab's price once you confirm it. Already included at no extra charge on Tarragon Prevent and above; this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
   },
   // 'care-coordinator' (Dedicated Care Coordinator, +₦30,000/month) removed
   // 2026-07-31, matching the same-date withdrawal in seed.sql and the
@@ -567,16 +595,37 @@ export const ADD_ONS: PricingAddOn[] = [
   // claim worth calling out on its own.
 ];
 
-// No TYPICAL_PRICES / LAB_PARTNERS list, and none should be reintroduced.
-// Founder decision 2026-08-04: the platform is structured around monitoring,
-// prevention, and doctor review of what a test finds — never around what a
-// test costs, since Tarragon has no contracted lab and does not set, quote,
-// or collect a naira for one. A "rough guide" figure still reads as a
-// Tarragon price to a visitor, and a table of illustrative prices next to
-// named laboratories would present partners the platform has neither
-// contracted nor inspected. If a real, contracted, accredited network is
-// ever signed, that is a decision to reopen deliberately, not to slide back
-// in as a "helpful estimate."
+// No TYPICAL_PRICES / LAB_PARTNERS list, and none should be reintroduced
+// WITHOUT A DELIBERATE DECISION. Founder decision 2026-08-04: the platform
+// was structured around monitoring, prevention, and doctor review of what a
+// test finds — never around what a test costs, since Tarragon had no
+// contracted lab and did not set, quote, or collect a naira for one.
+//
+// UPDATED 2026-08-25: that decision has now been made for labs, specifically
+// because the underlying reason for it no longer holds — Synlab Nigeria is a
+// real, signed, nationwide lab partner (see the "Corrected 2026-08-25" note
+// at the top of this file), so a Synlab price is now a real Tarragon price,
+// not a guess. Pharmacy is deliberately NOT included in this reversal and
+// this rule still stands for it: no pharmacy price list, since Tarragon still
+// has no contracted pharmacy partner.
+//
+// A structured TYPICAL_PRICES-style export was deliberately NOT added here:
+// restoring it cleanly needs a rendering surface (a table/section on the
+// pricing page component) that this content file doesn't own, and bolting on
+// an unused, unrendered export would be dead weight rather than a real fix.
+// Instead, the real seeded Synlab prices below were used directly in the
+// PRICING_FAQ "What do lab tests actually cost?" answer, which is the one
+// place on this page a visitor is actually asking the question:
+//   Individual tests (lab_tests, seed.sql): HbA1c ₦8,000, Lipid Panel ₦9,500,
+//   PSA ₦12,000, Blood Group & Rhesus ₦3,500, Sickle Cell Genotype ₦4,000.
+//   Bundles (panel_bundles, seed.sql): Hypertension Panel ₦22,000, Diabetes
+//   Panel ₦18,500, Annual Health Check ₦65,000, Health Check — Basic
+//   ₦15,000, Health Check — Comprehensive ₦75,000, Blood Group & Genotype
+//   ₦6,500. These are seed-file placeholders marked "founder to confirm" —
+//   reuse them as-is if you add to this file, never invent a new figure.
+// If a real pricing table/section is wanted on the page itself, that is a
+// UI change to make deliberately, not to slide back in as a byproduct of a
+// content-file edit.
 
 /**
  * "Tarragon vs your HMO": complementary positioning, never disparaging. HMOs
@@ -590,7 +639,7 @@ export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }
   { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },
   { need: "Checks your BP and blood sugar readings against care protocols every time you log one, even when you feel fine", hmo: false, tarragon: true },
   { need: "Spots a worrying pattern in your numbers and escalates it before it becomes an emergency", hmo: false, tarragon: true },
-  { need: "Reminds you when a test or refill is due, hands you a request to take to any lab or pharmacy, and tracks your results over time", hmo: false, tarragon: true },
+  { need: "Reminds you when a test or refill is due, books your lab tests with our partner lab or hands you a request for pharmacy refills, and tracks your results over time", hmo: false, tarragon: true },
   { need: "Keeps your whole health story in one record your family can see (with your consent)", hmo: false, tarragon: true },
 ];
 
@@ -601,13 +650,14 @@ export const HMO_COMPARE_NOTE =
  * "Tarragon vs a one-off checkup": the other comparison people actually make
  * before signing up — not against an HMO, but against paying for a single
  * private lab panel or annual checkup somewhere and being handed a PDF.
- * Same non-disparaging rule as HMO_COMPARE_ROWS: no named competitor, and
- * both still cost the same "you pay the lab" way, since Tarragon has no
- * contracted lab either. The difference this table draws is what happens
- * before and after the result, not who is cheaper.
+ * Same non-disparaging rule as HMO_COMPARE_ROWS: no named competitor. Since
+ * the 2026-08-25 lab-partner-fulfilment restoration, Tarragon's own tests go
+ * through Synlab Nigeria rather than "wherever you choose"; the difference
+ * this table draws is what happens before and after the result, not who is
+ * cheaper or who books it.
  */
 export const CHECKUP_COMPARE_INTRO =
-  "A one-off checkup and Tarragon both send you to a laboratory you choose, and you pay that laboratory directly, at their price. What's different is everything around the result.";
+  "A one-off checkup sends you to whichever laboratory you choose, and you pay them directly, at their price. Tarragon books yours with Synlab Nigeria, our partner lab, and bills you the exact price instead. What's different either way is everything around the result.";
 
 export const CHECKUP_COMPARE_ROWS: { need: string; oneOff: boolean; tarragon: boolean }[] = [
   { need: "Gives you a written result", oneOff: true, tarragon: true },
@@ -658,16 +708,16 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
     body: "A test, refill, or vaccine is due.",
   },
   {
-    title: "For a plan or add-on, you see the exact price",
-    body: "In the app, before you're ever charged. No estimates, no “roughly.” A test, refill, or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show; see the next step.",
+    title: "For a plan, add-on, or lab test, you see the exact price",
+    body: "In the app, before you're ever charged. No estimates, no “roughly.” A lab test is booked directly with Synlab Nigeria and billed through Tarragon, so you see Synlab's exact price and confirm it. A refill or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show for those; see the next step.",
   },
   {
     title: "You confirm and pay, or take a request to the provider",
-    body: "For plans and add-ons: by card, bank transfer, or USSD, through Paystack (Stripe for diaspora payments in US dollars). For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
+    body: "For plans, add-ons, and lab tests: by card, bank transfer, or USSD, through Paystack (Stripe for diaspora payments in US dollars) — we book the test with Synlab Nigeria once you confirm. For a refill or vaccine: you take our request to whichever pharmacy or provider you choose and pay them directly, at their price. We set no price on those and take no cut.",
   },
   {
-    title: "You get a request to take with you",
-    body: "It names exactly which tests to run and why, so the laboratory knows what to do. You choose where to go and when.",
+    title: "We book it, or you get a request to take with you",
+    body: "A lab test is booked directly with Synlab: you pick a time that works, and there's no paper request to carry yourself. For a refill or vaccine, you still get a written request naming exactly what's needed, so the pharmacy or provider knows what to do; you choose where to go and when.",
   },
   {
     title: "Your result or delivery comes back in the app",
@@ -693,7 +743,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Will my card ever be charged automatically for a test I didn't ask for?",
     answer:
-      "No. Your card is never charged for a test, refill, or vaccine at all: those go straight to whichever laboratory, pharmacy, or provider you choose, and you pay them directly, at their price. The only things Tarragon itself ever charges you for are your plan and any add-on you've explicitly confirmed, always shown to you first.",
+      "No. A lab test is only ever billed once you've seen Synlab's exact price in the app and confirmed it. A refill or vaccine goes straight to whichever pharmacy or provider you choose, and you pay them directly, at their price; Tarragon never charges for those. The only things Tarragon itself ever charges you for are your plan, any add-on, and a lab test, always shown to you first before you confirm.",
   },
   {
     question: "My test came back abnormal. Will I be billed extra automatically?",
@@ -748,16 +798,16 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What do lab tests actually cost?",
     answer:
-      "We don't know, and we deliberately don't quote a figure: Tarragon has no contracted laboratory, so every lab sets its own price and you pay that laboratory directly. Tarragon never charges you for a test. It's worth asking two or three labs before you go, since prices vary by lab and city.",
+      "Now that Synlab Nigeria is our contracted lab partner, we do know, and we show you the exact price before you confirm anything. Individually: HbA1c is ₦8,000, a full lipid panel is ₦9,500, PSA is ₦12,000, blood group & rhesus is ₦3,500, and sickle cell genotype is ₦4,000. As bundles: the Hypertension Panel is ₦22,000, the Diabetes Panel is ₦18,500, and the Health Check ladder runs from Health Check — Basic at ₦15,000, through the Annual Health Check at ₦65,000, up to Health Check — Comprehensive at ₦75,000; Blood Group & Genotype together is ₦6,500. These are Synlab's current prices and can change, but the app always shows you the one that applies before you're ever charged.",
   },
   {
     question: "What's the difference between Core, Advanced, and Comprehensive Screen?",
     answer:
-      "They're one cumulative ladder, so each tier includes everything in the one below it. Core Screen is a full cardiometabolic and organ-baseline workup, plus HIV/Hepatitis B/Hepatitis C. Advanced Screen adds age-triggered cancer screening and an ECG, with a personalised screening calendar. Comprehensive Screen adds imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set, which is the same doctor review that used to be a separate Annual Doctor Review product. All three come with a paid plan. What you pay for is the tests themselves, straight to whichever laboratory you use, so the cost depends on the lab rather than on us.",
+      "They're one cumulative ladder, so each tier includes everything in the one below it. Core Screen is a full cardiometabolic and organ-baseline workup, plus HIV/Hepatitis B/Hepatitis C. Advanced Screen adds age-triggered cancer screening and an ECG, with a personalised screening calendar. Comprehensive Screen adds imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set, which is the same doctor review that used to be a separate Annual Doctor Review product. All three come with a paid plan. What you pay for is the tests themselves, booked directly with Synlab Nigeria and billed through Tarragon at their price, shown to you before you confirm.",
   },
   {
     question: "What if I need a test that isn't listed here?",
-    answer: "Message your care team in the app. We'll tell you if it's worth doing and write you a request for it; you take that to any laboratory you like and pay them directly, exactly like every other test.",
+    answer: "Message your care team in the app. We'll tell you if it's worth doing and book it directly with Synlab Nigeria, our partner lab, at their price, exactly like every other test.",
   },
   {
     question: "Is my payment information safe?",
@@ -767,12 +817,12 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "How do I get a test done, a refill tracked, or an add-on added?",
     answer:
-      "For a test: message your care team in the app, or tap “Get this test” on a screening that's come due, and either way you get a request to take to whichever laboratory you choose, paying them directly. For a refill: your care team tracks your refill date and reminds you when it's due; you still buy from whichever pharmacy suits you. For an add-on: open Plans in the app, where you'll always see Tarragon's exact price before confirming.",
+      "For a test: message your care team in the app, or tap “Get this test” on a screening that's come due, and either way we book it directly with Synlab Nigeria and show you the exact price before billing you. For a refill: your care team tracks your refill date and reminds you when it's due; you still buy from whichever pharmacy suits you. For an add-on: open Plans in the app, where you'll always see Tarragon's exact price before confirming.",
   },
   {
     question: "What is a care voucher?",
     answer:
-      "When you buy a year of a plan ahead of time, you get a care voucher for that plan. It is for that plan and for the person named on it: it cannot be transferred, and it is never exchangeable for cash. You can pay for it in instalments, a family member can buy one for you, and whoever it is for starts their year when they are ready. Tests themselves are paid straight to the laboratory. Referring a friend earns you both a ₦500 reward voucher once they complete their first paid order.",
+      "When you buy a year of a plan ahead of time, you get a care voucher for that plan. It is for that plan and for the person named on it: it cannot be transferred, and it is never exchangeable for cash. You can pay for it in instalments, a family member can buy one for you, and whoever it is for starts their year when they are ready. Tests themselves are booked directly with Synlab Nigeria and billed through Tarragon when they're needed. Referring a friend earns you both a ₦500 reward voucher once they complete their first paid order.",
   },
   {
     question: "Can I track my children's vaccinations too?",

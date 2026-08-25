@@ -90,7 +90,7 @@ Nigeria's digital-first chronic disease, preventive health, and family care coor
 
 1. **Chronic Disease Management** *(core wedge)* — hypertension, diabetes; expansion: asthma, CKD, heart failure
 2. **Preventative Medicine** — cancer/metabolic/infectious/reproductive screening. **Abnormal result → Category 1 upgrade is the highest-priority business event in the platform — never lose it, never let it fail silently.**
-3. **Care Coordination** — lab network, pharmacy network, specialist referrals, hospital handoffs
+3. **Care Coordination** — lab network, pharmacy network, specialist referrals, hospital handoffs. **Corrected 2026-08-25 — lab tests (only) are partner-fulfilled again.** The 2026-08-03 self-arranged-fulfilment decision (patient takes a request to any lab, pays them directly) is reverted for labs: Synlab Nigeria is now a real, signed, nationwide lab partner (`lab_providers.is_active`, migration `20260825185258_lab_partner_fulfilment_restored.sql`), and Tarragon again books and bills the patient (commission to Synlab) via the restored `pending_payment`→`payment_confirmed` checkout flow. Pharmacy collection and specialist referrals are deliberately untouched and remain self-arranged/"YOU PAY THE LAB" — this correction is labs-only. See `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s 2026-08-25 entry for the full change list.
 4. **B2B & Institutional** — corporate wellness, HMO capitation, NHIA/government programmes
 5. **Platform Infrastructure** *(backbone, not a product line)* — WhatsApp/SMS notification engine (reminders, alerts, confirmations — never signup or a feature's only interface), doctor-led delivery, AI clinical decisioning, longitudinal patient record, partner API layer, analytics
 

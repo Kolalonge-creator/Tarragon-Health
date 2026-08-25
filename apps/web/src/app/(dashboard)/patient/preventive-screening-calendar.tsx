@@ -93,15 +93,17 @@ export function PreventiveScreeningCalendar({
                             organisationId: organisationId!,
                             patientId,
                             panelBundleId: bundle.id,
+                            totalKobo: bundle.price_kobo,
                             screeningScheduleId: schedule.id,
                           })
                         }
                       >
-                        {createOrder.isPending ? "Getting it ready…" : "Get this test"}
+                        {createOrder.isPending ? "Getting it ready…" : "Book this test"}
                       </Button>
                       <p className="text-xs text-charcoal-ink/60">
-                        We&apos;ll write you a request to take to any lab you like. You pay the lab
-                        directly, then upload the result here for your care team to read.
+                        We&apos;ll book it with Synlab Nigeria and bill you for it — confirm a
+                        facility (or leave it for home collection) and pay from your lab orders
+                        below.
                       </p>
                       {createOrder.isError && (
                         <p className="text-xs text-red-600">

@@ -6,10 +6,25 @@
 -- sex/age-gated (psa) distinctions all hold. Rolled back, no residue.
 --
 -- total_kobo is 0 and status is never 'pending_payment'/'payment_confirmed'
--- throughout — every Screen-tier order is self-arranged fulfilment as of
--- 20260803124833_self_arranged_lab_fulfilment.sql, and
--- private.enforce_lab_order_origin rejects both for a self_arranged order
--- (which lab_orders.fulfilment now defaults to).
+-- throughout — every fixture order here is DELIBERATELY, EXPLICITLY
+-- self-arranged fulfilment. That was the column DEFAULT from
+-- 20260803124833_self_arranged_lab_fulfilment.sql through 2026-08-25;
+-- 20260825185258_lab_partner_fulfilment_restored.sql flipped the default
+-- back to 'partner' (Synlab Nigeria), so every insert below now names
+-- fulfilment => 'self_arranged' explicitly rather than relying on it. This
+-- file's actual subject — private.check_screen_order_completeness /
+-- maybe_result_screen_order, the trigger that flips a Screen order to
+-- 'resulted' once every applicable test_code has a result — reads only
+-- lab_orders.patient_id/panel_bundle_id and screening_results rows, and is
+-- completely agnostic to fulfilment/status/total_kobo/provider, so keeping
+-- these fixtures self-arranged is not testing a stale path. What DOES
+-- genuinely depend on fulfilment is check1 below:
+-- private.link_screen_order_to_annual_check only auto-links a fresh order to
+-- annual_health_checks on INSERT when fulfilment = 'self_arranged' AND
+-- status = 'ordered' (its other branch is an UPDATE-into-payment_confirmed
+-- transition these fixtures never make) — an order left at the new partner
+-- default here would silently never link, breaking check1 for a reason
+-- unrelated to what it's meant to prove.
 --
 -- Reuses three real, pre-existing patient fixtures rather than minting new
 -- auth.users rows: one with sex=null (age ~41), one male (age ~66, born
@@ -46,16 +61,19 @@ begin
   -- year keeps the link" coalesce behaviour against unrelated real data.
   delete from public.annual_health_checks where patient_id in (v_patient, v_male, v_female) and year = v_year;
 
-  -- Order 1: screen_core, self-arranged -- the only shape the real app ever
-  -- inserts today (apps/web/src/lib/queries/lab-orders.ts's
-  -- useCreateLabOrder/useOrderLabTest both insert status='ordered',
-  -- total_kobo=0, and rely on fulfilment's table default of
-  -- 'self_arranged'; private.enforce_lab_order_origin rejects anything
-  -- else for a self_arranged row, so a pending_payment/payment_confirmed
-  -- fixture here would not exercise -- and previously did not even survive
-  -- -- the real trigger stack). Entering results one code at a time.
-  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_patient, v_core_bundle, 'ordered', 0, 'patient_initiated', 1)
+  -- Order 1: screen_core, self-arranged -- deliberately, explicitly so
+  -- (fulfilment => 'self_arranged' below). This WAS the only shape the real
+  -- app ever inserted (apps/web/src/lib/queries/lab-orders.ts's
+  -- useCreateLabOrder/useOrderLabTest relied on fulfilment's table default);
+  -- as of 20260825185258_lab_partner_fulfilment_restored.sql the app inserts
+  -- status='pending_payment', a priced total_kobo, and a resolved Synlab
+  -- provider_id instead, and the default flipped to 'partner' to match. This
+  -- fixture stays self-arranged anyway, on purpose: it's what check1 below
+  -- needs (see the file header), and the completeness/auto-resolve logic
+  -- these checks exercise doesn't care which fulfilment mode it's in.
+  -- Entering results one code at a time.
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier, fulfilment)
+  values (v_org, v_patient, v_core_bundle, 'ordered', 0, 'patient_initiated', 1, 'self_arranged')
   returning id into v_order1;
 
   insert into test_results select 'check1_self_arranged_insert_links_annual_check',
@@ -96,8 +114,8 @@ begin
 
   -- Order 2: a fresh screen_core order, same patient -- once-per-lifetime
   -- genotype/blood group already satisfied without a fresh entry.
-  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_patient, v_core_bundle, 'ordered', 0, 'patient_initiated', 1)
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier, fulfilment)
+  values (v_org, v_patient, v_core_bundle, 'ordered', 0, 'patient_initiated', 1, 'self_arranged')
   returning id into v_order2;
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
@@ -123,8 +141,8 @@ begin
   -- requirement. abdominal_ultrasound is sex='all', so unlike the other
   -- three imaging codes it's never excluded here on sex grounds -- it's
   -- required and supplied below, same as any other non-dormant code.
-  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_patient, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1)
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier, fulfilment)
+  values (v_org, v_patient, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1, 'self_arranged')
   returning id into v_order3;
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
@@ -155,8 +173,8 @@ begin
 
   -- Order 4: MALE patient -- psa genuinely required, gated on shared
   -- decision-making (private.enforce_psa_sdm_gate).
-  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_male, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1)
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier, fulfilment)
+  values (v_org, v_male, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1, 'self_arranged')
   returning id into v_order4;
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)
@@ -200,8 +218,8 @@ begin
   -- stay excluded by sex; abdominal_ultrasound (sex='all') is required too,
   -- supplied up front below alongside everything else so breast_imaging is
   -- the sole thing missing for check11/check12 to isolate.
-  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
-  values (v_org, v_female, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1)
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier, fulfilment)
+  values (v_org, v_female, v_comp_bundle, 'ordered', 0, 'patient_initiated', 1, 'self_arranged')
   returning id into v_order5;
 
   insert into public.screening_results (organisation_id, patient_id, lab_order_id, screen_type_code, result_status)

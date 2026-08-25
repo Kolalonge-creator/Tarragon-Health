@@ -21,14 +21,17 @@ export const revalidate = 300;
 export default async function CoveragePage() {
   const coverage = await getServiceCoverage();
   // row.isActive is the state's own master rollout switch, which can be on
-  // with zero partners actually contracted there (true of every state right
-  // now — see the 2026-08-03 self-arranged-fulfilment migrations). Filtering
-  // on it alone would claim "partner-fulfilled services are live" in a state
-  // where the checker below correctly says otherwise. Only a state with at
-  // least one currently-gated service (home sample collection, medication
-  // delivery — see gatedServices()) actually live belongs in this list.
+  // with zero partners actually contracted there. Filtering on it alone would
+  // claim "partner-fulfilled services are live" in a state where the checker
+  // below correctly says otherwise. Only a state with at least one currently-
+  // gated service actually live belongs in this list — see gatedServices().
+  // Since the 2026-08-25 lab-partner-fulfilment restoration, that now
+  // includes lab tests (Synlab Nigeria, contracted nationwide) alongside home
+  // sample collection and medication delivery, so every state now qualifies
+  // through lab tests alone even though the other two remain unlive anywhere.
   const gated = gatedServices();
   const liveStates = coverage.filter((row) => gated.some((service) => row.services[service]));
+  const allStatesLive = coverage.length > 0 && liveStates.length === coverage.length;
   const inNigeria = itemsFor("in_nigeria");
 
   return (
@@ -40,19 +43,26 @@ export default async function CoveragePage() {
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             TarragonHealth works anywhere in Nigeria. We tell you which tests are worth doing and
-            when, write you a request to take to any lab you like, read the result with you, and
-            follow up. None of that waits on us signing a partner in your state, so none of it is
-            switched off where you live.
+            when, book them directly with Synlab Nigeria, our nationwide partner lab, read the
+            result with you, and follow up. Synlab is contracted in every state, so lab tests are
+            never switched off where you live.
           </p>
           <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-            You pay the lab or the pharmacy directly, at their price. We take nothing on top.
+            You see the exact price and confirm before we bill you for a lab test. Pharmacy
+            purchases are still yours to arrange: you pay the pharmacy directly, at their price,
+            and we take nothing on top.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            What we do not yet do anywhere: collect a sample from your home, deliver medication to
-            your door, or bill a lab on your behalf. Those need contracted partners, and we would
-            rather say so than imply otherwise.
+            What we do not yet do anywhere: collect a sample from your home, or deliver medication
+            to your door. Both still need a contracted logistics partner, and we would rather say
+            so than imply otherwise.
           </p>
-          {liveStates.length > 0 && (
+          {allStatesLive ? (
+            <p className="mt-4 text-sm text-charcoal-ink/60">
+              Partner-fulfilled lab tests are live nationwide, through Synlab Nigeria, in every
+              state and the FCT.
+            </p>
+          ) : liveStates.length > 0 ? (
             <p className="mt-4 text-sm text-charcoal-ink/60">
               Partner-fulfilled services are live in{" "}
               <span className="font-medium text-deep-forest">
@@ -60,7 +70,7 @@ export default async function CoveragePage() {
               </span>
               .
             </p>
-          )}
+          ) : null}
         </div>
       </Section>
 

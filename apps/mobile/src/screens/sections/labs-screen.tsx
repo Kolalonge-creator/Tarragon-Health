@@ -15,11 +15,15 @@ interface CapturedPhoto {
 /**
  * Native camera-capture lab result upload, the one native win §2.5 of
  * MOBILE_APP_SPEC.md calls out over a web file picker — everything else
- * (orders, results, trends) stays WebView, low weekly-touch frequency,
- * already built once on web. Self-book and facility selection are not part
- * of that WebView — both were suspended platform-wide by the 2026-08-03
- * self-arranged-fulfilment decision (no partner labs, no facility
- * directory) — so this screen must not promise either.
+ * (booking, orders, results, trends) stays WebView, low weekly-touch
+ * frequency, already built once on web. This screen has never had its own
+ * self-book or facility-selection UI — both live in the WebView below, not
+ * here. Restored 2026-08-25: labs are partner-fulfilled again via Synlab
+ * Nigeria (Tarragon books the order and bills the patient), so the WebView's
+ * booking/facility/payment flow is live again too — this screen just must
+ * not describe the result-upload flow in the self-arranged terms of the
+ * 2026-08-03–2026-08-25 window (no partner lab, no facility directory) any
+ * more.
  */
 export function LabsScreen() {
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
@@ -100,7 +104,7 @@ export function LabsScreen() {
           </>
         ) : (
           <>
-            <MutedText>You pay the lab directly; this is just how the result gets back to your record.</MutedText>
+            <MutedText>We book this with Synlab Nigeria and bill you for it; this is just how the result gets back to your record.</MutedText>
             {error ? <ErrorText>{error}</ErrorText> : null}
             {success ? <MutedText>Uploaded. Your care team will review it shortly.</MutedText> : null}
             <PrimaryButton title="Take a photo" onPress={takePhoto} />

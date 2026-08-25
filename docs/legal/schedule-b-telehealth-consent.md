@@ -42,7 +42,7 @@ Different channels carry different kinds of information, on purpose:
 • Email carries documents: receipts, reports, and copies of your consent records.
 
 ## What remote monitoring can and cannot do
-Remote monitoring lets your care team review your readings and respond between visits, without you needing to travel for every check. It has real limits: your doctor cannot examine you in person, and their assessment is based on the readings and information you provide. If something needs an in-person assessment, your care team will tell you and refer you appropriately, including, where relevant, to one of our partner labs, pharmacies, or specialists.
+Remote monitoring lets your care team review your readings and respond between visits, without you needing to travel for every check. It has real limits: your doctor cannot examine you in person, and their assessment is based on the readings and information you provide. If something needs an in-person assessment, your care team will tell you and refer you appropriately — for lab testing, to our partner lab, Synlab Nigeria, which we book and bill you for directly; or, for a prescription or a specialist opinion, to a pharmacy or specialist of your choosing, which you arrange and pay directly.
 
 ## Emergency care
 TarragonHealth does not provide emergency care. If you are having a medical emergency, do not wait for a message or a call from us. Go to the nearest hospital or call [Nigeria's emergency line, exact number to be confirmed] immediately. No part of this platform is designed to be used in an emergency.
