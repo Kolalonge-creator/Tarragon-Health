@@ -1,17 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   useLabCatalogue,
   useCreateLabOrder,
   usePatientLabOrders,
   type PanelBundle,
 } from "@/lib/queries/lab-orders";
+import { useRegionServiceAvailable } from "@/lib/queries/service-regions";
+import { createAndPayForPartnerLabOrder } from "./lab-tests/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
+import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReviewPrice } from "./review-price";
 import { cn } from "@/lib/utils";
@@ -36,18 +39,23 @@ const isConfidential = (b: PanelBundle) => CONFIDENTIAL_CODES.includes(b.code);
 const REBOOK_AFTER_MONTHS = 11;
 
 /**
- * The Screen ladder, self-arranged: Tarragon writes the request saying which
- * tests are needed and why, the patient takes it to whichever lab they like and
- * pays that lab directly, then uploads the result here for a doctor to read.
+ * The Screen ladder. Two fulfilment modes coexist, and neither is hardcoded
+ * here — both read the same `region_service_available(state, 'lab')` gate
+ * the database itself uses for what a lab_orders row is allowed to be:
  *
- * Tarragon takes nothing on the test itself wherever partner fulfilment is not
- * live, which is everywhere today — there is no partner to route the sample to
- * and no charge to collect, and private.enforce_lab_order_origin enforces that
- * on the row rather than leaving it to this component. Where a laboratory IS
- * contracted and switched on for the patient's state, the founder's 2026-08-21
- * decision applies instead: Tarragon bills one price for the review, computed
- * for that patient. Neither claim is hardcoded here — ReviewPrice reads the
- * same region gate the database does and says whichever is true.
+ * Self-arranged (still every state without a switched-on lab partner):
+ * Tarragon writes the request saying which tests are needed and why, the
+ * patient takes it to whichever lab they like and pays that lab directly,
+ * then uploads the result here for a doctor to read. `useCreateLabOrder`.
+ *
+ * Partner-billed (Synlab Nigeria, switched on 2026-08-21 for Lagos): the
+ * founder's Option A — Tarragon bills one price for the review, computed for
+ * that patient, and settles with Synlab behind the scenes. The "Book & pay"
+ * button runs `createAndPayForPartnerLabOrder` and goes straight to hosted
+ * checkout; ReviewPrice shows the same number this books at, because both
+ * read `price_review_for_patient`/`private.compute_review_price`. A
+ * partner-billed order that never finished checkout shows up in "Waiting on
+ * payment" rather than vanishing, so nothing is silently lost.
  *
  * `screensEnabled` gates the curated ladder as a subscription feature. What is
  * NEVER gated, on any plan: uploading a result, a doctor reading it, and the
@@ -75,6 +83,8 @@ export function AnnualHealthCheckBooking({
   const { data: bundles } = useLabCatalogue();
   const { data: orders } = usePatientLabOrders(patientId);
   const createOrder = useCreateLabOrder();
+  const { data: partnerBillingAvailable } = useRegionServiceAvailable(state, "lab");
+  const [payState, payAction, payPending] = useActionState(createAndPayForPartnerLabOrder, undefined);
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
   // Captured once on mount so the render stays pure (lint: no Date.now() in
   // render); a rebook nudge doesn't need a live-ticking clock.
@@ -100,7 +110,15 @@ export function AnnualHealthCheckBooking({
     (o) => o.panel_bundle_id && selfBookableIds.has(o.panel_bundle_id)
   );
   const openOrders = myOrders.filter((o) => OPEN_STATUSES.includes(o.status));
-  const openBundleIds = new Set(openOrders.map((o) => o.panel_bundle_id));
+  // A self-arranged order can never reach pending_payment — the DB trigger
+  // refuses it (private.enforce_lab_order_origin) — so every row here is a
+  // partner-billed review Tarragon booked and is waiting to be paid for,
+  // whether from this session's own checkout redirect not completing, or a
+  // provider failure after the order was created.
+  const pendingPaymentOrders = myOrders.filter((o) => o.status === "pending_payment");
+  const openBundleIds = new Set(
+    [...openOrders, ...pendingPaymentOrders].map((o) => o.panel_bundle_id)
+  );
 
   const lastResulted = myOrders.find((o) => o.status === "resulted");
   const rebookDue =
@@ -184,6 +202,26 @@ export function AnnualHealthCheckBooking({
           </p>
         )}
 
+        {pendingPaymentOrders.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+              Waiting on payment
+            </p>
+            {pendingPaymentOrders.map((order) => (
+              <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="amber">Not yet paid</Badge>
+                  <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+                </div>
+                <p className="text-sm text-charcoal-ink">
+                  {order.panel_bundle?.name ?? "Health check"}
+                </p>
+                <PayForLabOrderButton orderId={order.id} amountKobo={order.payable_kobo ?? order.total_kobo} />
+              </div>
+            ))}
+          </div>
+        )}
+
         {openOrders.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
@@ -247,27 +285,44 @@ export function AnnualHealthCheckBooking({
 
             {selected && !openBundleIds.has(selected.id) && (
               <div className="space-y-2 pt-1">
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={createOrder.isPending}
-                  onClick={() =>
-                    createOrder.mutate({
-                      organisationId,
-                      patientId,
-                      panelBundleId: selected.id,
-                    })
-                  }
-                >
-                  {createOrder.isPending ? "Getting it ready…" : `Get ${selected.name}`}
-                </Button>
-                <p className="text-xs text-charcoal-ink/60">
-                  Costs vary quite a bit between labs, so it&apos;s worth asking two before you go.
-                </p>
-                {createOrder.isError && (
-                  <p className="text-xs text-red-600">
-                    Could not set that up just now. Please try again.
-                  </p>
+                {partnerBillingAvailable ? (
+                  <form action={payAction}>
+                    <input type="hidden" name="panelBundleId" value={selected.id} />
+                    <Button type="submit" size="sm" disabled={payPending}>
+                      {payPending ? "Taking you to payment…" : `Book & pay for ${selected.name}`}
+                    </Button>
+                    <p className="mt-2 text-xs text-charcoal-ink/60">
+                      We book it with our lab partner and send you the result — no separate lab
+                      visit to arrange.
+                    </p>
+                    {payState?.error && <p className="mt-1 text-xs text-red-600">{payState.error}</p>}
+                  </form>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={createOrder.isPending}
+                      onClick={() =>
+                        createOrder.mutate({
+                          organisationId,
+                          patientId,
+                          panelBundleId: selected.id,
+                        })
+                      }
+                    >
+                      {createOrder.isPending ? "Getting it ready…" : `Get ${selected.name}`}
+                    </Button>
+                    <p className="text-xs text-charcoal-ink/60">
+                      Costs vary quite a bit between labs, so it&apos;s worth asking two before you
+                      go.
+                    </p>
+                    {createOrder.isError && (
+                      <p className="text-xs text-red-600">
+                        Could not set that up just now. Please try again.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             )}

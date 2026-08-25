@@ -15,13 +15,14 @@
 --   npx supabase db query --linked -f packages/db/tests/partner_billing_money_path.sql
 --
 -- NOTE ON THE NUMBERS BELOW. The female fixture holds an active paid
--- subscription, so private.apply_screening_subscriber_discount takes 15% off
--- every Screen-tier order she places. That is not noise to be worked around —
--- it is the single most important number in this file. A 227,500 Core Screen
--- discounted by 15% is 193,375 against a Synlab cost of 189,800, which leaves
--- Tarragon 3,575 naira, or about 1.6%. The subscriber discount and the
--- contracted margin are very nearly incompatible, and these assertions are
--- written to fail loudly if that gap ever closes to nothing.
+-- subscription. That USED to mean private.apply_screening_subscriber_discount
+-- took 15% off every Screen-tier order she places — a 227,500 Core Screen
+-- discounted by 15% is 193,375 against a Synlab cost of 189,800, leaving
+-- Tarragon 3,575 naira, about 1.6% — thin enough that the founder removed the
+-- discount outright on 2026-08-25 (private.apply_screening_subscriber_discount
+-- is now a no-op; see 20260825174115_remove_screening_subscriber_discount.sql).
+-- The subscription is still on this fixture so m2 below doubles as the
+-- regression check: a subscriber's margin must equal a non-subscriber's.
 
 begin;
 
@@ -76,12 +77,14 @@ begin
        (select partner_cost_breakdown from public.lab_orders where id = v_order))) = 7,
     (select partner_cost_breakdown::text from public.lab_orders where id = v_order);
 
-  -- The margin after the subscriber discount. Asserted as a real number
-  -- rather than "> 0" so that shrinking it further is a visible test failure
-  -- and not a silent squeeze.
-  insert into test_results select 'm2_margin_after_the_subscriber_discount_is_thin',
-    v_paid - v_cost = 357500,
-    'paid ' || v_paid / 100 || ' - cost ' || v_cost / 100 || ' = ' || (v_paid - v_cost) / 100
+  -- No subscriber discount survives onto a partner-billed order, even for a
+  -- subscriber. Asserted as a real number rather than "> 0" so that a
+  -- discount silently creeping back in is a visible test failure, not a
+  -- quiet squeeze on the margin.
+  insert into test_results select 'm2_no_subscriber_discount_the_margin_is_the_full_contracted_one',
+    v_disc = 0 and v_paid - v_cost = 3770000,
+    'discount ' || v_disc / 100 || ' / paid ' || v_paid / 100 || ' - cost ' || v_cost / 100
+      || ' = ' || (v_paid - v_cost) / 100
       || ' naira (' || round((v_paid - v_cost) * 100.0 / v_paid, 2) || '% of the price)';
 
   -- -----------------------------------------------------------------------
