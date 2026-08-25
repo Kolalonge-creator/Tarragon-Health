@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
-import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
+import { DOCTOR_TIER_LABEL, requiresIndemnityCover } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
@@ -17,6 +17,46 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
       <dd className="mt-0.5 text-sm text-charcoal-ink">{value}</dd>
     </div>
   );
+}
+
+const INDEMNITY_EXPIRING_SOON_DAYS = 30;
+
+/**
+ * The doctor's own view of the same cover private.enforce_clinical_staff_indemnity()
+ * gates activation on — today that gate is only visible to admin
+ * (admin/settings/clinical-staff), so a Clinical Director or Tier 4/5 doctor
+ * whose cover is about to lapse had no way to see it themselves.
+ */
+function IndemnityStatus({
+  expiresAt,
+  exempt,
+}: {
+  expiresAt: string | null;
+  exempt: boolean;
+}) {
+  if (exempt) {
+    return <Badge variant="grey">Exempted by admin</Badge>;
+  }
+  if (!expiresAt) {
+    return <Badge variant="red">Not on file — contact your admin</Badge>;
+  }
+
+  const expiry = new Date(expiresAt);
+  const when = expiry.toLocaleDateString("en-GB", {
+    timeZone: "Africa/Lagos",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const daysLeft = Math.floor((expiry.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+
+  if (daysLeft < 0) {
+    return <Badge variant="red">Expired {when} — contact your admin</Badge>;
+  }
+  if (daysLeft <= INDEMNITY_EXPIRING_SOON_DAYS) {
+    return <Badge variant="amber">Expires {when} — renew soon</Badge>;
+  }
+  return <Badge variant="green">Valid until {when}</Badge>;
 }
 
 /**
@@ -117,6 +157,17 @@ export default async function AccountPage() {
                     : undefined
                 }
               />
+              {requiresIndemnityCover(staff) && (
+                <Field
+                  label="Indemnity cover"
+                  value={
+                    <IndemnityStatus
+                      expiresAt={staff.indemnity_expires_at}
+                      exempt={staff.indemnity_exempt}
+                    />
+                  }
+                />
+              )}
             </dl>
           </CardContent>
         </Card>

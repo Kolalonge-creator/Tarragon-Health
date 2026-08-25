@@ -30,7 +30,7 @@ export async function getCurrentClinicalStaff() {
   const { data: staff } = await supabase
     .from("clinical_staff")
     .select(
-      "staff_number, doctor_tier, is_clinical_director, specialty, credential_type, credential_number"
+      "staff_number, doctor_tier, is_clinical_director, specialty, credential_type, credential_number, indemnity_expires_at, indemnity_exempt"
     )
     .eq("profile_id", user.id)
     .eq("active", true)

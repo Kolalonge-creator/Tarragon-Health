@@ -154,3 +154,28 @@ export function canHandleEmergencyEscalation(staff: PrescribingAuthority | null)
     (staff.doctor_tier !== null && EMERGENCY_ESCALATION_TIERS.includes(staff.doctor_tier))
   );
 }
+
+const INDEMNITY_REQUIRED_TIERS: DoctorTier[] = [
+  "tier_4_senior_registrar",
+  "tier_5_partner_specialist",
+];
+
+/**
+ * Mirrors private.enforce_clinical_staff_indemnity()
+ * (20260715175909_retire_clinical_staff_role.sql) — indemnity/malpractice
+ * cover is only required before activation for the Clinical Director and
+ * Tier 4/5; Tiers 1-3 and Care Coordinator are employed and covered under
+ * Tarragon's institutional policy, not tracked individually
+ * (CLAUDE.md's Clinical Tier Ladder, docs/CLINICAL_TRUST_MODEL_SPEC.md §5).
+ * This copy only decides whether to render the indemnity section on
+ * /account; the DB trigger is the real enforcement boundary and
+ * additionally honours per-record/org/tier exemptions this predicate does
+ * not know about (indemnity_exempt is checked separately by the caller).
+ */
+export function requiresIndemnityCover(staff: PrescribingAuthority | null): boolean {
+  if (!staff) return false;
+  return (
+    staff.is_clinical_director ||
+    (staff.doctor_tier !== null && INDEMNITY_REQUIRED_TIERS.includes(staff.doctor_tier))
+  );
+}
