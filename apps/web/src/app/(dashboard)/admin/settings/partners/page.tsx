@@ -12,6 +12,7 @@ const PARTNER_LINKS: PartnerLink[] = [
   { href: "/admin/facilities", title: "Facilities & hospitals", description: "Facilities, hospitals and clinics.", permission: "partners.facilities.manage" },
   { href: "/admin/settings/partners/specialists", title: "Specialists", description: "Specialist referral providers.", permission: "partners.specialists.manage" },
   { href: "/admin/settings/logistics-partners", title: "Home visit & delivery", description: "Home sample-collection and courier partners.", permission: "partners.home_visit.manage" },
+  { href: "/admin/settings/partners/devices", title: "Devices", description: "BP monitor, glucometer, and scale listings patients can buy.", permission: "partners.devices.manage" },
 ];
 
 export default async function PartnersIndexPage() {

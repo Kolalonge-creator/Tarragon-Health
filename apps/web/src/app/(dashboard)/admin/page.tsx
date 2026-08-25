@@ -38,9 +38,15 @@ export default async function AdminPage() {
     keys.has("roles.manage");
   const canManagePartners =
     isSuperAdmin ||
-    ["partners.labs.manage", "partners.pharmacies.manage", "partners.facilities.manage", "partners.specialists.manage", "partners.home_visit.manage", "partners.logistics.manage"].some(
-      (k) => keys.has(k)
-    );
+    [
+      "partners.labs.manage",
+      "partners.pharmacies.manage",
+      "partners.facilities.manage",
+      "partners.specialists.manage",
+      "partners.home_visit.manage",
+      "partners.logistics.manage",
+      "partners.devices.manage",
+    ].some((k) => keys.has(k));
   const canViewAnalytics = isSuperAdmin || keys.has("analytics.view");
   // A member only sees an operational tile if they can actually use that surface.
   // Tiles with no dedicated capability key stay super-admin-only.

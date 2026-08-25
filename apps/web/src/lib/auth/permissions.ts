@@ -20,6 +20,7 @@ export const PERMISSION_KEYS = [
   "partners.specialists.manage",
   "partners.home_visit.manage",
   "partners.logistics.manage",
+  "partners.devices.manage",
   "orgs.hmo.manage",
   "orgs.corporate.manage",
   "orgs.manage",

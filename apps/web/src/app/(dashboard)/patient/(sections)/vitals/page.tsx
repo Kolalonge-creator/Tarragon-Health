@@ -9,6 +9,7 @@ import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-connect-section";
+import { DeviceShopSection } from "@/app/(dashboard)/patient/device-shop-section";
 
 export default async function PatientVitalsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -37,6 +38,7 @@ export default async function PatientVitalsPage() {
 
       <VitalsHistory patientId={subjectId} />
       <WearableConnectSection patientId={subjectId} />
+      <DeviceShopSection patientId={subjectId} />
     </DashboardSection>
   );
 }

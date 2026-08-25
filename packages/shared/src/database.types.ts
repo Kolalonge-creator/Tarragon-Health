@@ -3356,6 +3356,60 @@ export type Database = {
         }
         Relationships: []
       }
+      device_offerings: {
+        Row: {
+          affiliate_url: string | null
+          ble_validated: boolean
+          created_at: string
+          description: string | null
+          device_type: Database["public"]["Enums"]["patient_device_type"]
+          display_order: number
+          fulfilment_type: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          make: string
+          model: string
+          price_kobo: number | null
+          retailer_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          affiliate_url?: string | null
+          ble_validated?: boolean
+          created_at?: string
+          description?: string | null
+          device_type: Database["public"]["Enums"]["patient_device_type"]
+          display_order?: number
+          fulfilment_type?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          make: string
+          model: string
+          price_kobo?: number | null
+          retailer_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          affiliate_url?: string | null
+          ble_validated?: boolean
+          created_at?: string
+          description?: string | null
+          device_type?: Database["public"]["Enums"]["patient_device_type"]
+          display_order?: number
+          fulfilment_type?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          make?: string
+          model?: string
+          price_kobo?: number | null
+          retailer_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       emergency_card_lookups: {
         Row: {
           card_id: string
