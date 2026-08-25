@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@expo/config-plugins": "~54.0.5",
     "@types/node": "^20.19.43",
     "@types/react": "19.1.17",
     "babel-preset-expo": "~54.0.12",
