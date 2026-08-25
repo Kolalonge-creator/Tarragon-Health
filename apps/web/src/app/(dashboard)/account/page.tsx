@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
+import { NotifyOnPatientMessageToggle } from "@/components/account/notify-on-patient-message-toggle";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -168,6 +169,29 @@ export default async function AccountPage() {
                   }
                 />
               )}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
+
+      {isStaffTier && staff && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notifications</CardTitle>
+            <CardDescription>
+              Unlike a clinical alert or escalation, this one is yours to control.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field
+                label="Alert me about patient messages"
+                value={
+                  <NotifyOnPatientMessageToggle
+                    initialEnabled={staff.notify_on_patient_message}
+                  />
+                }
+              />
             </dl>
           </CardContent>
         </Card>

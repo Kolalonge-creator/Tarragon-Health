@@ -2415,6 +2415,7 @@ export type Database = {
           indemnity_policy_number: string | null
           is_clinical_director: boolean
           license_verified_at: string | null
+          notify_on_patient_message: boolean
           organisation_id: string
           photo_url: string | null
           profile_id: string | null
@@ -2442,6 +2443,7 @@ export type Database = {
           indemnity_policy_number?: string | null
           is_clinical_director?: boolean
           license_verified_at?: string | null
+          notify_on_patient_message?: boolean
           organisation_id: string
           photo_url?: string | null
           profile_id?: string | null
@@ -2469,6 +2471,7 @@ export type Database = {
           indemnity_policy_number?: string | null
           is_clinical_director?: boolean
           license_verified_at?: string | null
+          notify_on_patient_message?: boolean
           organisation_id?: string
           photo_url?: string | null
           profile_id?: string | null
@@ -15548,6 +15551,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_notify_on_patient_message: {
+        Args: { p_enabled: boolean }
+        Returns: undefined
       }
       set_patient_reported_diabetes_type: {
         Args: { p_type: Database["public"]["Enums"]["diabetes_type"] }

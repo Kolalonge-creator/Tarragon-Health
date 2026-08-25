@@ -358,6 +358,23 @@ export function NotificationBell() {
   const items = data ?? [];
   const unread = items.filter((n) => n.status === "pending");
 
+  // Badging API: shows the unread count on the installed app's own home
+  // screen/dock icon, same as a native app — otherwise it's only visible
+  // once the bell itself is opened. Feature-detected: unsupported browsers
+  // (most desktop browsers, plenty of Android WebViews) no-op silently.
+  React.useEffect(() => {
+    const nav = navigator as Navigator & {
+      setAppBadge?: (count?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+    if (!nav.setAppBadge || !nav.clearAppBadge) return;
+    if (unread.length > 0) {
+      nav.setAppBadge(unread.length).catch(() => {});
+    } else {
+      nav.clearAppBadge().catch(() => {});
+    }
+  }, [unread.length]);
+
   const openItem = (n: InAppNotification) => {
     if (n.status === "pending") markRead.mutate(n.id);
     setOpen(false);

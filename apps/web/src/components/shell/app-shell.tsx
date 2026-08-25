@@ -9,6 +9,8 @@ import { NAV_ICON, APP_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
+import { InstallAppPrompt } from "@/components/pwa/install-app-prompt";
+import { OfflineBanner } from "@/components/pwa/offline-banner";
 import { DeviceHeartbeat } from "./device-heartbeat";
 import { ProfileMenu } from "./profile-menu";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
@@ -316,6 +318,7 @@ export function AppShell({
             </div>
             <div className="flex items-center gap-3 text-sm">
               <DeviceHeartbeat />
+              <InstallAppPrompt />
               <PushSubscribePrompt />
               <NotificationBell />
               <ProfileMenu
@@ -329,6 +332,7 @@ export function AppShell({
             </div>
           </div>
         </header>
+        <OfflineBanner />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 print:max-w-none print:p-0">
           {children}
         </main>

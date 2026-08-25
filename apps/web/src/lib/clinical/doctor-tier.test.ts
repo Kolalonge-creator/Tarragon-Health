@@ -2,6 +2,7 @@ import {
   canConfirmMedicationRefill,
   canHandleEmergencyEscalation,
   hasPrescribingAuthority,
+  requiresIndemnityCover,
 } from "./doctor-tier";
 
 type Staff = Parameters<typeof hasPrescribingAuthority>[0];
@@ -109,6 +110,37 @@ describe("canHandleEmergencyEscalation", () => {
     // CLAUDE.md: "never infer or default a doctor_tier in code."
     expect(canHandleEmergencyEscalation(null)).toBe(false);
     expect(canHandleEmergencyEscalation(staff(null))).toBe(false);
+  });
+});
+
+/**
+ * Mirrors private.enforce_clinical_staff_indemnity()
+ * (20260715175909_retire_clinical_staff_role.sql) — indemnity cover is only
+ * required before activation for the Clinical Director and Tier 4/5;
+ * Tiers 1-3 and Care Coordinator are employed and covered under Tarragon's
+ * institutional policy, not tracked individually.
+ */
+describe("requiresIndemnityCover", () => {
+  it("does not require it for Tier 1 through Tier 3, or a Care Coordinator", () => {
+    expect(requiresIndemnityCover(staff("tier_1"))).toBe(false);
+    expect(requiresIndemnityCover(staff("tier_2"))).toBe(false);
+    expect(requiresIndemnityCover(staff("tier_3"))).toBe(false);
+    expect(requiresIndemnityCover(staff("care_coordinator"))).toBe(false);
+  });
+
+  it("requires it for Tier 4 and Tier 5", () => {
+    expect(requiresIndemnityCover(staff("tier_4_senior_registrar"))).toBe(true);
+    expect(requiresIndemnityCover(staff("tier_5_partner_specialist"))).toBe(true);
+  });
+
+  it("requires it for a Clinical Director regardless of tier", () => {
+    expect(requiresIndemnityCover(staff(null, true))).toBe(true);
+    expect(requiresIndemnityCover(staff("tier_1", true))).toBe(true);
+  });
+
+  it("does not require it for a null record or a record with no tier", () => {
+    expect(requiresIndemnityCover(null)).toBe(false);
+    expect(requiresIndemnityCover(staff(null))).toBe(false);
   });
 });
 
