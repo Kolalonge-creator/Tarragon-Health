@@ -134,8 +134,9 @@ update public.vaccination_catalog
 -- lab_providers
 --
 -- Synlab Nigeria is seeded active and nationwide (regions = every state) to
--- mirror the live project post-20260825185258_lab_partner_fulfilment_restored
--- — that migration's UPDATE runs before this INSERT on a fresh `db reset`
+-- mirror the live project post-
+-- 20260825202139_lab_partner_fulfilment_default_nationwide.sql — that
+-- migration's UPDATE runs before this INSERT on a fresh `db reset`
 -- (migrations replay against an empty table), so the nationwide/active state
 -- has to be set here directly too, or local dev and the live project would
 -- diverge. The other three lab_providers stay inactive/regional placeholders
@@ -165,22 +166,49 @@ update public.lab_providers set contact_email = 'labs@cerbalancet.example', cont
 update public.lab_providers set contact_email = 'labs@healthtracka.example', contact_phone = '+2348030000103' where name = 'Healthtracka' and contact_email is null;
 update public.lab_providers set contact_email = 'labs@afriglobalmedicare.example', contact_phone = '+2348030000104' where name = 'Afriglobal Medicare' and contact_email is null;
 
--- lab_tests — starter menu keyed to screen_types codes (price in kobo)
+-- lab_tests — starter menu keyed to screen_types codes (price in kobo).
+--
+-- Synlab Nigeria's 20 rows are its REAL, live, negotiated wholesale cost list
+-- (what Tarragon owes Synlab per test — distinct from screen_types.price_kobo,
+-- the patient-facing contracted price set in migration
+-- 20260825201803_reconcile_synlab_partner_billing_git_drift.sql). Seeded here
+-- directly, not left to that migration's own INSERT, because migrations
+-- replay against an empty lab_providers table on a fresh `db reset` — the
+-- migration's `join lab_providers where name = 'Synlab Nigeria'` finds no
+-- rows yet at that point, only this later seed INSERT creates Synlab, so the
+-- wholesale list has to live here too or local dev and the live project
+-- diverge (same ordering gotcha as the lab_providers block above). The other
+-- three providers' rows are untouched placeholders — they stay dormant.
 insert into public.lab_tests (provider_id, code, name, price_kobo, commission_rate, turnaround_hours)
 select p.id, t.code, t.name, t.price_kobo, t.commission_rate, t.turnaround_hours
 from public.lab_providers p
 join (values
-  ('Synlab Nigeria',      'hba1c',        'HbA1c',                    800000::bigint, 0.2000, 48),
-  ('Synlab Nigeria',      'lipid_panel',  'Lipid Panel',              950000::bigint, 0.2000, 48),
-  ('Synlab Nigeria',      'psa',          'PSA',                     1200000::bigint, 0.2000, 72),
+  ('Synlab Nigeria', 'blood_group',          'Blood Group & Rhesus Factor',              1270000::bigint, 0.2000, 24),
+  ('Synlab Nigeria', 'cervical_smear',       'Cervical Smear',                           4000000::bigint, 0.2000, 96),
+  ('Synlab Nigeria', 'fbc',                  'Full Blood Count',                         1340000::bigint, 0.2000, 24),
+  ('Synlab Nigeria', 'ferritin',             'Ferritin',                                 2400000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'fit',                  'Faecal Immunochemical Test (FIT)',        16160000::bigint, 0.2000, 72),
+  ('Synlab Nigeria', 'hba1c',                'HbA1c',                                     3760000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'hep_b',                'Hepatitis B Surface Antigen',               1530000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'hep_c',                'Hepatitis C Test',                          1900000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'hiv',                  'HIV Screening',                              890000::bigint, 0.2000, 24),
+  ('Synlab Nigeria', 'kft',                  'Kidney Function (U&E, Creatinine, eGFR)',   3360000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'lft',                  'Liver Function Test',                       5040000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'lipid_panel',          'Lipid Panel',                               3160000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'ogtt_fpg',             'Oral Glucose Tolerance Test / Fasting Plasma Glucose', 1330000::bigint, 0.2000, 24),
+  ('Synlab Nigeria', 'psa',                  'Prostate-Specific Antigen (PSA)',           4320000::bigint, 0.2000, 72),
+  ('Synlab Nigeria', 'sickle_cell_genotype', 'Sickle Cell Genotype',                      1850000::bigint, 0.2000, 24),
+  ('Synlab Nigeria', 'syphilis',             'Syphilis (VDRL with TPHA confirmation)',    1770000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'tft',                  'Thyroid Function (TSH, Free T4)',           6000000::bigint, 0.2000, 48),
+  ('Synlab Nigeria', 'urinalysis',           'Urinalysis',                                1430000::bigint, 0.2000, 24),
+  ('Synlab Nigeria', 'urine_acr',            'Urine Albumin:Creatinine Ratio',            1930000::bigint, 0.2000, 24),
+  ('Synlab Nigeria', 'vitamin_b12',          'Vitamin B12',                               3550000::bigint, 0.2000, 48),
   ('Cerba Lancet',        'hba1c',        'HbA1c',                    850000::bigint, 0.2000, 48),
   ('Cerba Lancet',        'cervical_smear','Cervical Smear',         1800000::bigint, 0.2000, 96),
   ('Healthtracka',        'hba1c',        'HbA1c (home collection)',  900000::bigint, 0.2200, 48),
   ('Healthtracka',        'hiv',          'HIV Screening',            600000::bigint, 0.1500, 24),
   ('Afriglobal Medicare', 'lipid_panel',  'Lipid Panel',              900000::bigint, 0.2000, 48),
   ('Afriglobal Medicare', 'hep_b',        'Hepatitis B Surface Antigen',700000::bigint, 0.2000, 48),
-  ('Synlab Nigeria',      'blood_group',           'Blood Group & Rhesus Factor', 350000::bigint, 0.2000, 24),
-  ('Synlab Nigeria',      'sickle_cell_genotype',  'Sickle Cell Genotype',        400000::bigint, 0.2000, 24),
   ('Healthtracka',        'blood_group',           'Blood Group & Rhesus Factor', 300000::bigint, 0.2200, 24),
   ('Healthtracka',        'sickle_cell_genotype',  'Sickle Cell Genotype',        350000::bigint, 0.2200, 24),
   ('Cerba Lancet',        'hep_c',                 'Hepatitis C Antibody Test',   750000::bigint, 0.2000, 48),

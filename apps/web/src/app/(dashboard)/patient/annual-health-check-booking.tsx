@@ -67,10 +67,12 @@ const REBOOK_AFTER_MONTHS = 11;
  * The Screen ladder, partner-fulfilled (restored 2026-08-25): Tarragon books
  * the chosen bundle with Synlab Nigeria and bills the patient for it, rather
  * than the patient paying a lab directly. Selecting and confirming a bundle
- * here opens a 'pending_payment' order (useCreateLabOrder resolves Synlab as
- * the provider and carries the bundle's price); the order then walks through
- * an optional facility choice (or home collection), payment, and finally
- * sample collection, tracked in the "waiting on your result" list below.
+ * here opens a 'pending_payment' order — a DB trigger (private.
+ * set_lab_order_computed_price) prices it from screen_types' contracted list
+ * for exactly what this patient is due and resolves Synlab as the provider,
+ * not this component; the order then walks through an optional facility
+ * choice (or home collection), payment, and finally sample collection,
+ * tracked in the "waiting on your result" list below.
  *
  * `screensEnabled` gates the curated ladder as a subscription feature. What is
  * NEVER gated, on any plan: uploading a result, a doctor reading it, and the
@@ -325,13 +327,12 @@ export function AnnualHealthCheckBooking({
                       organisationId,
                       patientId,
                       panelBundleId: selected.id,
-                      totalKobo: selected.price_kobo,
                     })
                   }
                 >
                   {createOrder.isPending
                     ? "Getting it ready…"
-                    : `Get ${selected.name}: ₦${koboToNaira(selected.price_kobo).toLocaleString()}`}
+                    : `Get ${selected.name}: up to ₦${koboToNaira(selected.price_kobo).toLocaleString()}`}
                 </Button>
                 {createOrder.isError && (
                   <p className="text-xs text-red-600">

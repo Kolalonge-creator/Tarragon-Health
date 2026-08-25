@@ -111,10 +111,15 @@ export function useOrgLabOrders() {
 
 /**
  * Patient books a panel_bundle. Restored 2026-08-25 to partner-fulfilled
- * (Synlab Nigeria, the one active lab_providers row) — Tarragon routes and
- * bills the order, so this opens at 'pending_payment' with the bundle's
- * price_kobo and a resolved provider_id, then payForLabOrder takes the
- * patient to checkout. No facility picker here: home collection covers every
+ * (Synlab Nigeria) — Tarragon routes and bills the order. Price, provider and
+ * provider cost are NOT set here: private.set_lab_order_computed_price (a
+ * BEFORE INSERT trigger) prices the review from screen_types' contracted
+ * price list for exactly what this patient is actually due, resolves the
+ * provider (falling back to the sole active one when none is named), and
+ * computes what Tarragon owes that provider — all authoritatively, so a
+ * client-supplied price could never be trusted anyway. The row opens at
+ * 'pending_payment'; payForLabOrder takes the patient to checkout once they
+ * know the real total. No facility picker here: home collection covers every
  * state, so choosing a physical facility is an optional follow-up
  * (ChooseLabFacility) rather than a requirement to book.
  *
@@ -139,33 +144,19 @@ export function useCreateLabOrder() {
       organisationId,
       patientId,
       panelBundleId,
-      totalKobo,
       screeningScheduleId,
     }: {
       organisationId: string;
       patientId: string;
       panelBundleId: string;
-      /** panel_bundles.price_kobo for the bundle being booked. */
-      totalKobo: number;
       /** Required for the due-screening path; omitted only for self_bookable bundles. */
       screeningScheduleId?: string;
     }) => {
       const supabase = createClient();
-      const { data: provider, error: providerError } = await supabase
-        .from("lab_providers")
-        .select("id")
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-      if (providerError) throw providerError;
-      if (!provider) throw new Error("No lab partner is available right now");
-
       const { error } = await supabase.from("lab_orders").insert({
         organisation_id: organisationId,
         patient_id: patientId,
         panel_bundle_id: panelBundleId,
-        provider_id: provider.id,
-        total_kobo: totalKobo,
         status: "pending_payment",
         screening_schedule_id: screeningScheduleId ?? null,
       });
@@ -195,13 +186,10 @@ export function useOrderLabTest() {
       organisationId,
       patientId,
       panelBundleId,
-      totalKobo,
     }: {
       organisationId: string;
       patientId: string;
       panelBundleId: string;
-      /** panel_bundles.price_kobo for the bundle being ordered. */
-      totalKobo: number;
     }) => {
       const supabase = createClient();
       const {
@@ -221,26 +209,16 @@ export function useOrderLabTest() {
         throw new Error("You must be an active clinical_staff member of this organisation to order a lab test");
       }
 
-      const { data: provider, error: providerError } = await supabase
-        .from("lab_providers")
-        .select("id")
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-      if (providerError) throw providerError;
-      if (!provider) throw new Error("No lab partner is available right now");
-
       // Partner-fulfilled: the clinician decides WHAT test is needed and why;
-      // Tarragon routes it to Synlab and bills the patient. No facility_id
-      // yet — ChooseLabFacility fills the one gap this path has (a
-      // clinician-ordered test has no facility chosen at creation, unlike the
-      // self-service booking flows above).
+      // Tarragon routes it to Synlab and bills the patient. Price, provider
+      // and provider cost are computed server-side (see useCreateLabOrder's
+      // doc comment above) — no facility_id yet either; ChooseLabFacility
+      // fills that one gap this path has (a clinician-ordered test has no
+      // facility chosen at creation, unlike the self-service booking flows).
       const { error } = await supabase.from("lab_orders").insert({
         organisation_id: organisationId,
         patient_id: patientId,
         panel_bundle_id: panelBundleId,
-        provider_id: provider.id,
-        total_kobo: totalKobo,
         status: "pending_payment",
         origin: "clinically_triggered",
         ordered_by: staff.id,

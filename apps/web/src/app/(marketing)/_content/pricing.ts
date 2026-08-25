@@ -613,16 +613,30 @@ export const ADD_ONS: PricingAddOn[] = [
 // restoring it cleanly needs a rendering surface (a table/section on the
 // pricing page component) that this content file doesn't own, and bolting on
 // an unused, unrendered export would be dead weight rather than a real fix.
-// Instead, the real seeded Synlab prices below were used directly in the
+// Instead, the real Synlab prices below were used directly in the
 // PRICING_FAQ "What do lab tests actually cost?" answer, which is the one
 // place on this page a visitor is actually asking the question:
-//   Individual tests (lab_tests, seed.sql): HbA1c ₦8,000, Lipid Panel ₦9,500,
-//   PSA ₦12,000, Blood Group & Rhesus ₦3,500, Sickle Cell Genotype ₦4,000.
-//   Bundles (panel_bundles, seed.sql): Hypertension Panel ₦22,000, Diabetes
-//   Panel ₦18,500, Annual Health Check ₦65,000, Health Check — Basic
-//   ₦15,000, Health Check — Comprehensive ₦75,000, Blood Group & Genotype
-//   ₦6,500. These are seed-file placeholders marked "founder to confirm" —
-//   reuse them as-is if you add to this file, never invent a new figure.
+//   Individual tests (screen_types.price_kobo, contracted): HbA1c ₦45,000,
+//   Lipid Panel ₦38,000, PSA ₦52,000, Blood Group & Rhesus ₦15,000, Sickle
+//   Cell Genotype ₦22,000 — these are exact, contracted per-test prices, not
+//   estimates.
+//   Bundles: panel_bundles.price_kobo is now legacy/reference only (see
+//   migration 20260825201803's section 19 comments) — a bundle's real
+//   charged total is computed per patient by summing screen_types.price_kobo
+//   for whichever test codes that patient is actually due, times
+//   (10000 - review_discount_bp)/10000, so it varies patient to patient
+//   (e.g. PSA and a cervical smear are never both charged to the same
+//   person). The figures below are approximate totals computed the same way
+//   from the live screen_types prices + each bundle's test_codes +
+//   review_discount_bp as of 2026-08-25, phrased as "roughly" for that
+//   reason — never state a bundle total as an exact guaranteed price.
+//   Hypertension Panel ~₦163,500, Diabetes Panel ~₦146,500, Annual Health
+//   Check ~₦183,000, Health Check — Basic ~₦70,000 (after its 15.49%
+//   review_discount_bp), Health Check — Comprehensive ~₦235,000, Blood
+//   Group & Genotype ₦37,000 (fixed — both tests always apply, no discount).
+//   If you touch this FAQ answer again, recompute from the live
+//   screen_types/panel_bundles tables rather than reusing these numbers
+//   verbatim — see the CLAUDE.md "Pricing, entitlements..." rule.
 // If a real pricing table/section is wanted on the page itself, that is a
 // UI change to make deliberately, not to slide back in as a byproduct of a
 // content-file edit.
@@ -798,7 +812,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What do lab tests actually cost?",
     answer:
-      "Now that Synlab Nigeria is our contracted lab partner, we do know, and we show you the exact price before you confirm anything. Individually: HbA1c is ₦8,000, a full lipid panel is ₦9,500, PSA is ₦12,000, blood group & rhesus is ₦3,500, and sickle cell genotype is ₦4,000. As bundles: the Hypertension Panel is ₦22,000, the Diabetes Panel is ₦18,500, and the Health Check ladder runs from Health Check — Basic at ₦15,000, through the Annual Health Check at ₦65,000, up to Health Check — Comprehensive at ₦75,000; Blood Group & Genotype together is ₦6,500. These are Synlab's current prices and can change, but the app always shows you the one that applies before you're ever charged.",
+      "Now that Synlab Nigeria is our contracted lab partner, we do know, and we show you the exact price before you confirm anything. Individually: HbA1c is ₦45,000, a full lipid panel is ₦38,000, PSA is ₦52,000, blood group & rhesus is ₦15,000, and sickle cell genotype is ₦22,000. Bundle totals depend on exactly which tests you're due (a man is never charged for a cervical smear, for example), so treat these as typical, not guaranteed: the Hypertension Panel runs roughly ₦163,500, the Diabetes Panel roughly ₦146,500, and the Health Check ladder runs from Health Check — Basic at roughly ₦70,000, through the Annual Health Check at roughly ₦183,000, up to Health Check — Comprehensive at roughly ₦235,000; Blood Group & Genotype together is ₦37,000. These are Synlab's current prices and can change, but the app always shows you the exact one that applies to you before you're ever charged.",
   },
   {
     question: "What's the difference between Core, Advanced, and Comprehensive Screen?",

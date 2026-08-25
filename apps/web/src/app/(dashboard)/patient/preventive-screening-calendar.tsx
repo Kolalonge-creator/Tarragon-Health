@@ -93,7 +93,6 @@ export function PreventiveScreeningCalendar({
                             organisationId: organisationId!,
                             patientId,
                             panelBundleId: bundle.id,
-                            totalKobo: bundle.price_kobo,
                             screeningScheduleId: schedule.id,
                           })
                         }

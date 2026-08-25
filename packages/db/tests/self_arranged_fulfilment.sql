@@ -1,17 +1,24 @@
 -- Self-arranged lab fulfilment: guards, the awaiting-result safety net, the
 -- patient upload door, and AI-extraction confirmation.
 --
--- UPDATED 2026-08-25 (20260825185258_lab_partner_fulfilment_restored.sql):
+-- UPDATED 2026-08-25 (20260825202139_lab_partner_fulfilment_default_nationwide.sql,
+-- on top of the schema reconciled in
+-- 20260825201803_reconcile_synlab_partner_billing_git_drift.sql):
 -- lab_orders.fulfilment's column DEFAULT flipped back to 'partner' (Synlab
 -- Nigeria, nationwide) — self_arranged is still fully legal, just no longer
--- what an insert gets when it doesn't say. Section 1 below now proves BOTH:
--- the new default (partner, region-gated, nationwide) and that the dormant
--- self_arranged path still works when named explicitly. Sections 2-4 are
--- deliberately unchanged in what they test (the self-arranged safety net /
--- upload door / extraction pipeline are still self_arranged-specific
--- features), they just now have to say `fulfilment => 'self_arranged'`
--- explicitly to get the fixture they need, since they can no longer rely on
--- the old implicit default.
+-- what an insert gets when it doesn't say. A 'partner' insert is priced and
+-- costed AUTHORITATIVELY by triggers (private.set_lab_order_computed_price
+-- from screen_types' contracted price list, private.compute_partner_cost from
+-- Synlab's own wholesale list) — any total_kobo/provider_id passed in the
+-- INSERT is not trusted and gets overwritten, which is why section 1 below
+-- never asserts a client-chosen total_kobo, only the computed result. Section
+-- 1 proves both the new default (partner, priced, costed, region-gated,
+-- nationwide) and that the dormant self_arranged path still works when named
+-- explicitly. Sections 2-4 are deliberately unchanged in what they test (the
+-- self-arranged safety net / upload door / extraction pipeline are still
+-- self_arranged-specific features), they just now have to say
+-- `fulfilment => 'self_arranged'` explicitly to get the fixture they need,
+-- since they can no longer rely on the old implicit default.
 --
 -- Run inside a single transaction and ROLLED BACK. Every negative is paired
 -- with a positive control, because a check that only ever proves "nothing
@@ -37,6 +44,7 @@ declare
   v_n int; v_val numeric; v_unit text; v_confirmed uuid;
   v_claims text;
   v_default_order uuid; v_fulfilment public.fulfilment_mode; v_available boolean;
+  v_total_kobo bigint; v_partner_cost bigint; v_transmission public.lab_order_transmission;
 begin
   ------------------------------------------------------------------
   -- Fixtures. Asserted, so a lookup miss fails loudly instead of
@@ -69,7 +77,7 @@ begin
   returning id into v_staff;
 
   ------------------------------------------------------------------
-  -- 1. Fulfilment guards on lab_orders. As of 20260825185258, 'partner' is
+  -- 1. Fulfilment guards on lab_orders. As of 20260825202139, 'partner' is
   --    the column default and the live app-facing path again; self_arranged
   --    is still fully legal but only reachable by naming it explicitly.
   ------------------------------------------------------------------
@@ -104,19 +112,37 @@ begin
   end;
 
   ------------------------------------------------------------------
-  -- 1f-1h. The NEW default: an insert that names no fulfilment at all must
+  -- 1f-1k. The NEW default: an insert that names no fulfilment at all must
   -- now land as 'partner' and actually flow through region-gated, and since
   -- Synlab now covers every state (not just Lagos) that must succeed even in
   -- a state that was dark before this migration (v_pt's Enugu, set above).
+  -- The total_kobo=0 passed here is deliberately wrong: it proves the
+  -- pricing trigger overwrites a client-supplied figure rather than trusting
+  -- it. screen_core (lft/kft/hba1c/lipid_panel/urinalysis/fbc/hiv) is the
+  -- bundle whose contracted price (₦227,500) and Synlab wholesale cost
+  -- (₦189,800) were verified live against a real order on 2026-08-25 — see
+  -- the 20260825201803 migration's own reference-data section.
   ------------------------------------------------------------------
   insert into public.lab_orders
     (organisation_id, patient_id, panel_bundle_id, origin, status, total_kobo)
-  values (v_org, v_pt, v_bundle, 'patient_initiated', 'ordered', 0)
+  values (v_org, v_pt, v_bundle, 'patient_initiated', 'pending_payment', 0)
   returning id into v_default_order;
 
-  select fulfilment into v_fulfilment from public.lab_orders where id = v_default_order;
+  select fulfilment, total_kobo, partner_cost_kobo, transmission
+    into v_fulfilment, v_total_kobo, v_partner_cost, v_transmission
+    from public.lab_orders where id = v_default_order;
+
   insert into r values ('1f a lab order with no explicit fulfilment now defaults to partner',
     case when v_fulfilment = 'partner' then 'PASS' else 'FAIL - got ' || v_fulfilment::text end);
+
+  insert into r values ('1i price is computed server-side from screen_types, not trusted from the client (0 passed in)',
+    case when v_total_kobo = 22750000 then 'PASS' else 'FAIL - got ' || coalesce(v_total_kobo::text, 'null') end);
+
+  insert into r values ('1j partner cost is computed from Synlab''s own wholesale list',
+    case when v_partner_cost = 18980000 then 'PASS' else 'FAIL - got ' || coalesce(v_partner_cost::text, 'null') end);
+
+  insert into r values ('1k an unpaid partner order queues as awaiting_payment, not sent',
+    case when v_transmission = 'awaiting_payment' then 'PASS' else 'FAIL - got ' || v_transmission::text end);
 
   -- The insert above succeeding at all (no exception raised) against v_pt's
   -- Enugu state -- dark before this migration, nationwide now -- IS the
@@ -126,6 +152,18 @@ begin
   select public.region_service_available('Kano', 'lab') into v_available;
   insert into r values ('1h region_service_available(Kano, lab) is true nationwide, not just Lagos',
     case when v_available then 'PASS' else 'FAIL' end);
+
+  -- CONTROL: selling below cost is refused, even though nothing here is
+  -- actually below cost yet -- this proves the guard exists at all, by
+  -- forcing a subscriber_discount_kobo past the whole margin.
+  begin
+    insert into public.lab_orders
+      (organisation_id, patient_id, panel_bundle_id, origin, status, subscriber_discount_kobo)
+    values (v_org, v_pt, v_bundle, 'patient_initiated', 'pending_payment', 22750000);
+    insert into r values ('1l CONTROL selling a review below partner cost is refused', 'FAIL - accepted');
+  exception when check_violation then
+    insert into r values ('1l CONTROL selling a review below partner cost is refused', 'PASS');
+  end;
 
   -- CONTROL: the region gate on the partner path is still real, not switched
   -- off wholesale -- every real Nigerian state is covered by Synlab now, so

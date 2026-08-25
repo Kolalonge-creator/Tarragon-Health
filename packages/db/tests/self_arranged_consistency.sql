@@ -4,13 +4,23 @@
 -- sponsor_book_care was genuinely BROKEN before 20260803134416 (it inserted a
 -- partner-shaped order that enforce_lab_order_origin rejects at the time), was
 -- rewritten there to issue a self-arranged request instead, and is now
--- RESTORED by 20260825185258_lab_partner_fulfilment_restored.sql to the
--- partner-priced version again (Synlab Nigeria, nationwide) — this file pins
--- that restored shape. purchase_care_voucher still fails closed (untouched,
--- out of scope for the 2026-08-25 change) and set_lab_order_facility is now
--- pinned BOTH ways: it refuses a self-arranged order (the dormant path is
--- still legal) and succeeds on the live partner/pending_payment path, which
--- it could not be positively tested against before today.
+-- RESTORED by 20260825202139_lab_partner_fulfilment_default_nationwide.sql to
+-- the partner-priced version again (Synlab Nigeria, nationwide) — this file
+-- pins that restored shape. It returns total_kobo (not price_kobo, and no
+-- voucher_id key — the voucher-redemption tail from the original pre-2026-08-03
+-- version was deliberately not restored, since purchase_care_voucher stays
+-- hard-failed and could never supply a voucher to redeem). The price and
+-- provider COST are computed server-side by the trigger chain reconciled in
+-- 20260825201803_reconcile_synlab_partner_billing_git_drift.sql
+-- (private.set_lab_order_computed_price / compute_partner_cost) — this
+-- function only ever sets facility_id and, when a facility is named,
+-- provider_id (routing) resolved from it; that is a DIFFERENT column from the
+-- trigger-computed partner_cost_provider_id (cost accounting only).
+-- purchase_care_voucher still fails closed (untouched, out of scope for the
+-- 2026-08-25 change) and set_lab_order_facility is now pinned BOTH ways: it
+-- refuses a self-arranged order (the dormant path is still legal) and
+-- succeeds on the live partner/pending_payment path, which it could not be
+-- positively tested against before today.
 --
 -- Rolled back. Run from the MAIN checkout:
 --   npx supabase db query --linked -f packages/db/tests/self_arranged_consistency.sql
@@ -51,24 +61,28 @@ begin
   set local role authenticated;
 
   -- Restored: a supporter's request is priced, pending payment, and routed to
-  -- Synlab -- not self-arranged any more, and not sold from a voucher because
-  -- none exists yet for this beneficiary/bundle.
+  -- Synlab -- not self-arranged any more. screen_core's real contracted price
+  -- (₦227,500) is verified live against a real order created 2026-08-25 -- see
+  -- 20260825201803's reference-data section and self_arranged_fulfilment.sql's
+  -- 1i/1j. No voucher_id key: the voucher-redemption tail from the original
+  -- pre-2026-08-03 sponsor_book_care was not restored (see header note).
   v_res := public.sponsor_book_care(v_pt, 'screen_core', v_fac);
   insert into r values ('1 supporter can request and pay for a check again',
     case when (v_res->>'ok')::boolean
           and (v_res->>'order_id') is not null
           and (v_res->>'paid')::boolean = false
-          and (v_res->>'price_kobo')::bigint = 6500000
-          and (v_res->>'voucher_id') is null
+          and (v_res->>'total_kobo')::bigint = 22750000
          then 'PASS' else 'FAIL - '||v_res::text end);
   v_order := (v_res->>'order_id')::uuid;
 
   -- Also prove the no-facility fallback: home collection covers every state,
-  -- so a supporter who names no facility still gets a priced, Synlab-routed
-  -- order rather than a provider-less one Tarragon can't act on.
+  -- so a supporter who names no facility still gets a priced order (the
+  -- trigger's cost calculation still resolves Synlab even with no facility
+  -- given -- see check 2b, which reads partner_cost_provider_id, since
+  -- provider_id itself is only ever set here from an explicit facility).
   v_res := public.sponsor_book_care(v_pt, 'screen_core', null);
-  insert into r values ('1b supporter request with no facility still resolves to Synlab',
-    case when (v_res->>'ok')::boolean and (v_res->>'price_kobo')::bigint = 6500000
+  insert into r values ('1b supporter request with no facility is still priced',
+    case when (v_res->>'ok')::boolean and (v_res->>'total_kobo')::bigint = 22750000
          then 'PASS' else 'FAIL - '||v_res::text end);
   v_order2 := (v_res->>'order_id')::uuid;
 
@@ -78,13 +92,15 @@ begin
   select * into v_row from public.lab_orders where id = v_order;
   insert into r values ('2 the order is priced, pending payment, and routed to Synlab',
     case when v_row.fulfilment='partner' and v_row.provider_id = v_synlab
-          and v_row.facility_id = v_fac and v_row.total_kobo=6500000
+          and v_row.facility_id = v_fac and v_row.total_kobo=22750000
+          and v_row.partner_cost_kobo=18980000
           and v_row.status='pending_payment'
          then 'PASS' else 'FAIL' end);
 
   select * into v_row2 from public.lab_orders where id = v_order2;
-  insert into r values ('2b no-facility order still gets provider_id = Synlab',
-    case when v_row2.provider_id = v_synlab and v_row2.facility_id is null
+  insert into r values ('2b no-facility order still gets partner_cost_provider_id = Synlab',
+    case when v_row2.partner_cost_provider_id = v_synlab and v_row2.provider_id is null
+          and v_row2.facility_id is null
           and v_row2.fulfilment='partner' and v_row2.status='pending_payment'
          then 'PASS' else 'FAIL' end);
 

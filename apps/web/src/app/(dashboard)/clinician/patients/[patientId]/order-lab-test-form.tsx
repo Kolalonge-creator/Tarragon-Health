@@ -55,8 +55,10 @@ export function OrderLabTestForm({
         </div>
         {bundle && (
           <p className="text-xs text-charcoal-ink/60">
-            ₦{koboToNaira(bundle.price_kobo).toLocaleString()} at Synlab Nigeria. The patient pays
-            Tarragon to confirm the booking.
+            Booked with Synlab Nigeria; the exact price (roughly ₦
+            {koboToNaira(bundle.price_kobo).toLocaleString()}, before any test this patient
+            doesn&apos;t need is excluded) is confirmed on the order once it&apos;s created, and the
+            patient pays Tarragon to confirm the booking.
           </p>
         )}
         {orderLabTest.isError && (
@@ -77,7 +79,6 @@ export function OrderLabTestForm({
               organisationId,
               patientId,
               panelBundleId: bundle.id,
-              totalKobo: bundle.price_kobo,
             })
           }
         >

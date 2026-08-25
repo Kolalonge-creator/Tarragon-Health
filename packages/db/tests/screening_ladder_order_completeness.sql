@@ -9,8 +9,8 @@
 -- throughout — every fixture order here is DELIBERATELY, EXPLICITLY
 -- self-arranged fulfilment. That was the column DEFAULT from
 -- 20260803124833_self_arranged_lab_fulfilment.sql through 2026-08-25;
--- 20260825185258_lab_partner_fulfilment_restored.sql flipped the default
--- back to 'partner' (Synlab Nigeria), so every insert below now names
+-- 20260825202139_lab_partner_fulfilment_default_nationwide.sql flipped the
+-- default back to 'partner' (Synlab Nigeria), so every insert below now names
 -- fulfilment => 'self_arranged' explicitly rather than relying on it. This
 -- file's actual subject — private.check_screen_order_completeness /
 -- maybe_result_screen_order, the trigger that flips a Screen order to
@@ -65,9 +65,9 @@ begin
   -- (fulfilment => 'self_arranged' below). This WAS the only shape the real
   -- app ever inserted (apps/web/src/lib/queries/lab-orders.ts's
   -- useCreateLabOrder/useOrderLabTest relied on fulfilment's table default);
-  -- as of 20260825185258_lab_partner_fulfilment_restored.sql the app inserts
-  -- status='pending_payment', a priced total_kobo, and a resolved Synlab
-  -- provider_id instead, and the default flipped to 'partner' to match. This
+  -- as of 20260825202139_lab_partner_fulfilment_default_nationwide.sql the app
+  -- inserts status='pending_payment' with price/provider-cost computed
+  -- server-side by triggers, and the default flipped to 'partner' to match. This
   -- fixture stays self-arranged anyway, on purpose: it's what check1 below
   -- needs (see the file header), and the completeness/auto-resolve logic
   -- these checks exercise doesn't care which fulfilment mode it's in.

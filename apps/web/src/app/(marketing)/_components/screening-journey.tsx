@@ -211,7 +211,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ALL_BANDS,
     category: "Know your basics",
     summary: "Blood group and sickle cell genotype (AA/AS/SS): useful for marriage counselling, pregnancy planning, and emergencies, and something most Nigerians never get told plainly.",
-    price: "₦6,500, booked with our partner lab",
+    price: "₦37,000, booked with our partner lab",
     steps: [
       {
         title: "Is this for you?",
@@ -219,7 +219,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Request it directly in the app, on its own, and we book it with Synlab Nigeria for ₦6,500, billed once you confirm.",
+        body: "Request it directly in the app, on its own, and we book it with Synlab Nigeria for ₦37,000, billed once you confirm.",
       },
       {
         title: "Test day",
