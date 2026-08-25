@@ -3356,6 +3356,272 @@ export type Database = {
         }
         Relationships: []
       }
+      ecg_parameter_readings: {
+        Row: {
+          code: string
+          confirmed_at: string
+          confirmed_by: string
+          created_at: string
+          ecg_report_document_id: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          taken_at: string
+          unit: string | null
+          value: number | null
+          value_text: string | null
+        }
+        Insert: {
+          code: string
+          confirmed_at?: string
+          confirmed_by: string
+          created_at?: string
+          ecg_report_document_id?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          taken_at?: string
+          unit?: string | null
+          value?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          code?: string
+          confirmed_at?: string
+          confirmed_by?: string
+          created_at?: string
+          ecg_report_document_id?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          taken_at?: string
+          unit?: string | null
+          value?: number | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecg_parameter_readings_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_parameter_readings_ecg_report_document_id_fkey"
+            columns: ["ecg_report_document_id"]
+            isOneToOne: false
+            referencedRelation: "ecg_report_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_parameter_readings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_parameter_readings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ecg_report_documents: {
+        Row: {
+          clinician_alert_id: string | null
+          created_at: string
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          lab_order_id: string | null
+          mime_type: string | null
+          note: string | null
+          organisation_id: string
+          original_filename: string | null
+          patient_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: Database["public"]["Enums"]["ecg_report_document_source"]
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          lab_order_id?: string | null
+          mime_type?: string | null
+          note?: string | null
+          organisation_id: string
+          original_filename?: string | null
+          patient_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: Database["public"]["Enums"]["ecg_report_document_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          lab_order_id?: string | null
+          mime_type?: string | null
+          note?: string | null
+          organisation_id?: string
+          original_filename?: string | null
+          patient_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: Database["public"]["Enums"]["ecg_report_document_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecg_report_documents_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_report_documents_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_report_documents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_report_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_report_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_report_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ecg_report_extractions: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_codes: Json
+          created_at: string
+          document_id: string
+          error_message: string | null
+          facility_name: string | null
+          id: string
+          looks_twelve_lead: boolean | null
+          model_id: string | null
+          organisation_id: string
+          parameters: Json
+          patient_id: string
+          patient_name_on_report: string | null
+          report_date: string | null
+          status: string
+          unreadable_reason: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_codes?: Json
+          created_at?: string
+          document_id: string
+          error_message?: string | null
+          facility_name?: string | null
+          id?: string
+          looks_twelve_lead?: boolean | null
+          model_id?: string | null
+          organisation_id: string
+          parameters?: Json
+          patient_id: string
+          patient_name_on_report?: string | null
+          report_date?: string | null
+          status: string
+          unreadable_reason?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_codes?: Json
+          created_at?: string
+          document_id?: string
+          error_message?: string | null
+          facility_name?: string | null
+          id?: string
+          looks_twelve_lead?: boolean | null
+          model_id?: string | null
+          organisation_id?: string
+          parameters?: Json
+          patient_id?: string
+          patient_name_on_report?: string | null
+          report_date?: string | null
+          status?: string
+          unreadable_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecg_report_extractions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_report_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "ecg_report_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_report_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecg_report_extractions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emergency_card_lookups: {
         Row: {
           card_id: string
@@ -15647,6 +15913,14 @@ export type Database = {
         Returns: string
       }
       touch_last_active: { Args: never; Returns: undefined }
+      confirm_ecg_report_extraction: {
+        Args: {
+          p_extraction_id: string
+          p_readings: Json
+          p_report_date: string
+        }
+        Returns: number
+      }
       upsert_lab_report_template: {
         Args: {
           p_hints?: Json
@@ -15824,6 +16098,11 @@ export type Database = {
         | "tier_3"
         | "tier_4_senior_registrar"
         | "tier_5_partner_specialist"
+      ecg_report_document_source:
+        | "patient"
+        | "lab_liaison"
+        | "clinician"
+        | "admin"
       emergency_event_status: "active" | "acknowledged" | "resolved"
       emergency_source:
         | "danger_symptom_checklist"
@@ -16542,6 +16821,7 @@ export const Constants = {
         "tier_4_senior_registrar",
         "tier_5_partner_specialist",
       ],
+      ecg_report_document_source: ["patient", "lab_liaison", "clinician", "admin"],
       emergency_event_status: ["active", "acknowledged", "resolved"],
       emergency_source: [
         "danger_symptom_checklist",
