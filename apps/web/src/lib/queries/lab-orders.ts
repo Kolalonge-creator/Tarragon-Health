@@ -227,6 +227,60 @@ export function useOrderLabTest() {
   });
 }
 
+/**
+ * Patient books a partner-fulfilled review: Tarragon collects payment and
+ * routes the order to whichever laboratory is contracted for the patient's
+ * state. Unlike useCreateLabOrder, this does not set total_kobo, provider_id
+ * or status itself — private.set_lab_order_computed_price (a BEFORE INSERT
+ * trigger, 20260821182627) fills all three: it prices the review from the
+ * tests this specific patient is getting, resolves the fulfilling laboratory
+ * (falling back to "the one active partner" when neither provider_id nor
+ * facility_id is given), and refuses the insert outright if either the price
+ * or the laboratory can't be resolved — so a caller cannot construct a
+ * partner order that charges the wrong amount or names no one to fulfil it.
+ *
+ * Only usable where partner billing is actually live for this patient's
+ * state (gate with useRegionServiceAvailable(state, 'lab') first, same check
+ * ReviewPrice already makes) — private.enforce_lab_order_region enforces
+ * that server-side too, so a call made before the gate would simply fail.
+ *
+ * Returns the new order's id and total_kobo so the caller can hand both
+ * straight to PayForLabOrderButton without a second round trip.
+ */
+export function useCreatePartnerLabOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      organisationId,
+      patientId,
+      panelBundleId,
+    }: {
+      organisationId: string;
+      patientId: string;
+      panelBundleId: string;
+    }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_orders")
+        .insert({
+          organisation_id: organisationId,
+          patient_id: patientId,
+          panel_bundle_id: panelBundleId,
+          fulfilment: "partner",
+          status: "pending_payment",
+        })
+        .select("id, total_kobo")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
+      queryClient.invalidateQueries({ queryKey: ["screening-schedules", variables.patientId] });
+    },
+  });
+}
+
 /* useSetLabOrderFacility and its ChooseLabFacility card are removed: a
  * self-arranged order has no facility to set, and public.set_lab_order_facility
  * now refuses one outright. The RPC survives for the dormant partner path. */

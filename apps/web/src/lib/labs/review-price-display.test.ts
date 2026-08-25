@@ -35,7 +35,15 @@ describe("reviewPriceDisplay", () => {
   it("shows the one computed number once billing is live", () => {
     expect(
       reviewPriceDisplay({ partnerBillingAvailable: true, isLoading: false, price: priced() })
-    ).toEqual({ kind: "price", totalKobo: 6_500_340, testCount: 2 });
+    ).toEqual({
+      kind: "price",
+      totalKobo: 6_500_340,
+      testCount: 2,
+      lines: [
+        { code: "hba1c", name: "HbA1c" },
+        { code: "fbc", name: "Full Blood Count" },
+      ],
+    });
   });
 
   it("promises nothing when the review is not priceable", () => {

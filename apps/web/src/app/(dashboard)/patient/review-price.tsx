@@ -82,6 +82,26 @@ export function ReviewPrice({
           ? "One test, priced for you. You'll see this number and confirm before anything is charged."
           : `All ${display.testCount} checks in this review, priced for you rather than as a standard package. You'll see this number and confirm before anything is charged.`}
       </p>
+      {display.lines.length > 0 && (
+        <details className="text-xs">
+          <summary className="cursor-pointer font-medium text-brand-green hover:underline">
+            See everything included
+          </summary>
+          <ol className="mt-2 space-y-1 pl-1 text-charcoal-ink/70">
+            {display.lines.map((line) => (
+              <li key={line.code} className="flex gap-1.5">
+                <span aria-hidden className="text-brand-green">
+                  ✓
+                </span>
+                {line.name}
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 italic text-charcoal-ink/45">
+            Individual tests are not priced separately — this is one review.
+          </p>
+        </details>
+      )}
     </div>
   );
 }

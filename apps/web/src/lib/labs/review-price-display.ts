@@ -1,4 +1,4 @@
-import type { ReviewPrice } from "@/lib/queries/review-price";
+import type { ReviewPrice, ReviewPriceLine } from "@/lib/queries/review-price";
 
 /**
  * Decides what a patient should be told about the cost of a review.
@@ -20,7 +20,13 @@ export type ReviewPriceDisplay =
   | { kind: "loading" }
   /** Billing is live but there is no honest number yet — say so, promise nothing. */
   | { kind: "confirm_later" }
-  | { kind: "price"; totalKobo: number; testCount: number };
+  /**
+   * `lines` is names only (code + name), never a price — the database already
+   * strips per-test prices from a patient's own response, and this type keeps
+   * that promise one layer further out: there is no field here a component
+   * could even accidentally render as a per-test price.
+   */
+  | { kind: "price"; totalKobo: number; testCount: number; lines: ReviewPriceLine[] };
 
 export function reviewPriceDisplay(input: {
   partnerBillingAvailable: boolean | undefined;
@@ -46,9 +52,11 @@ export function reviewPriceDisplay(input: {
     return { kind: "confirm_later" };
   }
 
+  const lines = Array.isArray(price.lines) ? price.lines : [];
   return {
     kind: "price",
     totalKobo: price.total_kobo,
-    testCount: Array.isArray(price.lines) ? price.lines.length : 0,
+    testCount: lines.length,
+    lines,
   };
 }

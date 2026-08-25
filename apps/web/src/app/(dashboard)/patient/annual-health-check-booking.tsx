@@ -4,20 +4,35 @@ import { useMemo, useState } from "react";
 import {
   useLabCatalogue,
   useCreateLabOrder,
+  useCreatePartnerLabOrder,
   usePatientLabOrders,
   type PanelBundle,
 } from "@/lib/queries/lab-orders";
+import { useRegionServiceAvailable } from "@/lib/queries/service-regions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
+import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReviewPrice } from "./review-price";
 import { cn } from "@/lib/utils";
 
-/** An order still waiting on the patient going to a lab and uploading. */
-const OPEN_STATUSES = ["payment_confirmed", "ordered", "sample_collected", "processing"];
+/**
+ * An order still waiting on something from the patient. `pending_payment`
+ * only ever appears here for a partner-fulfilled order — a self-arranged one
+ * is created straight into 'ordered' (private.enforce_lab_order_origin
+ * refuses a self-arranged order any other status), so this list never shows
+ * a pay prompt for something the patient was never going to be charged for.
+ */
+const OPEN_STATUSES = [
+  "pending_payment",
+  "payment_confirmed",
+  "ordered",
+  "sample_collected",
+  "processing",
+];
 
 /** Health Check packages vs confidential single screenings — both are the
  * self_bookable set (WHO-essential only, per migration 20260723164727).
@@ -75,6 +90,10 @@ export function AnnualHealthCheckBooking({
   const { data: bundles } = useLabCatalogue();
   const { data: orders } = usePatientLabOrders(patientId);
   const createOrder = useCreateLabOrder();
+  const createPartnerOrder = useCreatePartnerLabOrder();
+  // Same gate ReviewPrice reads — whether Tarragon actually bills for a test
+  // in this patient's state, or the patient pays a laboratory directly.
+  const { data: partnerBillingAvailable } = useRegionServiceAvailable(state, "lab");
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
   // Captured once on mount so the render stays pure (lint: no Date.now() in
   // render); a rebook nudge doesn't need a live-ticking clock.
@@ -189,24 +208,41 @@ export function AnnualHealthCheckBooking({
             <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
               Waiting on your result
             </p>
-            {openOrders.map((order) => (
-              <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="blue">Ready to take to a lab</Badge>
-                  <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+            {openOrders.map((order) =>
+              order.status === "pending_payment" ? (
+                <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="amber">Ready to pay</Badge>
+                    <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+                  </div>
+                  <p className="text-sm text-charcoal-ink">
+                    {order.panel_bundle?.name ?? "Health check"}
+                  </p>
+                  <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
                 </div>
-                <p className="text-sm text-charcoal-ink">
-                  {order.panel_bundle?.name ?? "Health check"}
-                </p>
-                <a
-                  href={`/api/patient/lab-order/${order.id}/request`}
-                  className="inline-block text-xs font-medium text-brand-green hover:underline"
-                >
-                  Download the request to take with you
-                </a>
-                <PatientResultUpload labOrderId={order.id} />
-              </div>
-            ))}
+              ) : (
+                <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="blue">
+                      {order.fulfilment === "partner" ? "Booked" : "Ready to take to a lab"}
+                    </Badge>
+                    <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+                  </div>
+                  <p className="text-sm text-charcoal-ink">
+                    {order.panel_bundle?.name ?? "Health check"}
+                  </p>
+                  {order.fulfilment !== "partner" && (
+                    <a
+                      href={`/api/patient/lab-order/${order.id}/request`}
+                      className="inline-block text-xs font-medium text-brand-green hover:underline"
+                    >
+                      Download the request to take with you
+                    </a>
+                  )}
+                  <PatientResultUpload labOrderId={order.id} />
+                </div>
+              )
+            )}
           </div>
         )}
 
@@ -250,21 +286,31 @@ export function AnnualHealthCheckBooking({
                 <Button
                   type="button"
                   size="sm"
-                  disabled={createOrder.isPending}
+                  disabled={createOrder.isPending || createPartnerOrder.isPending}
                   onClick={() =>
-                    createOrder.mutate({
-                      organisationId,
-                      patientId,
-                      panelBundleId: selected.id,
-                    })
+                    partnerBillingAvailable
+                      ? createPartnerOrder.mutate({
+                          organisationId,
+                          patientId,
+                          panelBundleId: selected.id,
+                        })
+                      : createOrder.mutate({
+                          organisationId,
+                          patientId,
+                          panelBundleId: selected.id,
+                        })
                   }
                 >
-                  {createOrder.isPending ? "Getting it ready…" : `Get ${selected.name}`}
+                  {createOrder.isPending || createPartnerOrder.isPending
+                    ? "Getting it ready…"
+                    : `Get ${selected.name}`}
                 </Button>
-                <p className="text-xs text-charcoal-ink/60">
-                  Costs vary quite a bit between labs, so it&apos;s worth asking two before you go.
-                </p>
-                {createOrder.isError && (
+                {!partnerBillingAvailable && (
+                  <p className="text-xs text-charcoal-ink/60">
+                    Costs vary quite a bit between labs, so it&apos;s worth asking two before you go.
+                  </p>
+                )}
+                {(createOrder.isError || createPartnerOrder.isError) && (
                   <p className="text-xs text-red-600">
                     Could not set that up just now. Please try again.
                   </p>
