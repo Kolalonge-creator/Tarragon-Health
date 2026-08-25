@@ -1,0 +1,54 @@
+-- Tarragon Health — Weight/obesity health-education: physical activity content.
+--
+-- Gap found while writing guideline/Tarragon_Health_Weight_Management_Pathway_
+-- Gap_Closure_Plan.md (W2). Correction to that doc's first-pass finding: a
+-- keyword grep for "exercise" initially suggested the shipped 12-week obesity
+-- curriculum (20260730115924_health_education_12_week_priority_curricula.sql)
+-- had zero activity content — checking the live table directly found that was
+-- wrong: ob_w4_movement_and_muscle already exists (drip_week 4) and is a solid
+-- primer (why muscle matters, walk + 2x/week strength, no gym required, the
+-- sleep link). The real, narrower gap is what week 4 doesn't cover: where to
+-- start at a higher weight or with joint pain, activity that isn't a formal
+-- workout, and a concrete weekly number tied to what patients already log
+-- (activity_minutes). These three evergreen articles fill that, without
+-- repeating week 4's ground.
+--
+-- Schema note: `category` was added to health_education_content by a
+-- migration (health_education_categories_and_library) that is live on this
+-- project but not yet committed to main-dev as of this branch (confirmed via
+-- `git show origin/main-dev:...` returning nothing, and via
+-- `git show origin/release/main-dev-to-main-20260808:...` also returning
+-- nothing — it exists only as an uncommitted file in another session's
+-- working tree). This migration's timestamp sorts after both
+-- 20260810013705_health_education_categories_and_library.sql and
+-- 20260810013935_health_education_track_expansions.sql, so replay order will
+-- be correct once those are committed; until then, this file will fail a
+-- fresh `db reset` on a branch that doesn't also have that migration. Applied
+-- directly to the live project instead (matching this project's established
+-- pattern for reconciling out-of-band DB state — see the "DB ahead of app
+-- code" notes elsewhere in this codebase's history).
+--
+-- drip_week left NULL (evergreen, not gated behind the weekly drip) and
+-- clinician_reviewed stays at its default false, no fabricated
+-- reviewed_by_name/reviewed_at — same honesty rule as every other row here.
+
+insert into public.health_education_content
+  (code, title, summary, body, content_type, estimated_minutes, condition, category, drip_week, sort_order, is_active, clinician_reviewed, knowledge_check)
+values
+
+('ob-exercise-starting-point', 'Starting point: a higher weight or joint pain isn''t a barrier',
+ 'Walking, swimming, cycling and seated strength work are real starting points, not lesser substitutes.',
+ E'If getting started feels hard because of your weight, your joints, or simply being out of practice, that''s an extremely common starting position, not a reason to wait until things feel easier first.\n\nLow-impact options are genuine, effective starting points: walking (even short, slow distances count and add up), swimming or water-based movement (the water supports your joints while you build fitness), stationary cycling, and seated or chair-supported strength exercises for anyone who needs to keep weight off their knees or back while building strength.\n\nStart smaller than you think you need to. Five or ten minutes most days, built up gradually over weeks, works better and lasts longer than an ambitious plan that stops after a few days of soreness. Some joint discomfort easing in over the first sessions is normal; sharp or worsening pain is not — that''s worth raising with your care team before continuing, not pushing through.\n\nIf you''re managing a joint condition, heart condition, or anything else that makes you unsure where to start, that''s exactly the kind of question your care team is there for — a quick check before you begin is often all it takes to move forward with confidence rather than guesswork.',
+ 'article', 3, 'obesity', 'weight', null, 240, true, false,
+ '[{"question": "If a joint feels sore during the first few sessions of a new activity, what''s the guidance?", "options": ["Stop exercising completely and don''t try again", "Mild soreness easing in is normal; sharp or worsening pain is not and is worth raising with your care team", "Push through any pain to build a habit"], "answer_index": 1}]'::jsonb),
+
+('ob-exercise-without-gym', 'Movement that counts, beyond a workout',
+ 'Stairs, short walks, standing, housework: the small stuff genuinely adds up across a day.',
+ E'Week 4 covered walking and simple strength moves at home. There''s a second kind of movement worth knowing about too, sometimes called incidental activity, that adds to your day''s total without being a dedicated session at all — taking the stairs, a short walk to the market or to see a neighbour, standing while on a phone call, carrying groceries, sweeping, playing with children.\n\nThis matters most on the days a formal walk or strength session genuinely doesn''t happen, whether from time, energy, or how the day went. Building more of this into an ordinary day is a real, legitimate strategy on those days, not a lesser version of "real" exercise.\n\nA simple way to build it: look at your normal day and find two or three moments where sitting could become standing, or a short ride could become a short walk. Small, repeatable swaps like this beat an ambitious plan you can''t sustain, and they work alongside the walking-and-strength combination from week 4, not instead of it.',
+ 'article', 2, 'obesity', 'weight', null, 250, true, false, null),
+
+('ob-exercise-how-much', 'How much is actually enough, in real numbers',
+ 'About 150 minutes of movement and two strength sessions a week, translated into a realistic plan.',
+ E'Putting week 4''s guidance into concrete numbers: about 150 minutes a week of movement like brisk walking, roughly 30 minutes five days a week, plus at least two strength sessions a week on non-consecutive days.\n\nThat total doesn''t have to arrive all at once. Three 10-minute walks add up the same as one 30-minute walk for most purposes, which matters if a single long block of free time is hard to find. If you''re logging your activity minutes here already, this is the weekly number that total is working toward.\n\nStarting well below this and building up over several weeks is not just acceptable, it''s the more sustainable approach — an ambitious first week that leaves you sore and discouraged tends to end sooner than a modest one you can repeat.\n\nIf a health condition, medication, or something else means this general guidance might not apply directly to you, that''s worth a direct conversation with your care team, who can tailor it to your specific situation rather than a general target.',
+ 'article', 3, 'obesity', 'weight', null, 260, true, false,
+ '[{"question": "Do the roughly 150 weekly minutes need to happen in one long session?", "options": ["Yes, it must be one continuous session", "No, shorter sessions spread through the week add up the same way", "No, but only if done in the morning"], "answer_index": 1}]'::jsonb);
