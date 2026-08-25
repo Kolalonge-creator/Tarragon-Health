@@ -6071,8 +6071,12 @@ export type Database = {
             | null
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
+          preferred_time_of_day:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
           provider_id: string | null
           resulted_at: string | null
+          scheduled_date: string | null
           screening_schedule_id: string | null
           status: Database["public"]["Enums"]["lab_order_status"]
           subscriber_discount_kobo: number
@@ -6105,8 +6109,12 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          preferred_time_of_day?:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
           provider_id?: string | null
           resulted_at?: string | null
+          scheduled_date?: string | null
           screening_schedule_id?: string | null
           status?: Database["public"]["Enums"]["lab_order_status"]
           subscriber_discount_kobo?: number
@@ -6139,8 +6147,12 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          preferred_time_of_day?:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
           provider_id?: string | null
           resulted_at?: string | null
+          scheduled_date?: string | null
           screening_schedule_id?: string | null
           status?: Database["public"]["Enums"]["lab_order_status"]
           subscriber_discount_kobo?: number
@@ -6843,6 +6855,7 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          patient_profile: Json | null
           paused_reason: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["lpe_enrollment_status"]
@@ -6857,6 +6870,7 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          patient_profile?: Json | null
           paused_reason?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["lpe_enrollment_status"]
@@ -6871,6 +6885,7 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          patient_profile?: Json | null
           paused_reason?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["lpe_enrollment_status"]
@@ -15525,6 +15540,10 @@ export type Database = {
         Args: { p_body: string; p_thread_id: string }
         Returns: string
       }
+      price_review_for_patient: {
+        Args: { p_bundle_code: string; p_patient_id: string }
+        Returns: Json
+      }
       propose_video_visit_alternate_slots: {
         Args: { p_request_id: string; p_slot_ids: string[] }
         Returns: undefined
@@ -15614,6 +15633,58 @@ export type Database = {
       request_health_passport_attestation: {
         Args: { p_note?: string; p_purpose: string }
         Returns: string
+      }
+      request_lab_order_partner_visit: {
+        Args: {
+          p_facility_id: string
+          p_order_id: string
+          p_preferred_time_of_day: Database["public"]["Enums"]["lab_order_time_of_day"]
+          p_scheduled_date: string
+        }
+        Returns: {
+          applied_voucher_id: string | null
+          courier_reference: string | null
+          created_at: string
+          excluded_test_codes: Json
+          facility_id: string | null
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
+          home_visit_provider_id: string | null
+          home_visit_scheduled_at: string | null
+          id: string
+          investigation_tier: number
+          order_number: string | null
+          ordered_at: string
+          ordered_by: string | null
+          organisation_id: string
+          origin: Database["public"]["Enums"]["booking_origin"]
+          panel_bundle_id: string | null
+          patient_id: string
+          payable_kobo: number | null
+          payment_confirmed_at: string | null
+          payment_provider:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          preferred_time_of_day:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
+          provider_id: string | null
+          resulted_at: string | null
+          scheduled_date: string | null
+          screening_schedule_id: string | null
+          status: Database["public"]["Enums"]["lab_order_status"]
+          subscriber_discount_kobo: number
+          total_kobo: number
+          updated_at: string
+          voucher_covered_kobo: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lab_orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       request_masked_call: {
         Args: {
@@ -15728,8 +15799,12 @@ export type Database = {
             | null
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
+          preferred_time_of_day:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
           provider_id: string | null
           resulted_at: string | null
+          scheduled_date: string | null
           screening_schedule_id: string | null
           status: Database["public"]["Enums"]["lab_order_status"]
           subscriber_discount_kobo: number
@@ -16119,6 +16194,7 @@ export type Database = {
         | "analogue_rapid"
         | "analogue_long"
       lab_monitoring_status: "pending" | "completed" | "cancelled"
+      lab_order_time_of_day: "morning" | "afternoon" | "evening"
       lab_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -16847,6 +16923,7 @@ export const Constants = {
         "analogue_long",
       ],
       lab_monitoring_status: ["pending", "completed", "cancelled"],
+      lab_order_time_of_day: ["morning", "afternoon", "evening"],
       lab_order_status: [
         "pending_payment",
         "payment_confirmed",

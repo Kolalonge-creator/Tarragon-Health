@@ -143,6 +143,7 @@ export async function submitObesityEdScreenAndEnrollAction(
   if (!result.ok) return { error: `Could not enrol (${result.reason ?? "error"})` };
 
   revalidatePath("/patient/lifestyle");
+  revalidatePath("/patient/weight-management");
 
   if (saved.positive) {
     return {
@@ -229,6 +230,7 @@ export async function logReadingAction(
   if (!result.ok) return { error: `Could not save (${result.reason ?? "error"})` };
 
   revalidatePath("/patient/lifestyle");
+  revalidatePath("/patient/weight-management");
 
   // Safety-first reply: a flagged reading never says "you're fine".
   if (result.evaluation?.hasFlag) {
@@ -279,6 +281,7 @@ export async function createGoalAction(
   if (error) return { error: error.message || "Could not save your goal" };
 
   revalidatePath("/patient/lifestyle");
+  revalidatePath("/patient/weight-management");
   return { success: true, message: "Goal added." };
 }
 
@@ -304,6 +307,7 @@ export async function resolveGoalAction(
   if (error) return { error: error.message || "Could not update this goal" };
 
   revalidatePath("/patient/lifestyle");
+  revalidatePath("/patient/weight-management");
   return {
     success: true,
     message:

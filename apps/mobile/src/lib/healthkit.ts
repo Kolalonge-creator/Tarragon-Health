@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type * as HealthkitPackage from "@kingstinct/react-native-healthkit";
 import type { QuantitySample } from "@kingstinct/react-native-healthkit";
+import { recordSyncError } from "./sync-diagnostics";
 
 /**
  * Loaded lazily via require(), never as a static top-level import. The
@@ -141,7 +142,8 @@ export async function isHealthKitAvailable(): Promise<boolean> {
   if (!healthkit) return false;
   try {
     return await healthkit.isHealthDataAvailable();
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", "isHealthDataAvailable", error);
     return false;
   }
 }
@@ -159,7 +161,8 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
   if (!healthkit) return false;
   try {
     return await healthkit.requestAuthorization({ toRead: READ_PERMISSIONS });
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", "requestAuthorization", error);
     return false;
   }
 }
@@ -196,9 +199,11 @@ export async function configureIOSBackgroundDelivery(): Promise<void> {
     const healthkit = loadHealthkit();
     if (!healthkit) return;
     await healthkit.configureBackgroundTypes([...BACKGROUND_TYPES], healthkit.UpdateFrequency.immediate);
-  } catch {
+  } catch (error) {
     // Best-effort: a patient who never finishes the permission sheet, or an
-    // iOS version quirk, should not block the rest of the app.
+    // iOS version quirk, should not block the rest of the app — still worth
+    // recording, though, since it's otherwise indistinguishable from working.
+    recordSyncError("apple_health", "configureBackgroundTypes", error);
   }
 }
 
@@ -230,7 +235,8 @@ export function subscribeToIOSHealthChanges(onChange: () => void): () => void {
   const subscriptions = BACKGROUND_TYPES.map((identifier) => {
     try {
       return hk.subscribeToChanges(identifier, () => onChange());
-    } catch {
+    } catch (error) {
+      recordSyncError("apple_health", `subscribeToChanges:${identifier}`, error);
       return null;
     }
   });
@@ -333,7 +339,8 @@ async function readBloodPressure(since: Date, until: Date): Promise<HealthSample
       });
     }
     return samples;
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", "blood_pressure", error);
     return [];
   }
 }
@@ -391,7 +398,8 @@ async function readQuantity(
       recorded_at: sample.startDate.toISOString(),
       external_reading_id: sample.uuid,
     }));
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", readingType, error);
     return [];
   }
 }
@@ -443,7 +451,8 @@ async function readDailySteps(since: Date, until: Date): Promise<HealthSample[]>
       });
     });
     return samples;
-  } catch {
+  } catch (error) {
+    recordSyncError("apple_health", "steps", error);
     return [];
   }
 }

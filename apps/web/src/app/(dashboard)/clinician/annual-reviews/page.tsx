@@ -20,6 +20,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
+// A bare toLocaleDateString() resolves the server's locale on first render and
+// the browser's on hydration, producing a mismatch. Fixed locale + timezone
+// keeps server and client in sync.
+function formatDueDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
+}
+
 // The ordered pathway, mapped to the completion column each stage owns. The
 // medication_review stage completion also triggers the DB-side reconciliation
 // that adopts + rolls the patient's condition medication reviews.
@@ -235,7 +242,7 @@ function ReviewCard({ review }: { review: AnnualReviewWithContext }) {
         <div className="flex items-center gap-2">
           <Badge variant="grey">{review.cycle_year}</Badge>
           <Badge variant={overdue ? "red" : "amber"}>
-            {overdue ? "Overdue" : "Due"} {new Date(review.due_date).toLocaleDateString()}
+            {overdue ? "Overdue" : "Due"} {formatDueDate(review.due_date)}
           </Badge>
         </div>
       </CardHeader>

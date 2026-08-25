@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getEnrollmentAdherence } from "@/lib/lpe/weekly-plan";
 import { LifestyleReviewsClient, type PendingReview } from "./lifestyle-reviews-client";
 
 /**
@@ -37,12 +38,25 @@ export default async function LifestyleReviewsPage() {
     for (const p of people ?? []) nameById.set(p.id, p.full_name ?? "Patient");
   }
 
+  // Fetched in parallel across reviews (not per-goal within a review — that
+  // stays sequential inside getEnrollmentAdherence) so a longer worklist
+  // doesn't serialize N round-trips before the page can render.
+  const adherenceByReview = new Map(
+    await Promise.all(
+      (reviews ?? []).map(
+        async (r) =>
+          [r.id, await getEnrollmentAdherence(supabase, r.patient_id, r.enrollment_id)] as const
+      )
+    )
+  );
+
   const pending: PendingReview[] = (reviews ?? []).map((r) => ({
     id: r.id,
     patientName: nameById.get(r.patient_id) ?? "Patient",
     condition:
       (r.lpe_enrollments as { condition: string } | null)?.condition ?? "lifestyle",
     dueDate: r.due_date,
+    goals: adherenceByReview.get(r.id) ?? [],
   }));
 
   return (

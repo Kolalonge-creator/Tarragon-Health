@@ -8,9 +8,7 @@
     "userInterfaceStyle": "light",
     "scheme": "tarragonhealth",
     "icon": "./assets/icon.png",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "0.1.0",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -99,6 +97,9 @@
       "eas": {
         "projectId": "70441d73-567d-445b-8d29-691afdb72d72"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/70441d73-567d-445b-8d29-691afdb72d72"
     }
   }
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import type { Database, Tables } from "@tarragon/shared";
 
 export type PanelBundle = Tables<"panel_bundles">;
 export type LabProvider = Tables<"lab_providers">;
@@ -234,6 +234,44 @@ export function useOrderLabTest() {
 /* useSetLabOrderFacility and its ChooseLabFacility card are removed: a
  * self-arranged order has no facility to set, and public.set_lab_order_facility
  * now refuses one outright. The RPC survives for the dormant partner path. */
+
+/**
+ * Distinct from the removed ChooseLabFacility flow above: that one just
+ * recorded where a (pre-self-arranged) order would be fulfilled. This one
+ * genuinely converts a self-arranged order into a partner-fulfilled one via
+ * public.request_lab_order_partner_visit (20260820055147) — an opt-in
+ * upgrade path, never shown as a required step, since self-arranged already
+ * works today with zero partners on file.
+ */
+export function useRequestLabOrderPartnerVisit(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      facilityId,
+      scheduledDate,
+      preferredTimeOfDay,
+    }: {
+      orderId: string;
+      facilityId: string;
+      scheduledDate: string;
+      preferredTimeOfDay: Database["public"]["Enums"]["lab_order_time_of_day"];
+    }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("request_lab_order_partner_visit", {
+        p_order_id: orderId,
+        p_facility_id: facilityId,
+        p_scheduled_date: scheduledDate,
+        p_preferred_time_of_day: preferredTimeOfDay,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lab-orders", patientId] });
+    },
+  });
+}
 
 export type LabResultInterpretation = Tables<"lab_result_interpretations">;
 

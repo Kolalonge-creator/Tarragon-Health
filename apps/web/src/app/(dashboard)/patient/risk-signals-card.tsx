@@ -76,6 +76,7 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
                       kind="risk_score"
                       subjectKey={row.score_type}
                       label={label}
+                      defaultOpen={row.risk_level === "high" || row.risk_level === "very_high"}
                     />
                   </li>
                 );

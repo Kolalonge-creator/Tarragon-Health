@@ -58,7 +58,7 @@ const organizationJsonLd = {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-warm-ivory text-charcoal-ink">
+    <div className="flex min-h-screen flex-col bg-white text-charcoal-ink">
       <script
         type="application/ld+json"
         // Static, first-party JSON; safe to inline for rich results.

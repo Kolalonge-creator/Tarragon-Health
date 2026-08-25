@@ -24,9 +24,18 @@ module.exports = function withHealthConnectMainActivity(config) {
       return config;
     }
 
+    // Expo's default template already imports Bundle (onCreate's own
+    // signature needs it) — adding a second import of the same name is a
+    // Kotlin compile error ("Conflicting import: imported name 'Bundle' is
+    // ambiguous"), not a harmless no-op like a duplicate import would be in
+    // most languages.
+    const bundleImportLine = /^import android\.os\.Bundle$/m.test(contents)
+      ? ""
+      : "import android.os.Bundle\n";
+
     contents = contents.replace(
       /^(package .+\n)/m,
-      `$1\nimport android.os.Bundle\nimport dev.matinzd.healthconnect.permissions.HealthConnectPermissionDelegate\n`
+      `$1\n${bundleImportLine}import dev.matinzd.healthconnect.permissions.HealthConnectPermissionDelegate\n`
     );
 
     if (/override fun onCreate\(savedInstanceState: Bundle\?\)/.test(contents)) {
