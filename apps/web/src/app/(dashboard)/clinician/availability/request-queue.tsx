@@ -15,6 +15,7 @@ import {
   proposeVideoVisitAlternates,
   type VideoVisitDecisionState,
 } from "./actions";
+import { useCurrentOnCall } from "@/lib/queries/clinician-rota";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -206,6 +207,7 @@ function RequestRow({ request }: { request: QueueRequest }) {
  */
 export function VideoVisitRequestQueue() {
   const { data, isLoading, isError } = useOrgVideoVisitRequests();
+  const { data: onCall, isLoading: onCallLoading } = useCurrentOnCall("video");
 
   return (
     <Card>
@@ -213,6 +215,17 @@ export function VideoVisitRequestQueue() {
         <CardTitle>Online consultation requests</CardTitle>
       </CardHeader>
       <CardContent>
+        {!onCallLoading && (onCall?.length ?? 0) > 0 && (
+          <p className="mb-2 text-xs text-charcoal-ink/70">
+            On call now:{" "}
+            {onCall!.map((c) => c.full_name).join(", ")}
+          </p>
+        )}
+        {!onCallLoading && (onCall?.length ?? 0) === 0 && (
+          <p className="mb-2 text-xs text-amber-700">
+            No one is on the published rota right now — any active doctor can still accept these.
+          </p>
+        )}
         <p className="mb-3 text-xs text-charcoal-ink/60">
           Patients have already paid for these; the money is held until a time is confirmed.
           Accept their requested time, propose different times that work better for you, or

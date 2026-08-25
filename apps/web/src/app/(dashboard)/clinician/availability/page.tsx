@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { AvailabilityManager } from "./availability-manager";
 import { VideoVisitRequestQueue } from "./request-queue";
+import { MyEarningsCard } from "./my-earnings-card";
 
 export default async function ClinicianAvailabilityPage() {
   const profile = await getCurrentProfile();
@@ -19,6 +20,7 @@ export default async function ClinicianAvailabilityPage() {
       </div>
       <VideoVisitRequestQueue />
       <AvailabilityManager organisationId={profile.organisation_id} />
+      <MyEarningsCard />
     </div>
   );
 }

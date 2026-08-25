@@ -307,6 +307,8 @@ export function getNavSections(
           label: "Clinical",
           items: [
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
+            { label: "On-call rota", href: "/admin/staffing/rota", icon: "compliance" },
+            { label: "Clinician payouts", href: "/admin/staffing/clinician-payouts", icon: "payables" },
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },

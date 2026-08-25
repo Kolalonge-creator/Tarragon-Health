@@ -2715,6 +2715,199 @@ export type Database = {
           },
         ]
       }
+      clinician_consult_earnings: {
+        Row: {
+          accrued_at: string
+          amount_minor: number
+          clinical_staff_id: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          doctor_tier_at_time: Database["public"]["Enums"]["doctor_tier"]
+          finance_bill_id: string | null
+          id: string
+          journal_entry_id: string | null
+          organisation_id: string
+          status: string
+          updated_at: string
+          video_consultation_id: string
+        }
+        Insert: {
+          accrued_at?: string
+          amount_minor: number
+          clinical_staff_id: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          doctor_tier_at_time: Database["public"]["Enums"]["doctor_tier"]
+          finance_bill_id?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          organisation_id: string
+          status?: string
+          updated_at?: string
+          video_consultation_id: string
+        }
+        Update: {
+          accrued_at?: string
+          amount_minor?: number
+          clinical_staff_id?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          doctor_tier_at_time?: Database["public"]["Enums"]["doctor_tier"]
+          finance_bill_id?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          organisation_id?: string
+          status?: string
+          updated_at?: string
+          video_consultation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_consult_earnings_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_consult_earnings_finance_bill_id_fkey"
+            columns: ["finance_bill_id"]
+            isOneToOne: false
+            referencedRelation: "finance_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_consult_earnings_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_consult_earnings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_consult_earnings_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: true
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinician_consult_rates: {
+        Row: {
+          amount_minor: number
+          currency: Database["public"]["Enums"]["currency"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"]
+          id: string
+          is_enabled: boolean
+          organisation_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_minor: number
+          currency?: Database["public"]["Enums"]["currency"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"]
+          id?: string
+          is_enabled?: boolean
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_minor?: number
+          currency?: Database["public"]["Enums"]["currency"]
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"]
+          id?: string
+          is_enabled?: boolean
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_consult_rates_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_consult_rates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinician_rota_shifts: {
+        Row: {
+          channel: string
+          clinical_staff_id: string
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          clinical_staff_id: string
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          starts_at: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          clinical_staff_id?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_rota_shifts_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_rota_shifts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_rota_shifts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cohort_cost_model_constants: {
         Row: {
           estimated_cost_avoided_per_abnormal_catch_kobo: number
@@ -4977,6 +5170,7 @@ export type Database = {
       }
       finance_vendors: {
         Row: {
+          clinical_staff_id: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
@@ -4990,6 +5184,7 @@ export type Database = {
           wht_rate_pct: number | null
         }
         Insert: {
+          clinical_staff_id?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -5003,6 +5198,7 @@ export type Database = {
           wht_rate_pct?: number | null
         }
         Update: {
+          clinical_staff_id?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -5015,7 +5211,15 @@ export type Database = {
           wht_applicable?: boolean
           wht_rate_pct?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "finance_vendors_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: true
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       foot_self_checks: {
         Row: {
@@ -14704,6 +14908,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      current_on_call_clinicians: {
+        Args: { p_channel?: string }
+        Returns: Json
+      }
       decline_health_passport_attestation: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
@@ -14916,6 +15124,14 @@ export type Database = {
       finance_set_period_status: {
         Args: { p_month: string; p_status: string }
         Returns: Json
+      }
+      finance_settle_clinician_earnings: {
+        Args: {
+          p_bill_date?: string
+          p_clinical_staff_id: string
+          p_due_date?: string
+        }
+        Returns: string
       }
       finance_tax_rates_list: { Args: never; Returns: Json }
       finance_tax_summary: {
