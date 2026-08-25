@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
+/** Colocated with hasCoachAccess() the way COACH_LIMIT_REACHED_REPLY sits
+ * next to the rate-limit functions in rate-limit.ts — the reply a caller
+ * shows when runCoachTurn's own entitlement check (not just the UI gate)
+ * turns a patient away. */
+export const COACH_ACCESS_DENIED_REPLY =
+  "The AI Coach isn't included on your current plan. Contact your care team if you think this is a mistake.";
+
 /**
  * Resolves via private.has_ai_coach_access() (migration
  * 20260707010000_ai_coach_access_rules.sql): admins always pass; otherwise

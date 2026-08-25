@@ -17,7 +17,15 @@ import {
 import { PricingLabelBadge } from "./pricing-label";
 import type { TierPriceOverride } from "@/lib/marketing/plan-prices";
 
-function TierCard({ tier }: { tier: PricingTier }) {
+function TierCard({
+  tier,
+  ctaHref = "/signup",
+  ctaLabel = "Get started",
+}: {
+  tier: PricingTier;
+  ctaHref?: string;
+  ctaLabel?: string;
+}) {
   return (
     <div
       className={cn(
@@ -58,7 +66,7 @@ function TierCard({ tier }: { tier: PricingTier }) {
       ) : null}
       <div className="mt-6 pt-2">
         <Button asChild className="w-full">
-          <Link href="/signup">Get started</Link>
+          <Link href={ctaHref}>{ctaLabel}</Link>
         </Button>
       </div>
     </div>
@@ -147,9 +155,13 @@ export function PricingTable({
       )}
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {tiers.map((tier) => (
-          <TierCard key={tier.id} tier={tier} />
-        ))}
+        {tiers.map((tier) =>
+          currency === "USD" ? (
+            <TierCard key={tier.id} tier={tier} ctaHref="/gift" ctaLabel="Buy this for them" />
+          ) : (
+            <TierCard key={tier.id} tier={tier} />
+          )
+        )}
       </div>
 
       {currency === "USD" ? (

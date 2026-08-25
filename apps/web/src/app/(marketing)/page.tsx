@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
-import { MarketingHero } from "./_components/marketing-hero";
+import { PhotoBannerHero } from "./_components/marketing-photo-banner-hero";
 import { MarketingMediaFrame } from "./_components/marketing-media-frame";
 import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
@@ -13,72 +13,60 @@ import { AppDashboardMockup } from "./_components/app-dashboard-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { MARKETING_MEDIA } from "./_content/media";
-import { ServiceCardLink } from "./_components/service-card";
 import { AnimatedNumber } from "./_components/animated-number";
-import {
-  PREVENTION_CALLOUT,
-  PROOF_STATS,
-  SERVICE_CARDS,
-  WHAT_YOU_GET,
-} from "./_content/services";
+import { StepsExplorer } from "./_components/steps-explorer";
+import { HOW_IT_WORKS_STEPS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
+import { getChannelHero } from "./_content/channel-heroes";
+import { PILLARS, PILLARS_SECTION_COPY } from "./_content/pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "TarragonHealth | Care that stays with you",
   description:
     "Health monitoring for chronic disease, preventive health, and care coordination. Track vitals, medication, labs, and preventive checks in one secure platform.",
-  alternates: { canonical: "/" },
-};
+  path: "/",
+});
 
-export default function MarketingHomePage() {
+export default async function MarketingHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ channel?: string }>;
+}) {
   const { homepage } = MARKETING_MEDIA;
   const { walkthroughVideo } = homepage;
+  const { channel } = await searchParams;
+  const hero = getChannelHero(channel);
 
   return (
     <>
-      <Section className="relative overflow-hidden pt-16 sm:pt-24">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-16 top-10 -z-10 h-[320px] w-[320px] rounded-full bg-sprout-gold/15 blur-3xl"
-        />
-        {/* No custom visual override: the default MarketingMediaFrame renders
-            homepage.hero (ambient video once videoSrc is set, otherwise the
-            calm illustration), the same framed-card treatment used for every
-            other image on the site. */}
-        <MarketingHero media={homepage.hero}>
-          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Continuity, not just monitoring
-          </p>
-          <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl lg:text-6xl">
-            Care that stays with you.
-          </h1>
-          <p className="mt-4 font-heading text-xl text-charcoal-ink/80 sm:text-2xl">
-            Health monitoring for chronic disease, prevention, and care coordination.
-          </p>
-          <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Track blood pressure, blood sugar, weight, medication, lab checks, and preventive
-            health needs in one secure platform, with clinical review and escalation when closer
-            care is needed. And if you&apos;re healthy? Screenings, vaccinations, and yearly checks
-            that keep you that way.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
-            <Button asChild size="lg">
-              <Link href="/signup">Get started</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href={MARKETING_ROUTES.services}>See how it works</Link>
-            </Button>
-          </div>
-        </MarketingHero>
-        <ContinuityPath />
-      </Section>
+      {/* dohealth.co-style full-bleed photo hero: real photography with
+          overlaid text, spanning the full viewport width (rendered outside
+          Section on purpose — see the component's own header comment).
+          Replaces the old text-beside-a-photo-card MarketingHero layout for
+          this slot (kept for product pages with no real photo sourced yet —
+          see product-page-template.tsx).
 
+          Hero copy is channel-gated: `?channel=hmo|employer|diaspora` swaps
+          the headline/CTA for that traffic source (see _content/channel-
+          heroes.ts); everything below the fold is the same page for every
+          visitor. An unknown or missing value falls back to the copy every
+          other visitor sees. */}
+      <PhotoBannerHero
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        description={hero.description}
+        primaryHref={hero.primaryHref}
+        primaryLabel={hero.primaryLabel}
+        secondaryHref={hero.secondaryHref}
+        secondaryLabel={hero.secondaryLabel}
+        imageSrc={homepage.hero.imageSrc ?? ""}
+        imageAlt={homepage.hero.imageAlt ?? ""}
+        imagePosition={homepage.hero.imageFocus}
+      />
       <Section className="py-8 sm:py-10">
-        <div className="grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
+        <ContinuityPath />
+        <div className="mt-10 grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
           {PROOF_STATS.map((stat) => (
             <div
               key={stat.label}
@@ -149,36 +137,64 @@ export default function MarketingHomePage() {
         />
       </Section>
 
+      {/* The spec's numbered "how it works" sequence (§3.1.5), reusing the
+          exact HOW_IT_WORKS_STEPS/StepsExplorer pair already built for
+          /services rather than a duplicate list — this is the one place on
+          the homepage where a real sequence justifies numbering. */}
       <Section>
         <SectionHeading
-          eyebrow="The solution"
+          eyebrow="How it works"
           title="Tarragon monitors, reminds, reviews, coordinates, and escalates"
-          description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not. See how it works, end to end, on our services page."
+          description="Your care team keeps watch over your health record: calm follow-up when things are steady, escalation when they are not."
         />
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button asChild>
-            <Link href={MARKETING_ROUTES.services}>See how Tarragon works</Link>
-          </Button>
+        <div className="mx-auto grid max-w-5xl items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
+          <StepsExplorer
+            steps={HOW_IT_WORKS_STEPS.map(({ title, body }) => ({ title, body }))}
+            tone="green"
+          />
+          <MarketingMediaFrame
+            media={{
+              illustration: "connected-care",
+              imageAlt: "Readings, reminders, and doctor review in one connected record",
+            }}
+          />
+        </div>
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline">
+            <Link href={MARKETING_ROUTES.services}>See the full walkthrough</Link>
+          </Button>
+          <Button asChild variant="ghost">
             <Link href={MARKETING_ROUTES.about}>About Tarragon</Link>
           </Button>
         </div>
       </Section>
 
-      <Section>
+      <Section className="py-10 sm:py-14">
         <SectionHeading
           eyebrow="Chronic care programmes"
           title="Hypertension, diabetes, and weight, managed with follow-up"
           description="Three conditions drive most preventable emergencies in Nigeria. Tarragon runs a structured, doctor-reviewed programme for each, on one shared record, so related conditions are watched together, not separately."
         />
-        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-3">
+        <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3">
           {SERVICE_CARDS.filter((card) =>
             ["hypertension", "diabetes", "obesity"].includes(card.key)
           ).map((service) => (
-            <ServiceCardLink key={service.key} service={service} />
+            <Link
+              key={service.key}
+              href={service.href}
+              className="group rounded-full border border-charcoal-ink/10 bg-white px-5 py-2.5 text-sm font-medium text-charcoal-ink transition-colors hover:border-brand-green/40 hover:text-brand-green"
+            >
+              {service.title}
+              <span
+                aria-hidden
+                className="ml-1.5 inline-block transition-transform group-hover:translate-x-0.5"
+              >
+                →
+              </span>
+            </Link>
           ))}
         </div>
-        <p className="mt-8 text-center">
+        <p className="mt-6 text-center">
           <Link
             href={MARKETING_ROUTES.chronicCare}
             className="text-sm font-medium text-deep-forest hover:underline"
@@ -195,6 +211,31 @@ export default function MarketingHomePage() {
           caption={walkthroughVideo.caption}
           poster={walkthroughVideo.poster}
         />
+      </Section>
+
+      {/* The "beyond the numbers" habit framing (competitive-teardown addition,
+          2026-08-20): five daily-habit areas keyed 1:1 to the Lifestyle
+          Programme Engine's lpe_module enum (see _content/pillars.ts), so
+          this copy never drifts from what the product actually tracks. Text
+          only, no icons, matching TrustPillars' card pattern rather than
+          inventing a new visual language for one section. */}
+      <Section>
+        <SectionHeading
+          eyebrow={PILLARS_SECTION_COPY.eyebrow}
+          title={PILLARS_SECTION_COPY.title}
+          description={PILLARS_SECTION_COPY.description}
+        />
+        <div className="grid gap-px overflow-hidden rounded-2xl bg-charcoal-ink/10 sm:grid-cols-2 lg:grid-cols-5">
+          {PILLARS.map((pillar) => (
+            <div
+              key={pillar.module}
+              className="relative bg-white p-6 transition-transform duration-300 hover:z-10 hover:-translate-y-1 hover:shadow-lg"
+            >
+              <h3 className="font-heading text-base font-semibold text-charcoal-ink">{pillar.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{pillar.body}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section>
@@ -225,23 +266,6 @@ export default function MarketingHomePage() {
         </div>
       </Section>
 
-      <Section variant="sage">
-        <SectionHeading eyebrow="What you get" title="Monitoring that stays connected" />
-        <div className="grid gap-6 md:grid-cols-3">
-          {WHAT_YOU_GET.map((pillar) => (
-            <div
-              key={pillar.title}
-              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 transition duration-200 hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-md"
-            >
-              <h3 className="font-heading text-xl font-semibold text-charcoal-ink">
-                {pillar.title}
-              </h3>
-              <p className="mt-3 text-charcoal-ink/70">{pillar.body}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
       <Section>
         <div className="mx-auto grid max-w-5xl items-center gap-8 overflow-hidden rounded-2xl border border-brand-green/20 bg-white p-8 shadow-sm sm:p-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12 lg:p-12">
           <AppDashboardMockup className="relative mx-auto" />
@@ -255,7 +279,7 @@ export default function MarketingHomePage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Add TarragonHealth to your phone&apos;s home screen and check in wherever you are.
               No app store, no separate download, the same secure record you already use on the
-              web.
+              web, with your care team in your pocket whenever you need them.
             </p>
             <ul className="mt-6 grid gap-3 sm:grid-cols-2">
               {[
@@ -263,6 +287,7 @@ export default function MarketingHomePage() {
                 "Get reminders for medication, screenings, and reviews",
                 "Message your care team any time, right in the app",
                 "Share your Health Passport with any doctor",
+                "Automatic sync from Apple Health, Health Connect, and wearables, rolling out device by device",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-sm text-charcoal-ink/75">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-green" aria-hidden />

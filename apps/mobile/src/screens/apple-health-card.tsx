@@ -71,7 +71,9 @@ export function AppleHealthCard() {
       <MutedText>
         We read your blood pressure, blood sugar, weight, oxygen level, resting heart rate and
         steps. Your care team sees them alongside everything else on your record. We never write
-        anything back to Apple Health, and you choose what to share on the next screen.
+        anything back to Apple Health, and you choose what to share on the next screen. Once
+        you&apos;ve synced, we&apos;ll also keep checking for new readings in the background; tap
+        Sync any time you want the latest right now.
       </MutedText>
 
       <PrimaryButton
@@ -91,10 +93,13 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
 
   if (result.status === "no_new_data") {
     return (
-      <MutedText>
-        Nothing new to bring across. If you expected readings here, check that TarragonHealth is
-        turned on for them in the Health app under Sharing.
-      </MutedText>
+      <View style={{ gap: 4 }}>
+        <MutedText>
+          Nothing new to bring across. If you expected readings here, check that TarragonHealth is
+          turned on for them in the Health app under Sharing.
+        </MutedText>
+        {result.partial ? <PartialSyncNote /> : null}
+      </View>
     );
   }
 
@@ -104,10 +109,21 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
 
   const saved = result.vitals + result.wearable;
   return (
-    <Text style={{ color: colors.success, fontSize: 14, fontWeight: "600" }}>
-      {saved === 0
-        ? "Already up to date — these readings were on your record."
-        : `Added ${saved} ${saved === 1 ? "reading" : "readings"} to your record.`}
-    </Text>
+    <View style={{ gap: 4 }}>
+      <Text style={{ color: colors.success, fontSize: 14, fontWeight: "600" }}>
+        {saved === 0
+          ? "Already up to date. These readings were on your record."
+          : `Added ${saved} ${saved === 1 ? "reading" : "readings"} to your record.`}
+      </Text>
+      {result.partial ? <PartialSyncNote /> : null}
+    </View>
   );
+}
+
+/** Shown when at least one reading type couldn't be checked this attempt
+ * (see sync-diagnostics.ts) — kept low-key rather than an error, since the
+ * sync still ran and a later attempt (manual or the background task) simply
+ * retries the same delta. */
+function PartialSyncNote() {
+  return <MutedText>Some readings couldn&apos;t be checked this time — we&apos;ll try again.</MutedText>;
 }

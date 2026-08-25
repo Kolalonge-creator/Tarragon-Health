@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   useOrgAdherenceAlerts,
   useUpdateAdherenceAlert,
@@ -72,11 +71,12 @@ export default function AdherenceAlertsPage() {
   const { data, isLoading, isError } = useOrgAdherenceAlerts();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Adherence alerts</h1>
+        <p className="text-sm text-charcoal-ink/60">
+          Medication and care-plan adherence across your panel.
+        </p>
       </div>
       <Card>
         <CardHeader>

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import type { Tables, Enums } from "@tarragon/shared";
 
 export type CareThread = Tables<"care_message_threads">;
 
@@ -10,20 +10,26 @@ export type CareThreadWithPatient = CareThread & {
 };
 
 /**
- * A message plus the (null-gated) acting clinician. `actor` is only ever a real
- * clinical_staff row (FK-guaranteed), so any "Dr X" line rendered from it is
- * attribution-safe. A patient author, or a non-clinical staff author, has no actor.
+ * A message plus the (null-gated) acting staff member. `actor` is only ever a
+ * real clinical_staff row (FK-guaranteed) — but a real row is not the same as
+ * a real doctor: a Care Coordinator carries an active clinical_staff row too
+ * (doctor_tier = 'care_coordinator'), so a "Dr X" line must not be rendered
+ * from a non-null actor alone. doctor_tier + is_clinical_director let the UI
+ * run isClinicalTier (lib/clinical/doctor-tier.ts) first — see authorLabel in
+ * components/care-message-thread.tsx. A patient/sponsor author has no actor.
  */
 export type CareMessage = Tables<"care_messages"> & {
   actor: {
     full_name: string | null;
     credential_type: string | null;
     credential_number: string | null;
+    doctor_tier: Enums<"doctor_tier"> | null;
+    is_clinical_director: boolean;
   } | null;
 };
 
 const MESSAGE_SELECT =
-  "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number)";
+  "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier, is_clinical_director)";
 const THREAD_PATIENT_SELECT =
   "*, patient:profiles!care_message_threads_patient_id_fkey(full_name, patient_number)";
 

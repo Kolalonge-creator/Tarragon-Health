@@ -2,7 +2,11 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { createClient } from "@/lib/supabase/server";
+import { businessSummarySchema, financialSummarySchema } from "@/lib/analytics/schemas";
+import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 
 type AdminTile = {
@@ -41,6 +45,66 @@ export default async function AdminPage() {
   // A member only sees an operational tile if they can actually use that surface.
   // Tiles with no dedicated capability key stay super-admin-only.
   const can = (key: string) => isSuperAdmin || keys.has(key);
+
+  // Live platform KPIs for the welcome banner + stat row. The RPCs return
+  // '{}' (parsed to all-zero defaults) for a caller who isn't analyst/admin,
+  // and the count queries return 0 rows rather than erroring under RLS — so
+  // this is safe to call unconditionally for any role that can reach /admin
+  // via the delegated-access carve-out in proxy.ts.
+  const supabase = await createClient();
+  const [
+    businessRes,
+    financialRes,
+    activeClinicianRes,
+    pendingVerificationRes,
+    openBookingsRes,
+    pendingBookingsRes,
+  ] = await Promise.all([
+    supabase.rpc("analytics_business_summary"),
+    supabase.rpc("analytics_financial_summary"),
+    supabase.from("clinical_staff").select("*", { count: "exact", head: true }).eq("active", true),
+    supabase
+      .from("clinical_staff")
+      .select("*", { count: "exact", head: true })
+      .is("license_verified_at", null),
+    supabase
+      .from("booking_requests")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["requested", "confirmed"]),
+    supabase
+      .from("booking_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "requested"),
+  ]);
+
+  const business = businessSummarySchema.parse(businessRes.data ?? {});
+  const financial = financialSummarySchema.parse(financialRes.data ?? {});
+  const activeClinicianCount = activeClinicianRes.count ?? 0;
+  const pendingVerificationCount = pendingVerificationRes.count ?? 0;
+  const openBookingsCount = openBookingsRes.count ?? 0;
+  const pendingBookingsCount = pendingBookingsRes.count ?? 0;
+
+  const primaryMrr =
+    financial.mrr_by_currency.find((m) => m.currency === "NGN") ?? financial.mrr_by_currency[0];
+  const mrrDisplay = primaryMrr
+    ? formatMinor(primaryMrr.mrr_minor, primaryMrr.currency ?? "NGN")
+    : formatMinor(0, "NGN");
+
+  const attentionParts: string[] = [];
+  if (pendingVerificationCount > 0) {
+    attentionParts.push(
+      `${formatNumber(pendingVerificationCount)} clinician verification${pendingVerificationCount === 1 ? "" : "s"}`
+    );
+  }
+  if (pendingBookingsCount > 0) {
+    attentionParts.push(
+      `${formatNumber(pendingBookingsCount)} pending booking request${pendingBookingsCount === 1 ? "" : "s"}`
+    );
+  }
+  const attentionCopy =
+    attentionParts.length > 0
+      ? `${attentionParts.join(" and ")} need attention today.`
+      : "Nothing needs attention right now — you're caught up.";
 
   const groups: AdminTileGroup[] = [
     {
@@ -241,16 +305,57 @@ export default async function AdminPage() {
     .filter((group) => group.tiles.length > 0);
 
   return (
-    <DashboardPlaceholder
-      greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
-      roleLabel={isSuperAdmin ? "Super Admin" : "Admin"}
-      comingUp={[
-        "Users, orgs, system health (API latency, WhatsApp delivery, ML status)",
-        "Finance: MRR/ARR/churn/commission/receivables",
-        "ML model versioning + batch re-scoring trigger",
-        "Audit trail + NDPR export/erasure tools",
-      ]}
-    >
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-clinical-navy to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold sm:text-3xl">
+            Welcome back{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}
+          </h1>
+          <p className="mt-1 max-w-xl text-sm text-white/80">{attentionCopy}</p>
+        </div>
+        {canViewAnalytics && (
+          <Link
+            href="/analytics"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-clinical-navy transition-colors hover:bg-white/90"
+          >
+            View analytics
+          </Link>
+        )}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          icon={SEMANTIC_ICON.parentCare}
+          label="Total patients"
+          value={formatNumber(business.total_patients)}
+          delta={{ text: `${formatNumber(business.active_patients)} active`, direction: "flat" }}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.clinicianFollowUp}
+          label="Active clinicians"
+          value={formatNumber(activeClinicianCount)}
+          delta={{
+            text: `${formatNumber(pendingVerificationCount)} pending verification`,
+            direction: "flat",
+          }}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.billing}
+          label="MRR"
+          value={mrrDisplay}
+          delta={{ text: `${formatPercent(financial.churn_rate)} churn`, direction: "flat" }}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.booking}
+          label="Open bookings"
+          value={formatNumber(openBookingsCount)}
+          delta={{
+            text: `${formatNumber(pendingBookingsCount)} awaiting review`,
+            direction: "flat",
+          }}
+        />
+      </div>
+
       {groups.map((group) => (
         <section key={group.label} aria-labelledby={`${sectionId(group.label)}-heading`} className="space-y-3">
           <h2
@@ -278,6 +383,20 @@ export default async function AdminPage() {
           </div>
         </section>
       ))}
-    </DashboardPlaceholder>
+
+      <Card variant="soft">
+        <CardHeader>
+          <CardTitle>On the roadmap</CardTitle>
+          <CardDescription>Planned for an upcoming release.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-inside list-disc space-y-1.5 text-sm text-charcoal-ink/80">
+            <li>System health: API latency, WhatsApp delivery, ML status</li>
+            <li>ML model versioning + batch re-scoring trigger</li>
+            <li>Audit trail + NDPR export/erasure tools</li>
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

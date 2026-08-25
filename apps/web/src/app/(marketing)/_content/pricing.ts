@@ -105,6 +105,22 @@
  * Stripe Prices are immutable on amount, so each needs a fresh provider
  * object) — this file's numbers are correct ahead of that step, not after it.
  *
+ * Corrected 2026-08-10 — founder decision, reversing the Free tier's own
+ * safety-net line below: Tarragon Free should not consume any doctor time at
+ * all — that is what paying for a plan is for. A dangerous vitals or symptom
+ * reading (BP, SpO2, temperature, glucose, a red-flag symptom, the one-touch
+ * danger-symptom check) is still detected by the same deterministic
+ * thresholds on every plan, and the patient still gets the full emergency
+ * safety net ("go to the nearest hospital now" guidance, emergency-contact
+ * notify, follow-up check-in) plus a specific, immediate self-care
+ * suggestion — what changes on Free is that it no longer also reaches a
+ * doctor. Doctor follow-up on a dangerous reading starts on Tarragon Prevent.
+ * This does NOT touch the separate, non-negotiable abnormal-result escalation
+ * pipeline named two paragraphs up (Category 2→1 upgrade via the
+ * screening_results trigger) — that is a different, structured-data event,
+ * out of scope for this decision, and still fires regardless of plan. See
+ * 20260810120000_gate_vitals_red_flag_escalation_to_paid_plans.sql.
+ *
  * Superseded 2026-07-15: Tarragon now directly employs its own doctors, so
  * the day-to-day touchpoints that used to be relabelled "clinician" (per the
  * earlier "clinician is the default face" rule in
@@ -155,10 +171,21 @@ export const PRICING_LABELS: Record<
     description: "Part of your plan at no extra charge",
     className: "bg-brand-green/10 text-deep-forest",
   },
+  // Founder decision 2026-08-21: Tarragon WILL bill for a review once a
+  // laboratory is actually contracted, at one price computed for that
+  // patient. Nothing is contracted yet, so every line on this page is still
+  // paid straight to the provider and this label still describes reality.
+  //
+  // What changed here is only the scope of the claim. It used to read as a
+  // standing promise about Tarragon as a company ("we take no commission");
+  // it now says what is true of the items carrying THIS label, which stays
+  // true after a billed-by-us label exists alongside it. Do not restore the
+  // company-wide wording — the first partner-billed review would make it a
+  // lie on a public page.
   "YOU PAY THE LAB": {
     title: "You pay the lab",
     description:
-      "Tarragon works out what's needed and writes the request; you take it to whichever laboratory, pharmacy, or provider you choose and pay them directly. We take no commission on it.",
+      "Tarragon works out what's needed and writes the request; you take it to whichever laboratory, pharmacy, or provider you choose and pay them directly. Tarragon takes no cut of what they charge you for it.",
     className: "bg-clinical-navy/10 text-clinical-navy",
   },
   "FREE ELSEWHERE": {
@@ -176,7 +203,7 @@ export const PRICING_LABELS: Record<
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "We will never charge you for anything without showing you the exact price first and getting your confirmation. No surprise charges. Ever.",
-  "We will always tell you clearly whether something is already included in your plan, something you'll pay the laboratory or pharmacy for directly (we set no price on it and take no cut), or something that's actually free elsewhere and we're just reminding you about it.",
+  "We will always tell you clearly how each thing is paid for and to whom: whether it is already included in your plan, something you pay the laboratory or pharmacy for directly, or something that is actually free elsewhere and we are just reminding you about it. You will never have to guess where your money is going.",
   "You will always know exactly what you are paying for: every plan and every add-on is fully listed below, with nothing left out.",
   "Paying in dollars from abroad includes a disclosed 10% international card-processing fee on top of the converted naira price: a real, cost-based charge shown as its own line next to the price, never folded silently into a bigger number.",
   "You can cancel a monthly plan at any time. Annual plans are paid upfront for the year, but you can turn off auto-renewal whenever you like: no penalty, no argument, no hard sell.",
@@ -191,7 +218,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. No doctor reviews your readings, or any result you upload, routinely on this plan; that starts on Tarragon Prevent, where a doctor's time goes toward patients actually paying for review. Free still gets you real tools: logging, reminders, and the full education library, at no cost, forever.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. Your readings are still checked against care protocols on this plan too, and a dangerous one still gets you clear guidance and a specific next step immediately; what this plan doesn't include is a doctor on the other end of that guidance, a doctor-set care plan, or a scheduled review of any result you upload. Those start on Tarragon Prevent. Free still gets you real tools: logging, reminders, and the full education library, at no cost, forever.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -202,7 +229,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Device setup guides", label: "INCLUDED" },
     ],
     footnote:
-      "Not included on this plan, and available only if you upgrade: doctor review of your readings, doctor review of a result you upload, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
+      "Not included on this plan, and available only if you upgrade: a doctor seeing a dangerous reading, a doctor-set care plan and scheduled review of your readings, doctor review of a result you upload, doctor check-in, lab test coordination, medication refill coordination, family dashboard.",
   },
   {
     id: "prevent",
@@ -220,12 +247,12 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Vaccination schedule, reminders, and verified certificates, including catch-up HPV dosing outside the free government age bracket", label: "INCLUDED" },
       { feature: "Personalised health education with knowledge checks", label: "INCLUDED" },
       { feature: "Doctor follow-up on any abnormal result", label: "INCLUDED" },
-      { feature: "Any lab, any format: upload a result and a doctor reads it back to you in plain language within minutes, not just once a year", label: "INCLUDED" },
+      { feature: "Any lab, any format: upload a result and a doctor's plain-language interpretation is sent to you in the app, with next steps suggested if anything needs attention, not just once a year", label: "INCLUDED" },
       { feature: "Screening lab tests, paid straight to the lab you choose", label: "YOU PAY THE LAB" },
       { feature: "Core Screen: we say what to get, you use any lab or upload a result you already have, and a doctor reads it", label: "INCLUDED" },
     ],
     footnote:
-      "Prevent is not a chronic-care plan: routine doctor reviews of your readings are on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme; that's the whole point of catching it early.",
+      "Prevent is not a chronic-care plan: a doctor-set care plan with scheduled reviews of your readings is on Essential Care and above. If a screening ever finds something, we'll help you move onto the right care programme; that's the whole point of catching it early.",
   },
   {
     id: "essential",
@@ -234,12 +261,12 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦10,000",
     pricePeriod: "per month",
     priceSecondary: "or ₦100,000/year (2 months free)",
-    description: "Real clinical monitoring begins here, for one condition — and, new alongside this price, your full preventive screening calendar comes with it too, not just chronic-condition tracking.",
+    description: "Real clinical monitoring begins here, for one condition, and this price now also includes your full preventive screening calendar, not just chronic-condition tracking.",
     highlight: true,
     items: [
       { feature: "Everything in Tarragon Free", label: "INCLUDED" },
-      { feature: "Monthly doctor review of your BP, glucose, or weight readings", label: "INCLUDED" },
-      { feature: "Monthly doctor check-in", label: "INCLUDED" },
+      { feature: "A doctor-set care plan for your condition, with a scheduled review", label: "INCLUDED" },
+      { feature: "Regular doctor check-in", label: "INCLUDED" },
       { feature: "Medication adherence follow-up from your doctor", label: "INCLUDED" },
       { feature: "Message your care team directly in the app", label: "INCLUDED" },
       { feature: "Personal screening calendar and vaccination schedule, the same as Tarragon Prevent", label: "INCLUDED" },
@@ -249,7 +276,7 @@ export const NGN_TIERS: PricingTier[] = [
       { feature: "Medication refills, from any pharmacy you choose", label: "YOU PAY THE LAB" },
     ],
     footnote:
-      "A month of Essential Care costs less than a single private specialist consultation in Lagos (typically ₦15,000–16,000) and buys twelve months of monthly doctor review, a check-in, adherence follow-up, and in-app messaging with your care team. If you have more than one condition, or your doctor considers you higher-risk, Complete Care gives you closer monitoring.",
+      "A month of Essential Care costs less than a single private specialist consultation in Lagos (typically ₦15,000–16,000) and buys twelve months of a doctor-set care plan, scheduled review, check-ins, adherence follow-up, and in-app messaging with your care team. If you have more than one condition, or your doctor considers you higher-risk, Complete Care gives you closer monitoring.",
   },
   {
     id: "complete",
@@ -262,7 +289,7 @@ export const NGN_TIERS: PricingTier[] = [
       "Tarragon currently manages three chronic conditions: hypertension, diabetes, and weight management. Complete Care is for anyone managing more than one of them together (for example, blood pressure and blood sugar, or diabetes and weight), or anyone whose doctor recommends closer monitoring.",
     items: [
       { feature: "Everything in Essential Care", label: "INCLUDED" },
-      { feature: "Weekly doctor review (instead of monthly)", label: "INCLUDED" },
+      { feature: "A scheduled review for each condition you manage, not just one", label: "INCLUDED" },
       { feature: "Hypertension, diabetes, and weight all managed together on one care plan", label: "INCLUDED" },
       { feature: "Priority doctor escalation", label: "INCLUDED" },
       { feature: "Ask a doctor a one-off written question, answered within 72 hours", label: "INCLUDED" },
@@ -303,7 +330,7 @@ export const USD_TIERS: PricingTier[] = [
     priceSecondary: "or $4.03/month",
     priceNote: DIASPORA_PROCESSING_FEE_NOTE_SHORT,
     description:
-      "The stay-healthy plan, billed in dollars: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Monitoring, doctor review, and education work from anywhere; a physical test or dose still needs whoever it's for to visit a laboratory or provider in Nigeria.",
+      "The stay-healthy plan, billed in dollars: a personal screening and vaccination calendar, health education, and doctor follow-up on any abnormal result. Monitoring, care-protocol checks, and education work from anywhere; a physical test or dose still needs whoever it's for to visit a laboratory or provider in Nigeria.",
     items: [
       { feature: "Everything in Tarragon Prevent (Naira plan)", label: "INCLUDED" },
       { feature: "Screening lab tests, paid to a laboratory in Nigeria", label: "YOU PAY THE LAB" },
@@ -405,7 +432,7 @@ export const DIASPORA_PROCESSING_FEE_NOTE =
  * platform needs most: trust.
  */
 export const DIASPORA_SELF_USE_NOTE =
-  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, doctor review of your readings, in-app care team messaging, and health record all work wherever you are. A lab test or a medication refill still means physically visiting a laboratory or pharmacy of your own choosing, so those are for when you're home; home sample collection and medication delivery aren't live anywhere yet, ours or a partner's.";
+  "Being upfront: these plans are built first for watching over someone in Nigeria. If you subscribe for yourself while living abroad, the app tracking, your doctor-set care plan and scheduled reviews, in-app care team messaging, and health record all work wherever you are. A lab test or a medication refill still means physically visiting a laboratory or pharmacy of your own choosing, so those are for when you're home; home sample collection and medication delivery aren't live anywhere yet, ours or a partner's.";
 
 /** Care vouchers buy a YEAR OF A PLAN, never a test.
  *
@@ -572,7 +599,7 @@ export const HMO_COMPARE_INTRO =
 
 export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }[] = [
   { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },
-  { need: "A doctor reviews your BP and blood sugar readings every month, even when you feel fine", hmo: false, tarragon: true },
+  { need: "Checks your BP and blood sugar readings against care protocols every time you log one, even when you feel fine", hmo: false, tarragon: true },
   { need: "Spots a worrying pattern in your numbers and escalates it before it becomes an emergency", hmo: false, tarragon: true },
   { need: "Reminds you when a test or refill is due, hands you a request to take to any lab or pharmacy, and tracks your results over time", hmo: false, tarragon: true },
   { need: "Keeps your whole health story in one record your family can see (with your consent)", hmo: false, tarragon: true },
@@ -580,6 +607,30 @@ export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }
 
 export const HMO_COMPARE_NOTE =
   "Keep your HMO: you'll still need it the day you're admitted. Tarragon is the layer that watches your numbers between hospital visits so that day comes later, or not at all. We already work alongside Nigerian HMOs, and if your employer or HMO wants Tarragon for its members, they can talk to us directly.";
+
+/**
+ * "Tarragon vs a one-off checkup": the other comparison people actually make
+ * before signing up — not against an HMO, but against paying for a single
+ * private lab panel or annual checkup somewhere and being handed a PDF.
+ * Same non-disparaging rule as HMO_COMPARE_ROWS: no named competitor, and
+ * both still cost the same "you pay the lab" way, since Tarragon has no
+ * contracted lab either. The difference this table draws is what happens
+ * before and after the result, not who is cheaper.
+ */
+export const CHECKUP_COMPARE_INTRO =
+  "A one-off checkup and Tarragon both send you to a laboratory you choose, and you pay that laboratory directly, at their price. What's different is everything around the result.";
+
+export const CHECKUP_COMPARE_ROWS: { need: string; oneOff: boolean; tarragon: boolean }[] = [
+  { need: "Gives you a written result", oneOff: true, tarragon: true },
+  { need: "Explains what the numbers actually mean, in plain language", oneOff: false, tarragon: true },
+  { need: "A doctor follows up if something comes back abnormal", oneOff: false, tarragon: true },
+  { need: "Keeps last time's result so you can see the trend, not just today's number", oneOff: false, tarragon: true },
+  { need: "Tells you when your next check is actually due, and why", oneOff: false, tarragon: true },
+  { need: "One record your family can see, with your consent", oneOff: false, tarragon: true },
+];
+
+export const CHECKUP_COMPARE_NOTE =
+  "Nothing here is a claim that a one-off checkup is a bad idea; it's a fine way to get a snapshot. Tarragon is for when you want that snapshot to turn into an ongoing picture, with someone actually reading it and following up.";
 
 export const ALWAYS_FREE: PricingLineItem & { description: string } = {
   feature: "HPV vaccine for girls aged 9–14",
@@ -593,12 +644,12 @@ export const ALWAYS_FREE_NOTE =
 
 /** "Try Before You Commit" section: free trials of Complete Care from Tarragon Free. */
 export const FREE_TRIAL_INTRO =
-  "Tarragon Free stays free forever: it never expires and never turns into a paid plan on its own. But if you want to feel what it's like to have a real doctor actually watching your numbers, we offer two ways to try a paid plan at no cost.";
+  "Tarragon Free stays free forever: it never expires and never turns into a paid plan on its own. But if you want to feel what it's like to have a doctor-set care plan and a real care team behind your numbers, we offer two ways to try a paid plan at no cost.";
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
     title: "Milestone trial: after your 90-Day Health Reset",
-    body: "Once you've completed the 90-Day Health Reset on Tarragon Free, we'll offer you 30 days of Complete Care at no charge, no card required to start. A real doctor reviews your numbers for a month so you can decide, with full information, whether it's worth paying for.",
+    body: "Once you've completed the 90-Day Health Reset on Tarragon Free, we'll offer you 30 days of Complete Care at no charge, no card required to start. A real doctor sets your care plan and your care team is there for a month, so you can decide, with full information, whether it's worth paying for.",
   },
   {
     title: "Risk-triggered trial: when your own numbers ask for it",
@@ -703,7 +754,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "I already have an HMO. Do I still need Tarragon?",
     answer:
-      "They do different jobs. Your HMO pays your treatment bills when you're ill; Tarragon watches your numbers between hospital visits, where a doctor reviews your readings, escalates worrying patterns early, and coordinates your labs and refills. Keep your HMO; Tarragon works alongside it.",
+      "They do different jobs. Your HMO pays your treatment bills when you're ill; Tarragon watches your numbers between hospital visits, checks them against care protocols, escalates worrying patterns to a doctor early, and coordinates your labs and refills. Keep your HMO; Tarragon works alongside it.",
   },
   {
     question: "What do lab tests actually cost?",
@@ -725,9 +776,9 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
       "Yes. All payments are processed through Paystack (Nigeria) or Stripe (diaspora). Tarragon does not store your card details.",
   },
   {
-    question: "How do I place an order for a test, refill, or add-on?",
+    question: "How do I get a test done, a refill tracked, or an add-on added?",
     answer:
-      "Tap the relevant button in the app (“Request a Test,” “Request Refill,” “Add a Service”). For an add-on, you'll always see Tarragon's exact price before confirming. For a test or refill, the app gives you a request to take to whichever laboratory or pharmacy you choose, and you pay them directly; if your doctor flags something first, you'll get a WhatsApp reminder pointing you to the right place in the app.",
+      "For a test: message your care team in the app, or tap “Get this test” on a screening that's come due, and either way you get a request to take to whichever laboratory you choose, paying them directly. For a refill: your care team tracks your refill date and reminds you when it's due; you still buy from whichever pharmacy suits you. For an add-on: open Plans in the app, where you'll always see Tarragon's exact price before confirming.",
   },
   {
     question: "What is a care voucher?",

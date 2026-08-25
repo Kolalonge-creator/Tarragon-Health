@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
 export type ProductPageContent = {
   slug: string;
@@ -83,7 +84,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Weight tracked, reviewed, and followed up, not left to willpower alone.",
     campaignLine: "Weight is a health condition, managed with real support.",
     intro:
-      "Tarragon's weight management programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed.",
+      "Tarragon's weight management programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed. The plan that works is the one you can actually keep doing, built around your routine rather than an ideal you're supposed to live up to.",
     included: [
       "Weight and waist tracking on one record",
       "A personalised lifestyle and activity plan",
@@ -248,11 +249,17 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
 export function getProductPage(slug: string): ProductPageContent | undefined {
   const page = PRODUCT_PAGES[slug];
   if (!page) return undefined;
-  // Inject the per-page canonical from the slug so every programme page
-  // self-canonicalises (the slug matches its marketing route: /hypertension …).
+  // Inject the per-page canonical + OG/Twitter from the slug so every
+  // programme page self-canonicalises (the slug matches its marketing route:
+  // /hypertension …) and gets a real social share card, not the layout's bare
+  // fallback (see pageMetadata's doc comment for why the fallback isn't enough).
   return {
     ...page,
-    metadata: { ...page.metadata, alternates: { canonical: `/${page.slug}` } },
+    metadata: pageMetadata({
+      title: page.metadata.title as string,
+      description: page.metadata.description as string,
+      path: `/${page.slug}`,
+    }),
   };
 }
 

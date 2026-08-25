@@ -2,27 +2,29 @@
   "expo": {
     "name": "TarragonHealth",
     "slug": "tarragon-health",
+    "owner": "worldbest",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "tarragonhealth",
     "icon": "./assets/icon.png",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "0.1.0",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "plugins": [
       [
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": false,
           "modes": [],
-          "bluetoothAlwaysPermission": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale."
+          "bluetoothAlwaysPermission": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale.",
+          "neverForLocation": true
         }
       ],
       [
@@ -30,15 +32,44 @@
         {
           "NSHealthShareUsageDescription": "TarragonHealth reads the blood pressure, blood sugar, weight, oxygen level, heart rate and step data you already keep in Apple Health, so your care team sees it alongside the rest of your record.",
           "NSHealthUpdateUsageDescription": false,
-          "background": false
+          "background": true
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0E7C52"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "TarragonHealth uses your camera to photograph a lab result so it can be read into your record.",
+          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-secure-store",
+      "expo-background-task",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      "react-native-health-connect",
+      "./plugins/withHealthConnectMainActivity.js"
     ],
     "ios": {
       "bundleIdentifier": "com.tarragonhealth.mobile",
       "supportsTablet": false,
       "infoPlist": {
-        "NSBluetoothAlwaysUsageDescription": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale."
+        "NSBluetoothAlwaysUsageDescription": "TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale.",
+        "NSFaceIDUsageDescription": "TarragonHealth uses Face ID to lock the app so only you can open your health record.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -47,7 +78,28 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "permissions": ["BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_BLOOD_PRESSURE",
+        "android.permission.health.READ_BLOOD_GLUCOSE",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_OXYGEN_SATURATION",
+        "android.permission.health.READ_HEART_RATE_VARIABILITY",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND",
+        "android.permission.health.READ_HEALTH_DATA_HISTORY"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "70441d73-567d-445b-8d29-691afdb72d72"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/70441d73-567d-445b-8d29-691afdb72d72"
     }
   }
 }

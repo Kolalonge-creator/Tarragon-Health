@@ -8,6 +8,7 @@ import {
   ledgerEntriesSchema,
   periodsListSchema,
   reconciliationSummarySchema,
+  reconciliationFlagsSchema,
   revrecSummarySchema,
   taxRatesListSchema,
   taxSummarySchema,
@@ -29,6 +30,7 @@ import {
   financeAuditLogSchema,
   auditActionsListSchema,
   complianceSuggestedAmountSchema,
+  companyProfileSchema,
 } from "./schemas";
 
 /**
@@ -345,6 +347,23 @@ export function useComplianceCalendar(monthsAhead = 3) {
   });
 }
 
+/** Same shape as useComplianceCalendar, windowed by an explicit calendar
+ * year instead of "relative to today" — see finance_compliance_calendar_for_year
+ * (20260812041815). Powers the printable Government filings pack, which lets
+ * you pick a past financial year the day-to-day tab's rolling window can't reach. */
+export function useComplianceCalendarForYear(year: number) {
+  return useQuery({
+    queryKey: ["finance", "compliance", "year", year],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_compliance_calendar_for_year", {
+        p_year: year,
+      });
+      if (error) throw error;
+      return complianceCalendarSchema.parse(data);
+    },
+  });
+}
+
 export function useKpiSummary(currency: string) {
   return useQuery({
     queryKey: ["finance", "kpis", currency],
@@ -352,6 +371,19 @@ export function useKpiSummary(currency: string) {
       const { data, error } = await createClient().rpc("finance_kpi_summary", { p_currency: currency });
       if (error) throw error;
       return kpiSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useReconciliationFlags(status: "open" | "resolved" | "ignored" | null = "open") {
+  return useQuery({
+    queryKey: ["finance", "reconciliation-flags", status],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_reconciliation_flags", {
+        p_status: status ?? undefined,
+      });
+      if (error) throw error;
+      return reconciliationFlagsSchema.parse(data);
     },
   });
 }
@@ -389,6 +421,20 @@ export function useFinanceAuditActions() {
       const { data, error } = await createClient().rpc("finance_audit_actions_list");
       if (error) throw error;
       return auditActionsListSchema.parse(data);
+    },
+  });
+}
+
+/** Company legal/registration profile — the letterhead facts the printable
+ * Reports & Filings packs (finance/reports/print/[pack]) render at the top
+ * of every document. Editable only from admin/settings/company-profile. */
+export function useCompanyProfile() {
+  return useQuery({
+    queryKey: ["finance", "company-profile"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_company_profile_get");
+      if (error) throw error;
+      return companyProfileSchema.parse(data);
     },
   });
 }

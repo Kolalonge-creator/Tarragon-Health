@@ -1,7 +1,9 @@
 import {
   assessMedicationSafety,
+  assessAllergyFindings,
   classifyDrug,
   countBySeverity,
+  type AllergyInput,
   type MedicationInput,
 } from "./drug-safety";
 
@@ -9,6 +11,12 @@ let nextId = 0;
 function med(drugName: string, extra: Partial<MedicationInput> = {}): MedicationInput {
   nextId += 1;
   return { id: `m${nextId}`, drugName, ...extra };
+}
+
+let nextAllergyId = 0;
+function allergy(allergenText: string, extra: Partial<AllergyInput> = {}): AllergyInput {
+  nextAllergyId += 1;
+  return { id: `a${nextAllergyId}`, allergen: allergenText, ...extra };
 }
 
 describe("classifyDrug", () => {
@@ -49,6 +57,22 @@ describe("classifyDrug", () => {
     expect(classifyDrug("Paracetamol")).toEqual([]);
     expect(classifyDrug("")).toEqual([]);
     expect(classifyDrug("   ")).toEqual([]);
+  });
+
+  it("classifies penicillins and cephalosporins, including generic/allergen-style text", () => {
+    expect(classifyDrug("Amoxicillin 500mg")).toContain("penicillin");
+    expect(classifyDrug("Co-amoxiclav")).toContain("penicillin");
+    expect(classifyDrug("Penicillin")).toContain("penicillin");
+    expect(classifyDrug("Ceftriaxone 1g IV")).toContain("cephalosporin");
+    expect(classifyDrug("Cephalosporin")).toContain("cephalosporin");
+  });
+
+  it("classifies generic/lay allergen terms a patient is likely to write", () => {
+    expect(classifyDrug("Sulfa drugs")).toContain("cotrimoxazole");
+    expect(classifyDrug("Sulfonamide")).toContain("cotrimoxazole");
+    expect(classifyDrug("NSAIDs")).toContain("nsaid");
+    expect(classifyDrug("Opioids")).toContain("tramadol_opioid");
+    expect(classifyDrug("Statins")).toContain("statin");
   });
 });
 
@@ -251,5 +275,188 @@ describe("report shape", () => {
   it("handles an empty medication list without throwing", () => {
     const report = assessMedicationSafety([]);
     expect(report.findings).toEqual([]);
+  });
+});
+
+describe("allergy cross-checking", () => {
+  it("flags an exact same-drug match as contraindicated", () => {
+    const findings = assessAllergyFindings([med("Amoxicillin 500mg")], [allergy("Amoxicillin")]);
+    const finding = findings.find((f) => f.kind === "allergy");
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe("contraindicated");
+    expect(finding!.medicationIds).toEqual(expect.arrayContaining([expect.any(String)]));
+  });
+
+  it("catches a literal name match even when the allergen isn't in the class taxonomy", () => {
+    // "Augmentin" the brand name vs a prescription also literally called Augmentin —
+    // this exercises the substring fallback, not classifyDrug's penicillin pattern.
+    const findings = assessAllergyFindings([med("Augmentin 625mg BD")], [allergy("Augmentin")]);
+    expect(findings.some((f) => f.severity === "contraindicated")).toBe(true);
+  });
+
+  it("flags a same-class match (different specific drug) as contraindicated for a tight class", () => {
+    const findings = assessAllergyFindings([med("Lisinopril 10mg")], [allergy("Ramipril", { reaction: "cough" })]);
+    const finding = findings.find((f) => f.kind === "allergy");
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe("contraindicated");
+    expect(finding!.title).toMatch(/ramipril/i);
+  });
+
+  it("downgrades a same-class match to caution for a coarse/bundled class (aspirin vs clopidogrel)", () => {
+    // Aspirin and clopidogrel share the "antiplatelet" interaction class but are
+    // chemically unrelated — an aspirin allergy should not read as a hard block
+    // on clopidogrel.
+    const findings = assessAllergyFindings([med("Clopidogrel 75mg")], [allergy("Aspirin")]);
+    const finding = findings.find((f) => f.kind === "allergy");
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe("caution");
+  });
+
+  it("stays quiet when there is no relationship at all", () => {
+    const findings = assessAllergyFindings([med("Paracetamol")], [allergy("Penicillin")]);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("returns nothing for an empty allergy list or an empty medication list", () => {
+    expect(assessAllergyFindings([med("Amoxicillin")], [])).toHaveLength(0);
+    expect(assessAllergyFindings([], [allergy("Penicillin")])).toHaveLength(0);
+  });
+
+  describe("penicillin / cephalosporin cross-reactivity", () => {
+    it("cautions on a mild penicillin allergy against a cephalosporin", () => {
+      const findings = assessAllergyFindings(
+        [med("Cefuroxime 500mg")],
+        [allergy("Penicillin", { severity: "mild", reaction: "mild rash" })],
+      );
+      const finding = findings.find((f) => /cross-reactivity/i.test(f.title));
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("caution");
+    });
+
+    it("escalates to contraindicated after a severe/anaphylactic penicillin reaction", () => {
+      const findings = assessAllergyFindings(
+        [med("Cefuroxime 500mg")],
+        [allergy("Penicillin", { severity: "severe", reaction: "anaphylaxis" })],
+      );
+      const finding = findings.find((f) => /cross-reactivity/i.test(f.title));
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("contraindicated");
+    });
+
+    it("does not double-flag when the allergen and drug are already an exact class match", () => {
+      // Amoxicillin allergy vs Amoxicillin prescription: exact match already fires;
+      // the penicillin/cephalosporin cross-reactivity rule should not also fire
+      // (there's no cephalosporin in this list to cross-react with anyway).
+      const findings = assessAllergyFindings([med("Amoxicillin")], [allergy("Amoxicillin")]);
+      expect(findings.filter((f) => /cross-reactivity/i.test(f.title))).toHaveLength(0);
+    });
+  });
+
+  describe("ACE inhibitor / ARB — reaction-aware", () => {
+    it("does NOT warn when the recorded reaction is just the class-effect cough — that's the standard switch", () => {
+      const findings = assessAllergyFindings(
+        [med("Losartan 50mg")],
+        [allergy("Lisinopril", { reaction: "dry cough" })],
+      );
+      const caution = findings.find((f) => f.severity === "caution" || f.severity === "contraindicated");
+      expect(caution).toBeUndefined();
+      // Still says something useful, just at info level, not a warning.
+      expect(findings.some((f) => f.severity === "info")).toBe(true);
+    });
+
+    it("cautions when the reaction was angioedema", () => {
+      const findings = assessAllergyFindings(
+        [med("Losartan 50mg")],
+        [allergy("Lisinopril", { reaction: "facial angioedema" })],
+      );
+      const finding = findings.find((f) => f.kind === "allergy");
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("caution");
+    });
+
+    it("gives a lower-confidence prompt to confirm when the reaction is unrecorded", () => {
+      const findings = assessAllergyFindings([med("Losartan 50mg")], [allergy("Lisinopril")]);
+      const finding = findings.find((f) => f.kind === "allergy");
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("info");
+      expect(finding!.message).toMatch(/confirm/i);
+    });
+  });
+
+  describe("aspirin / NSAID cross-reactivity", () => {
+    it("cautions on an aspirin allergy against a different NSAID", () => {
+      const findings = assessAllergyFindings([med("Ibuprofen 400mg")], [allergy("Aspirin")]);
+      const finding = findings.find((f) => f.kind === "allergy");
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("caution");
+    });
+
+    it("cautions the other direction too — an NSAID allergy against aspirin specifically", () => {
+      const findings = assessAllergyFindings([med("Aspirin 75mg")], [allergy("Ibuprofen")]);
+      const finding = findings.find((f) => f.kind === "allergy");
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("caution");
+    });
+
+    it("does not fire this rule for clopidogrel — it is not an NSAID", () => {
+      const findings = assessAllergyFindings([med("Clopidogrel 75mg")], [allergy("Ibuprofen")]);
+      expect(findings.filter((f) => /nsaids and aspirin/i.test(f.title))).toHaveLength(0);
+    });
+  });
+
+  describe("sulfonamide allergy — corrective note, not a warning", () => {
+    it("flags co-trimoxazole itself as a direct class match", () => {
+      const findings = assessAllergyFindings([med("Septrin")], [allergy("Sulfa drugs")]);
+      const finding = findings.find((f) => f.kind === "allergy" && !/does not extend/i.test(f.title));
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("contraindicated");
+    });
+
+    it("gives an info-level corrective note for furosemide, not a caution/block", () => {
+      const findings = assessAllergyFindings([med("Furosemide 40mg")], [allergy("Sulfa drugs")]);
+      const finding = findings.find((f) => f.kind === "allergy");
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("info");
+      expect(finding!.title).toMatch(/does not extend/i);
+    });
+
+    it("gives the same corrective note for a sulfonylurea and for celecoxib", () => {
+      const sulfonylurea = assessAllergyFindings([med("Gliclazide 80mg")], [allergy("Sulfonamide")]);
+      expect(sulfonylurea.find((f) => f.kind === "allergy")?.severity).toBe("info");
+
+      const celecoxib = assessAllergyFindings([med("Celecoxib 200mg")], [allergy("Sulfonamide")]);
+      expect(celecoxib.find((f) => f.kind === "allergy")?.severity).toBe("info");
+    });
+  });
+
+  describe("integrated into assessMedicationSafety", () => {
+    it("says allergies were not checked when the caller never loads them", () => {
+      const report = assessMedicationSafety([med("Amoxicillin")]);
+      expect(report.allergyCheckNote).toMatch(/not checked/i);
+    });
+
+    it("says none are recorded when the caller loads an empty list", () => {
+      const report = assessMedicationSafety([med("Amoxicillin")], { allergies: [] });
+      expect(report.allergyCheckNote).toMatch(/no allergies are recorded/i);
+    });
+
+    it("clears the note and surfaces the finding when a real allergy is loaded", () => {
+      const report = assessMedicationSafety([med("Amoxicillin 500mg")], {
+        allergies: [allergy("Penicillin", { severity: "severe" })],
+      });
+      expect(report.allergyCheckNote).toBeNull();
+      const finding = report.findings.find((f) => f.kind === "allergy");
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("contraindicated");
+    });
+
+    it("ranks a contraindicated allergy hit above a milder interaction", () => {
+      const report = assessMedicationSafety(
+        [med("Amoxicillin 500mg"), med("Levothyroxine"), med("Omeprazole")],
+        { allergies: [allergy("Penicillin", { severity: "severe" })] },
+      );
+      expect(report.findings[0].kind).toBe("allergy");
+      expect(report.findings[0].severity).toBe("contraindicated");
+    });
   });
 });

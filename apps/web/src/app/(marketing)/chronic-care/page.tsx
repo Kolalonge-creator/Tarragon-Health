@@ -1,22 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CtaBand } from "../_components/cta-band";
-import { Section, SectionHeading } from "../_components/section";
+import { MarketingMediaFrame } from "../_components/marketing-media-frame";
+import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
+import { Section } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { StepsExplorer } from "../_components/steps-explorer";
 import { SERVICE_CARDS } from "../_content/services";
+import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
 export const revalidate = 300;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Chronic care",
   description:
     "Ongoing monitoring for chronic conditions like hypertension, diabetes, and weight management: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
-  alternates: { canonical: MARKETING_ROUTES.chronicCare },
-};
+  path: MARKETING_ROUTES.chronicCare,
+});
 
 const CHRONIC_KEYS = ["hypertension", "diabetes", "obesity"] as const;
 const CHRONIC_CARDS = SERVICE_CARDS.filter((card) =>
@@ -26,7 +30,7 @@ const CHRONIC_CARDS = SERVICE_CARDS.filter((card) =>
 const HOW = [
   {
     title: "Consistent monitoring",
-    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, all on one longitudinal record.",
+    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, or let a connected BP cuff, glucometer, or wearable fill in the reading as we bring each device online. Either way, it lands on one longitudinal record.",
   },
   {
     title: "Reviewed between visits",
@@ -44,12 +48,22 @@ export default async function ChronicCarePage() {
 
   return (
     <>
-      <Section className="pt-20">
-        <SectionHeading
-          eyebrow="Chronic care"
-          title="Steady, followed-up care for long-term conditions"
-          description="Chronic disease isn't managed in the clinic, it's managed in the days between visits. Tarragon keeps watch on your readings, medication, and labs, and acts when something changes."
-        />
+      {/* Rendered outside Section on purpose — full-bleed spans the full
+          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
+      <PhotoBannerHero
+        eyebrow="Chronic care"
+        title="Steady, followed-up care for long-term conditions"
+        description="Chronic disease isn't managed in the clinic, it's managed in the days between visits. Tarragon keeps watch on your readings, medication, and labs, and acts when something changes."
+        primaryHref="/signup"
+        primaryLabel="Start monitoring"
+        secondaryHref={MARKETING_ROUTES.pricing}
+        secondaryLabel="View pricing"
+        imageSrc={MARKETING_MEDIA.pageHero.chronicCare.imageSrc ?? ""}
+        imageAlt={MARKETING_MEDIA.pageHero.chronicCare.imageAlt ?? ""}
+        imagePosition={MARKETING_MEDIA.pageHero.chronicCare.imageFocus}
+      />
+
+      <Section className="pt-14">
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {CHRONIC_CARDS.map((service) => (
             <ServiceCardLink key={service.key} service={service} />
@@ -58,8 +72,25 @@ export default async function ChronicCarePage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="How chronic care works" title="Monitor, review, escalate" />
-        <StepsExplorer steps={HOW} tone="navy" />
+        <div className="mx-auto grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              How chronic care works
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              Monitor, review, escalate
+            </h2>
+          </div>
+          <MarketingMediaFrame
+            media={{
+              illustration: "care-loop",
+              imageAlt: "A continuous loop: monitor, review, and escalate when needed",
+            }}
+          />
+        </div>
+        <div className="mt-10">
+          <StepsExplorer steps={HOW} tone="navy" />
+        </div>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Looking after a parent with a long-term condition?{" "}
           <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">

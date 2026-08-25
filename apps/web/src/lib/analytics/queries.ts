@@ -343,7 +343,7 @@ export function useLogPatientAccess() {
     mutationFn: async ({ patientId, reason }: { patientId: string; reason: string }) => {
       const { error } = await createClient().rpc("analytics_log_patient_access", {
         p_patient_id: patientId,
-        p_reason: reason || null,
+        p_reason: (reason || null) as unknown as string,
       });
       if (error) throw error;
     },
@@ -413,14 +413,14 @@ export function useUpsertRisk() {
   return useMutation({
     mutationFn: async (r: RiskInput) => {
       const { error } = await createClient().rpc("analytics_upsert_risk", {
-        p_id: r.id ?? null,
+        p_id: (r.id ?? null) as unknown as string,
         p_title: r.title,
         p_category: r.category,
         p_likelihood: r.likelihood,
         p_impact: r.impact,
         p_status: r.status,
-        p_owner: r.owner ?? null,
-        p_mitigation: r.mitigation ?? null,
+        p_owner: (r.owner ?? null) as unknown as string,
+        p_mitigation: (r.mitigation ?? null) as unknown as string,
       });
       if (error) throw error;
     },
@@ -476,8 +476,8 @@ export function useUpsertFinanceInput() {
         p_opex: f.operating_expense_minor,
         p_cash: f.cash_balance_minor,
         p_margin: f.gross_margin_pct,
-        p_new_customers: f.new_customers ?? null,
-        p_notes: f.notes ?? null,
+        p_new_customers: (f.new_customers ?? null) as unknown as number,
+        p_notes: (f.notes ?? null) as unknown as string,
       });
       if (error) throw error;
     },

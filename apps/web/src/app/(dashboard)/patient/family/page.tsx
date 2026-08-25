@@ -115,6 +115,14 @@ export default async function CareCirclePage() {
 
       <CareAccessRequestsList requests={requests} currentUserId={profile.id} />
 
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
+          <DependantsList />
+          <AddChildForm />
+        </div>
+        <AdultsYouManageList />
+      </div>
+
       <NextOfKinForm current={nextOfKin} />
 
       <CareVisibilityList />
@@ -133,10 +141,6 @@ export default async function CareCirclePage() {
           </Button>
         </CardContent>
       </Card>
-
-      <AdultsYouManageList />
-      <DependantsList />
-      <AddChildForm />
     </div>
   );
 }

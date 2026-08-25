@@ -11,11 +11,15 @@ import {
 } from "@tarragon/lifestyle-engine";
 import { enrollPatient } from "@/lib/lifestyle/service";
 import { ingestMeasurement } from "@/lib/lifestyle/ingest";
+import { ED_DISORDERED_BEHAVIOURS, obesityEdScreenSchema } from "@/lib/validation/obesity";
 
 export type LifestyleActionState = {
   error?: string;
   success?: boolean;
   message?: string;
+  /** Set when an obesity enrolment attempt was blocked pending the mandatory
+   * ED/mental-health screen (§6.5) — the UI swaps in the screen form. */
+  needsEdScreen?: boolean;
 } | undefined;
 
 async function currentPatient() {
@@ -54,10 +58,100 @@ export async function enrollAction(
   if (ctx.error) return { error: ctx.error };
 
   const result = await enrollPatient(ctx.userId!, ctx.orgId!, parsed.data.conditionKey);
+  if (!result.ok) {
+    if (result.reason === "ed_screen_required") {
+      return { needsEdScreen: true };
+    }
+    return { error: `Could not enrol (${result.reason ?? "error"})` };
+  }
+
+  revalidatePath("/patient/lifestyle");
+  return { success: true, message: "You're enrolled. Small steps from here." };
+}
+
+const edScreenGateSchema = obesityEdScreenSchema.extend({
+  consent: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
+});
+
+/**
+ * The mandatory ED/mental-health screen (§6.5, §16, §18), self-reported by the
+ * patient, immediately followed by the enrolment it was blocking. Scoring,
+ * alert-raising, and any weight-loss auto-pause on an EXISTING enrolment are
+ * DB-trigger owned (`private.handle_obesity_ed_screen`) — this only inserts
+ * the answers and then calls the same `enrollPatient` every other condition
+ * uses, which now finds a screen on file and enrols active or paused
+ * accordingly. Never returns a clinical verdict either way — a positive
+ * screen is framed as support, not a failure.
+ */
+export async function submitObesityEdScreenAndEnrollAction(
+  _prev: LifestyleActionState,
+  formData: FormData,
+): Promise<LifestyleActionState> {
+  const parsed = edScreenGateSchema.safeParse({
+    consent: formData.get("consent"),
+    scoff_sick: formData.get("scoff_sick") === "on",
+    scoff_control: formData.get("scoff_control") === "on",
+    scoff_one_stone: formData.get("scoff_one_stone") === "on",
+    scoff_fat: formData.get("scoff_fat") === "on",
+    scoff_food_dominates: formData.get("scoff_food_dominates") === "on",
+    self_harm_risk: formData.get("self_harm_risk") === "on",
+    low_mood: formData.get("low_mood") === "on",
+    disordered_behaviours: formData.getAll("disordered_behaviours").filter((c) =>
+      (ED_DISORDERED_BEHAVIOURS as readonly string[]).includes(c as string),
+    ),
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input", needsEdScreen: true };
+  }
+  if (!parsed.data.consent) {
+    return {
+      error: "Please agree to the consent statement to start.",
+      needsEdScreen: true,
+    };
+  }
+  const input = parsed.data;
+
+  const ctx = await currentPatient();
+  if (ctx.error) return { error: ctx.error };
+
+  const { data: saved, error: screenErr } = await ctx.supabase
+    .from("obesity_ed_screens")
+    .insert({
+      organisation_id: ctx.orgId!,
+      patient_id: ctx.userId!,
+      scoff_sick: input.scoff_sick ?? false,
+      scoff_control: input.scoff_control ?? false,
+      scoff_one_stone: input.scoff_one_stone ?? false,
+      scoff_fat: input.scoff_fat ?? false,
+      scoff_food_dominates: input.scoff_food_dominates ?? false,
+      self_harm_risk: input.self_harm_risk ?? false,
+      low_mood: input.low_mood ?? false,
+      disordered_behaviours: input.disordered_behaviours,
+      notes: input.notes ?? null,
+    })
+    .select("positive")
+    .single();
+  if (screenErr || !saved) {
+    return {
+      error: "Could not save your answers, please try again.",
+      needsEdScreen: true,
+    };
+  }
+
+  const result = await enrollPatient(ctx.userId!, ctx.orgId!, "obesity");
   if (!result.ok) return { error: `Could not enrol (${result.reason ?? "error"})` };
 
   revalidatePath("/patient/lifestyle");
   revalidatePath("/patient/weight-management");
+
+  if (saved.positive) {
+    return {
+      success: true,
+      message:
+        "Thanks for sharing that. Your care team will reach out to talk it through before we start on weight-loss goals; you're still enrolled and supported in the meantime.",
+    };
+  }
   return { success: true, message: "You're enrolled. Small steps from here." };
 }
 
@@ -180,9 +274,9 @@ export async function createGoalAction(
     p_enrollment_id: enrollmentId,
     p_module: module,
     p_title: title,
-    p_target_value: targetValue ?? null,
-    p_target_unit: targetUnit ?? null,
-    p_target_date: targetDate ?? null,
+    p_target_value: targetValue ?? undefined,
+    p_target_unit: targetUnit ?? undefined,
+    p_target_date: targetDate ?? undefined,
   });
   if (error) return { error: error.message || "Could not save your goal" };
 

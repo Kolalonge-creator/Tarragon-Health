@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { LabOrderStatus } from "@tarragon/shared";
 import { PatientResultUpload } from "@/components/patient-result-upload";
+import { RequestPartnerLabVisit } from "@/app/(dashboard)/patient/request-partner-lab-visit";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
  * go when you can" and "the result is in". Payment states are retained in the
@@ -57,6 +58,12 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                       Download the request to take with you
                     </a>
                     <PatientResultUpload labOrderId={order.id} />
+                    {/* Optional upgrade, not a required step — the download
+                        link above already works with zero partners on
+                        file. See request-partner-lab-visit.tsx. */}
+                    {order.fulfilment === "self_arranged" && order.status === "ordered" && (
+                      <RequestPartnerLabVisit patientId={patientId} orderId={order.id} />
+                    )}
                   </>
                 )}
               </li>

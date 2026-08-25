@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import {
   getHealthScoreTips,
+  getPriorityHealthScoreTip,
   computeHealthScoreTrend,
   describeHealthScoreTrend,
   type HealthScoreComponent,
@@ -35,7 +36,8 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useLatestHealthScore(patientId);
   const { data: history } = useHealthScoreHistory(patientId);
   const components = (data?.inputs as { components?: HealthScoreComponent[] } | null)?.components ?? [];
-  const tips = getHealthScoreTips(components);
+  const priorityTip = getPriorityHealthScoreTip(components);
+  const tips = getHealthScoreTips(components).filter((tip) => tip !== priorityTip?.tip);
   const scoredHistory = history?.filter(
     (h): h is { score: number; inputs: typeof h.inputs; computed_at: string } => h.score !== null,
   );
@@ -90,10 +92,20 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
                 ))}
               </ul>
             )}
-            {tips.length > 0 && (
+            {priorityTip && (
               <div className="space-y-1 border-t border-charcoal-ink/10 pt-3">
                 <p className="text-xs font-medium text-charcoal-ink/70">
-                  A few things that could help
+                  Start here for the biggest lift
+                </p>
+                <p className="rounded-md bg-soft-sage px-3 py-2 text-sm text-deep-forest">
+                  {priorityTip.tip}
+                </p>
+              </div>
+            )}
+            {tips.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <p className="text-xs font-medium text-charcoal-ink/70">
+                  {priorityTip ? "Other things that could help" : "A few things that could help"}
                 </p>
                 <ul className="list-inside list-disc space-y-1 text-sm text-charcoal-ink/80">
                   {tips.map((tip) => (

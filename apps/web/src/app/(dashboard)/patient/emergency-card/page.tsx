@@ -52,13 +52,20 @@ export default async function EmergencyCardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-charcoal-ink">Emergency card</h1>
-        <p className="mt-1 text-sm text-charcoal-ink/70">
-          The few things that matter most if you are ever treated somewhere that has never seen you
-          before: your blood group and genotype, allergies, current medicines, ongoing conditions,
-          and your emergency contact.
-        </p>
+      <div className="flex flex-col gap-4 rounded-2xl border border-red-700/20 bg-red-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-heading text-lg font-semibold text-red-700">Emergency card</h1>
+          <p className="mt-1 text-sm text-charcoal-ink/70">
+            The few things that matter most if you are ever treated somewhere that has never seen
+            you before: your blood group and genotype, allergies, current medicines, ongoing
+            conditions, and your emergency contact.
+          </p>
+        </div>
+        <Button asChild className="shrink-0 bg-red-700 hover:bg-red-800">
+          <Link href="/patient/emergency-card/print" target="_blank">
+            View / print my card
+          </Link>
+        </Button>
       </div>
 
       {/* Sits before either card option: both the print and live paths depend
@@ -76,85 +83,87 @@ export default async function EmergencyCardPage() {
         }
       />
 
-      {/* THE DEFAULT: a printed card, no new exposure, nothing to consent to. */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your printable card</CardTitle>
-          <CardDescription>
-            Print it, fold it into your wallet, or save the page to your phone. This is just your
-            own record — the same as printing your Health Passport — so there is nothing extra to
-            agree to here.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <ul className="space-y-1 text-sm text-charcoal-ink/80">
-            <li>Your name, date of birth and sex</li>
-            <li>Your blood group and genotype, if we have them</li>
-            <li>Your allergies</li>
-            <li>The medicines you are currently taking</li>
-            <li>Any ongoing conditions you are being treated for</li>
-            <li>Your emergency contact</li>
-          </ul>
-          <p className="text-sm text-charcoal-ink/70">
-            Nothing else — no test results, no notes from your care team, no history. A QR code on
-            the printed card carries the same facts as plain text, so any phone&rsquo;s camera can
-            read it with no app and no internet.
-          </p>
-          <Button asChild>
-            <Link href="/patient/emergency-card/print" target="_blank">
-              View / print my card
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* THE OPT-IN EXTRA: a live link, clearly separated and consented to on
-          its own terms — a genuinely different, always-current exposure. */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Also want a live link?</CardTitle>
-          <CardDescription>
-            {active
-              ? `Active. Anyone with this card or link can see it, without signing in. Valid until ${new Date(active.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`
-              : "Optional, and separate from your printed card. Useful if someone abroad wants to check your details are current — but unlike the printed card, this stays reachable by anyone who has the link, for as long as it's active."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {expiresSoon ? (
-            <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-              This link expires soon. Replace it below to keep it working, or let it lapse — your
-              printed card is unaffected either way.
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        {/* THE DEFAULT: a printed card, no new exposure, nothing to consent to. */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Your printable card</CardTitle>
+            <CardDescription>
+              Print it, fold it into your wallet, or save the page to your phone. This is just
+              your own record — the same as printing your Health Passport — so there is nothing
+              extra to agree to here.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ul className="space-y-1 text-sm text-charcoal-ink/80">
+              <li>Your name, date of birth and sex</li>
+              <li>Your blood group and genotype, if we have them</li>
+              <li>Your allergies</li>
+              <li>The medicines you are currently taking</li>
+              <li>Any ongoing conditions you are being treated for</li>
+              <li>Your emergency contact</li>
+            </ul>
+            <p className="text-sm text-charcoal-ink/70">
+              Nothing else — no test results, no notes from your care team, no history. A QR code
+              on the printed card carries the same facts as plain text, so any phone&rsquo;s
+              camera can read it with no app and no internet.
             </p>
-          ) : null}
+            <Button asChild>
+              <Link href="/patient/emergency-card/print" target="_blank">
+                View / print my card
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
 
-          {active && qrSvg && url ? (
-            <div className="flex flex-col gap-4 rounded-lg border border-charcoal-ink/15 p-4 sm:flex-row sm:items-center">
-              <div
-                className="shrink-0"
-                aria-label="QR code linking to your emergency card"
-                // Locally generated SVG from a token this server just minted —
-                // no user input reaches it.
-                dangerouslySetInnerHTML={{ __html: qrSvg }}
-              />
-              <div className="min-w-0 space-y-1">
-                <p className="text-sm font-medium text-charcoal-ink">
-                  Scan this, or open the link below.
-                </p>
-                <p className="break-all text-xs text-charcoal-ink/60">{url}</p>
-                <Link
-                  href={`/emergency/${active.token}`}
-                  target="_blank"
-                  className="inline-block text-sm font-medium text-brand-green hover:underline"
-                >
-                  See exactly what a stranger would see →
-                </Link>
+        {/* THE OPT-IN EXTRA: a live link, clearly separated and consented to on
+            its own terms — a genuinely different, always-current exposure. */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Also want a live link?</CardTitle>
+            <CardDescription>
+              {active
+                ? `Active. Anyone with this card or link can see it, without signing in. Valid until ${new Date(active.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`
+                : "Optional, and separate from your printed card. Useful if someone abroad wants to check your details are current — but unlike the printed card, this stays reachable by anyone who has the link, for as long as it's active."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {expiresSoon ? (
+              <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                This link expires soon. Replace it below to keep it working, or let it lapse —
+                your printed card is unaffected either way.
+              </p>
+            ) : null}
+
+            {active && qrSvg && url ? (
+              <div className="flex flex-col gap-4 rounded-lg border border-charcoal-ink/15 p-4 sm:flex-row sm:items-center">
+                <div
+                  className="shrink-0"
+                  aria-label="QR code linking to your emergency card"
+                  // Locally generated SVG from a token this server just minted —
+                  // no user input reaches it.
+                  dangerouslySetInnerHTML={{ __html: qrSvg }}
+                />
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-medium text-charcoal-ink">
+                    Scan this, or open the link below.
+                  </p>
+                  <p className="break-all text-xs text-charcoal-ink/60">{url}</p>
+                  <Link
+                    href={`/emergency/${active.token}`}
+                    target="_blank"
+                    className="inline-block text-sm font-medium text-brand-green hover:underline"
+                  >
+                    See exactly what a stranger would see →
+                  </Link>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          <EmergencyCardControls hasActiveCard={Boolean(active)} />
-        </CardContent>
-      </Card>
+            <EmergencyCardControls hasActiveCard={Boolean(active)} />
+          </CardContent>
+        </Card>
+      </div>
 
       {active ? (
         <Card>

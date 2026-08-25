@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useOrgAnnualReviews,
@@ -20,6 +19,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+
+// A bare toLocaleDateString() resolves the server's locale on first render and
+// the browser's on hydration, producing a mismatch. Fixed locale + timezone
+// keeps server and client in sync.
+function formatDueDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
+}
 
 // The ordered pathway, mapped to the completion column each stage owns. The
 // medication_review stage completion also triggers the DB-side reconciliation
@@ -236,7 +242,7 @@ function ReviewCard({ review }: { review: AnnualReviewWithContext }) {
         <div className="flex items-center gap-2">
           <Badge variant="grey">{review.cycle_year}</Badge>
           <Badge variant={overdue ? "red" : "amber"}>
-            {overdue ? "Overdue" : "Due"} {new Date(review.due_date).toLocaleDateString()}
+            {overdue ? "Overdue" : "Due"} {formatDueDate(review.due_date)}
           </Badge>
         </div>
       </CardHeader>
@@ -318,13 +324,10 @@ export default function AnnualReviewsPage() {
   const { data, isLoading, isError } = useOrgAnnualReviews();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-charcoal-ink">Annual Doctor Reviews</h1>
-        <p className="text-sm text-charcoal-ink/70">
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Annual Doctor Reviews</h1>
+        <p className="text-sm text-charcoal-ink/60">
           Whole-body annual reviews for subscribed patients. Completing the medication-review stage
           adopts and rolls each patient&apos;s condition medication reviews, so there is no double review.
         </p>

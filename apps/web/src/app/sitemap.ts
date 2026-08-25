@@ -30,6 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     whoItsFor: 0.7,
     forYou: 0.7,
     about: 0.7,
+    careers: 0.5,
     privacy: 0.3,
     telehealthConsent: 0.3,
     terms: 0.3,

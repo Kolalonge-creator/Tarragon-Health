@@ -4,14 +4,16 @@ import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
 import { ScreeningJourney } from "../_components/screening-journey";
+import { HowTestingWorks } from "../_components/how-testing-works";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Screening Journey",
   description:
     "See exactly which health screenings are recommended for your age and sex, and walk through each one step by step: what it's for, how to book it, what happens on the day, and how results come back.",
-  alternates: { canonical: MARKETING_ROUTES.screeningJourney },
-};
+  path: MARKETING_ROUTES.screeningJourney,
+});
 
 const GENERAL_STEPS = [
   {
@@ -50,6 +52,10 @@ export default function ScreeningJourneyPage() {
             what the day looks like, and how you get your results.
           </p>
         </div>
+      </Section>
+
+      <Section variant="sage">
+        <HowTestingWorks current="periodic" />
       </Section>
 
       <Section>

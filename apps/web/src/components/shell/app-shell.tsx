@@ -11,11 +11,81 @@ import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
 import { ProfileMenu } from "./profile-menu";
-import type { NavSection } from "@/lib/navigation";
+import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
 
 function isActive(pathname: string, href: string, exact?: boolean) {
   if (exact) return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * The phone bottom tab bar — the everyday links within thumb reach, so a
+ * patient on a phone isn't opening the hamburger drawer to do the two or
+ * three things they came to do. Driven entirely by `primary` on the nav
+ * config, so each role decides its own tabs (and a role that flags nothing
+ * keeps the drawer-only behaviour it had before). "More" opens the same full
+ * drawer, so nothing here removes a route from reach — this is a shortcut
+ * layer over the sidebar, not a second, smaller menu.
+ */
+function BottomTabBar({
+  items,
+  pathname,
+  showMore,
+  onMore,
+}: {
+  items: NavItem[];
+  pathname: string;
+  showMore: boolean;
+  onMore: () => void;
+}) {
+  const tabClass =
+    "flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px] font-medium leading-tight";
+
+  return (
+    <nav
+      aria-label="Primary"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-ink/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden"
+    >
+      <ul className="flex items-stretch">
+        {items.map((item) => {
+          const active = isActive(pathname, item.href, item.exact);
+          const Icon = APP_ICON[item.icon];
+          return (
+            <li key={item.href} className="flex flex-1">
+              <Link
+                href={item.href}
+                prefetch={false}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  tabClass,
+                  active ? "text-deep-forest" : "text-charcoal-ink/55"
+                )}
+              >
+                <Icon
+                  className={cn("h-5 w-5", active ? "text-brand-green" : "text-charcoal-ink/45")}
+                  strokeWidth={2}
+                />
+                <span className="truncate">{item.shortLabel ?? item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+        {showMore && (
+          <li className="flex flex-1">
+            <button
+              type="button"
+              onClick={onMore}
+              aria-label="Open menu"
+              className={cn(tabClass, "text-charcoal-ink/55")}
+            >
+              <NAV_ICON.menu className="h-5 w-5 text-charcoal-ink/45" strokeWidth={2} />
+              <span>More</span>
+            </button>
+          </li>
+        )}
+      </ul>
+    </nav>
+  );
 }
 
 function SidebarNav({
@@ -40,6 +110,7 @@ function SidebarNav({
             {section.items.map((item) => {
               const active = isActive(pathname, item.href, item.exact);
               const Icon = APP_ICON[item.icon];
+              const danger = item.variant === "danger";
               return (
                 <li key={item.href}>
                   <Link
@@ -49,17 +120,21 @@ function SidebarNav({
                     aria-current={active ? "page" : undefined}
                     className={cn(
                       "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-brand-green/10 text-deep-forest"
-                        : "text-charcoal-ink/70 hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
+                      danger
+                        ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                        : active
+                          ? "bg-brand-green/10 text-deep-forest"
+                          : "text-charcoal-ink/70 hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
                     )}
                   >
                     <Icon
                       className={cn(
                         "h-4.5 w-4.5 shrink-0",
-                        active
-                          ? "text-brand-green"
-                          : "text-charcoal-ink/40 group-hover:text-charcoal-ink/60"
+                        danger
+                          ? "text-red-600"
+                          : active
+                            ? "text-brand-green"
+                            : "text-charcoal-ink/40 group-hover:text-charcoal-ink/60"
                       )}
                       strokeWidth={2}
                     />
@@ -131,6 +206,13 @@ export function AppShell({
 
   const hasNav = navSections.some((s) => s.items.length > 0);
   const homeHref = navSections[0]?.items[0]?.href ?? "/login";
+  const allItems = navSections.flatMap((s) => s.items);
+  const primaryItems = allItems.filter((item) => item.primary).slice(0, MAX_PRIMARY_NAV_ITEMS);
+  // No More button when the tabs already cover every link — a supporter's
+  // four-link menu would otherwise get a button opening a drawer that shows
+  // them nothing new.
+  const showBottomBar = primaryItems.length > 0;
+  const showMoreTab = allItems.length > primaryItems.length;
   const initials = userName
     .split(/\s+/)
     .filter(Boolean)
@@ -167,10 +249,10 @@ export function AppShell({
   );
 
   return (
-    <div className="flex min-h-screen bg-warm-ivory">
+    <div className="flex min-h-screen bg-white print:block print:min-h-0">
       {/* Desktop sidebar */}
       {hasNav && (
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden">
           <BrandLockup homeHref={homeHref} />
           <SidebarNav sections={navSections} pathname={pathname} />
           {userBlock}
@@ -179,7 +261,7 @@ export function AppShell({
 
       {/* Mobile drawer */}
       {hasNav && mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 print:hidden lg:hidden" role="dialog" aria-modal="true">
           <button
             aria-label="Close menu"
             className="absolute inset-0 bg-charcoal-ink/40"
@@ -208,8 +290,8 @@ export function AppShell({
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 border-b border-charcoal-ink/10 bg-white/90 backdrop-blur">
+      <div className="flex min-w-0 flex-1 flex-col print:block">
+        <header className="sticky top-0 z-40 border-b border-charcoal-ink/10 bg-white/90 backdrop-blur print:hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
               {hasNav && (
@@ -247,13 +329,29 @@ export function AppShell({
             </div>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 print:max-w-none print:p-0">
           {children}
         </main>
-        <footer className="px-4 pb-6 text-center text-xs text-charcoal-ink/40 sm:px-6">
-          TarragonHealth — Care that stays with you.
+        <footer
+          className={cn(
+            "px-4 pb-6 text-center text-xs text-charcoal-ink/40 sm:px-6 print:hidden",
+            // Clears the fixed bottom bar so the last of the page is never
+            // sitting underneath it.
+            showBottomBar && "pb-24 lg:pb-6"
+          )}
+        >
+          TarragonHealth: Care that stays with you.
         </footer>
       </div>
+
+      {hasNav && showBottomBar && (
+        <BottomTabBar
+          items={primaryItems}
+          pathname={pathname}
+          showMore={showMoreTab}
+          onMore={() => setMobileOpen(true)}
+        />
+      )}
     </div>
   );
 }

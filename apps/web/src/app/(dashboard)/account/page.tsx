@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
+import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value) return null;
@@ -20,9 +21,10 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 /**
  * Shared, role-agnostic account page — the "Profile & settings" destination
- * behind the top-right profile menu for every account except a plain patient
- * (who keeps the fuller, editable section on their own dashboard at
- * /patient/profile; this page still links out to it below for that role).
+ * behind the top-right profile menu for every role. A patient's location
+ * lives here (shared with onboarding's PatientLocationForm, not a second
+ * copy); their emergency contact, next of kin, and result-language
+ * preference stay on the fuller /patient/profile section instead.
  * Deliberately read-only for identity fields: clinical_staff is
  * admin-managed (CLAUDE.md's Clinical Tier Ladder rules), and a phone-number
  * change needs its own re-verification flow this page doesn't attempt.
@@ -43,13 +45,23 @@ export default async function AccountPage() {
 
   const supporterOnly = profile.receives_care === false;
   const roleLabel = supporterOnly ? "Supporter" : (ROLE_DISPLAY_LABEL[profile.role] ?? profile.role);
+  // A supporter-only login is profiles.role === 'patient' with receives_care
+  // false (see dashboard/layout.tsx's identical isPatient derivation) — they
+  // fund somebody else's care and have none of their own, so they get neither
+  // a Patient ID nor the location form below.
+  const isPatient = profile.role === "patient" && !supporterOnly;
   // clinician/care_coordinator carry their EMP- number on clinical_staff
   // (tied to their clinical record); every other staff role carries it
   // directly on profiles instead (see 20260806115556_profiles_staff_number.sql
   // — those roles have no clinical_staff row to hang it off).
   const staffNumber = staff?.staff_number ?? profile.staff_number;
-  const idLabel = profile.role === "patient" ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
-  const idValue = profile.role === "patient" ? profile.patient_number : staffNumber;
+  const idLabel = isPatient ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
+  const idValue = isPatient ? profile.patient_number : staffNumber;
+
+  const supabase = await createClient();
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const verifiedFactorId =
+    factors?.totp.find((f) => f.status === "verified")?.id ?? null;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -83,7 +95,7 @@ export default async function AccountPage() {
           <CardHeader>
             <CardTitle>Clinical record</CardTitle>
             <CardDescription>
-              Set and verified by your organisation&apos;s admin — contact them to update any of
+              Set and verified by your organisation&apos;s admin; contact them to update any of
               this.
             </CardDescription>
           </CardHeader>
@@ -110,24 +122,20 @@ export default async function AccountPage() {
         </Card>
       )}
 
-      {profile.role === "patient" && (
-        <Card variant="soft">
-          <CardHeader>
-            <CardTitle>Location, emergency contact &amp; more</CardTitle>
-            <CardDescription>
-              Manage your state/area, emergency contact, next of kin and how we explain results to
-              you from your dashboard&apos;s Profile section.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/patient/profile" className="text-sm font-medium text-brand-green hover:underline">
-              Go to your Profile &amp; settings section →
-            </Link>
-          </CardContent>
-        </Card>
+      {isPatient && (
+        <div className="space-y-2">
+          <PatientLocationForm
+            initial={{ state: profile.state, city: profile.city, area: profile.area }}
+          />
+          <p className="text-xs text-charcoal-ink/50">
+            Emergency contact, next of kin, and how we explain results to you stay on your
+            dashboard&apos;s Profile section.
+          </p>
+        </div>
       )}
 
       <ChangePasswordForm />
+      <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
     </div>
   );
 }

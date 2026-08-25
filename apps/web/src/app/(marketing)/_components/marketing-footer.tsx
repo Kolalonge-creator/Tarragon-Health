@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrandLockup } from "./brand-logo";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { SITE } from "@/lib/marketing/site";
 
 const FOOTER_LINKS = {
   care: [
@@ -33,6 +34,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.whoItsFor, label: "Who it's for" },
     { href: MARKETING_ROUTES.forYou, label: "For you" },
     { href: MARKETING_ROUTES.about, label: "About" },
+    { href: MARKETING_ROUTES.careers, label: "Careers" },
     { href: MARKETING_ROUTES.resources, label: "Resources" },
     { href: MARKETING_ROUTES.impact, label: "Our impact" },
     { href: MARKETING_ROUTES.accountability, label: "How we're accountable" },
@@ -54,6 +56,65 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.cookies, label: "Cookies" },
   ],
 };
+
+function FacebookGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+      <path d="M13.5 21v-7.6h2.55l.38-2.96h-2.93V8.53c0-.86.24-1.44 1.47-1.44h1.57V4.46c-.27-.04-1.2-.12-2.29-.12-2.26 0-3.81 1.38-3.81 3.92v2.18H7.98v2.96h2.46V21h3.06z" />
+    </svg>
+  );
+}
+
+function InstagramGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+      className={className}
+    >
+      <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function XGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+      <path d="M14.05 10.3 21.1 3h-1.67l-6.13 6.34L8.4 3H3l7.4 10.02L3.4 21h1.67l6.48-6.7L16.8 21H22l-7.95-10.7Zm-2.3 2.38-.75-1.02L5.06 4.17h2.57l4.82 6.56.75 1.02 6.27 8.53h-2.57l-5.15-6.6Z" />
+    </svg>
+  );
+}
+
+const SOCIAL_LINKS = [
+  { href: SITE.sameAs[0], label: "Facebook", Glyph: FacebookGlyph },
+  { href: SITE.sameAs[1], label: "Instagram", Glyph: InstagramGlyph },
+  { href: SITE.sameAs[2], label: "X (Twitter)", Glyph: XGlyph },
+];
+
+function SocialLinks() {
+  return (
+    <ul className="flex items-center gap-3">
+      {SOCIAL_LINKS.map(({ href, label, Glyph }) => (
+        <li key={label}>
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`TarragonHealth on ${label}`}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-white/70 transition-colors hover:border-white/30 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy"
+          >
+            <Glyph className="h-4 w-4" />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function FooterLink({
   href,
@@ -146,6 +207,7 @@ export function MarketingFooter() {
               </a>
             </p>
           </div>
+          <SocialLinks />
         </div>
 
         <FooterGroup title="Care" links={FOOTER_LINKS.care} />

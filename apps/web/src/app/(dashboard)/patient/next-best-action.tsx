@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
 import { SEMANTIC_ICON, type AppIconName, APP_ICON } from "@/lib/icons";
 
 type NextAction = {
@@ -97,7 +96,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       icon: "preventive",
       title: `Your ${screenName} is due`,
       body: "Booking takes about a minute, and an early catch is the whole point of screening.",
-      href: "#prevention",
+      href: "/patient/prevention",
       cta: "Book it now",
     };
   } else if (consult.data) {
@@ -105,7 +104,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       icon: "booking",
       title: "Your doctor offered times for a video call",
       body: "Pick whichever works for you; it only takes a tap to confirm.",
-      href: "#care",
+      href: "/patient/care",
       cta: "Pick a time",
     };
   } else if (checkin.data) {
@@ -113,7 +112,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       icon: "medication",
       title: "A 2-minute medicines check-in is waiting",
       body: "Tell us how the medicine is going; it helps your care team spot problems early.",
-      href: "#medications",
+      href: "/patient/medications",
       cta: "Answer now",
     };
   } else if (review.data) {
@@ -121,7 +120,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       icon: "medication",
       title: "Your medication review is due",
       body: "A quick review with your care team keeps your treatment on track — book it when you're ready.",
-      href: "#medications",
+      href: "/patient/medications",
       cta: "See my review",
     };
   } else if (refill.data) {
@@ -129,7 +128,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       icon: "medication",
       title: `${refill.data.drug_name} is due for a refill soon`,
       body: "Sort the refill now so you never run out.",
-      href: "#medications",
+      href: "/patient/medications",
       cta: "Sort my refill",
     };
   } else if (!recentVital.data) {
@@ -137,7 +136,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       icon: "bp",
       title: "Log a reading today",
       body: "A fresh reading keeps your care team's picture of you current; it takes under a minute.",
-      href: "#vitals",
+      href: "/patient/vitals",
       cta: "Log a reading",
     };
   } else {
@@ -145,35 +144,41 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       icon: "preventive",
       title: "You're up to date",
       body: "Nothing is waiting on you right now. Keep logging readings and we'll flag anything that needs attention.",
-      href: "#vitals",
+      href: "/patient/vitals",
       cta: "Log another reading",
     };
   }
   return action;
 }
 
+/**
+ * The dashboard's hero banner — a gradient card leading the Overview page
+ * (Tarragon Health Web Dashboard design, 2026-08-09). Renders the same
+ * real, priority-ordered "next best step" computed above; only the
+ * presentation changed, from a soft inline card to the lead banner.
+ */
 export async function NextBestAction({ patientId }: { patientId: string }) {
   const action = await resolveNextAction(patientId);
   const Icon = APP_ICON[action.icon] ?? SEMANTIC_ICON.preventive;
 
   return (
-    <Card className="border-brand-green/30 bg-brand-green/[0.04]">
-      <CardContent className="flex items-start gap-3 py-4">
-        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-brand-green" aria-hidden />
+    <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-deep-forest to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
+      <div className="flex min-w-0 items-start gap-3">
+        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-white/80" aria-hidden />
         <div className="min-w-0 space-y-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
+          <p className="text-xs font-medium uppercase tracking-wide text-white/70">
             Next best step
           </p>
-          <p className="text-sm font-semibold text-charcoal-ink">{action.title}</p>
-          <p className="text-sm text-charcoal-ink/70">{action.body}</p>
-          <Link
-            href={action.href}
-            className="inline-block text-sm font-medium text-brand-green hover:underline"
-          >
-            {action.cta} →
-          </Link>
+          <p className="font-heading text-lg font-semibold sm:text-xl">{action.title}</p>
+          <p className="max-w-xl text-sm text-white/80">{action.body}</p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      <Link
+        href={action.href}
+        className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-deep-forest transition-colors hover:bg-white/90"
+      >
+        {action.cta}
+      </Link>
+    </div>
   );
 }

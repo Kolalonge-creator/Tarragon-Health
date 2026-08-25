@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { NGN_TIERS, USD_TIERS, type PricingTier } from "../_content/pricing";
 
 type Who = "me" | "someone-else";
 type Health = "none" | "one" | "multiple";
@@ -14,10 +15,31 @@ type Recommendation = {
   secondary?: string;
 };
 
+function tierById(tiers: PricingTier[], id: string): PricingTier {
+  const tier = tiers.find((t) => t.id === id);
+  if (!tier) throw new Error(`plan-finder: no pricing tier with id "${id}"`);
+  return tier;
+}
+
+/** NGN tiers price per month directly in `priceMain` (e.g. "₦5,000"); USD
+ * tiers price per YEAR in `priceMain`, with the monthly equivalent in
+ * `priceSecondary` (e.g. "or $4.03/month") since the diaspora tab leads with
+ * annual billing. Both are normalised to a single "<amount>/month" string. */
+function monthlyPrice(tier: PricingTier): string {
+  if (tier.priceSecondary?.includes("/month")) {
+    return tier.priceSecondary.replace(/^or\s+/, "");
+  }
+  return `${tier.priceMain}/month`;
+}
+
 /**
  * Maps the three answers to a single recommended plan. Pure and exhaustive so
- * the mapping is testable and every combination has a deliberate answer;
- * pricing decisions live in _content/pricing.ts, this only routes to them.
+ * the mapping is testable and every combination has a deliberate answer.
+ * Prices and plan names are read live from _content/pricing.ts's NGN_TIERS/
+ * USD_TIERS (the pricing page's own source of truth) rather than duplicated
+ * here, so this can never drift out of sync with the pricing table shown
+ * right below it on the same page (that drift happened once already, see
+ * 2026-08-12 marketing-site audit).
  *
  * Since removal 4 (2026-07-29) there is no household plan to route to, so
  * "who" no longer changes which plan is recommended; it changes whose plan it
@@ -36,41 +58,41 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
     health === "none"
       ? from === "abroad"
         ? {
-            plan: "Tarragon Prevent (Diaspora)",
-            price: "$2.56/month",
-            why: "The stay-healthy plan: a screening and vaccination calendar built around them, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
+            plan: tierById(USD_TIERS, "diaspora-prevent").name,
+            price: monthlyPrice(tierById(USD_TIERS, "diaspora-prevent")),
+            why: "The stay-healthy plan: a screening and vaccination calendar built around them, with reminders when checks come due, plus personalised health education, so small things get caught before they become conditions.",
             secondary:
               "Just want to self-track for now? Tarragon Free is ₦0 forever, and the Annual Health Check comes with any paid plan: we say which tests are worth doing, you use any lab in Nigeria, and a doctor reads the result.",
           }
         : {
-            plan: "Tarragon Prevent",
-            price: "₦3,500/month",
-            why: "The stay-healthy plan: a screening and vaccination calendar built around them, bookable when checks come due, plus personalised health education, so small things get caught before they become conditions.",
+            plan: tierById(NGN_TIERS, "prevent").name,
+            price: monthlyPrice(tierById(NGN_TIERS, "prevent")),
+            why: "The stay-healthy plan: a screening and vaccination calendar built around them, with reminders when checks come due, plus personalised health education, so small things get caught before they become conditions.",
             secondary:
               "Just want to self-track for now? Tarragon Free is ₦0 forever, and the Annual Health Check comes with any paid plan: we say which tests are worth doing and a doctor reads whatever you upload.",
           }
       : health === "one"
         ? from === "abroad"
           ? {
-              plan: "Essential Care (Diaspora)",
-              price: "$5.86/month",
+              plan: tierById(USD_TIERS, "diaspora-essential").name,
+              price: monthlyPrice(tierById(USD_TIERS, "diaspora-essential")),
               why: "The same Essential Care monitoring, billed in dollars. The dollar price is the naira price converted, not a diaspora premium.",
             }
           : {
-              plan: "Essential Care",
-              price: "₦8,000/month",
-              why: "Real clinical monitoring for one condition, hypertension, diabetes, or weight management: a doctor reviews the readings every month and follows up on medication.",
+              plan: tierById(NGN_TIERS, "essential").name,
+              price: monthlyPrice(tierById(NGN_TIERS, "essential")),
+              why: "Real clinical monitoring for one condition, hypertension, diabetes, or weight management: a doctor sets your care plan, reviews your readings on a scheduled basis, and follows up on medication.",
             }
         : from === "abroad"
           ? {
-              plan: "Complete Care (Diaspora)",
-              price: "$10.99/month",
-              why: "Weekly doctor review, with hypertension, diabetes, and weight all managed together on one care plan, billed in dollars.",
+              plan: tierById(USD_TIERS, "diaspora-complete").name,
+              price: monthlyPrice(tierById(USD_TIERS, "diaspora-complete")),
+              why: "A scheduled review for each condition you manage, with hypertension, diabetes, and weight all handled together on one care plan, billed in dollars.",
             }
           : {
-              plan: "Complete Care",
-              price: "₦15,000/month",
-              why: "Weekly doctor review, with hypertension, diabetes, and weight all managed together on one care plan, and priority escalation when something needs attention.",
+              plan: tierById(NGN_TIERS, "complete").name,
+              price: monthlyPrice(tierById(NGN_TIERS, "complete")),
+              why: "A scheduled review for each condition you manage, with hypertension, diabetes, and weight all handled together on one care plan, and priority escalation when something needs attention.",
             };
 
   if (who === "someone-else") {

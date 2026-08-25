@@ -51,8 +51,8 @@ export default async function LifestyleFlagsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Lifestyle safety flags</h1>
-        <p className="text-muted-foreground text-sm">
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Lifestyle safety flags</h1>
+        <p className="text-sm text-charcoal-ink/60">
           Open red flags from patients&apos; lifestyle logs. Review, then stand
           each one down with a reason once the patient has been contacted.
         </p>

@@ -2,6 +2,48 @@ import { paystackFetch, type PaystackResult } from "./client";
 import type { CheckoutMetadata } from "@/lib/billing/checkout-metadata";
 export type { CheckoutKind, CheckoutMetadata } from "@/lib/billing/checkout-metadata";
 
+export interface PaystackTransactionSummary {
+  reference: string;
+  amount: number;
+  currency: string;
+  status: string;
+}
+
+/**
+ * Lists successful Paystack transactions in a time window — used only by the
+ * reconciliation sweep (apps/web/src/lib/finance/reconciliation-sweep.ts),
+ * never the checkout/webhook path. `reference` here is the same value
+ * stripe-webhook's Paystack counterpart stores as `payment_transactions.
+ * provider_event_id` for a charge.success event (see that function's own
+ * fallback-chain comment) — that's what lets the sweep match a provider
+ * transaction back to a local row.
+ *
+ * Paginates by requesting pages until one comes back shorter than perPage.
+ * Paystack's list envelope carries a total in `meta`, not `data`, and
+ * paystackFetch() only ever surfaces `data` — checking length against
+ * perPage avoids threading `meta` through the shared client for this one
+ * caller. Capped at 50 pages (5,000 transactions) as a safety bound against
+ * a runaway loop; a 48h reconciliation window at current volume is nowhere
+ * near that.
+ */
+export async function listSuccessfulTransactions(args: {
+  from: string; // ISO8601
+  to: string; // ISO8601
+}): Promise<PaystackResult<PaystackTransactionSummary[]>> {
+  const perPage = 100;
+  const all: PaystackTransactionSummary[] = [];
+  for (let page = 1; page <= 50; page++) {
+    const result = await paystackFetch<PaystackTransactionSummary[]>(
+      `/transaction?status=success&perPage=${perPage}&page=${page}` +
+        `&from=${encodeURIComponent(args.from)}&to=${encodeURIComponent(args.to)}`,
+    );
+    if (!result.ok) return result;
+    all.push(...result.data);
+    if (result.data.length < perPage) break;
+  }
+  return { ok: true, data: all };
+}
+
 interface InitializeTransactionData {
   authorization_url: string;
   access_code: string;

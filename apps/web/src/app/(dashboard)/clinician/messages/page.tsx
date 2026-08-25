@@ -1,13 +1,13 @@
-import Link from "next/link";
 import { ClinicianMessagesWorklist } from "./worklist";
 
 export default function ClinicianMessagesPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Patient messages</h1>
+        <p className="text-sm text-charcoal-ink/60">
+          In-app care messaging threads with your patients.
+        </p>
       </div>
       <ClinicianMessagesWorklist />
     </div>

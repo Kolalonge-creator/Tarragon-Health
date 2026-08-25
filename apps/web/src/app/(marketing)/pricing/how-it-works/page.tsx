@@ -2,12 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Section, SectionHeading } from "../../_components/section";
 import { CtaBand } from "../../_components/cta-band";
-import { Button } from "@/components/ui/button";
+import { PhotoBannerHero } from "../../_components/marketing-photo-banner-hero";
+import { MARKETING_MEDIA } from "../../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { pageMetadata } from "@/lib/marketing/site";
 import {
   BOOKING_STEPS,
   CARE_VOUCHER_INTRO,
   CARE_VOUCHER_POINTS,
+  CHECKUP_COMPARE_INTRO,
+  CHECKUP_COMPARE_NOTE,
+  CHECKUP_COMPARE_ROWS,
   HMO_COMPARE_INTRO,
   HMO_COMPARE_NOTE,
   HMO_COMPARE_ROWS,
@@ -18,30 +23,38 @@ import {
   PRICING_PROMISES,
 } from "../../_content/pricing";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "How pricing works",
   description:
     "Our No-Hidden-Cost Promise, free trials of real clinical care, care vouchers, how Tarragon compares to your HMO, and booking step-by-step.",
-  alternates: { canonical: MARKETING_ROUTES.howPricingWorks },
-};
+  path: MARKETING_ROUTES.howPricingWorks,
+});
 
 export const revalidate = 3600;
 
 export default function HowPricingWorksPage() {
+  const { homepage } = MARKETING_MEDIA;
   return (
     <>
-      <Section className="pt-20">
-        <SectionHeading
-          eyebrow="Pricing, in detail"
-          title="How pricing works"
-          description="The promise behind every price, how free trials work, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."
-        />
-        <div className="mx-auto flex max-w-3xl justify-center">
-          <Button asChild variant="outline">
-            <Link href={MARKETING_ROUTES.pricing}>← Back to plans &amp; pricing</Link>
-          </Button>
-        </div>
-      </Section>
+      {/* Full-bleed photo hero, same PhotoBannerHero pattern as the homepage
+          and every product page with a sourced photo (see that component's
+          own header comment for why it must render outside Section). No
+          photo has been sourced specifically for this page yet, so this
+          reuses the homepage's own hero photo rather than falling back to
+          the boxed illustration hero -- still real photography, still
+          within the same max-w-6xl content grid as the rest of the page. */}
+      <PhotoBannerHero
+        eyebrow="Pricing, in detail"
+        title="How pricing works"
+        description="The promise behind every price, how free trials work, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."
+        primaryHref="/signup"
+        primaryLabel="Get started"
+        secondaryHref={MARKETING_ROUTES.pricing}
+        secondaryLabel="← Back to plans & pricing"
+        imageSrc={homepage.hero.imageSrc ?? ""}
+        imageAlt={homepage.hero.imageAlt ?? ""}
+        imagePosition={homepage.hero.imageFocus}
+      />
 
       <Section variant="sage">
         <SectionHeading eyebrow="Our promise" title="The No-Hidden-Cost Promise" />
@@ -153,6 +166,51 @@ export default function HowPricingWorksPage() {
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           {HMO_COMPARE_NOTE}
+        </p>
+      </Section>
+
+      <Section variant="sage">
+        <SectionHeading
+          eyebrow="Tarragon vs a one-off checkup"
+          title="The result is the same. What happens next isn't."
+          description={CHECKUP_COMPARE_INTRO}
+        />
+        <div className="mx-auto max-w-3xl overflow-x-auto">
+          <table className="w-full min-w-[32rem] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white text-sm">
+            <thead>
+              <tr className="bg-warm-ivory text-left">
+                <th scope="col" className="p-4 font-heading font-semibold text-charcoal-ink">
+                  What you need
+                </th>
+                <th scope="col" className="p-4 text-center font-heading font-semibold text-charcoal-ink">
+                  One-off checkup
+                </th>
+                <th scope="col" className="p-4 text-center font-heading font-semibold text-charcoal-ink">
+                  TarragonHealth
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {CHECKUP_COMPARE_ROWS.map((row) => (
+                <tr key={row.need} className="border-t border-charcoal-ink/10">
+                  <td className="border-t border-charcoal-ink/10 p-4 text-charcoal-ink/80">{row.need}</td>
+                  <td className="border-t border-charcoal-ink/10 p-4 text-center" aria-label={row.oneOff ? "Included" : "Not included"}>
+                    <span aria-hidden className={row.oneOff ? "text-brand-green" : "text-charcoal-ink/30"}>
+                      {row.oneOff ? "✓" : "—"}
+                    </span>
+                  </td>
+                  <td className="border-t border-charcoal-ink/10 p-4 text-center" aria-label={row.tarragon ? "Included" : "Not included"}>
+                    <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/30"}>
+                      {row.tarragon ? "✓" : "—"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mx-auto mt-6 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
+          {CHECKUP_COMPARE_NOTE}
         </p>
       </Section>
 

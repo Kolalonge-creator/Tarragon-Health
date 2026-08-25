@@ -126,9 +126,27 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                   extraction={extractionByDocument.get(doc.id) ?? null}
                 />
                 {doc.reviewedAt ? (
-                  <ReviewedResultLine reviewedBy={doc.reviewedBy} reviewedAt={doc.reviewedAt} />
+                  <div className="space-y-1.5">
+                    <ReviewedResultLine reviewedBy={doc.reviewedBy} reviewedAt={doc.reviewedAt} />
+                    {doc.patientInterpretation && (
+                      <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-2.5 text-sm text-charcoal-ink">
+                        <p className="text-xs font-medium text-brand-green">Sent to patient</p>
+                        <p className="mt-0.5">{doc.patientInterpretation}</p>
+                        {doc.nextSteps && (
+                          <p className="mt-1.5 text-charcoal-ink/70">
+                            <span className="font-medium">Next steps:</span> {doc.nextSteps}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <MarkResultReviewed documentId={doc.id} />
+                  <MarkResultReviewed
+                    documentId={doc.id}
+                    extraction={extractionByDocument.get(doc.id) ?? null}
+                    patientSex={patient?.sex ?? null}
+                    patientAgeYears={patientAgeYears}
+                  />
                 )}
               </li>
             ))}

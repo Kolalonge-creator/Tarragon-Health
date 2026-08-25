@@ -175,3 +175,44 @@ body {
     animation: none !important;
   }
 }
+
+/* Print — finance's Reports & Filings packs (and the emergency-card/health-
+   passport print pages) rely on this: app-shell.tsx hides the sidebar/header/
+   footer with print:hidden, and these rules keep a printed multi-page
+   document (statements, ledger detail, filing tables) from splitting a row
+   or a section header across a page boundary. Kept global rather than
+   per-page since any future print page gets it for free. */
+@media print {
+  @page {
+    margin: 14mm 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+
+  .print-page-break-before {
+    break-before: page;
+  }
+
+  table {
+    border-collapse: collapse;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+}

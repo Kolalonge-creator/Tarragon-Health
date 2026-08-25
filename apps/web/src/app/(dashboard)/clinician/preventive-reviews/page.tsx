@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   useOrgPreventiveReviews,
   useCompletePreventiveReview,
@@ -12,6 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
+// A bare toLocaleDateString() resolves the server's locale on first render and
+// the browser's on hydration, producing a mismatch. Fixed locale + timezone
+// keeps server and client in sync.
+function formatDueDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" });
+}
 
 function ReviewRow({ review }: { review: PreventiveReviewWithContext }) {
   const complete = useCompletePreventiveReview();
@@ -28,7 +34,7 @@ function ReviewRow({ review }: { review: PreventiveReviewWithContext }) {
         </p>
         {programmeName && <Badge variant="green">{programmeName}</Badge>}
         <Badge variant={overdue ? "red" : "amber"}>
-          {overdue ? "Overdue" : "Due"} {new Date(review.due_date).toLocaleDateString()}
+          {overdue ? "Overdue" : "Due"} {formatDueDate(review.due_date)}
         </Badge>
       </div>
       <div className="space-y-1">
@@ -64,11 +70,10 @@ export default function PreventiveReviewsPage() {
   const { data, isLoading, isError } = useOrgPreventiveReviews();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/clinician" className="text-sm text-brand-green hover:underline">
-          ← Back to dashboard
-        </Link>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Preventive reviews</h1>
+        <p className="text-sm text-charcoal-ink/60">Screenings and preventive-care gaps to close.</p>
       </div>
       <Card>
         <CardHeader>
