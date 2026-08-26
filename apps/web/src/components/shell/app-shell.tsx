@@ -11,6 +11,7 @@ import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
 import { ProfileMenu } from "./profile-menu";
+import { Avatar } from "@/components/avatar";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -173,6 +174,7 @@ function BrandLockup({ homeHref }: { homeHref: string }) {
 
 export function AppShell({
   userName,
+  avatarUrl,
   roleLabel,
   idLabel,
   idValue,
@@ -182,6 +184,7 @@ export function AppShell({
   children,
 }: {
   userName: string;
+  avatarUrl?: string | null;
   roleLabel: string;
   /** e.g. "Patient ID" / "Staff ID" — omitted for roles with no reference number. */
   idLabel?: string;
@@ -213,22 +216,11 @@ export function AppShell({
   // them nothing new.
   const showBottomBar = primaryItems.length > 0;
   const showMoreTab = allItems.length > primaryItems.length;
-  const initials = userName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
 
   const userBlock = (
     <div className="space-y-3 border-t border-charcoal-ink/10 px-4 py-4">
       <Link href={profileHref} className="flex items-center gap-3 rounded-lg hover:bg-charcoal-ink/5">
-        <div
-          aria-hidden
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-soft-sage font-heading text-sm font-semibold text-deep-forest"
-        >
-          {initials || "•"}
-        </div>
+        <Avatar fullName={userName} photoUrl={avatarUrl} size="md" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-charcoal-ink">{userName}</p>
           <p className="truncate text-xs text-charcoal-ink/50">{roleLabel}</p>
@@ -320,6 +312,7 @@ export function AppShell({
               <NotificationBell />
               <ProfileMenu
                 userName={userName}
+                avatarUrl={avatarUrl}
                 roleLabel={roleLabel}
                 idLabel={idLabel}
                 idValue={idValue}

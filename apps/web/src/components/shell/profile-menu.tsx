@@ -3,12 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { NAV_ICON } from "@/lib/icons";
+import { Avatar } from "@/components/avatar";
 
 /** Top-right account menu — avatar/name opens a small panel with the caller's
  * role, their patient/staff ID (when they have one), a link to Profile &
  * settings, and sign out. Same click-outside pattern as NotificationBell. */
 export function ProfileMenu({
   userName,
+  avatarUrl,
   roleLabel,
   idLabel,
   idValue,
@@ -16,6 +18,7 @@ export function ProfileMenu({
   signOutAction,
 }: {
   userName: string;
+  avatarUrl?: string | null;
   roleLabel: string;
   idLabel?: string;
   idValue?: string | null;
@@ -36,13 +39,6 @@ export function ProfileMenu({
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  const initials = userName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -53,12 +49,7 @@ export function ProfileMenu({
         aria-haspopup="menu"
         className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm hover:bg-charcoal-ink/5 sm:pr-2.5"
       >
-        <span
-          aria-hidden
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-soft-sage font-heading text-xs font-semibold text-deep-forest"
-        >
-          {initials || "•"}
-        </span>
+        <Avatar fullName={userName} photoUrl={avatarUrl} size="sm" />
         <span className="hidden max-w-32 truncate text-charcoal-ink/70 sm:inline">{userName}</span>
       </button>
       {open && (

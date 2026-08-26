@@ -50,12 +50,20 @@ export default async function ClinicianPatientsPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Patients</h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Everyone enrolled with your organisation. Open a patient to review
-          their record, results, and care plan.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Patients</h1>
+          <p className="text-sm text-charcoal-ink/60">
+            Everyone enrolled with your organisation. Open a patient to review
+            their record, results, and care plan.
+          </p>
+        </div>
+        <Link
+          href={mine === "1" ? "/clinician/patients/monitoring?mine=1" : "/clinician/patients/monitoring"}
+          className="rounded-lg border border-charcoal-ink/15 bg-white px-3 py-2 text-sm font-medium text-charcoal-ink/70 hover:text-charcoal-ink"
+        >
+          Monitoring view
+        </Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
