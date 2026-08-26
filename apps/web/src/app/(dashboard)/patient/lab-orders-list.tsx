@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { LabOrderStatus } from "@tarragon/shared";
 import { PatientResultUpload } from "@/components/patient-result-upload";
+import { EcgReportUpload } from "@/components/ecg-report-upload";
 import { RequestPartnerLabVisit } from "@/app/(dashboard)/patient/request-partner-lab-visit";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
@@ -40,6 +41,11 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
           {orders.map((order) => {
             const badge = LAB_ORDER_STATUS_BADGE[order.status];
             const awaiting = AWAITING_RESULT.includes(order.status);
+            // An ECG is its own physical printout — even in a bundle that
+            // also includes blood tests, it doesn't arrive on the same PDF,
+            // so it gets its own uploader alongside the generic one rather
+            // than instead of it.
+            const includesEcg = order.panel_bundle?.test_codes?.includes("ecg_resting") ?? false;
             return (
               <li key={order.id} className="space-y-2 py-3">
                 <div className="flex items-center gap-2">
@@ -57,7 +63,13 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                     >
                       Download the request to take with you
                     </a>
-                    <PatientResultUpload labOrderId={order.id} />
+                    <PatientResultUpload
+                      labOrderId={order.id}
+                      label={includesEcg ? "Upload your blood/lab results" : "Upload your result"}
+                    />
+                    {includesEcg && (
+                      <EcgReportUpload labOrderId={order.id} label="Upload your 12-lead ECG" />
+                    )}
                     {/* Optional upgrade, not a required step — the download
                         link above already works with zero partners on
                         file. See request-partner-lab-visit.tsx. */}

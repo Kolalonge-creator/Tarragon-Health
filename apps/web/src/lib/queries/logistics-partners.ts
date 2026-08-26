@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 import type { PartnerLicenseValues } from "@/components/admin/partner-license-fields";
+import type { PartnerLocationValues } from "@/components/admin/partner-location-fields";
 
 export type HomeVisitProvider = Tables<"home_visit_providers">;
 export type LogisticsPartner = Tables<"logistics_partners">;
@@ -315,6 +316,32 @@ export function useUpdateLogisticsPartnerLicense() {
     mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
       const supabase = createClient();
       const { error } = await supabase.from("logistics_partners").update(license).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["logistics-partners"] }),
+  });
+}
+
+/** Admin sets a home_visit_providers row's address/lat/long — what public.public_partner_locations() reads for the /coverage map. */
+export function useUpdateHomeVisitProviderLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...location }: { id: string } & PartnerLocationValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("home_visit_providers").update(location).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["home-visit-providers"] }),
+  });
+}
+
+/** Admin sets a logistics_partners row's address/lat/long — same purpose as above, for delivery partners. */
+export function useUpdateLogisticsPartnerLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...location }: { id: string } & PartnerLocationValues) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("logistics_partners").update(location).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["logistics-partners"] }),

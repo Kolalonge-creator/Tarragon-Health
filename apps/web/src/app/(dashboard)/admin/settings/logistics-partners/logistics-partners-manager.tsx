@@ -10,11 +10,27 @@ import {
   useSetLogisticsPartnerActive,
   useUpdateHomeVisitProviderLicense,
   useUpdateLogisticsPartnerLicense,
+  useUpdateHomeVisitProviderLocation,
+  useUpdateLogisticsPartnerLocation,
   type HomeVisitProvider,
   type LogisticsPartner,
 } from "@/lib/queries/logistics-partners";
-import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  PartnerLicenseBadge,
+  PartnerLicenseEditor,
+} from "@/components/admin/partner-license-fields";
+import {
+  PartnerLocationBadge,
+  PartnerLocationEditor,
+} from "@/components/admin/partner-location-fields";
+import { MapsProvider } from "@/components/admin/maps-provider";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +49,7 @@ function HomeVisitProvidersSection() {
   const create = useCreateHomeVisitProvider();
   const setActive = useSetHomeVisitProviderActive();
   const updateLicense = useUpdateHomeVisitProviderLicense();
+  const updateLocation = useUpdateHomeVisitProviderLocation();
 
   const [name, setName] = useState("");
   const [regions, setRegions] = useState("");
@@ -46,34 +63,50 @@ function HomeVisitProvidersSection() {
       <CardHeader>
         <CardTitle>Home visit providers</CardTitle>
         <CardDescription>
-          Global catalogue: no organisation scoping, same posture as lab_providers/pharmacy_partners.
-          A new row starts inactive by default here; activate it once a real partner contract exists.
+          Global catalogue: no organisation scoping, same posture as
+          lab_providers/pharmacy_partners. A new row starts inactive by default
+          here; activate it once a real partner contract exists.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load home visit providers.</p>}
+        {isError && (
+          <p className="text-sm text-red-600">
+            Could not load home visit providers.
+          </p>
+        )}
         {providers && providers.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {providers.map((p: HomeVisitProvider) => (
               <li key={p.id} className="py-2.5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-charcoal-ink">{p.name}</p>
+                    <p className="text-sm font-medium text-charcoal-ink">
+                      {p.name}
+                    </p>
                     <p className="text-xs text-charcoal-ink/60">
                       {p.regions.join(", ") || "No regions set"}
-                      {p.sample_types.length > 0 && ` · ${p.sample_types.join(", ")}`}, ₦
-                      {koboToNaira(p.home_visit_fee_kobo).toLocaleString()}
+                      {p.sample_types.length > 0 &&
+                        ` · ${p.sample_types.join(", ")}`}
+                      , ₦{koboToNaira(p.home_visit_fee_kobo).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={p.is_active ? "green" : "grey"}>{p.is_active ? "Active" : "Inactive"}</Badge>
+                    <Badge variant={p.is_active ? "green" : "grey"}>
+                      {p.is_active ? "Active" : "Inactive"}
+                    </Badge>
                     <PartnerLicenseBadge expiresAt={p.license_expires_at} />
+                    <PartnerLocationBadge
+                      latitude={p.latitude}
+                      longitude={p.longitude}
+                    />
                     <Button
                       size="sm"
                       variant="outline"
                       disabled={setActive.isPending}
-                      onClick={() => setActive.mutate({ id: p.id, isActive: !p.is_active })}
+                      onClick={() =>
+                        setActive.mutate({ id: p.id, isActive: !p.is_active })
+                      }
                     >
                       {p.is_active ? "Deactivate" : "Activate"}
                     </Button>
@@ -89,6 +122,13 @@ function HomeVisitProvidersSection() {
                   saving={updateLicense.isPending}
                   onSave={(next) => updateLicense.mutate({ id: p.id, ...next })}
                 />
+                <PartnerLocationEditor
+                  values={p}
+                  saving={updateLocation.isPending}
+                  onSave={(next) =>
+                    updateLocation.mutate({ id: p.id, ...next })
+                  }
+                />
               </li>
             ))}
           </ul>
@@ -101,7 +141,11 @@ function HomeVisitProvidersSection() {
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="hvp-name">Name</Label>
-              <Input id="hvp-name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                id="hvp-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="hvp-regions">Regions (comma-separated)</Label>
@@ -113,7 +157,9 @@ function HomeVisitProvidersSection() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="hvp-sample-types">Sample types (comma-separated)</Label>
+              <Label htmlFor="hvp-sample-types">
+                Sample types (comma-separated)
+              </Label>
               <Input
                 id="hvp-sample-types"
                 placeholder="blood, urine"
@@ -132,7 +178,11 @@ function HomeVisitProvidersSection() {
               />
             </div>
           </div>
-          {create.isError && <p className="mt-2 text-sm text-red-600">{(create.error as Error).message}</p>}
+          {create.isError && (
+            <p className="mt-2 text-sm text-red-600">
+              {(create.error as Error).message}
+            </p>
+          )}
           <Button
             size="sm"
             className="mt-2"
@@ -153,7 +203,7 @@ function HomeVisitProvidersSection() {
                     setSampleTypes("");
                     setFeeNaira("");
                   },
-                }
+                },
               )
             }
           >
@@ -170,6 +220,7 @@ function LogisticsPartnersSection() {
   const create = useCreateLogisticsPartner();
   const setActive = useSetLogisticsPartnerActive();
   const updateLicense = useUpdateLogisticsPartnerLicense();
+  const updateLocation = useUpdateLogisticsPartnerLocation();
 
   const [name, setName] = useState("");
   const [regions, setRegions] = useState("");
@@ -183,34 +234,51 @@ function LogisticsPartnersSection() {
       <CardHeader>
         <CardTitle>Delivery / logistics partners</CardTitle>
         <CardDescription>
-          Global catalogue, same posture as home visit providers above. Activating a row here is
-          what turns on real delivery tracking for pharmacy orders in that region.
+          Global catalogue, same posture as home visit providers above.
+          Activating a row here is what turns on real delivery tracking for
+          pharmacy orders in that region.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load logistics partners.</p>}
+        {isError && (
+          <p className="text-sm text-red-600">
+            Could not load logistics partners.
+          </p>
+        )}
         {partners && partners.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {partners.map((p: LogisticsPartner) => (
               <li key={p.id} className="py-2.5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-charcoal-ink">{p.name}</p>
+                    <p className="text-sm font-medium text-charcoal-ink">
+                      {p.name}
+                    </p>
                     <p className="text-xs text-charcoal-ink/60">
                       {p.regions.join(", ") || "No regions set"}, ₦
                       {koboToNaira(p.delivery_fee_kobo).toLocaleString()}
-                      {p.estimated_delivery_hours ? ` · ~${p.estimated_delivery_hours}h` : ""}
+                      {p.estimated_delivery_hours
+                        ? ` · ~${p.estimated_delivery_hours}h`
+                        : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={p.is_active ? "green" : "grey"}>{p.is_active ? "Active" : "Inactive"}</Badge>
+                    <Badge variant={p.is_active ? "green" : "grey"}>
+                      {p.is_active ? "Active" : "Inactive"}
+                    </Badge>
                     <PartnerLicenseBadge expiresAt={p.license_expires_at} />
+                    <PartnerLocationBadge
+                      latitude={p.latitude}
+                      longitude={p.longitude}
+                    />
                     <Button
                       size="sm"
                       variant="outline"
                       disabled={setActive.isPending}
-                      onClick={() => setActive.mutate({ id: p.id, isActive: !p.is_active })}
+                      onClick={() =>
+                        setActive.mutate({ id: p.id, isActive: !p.is_active })
+                      }
                     >
                       {p.is_active ? "Deactivate" : "Activate"}
                     </Button>
@@ -226,6 +294,13 @@ function LogisticsPartnersSection() {
                   saving={updateLicense.isPending}
                   onSave={(next) => updateLicense.mutate({ id: p.id, ...next })}
                 />
+                <PartnerLocationEditor
+                  values={p}
+                  saving={updateLocation.isPending}
+                  onSave={(next) =>
+                    updateLocation.mutate({ id: p.id, ...next })
+                  }
+                />
               </li>
             ))}
           </ul>
@@ -238,7 +313,11 @@ function LogisticsPartnersSection() {
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="lp-name">Name</Label>
-              <Input id="lp-name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                id="lp-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="lp-regions">Regions (comma-separated)</Label>
@@ -251,14 +330,30 @@ function LogisticsPartnersSection() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="lp-fee">Delivery fee (₦)</Label>
-              <Input id="lp-fee" type="number" min={0} value={feeNaira} onChange={(e) => setFeeNaira(e.target.value)} />
+              <Input
+                id="lp-fee"
+                type="number"
+                min={0}
+                value={feeNaira}
+                onChange={(e) => setFeeNaira(e.target.value)}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="lp-hours">Estimated delivery hours</Label>
-              <Input id="lp-hours" type="number" min={0} value={hours} onChange={(e) => setHours(e.target.value)} />
+              <Input
+                id="lp-hours"
+                type="number"
+                min={0}
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+              />
             </div>
           </div>
-          {create.isError && <p className="mt-2 text-sm text-red-600">{(create.error as Error).message}</p>}
+          {create.isError && (
+            <p className="mt-2 text-sm text-red-600">
+              {(create.error as Error).message}
+            </p>
+          )}
           <Button
             size="sm"
             className="mt-2"
@@ -279,7 +374,7 @@ function LogisticsPartnersSection() {
                     setFeeNaira("");
                     setHours("");
                   },
-                }
+                },
               )
             }
           >
@@ -293,9 +388,11 @@ function LogisticsPartnersSection() {
 
 export function LogisticsPartnersManager() {
   return (
-    <div className="space-y-6">
-      <HomeVisitProvidersSection />
-      <LogisticsPartnersSection />
-    </div>
+    <MapsProvider>
+      <div className="space-y-6">
+        <HomeVisitProvidersSection />
+        <LogisticsPartnersSection />
+      </div>
+    </MapsProvider>
   );
 }

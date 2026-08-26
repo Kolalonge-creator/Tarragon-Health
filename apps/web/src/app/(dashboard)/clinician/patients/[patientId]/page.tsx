@@ -17,6 +17,7 @@ import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
+import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
@@ -28,6 +29,7 @@ import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
+import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
@@ -89,6 +91,15 @@ export default async function ClinicianPatientPage({
     .eq("patient_id", patientId)
     .maybeSingle();
   const isPregnant = pregnancy?.is_pregnant ?? false;
+
+  // Diabetes type: patient's own self-report, shown to the confirming
+  // clinician as context (never trusted as the authoritative record — see
+  // diabetes-type-form.tsx).
+  const { data: diabetesProfile } = await supabase
+    .from("patient_diabetes_profile")
+    .select("patient_reported_type")
+    .eq("patient_id", patientId)
+    .maybeSingle();
 
   // Current-year Health Check status for the "Review & communicate" control.
   const year = new Date().getFullYear();
@@ -260,6 +271,12 @@ export default async function ClinicianPatientPage({
                     (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && (
+                  <DiabetesTypeForm
+                    patientId={patient.id}
+                    patientReportedType={diabetesProfile?.patient_reported_type ?? null}
+                  />
+                )}
                 {isClinicalTier(callerStaff) && <FootAssessmentForm patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <ComplicationCheckForm patientId={patient.id} />}
               </>
@@ -273,6 +290,7 @@ export default async function ClinicianPatientPage({
                 {/* Each uploaded document carries its own read-and-file panel
                     inline, so checking a value against the page is one glance. */}
                 <ResultDocumentsSection patientId={patient.id} />
+                <EcgReportDocumentsSection patientId={patient.id} />
                 <MentalHealthSummary patientId={patient.id} showScores />
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />
