@@ -5,6 +5,7 @@ import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { geocodeAddress } from "@/lib/maps/geocode-address";
 import {
   useLabProviderLocations,
   useCreateLabProviderLocation,
@@ -33,8 +34,8 @@ function GeocodeButton({ location }: { location: LabProviderLocation }) {
     setError(null);
     try {
       const geocoder = new geocodingLibrary.Geocoder();
-      const response = await geocoder.geocode({ address: location.address });
-      const first = response.results[0];
+      const results = await geocodeAddress(geocoder, location.address);
+      const first = results[0];
       if (!first) {
         setError("No match found.");
         return;
@@ -45,8 +46,8 @@ function GeocodeButton({ location }: { location: LabProviderLocation }) {
         latitude: first.geometry.location.lat(),
         longitude: first.geometry.location.lng(),
       });
-    } catch {
-      setError("Geocoding failed.");
+    } catch (e) {
+      setError(e instanceof Error ? `Geocoding failed: ${e.message}` : "Geocoding failed.");
     } finally {
       setBusy(false);
     }
