@@ -226,6 +226,17 @@ taken on faith:**
   meantime.
 - A production-quality Nigerian-language voice/TTS vendor was deliberately never built — the
   platform is English-only by founder decision (2026-08-03). Revisit only on an explicit ask.
+- **2026-08-26 — mobile OTA publishing is now automated, but needs one secret added before it runs.**
+  `apps/mobile` had no CI path to the actual running app — EAS Update only shipped via a manual
+  `eas update`, and a day's worth of merged JS-only UI work (BMW-kit rework, nav-drawer/Devices
+  wiring) sat unpublished because nobody re-ran it after the one verified publish in PR #260. Added
+  `.github/workflows/mobile-ota-publish.yml`: auto-publishes JS-only pushes to `main-dev` (that
+  touch `apps/mobile`) to the `preview` channel, skips publishing (rather than guessing) when a push
+  touches anything native-affecting — that still needs a manual `eas build` — and never auto-publishes
+  to `production`. **It will fail closed until an `EXPO_TOKEN` repo secret is added** (Settings ->
+  Secrets and variables -> Actions; generate at expo.dev/accounts/[account]/settings/access-tokens)
+  — no agent in this sandbox has EAS/Expo credentials to add it. Confirm the secret has actually been
+  added before assuming this workflow is doing anything.
 
 ### 2026-08-04 — Second occurrence: a push to `main` built on Vercel but was never promoted to production
 Founder reported the live site still showed retired partner-lab/booking copy (prices for lab tests and
