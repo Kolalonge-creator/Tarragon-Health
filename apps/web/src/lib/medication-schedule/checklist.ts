@@ -1,6 +1,6 @@
 import type { Tables } from "@tarragon/shared";
 
-export type DoseStatus = "pending" | "taken" | "missed" | "skipped";
+export type DoseStatus = "pending" | "taken" | "missed" | "skipped" | "unconfirmed";
 
 export type DoseChecklistItem = {
   medicationId: string;

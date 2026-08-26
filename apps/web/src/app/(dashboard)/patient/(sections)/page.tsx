@@ -117,6 +117,12 @@ export default async function PatientOverviewPage() {
             label="Doses today"
             value={`${stats.dosesTaken}/${stats.dosesTotal}`}
           />
+          <StatTile
+            icon={SEMANTIC_ICON.impact}
+            label="Medication adherence"
+            value={stats.adherenceRate30d !== null ? String(stats.adherenceRate30d) : "—"}
+            unit={stats.adherenceRate30d !== null ? "% (30d)" : undefined}
+          />
         </div>
       ) : (
         <>

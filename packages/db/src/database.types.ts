@@ -7680,6 +7680,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reason: string | null
+          reason_code: string | null
           scheduled_for_date: string | null
           scheduled_time: string | null
           status: Database["public"]["Enums"]["medication_log_status"]
@@ -7693,6 +7694,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reason?: string | null
+          reason_code?: string | null
           scheduled_for_date?: string | null
           scheduled_time?: string | null
           status: Database["public"]["Enums"]["medication_log_status"]
@@ -7706,6 +7708,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reason?: string | null
+          reason_code?: string | null
           scheduled_for_date?: string | null
           scheduled_time?: string | null
           status?: Database["public"]["Enums"]["medication_log_status"]
@@ -14942,6 +14945,17 @@ export type Database = {
           title: string
         }[]
       }
+      medication_adherence_summary: {
+        Args: { p_patient_id: string; p_window_days?: number }
+        Returns: {
+          adherence_rate: number
+          missed_doses: number
+          scheduled_doses: number
+          skipped_doses: number
+          taken_doses: number
+          unconfirmed_doses: number
+        }[]
+      }
       mint_health_passport: {
         Args: { p_attestation_request_id?: string }
         Returns: Json
@@ -15703,7 +15717,7 @@ export type Database = {
         | "side_effects"
         | "missed_doses"
         | "lab_review"
-      medication_log_status: "taken" | "missed" | "skipped"
+      medication_log_status: "taken" | "missed" | "skipped" | "unconfirmed"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
       notification_channel:
@@ -15747,6 +15761,7 @@ export type Database = {
         | "stale_monitoring"
         | "unactioned_abnormal"
         | "awaiting_result"
+        | "missed_medication"
       patient_device_status: "active" | "unpaired"
       patient_device_type:
         | "bp_cuff"
@@ -16439,7 +16454,7 @@ export const Constants = {
         "missed_doses",
         "lab_review",
       ],
-      medication_log_status: ["taken", "missed", "skipped"],
+      medication_log_status: ["taken", "missed", "skipped", "unconfirmed"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
       notification_channel: [
@@ -16487,6 +16502,7 @@ export const Constants = {
         "stale_monitoring",
         "unactioned_abnormal",
         "awaiting_result",
+        "missed_medication",
       ],
       patient_device_status: ["active", "unpaired"],
       patient_device_type: [

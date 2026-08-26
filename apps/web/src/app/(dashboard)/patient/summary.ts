@@ -8,13 +8,18 @@ export interface PatientSummaryStats {
   activeMedicationCount: number;
   dosesTaken: number;
   dosesTotal: number;
+  /** Self-logged adherence proxy over the trailing 30 days (public.medication_
+   * adherence_summary), 0-100. Null when there's no scheduled-dose history
+   * yet — kept distinct from 0 so the UI shows "not enough data" instead of
+   * an alarming "0%". */
+  adherenceRate30d: number | null;
 }
 
 export async function getPatientSummaryStats(patientId: string): Promise<PatientSummaryStats> {
   const supabase = await createClient();
   const today = todayIsoDate();
 
-  const [{ data: bpRows }, { data: glucoseRows }, { data: medications }, { data: doseLogs }] =
+  const [{ data: bpRows }, { data: glucoseRows }, { data: medications }, { data: doseLogs }, { data: adherence }] =
     await Promise.all([
       supabase
         .from("vitals_readings")
@@ -40,6 +45,7 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
         .select("medication_id, scheduled_time, status")
         .eq("patient_id", patientId)
         .eq("scheduled_for_date", today),
+      supabase.rpc("medication_adherence_summary", { p_patient_id: patientId, p_window_days: 30 }),
     ]);
 
   const checklist = buildTodaysDoseChecklist(medications ?? [], doseLogs ?? []);
@@ -47,6 +53,7 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
 
   const bp = bpRows?.[0];
   const glucose = glucoseRows?.[0];
+  const adherenceRate = adherence?.[0]?.adherence_rate;
 
   return {
     latestBp:
@@ -57,6 +64,9 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
     activeMedicationCount: medications?.length ?? 0,
     dosesTaken,
     dosesTotal: checklist.length,
+    adherenceRate30d: adherenceRate !== null && adherenceRate !== undefined
+      ? Math.round(adherenceRate * 100)
+      : null,
   };
 }
 

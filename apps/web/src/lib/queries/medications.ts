@@ -255,6 +255,7 @@ export function useLogDose() {
               .update({
                 status: rest.status,
                 reason: rest.reason ?? null,
+                reason_code: rest.reason_code ?? null,
                 logged_at: new Date().toISOString(),
               })
               .eq("id", existing.id)
@@ -278,5 +279,36 @@ export function useLogDose() {
         queryKey: todaysDoseLogsKey(variables.patientId, todayIsoDate()),
       });
     },
+  });
+}
+
+export type MedicationAdherenceSummary = {
+  scheduled_doses: number;
+  taken_doses: number;
+  missed_doses: number;
+  skipped_doses: number;
+  unconfirmed_doses: number;
+  adherence_rate: number | null;
+};
+
+/**
+ * Self-logged adherence proxy over a trailing window (public.medication_
+ * adherence_summary — see 20260826214300_medication_adherence_rate_rpc.sql).
+ * adherence_rate is null when there's no scheduled-dose history yet in the
+ * window, never 0, so the UI can show "not enough data" instead of "0%".
+ */
+export function useMedicationAdherenceRate(patientId: string, windowDays = 30) {
+  return useQuery({
+    queryKey: ["medication-adherence-rate", patientId, windowDays],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("medication_adherence_summary", {
+        p_patient_id: patientId,
+        p_window_days: windowDays,
+      });
+      if (error) throw error;
+      return (data?.[0] as MedicationAdherenceSummary | undefined) ?? null;
+    },
+    enabled: !!patientId,
   });
 }

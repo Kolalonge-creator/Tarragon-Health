@@ -249,6 +249,28 @@ const TEMPLATE_MAP: Record<
       pushUrl: path,
     };
   },
+  // Sent by private.mark_unconfirmed_doses() (grace-period cron, see
+  // 20260826213713_medication_logs_reason_codes_and_unconfirmed_status.sql)
+  // when a scheduled dose has gone unconfirmed long enough to mark. This is
+  // an inferred absence, not a confirmed miss — the copy is deliberately
+  // gentle/non-accusatory (no "you missed a dose"), matching the brand's
+  // no-fear-based-urgency rule. The patient can still tap Taken/Missed on it
+  // any time from Today's Doses; nothing here assumes what happened.
+  medication_dose_unconfirmed_nudge: (payload) => {
+    const drugNames = Array.isArray(payload.drug_names)
+      ? (payload.drug_names as unknown[]).filter((d): d is string => typeof d === "string")
+      : [];
+    const drugSummary = drugNames.length > 0 ? drugNames.join(", ") : "a scheduled medication";
+    const message = `Just checking in — we haven't heard whether you took ${drugSummary}. No worries either way, just tap to update it.`;
+    const path = "/patient/medications";
+    return {
+      metaTemplateName: "medication_dose_unconfirmed_nudge",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: drugSummary }] }],
+      smsText: `${message} ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
   // Sent to the patient as a scheduled medication review comes due (see
   // private.queue_medication_review_reminders). Reminder only — the review is
   // completed by a doctor in the clinician worklist, never over WhatsApp.

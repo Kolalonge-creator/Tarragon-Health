@@ -22,6 +22,7 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   stale_monitoring: "No recent monitoring",
   unactioned_abnormal: "Abnormal result, not yet in a programme",
   awaiting_result: "Self-arranged test not yet uploaded",
+  missed_medication: "Repeated missed doses",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {
@@ -31,6 +32,14 @@ export function triggerContext(task: OutreachTaskWithPatient): string | null {
     const level = typeof detail.risk_level === "string" ? detail.risk_level : null;
     const type = typeof detail.score_type === "string" ? detail.score_type : null;
     return [type, level ? `${level.replace("_", " ")} risk` : null].filter(Boolean).join(" · ") || null;
+  }
+  if (task.trigger_type === "missed_medication") {
+    const drugName = typeof detail.drug_name === "string" ? detail.drug_name : "a medication";
+    const missedCount = typeof detail.missed_count === "number" ? detail.missed_count : null;
+    const windowDays = typeof detail.window_days === "number" ? detail.window_days : 30;
+    return missedCount !== null
+      ? `${drugName} — ${missedCount} missed doses in ${windowDays} days`
+      : drugName;
   }
   const condition =
     typeof detail.condition_or_type === "string" ? detail.condition_or_type : null;

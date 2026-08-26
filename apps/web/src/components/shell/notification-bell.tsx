@@ -97,6 +97,16 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/medications",
     };
   }
+  if (n.template === "medication_dose_unconfirmed_nudge") {
+    const drugNames = Array.isArray(payload.drug_names)
+      ? (payload.drug_names as unknown[]).filter((d): d is string => typeof d === "string")
+      : [];
+    const drugSummary = drugNames.length > 0 ? drugNames.join(", ") : "a scheduled medication";
+    return {
+      text: `Just checking in — we haven't heard whether you took ${drugSummary}`,
+      href: "/patient/medications",
+    };
+  }
   if (n.template === "voucher_gift_used") {
     // From private.notify_purchaser_of_voucher_use(). The receipt somebody who
     // bought care for another person gets when it is actually used. Names the
