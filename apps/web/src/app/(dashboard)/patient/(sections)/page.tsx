@@ -16,6 +16,7 @@ import { RiskSignalsCard } from "@/app/(dashboard)/patient/risk-signals-card";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
+import { BiologicalAgeCard } from "@/components/biological-age-card";
 import { YourCareTeam } from "@/components/your-care-team";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -171,6 +172,10 @@ export default async function PatientOverviewPage() {
           already-computed "you're on track" reassurance — nothing new to
           fabricate here. */}
       <HealthScoreCard patientId={subjectId} />
+      {/* Signed-off v1 reframe of the same Health Score as an age estimate
+          (lib/rules/biological-age.ts) — self-hides when date_of_birth isn't
+          on file, same as the conditional cards below. */}
+      <BiologicalAgeCard patientId={subjectId} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <VitalsTrendChart patientId={subjectId} />
