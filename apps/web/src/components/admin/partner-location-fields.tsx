@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { geocodeAddress } from "@/lib/maps/geocode-address";
 
 /**
  * Shared across home_visit_providers/logistics_partners — same pattern as
@@ -76,8 +77,8 @@ export function PartnerLocationEditor({
     setGeocodeError(null);
     try {
       const geocoder = new geocodingLibrary.Geocoder();
-      const response = await geocoder.geocode({ address: address.trim() });
-      const first = response.results[0];
+      const results = await geocodeAddress(geocoder, address.trim());
+      const first = results[0];
       if (!first) {
         setGeocodeError(
           "No match found for that address — check it and try again, or enter coordinates directly.",
@@ -86,9 +87,11 @@ export function PartnerLocationEditor({
       }
       setLatitude(String(first.geometry.location.lat()));
       setLongitude(String(first.geometry.location.lng()));
-    } catch {
+    } catch (e) {
       setGeocodeError(
-        "Could not geocode that address right now — enter coordinates directly instead.",
+        e instanceof Error
+          ? `Could not geocode that address (${e.message}) — enter coordinates directly instead.`
+          : "Could not geocode that address right now — enter coordinates directly instead.",
       );
     } finally {
       setGeocoding(false);
