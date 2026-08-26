@@ -3238,8 +3238,6 @@ export type Database = {
       device_catalog: {
         Row: {
           active: boolean
-          affiliate_link: string | null
-          affiliate_partner: string | null
           category: Database["public"]["Enums"]["device_catalog_category"]
           clinically_reviewed: boolean
           created_at: string
@@ -3258,8 +3256,6 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          affiliate_link?: string | null
-          affiliate_partner?: string | null
           category: Database["public"]["Enums"]["device_catalog_category"]
           clinically_reviewed?: boolean
           created_at?: string
@@ -3278,8 +3274,6 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          affiliate_link?: string | null
-          affiliate_partner?: string | null
           category?: Database["public"]["Enums"]["device_catalog_category"]
           clinically_reviewed?: boolean
           created_at?: string
@@ -17004,7 +16998,7 @@ export type Database = {
         | "weight"
         | "blood_glucose"
         | "band"
-      device_catalog_fulfillment_type: "affiliate" | "tarragon_owned"
+      device_catalog_fulfillment_type: "recommend_only" | "tarragon_owned"
       device_catalog_pairing_path:
         | "ble_open_gatt"
         | "ble_vendor_sdk"
@@ -17780,7 +17774,7 @@ export const Constants = {
         "blood_glucose",
         "band",
       ],
-      device_catalog_fulfillment_type: ["affiliate", "tarragon_owned"],
+      device_catalog_fulfillment_type: ["recommend_only", "tarragon_owned"],
       device_catalog_pairing_path: [
         "ble_open_gatt",
         "ble_vendor_sdk",

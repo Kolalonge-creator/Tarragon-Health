@@ -2711,3 +2711,43 @@ list implies:
   KOL affiliate signup status (spec §8.1's own flagged caveat) was not re-verified. Legal/ARCON review of
   the disclosure language (spec §11) was not sought.
 
+### 2026-08-26 — device_catalog: affiliate-link mechanism removed, one day after it shipped
+
+Founder decision: the very Jumia KOL affiliate signup flagged as unverified in the entry above turned out
+not to be worth pursuing — Jumia/Konga don't run a workable affiliate programme for these device
+categories, and the one row that instead pointed at a direct-manufacturer/international store (the Xiaomi
+scale, `mi.com/ng`) exposes a Nigerian patient to import duty at checkout. Neither is a link Tarragon
+should put in front of a patient and call a clinical recommendation. Reverts to plain "we recommend this,
+buy it from whatever retailer you already trust" — no purchase link, no commission — same spirit as the
+2026-08-02 "Tarragon does NOT sell/import/bundle BP cuffs or glucometers" decision, just closing the
+narrower affiliate-link gap that one didn't cover.
+
+- **Checked live before writing the migration** (`20260826174601_device_catalog_remove_affiliate_links.sql`):
+  exactly 3 `device_catalog` rows existed, all `fulfillment_type = 'affiliate'`, and — because both
+  `active`/`clinically_reviewed` gates still default to false pending the real pairing test from spec
+  §4.1 that never happened — all three were still fully non-patient-facing. Zero rows needed converting;
+  this was a pure structural change, per CLAUDE.md's reusable feature-removal pattern.
+- Dropped the `affiliate_link`/`affiliate_partner` columns and their `device_catalog_affiliate_link_required`
+  check constraint outright. Renamed the enum value itself (`alter type ... rename value 'affiliate' to
+  'recommend_only'`) rather than leaving it in place unused — a metadata-only rename, so the 3 existing
+  rows needed no data UPDATE and carried their new label automatically. `tarragon_owned` is untouched,
+  still reserved for the wearable band once a real Yucheng/YCAviation relationship exists. Migration ends
+  in a `DO` block asserting both columns are gone, the enum has no `'affiliate'` label left, and all
+  existing rows now read `recommend_only` — applied directly to the live `koiplnmbgnqnbywhpjlf` project;
+  `get_advisors` shows nothing against `device_catalog`.
+- App-layer: removed the "Buy Now" button, click-through logging (`device-shop-actions.ts`,
+  `logDeviceAffiliateClick`, the `device_affiliate_click` audit_log rows), and the commission disclaimer
+  copy from both the in-app Shop (`patient/(sections)/devices`) and the marketing `/devices` page — deleted
+  `device-catalog-click.ts`/`.test.ts` (the click-log Zod schema) outright rather than leaving it unused.
+  Marketing `_content/devices.ts` dropped `buyHref`/`alternative` from its card type; the FAQ's "does
+  Tarragon make money from this" answer now says no rather than describing a commission. Both surfaces
+  still show the same 3 curated devices (name, vendor, why-we-recommend, price range where known) — the
+  founder's own framing: "I will stick with suggesting good scale, glucometer and monitor to patient."
+  Manually patched `database.types.ts` (dropped the two columns, renamed the enum value in both the
+  type-alias and `Constants` blocks) rather than a full regenerate, same precedent as the original
+  migration's own type-merge note.
+- Verified: `pnpm --filter web typecheck`/`lint`/`test` and `pnpm --filter @tarragon/shared typecheck` all
+  clean (same 3 pre-existing lint warnings, 98/98 suites, 1041/1041 tests); grepped the repo for any
+  remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
+  themselves (the historical one and this one) — none found.
+
