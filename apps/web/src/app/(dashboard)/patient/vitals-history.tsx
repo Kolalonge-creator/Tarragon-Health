@@ -11,16 +11,8 @@ import {
   TEMPERATURE_LEVEL_LABEL,
   type TemperatureLevel,
 } from "@/lib/rules/temperature-classification";
+import { VITAL_LEVEL_BADGE_CLASSNAME as LEVEL_STYLE } from "@/lib/rules/vital-level-style";
 
-// Clinical dashboard status colours (a separate system from brand colour, per
-// the brand guide). Non-diagnostic label; the actual escalation is raised
-// server-side by the vitals red-flag triggers (BP/SpO2/temperature).
-const LEVEL_STYLE: Record<"green" | "amber" | "red" | "emergency", string> = {
-  green: "bg-emerald-100 text-emerald-800",
-  amber: "bg-amber-100 text-amber-800",
-  red: "bg-red-100 text-red-800",
-  emergency: "bg-red-600 text-white",
-};
 const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = LEVEL_STYLE;
 
 function BpLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {

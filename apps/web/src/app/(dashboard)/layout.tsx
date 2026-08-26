@@ -21,7 +21,9 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, organisation_id, receives_care, patient_number, staff_number")
+    .select(
+      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url"
+    )
     .eq("id", user.id)
     .single();
 
@@ -71,6 +73,7 @@ export default async function DashboardLayout({
     <Providers>
       <AppShell
         userName={profile?.full_name ?? user.email ?? user.phone ?? "Account"}
+        avatarUrl={profile?.avatar_url}
         // "Patient" is wrong for somebody who is not one, and it is the first
         // word they see about themselves every time they sign in.
         roleLabel={

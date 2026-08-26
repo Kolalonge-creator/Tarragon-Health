@@ -1,8 +1,11 @@
 "use server";
 
+import { randomUUID } from "crypto";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { resolveSubjectId } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { validatePatientAvatarFile } from "@/lib/validation/patient-avatar";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
@@ -174,6 +177,68 @@ export async function updatePatientLocation(
   }
 
   return { success: true };
+}
+
+const AVATAR_BUCKET = "patient-avatars";
+const AVATAR_EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export type UploadAvatarActionState = { error?: string; success?: boolean; avatarUrl?: string };
+
+/**
+ * A patient uploads their own profile photo — self-upload only, through their
+ * own RLS-scoped session, mirroring uploadResultDocumentAsPatient's shape:
+ * the storage 'patient avatar own insert' policy allows writing into the
+ * caller's own {auth.uid()}/ folder, so there is nothing to elevate. Unlike
+ * lab-result-documents, 'patient-avatars' is a PUBLIC bucket (see
+ * 20260826210202_patient_avatar.sql) — the stored URL is the public one, not
+ * a path needing a signed URL on every read, same convention as
+ * clinical_staff.photo_url.
+ */
+export async function uploadPatientAvatar(formData: FormData): Promise<UploadAvatarActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a photo first." };
+  }
+  const fileError = validatePatientAvatarFile(file);
+  if (fileError) return { error: fileError };
+
+  const ext = AVATAR_EXT_BY_MIME[file.type] ?? "jpg";
+  // The leading folder MUST be the caller's uid: that is exactly what the
+  // storage own-folder policy checks.
+  const path = `${user.id}/${randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { error: uploadError.message };
+
+  const publicUrl = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ avatar_url: publicUrl })
+    .eq("id", user.id);
+  if (updateError) {
+    // Roll back the orphaned object so a failed update leaves no stray file.
+    await supabase.storage.from(AVATAR_BUCKET).remove([path]);
+    return { error: updateError.message };
+  }
+
+  // Refreshes the whole route tree for the current URL, which includes the
+  // shared (dashboard)/layout.tsx that renders AppShell/ProfileMenu — so the
+  // header/sidebar avatar picks up the new photo along with the profile page.
+  revalidatePath("/patient/profile");
+  return { success: true, avatarUrl: publicUrl };
 }
 
 export type LogSymptomActionState = { error?: string; success?: boolean } | undefined;

@@ -12228,6 +12228,7 @@ export type Database = {
         Row: {
           app_last_active_at: string | null
           area: string | null
+          avatar_url: string | null
           city: string | null
           condition_language_preference: string
           created_at: string
@@ -12268,6 +12269,7 @@ export type Database = {
         Insert: {
           app_last_active_at?: string | null
           area?: string | null
+          avatar_url?: string | null
           city?: string | null
           condition_language_preference?: string
           created_at?: string
@@ -12308,6 +12310,7 @@ export type Database = {
         Update: {
           app_last_active_at?: string | null
           area?: string | null
+          avatar_url?: string | null
           city?: string | null
           condition_language_preference?: string
           created_at?: string
@@ -16327,6 +16330,31 @@ export type Database = {
           reset_id: string
           started_at: string
           trial_claimed_at: string
+        }[]
+      }
+      patient_monitoring_latest_readings: {
+        Args: { p_patient_ids: string[] }
+        Returns: {
+          bp_taken_at: string | null
+          diastolic: number | null
+          glucose_mmol_l: number | null
+          glucose_taken_at: string | null
+          hrv_ms: number | null
+          open_alert_count: number
+          open_alert_level: Database["public"]["Enums"]["alert_level"] | null
+          patient_id: string
+          pulse_bpm: number | null
+          pulse_taken_at: string | null
+          sleep_minutes: number | null
+          spo2_pct: number | null
+          spo2_taken_at: string | null
+          steps: number | null
+          systolic: number | null
+          temperature_c: number | null
+          temperature_taken_at: string | null
+          wearable_last_synced_at: string | null
+          weight_kg: number | null
+          weight_taken_at: string | null
         }[]
       }
       pharmacist_dispense_history: {
