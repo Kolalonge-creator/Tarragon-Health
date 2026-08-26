@@ -9,6 +9,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.chronicCare, label: "Chronic care" },
     { href: MARKETING_ROUTES.prevention, label: "Prevention" },
     { href: MARKETING_ROUTES.careCoordination, label: "Care coordination" },
+    { href: MARKETING_ROUTES.devices, label: "Devices" },
   ],
   programmes: [
     { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },

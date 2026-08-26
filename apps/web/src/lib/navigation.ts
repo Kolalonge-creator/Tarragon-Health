@@ -147,12 +147,14 @@ export function getNavSections(
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Get a device", href: "/patient/devices", icon: "devices" },
           ],
         },
         {
           label: "Stay well",
           items: [
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
+            { label: "Weight management", href: "/patient/weight-management", icon: "weight" },
             { label: "Learn", href: "/patient/learn", icon: "learn" },
             { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
           ],

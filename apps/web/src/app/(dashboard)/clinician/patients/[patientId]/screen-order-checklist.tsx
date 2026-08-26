@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScreeningResultForm } from "./screening-result-form";
+import { EcgResultPanel } from "./ecg-result-panel";
 import { setScreeningResultFollowUpAction } from "./screening-result-actions";
 import type { SCREENING_RESULT_SCREEN_TYPES } from "@/lib/validation/screening-result";
 import { Button } from "@/components/ui/button";
@@ -145,15 +146,26 @@ export function ScreenOrderChecklist({
                 )}
                 {activeCode === c.code && !c.satisfied && (
                   <div className="mt-3">
-                    <ScreeningResultForm
-                      patientId={patientId}
-                      labOrderId={item.orderId}
-                      lockedScreenType={c.code as ScreenType}
-                      onSuccess={() => {
-                        setActiveCode(null);
-                        router.refresh();
-                      }}
-                    />
+                    {c.code === "ecg_resting" ? (
+                      <EcgResultPanel
+                        patientId={patientId}
+                        labOrderId={item.orderId}
+                        onSuccess={() => {
+                          setActiveCode(null);
+                          router.refresh();
+                        }}
+                      />
+                    ) : (
+                      <ScreeningResultForm
+                        patientId={patientId}
+                        labOrderId={item.orderId}
+                        lockedScreenType={c.code as ScreenType}
+                        onSuccess={() => {
+                          setActiveCode(null);
+                          router.refresh();
+                        }}
+                      />
+                    )}
                   </div>
                 )}
               </li>

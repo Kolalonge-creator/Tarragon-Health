@@ -961,3 +961,29 @@ export async function setPregnancyStatus(
   if (error) return { error: error.message };
   return { success: true };
 }
+
+/**
+ * Patient self-reports which diabetes they have. Routed through the
+ * set_patient_reported_diabetes_type RPC (security definer), which only ever
+ * writes patient_reported_type for auth.uid()'s own row — a patient can
+ * never reach confirmed_type/confirmed_by/confirmed_at through this action,
+ * those are a clinician's own write path (see foot-assessment-actions.ts's
+ * confirmDiabetesType).
+ */
+export async function setPatientReportedDiabetesType(
+  _prev: DiabetesLogActionState,
+  formData: FormData
+): Promise<DiabetesLogActionState> {
+  const { patientReportedDiabetesTypeSchema } = await import("@/lib/validation/diabetes-type");
+  const parsed = patientReportedDiabetesTypeSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const ctx = await currentPatientOrg();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const { error } = await ctx.supabase.rpc("set_patient_reported_diabetes_type", {
+    p_type: parsed.data.diabetes_type,
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
