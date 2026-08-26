@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
 import { getHealthPassportSummary, type HealthPassportSummary } from "@/lib/health-passport";
 import { colors, spacing } from "@/ui/theme";
-import { Card, MutedText, SecondaryButton } from "@/ui/components";
+import { Card, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
 
 interface HealthPassportScreenProps {
   patientId: string;
@@ -59,45 +59,65 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
         }
       />
 
-      <Card style={{ gap: 4 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, marginBottom: 6 }}>Vitals</Text>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Vitals</SectionLabel>
         {data.vitals.length === 0 ? (
-          <MutedText>No vitals logged in the last 12 months.</MutedText>
+          <Card>
+            <MutedText>No vitals logged in the last 12 months.</MutedText>
+          </Card>
         ) : (
-          data.vitals.map((v) => {
-            const def = VITAL_LABELS[v.vitalType];
-            return (
-              <Row
-                key={v.vitalType}
-                label={def?.label ?? v.vitalType}
-                value={`${def ? def.format(v.latest) : "—"} · ${v.readingCount} reading${v.readingCount === 1 ? "" : "s"}`}
-              />
-            );
-          })
+          <GroupedList>
+            {data.vitals.map((v) => {
+              const def = VITAL_LABELS[v.vitalType];
+              return (
+                <GroupedListRow
+                  key={v.vitalType}
+                  title={def?.label ?? v.vitalType}
+                  trailing={
+                    <Text style={{ fontSize: 12.5, color: colors.muted, textAlign: "right", flexShrink: 1 }}>
+                      {def ? def.format(v.latest) : "—"} · {v.readingCount} reading{v.readingCount === 1 ? "" : "s"}
+                    </Text>
+                  }
+                />
+              );
+            })}
+          </GroupedList>
         )}
-      </Card>
+      </View>
 
-      <Card style={{ gap: 4 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, marginBottom: 6 }}>Preventive screenings</Text>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Preventive screenings</SectionLabel>
         {data.screenings.length === 0 ? (
-          <MutedText>No screenings on file yet.</MutedText>
+          <Card>
+            <MutedText>No screenings on file yet.</MutedText>
+          </Card>
         ) : (
-          data.screenings.map((s, i) => (
-            <Text key={i} style={{ fontSize: 13, color: colors.ink, paddingVertical: 5 }}>
-              {s.screenTypeName}: {s.resultStatus ?? s.status}
-            </Text>
-          ))
+          <GroupedList>
+            {data.screenings.map((s, i) => (
+              <GroupedListRow key={i} title={s.screenTypeName} trailing="none" subtitle={s.resultStatus ?? s.status} />
+            ))}
+          </GroupedList>
         )}
-      </Card>
+      </View>
 
-      <Card style={{ gap: 4 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, marginBottom: 6 }}>Lab results</Text>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Lab results</SectionLabel>
         {data.labReadings.length === 0 ? (
-          <MutedText>No lab results in the last 12 months.</MutedText>
+          <Card>
+            <MutedText>No lab results in the last 12 months.</MutedText>
+          </Card>
         ) : (
-          data.labReadings.slice(0, 8).map((r, i) => <Row key={i} label={r.code} value={`${r.value} ${r.unit}`} />)
+          <GroupedList>
+            {data.labReadings.slice(0, 8).map((r, i) => (
+              <GroupedListRow
+                key={i}
+                title={r.code}
+                trailing={<Text style={{ fontSize: 12.5, color: colors.muted }}>{r.value} {r.unit}</Text>}
+              />
+            ))}
+          </GroupedList>
         )}
-      </Card>
+      </View>
 
       {data.protocolAuthorName ? (
         <MutedText>
@@ -106,14 +126,5 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
         </MutedText>
       ) : null}
     </ScrollView>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 5 }}>
-      <Text style={{ fontSize: 13, color: colors.ink }}>{label}</Text>
-      <Text style={{ fontSize: 13, color: colors.muted }}>{value}</Text>
-    </View>
   );
 }

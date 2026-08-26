@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
 import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerson } from "@/lib/acting";
 import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, SecondaryButton } from "@/ui/components";
+import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 
 interface SupportingScreenProps {
@@ -57,6 +57,8 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
         <MutedText>Open someone&apos;s account to log a reading or run an errand for them.</MutedText>
       </View>
 
+      <SectionLabel>People you support</SectionLabel>
+
       {loading ? (
         <ActivityIndicator color={colors.brand} />
       ) : people.length === 0 ? (
@@ -106,11 +108,13 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
 
       {error ? <ErrorText>{error}</ErrorText> : null}
 
-      <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>What you&apos;ve funded</Text>
-        <MutedText>Vouchers, subscriptions and statements for everyone you support open in the full patient app.</MutedText>
-        <SecondaryButton title="Manage what you fund" onPress={() => setManageOpen(true)} />
-      </Card>
+      <CalloutCard
+        icon="wallet-outline"
+        title="What you've funded"
+        subtitle="Vouchers, subscriptions and statements for everyone you support open in the full patient app."
+        ctaLabel="Manage what you fund"
+        onPress={() => setManageOpen(true)}
+      />
 
       <Modal visible={manageOpen} animationType="slide" onRequestClose={() => setManageOpen(false)}>
         <View style={{ flex: 1 }}>

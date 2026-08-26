@@ -10,7 +10,17 @@ import {
 } from "@/lib/vitals";
 import type { VitalReadingPayload } from "@/lib/api";
 import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import {
+  CalloutCard,
+  Card,
+  ErrorText,
+  GroupedList,
+  GroupedListRow,
+  MutedText,
+  PrimaryButton,
+  SecondaryButton,
+  SectionLabel,
+} from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 
 interface VitalsScreenProps {
@@ -133,49 +143,44 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         </Card>
       ) : null}
 
-      <Card style={{ gap: 4 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, marginBottom: 6 }}>Recent readings</Text>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Recent readings</SectionLabel>
         {loading ? (
           <ActivityIndicator color={colors.brand} />
         ) : readings.length === 0 ? (
-          <MutedText>No readings logged yet.</MutedText>
+          <Card>
+            <MutedText>No readings logged yet.</MutedText>
+          </Card>
         ) : (
-          readings.map((r, i) => {
-            const c = BP_LEVEL_COLORS[r.level];
-            return (
-              <View
-                key={r.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingVertical: 8,
-                  borderTopWidth: i === 0 ? 0 : 1,
-                  borderTopColor: colors.border,
-                }}
-              >
-                <View>
-                  <Text style={{ fontSize: 13, fontWeight: "500", color: colors.ink }}>
-                    {r.systolic}/{r.diastolic} mmHg
-                  </Text>
-                  <Text style={{ fontSize: 11.5, color: colors.faint }}>{new Date(r.takenAt).toLocaleString()}</Text>
-                </View>
-                <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-                  <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{BP_LEVEL_LABEL[r.level]}</Text>
-                </View>
-              </View>
-            );
-          })
+          <GroupedList>
+            {readings.map((r) => {
+              const c = BP_LEVEL_COLORS[r.level];
+              return (
+                <GroupedListRow
+                  key={r.id}
+                  title={`${r.systolic}/${r.diastolic} mmHg`}
+                  subtitle={new Date(r.takenAt).toLocaleString()}
+                  trailing={
+                    <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{BP_LEVEL_LABEL[r.level]}</Text>
+                    </View>
+                  }
+                />
+              );
+            })}
+          </GroupedList>
         )}
-      </Card>
+      </View>
 
       <OtherVitalCard beneficiaryProfileId={beneficiaryProfileId} />
 
-      <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Log a symptom</Text>
-        <MutedText>Symptom logging opens in the full patient app.</MutedText>
-        <SecondaryButton title="Log a symptom" onPress={() => setSymptomOpen(true)} />
-      </Card>
+      <CalloutCard
+        icon="clipboard-outline"
+        title="Log a symptom"
+        subtitle="Symptom logging opens in the full patient app."
+        ctaLabel="Log a symptom"
+        onPress={() => setSymptomOpen(true)}
+      />
 
       <Modal visible={symptomOpen} animationType="slide" onRequestClose={() => setSymptomOpen(false)}>
         <View style={{ flex: 1 }}>

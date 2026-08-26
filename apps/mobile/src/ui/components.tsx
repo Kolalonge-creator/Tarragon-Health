@@ -177,10 +177,13 @@ interface GroupedListRowProps {
    * the app (browser/webview), "none" to omit, or any node (e.g. a Toggle)
    * for a row that isn't navigation at all. Defaults to "chevron". */
   trailing?: "chevron" | "external" | "none" | ReactNode;
+  /** Optional leading node — a status dot, checkbox, or small icon badge —
+   * for rows that need one, e.g. a dose's taken/pending indicator. */
+  leading?: ReactNode;
   disabled?: boolean;
 }
 
-export function GroupedListRow({ title, subtitle, onPress, trailing = "chevron", disabled }: GroupedListRowProps) {
+export function GroupedListRow({ title, subtitle, onPress, trailing = "chevron", leading, disabled }: GroupedListRowProps) {
   const trailingNode =
     trailing === "chevron" ? (
       <Ionicons name="chevron-forward" size={17} color={colors.faint} />
@@ -205,6 +208,7 @@ export function GroupedListRow({ title, subtitle, onPress, trailing = "chevron",
         backgroundColor: pressed ? "rgba(23,23,23,0.04)" : "transparent",
       })}
     >
+      {leading}
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "600", color: disabled ? colors.faint : colors.ink }}>
           {title}

@@ -3,7 +3,7 @@ import { Image, Modal, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { uploadLabResult } from "@/lib/labs";
 import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 
 interface CapturedPhoto {
@@ -109,11 +109,13 @@ export function LabsScreen() {
         )}
       </Card>
 
-      <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Orders &amp; results</Text>
-        <MutedText>See your past results, active requests, and trends in the full patient app.</MutedText>
-        <SecondaryButton title="View orders & results" onPress={() => setLabDetailOpen(true)} />
-      </Card>
+      <CalloutCard
+        icon="flask-outline"
+        title="Orders & results"
+        subtitle="See your past results, active requests, and trends in the full patient app."
+        ctaLabel="View orders & results"
+        onPress={() => setLabDetailOpen(true)}
+      />
 
       <Modal visible={labDetailOpen} animationType="slide" onRequestClose={() => setLabDetailOpen(false)}>
         <View style={{ flex: 1 }}>
