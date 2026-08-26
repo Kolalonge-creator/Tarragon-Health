@@ -75,16 +75,25 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
             <View
               style={{
                 position: "absolute",
-                top: -2,
-                right: -2,
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: colors.brand,
+                top: -6,
+                right: -8,
+                minWidth: 16,
+                height: 16,
+                borderRadius: 8,
+                paddingHorizontal: 3,
+                backgroundColor: colors.danger,
                 borderWidth: 1.5,
                 borderColor: colors.background,
+                alignItems: "center",
+                justifyContent: "center",
               }}
-            />
+            >
+              <Text style={{ fontSize: 9.5, fontWeight: "700", color: "#fff" }}>
+                {notifications.filter((n) => n.status !== "read").length > 9
+                  ? "9+"
+                  : notifications.filter((n) => n.status !== "read").length}
+              </Text>
+            </View>
           ) : null}
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Profile" onPress={() => setProfileOpen(true)}>

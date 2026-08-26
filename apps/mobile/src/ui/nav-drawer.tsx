@@ -1,7 +1,9 @@
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { SECTIONS, SECTION_GROUP_ORDER, type SectionId } from "@/lib/sections";
-import { colors } from "./theme";
+import { colors, spacing } from "./theme";
+import { QuickActionButton, QuickActionGrid, SectionDivider, SectionLabel } from "./components";
 
 interface NavDrawerProps {
   visible: boolean;
@@ -14,7 +16,13 @@ interface NavDrawerProps {
   onSignOut: () => void;
 }
 
-/** Slide-over section drawer — the Claude Design prototype's "Nav Drawer". */
+/**
+ * Slide-over "everything else" hub — a wide icon-grid menu banded into the
+ * same groups as the web sidebar, rather than a narrow flat list of text
+ * rows. Overview already lives one tap away in the bottom tab bar and now
+ * also behind the header's home icon, so it's left out of the grid below —
+ * nothing here duplicates it.
+ */
 export function NavDrawer({
   visible,
   activeSection,
@@ -25,12 +33,15 @@ export function NavDrawer({
   onClose,
   onSignOut,
 }: NavDrawerProps) {
+  const groups = SECTION_GROUP_ORDER.filter((group) => group !== "top" && SECTIONS.some((s) => s.group === group));
+
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={{ flex: 1, flexDirection: "row" }}>
         <View
           style={{
-            width: 280,
+            width: "84%",
+            maxWidth: 420,
             height: "100%",
             backgroundColor: colors.card,
             shadowColor: "#000",
@@ -47,9 +58,22 @@ export function NavDrawer({
               paddingTop: 58,
               paddingHorizontal: 16,
               paddingBottom: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border,
             }}
           >
-            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.navy }}>TarragonHealth</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Go to Overview"
+                onPress={() => onSelect("overview")}
+                hitSlop={8}
+              >
+                <Ionicons name="home-outline" size={20} color={colors.ink} />
+              </Pressable>
+              <View style={{ width: 1, height: 18, backgroundColor: colors.border }} />
+              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.navy }}>Menu</Text>
+            </View>
             <Pressable accessibilityRole="button" accessibilityLabel="Close menu" onPress={onClose} hitSlop={8}>
               <Ionicons name="close" size={20} color={colors.muted} />
             </Pressable>
@@ -62,76 +86,32 @@ export function NavDrawer({
               the web sidebar. */}
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 12 }}
+            contentContainerStyle={{ padding: spacing.screen, gap: 18 }}
             showsVerticalScrollIndicator={false}
           >
-            {SECTION_GROUP_ORDER.map((group) => {
+            {groups.map((group, i) => {
               const items = SECTIONS.filter((s) => s.group === group);
-              if (items.length === 0) return null;
               return (
-                <View key={group} style={{ marginBottom: 8 }}>
-                  {group !== "top" && (
-                    <Text
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: "700",
-                        letterSpacing: 0.6,
-                        textTransform: "uppercase",
-                        color: colors.faint,
-                        paddingHorizontal: 10,
-                        paddingTop: 8,
-                        paddingBottom: 4,
-                      }}
-                    >
-                      {group}
-                    </Text>
-                  )}
-                  <View style={{ gap: 2 }}>
-                    {items.map((section) => {
-                      const active = section.id === activeSection;
-                      return (
-                        <Pressable
-                          key={section.id}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: active }}
-                          onPress={() => onSelect(section.id)}
-                          style={({ pressed }) => ({
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: 10,
-                            borderRadius: 8,
-                            backgroundColor: active
-                              ? "#E7EEE7"
-                              : pressed
-                                ? "#F5F5F4"
-                                : "transparent",
-                          })}
-                        >
-                          <Ionicons
-                            name={section.icon}
-                            size={17}
-                            color={active ? colors.brandPressed : colors.muted}
-                          />
-                          <Text
-                            style={{
-                              fontSize: 13.5,
-                              fontWeight: "500",
-                              color: active ? colors.brandPressed : colors.ink,
-                            }}
-                          >
-                            {section.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                <View key={group} style={{ gap: 12 }}>
+                  {i > 0 ? <SectionDivider /> : null}
+                  <SectionLabel>{group}</SectionLabel>
+                  <QuickActionGrid>
+                    {items.map((section) => (
+                      <QuickActionButton
+                        key={section.id}
+                        icon={section.icon}
+                        label={section.label}
+                        active={section.id === activeSection}
+                        onPress={() => onSelect(section.id)}
+                      />
+                    ))}
+                  </QuickActionGrid>
                 </View>
               );
             })}
           </ScrollView>
 
-          <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 16, gap: 8 }}>
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 16, gap: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <View
                 style={{
@@ -152,19 +132,22 @@ export function NavDrawer({
                 </Text>
               </View>
             </View>
+            <Text style={{ fontSize: 10.5, color: colors.faint }}>
+              Version {Constants.expoConfig?.version ?? "—"}
+            </Text>
             <Pressable
               accessibilityRole="button"
               onPress={onSignOut}
               style={({ pressed }) => ({
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: pressed ? "#F5F5F4" : colors.card,
-                borderRadius: 8,
-                padding: 9,
+                flexDirection: "row",
                 alignItems: "center",
+                gap: 8,
+                paddingVertical: 6,
+                opacity: pressed ? 0.6 : 1,
               })}
             >
-              <Text style={{ fontSize: 12.5, fontWeight: "500", color: colors.ink }}>Sign out</Text>
+              <Ionicons name="log-out-outline" size={18} color={colors.ink} />
+              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Sign out</Text>
             </Pressable>
           </View>
         </View>

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { loadTodaysDoses, logDose, type DoseChecklistItem, type DoseStatus } from "@/lib/medications";
 import { syncDoseReminders } from "@/lib/dose-reminders";
 import { colors, spacing } from "@/ui/theme";
-import { Card, MutedText, SecondaryButton } from "@/ui/components";
+import { CalloutCard, Card, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 
 interface MedicationsScreenProps {
@@ -54,48 +54,45 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         </MutedText>
       </View>
 
-      <Card style={{ gap: 4 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, marginBottom: 6 }}>Today&apos;s doses</Text>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Today&apos;s doses</SectionLabel>
         {loading ? (
           <ActivityIndicator color={colors.brand} />
         ) : doses.length === 0 ? (
-          <MutedText>No scheduled doses today.</MutedText>
+          <Card>
+            <MutedText>No scheduled doses today.</MutedText>
+          </Card>
         ) : (
-          doses.map((item, i) => (
-            <Pressable
-              key={`${item.medicationId}-${item.time}`}
-              accessibilityRole="button"
-              onPress={() => toggle(item)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10,
-                paddingVertical: 8,
-                borderTopWidth: i === 0 ? 0 : 1,
-                borderTopColor: colors.border,
-              }}
-            >
-              {item.status === "taken" ? (
-                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" }}>
-                  <Ionicons name="checkmark" size={13} color="#fff" />
-                </View>
-              ) : (
-                <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: "rgba(23,23,23,0.15)" }} />
-              )}
-              <View>
-                <Text style={{ fontSize: 13.5, fontWeight: "500", color: colors.ink }}>{item.drugName}</Text>
-                <Text style={{ fontSize: 11.5, color: colors.faint }}>{item.time}</Text>
-              </View>
-            </Pressable>
-          ))
+          <GroupedList>
+            {doses.map((item) => (
+              <GroupedListRow
+                key={`${item.medicationId}-${item.time}`}
+                title={item.drugName}
+                subtitle={item.time}
+                trailing="none"
+                onPress={() => toggle(item)}
+                leading={
+                  item.status === "taken" ? (
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" }}>
+                      <Ionicons name="checkmark" size={13} color="#fff" />
+                    </View>
+                  ) : (
+                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: "rgba(23,23,23,0.15)" }} />
+                  )
+                }
+              />
+            ))}
+          </GroupedList>
         )}
-      </Card>
+      </View>
 
-      <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Your medicines cabinet</Text>
-        <MutedText>Active medications, refill status, and &quot;check my pack&quot; open in the full patient app.</MutedText>
-        <SecondaryButton title="Open medicines cabinet" onPress={() => setCabinetOpen(true)} />
-      </Card>
+      <CalloutCard
+        icon="medkit-outline"
+        title="Your medicines cabinet"
+        subtitle='Active medications, refill status, and "check my pack" open in the full patient app.'
+        ctaLabel="Open cabinet"
+        onPress={() => setCabinetOpen(true)}
+      />
 
       <Modal visible={cabinetOpen} animationType="slide" onRequestClose={() => setCabinetOpen(false)}>
         <View style={{ flex: 1 }}>

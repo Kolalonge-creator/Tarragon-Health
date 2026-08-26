@@ -13,6 +13,7 @@ import { OverviewScreen } from "@/screens/sections/overview-screen";
 import { VitalsScreen } from "@/screens/sections/vitals-screen";
 import { MedicationsScreen } from "@/screens/sections/medications-screen";
 import { LabsScreen } from "@/screens/sections/labs-screen";
+import { DevicesScreen } from "@/screens/devices-screen";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
 import { HealthPassportScreen } from "@/screens/sections/health-passport-screen";
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
@@ -77,6 +78,11 @@ interface HomeShellProps {
  *   backend acting-for support on that write path (mirrors vitals' original
  *   gap, unaddressed here — same class of work as medication_logs was,
  *   budget separately if wanted).
+ * - Devices stays on userId, same reasoning as Labs: patient_devices pairing
+ *   has no can_act_for-gated write path, and a BLE device is physically
+ *   paired to this handset — pairing "for" a supported person from the
+ *   supporter's own phone isn't a scenario the RLS or the BLE flow accounts
+ *   for yet.
  * - Settings and Emergency card stay on userId on purpose, not because of
  *   an RLS gap: Settings is device/account configuration, not patient
  *   record data, and Emergency card is meant to represent whoever is
@@ -145,6 +151,13 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           />
         )}
         {section === "labs" && <LabsScreen />}
+        {section === "devices" && (
+          <DevicesScreen
+            patientId={userId}
+            organisationId={organisationId}
+            onOpenDevice={() => handleSelect("vitals")}
+          />
+        )}
         {section === "messages" && <MessagesScreen patientId={userId} />}
         {section === "supporting" && (
           <SupportingScreen userId={userId} acting={acting} onActingChange={refreshActing} />
@@ -157,7 +170,9 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           />
         )}
         {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
-        {section === "settings" && <SettingsScreen />}
+        {section === "settings" && (
+          <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
+        )}
         {webviewPath && <WebViewScreen key={webviewPath} path={webviewPath} />}
       </View>
 
