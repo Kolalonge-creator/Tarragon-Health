@@ -5,6 +5,7 @@ export type SectionId =
   | "vitals"
   | "medications"
   | "labs"
+  | "devices"
   | "prevention"
   | "healthCheck"
   | "lifestyle"
@@ -82,6 +83,7 @@ export const SECTIONS: SectionDef[] = [
     shortLabel: "Meds",
   },
   { id: "labs", label: "Labs & results", icon: "flask-outline", group: "Your health" },
+  { id: "devices", label: "Devices", icon: "bluetooth-outline", group: "Your health" },
   {
     id: "prevention",
     label: "Prevention",

@@ -5,7 +5,7 @@ import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { colors, radius, spacing } from "@/ui/theme";
-import { CalloutCard, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
+import { CalloutCard, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionDivider, SectionLabel } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { supabase } from "@/lib/supabase";
@@ -109,6 +109,8 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
         />
       </View>
 
+      <SectionDivider />
+
       <View style={{ gap: 10 }}>
         <SectionLabel>Security &amp; notifications</SectionLabel>
         <MutedText>
@@ -138,6 +140,8 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
         </GroupedList>
       </View>
 
+      <SectionDivider />
+
       <View style={{ gap: 10 }}>
         <SectionLabel>Help &amp; contact</SectionLabel>
         <CalloutCard
@@ -156,7 +160,16 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
         />
       </View>
 
-      <SecondaryButton title="Sign out" onPress={() => void supabase.auth.signOut()} />
+      <SectionDivider />
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => void supabase.auth.signOut()}
+        style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, opacity: pressed ? 0.6 : 1 })}
+      >
+        <Ionicons name="log-out-outline" size={18} color={colors.ink} />
+        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Sign out</Text>
+      </Pressable>
 
       <Modal visible={webviewPath !== null} animationType="slide" onRequestClose={() => setWebviewPath(null)}>
         <View style={{ flex: 1 }}>

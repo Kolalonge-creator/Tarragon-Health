@@ -128,6 +128,14 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
   );
 }
 
+/** Full-width hairline rule that separates two labelled sections stacked in
+ * the same scroll view — the rule between "Keeping you safe" and "Planning
+ * your future" in the reference design. Only meaningful between two
+ * SectionLabel blocks; don't sprinkle it between unrelated cards. */
+export function SectionDivider() {
+  return <View style={{ height: 1, backgroundColor: colors.border }} />;
+}
+
 /** Bold, uppercase, tracked-out label that introduces a block of content —
  * "A VIEW OF YOUR VEHICLE", "HELP & CONTACT" in the reference design. Reads
  * as a heading, not a muted caption, so keep the copy short. */
@@ -232,15 +240,21 @@ export function QuickActionButton({
   icon,
   label,
   onPress,
+  active,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  /** Tints the tile brand-green — the section currently open, when this
+   * grid is doubling as navigation (e.g. the nav drawer) rather than a set
+   * of one-off shortcuts. Omit where there's no notion of "current". */
+  active?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
       onPress={onPress}
       style={({ pressed }) => ({ flexBasis: "22%", flexGrow: 1, alignItems: "center", gap: 6, opacity: pressed ? 0.6 : 1 })}
     >
@@ -249,14 +263,22 @@ export function QuickActionButton({
           width: 52,
           height: 52,
           borderRadius: radius.control,
-          backgroundColor: colors.groupBg,
+          backgroundColor: active ? "#E7EEE7" : colors.groupBg,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Ionicons name={icon} size={21} color={colors.ink} />
+        <Ionicons name={icon} size={21} color={active ? colors.brandPressed : colors.ink} />
       </View>
-      <Text numberOfLines={2} style={{ fontSize: 11, fontWeight: "500", color: colors.ink, textAlign: "center" }}>
+      <Text
+        numberOfLines={2}
+        style={{
+          fontSize: 11,
+          fontWeight: active ? "700" : "500",
+          color: active ? colors.brandPressed : colors.ink,
+          textAlign: "center",
+        }}
+      >
         {label}
       </Text>
     </Pressable>
