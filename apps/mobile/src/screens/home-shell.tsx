@@ -157,7 +157,9 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           />
         )}
         {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
-        {section === "settings" && <SettingsScreen />}
+        {section === "settings" && (
+          <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
+        )}
         {webviewPath && <WebViewScreen key={webviewPath} path={webviewPath} />}
       </View>
 
