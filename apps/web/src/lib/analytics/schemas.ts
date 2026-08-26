@@ -142,6 +142,9 @@ export const trafficSummarySchema = z.object({
   by_referrer: z.array(z.object({ referrer_host: z.string(), visitors: z.number() })).default([]),
   by_source: z.array(z.object({ source: z.string(), visitors: z.number() })).default([]),
   by_device: z.array(z.object({ device: z.string(), visitors: z.number() })).default([]),
+  by_page: z
+    .array(z.object({ page: z.string(), pageviews: z.number(), visitors: z.number() }))
+    .default([]),
 });
 export type TrafficSummary = z.infer<typeof trafficSummarySchema>;
 

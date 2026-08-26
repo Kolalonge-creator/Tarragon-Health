@@ -6,6 +6,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CarePlanDisplay } from "@/app/(dashboard)/patient/care-plan-display";
+import { PregnancyStatus } from "@/app/(dashboard)/patient/pregnancy-status";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
 import { AskADoctor } from "@/app/(dashboard)/patient/ask-a-doctor";
 import { BookVideoVisit } from "@/app/(dashboard)/patient/book-video-visit";
@@ -46,6 +47,11 @@ export default async function PatientCarePage() {
               conditionLanguagePreference={profile.condition_language_preference}
             />
           </RequiresEntitlement>
+          {/* Not entitlement-gated: the obstetric-led guard (§20.2) needs to
+              fire for anyone on a diabetes care plan regardless of tier, and
+              self-reporting pregnancy shouldn't require a paid plan. Renders a
+              plain status card for everyone else. */}
+          <PregnancyStatus patientId={subjectId} />
           <PatientEscalations patientId={subjectId} />
           <HospitalAdmissionsCard patientId={subjectId} />
           <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>

@@ -9,7 +9,9 @@ export type PharmacyPartner = Tables<"pharmacy_partners">;
 export type SpecialistProvider = Tables<"specialist_providers">;
 export type SpecialistType = Enums<"specialist_type">;
 export type PanelBundle = Tables<"panel_bundles">;
-export type PharmacyMedication = Tables<"pharmacy_medications"> & { pharmacy_partner_name: string | null };
+export type PharmacyMedication = Tables<"pharmacy_medications"> & {
+  pharmacy_partner_name: string | null;
+};
 
 function commissionRateUpdate(value: CommissionRateValue) {
   return {
@@ -27,7 +29,10 @@ export function useAllLabProviders() {
     queryKey: ["lab-providers", "admin", "all"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.from("lab_providers").select("*").order("name");
+      const { data, error } = await supabase
+        .from("lab_providers")
+        .select("*")
+        .order("name");
       if (error) throw error;
       return data as LabProvider[];
     },
@@ -37,7 +42,12 @@ export function useAllLabProviders() {
 export function useCreateLabProvider() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; regions: string[]; homeCollection: boolean; isActive: boolean }) => {
+    mutationFn: async (input: {
+      name: string;
+      regions: string[];
+      homeCollection: boolean;
+      isActive: boolean;
+    }) => {
       const supabase = createClient();
       const { error } = await supabase.from("lab_providers").insert({
         name: input.name,
@@ -56,7 +66,10 @@ export function useSetLabProviderActive() {
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("lab_providers").update({ is_active: isActive }).eq("id", id);
+      const { error } = await supabase
+        .from("lab_providers")
+        .update({ is_active: isActive })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
@@ -103,7 +116,9 @@ export function useLabProviderTurnaroundStats() {
     queryKey: ["lab-providers", "turnaround-stats", "admin"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc("lab_provider_turnaround_stats");
+      const { data, error } = await supabase.rpc(
+        "lab_provider_turnaround_stats",
+      );
       if (error) throw error;
       return (data ?? []) as LabTurnaroundStats[];
     },
@@ -166,7 +181,10 @@ export function useSetLabFacilityActive() {
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("facilities").update({ is_active: isActive }).eq("id", id);
+      const { error } = await supabase
+        .from("facilities")
+        .update({ is_active: isActive })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-facilities"] }),
@@ -184,7 +202,13 @@ export type LabPartnerLoginRow = {
 export function useLinkLabPartner() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ profileId, labProviderId }: { profileId: string; labProviderId: string | null }) => {
+    mutationFn: async ({
+      profileId,
+      labProviderId,
+    }: {
+      profileId: string;
+      labProviderId: string | null;
+    }) => {
       const supabase = createClient();
       const { error } = await supabase.rpc("admin_link_lab_partner", {
         p_profile_id: profileId,
@@ -205,7 +229,10 @@ export function useAllPanelBundles() {
     queryKey: ["panel-bundles", "admin", "all"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.from("panel_bundles").select("*").order("name");
+      const { data, error } = await supabase
+        .from("panel_bundles")
+        .select("*")
+        .order("name");
       if (error) throw error;
       return data as PanelBundle[];
     },
@@ -215,7 +242,10 @@ export function useAllPanelBundles() {
 export function useUpdatePanelBundleCommission() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...value }: { id: string } & CommissionRateValue) => {
+    mutationFn: async ({
+      id,
+      ...value
+    }: { id: string } & CommissionRateValue) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("panel_bundles")
@@ -235,7 +265,10 @@ export function useAllPharmacyPartners() {
     queryKey: ["pharmacy-partners", "admin", "all"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.from("pharmacy_partners").select("*").order("name");
+      const { data, error } = await supabase
+        .from("pharmacy_partners")
+        .select("*")
+        .order("name");
       if (error) throw error;
       return data as PharmacyPartner[];
     },
@@ -277,7 +310,10 @@ export function useSetPharmacyPartnerActive() {
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("pharmacy_partners").update({ is_active: isActive }).eq("id", id);
+      const { error } = await supabase
+        .from("pharmacy_partners")
+        .update({ is_active: isActive })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-partners"] }),
@@ -302,7 +338,10 @@ export function useAllPharmacyMedications() {
         const { pharmacy_partners, ...rest } = row as typeof row & {
           pharmacy_partners: { name: string } | null;
         };
-        return { ...rest, pharmacy_partner_name: pharmacy_partners?.name ?? null };
+        return {
+          ...rest,
+          pharmacy_partner_name: pharmacy_partners?.name ?? null,
+        };
       }) as PharmacyMedication[];
     },
   });
@@ -311,7 +350,10 @@ export function useAllPharmacyMedications() {
 export function useUpdatePharmacyMedicationCommission() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...value }: { id: string } & CommissionRateValue) => {
+    mutationFn: async ({
+      id,
+      ...value
+    }: { id: string } & CommissionRateValue) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("pharmacy_medications")
@@ -319,7 +361,8 @@ export function useUpdatePharmacyMedicationCommission() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-medications"] }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["pharmacy-medications"] }),
   });
 }
 
@@ -331,7 +374,10 @@ export function useAllSpecialistProviders() {
     queryKey: ["specialist-providers", "admin", "all"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.from("specialist_providers").select("*").order("name");
+      const { data, error } = await supabase
+        .from("specialist_providers")
+        .select("*")
+        .order("name");
       if (error) throw error;
       return data as SpecialistProvider[];
     },
@@ -349,7 +395,7 @@ export function useCreateSpecialistProvider() {
         consultationFeeKobo: number;
         supportsTelemedicine: boolean;
         isActive: boolean;
-      } & CommissionRateValue
+      } & CommissionRateValue,
     ) => {
       const supabase = createClient();
       const { error } = await supabase.from("specialist_providers").insert({
@@ -363,7 +409,8 @@ export function useCreateSpecialistProvider() {
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
   });
 }
 
@@ -372,17 +419,24 @@ export function useSetSpecialistProviderActive() {
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("specialist_providers").update({ is_active: isActive }).eq("id", id);
+      const { error } = await supabase
+        .from("specialist_providers")
+        .update({ is_active: isActive })
+        .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
   });
 }
 
 export function useUpdateSpecialistProviderCommission() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...value }: { id: string } & CommissionRateValue) => {
+    mutationFn: async ({
+      id,
+      ...value
+    }: { id: string } & CommissionRateValue) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("specialist_providers")
@@ -390,28 +444,148 @@ export function useUpdateSpecialistProviderCommission() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
   });
 }
 
 export function useUpdateLabProviderLicense() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+    mutationFn: async ({
+      id,
+      ...license
+    }: { id: string } & PartnerLicenseValues) => {
       const supabase = createClient();
-      const { error } = await supabase.from("lab_providers").update(license).eq("id", id);
+      const { error } = await supabase
+        .from("lab_providers")
+        .update(license)
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
   });
 }
 
+// ---------------------------------------------------------------------------
+// Lab provider branch locations (lab_provider_locations)
+//
+// A contracted lab_providers row (e.g. Synlab Nigeria) can have many
+// physical branches, unlike home_visit_providers/logistics_partners which
+// get one address each — see lab_provider_locations.sql for why this is a
+// separate child table rather than a column on lab_providers.
+// ---------------------------------------------------------------------------
+export type LabProviderLocation = Tables<"lab_provider_locations">;
+
+export function useLabProviderLocations(labProviderId: string) {
+  return useQuery({
+    queryKey: ["lab-provider-locations", labProviderId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_provider_locations")
+        .select("*")
+        .eq("lab_provider_id", labProviderId)
+        .order("state", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as LabProviderLocation[];
+    },
+  });
+}
+
+export function useCreateLabProviderLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      labProviderId: string;
+      name: string;
+      state: string;
+      address: string;
+      contactPhone: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("lab_provider_locations").insert({
+        lab_provider_id: input.labProviderId,
+        name: input.name,
+        state: input.state,
+        address: input.address,
+        contact_phone: input.contactPhone,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({
+        queryKey: ["lab-provider-locations", variables.labProviderId],
+      }),
+  });
+}
+
+export function useSetLabProviderLocationActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      isActive,
+    }: {
+      id: string;
+      labProviderId: string;
+      isActive: boolean;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("lab_provider_locations")
+        .update({ is_active: isActive })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({
+        queryKey: ["lab-provider-locations", variables.labProviderId],
+      }),
+  });
+}
+
+/** Admin (or the Geocode button) sets a branch's lat/long — what public.public_partner_locations() reads for the /coverage map. */
+export function useUpdateLabProviderLocationGeo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      latitude,
+      longitude,
+    }: {
+      id: string;
+      labProviderId: string;
+      latitude: number | null;
+      longitude: number | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("lab_provider_locations")
+        .update({ latitude, longitude })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({
+        queryKey: ["lab-provider-locations", variables.labProviderId],
+      }),
+  });
+}
+
 export function useUpdatePharmacyPartnerLicense() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+    mutationFn: async ({
+      id,
+      ...license
+    }: { id: string } & PartnerLicenseValues) => {
       const supabase = createClient();
-      const { error } = await supabase.from("pharmacy_partners").update(license).eq("id", id);
+      const { error } = await supabase
+        .from("pharmacy_partners")
+        .update(license)
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-partners"] }),
@@ -421,11 +595,18 @@ export function useUpdatePharmacyPartnerLicense() {
 export function useUpdateSpecialistProviderLicense() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...license }: { id: string } & PartnerLicenseValues) => {
+    mutationFn: async ({
+      id,
+      ...license
+    }: { id: string } & PartnerLicenseValues) => {
       const supabase = createClient();
-      const { error } = await supabase.from("specialist_providers").update(license).eq("id", id);
+      const { error } = await supabase
+        .from("specialist_providers")
+        .update(license)
+        .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
   });
 }

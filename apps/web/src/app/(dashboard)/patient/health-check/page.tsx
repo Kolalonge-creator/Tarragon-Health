@@ -211,6 +211,7 @@ export default async function HealthCheckPage() {
         patientId={profile.id}
         organisationId={profile.organisation_id}
         sex={profile.sex}
+        state={profile.state}
         screensEnabled={screensEnabled}
       />
 
