@@ -1,7 +1,28 @@
 import { supabase } from "./supabase";
 import type { Tables } from "@tarragon/shared";
 
-export type DoseStatus = "pending" | "taken" | "missed" | "skipped";
+/** 'unconfirmed' is written server-side only, by private.mark_unconfirmed_doses()
+ * (the grace-period cron, see 20260826213713_medication_logs_reason_codes_and_
+ * unconfirmed_status.sql) when a scheduled dose has gone silent long enough —
+ * distinct from 'pending', which is this app's own client-side fallback for a
+ * slot with no log row at all yet. Never write 'unconfirmed' from the app. */
+export type DoseStatus = "pending" | "taken" | "missed" | "skipped" | "unconfirmed";
+
+/** Mirrors apps/web/src/lib/validation/medication-logs.ts's
+ * MEDICATION_LOG_REASON_CODES — duplicated for the same reason DoseStatus is
+ * (no shared package to pull from); keep the DB CHECK constraint, the web
+ * copy, and this one in sync if the vocabulary ever changes. 'felt_fine' is
+ * the one deliberate-skip code — logDose's caller maps it to status='skipped'
+ * instead of 'missed'. */
+export const MEDICATION_LOG_REASON_CODES = [
+  "ran_out",
+  "side_effects",
+  "felt_fine",
+  "forgot",
+  "cost",
+  "other",
+] as const;
+export type MedicationLogReasonCode = (typeof MEDICATION_LOG_REASON_CODES)[number];
 
 export interface DoseChecklistItem {
   medicationId: string;
@@ -72,7 +93,10 @@ export async function logDose(
   patientId: string,
   organisationId: string,
   item: DoseChecklistItem,
-  status: Exclude<DoseStatus, "pending">
+  // 'unconfirmed' is server-written only (see the DoseStatus comment above) —
+  // never a status the app itself logs.
+  status: Exclude<DoseStatus, "pending" | "unconfirmed">,
+  reasonCode?: MedicationLogReasonCode
 ): Promise<{ error?: string }> {
   const scheduled_for_date = todayIsoDate();
   const { data: existing } = await supabase
@@ -86,13 +110,14 @@ export async function logDose(
   const { error } = existing
     ? await supabase
         .from("medication_logs")
-        .update({ status, logged_at: new Date().toISOString() })
+        .update({ status, reason_code: reasonCode ?? null, logged_at: new Date().toISOString() })
         .eq("id", existing.id)
     : await supabase.from("medication_logs").insert({
         medication_id: item.medicationId,
         scheduled_time: item.time,
         scheduled_for_date,
         status,
+        reason_code: reasonCode ?? null,
         patient_id: patientId,
         organisation_id: organisationId,
       });
