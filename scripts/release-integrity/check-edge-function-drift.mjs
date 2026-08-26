@@ -4,12 +4,12 @@
 // source, with nothing ever comparing "what's live" against "what git says should be live".
 // Confirmed still happening live on 2026-08-12: the deployed send-pending-notifications carries
 // a diabetes_complication_check_due template from an unmerged branch (worktree-diabetes-
-// pathway-closure, PR #223) that origin/main doesn't have yet.
+// pathway-closure, PR #223) that origin/main-dev didn't have yet.
 //
 // Downloads the currently-deployed source for every function via the Supabase CLI (--use-api,
 // no Docker needed) and diffs it against supabase/functions/ as committed at a given git ref
-// (default origin/main — "what production is supposed to be running", not the working tree,
-// which may have unrelated in-flight edits).
+// (default origin/main-dev — "what production is supposed to be running", since Vercel's
+// Production Branch is main-dev, not the working tree, which may have unrelated in-flight edits).
 //
 // Usage: SUPABASE_ACCESS_TOKEN=... node check-edge-function-drift.mjs [gitRef]
 // Exits non-zero if any deployed function differs from the git ref's committed source.
@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "koiplnmbgnqnbywhpjlf";
-const GIT_REF = process.argv[2] || process.env.COMPARE_GIT_REF || "origin/main";
+const GIT_REF = process.argv[2] || process.env.COMPARE_GIT_REF || "origin/main-dev";
 const REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
 
 function walk(dir, base = dir, out = []) {
