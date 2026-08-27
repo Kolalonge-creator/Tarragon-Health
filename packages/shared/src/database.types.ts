@@ -13460,6 +13460,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at: string | null
+          reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
           status: Database["public"]["Enums"]["screening_status"]
           updated_at: string
@@ -13472,6 +13473,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
@@ -13484,6 +13486,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id?: string
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
@@ -14562,6 +14565,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at: string | null
+          reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           status: Database["public"]["Enums"]["screening_status"]
           updated_at: string
           vaccination_catalog_id: string
@@ -14573,6 +14577,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
           vaccination_catalog_id: string
@@ -14584,6 +14589,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
           vaccination_catalog_id?: string
@@ -17619,6 +17625,7 @@ export type Database = {
         | "doctor_refers_patient"
         | "corporate_champion"
       referral_urgency: "routine" | "priority" | "urgent"
+      reminder_stage: "upcoming" | "due" | "overdue" | "escalated"
       reproductive_life_stage:
         | "menstruating"
         | "trying_to_conceive"
@@ -18452,6 +18459,7 @@ export const Constants = {
         "corporate_champion",
       ],
       referral_urgency: ["routine", "priority", "urgent"],
+      reminder_stage: ["upcoming", "due", "overdue", "escalated"],
       reproductive_life_stage: [
         "menstruating",
         "trying_to_conceive",
