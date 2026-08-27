@@ -38,6 +38,29 @@ export async function proposeCaseActionsAction(clinicianAlertId: string): Promis
   const proposals = proposeActions(loaded.facts);
   const service = createServiceRoleClient();
 
+  // Keep clinician_alerts.protocol_scope_exceeded in step with what the
+  // engine just decided -- this is the flag
+  // private.enforce_protocol_scope_referral_gate reads to block resolving (and
+  // gate referring) the case at the DB level, so it must reflect the CURRENT
+  // run, not a stale one: cleared the moment a breach is no longer present,
+  // same as it's set the moment one is. See that migration's header for the
+  // known limit (this only runs when the cockpit is opened/refreshed for the
+  // case) and why it wasn't ported into SQL directly.
+  const { breached } = loaded.facts.redFlags;
+  const { error: scopeError } = await service
+    .from("clinician_alerts")
+    .update({
+      protocol_scope_exceeded: breached.length > 0,
+      protocol_scope_exceeded_note: breached.length > 0 ? breached.join("; ") : null,
+      protocol_scope_exceeded_at: breached.length > 0 ? new Date().toISOString() : null,
+    })
+    .eq("id", clinicianAlertId);
+
+  if (scopeError) {
+    console.error("case-cockpit: could not update protocol_scope_exceeded", scopeError);
+    return { success: false, message: "Could not refresh this case's protocol-scope status." };
+  }
+
   // Supersede before inserting, so the partial unique index can never be
   // violated by a re-run and a doctor never works from a stale set.
   const { error: supersedeError } = await service

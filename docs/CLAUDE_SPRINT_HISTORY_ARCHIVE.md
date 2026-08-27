@@ -2751,3 +2751,93 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+### 2026-08-26 — Indemnity/liability governance pass: audited what was already built, closed the real gaps
+
+A founder-level review of how to make professional indemnity insurance cheap/obtainable proposed an
+8-item punch list (kill tech-layer ambiguity, an immutable protocol-versioned decision log,
+hard-enforced human-in-the-loop, a referral-out gate, MDCN credentialing, an incident/near-miss log,
+vendor-risk documentation, claims-vs-capability discipline). Rather than building all 8 from scratch,
+first audited what already existed against the actual live schema/code (four parallel research agents,
+each verifying against migrations and app code, not just docs) — full findings and evidence in
+`docs/legal/indemnity-liability-governance-controls.md`. Net finding: 3 of 8 items were already real,
+DB-enforced controls (provider-model indemnity gating, the protocol-version decision log,
+human-in-the-loop attribution) — stronger than the original review assumed. Two were genuine gaps
+matching the review's own assessment (referral-out gate, incident/near-miss log). Two were partially
+built with an honest, stated limit (MDCN credentialing, human-in-the-loop's SLA-timeout half).
+
+Built and live-verified (each proven in a rolled-back transaction against the real
+`koiplnmbgnqnbywhpjlf` project before being treated as done), in order:
+
+- **`escalations.reviewed_by`/`reviewed_at` server-stamped, `'referred'` tier-gap closed**
+  (`20260826224252`, corrected by `20260826224420`). Was the one remaining client-supplied "who did
+  this" column on the platform — every other attribution column (`case_review_actions`,
+  `protocol_versions`, the four `stamp_*_review_completion` functions) already derived it server-side.
+  Also closed a real gap where a `'referred'` transition had NO clinical-tier check at all (only
+  `'resolved'` was gated) — a Care Coordinator could previously refer a case away and get themselves
+  `reviewed_by`-stamped on it. **Caught and fixed a self-introduced regression before it shipped**: the
+  first draft of this fix also routed `'referred'` through the Tier 2+/Director emergency-authority
+  check that closing (`'resolved'`) a case requires — which is backwards for patient safety (a junior
+  doctor facing an emergency they can't close must always be able to hand it up the chain without
+  needing extra seniority to do so). `packages/db/tests/emergency_escalation_tier_gate.sql`'s own
+  pre-existing case 5 caught this immediately when re-run as a regression control.
+- **Automatic SLA-breach escalation, logged** (`20260826224739`). The escalation SLA system
+  (`escalation_slas` config-not-code, `sla_due_at`) was already real, but nothing had ever acted on a
+  breach — it only surfaced as a passive analytics count. `private.escalate_overdue_clinician_alerts()`
+  now sweeps every 4 hours via `pg_cron`, notifies the org's Clinical Director (and, past 24h overdue,
+  every admin), and always writes an `audit_log` row. **Not hypothetical**: a live check before writing
+  this found 8 real open `clinician_alerts` past their SLA already sitting on the production database,
+  two of them emergency-level and over three weeks overdue. Ran the sweep once immediately after
+  applying the migration, which generated the backdated notifications + audit rows for that real
+  backlog rather than waiting up to 4 hours for the cron's first fire.
+- **Indemnity-lapse notification** (`20260826224913`). The indemnity activation gate
+  (`enforce_clinical_staff_indemnity`) was always documented as write-time-only — nothing tracked an
+  already-active record's cover lapsing later. Deliberately notify-only, never auto-deactivate: a live
+  check found the platform's one real Clinical Director is active with `indemnity_expires_at = null`,
+  covered only by a deliberate, named 2026-07-30 founder exemption — an auto-deactivating sweep would
+  have stranded the platform's only doctor the moment it ran.
+- **Protocol-scope referral-out gate** (`20260826225042`). `clinician_alerts.protocol_scope_exceeded` +
+  a new trigger blocks resolving a case flagged out of protocol scope and requires a real
+  `specialist_referrals` row for the same patient before it can be marked `'referred'`. Closes the real
+  gap the review named: `lib/case-cockpit/propose.ts` already refused to *offer* the one-click resolve
+  shortcut on a protocol red-flag breach, but a doctor could still resolve the same case through the
+  plain escalation-queue form, which never consulted that determination at all. `case-cockpit/
+  actions.ts`'s `proposeCaseActionsAction` now keeps the flag in step with the engine's live output.
+  **Known, stated limit, not papered over**: the flag is only populated when the cockpit is
+  opened/refreshed for that case — a doctor who never opens the cockpit for an out-of-scope alert
+  won't have the determination computed yet. AI Coach lockout was explicitly scoped out — `lib/
+  ai-coach/graph.ts` is a LangGraph pipeline this pass could not verify well enough to change safely
+  without risking a live patient-facing safety flow.
+- **`clinical_incident_reports`** (`20260826225518`). A genuine gap, confirmed before building: the
+  only prior "incident" table was `data_breach_incidents`, an NDPA-notification log for admins,
+  unrelated to clinical incidents. Any org staff (including Care Coordinators) can file a report;
+  `severity` includes `'near_miss'` as its own value rather than folding it into `'low'`, since that
+  distinction is exactly the signal an underwriter/governance reviewer wants. Reviewing/closing is
+  gated to clinical tier, server-attributed, and a closed report is terminal. **Data layer only** — no
+  clinician-console UI to file/browse/close reports was built in this pass, and CLAUDE.md's Tier 3
+  standing QA/spot-audit responsibility still has no recurring review cadence wired to this table.
+- **MDCN credentialing — interim visibility, not a hard gate.** Found `credential_verified_at`/
+  `credential_verified_by` (a real, second-admin, register-checked claim, built 20260807163417)
+  already existed but only gated Health Passport attestation, never activation — and had NO UI entry
+  point anywhere in the app (`verify_clinical_staff_credential` was reachable only via direct SQL).
+  Did not extend it to block activation: a live check found every currently-active clinical record,
+  including the founder's own Director row, has `credential_verified_at = null`, so a hard gate today
+  would immediately strand every clinical account — the same "only one real staff member exists"
+  deadlock the original migration's own header already named. Instead added a `RegistrationCheckBadge`
+  to `/admin/settings/clinical-staff` ("Self-attested only" vs. "Registration checked \<date\>") and
+  wired a "Verify registration" button to the existing RPC, so the gap is at least visible and
+  actionable now.
+- Hardening follow-up (`20260826225650`): the two new SLA/indemnity notification tables picked up
+  default INSERT/UPDATE/DELETE grants from `alter-default-privileges` (20260731232749) despite only
+  SELECT being intended — never exploitable (no RLS policy admitted any of them) but not the explicit
+  "authenticated cannot even hold the privilege" posture `case_review_actions` established. Revoked to
+  match.
+- Confirmed clean, no action needed: grepped marketing/dashboard copy for the "1:120" ratio,
+  "doctor-led" headline, and named-continuous-doctor language CLAUDE.md already bans — no live
+  violations found.
+- Full evidence-per-item scorecard, written for reuse as an underwriting-conversation exhibit:
+  `docs/legal/indemnity-liability-governance-controls.md`.
+- Verified: `pnpm --filter web typecheck`/`lint`/`test` and `pnpm --filter @tarragon/shared typecheck`
+  all clean (100/100 suites, 1051/1051 tests, 4 pre-existing lint warnings unrelated to this change).
+  Every migration's `DO` block assertion passed on apply against the live `koiplnmbgnqnbywhpjlf`
+  project, and `get_advisors` showed no new security findings against any object this pass touched.
+

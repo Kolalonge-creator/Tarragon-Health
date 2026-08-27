@@ -6,6 +6,7 @@ import {
   useCreateClinicalStaff,
   useUpdateClinicalStaff,
   useVerifyClinicalStaff,
+  useVerifyClinicalStaffCredential,
   useSetClinicalStaffActive,
   useSetClinicalStaffIndemnity,
   useSetClinicalStaffIndemnityExempt,
@@ -95,6 +96,34 @@ function MissingCredentialBadge({ staff }: { staff: ClinicalStaff }) {
     <Badge variant={consequential ? "red" : "grey"}>
       No credential number on file
     </Badge>
+  );
+}
+
+/**
+ * Surfaces the gap a 2026-08-26 indemnity/liability audit found: an active
+ * clinical/director record only needs license_verified_at (a one-click "mark
+ * verified", no evidence trail) to be activated — the platform's real
+ * MDCN/NMCN-register check (credential_verified_at, requiring a SECOND
+ * admin, added 20260807163417) is currently only enforced for Health
+ * Passport attestation, never for activation itself. Extending it to block
+ * activation was deliberately NOT done as part of that audit — every
+ * currently-active clinical record on the live platform (including the
+ * founder's own Clinical Director row) has credential_verified_at = null, so
+ * a hard gate today would either fail to deploy or immediately strand every
+ * clinical account. This badge is the non-blocking interim: give an admin
+ * visibility into "self-attested only" vs. "register-checked," which is
+ * exactly the distinction an indemnity underwriter will ask about, without
+ * locking anyone out until a second admin genuinely exists to do the check
+ * (see clinical_staff_credential_verification_complete's own migration note).
+ */
+function RegistrationCheckBadge({ staff }: { staff: ClinicalStaff }) {
+  if (!hasCredentialOnFile(staff)) return null;
+  if (staff.credential_verified_at) {
+    return <Badge variant="green">Registration checked {formatDate(staff.credential_verified_at)}</Badge>;
+  }
+  const consequential = staff.active || staff.is_clinical_director;
+  return (
+    <Badge variant={consequential ? "amber" : "grey"}>Self-attested only — not register-checked</Badge>
   );
 }
 
@@ -408,6 +437,7 @@ export function ClinicalStaffManager() {
   const { data: attestations } = useOrgAttestationStatuses();
   const create = useCreateClinicalStaff();
   const verify = useVerifyClinicalStaff();
+  const verifyCredential = useVerifyClinicalStaffCredential();
   const setActive = useSetClinicalStaffActive();
 
   const [doctorTier, setDoctorTier] = useState<ClinicalStaff["doctor_tier"]>("tier_1");
@@ -603,6 +633,7 @@ export function ClinicalStaffManager() {
                           </p>
                           <div className="mt-1 flex flex-wrap gap-1.5">
                             {!hasCredentialOnFile(s) && <MissingCredentialBadge staff={s} />}
+                            <RegistrationCheckBadge staff={s} />
                             {s.license_verified_at && (
                               <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
                             )}
@@ -629,6 +660,17 @@ export function ClinicalStaffManager() {
                         >
                           {s.license_verified_at ? "Re-verify" : "Mark verified"}
                         </Button>
+                        {hasCredentialOnFile(s) && !s.credential_verified_at && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={verifyCredential.isPending}
+                            title="Confirm this registration number was checked against the MDCN/NMCN register — requires a second admin, distinct from Mark verified"
+                            onClick={() => verifyCredential.mutate(s.id)}
+                          >
+                            Verify registration
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -659,6 +701,9 @@ export function ClinicalStaffManager() {
           )}
           {setActive.isError && (
             <p className="mt-2 text-sm text-red-600">{(setActive.error as Error).message}</p>
+          )}
+          {verifyCredential.isError && (
+            <p className="mt-2 text-sm text-red-600">{(verifyCredential.error as Error).message}</p>
           )}
         </CardContent>
       </Card>

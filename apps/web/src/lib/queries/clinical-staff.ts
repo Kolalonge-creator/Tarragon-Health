@@ -178,6 +178,33 @@ export function useVerifyClinicalStaff() {
 }
 
 /**
+ * Checks a staff member's registration number against the issuing register --
+ * the narrower, evidence-backed claim distinct from useVerifyClinicalStaff
+ * (which only records that *something* was marked verified, no evidence
+ * trail). Calls the admin-only, self-verification-blocked RPC added
+ * 20260807163417 (public.verify_clinical_staff_credential) -- previously
+ * reachable only via direct SQL, never from any UI, found during a
+ * 2026-08-26 indemnity/liability audit. Currently gates Health Passport
+ * attestation only; not (yet) required for activation -- see
+ * RegistrationCheckBadge's own comment in clinical-staff-manager.tsx for why.
+ */
+export function useVerifyClinicalStaffCredential() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clinicalStaffId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("verify_clinical_staff_credential", {
+        p_clinical_staff_id: clinicalStaffId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
  * Records indemnity/malpractice insurance details — required before a
  * Clinical Director or Tier 4/5 clinician can be activated
  * (docs/CLINICAL_TRUST_MODEL_SPEC.md §5,

@@ -2618,6 +2618,9 @@ export type Database = {
           override_level: Database["public"]["Enums"]["alert_level"] | null
           override_reason: string | null
           patient_id: string
+          protocol_scope_exceeded: boolean
+          protocol_scope_exceeded_at: string | null
+          protocol_scope_exceeded_note: string | null
           screening_result_id: string | null
           sla_due_at: string | null
           status: Database["public"]["Enums"]["alert_status"]
@@ -2639,6 +2642,9 @@ export type Database = {
           override_level?: Database["public"]["Enums"]["alert_level"] | null
           override_reason?: string | null
           patient_id: string
+          protocol_scope_exceeded?: boolean
+          protocol_scope_exceeded_at?: string | null
+          protocol_scope_exceeded_note?: string | null
           screening_result_id?: string | null
           sla_due_at?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
@@ -2660,6 +2666,9 @@ export type Database = {
           override_level?: Database["public"]["Enums"]["alert_level"] | null
           override_reason?: string | null
           patient_id?: string
+          protocol_scope_exceeded?: boolean
+          protocol_scope_exceeded_at?: string | null
+          protocol_scope_exceeded_note?: string | null
           screening_result_id?: string | null
           sla_due_at?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
