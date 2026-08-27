@@ -168,6 +168,25 @@ revoke all on function public.lab_provider_turnaround_stats(int) from public;
 revoke all on function public.lab_provider_turnaround_stats(int) from anon;
 grant execute on function public.lab_provider_turnaround_stats(int) to authenticated;
 
+-- Stub #6: next confirmed CI failure after #5 above --
+-- 20260730215245_admin_link_lab_partner.sql's own assertion (single
+-- creation site, same pattern again). Name doesn't match `lab\_partner\_%`
+-- (it's admin_link_LAB_PARTNER, i.e. contains but doesn't start with that
+-- prefix) so it isn't caught by 20260729234618's pattern audit -- safe here.
+create function public.admin_link_lab_partner(p_facility_id uuid, p_lab_provider_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+end;
+$$;
+
+revoke all on function public.admin_link_lab_partner(uuid, uuid) from public;
+revoke all on function public.admin_link_lab_partner(uuid, uuid) from anon;
+grant execute on function public.admin_link_lab_partner(uuid, uuid) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
