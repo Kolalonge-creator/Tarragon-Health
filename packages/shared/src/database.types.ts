@@ -13080,6 +13080,57 @@ export type Database = {
           },
         ]
       }
+      risk_reassessment_queue: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          processed_at: string | null
+          reason: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at: string
+          source_id: string | null
+          source_table: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          processed_at?: string | null
+          reason: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at?: string
+          source_id?: string | null
+          source_table: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          processed_at?: string | null
+          reason?: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at?: string
+          source_id?: string | null
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_reassessment_queue_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_reassessment_queue_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       risk_register: {
         Row: {
           category: string
@@ -17547,6 +17598,12 @@ export type Database = {
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
+      reassessment_reason:
+        | "new_diagnosis"
+        | "abnormal_result"
+        | "hospital_discharge"
+        | "pregnancy_life_stage"
+        | "major_weight_change"
       referral_reward_status: "pending" | "earned" | "paid"
       referral_status:
         | "pending_payment"
@@ -18371,6 +18428,13 @@ export const Constants = {
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
+      reassessment_reason: [
+        "new_diagnosis",
+        "abnormal_result",
+        "hospital_discharge",
+        "pregnancy_life_stage",
+        "major_weight_change",
+      ],
       referral_reward_status: ["pending", "earned", "paid"],
       referral_status: [
         "pending_payment",
