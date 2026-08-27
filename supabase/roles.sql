@@ -173,7 +173,14 @@ grant execute on function public.lab_provider_turnaround_stats(int) to authentic
 -- creation site, same pattern again). Name doesn't match `lab\_partner\_%`
 -- (it's admin_link_LAB_PARTNER, i.e. contains but doesn't start with that
 -- prefix) so it isn't caught by 20260729234618's pattern audit -- safe here.
-create function public.admin_link_lab_partner(p_facility_id uuid, p_lab_provider_id uuid)
+--
+-- PARAMETER NAMES MATTER TOO, not just types (found the hard way here):
+-- Postgres's CREATE OR REPLACE FUNCTION refuses to change an existing
+-- parameter's name ("cannot change name of input parameter"), so a stub
+-- must match the real definition's parameter names exactly, not just their
+-- types -- first param is p_profile_id in the real function, not
+-- p_facility_id as first guessed.
+create function public.admin_link_lab_partner(p_profile_id uuid, p_lab_provider_id uuid)
 returns void
 language plpgsql
 security definer
