@@ -154,6 +154,15 @@ comment on function public.insert_audited_lab_result_document(
 -- All four are service-role-only surface: revoke the default PUBLIC execute, then grant to
 -- service_role alone. Not authenticated, not anon — a normal session must never be able to call
 -- these directly, only server code that already ran its own auth check.
+--
+-- Also revokes from anon and authenticated explicitly, not just public: a
+-- from-scratch Supabase environment grants both a direct execute default
+-- on new public-schema functions, which this project's live database
+-- never had (found by the new CI migration-replay job, 2026-08-27 — same
+-- mechanism already fixed for sign_escalation_slas and others earlier in
+-- this same effort, there for anon only since authenticated was meant to
+-- keep access; here neither should). revoke-from-public alone does not
+-- touch either direct grant.
 do $$
 declare
   fn text;
@@ -166,6 +175,8 @@ declare
 begin
   foreach fn in array fns loop
     execute format('revoke all on function %s from public', fn);
+    execute format('revoke all on function %s from authenticated', fn);
+    execute format('revoke all on function %s from anon', fn);
     execute format('grant execute on function %s to service_role', fn);
   end loop;
 end $$;
