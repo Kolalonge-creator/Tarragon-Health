@@ -55,6 +55,13 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           version: latest
+        env:
+          # Resolving the "latest" release hits GitHub's unauthenticated API
+          # rate limit fast under repeated runs (hit for real 2026-08-27,
+          # 6 runs of this workflow in under 90 minutes). GITHUB_TOKEN is
+          # provided automatically by Actions -- no new secret needed -- and
+          # raises that to the authenticated per-repo limit.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start local Supabase stack
         run: supabase start
