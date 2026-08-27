@@ -194,6 +194,28 @@ revoke all on function public.admin_link_lab_partner(uuid, uuid) from public;
 revoke all on function public.admin_link_lab_partner(uuid, uuid) from anon;
 grant execute on function public.admin_link_lab_partner(uuid, uuid) to authenticated;
 
+-- Stub #7: next confirmed CI failure after #6 above --
+-- 20260731023128_sponsor_pay_booking_order.sql's own assertion (single
+-- creation site, same pattern again).
+create function public.sponsor_pay_booking_order(
+  p_beneficiary uuid,
+  p_order_type text,
+  p_order_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.sponsor_pay_booking_order(uuid, text, uuid) from public;
+revoke all on function public.sponsor_pay_booking_order(uuid, text, uuid) from anon;
+grant execute on function public.sponsor_pay_booking_order(uuid, text, uuid) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
