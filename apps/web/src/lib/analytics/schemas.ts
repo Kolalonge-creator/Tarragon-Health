@@ -345,6 +345,47 @@ export const doctorPerformanceSchema = z.object({
 });
 export type DoctorPerformance = z.infer<typeof doctorPerformanceSchema>;
 
+// ---- Provider capacity (docs/CLINICAL_NETWORK_SPEC.md §4.17) --------------
+export const providerCapacitySchema = z.object({
+  by_specialty: z
+    .array(
+      z.object({
+        specialist_type: z.string(),
+        active_providers: z.number(),
+        total_providers: z.number(),
+        waitlisted_referrals: z.number(),
+        avg_current_wait_hours: z.number().nullable(),
+      })
+    )
+    .default([]),
+  by_specialty_state: z
+    .array(
+      z.object({
+        specialist_type: z.string(),
+        state: z.string(),
+        active_providers: z.number(),
+      })
+    )
+    .default([]),
+  zero_active_provider_specialties: z.array(z.string()).default([]),
+  recent_booking_turnaround: z
+    .object({
+      window_days: z.number(),
+      booked_referrals: z.number(),
+      avg_hours_to_booking: z.number().nullable(),
+    })
+    .nullable()
+    .default(null),
+  video_slot_utilisation_next_7_days: z
+    .object({
+      total_slots: z.number(),
+      booked_slots: z.number(),
+    })
+    .nullable()
+    .default(null),
+});
+export type ProviderCapacity = z.infer<typeof providerCapacitySchema>;
+
 // ---- Staff (Tarragon team) activity ---------------------------------------
 export const staffActivitySchema = z.object({
   staff_total: z.number().default(0),
