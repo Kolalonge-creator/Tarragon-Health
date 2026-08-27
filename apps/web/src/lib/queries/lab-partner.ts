@@ -4,6 +4,7 @@ import { uploadResultAsLabPartner } from "@/lib/lab-results/actions";
 import type { Tables } from "@tarragon/shared";
 
 export type Facility = Tables<"facilities">;
+export type LabProviderLocation = Tables<"lab_provider_locations">;
 
 /**
  * Lab partner surface — the "lab" counterpart of pharmacist (queries/pharmacist.ts).
@@ -24,9 +25,13 @@ export function useLabPartnerOrders() {
 }
 
 /**
- * Self-service branch/location management (20260730215206) — a lab partner
- * with dozens of real branches previously had no way to keep the patient-
- * facing facility picker accurate; only an admin could hand-type rows.
+ * Self-service branch/location management. Originally built (20260730215206)
+ * against public.facilities, which was globally suspended
+ * (20260803163135_suspend_all_facilities_and_vaccination_booking) and is now
+ * dead — this now targets lab_provider_locations instead, the table that
+ * actually feeds the public /coverage map via public_partner_locations()
+ * (20260827203240 gave a lab_partner write access scoped to their own
+ * lab_provider_id, matching the RLS shape admin already had).
  */
 export function useLabPartnerOwnProviderId() {
   return useQuery({
@@ -47,13 +52,13 @@ export function useLabPartnerFacilities(providerId: string | null | undefined) {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("facilities")
+        .from("lab_provider_locations")
         .select("*")
         .eq("lab_provider_id", providerId as string)
         .order("state")
-        .order("city");
+        .order("name");
       if (error) throw error;
-      return data as Facility[];
+      return data as LabProviderLocation[];
     },
   });
 }
@@ -65,23 +70,20 @@ export function useCreateLabPartnerFacility() {
       providerId: string;
       name: string;
       state: string;
-      city: string;
-      area?: string;
-      address?: string;
+      address: string;
       contactPhone?: string;
-      contactEmail?: string;
+      latitude?: number;
+      longitude?: number;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("facilities").insert({
-        type: "lab",
+      const { error } = await supabase.from("lab_provider_locations").insert({
         lab_provider_id: input.providerId,
         name: input.name,
         state: input.state,
-        city: input.city,
-        area: input.area || null,
-        address: input.address || null,
+        address: input.address,
         contact_phone: input.contactPhone || null,
-        contact_email: input.contactEmail || null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
       });
       if (error) throw error;
     },
@@ -94,7 +96,10 @@ export function useSetLabPartnerFacilityActive() {
   return useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("facilities").update({ is_active: isActive }).eq("id", id);
+      const { error } = await supabase
+        .from("lab_provider_locations")
+        .update({ is_active: isActive })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lab-partner-facilities"] }),

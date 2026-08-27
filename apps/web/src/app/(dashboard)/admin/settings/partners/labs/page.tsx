@@ -17,7 +17,7 @@ export default async function LabsPartnersPage() {
   const svc = createServiceRoleClient();
   const { data: labPartnerProfiles } = await svc
     .from("profiles")
-    .select("id, full_name, lab_provider_id")
+    .select("id, full_name, lab_provider_id, is_partner_admin")
     .eq("role", "lab_partner")
     .order("created_at", { ascending: false });
 
@@ -37,6 +37,7 @@ export default async function LabsPartnersPage() {
     email: emailById.get(p.id) ?? null,
     full_name: p.full_name,
     lab_provider_id: p.lab_provider_id,
+    is_partner_admin: p.is_partner_admin,
   }));
 
   return (
