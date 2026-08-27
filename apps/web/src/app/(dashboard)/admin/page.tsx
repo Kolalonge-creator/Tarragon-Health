@@ -184,6 +184,13 @@ export default async function AdminPage() {
           visible: can("protocols.manage"),
         },
         {
+          href: "/admin/settings/risk-questionnaire-config",
+          label: "Risk questionnaire configuration",
+          blurb: "The prevention risk assessment's questions and scoring rules",
+          icon: SEMANTIC_ICON.preventive,
+          visible: can("protocols.manage"),
+        },
+        {
           href: "/admin/settings/conditions",
           label: "Chronic conditions",
           blurb: "The phased chronic-disease catalogue",
