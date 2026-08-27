@@ -1900,6 +1900,78 @@ export type Database = {
           },
         ]
       }
+      care_team_handovers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_profile_id: string | null
+          id: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          role: string
+          to_profile_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_profile_id?: string | null
+          id?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          role: string
+          to_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_profile_id?: string | null
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          role?: string
+          to_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_team_handovers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_handovers_from_profile_id_fkey"
+            columns: ["from_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_handovers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_handovers_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_handovers_to_profile_id_fkey"
+            columns: ["to_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_voucher_config: {
         Row: {
           extension_months: number
@@ -16402,6 +16474,10 @@ export type Database = {
       }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       get_or_create_my_referral_code: { Args: never; Returns: string }
+      hand_over_care: {
+        Args: { p_new_profile_id: string; p_note?: string; p_patient_id: string; p_role: string }
+        Returns: undefined
+      }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
       hbpm_summary: { Args: { p_patient: string }; Returns: Json }
