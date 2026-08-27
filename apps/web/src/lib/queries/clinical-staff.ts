@@ -216,6 +216,35 @@ export function useSetClinicalStaffIndemnity() {
   });
 }
 
+/**
+ * Records the real expiry date on the clinician's MDCN/NMCN Annual
+ * Practicing License, read off the physical/PDF licence document — distinct
+ * from license_verified_at (when Tarragon last checked the record). Optional;
+ * private.notify_clinical_staff_license_lapses() only warns once this is set.
+ */
+export function useSetClinicalStaffLicenseExpiry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clinicalStaffId,
+      expiresAt,
+    }: {
+      clinicalStaffId: string;
+      expiresAt: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ license_expires_at: new Date(expiresAt).toISOString() })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
 /** Toggles active — the DB rejects activation of an unverified record (clinical_staff_active_requires_verification). */
 export function useSetClinicalStaffActive() {
   const queryClient = useQueryClient();

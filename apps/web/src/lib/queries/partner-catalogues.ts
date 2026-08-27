@@ -196,6 +196,7 @@ export type LabPartnerLoginRow = {
   email: string | null;
   full_name: string | null;
   lab_provider_id: string | null;
+  is_partner_admin: boolean;
 };
 
 /** Link (or unlink, pass null) an existing lab_partner-role login to a lab_providers row. */
@@ -217,6 +218,61 @@ export function useLinkLabPartner() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-partner-logins"] }),
+  });
+}
+
+export type PharmacistLoginRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  pharmacy_partner_id: string | null;
+  is_partner_admin: boolean;
+};
+
+/** Link (or unlink, pass null) an existing pharmacist-role login to a pharmacy_partners row. */
+export function useLinkPharmacist() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      profileId,
+      pharmacyPartnerId,
+    }: {
+      profileId: string;
+      pharmacyPartnerId: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("admin_link_pharmacist", {
+        p_profile_id: profileId,
+        p_pharmacy_partner_id: pharmacyPartnerId as unknown as string,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacist-logins"] }),
+  });
+}
+
+/**
+ * Designates (or removes) a linked lab_partner/pharmacist login as its own
+ * provider's self-service admin — the only privilege is being able to invite
+ * further staff logins for the same provider (see the partner-admin invite
+ * server action). profiles.is_partner_admin cannot be self-edited
+ * (private.guard_profiles_self_update) — this must run as an admin.
+ */
+export function useSetPartnerAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ profileId, isPartnerAdmin }: { profileId: string; isPartnerAdmin: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("admin_set_partner_admin", {
+        p_profile_id: profileId,
+        p_is_partner_admin: isPartnerAdmin,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lab-partner-logins"] });
+      qc.invalidateQueries({ queryKey: ["pharmacist-logins"] });
+    },
   });
 }
 
