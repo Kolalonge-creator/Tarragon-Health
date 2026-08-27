@@ -279,6 +279,34 @@ revoke all on function public.sponsor_payable_orders(uuid) from public;
 revoke all on function public.sponsor_payable_orders(uuid) from anon;
 grant execute on function public.sponsor_payable_orders(uuid) to authenticated;
 
+-- Stub #11: next confirmed CI failure after #10 above --
+-- 20260731215226_care_vouchers_purchase_and_layaway.sql's own assertion,
+-- covering two functions. Only purchase_care_voucher is stubbed here (plain
+-- uuid/uuid/text args); its sibling record_voucher_payment_intent takes a
+-- custom enum (public.payment_provider) and needs the real-migration
+-- treatment instead -- see
+-- supabase/migrations/20260731215225_stub_record_voucher_payment_intent_grants.sql.
+-- payment_provider itself is old and stable (created 20260705211343), so
+-- that migration is safe to place directly before this one.
+create function public.purchase_care_voucher(
+  p_beneficiary uuid,
+  p_panel_bundle_id uuid,
+  p_gift_message text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.purchase_care_voucher(uuid, uuid, text) from public;
+revoke all on function public.purchase_care_voucher(uuid, uuid, text) from anon;
+grant execute on function public.purchase_care_voucher(uuid, uuid, text) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
