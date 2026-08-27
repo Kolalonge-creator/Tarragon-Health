@@ -107,6 +107,22 @@ revoke all on function public.admin_send_broadcast(uuid) from public;
 revoke all on function public.admin_send_broadcast(uuid) from anon;
 grant execute on function public.admin_send_broadcast(uuid) to authenticated, service_role;
 
+-- Stub #4: next confirmed CI failure after #2/#3 above --
+-- 20260730215206_facilities_lab_partner_self_service.sql's own assertion on
+-- lab_partner_own_provider_id (single creation site, same pattern again).
+create function public.lab_partner_own_provider_id()
+returns uuid
+language plpgsql
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.lab_partner_own_provider_id() from public;
+revoke all on function public.lab_partner_own_provider_id() from anon;
+grant execute on function public.lab_partner_own_provider_id() to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
