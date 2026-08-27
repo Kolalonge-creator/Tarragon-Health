@@ -1,8 +1,9 @@
 -- ===========================================================================
 -- Verification: profiles_guard_self_update (20260827192712_profiles_self_
 -- update_column_guard.sql) blocks a patient session from changing role,
--- organisation_id, or hiv_status on their OWN profiles row via a direct
--- UPDATE, while leaving every other legitimate write path untouched:
+-- organisation_id, hiv_status, or is_partner_admin on their OWN profiles
+-- row via a direct UPDATE, while leaving every other legitimate write path
+-- untouched:
 --   * the same patient can still update an allowed column (state) — proves
 --     the guard is a narrow denylist, not an accidental lockout;
 --   * an admin session can still change a patient's role/hiv_status;
@@ -274,6 +275,35 @@ begin
      'hiv_positive', case when v_readback = 'hiv_positive' then 'PASS' else 'FAIL' end);
   if v_readback is distinct from 'hiv_positive' then
     raise exception 'BROKEN: the new guard blocked advance_serology_status''s legitimate internal cascade';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 8. Patient session cannot set their own is_partner_admin directly. Added
+--    after a concurrent session extended the live guard to cover this real
+--    privileged column this test suite didn't originally know about (see
+--    20260827192712's header) — the guard denylist now matches production.
+-- ==========================================================================
+do $$
+declare
+  v_patient uuid := (select v from psucg_fixture where k = 'patient');
+  v_caught  boolean := false;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    update public.profiles set is_partner_admin = true where id = v_patient;
+  exception when others then
+    v_caught := true;
+  end;
+  reset role;
+
+  insert into psucg_result values
+    ('patient self-sets is_partner_admin', 'patient', case when v_caught then 'blocked' else 'not blocked' end,
+     'blocked', case when v_caught then 'PASS' else 'FAIL' end);
+  if not v_caught then
+    raise exception 'LEAK: patient session set their own is_partner_admin directly';
   end if;
 end $$;
 

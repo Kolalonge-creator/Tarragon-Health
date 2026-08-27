@@ -45,6 +45,21 @@
 -- allowlist risks silently breaking a path this review didn't enumerate; a
 -- denylist of the specific columns with no legitimate direct-client writer
 -- anywhere in the app is the lower-risk fix for the confirmed gap.
+--
+-- CORRECTED after real production testing (not caught by static review):
+-- the first version of this denylist included `account_purpose`, based on
+-- 20260801093000_supporter_accounts.sql's own text — that column does not
+-- actually exist on the live `profiles` table (confirmed via information_
+-- schema.columns), so every self-edit, even to an allowed column, raised
+-- `record "new" has no field "account_purpose"` the moment this trigger was
+-- live. Removed. Separately, a concurrent session working on partner-org
+-- self-service features found this same trigger already live (applied
+-- ahead of this PR merging, to let it be tested against production) and
+-- extended it, correctly, to also guard a real privileged column this
+-- review had no way to know about: `is_partner_admin`
+-- (20260827203757_guard_profiles_self_update_committed_and_partner_admin,
+-- applied directly to the project, not yet reflected as its own file in
+-- this repo) — kept here rather than reverted.
 
 create or replace function private.guard_profiles_self_update()
 returns trigger
@@ -95,9 +110,6 @@ begin
   if new.is_dependent_account is distinct from old.is_dependent_account then
     raise exception 'profiles.is_dependent_account cannot be changed by the account owner';
   end if;
-  if new.account_purpose is distinct from old.account_purpose then
-    raise exception 'profiles.account_purpose cannot be changed by the account owner';
-  end if;
   if new.identity_verified_at is distinct from old.identity_verified_at then
     raise exception 'profiles.identity_verified_at cannot be changed by the account owner';
   end if;
@@ -116,6 +128,9 @@ begin
   if new.pharmacy_partner_id is distinct from old.pharmacy_partner_id then
     raise exception 'profiles.pharmacy_partner_id cannot be changed by the account owner';
   end if;
+  if new.is_partner_admin is distinct from old.is_partner_admin then
+    raise exception 'profiles.is_partner_admin cannot be changed by the account owner';
+  end if;
   if new.created_at is distinct from old.created_at then
     raise exception 'profiles.created_at cannot be changed by the account owner';
   end if;
@@ -125,7 +140,7 @@ end;
 $$;
 
 comment on function private.guard_profiles_self_update() is
-  'BEFORE UPDATE guard on public.profiles: blocks a direct, top-level self-edit (patient/staff editing their own row, not staff/admin editing someone else''s, not a system-internal trigger cascade) from changing role/organisation_id/patient_number/staff_number/custom_role_id/is_active/is_dependent_account/account_purpose/identity_verified_at/hbv_status/hcv_status/hiv_status/lab_provider_id/pharmacy_partner_id/created_at. See migration header for why this is a denylist, not an allowlist, and why pg_trigger_depth() is used to exempt internal cascades like advance_serology_status.';
+  'BEFORE UPDATE guard on public.profiles: blocks a direct, top-level self-edit (patient/staff editing their own row, not staff/admin editing someone else''s, not a system-internal trigger cascade) from changing role/organisation_id/patient_number/staff_number/custom_role_id/is_active/is_dependent_account/identity_verified_at/hbv_status/hcv_status/hiv_status/lab_provider_id/pharmacy_partner_id/is_partner_admin/created_at. See migration header for why this is a denylist, not an allowlist, why pg_trigger_depth() is used to exempt internal cascades like advance_serology_status, and why account_purpose (in an earlier version of this comment) is gone and is_partner_admin is new.';
 
 drop trigger if exists profiles_guard_self_update on public.profiles;
 create trigger profiles_guard_self_update
