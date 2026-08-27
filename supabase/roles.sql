@@ -362,6 +362,43 @@ revoke all on function public.cancel_care_voucher(uuid, text) from public;
 revoke all on function public.cancel_care_voucher(uuid, text) from anon;
 grant execute on function public.cancel_care_voucher(uuid, text) to authenticated;
 
+-- Stub #15/#16: next confirmed CI failure after #13/#14 above --
+-- 20260801091000_sponsor_care_status_and_funding.sql's own assertion,
+-- covering sponsor_care_status/sponsor_request_refill (both single creation
+-- site here) plus sponsor_payable_orders (already stubbed above as #10).
+create function public.sponsor_care_status(p_beneficiary uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.sponsor_care_status(uuid) from public;
+revoke all on function public.sponsor_care_status(uuid) from anon;
+grant execute on function public.sponsor_care_status(uuid) to authenticated;
+
+create function public.sponsor_request_refill(
+  p_beneficiary uuid,
+  p_medication_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.sponsor_request_refill(uuid, uuid) from public;
+revoke all on function public.sponsor_request_refill(uuid, uuid) from anon;
+grant execute on function public.sponsor_request_refill(uuid, uuid) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
