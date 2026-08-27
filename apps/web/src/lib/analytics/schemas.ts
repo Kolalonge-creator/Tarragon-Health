@@ -85,6 +85,27 @@ export const revenueByPlanSchema = z
 export type RevenueByPlan = z.infer<typeof revenueByPlanSchema>;
 
 // ---- Population health -----------------------------------------------------
+
+/**
+ * get_geo_health_aggregates() returns one row per state; a null count means
+ * suppressed (spec §2.17) — never coerce it to 0, which would misrepresent
+ * a hidden figure as a real zero.
+ */
+export const geoHealthAggregatesSchema = z
+  .array(
+    z.object({
+      state: z.string(),
+      patient_count: z.number().nullable(),
+      hypertension_high_count: z.number().nullable(),
+      diabetes_high_count: z.number().nullable(),
+      cvd_high_count: z.number().nullable(),
+      overdue_screening_count: z.number().nullable(),
+      suppressed: z.boolean(),
+    })
+  )
+  .default([]);
+export type GeoHealthAggregates = z.infer<typeof geoHealthAggregatesSchema>;
+
 export const populationSummarySchema = z.object({
   total_patients: z.number().default(0),
   condition_prevalence: z

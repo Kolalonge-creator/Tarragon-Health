@@ -5,6 +5,7 @@ import { useRiskScores } from "@/lib/queries/risk-assessment";
 import { useLatestMentalHealthScreens } from "@/lib/queries/mental-health";
 import { useCarePlans } from "@/lib/queries/care-plans";
 import { useMedications } from "@/lib/queries/medications";
+import { usePatientCareGaps } from "@/lib/queries/patient-care-gaps";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -14,6 +15,9 @@ const RISK_BADGE: Record<string, BadgeProps["variant"]> = {
   moderate: "amber",
   high: "red",
   very_high: "red",
+  // Insufficient data to assess, not a reassuring reading — grey, same as
+  // every other "unscored" state on this platform, never green.
+  unknown: "grey",
 };
 
 const MENTAL_HEALTH_LABEL: Record<string, string> = {
@@ -89,14 +93,20 @@ export function PreVisitSummary({
   const mentalHealth = useLatestMentalHealthScreens(patientId);
   const carePlans = useCarePlans(patientId);
   const medications = useMedications(patientId);
+  const careGaps = usePatientCareGaps(patientId);
 
   const isLoading =
-    riskScores.isLoading || mentalHealth.isLoading || carePlans.isLoading || medications.isLoading;
+    riskScores.isLoading ||
+    mentalHealth.isLoading ||
+    carePlans.isLoading ||
+    medications.isLoading ||
+    careGaps.isLoading;
   const hasNothing =
     !isLoading &&
     (riskScores.data ?? []).length === 0 &&
     Object.keys(mentalHealth.data ?? {}).length === 0 &&
-    (carePlans.data ?? []).length === 0;
+    (carePlans.data ?? []).length === 0 &&
+    (careGaps.data ?? []).length === 0;
 
   const age = ageFromDateOfBirth(dateOfBirth ?? null);
   const sexLetter = sex ? SEX_LETTER[sex] : undefined;
@@ -134,6 +144,22 @@ export function PreVisitSummary({
             <span className={nextAction?.urgent ? "font-medium text-red-700" : "text-charcoal-ink/70"}>
               Next action: {nextAction?.text ?? "None flagged"}
             </span>
+          </div>
+        )}
+
+        {(careGaps.data ?? []).length > 0 && (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+              Care gaps
+            </p>
+            <ul className="mt-1 space-y-1">
+              {(careGaps.data ?? []).map((gap, i) => (
+                <li key={i} className="flex items-center gap-2 text-xs text-charcoal-ink/70">
+                  <Badge variant="amber">{gap.gap_type?.replace(/_/g, " ")}</Badge>
+                  {gap.condition_or_type}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

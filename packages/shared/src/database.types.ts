@@ -12938,13 +12938,131 @@ export type Database = {
           },
         ]
       }
+      prevention_campaign_enrolments: {
+        Row: {
+          campaign_id: string
+          id: string
+          joined_at: string
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          id?: string
+          joined_at?: string
+          organisation_id: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          id?: string
+          joined_at?: string
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_campaign_enrolments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "prevention_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaign_enrolments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaign_enrolments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prevention_campaigns: {
+        Row: {
+          actions: Json
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          eligibility_rule: Json
+          ends_on: string | null
+          id: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          eligibility_rule?: Json
+          ends_on?: string | null
+          id?: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          eligibility_rule?: Json
+          ends_on?: string | null
+          id?: string
+          name?: string
+          organisation_id?: string
+          starts_on?: string
+          status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prevention_risk_scores: {
         Row: {
           computed_at: string
           condition: Database["public"]["Enums"]["prevention_condition"]
+          confidence: Database["public"]["Enums"]["risk_confidence"] | null
           created_at: string
           id: string
           inputs_snapshot: Json
+          model_name: string | null
+          model_version: string | null
           organisation_id: string
           profile_id: string
           tier: Database["public"]["Enums"]["risk_level"]
@@ -12952,9 +13070,12 @@ export type Database = {
         Insert: {
           computed_at?: string
           condition: Database["public"]["Enums"]["prevention_condition"]
+          confidence?: Database["public"]["Enums"]["risk_confidence"] | null
           created_at?: string
           id?: string
           inputs_snapshot?: Json
+          model_name?: string | null
+          model_version?: string | null
           organisation_id: string
           profile_id: string
           tier?: Database["public"]["Enums"]["risk_level"]
@@ -12962,9 +13083,12 @@ export type Database = {
         Update: {
           computed_at?: string
           condition?: Database["public"]["Enums"]["prevention_condition"]
+          confidence?: Database["public"]["Enums"]["risk_confidence"] | null
           created_at?: string
           id?: string
           inputs_snapshot?: Json
+          model_name?: string | null
+          model_version?: string | null
           organisation_id?: string
           profile_id?: string
           tier?: Database["public"]["Enums"]["risk_level"]
@@ -13966,6 +14090,111 @@ export type Database = {
           },
         ]
       }
+      risk_questionnaire_configs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          code: string
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          organisation_id: string
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code: string
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id: string
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_questionnaire_configs_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_questionnaire_configs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_reassessment_queue: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          processed_at: string | null
+          reason: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at: string
+          source_id: string | null
+          source_table: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          processed_at?: string | null
+          reason: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at?: string
+          source_id?: string | null
+          source_table: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          processed_at?: string | null
+          reason?: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at?: string
+          source_id?: string | null
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_reassessment_queue_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_reassessment_queue_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       risk_register: {
         Row: {
           category: string
@@ -14039,6 +14268,7 @@ export type Database = {
         Row: {
           age_from: number | null
           age_to: number | null
+          category: string | null
           clinical_basis: string | null
           code: string
           commission_rate: number | null
@@ -14064,6 +14294,7 @@ export type Database = {
         Insert: {
           age_from?: number | null
           age_to?: number | null
+          category?: string | null
           clinical_basis?: string | null
           code: string
           commission_rate?: number | null
@@ -14089,6 +14320,7 @@ export type Database = {
         Update: {
           age_from?: number | null
           age_to?: number | null
+          category?: string | null
           clinical_basis?: string | null
           code?: string
           commission_rate?: number | null
@@ -14292,6 +14524,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at: string | null
+          reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
           status: Database["public"]["Enums"]["screening_status"]
           updated_at: string
@@ -14304,6 +14537,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
@@ -14316,6 +14550,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id?: string
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
@@ -15461,6 +15696,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at: string | null
+          reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           status: Database["public"]["Enums"]["screening_status"]
           updated_at: string
           vaccination_catalog_id: string
@@ -15472,6 +15708,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
           vaccination_catalog_id: string
@@ -15483,6 +15720,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
           vaccination_catalog_id?: string
@@ -17273,6 +17511,18 @@ export type Database = {
         }[]
       }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
+      get_geo_health_aggregates: {
+        Args: never
+        Returns: {
+          state: string
+          patient_count: number | null
+          hypertension_high_count: number | null
+          diabetes_high_count: number | null
+          cvd_high_count: number | null
+          overdue_screening_count: number | null
+          suppressed: boolean
+        }[]
+      }
       get_or_create_my_referral_code: { Args: never; Returns: string }
       hand_over_care: {
         Args: { p_new_profile_id: string; p_note?: string; p_patient_id: string; p_role: string }
@@ -17977,6 +18227,10 @@ export type Database = {
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
+      sign_risk_questionnaire_config: {
+        Args: { p_config_id: string }
+        Returns: string
+      }
       sign_vaccination_schedule: {
         Args: { p_signoff_id: string }
         Returns: string
@@ -18531,9 +18785,26 @@ export type Database = {
         | "colorectal_ca"
         | "prostate_ca"
         | "other"
+        | "ckd"
+        | "asthma_copd"
+        | "mental_wellbeing"
+      prevention_campaign_action_type:
+        | "education"
+        | "screening_invite"
+        | "assessment"
+        | "discount"
+        | "challenge"
+      prevention_campaign_enrolment_status: "invited" | "joined" | "completed" | "declined"
+      prevention_campaign_status: "draft" | "active" | "ended"
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
+      reassessment_reason:
+        | "new_diagnosis"
+        | "abnormal_result"
+        | "hospital_discharge"
+        | "pregnancy_life_stage"
+        | "major_weight_change"
       referral_reward_status: "pending" | "earned" | "paid"
       referral_status:
         | "pending_payment"
@@ -18549,6 +18820,7 @@ export type Database = {
         | "doctor_refers_patient"
         | "corporate_champion"
       referral_urgency: "routine" | "priority" | "urgent"
+      reminder_stage: "upcoming" | "due" | "overdue" | "escalated"
       reproductive_life_stage:
         | "menstruating"
         | "trying_to_conceive"
@@ -18571,7 +18843,8 @@ export type Database = {
         | "meds"
         | "vaccination"
         | "screening_history"
-      risk_level: "low" | "moderate" | "high" | "very_high"
+      risk_confidence: "low" | "moderate" | "high"
+      risk_level: "low" | "moderate" | "high" | "very_high" | "unknown"
       screen_applicability: "all" | "male" | "female"
       screen_price_source:
         | "lab_price_list"
@@ -19384,10 +19657,29 @@ export const Constants = {
         "colorectal_ca",
         "prostate_ca",
         "other",
+        "ckd",
+        "asthma_copd",
+        "mental_wellbeing",
       ],
+      prevention_campaign_action_type: [
+        "education",
+        "screening_invite",
+        "assessment",
+        "discount",
+        "challenge",
+      ],
+      prevention_campaign_enrolment_status: ["invited", "joined", "completed", "declined"],
+      prevention_campaign_status: ["draft", "active", "ended"],
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
+      reassessment_reason: [
+        "new_diagnosis",
+        "abnormal_result",
+        "hospital_discharge",
+        "pregnancy_life_stage",
+        "major_weight_change",
+      ],
       referral_reward_status: ["pending", "earned", "paid"],
       referral_status: [
         "pending_payment",
@@ -19405,6 +19697,7 @@ export const Constants = {
         "corporate_champion",
       ],
       referral_urgency: ["routine", "priority", "urgent"],
+      reminder_stage: ["upcoming", "due", "overdue", "escalated"],
       reproductive_life_stage: [
         "menstruating",
         "trying_to_conceive",
@@ -19430,7 +19723,8 @@ export const Constants = {
         "vaccination",
         "screening_history",
       ],
-      risk_level: ["low", "moderate", "high", "very_high"],
+      risk_confidence: ["low", "moderate", "high"],
+      risk_level: ["low", "moderate", "high", "very_high", "unknown"],
       screen_applicability: ["all", "male", "female"],
       screen_price_source: [
         "lab_price_list",

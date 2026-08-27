@@ -21,10 +21,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
-/** prevention_risk_scores.tier is risk_level (has very_high); the engine works
- * in three tiers — collapse very_high into high. */
+/**
+ * prevention_risk_scores.tier is risk_level (has very_high and unknown); the
+ * programme-recommendation engine only works in three tiers. very_high
+ * collapses into high; unknown collapses into low — a programme suggestion
+ * driven by absent data should never read as more urgent than one driven by
+ * an actual low reading, and the patient can still browse/enrol manually
+ * regardless (see risk-assessment-display.tsx for where unknown surfaces
+ * honestly instead of being hidden).
+ */
 function toRiskTier(tier: Enums<"risk_level">): RiskTier {
-  return tier === "very_high" ? "high" : tier;
+  if (tier === "very_high") return "high";
+  if (tier === "unknown") return "low";
+  return tier;
 }
 
 const SCREENING_STATUS_LABEL: Record<Enums<"screening_status">, string> = {
