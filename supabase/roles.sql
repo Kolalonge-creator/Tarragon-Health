@@ -329,6 +329,39 @@ revoke all on function public.redeem_care_voucher(uuid, text, uuid) from public;
 revoke all on function public.redeem_care_voucher(uuid, text, uuid) from anon;
 grant execute on function public.redeem_care_voucher(uuid, text, uuid) to authenticated;
 
+-- Stub #13/#14: next confirmed CI failure after #12 above --
+-- 20260731215424_care_vouchers_lifecycle_and_rewards.sql's own assertion on
+-- both functions it defines (single creation site each, same pattern again).
+create function public.extend_care_voucher(p_voucher uuid, p_reason text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.extend_care_voucher(uuid, text) from public;
+revoke all on function public.extend_care_voucher(uuid, text) from anon;
+grant execute on function public.extend_care_voucher(uuid, text) to authenticated;
+
+create function public.cancel_care_voucher(p_voucher uuid, p_reason text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.cancel_care_voucher(uuid, text) from public;
+revoke all on function public.cancel_care_voucher(uuid, text) from anon;
+grant execute on function public.cancel_care_voucher(uuid, text) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
