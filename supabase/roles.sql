@@ -216,6 +216,49 @@ revoke all on function public.sponsor_pay_booking_order(uuid, text, uuid) from p
 revoke all on function public.sponsor_pay_booking_order(uuid, text, uuid) from anon;
 grant execute on function public.sponsor_pay_booking_order(uuid, text, uuid) to authenticated;
 
+-- Stub #8/#9: next confirmed CI failure after #7 above --
+-- 20260731023501_sponsor_acting_rpcs.sql's own assertion on both functions
+-- it defines (single creation site each, same pattern again).
+create function public.sponsor_book_care(
+  p_beneficiary uuid,
+  p_bundle_code text,
+  p_facility_id uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.sponsor_book_care(uuid, text, uuid) from public;
+revoke all on function public.sponsor_book_care(uuid, text, uuid) from anon;
+grant execute on function public.sponsor_book_care(uuid, text, uuid) to authenticated;
+
+create function public.sponsor_set_dependent_basics(
+  p_beneficiary uuid,
+  p_date_of_birth date default null,
+  p_sex text default null,
+  p_state text default null,
+  p_city text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.sponsor_set_dependent_basics(uuid, date, text, text, text) from public;
+revoke all on function public.sponsor_set_dependent_basics(uuid, date, text, text, text) from anon;
+grant execute on function public.sponsor_set_dependent_basics(uuid, date, text, text, text) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
