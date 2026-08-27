@@ -35,6 +35,7 @@ import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
+import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
 export default async function ClinicianPatientPage({
@@ -311,6 +312,17 @@ export default async function ClinicianPatientPage({
                 <ObesityEdScreenForm patientId={patient.id} />
               </>
             ),
+          },
+          {
+            id: "clinical-notes",
+            label: "Clinical notes",
+            content: patient.organisation_id ? (
+              <ClinicalEncounterNotesSection
+                patientId={patient.id}
+                organisationId={patient.organisation_id}
+                canWrite={isClinicalTier(callerStaff)}
+              />
+            ) : null,
           },
         ];
 

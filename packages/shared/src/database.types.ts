@@ -2410,6 +2410,138 @@ export type Database = {
           },
         ]
       }
+      clinical_encounter_notes: {
+        Row: {
+          assessment: string | null
+          async_consult_id: string | null
+          authored_by_profile: string | null
+          authored_by_staff: string | null
+          created_at: string
+          diagnosis: string | null
+          encounter_date: string
+          encounter_type: string
+          escalation_id: string | null
+          examination_findings: string | null
+          finalized_at: string | null
+          finalized_by_staff: string | null
+          follow_up_instructions: string | null
+          history: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          plan: string | null
+          reason_for_encounter: string
+          status: string
+          updated_at: string
+          video_consultation_id: string | null
+        }
+        Insert: {
+          assessment?: string | null
+          async_consult_id?: string | null
+          authored_by_profile?: string | null
+          authored_by_staff?: string | null
+          created_at?: string
+          diagnosis?: string | null
+          encounter_date?: string
+          encounter_type: string
+          escalation_id?: string | null
+          examination_findings?: string | null
+          finalized_at?: string | null
+          finalized_by_staff?: string | null
+          follow_up_instructions?: string | null
+          history?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          plan?: string | null
+          reason_for_encounter: string
+          status?: string
+          updated_at?: string
+          video_consultation_id?: string | null
+        }
+        Update: {
+          assessment?: string | null
+          async_consult_id?: string | null
+          authored_by_profile?: string | null
+          authored_by_staff?: string | null
+          created_at?: string
+          diagnosis?: string | null
+          encounter_date?: string
+          encounter_type?: string
+          escalation_id?: string | null
+          examination_findings?: string | null
+          finalized_at?: string | null
+          finalized_by_staff?: string | null
+          follow_up_instructions?: string | null
+          history?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          plan?: string | null
+          reason_for_encounter?: string
+          status?: string
+          updated_at?: string
+          video_consultation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_encounter_notes_async_consult_id_fkey"
+            columns: ["async_consult_id"]
+            isOneToOne: false
+            referencedRelation: "async_consults"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_authored_by_profile_fkey"
+            columns: ["authored_by_profile"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_authored_by_staff_fkey"
+            columns: ["authored_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_finalized_by_staff_fkey"
+            columns: ["finalized_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_incident_reports: {
         Row: {
           category: string
@@ -17643,6 +17775,7 @@ export type Database = {
         | "discharge_recorded"
         | "message_posted"
         | "medication_dispensed"
+        | "encounter_documented"
       upgrade_condition:
         | "hypertension"
         | "diabetes"
@@ -18462,6 +18595,7 @@ export const Constants = {
         "discharge_recorded",
         "message_posted",
         "medication_dispensed",
+        "encounter_documented",
       ],
       upgrade_condition: [
         "hypertension",

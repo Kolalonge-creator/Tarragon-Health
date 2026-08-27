@@ -33,6 +33,7 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   admission_recorded: { dot: "bg-clinical-navy", label: "Admission" },
   message_posted: { dot: "bg-clinical-navy", label: "Message" },
   medication_dispensed: { dot: "bg-clinical-navy", label: "Medication" },
+  encounter_documented: { dot: "bg-clinical-navy", label: "Clinical note" },
 };
 
 // Belt-and-braces only — private.record_timeline_event() now strips
