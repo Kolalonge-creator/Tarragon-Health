@@ -232,6 +232,7 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
               ],
@@ -270,6 +271,7 @@ export function getNavSections(
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },
           ];

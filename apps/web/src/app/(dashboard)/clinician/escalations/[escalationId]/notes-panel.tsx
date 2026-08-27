@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useEscalationNotes, useAddEscalationNote } from "@/lib/queries/escalations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { NoteTemplatePicker } from "@/components/clinical/note-template-picker";
 
 export function NotesPanel({
   escalationId,
@@ -27,11 +29,16 @@ export function NotesPanel({
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="note">New note</Label>
-          <Input
+          <NoteTemplatePicker
+            organisationId={organisationId}
+            onInsert={(body) => setNote((prev) => (prev ? `${prev} ${body}` : body))}
+          />
+          <Textarea
             id="note"
             placeholder="What happened on this contact attempt?"
             value={note}
             onChange={(e) => setNote(e.target.value)}
+            rows={3}
           />
           <Label htmlFor="next-follow-up-at">Next follow-up (optional)</Label>
           <Input

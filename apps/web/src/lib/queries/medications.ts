@@ -6,14 +6,19 @@ import type { MedicationLogInput } from "@/lib/validation/medication-logs";
 
 export type Medication = Tables<"medications">;
 export type MedicationLog = Tables<"medication_logs">;
+export type MedicationCollection = Tables<"pharmacy_order_dispenses">;
 
 /** A medication row plus the condition of its linked care plan, if any —
- * lets the "digital medicines cabinet" show what each drug is treating. */
+ * lets the "digital medicines cabinet" show what each drug is treating.
+ * added_by_profile resolves the prescriber's name for the "Signed by"
+ * step of the prescription status trail (added_by is a bare uuid). */
 export type MedicationWithCarePlan = Medication & {
   care_plan: { condition: string; status: string } | null;
+  added_by_profile: { full_name: string | null } | null;
 };
 
-const MEDICATION_SELECT = "*, care_plan:care_plans(condition, status)";
+const MEDICATION_SELECT =
+  "*, care_plan:care_plans(condition, status), added_by_profile:profiles!medications_added_by_fkey(full_name)";
 
 function medicationsKey(patientId: string) {
   return ["medications", patientId];
@@ -25,6 +30,12 @@ function stoppedMedicationsKey(patientId: string) {
 
 function todaysDoseLogsKey(patientId: string, date: string) {
   return ["medication-logs", "today", patientId, date];
+}
+
+/** Matches the literal key MedicationCollectionForm already invalidates on
+ * save — that invalidation predates this hook and had nothing to refresh. */
+function medicationCollectionsKey(patientId: string) {
+  return ["medication-collections", patientId];
 }
 
 /** Patient-local (Africa/Lagos) calendar date, per CLAUDE.md's fixed timezone rule. */
@@ -71,6 +82,34 @@ export function useStoppedMedications(patientId: string) {
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data as MedicationWithCarePlan[];
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * "Collected" side of the prescription status trail (Care Team / Provider
+ * Workspace §5.11, adapted — see 20260827200208_prescription_workspace_fields.sql
+ * for why there's no "sent to pharmacy" step). All of the patient's
+ * pharmacy_order_dispenses rows that reference a medication_id — self-logged
+ * ("I picked this up") or staff-logged, newest first. One medication can have
+ * several collections over time (successive refills), so this returns the
+ * full list rather than a single latest row; callers pick the most recent
+ * per medication_id.
+ */
+export function useMedicationCollections(patientId: string) {
+  return useQuery({
+    queryKey: medicationCollectionsKey(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_order_dispenses")
+        .select("*")
+        .eq("patient_id", patientId)
+        .not("medication_id", "is", null)
+        .order("dispensed_on", { ascending: false });
+      if (error) throw error;
+      return data as MedicationCollection[];
     },
     enabled: !!patientId,
   });
