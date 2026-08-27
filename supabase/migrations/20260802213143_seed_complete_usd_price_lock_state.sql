@@ -25,37 +25,19 @@
 -- this row as locked-and-skip, exactly reproducing the live sequence.
 -- Guarded to change nothing if the row already matches (harmless either
 -- way on live, where it's already true).
+--
+-- is_active = true is required too, not just price_locked/price_minor
+-- (found via a forced-exception diagnostic dump, since supabase's migration
+-- runner doesn't surface plain RAISE NOTICE output): 213144's own "a
+-- price-locked USD plan was disturbed" assertion checks `not p.is_active OR
+-- price mismatch`, so a locked-but-inactive row fails it regardless of
+-- price. The row must have been is_active=true on live at this point too
+-- (a real subscriber was actively subscribed to it) -- 214403, a later
+-- migration, is what actually deactivates it, matching the live sequence
+-- of events (active subscriber -> admin deactivates new sign-ups).
 update public.subscription_plans
    set price_locked = true,
-       price_minor = 1099
+       price_minor = 1099,
+       is_active = true
  where code = 'complete_usd'
-   and (not price_locked or price_minor is distinct from 1099);
-
--- Temporary diagnostic (2026-08-27): the CI run right after this fix landed
--- still failed 213144's "a price-locked USD plan was disturbed" check for
--- reasons not yet understood from static reading alone -- manual math
--- (complete = 1500000 kobo, ngn_per_usd = 1365) says round(1500000/1365) is
--- 1099, which should already satisfy that check. Dumping the actual runtime
--- values so the next CI log shows what's really happening instead of more
--- guessing. Remove this block once the real cause is found.
-do $$
-declare
-  v_rate numeric;
-  v_base bigint;
-  v_dump text := '';
-  v_row record;
-begin
-  select ngn_per_usd into v_rate from public.platform_currency_settings where id;
-  select price_minor into v_base from public.subscription_plans where code = 'complete';
-  v_dump := format('ngn_per_usd=%s complete.price_minor=%s round=%s | ',
-    v_rate, v_base, (case when v_rate is null or v_rate <= 0 then null else round(v_base / v_rate) end));
-  for v_row in
-    select code, price_minor, price_locked, is_active, derived_from_code
-    from public.subscription_plans
-    where currency = 'USD' and (price_locked or code = 'complete_usd')
-  loop
-    v_dump := v_dump || format('[%s price_minor=%s locked=%s active=%s derived=%s] ',
-      v_row.code, v_row.price_minor, v_row.price_locked, v_row.is_active, v_row.derived_from_code);
-  end loop;
-  raise exception 'DEBUG DUMP: %', v_dump;
-end $$;
+   and (not price_locked or price_minor is distinct from 1099 or not is_active);
