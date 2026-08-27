@@ -223,6 +223,7 @@ export default async function ClinicianPatientPage({
                   patientId={patient.id}
                   refillCoordinationEnabled
                   canConfirmRefill={canConfirmRefill}
+                  isClinicianView
                 />
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
                     continues existing prescriptions but has no new-prescribing

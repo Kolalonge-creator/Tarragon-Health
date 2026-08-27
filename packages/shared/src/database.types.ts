@@ -8763,8 +8763,11 @@ export type Database = {
           created_at: string
           dose: string | null
           drug_name: string
+          duration_days: number | null
           frequency: string | null
           id: string
+          indication: string | null
+          instructions: string | null
           is_active: boolean
           last_confirmed_at: string | null
           last_confirmed_by: string | null
@@ -8772,7 +8775,10 @@ export type Database = {
           patient_id: string
           prescriber_document_url: string | null
           prescriber_name: string | null
+          quantity: string | null
           refill_date: string | null
+          repeats_allowed: number
+          route: string | null
           schedule_times: Json
           source: Database["public"]["Enums"]["medication_source"]
           stopped_at: string | null
@@ -8785,8 +8791,11 @@ export type Database = {
           created_at?: string
           dose?: string | null
           drug_name: string
+          duration_days?: number | null
           frequency?: string | null
           id?: string
+          indication?: string | null
+          instructions?: string | null
           is_active?: boolean
           last_confirmed_at?: string | null
           last_confirmed_by?: string | null
@@ -8794,7 +8803,10 @@ export type Database = {
           patient_id: string
           prescriber_document_url?: string | null
           prescriber_name?: string | null
+          quantity?: string | null
           refill_date?: string | null
+          repeats_allowed?: number
+          route?: string | null
           schedule_times?: Json
           source?: Database["public"]["Enums"]["medication_source"]
           stopped_at?: string | null
@@ -8807,8 +8819,11 @@ export type Database = {
           created_at?: string
           dose?: string | null
           drug_name?: string
+          duration_days?: number | null
           frequency?: string | null
           id?: string
+          indication?: string | null
+          instructions?: string | null
           is_active?: boolean
           last_confirmed_at?: string | null
           last_confirmed_by?: string | null
@@ -8816,7 +8831,10 @@ export type Database = {
           patient_id?: string
           prescriber_document_url?: string | null
           prescriber_name?: string | null
+          quantity?: string | null
           refill_date?: string | null
+          repeats_allowed?: number
+          route?: string | null
           schedule_times?: Json
           source?: Database["public"]["Enums"]["medication_source"]
           stopped_at?: string | null

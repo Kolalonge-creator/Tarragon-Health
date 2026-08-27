@@ -3,9 +3,11 @@
 import { useState, type FormEvent } from "react";
 import {
   useConfirmMedicationRefill,
+  useMedicationCollections,
   useMedications,
   useStoppedMedications,
   useStopMedication,
+  type MedicationCollection,
   type MedicationWithCarePlan,
 } from "@/lib/queries/medications";
 import { MedicationCollectionForm } from "./medication-collection-form";
@@ -32,6 +34,7 @@ export function MedicationsList({
   refillCoordinationEnabled,
   canConfirmRefill = false,
   canStop = false,
+  isClinicianView = false,
 }: {
   patientId: string;
   /** 'medication_refills' feature — Free tier tracks medications but gets
@@ -49,8 +52,22 @@ export function MedicationsList({
    * the real permission — the patient may stop their own self-/specialist-
    * sourced rows; a clinician row needs prescribing authority. */
   canStop?: boolean;
+  /**
+   * A clinician/staff member viewing a patient's chart, not the patient's
+   * own dashboard — this component is shared between both (see clinician/
+   * patients/[patientId]/page.tsx). Swaps MedicationCollectionForm's
+   * first-person "I picked this up" self-report control (unmistakably
+   * patient-voiced copy: "This confirms YOUR prescription") for a read-only
+   * prescription status trail — that control had been rendering unchanged
+   * in the clinician view with no way to tell who was actually meant to
+   * click it.
+   */
+  isClinicianView?: boolean;
 }) {
   const { data, isLoading, isError } = useMedications(patientId);
+  // Only needed for the clinician-view status trail — empty patientId keeps
+  // the query disabled (see `enabled: !!patientId`) on the patient's own view.
+  const { data: collections } = useMedicationCollections(isClinicianView ? patientId : "");
 
   return (
     <Card>
@@ -136,10 +153,16 @@ export function MedicationsList({
                   {canConfirmRefill && medication.source === "clinician" && (
                     <ConfirmRefillForm medication={medication} patientId={patientId} />
                   )}
-                  {/* Buy anywhere, tell us afterwards. Ungated: knowing whether
-                      a patient actually has their medicine is a safety signal,
-                      not a paid feature. */}
-                  <MedicationCollectionForm medication={medication} patientId={patientId} />
+                  {isClinicianView ? (
+                    medication.source === "clinician" && (
+                      <PrescriptionStatusTrail medication={medication} collections={collections ?? []} />
+                    )
+                  ) : (
+                    // Buy anywhere, tell us afterwards. Ungated: knowing
+                    // whether a patient actually has their medicine is a
+                    // safety signal, not a paid feature.
+                    <MedicationCollectionForm medication={medication} patientId={patientId} />
+                  )}
                   {canStop && (
                     <StopMedicationForm medication={medication} patientId={patientId} />
                   )}
@@ -204,6 +227,96 @@ function CabinetSummary({ patientId }: { patientId: string }) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Care Team / Provider Workspace §5.11 "prescription status", adapted to
+ * Tarragon's actual fulfilment model — there is deliberately no "sent to
+ * pharmacy" step. Tarragon dropped pharmacy routing entirely 2026-08-03
+ * (20260803132008_medication_collected_anywhere.sql — "keep the record,
+ * drop the routing"), so claiming one would misrepresent a path that no
+ * longer exists. Composed entirely from data that already exists elsewhere
+ * in this schema — see 20260827200208_prescription_workspace_fields.sql:
+ *   Signed          -> created_at / added_by (medications_insert already
+ *                       requires prescribing authority, so the row IS the
+ *                       signed order; added_by is server-stamped, never
+ *                       client-supplied — see stamp_medication_added_by)
+ *   Patient notified -> automatic at insert (medications_enqueue_prescribed_
+ *                       notifications); no per-row delivery status is
+ *                       tracked, so this only claims the notification was
+ *                       raised, not that it was read
+ *   Collected        -> pharmacy_order_dispenses.medication_id, self- or
+ *                       staff-logged
+ * Clinician-sourced only (medication.source === "clinician") — a specialist-
+ * sourced row's added_by is the patient's own id (they logged it, not
+ * Tarragon), so "Signed by" would misattribute; that source already shows
+ * its own "Started by {prescriber_name}" line elsewhere in this list.
+ */
+function PrescriptionStatusTrail({
+  medication,
+  collections,
+}: {
+  medication: MedicationWithCarePlan;
+  collections: MedicationCollection[];
+}) {
+  const latestCollection = collections
+    .filter((c) => c.medication_id === medication.id)
+    .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))[0];
+
+  const signedBy = medication.added_by_profile?.full_name
+    ? `Dr. ${medication.added_by_profile.full_name}`
+    : "Tarragon care team";
+
+  const steps: { label: string; done: boolean; detail: string }[] = [
+    {
+      label: "Signed",
+      done: true,
+      detail: `${signedBy} · ${new Date(medication.created_at).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })}`,
+    },
+    {
+      label: "Patient notified",
+      done: true,
+      detail: "Email/WhatsApp sent at time of prescribing",
+    },
+    {
+      label: "Collected",
+      done: !!latestCollection,
+      detail: latestCollection
+        ? [
+            new Date(latestCollection.dispensed_on).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }),
+            latestCollection.pharmacy_name,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : "Not yet recorded",
+    },
+  ];
+
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      {steps.map((step) => (
+        <span key={step.label} className="inline-flex items-center gap-1.5">
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+              step.done ? "bg-brand-green" : "bg-charcoal-ink/20"
+            }`}
+            aria-hidden="true"
+          />
+          <span className={step.done ? "text-charcoal-ink/70" : "text-charcoal-ink/40"}>
+            {step.label} · {step.detail}
+          </span>
+        </span>
+      ))}
     </div>
   );
 }
