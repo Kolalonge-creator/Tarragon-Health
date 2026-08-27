@@ -38,9 +38,18 @@
 -- not touch.
 
 -- --- 1. read-only means read-only ------------------------------------------------
-revoke insert, update, delete, truncate on public.care_access_events from authenticated;
-revoke insert, update, delete, truncate on public.care_access_events from anon;
-revoke select on public.care_access_events from anon;
+-- `revoke all` rather than naming each unwanted privilege: a from-scratch
+-- Supabase environment's default grants for authenticated/anon on a new
+-- public-schema table turned out to be broader than this project's own
+-- (already-drifted) live database ever had — REFERENCES and TRIGGER,
+-- beyond the INSERT/UPDATE/DELETE/TRUNCATE this migration originally
+-- named — so naming privileges one at a time keeps missing whichever one
+-- a fresh environment happens to grant that this project's history never
+-- exercised. Revoke everything, then grant back exactly what each role
+-- needs.
+revoke all on public.care_access_events from authenticated;
+grant select on public.care_access_events to authenticated;
+revoke all on public.care_access_events from anon;
 
 -- --- 2. one row per person, per surface, per hour ----------------------------------
 create or replace function private.log_care_access(
