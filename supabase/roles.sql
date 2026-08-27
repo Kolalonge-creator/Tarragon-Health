@@ -124,24 +124,16 @@ revoke all on function public.admin_send_broadcast(uuid) from public;
 revoke all on function public.admin_send_broadcast(uuid) from anon;
 grant execute on function public.admin_send_broadcast(uuid) to authenticated, service_role;
 
--- Stub #4: next confirmed CI failure after #2/#3 above --
--- 20260730215206_facilities_lab_partner_self_service.sql's own assertion on
--- lab_partner_own_provider_id (single creation site, same pattern again).
--- `security definer` is required here, not optional -- see the note above.
-create function public.lab_partner_own_provider_id()
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  return null;
-end;
-$$;
-
-revoke all on function public.lab_partner_own_provider_id() from public;
-revoke all on function public.lab_partner_own_provider_id() from anon;
-grant execute on function public.lab_partner_own_provider_id() to authenticated;
+-- Stub #4 (lab_partner_own_provider_id) does NOT live here, unlike #1-#3
+-- above -- see supabase/migrations/20260730215205_stub_lab_partner_own_provider_id_grants.sql
+-- for why: 20260729234618_harden_is_org_staff_exclude_lab_partner.sql runs
+-- BEFORE lab_partner_own_provider_id is really created and asserts "exactly
+-- 3" lab_partner_* functions exist. A roles.sql stub exists before EVERY
+-- migration, so it made that count 4 and failed a real, correct assertion
+-- (confirmed via CI). This one genuinely needs to exist only from a specific
+-- point in migration history onward, which roles.sql-before-everything
+-- can't express -- a real migration, timestamped between the two migrations
+-- above, can.
 
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
