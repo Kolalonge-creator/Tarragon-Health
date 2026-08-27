@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import type { Tables } from "@tarragon/shared";
+
+export type PharmacyPartnerLocation = Tables<"pharmacy_partner_locations">;
+export type PharmacyMedicationRow = Tables<"pharmacy_medications">;
 
 /**
  * Pharmacist surface (Phase 8b). Every call goes through a SECURITY DEFINER
@@ -157,5 +161,122 @@ export function usePharmacistUpdateProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pharmacist-profile"] });
     },
+  });
+}
+
+/**
+ * Self-service branch/location management — the pharmacist-side counterpart
+ * of lab-partner.ts's useLabPartnerFacilities, targeting the new
+ * pharmacy_partner_locations table (20260827203240) instead of the single
+ * address on pharmacy_partners itself.
+ */
+export function usePharmacistOwnPartnerId() {
+  return useQuery({
+    queryKey: ["pharmacist-own-partner-id"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("pharmacist_own_partner_id");
+      if (error) throw error;
+      return data as string | null;
+    },
+  });
+}
+
+export function usePharmacistLocations(partnerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["pharmacist-locations", partnerId],
+    enabled: !!partnerId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_partner_locations")
+        .select("*")
+        .eq("pharmacy_partner_id", partnerId as string)
+        .order("state")
+        .order("name");
+      if (error) throw error;
+      return data as PharmacyPartnerLocation[];
+    },
+  });
+}
+
+export function useCreatePharmacistLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      partnerId: string;
+      name: string;
+      state: string;
+      address?: string;
+      contactPhone?: string;
+      latitude?: number;
+      longitude?: number;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("pharmacy_partner_locations").insert({
+        pharmacy_partner_id: input.partnerId,
+        name: input.name,
+        state: input.state,
+        address: input.address || null,
+        contact_phone: input.contactPhone || null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pharmacist-locations"] }),
+  });
+}
+
+export function useSetPharmacistLocationActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("pharmacy_partner_locations")
+        .update({ is_active: isActive })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pharmacist-locations"] }),
+  });
+}
+
+/**
+ * A pharmacist's own catalogue rows. is_active is the only column a plain
+ * pharmacist may change (private.restrict_pharmacy_medication_partner_edit_to_availability,
+ * 20260827203240 enforces this at the trigger level regardless of what the
+ * client sends).
+ */
+export function usePharmacistOwnMedications(partnerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["pharmacist-own-medications", partnerId],
+    enabled: !!partnerId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_medications")
+        .select("*")
+        .eq("pharmacy_partner_id", partnerId as string)
+        .order("drug_name");
+      if (error) throw error;
+      return data as PharmacyMedicationRow[];
+    },
+  });
+}
+
+export function useSetPharmacistMedicationActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("pharmacy_medications")
+        .update({ is_active: isActive })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pharmacist-own-medications"] }),
   });
 }
