@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import type { Enums, Tables } from "@tarragon/shared";
 
 export type CarePlan = Tables<"care_plans"> & {
   assigned_clinician: { full_name: string | null } | null;
@@ -58,5 +58,58 @@ export function useCarePlans(patientId: string) {
       })) as CarePlan[];
     },
     enabled: !!patientId,
+  });
+}
+
+/**
+ * Every one of a patient's care plans, any status — the clinician
+ * management view (unlike useCarePlans, which deliberately shows only
+ * 'active' plans for the patient-facing display) needs to see and change a
+ * plan that's already paused/completed/etc., not just the live ones.
+ */
+export function useAllCarePlans(patientId: string) {
+  return useQuery({
+    queryKey: ["care-plans", "all", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_plans")
+        .select("id, condition, status, notes")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * Moves a plan into one of §3.19's programme-completion states — ongoing
+ * ('active', unchanged), completed, paused, transferred, declined, or
+ * discharged. "Completed does not necessarily mean cured; it means the
+ * programme's defined episode has ended." Every prior state is preserved
+ * automatically in care_plan_versions (see that migration) the instant this
+ * write lands, so nothing about the plan's history is lost by changing its
+ * status here.
+ */
+export function useUpdateCarePlanStatus(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      carePlanId,
+      status,
+    }: {
+      carePlanId: string;
+      status: Enums<"care_plan_status">;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("care_plans").update({ status }).eq("id", carePlanId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["care-plans", patientId] });
+      queryClient.invalidateQueries({ queryKey: ["care-plans", "all", patientId] });
+    },
   });
 }

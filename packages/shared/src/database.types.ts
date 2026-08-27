@@ -1409,6 +1409,180 @@ export type Database = {
           },
         ]
       }
+      care_plan_decisions: {
+        Row: {
+          agreed_plan: string
+          alternatives: Json
+          care_plan_id: string | null
+          created_at: string
+          decided_by: string | null
+          goal_id: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          patient_preference: string | null
+          reason: string | null
+          recommended_option: string
+        }
+        Insert: {
+          agreed_plan: string
+          alternatives?: Json
+          care_plan_id?: string | null
+          created_at?: string
+          decided_by?: string | null
+          goal_id?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          patient_preference?: string | null
+          reason?: string | null
+          recommended_option: string
+        }
+        Update: {
+          agreed_plan?: string
+          alternatives?: Json
+          care_plan_id?: string | null
+          created_at?: string
+          decided_by?: string | null
+          goal_id?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          patient_preference?: string | null
+          reason?: string | null
+          recommended_option?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_decisions_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_decisions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_decisions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "care_plan_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_decisions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_decisions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_plan_goals: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          care_plan_id: string | null
+          created_at: string
+          description: string
+          id: string
+          metric: string | null
+          organisation_id: string
+          patient_id: string
+          proposed_by: string | null
+          source: Database["public"]["Enums"]["care_plan_goal_source"]
+          status: Database["public"]["Enums"]["care_plan_goal_status"]
+          target_date: string | null
+          target_unit: string | null
+          target_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          care_plan_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          metric?: string | null
+          organisation_id: string
+          patient_id: string
+          proposed_by?: string | null
+          source?: Database["public"]["Enums"]["care_plan_goal_source"]
+          status?: Database["public"]["Enums"]["care_plan_goal_status"]
+          target_date?: string | null
+          target_unit?: string | null
+          target_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          care_plan_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          metric?: string | null
+          organisation_id?: string
+          patient_id?: string
+          proposed_by?: string | null
+          source?: Database["public"]["Enums"]["care_plan_goal_source"]
+          status?: Database["public"]["Enums"]["care_plan_goal_status"]
+          target_date?: string | null
+          target_unit?: string | null
+          target_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_goals_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_plan_recommendations: {
         Row: {
           care_plan_id: string | null
@@ -1614,6 +1788,180 @@ export type Database = {
           },
           {
             foreignKeyName: "care_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_plan_versions: {
+        Row: {
+          care_plan_id: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          snapshot: Json
+        }
+        Insert: {
+          care_plan_id: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          snapshot: Json
+        }
+        Update: {
+          care_plan_id?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_versions_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_versions_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_versions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_versions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_tasks: {
+        Row: {
+          care_plan_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          completion_evidence: Json
+          created_at: string
+          description: string | null
+          due_at: string | null
+          escalation_stage: Database["public"]["Enums"]["care_task_escalation_stage"]
+          goal_id: string | null
+          id: string
+          organisation_id: string
+          owner_id: string | null
+          owner_role: Database["public"]["Enums"]["care_task_owner_role"]
+          patient_id: string
+          priority: number
+          recurrence: string | null
+          source: string
+          status: Database["public"]["Enums"]["care_task_status"]
+          title: string
+          unable_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          care_plan_id?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_evidence?: Json
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          escalation_stage?: Database["public"]["Enums"]["care_task_escalation_stage"]
+          goal_id?: string | null
+          id?: string
+          organisation_id: string
+          owner_id?: string | null
+          owner_role?: Database["public"]["Enums"]["care_task_owner_role"]
+          patient_id: string
+          priority?: number
+          recurrence?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["care_task_status"]
+          title: string
+          unable_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          care_plan_id?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_evidence?: Json
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          escalation_stage?: Database["public"]["Enums"]["care_task_escalation_stage"]
+          goal_id?: string | null
+          id?: string
+          organisation_id?: string
+          owner_id?: string | null
+          owner_role?: Database["public"]["Enums"]["care_task_owner_role"]
+          patient_id?: string
+          priority?: number
+          recurrence?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["care_task_status"]
+          title?: string
+          unable_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_tasks_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_tasks_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "care_plan_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_tasks_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_tasks_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_tasks_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -2294,6 +2642,8 @@ export type Database = {
           code: string
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at: string
+          default_goals: Json
+          default_tasks: Json
           id: string
           is_active: boolean
           launch_priority: number
@@ -2309,6 +2659,8 @@ export type Database = {
           code: string
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
+          default_goals?: Json
+          default_tasks?: Json
           id?: string
           is_active?: boolean
           launch_priority?: number
@@ -2324,6 +2676,8 @@ export type Database = {
           code?: string
           condition?: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
+          default_goals?: Json
+          default_tasks?: Json
           id?: string
           is_active?: boolean
           launch_priority?: number
@@ -15759,6 +16113,10 @@ export type Database = {
         Args: { p_reason: string; p_voucher: string }
         Returns: Json
       }
+      care_management_kpis: {
+        Args: { p_org: string }
+        Returns: Json
+      }
       care_receipt: {
         Args: { p_beneficiary: string; p_from?: string; p_to?: string }
         Returns: Json
@@ -15771,6 +16129,37 @@ export type Database = {
       close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
+      }
+      complete_care_task: {
+        Args: {
+          p_evidence?: Json
+          p_status: Database["public"]["Enums"]["care_task_status"]
+          p_task_id: string
+          p_unable_reason?: string
+        }
+        Returns: {
+          care_plan_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          completion_evidence: Json
+          created_at: string
+          description: string | null
+          due_at: string | null
+          escalation_stage: Database["public"]["Enums"]["care_task_escalation_stage"]
+          goal_id: string | null
+          id: string
+          organisation_id: string
+          owner_id: string | null
+          owner_role: Database["public"]["Enums"]["care_task_owner_role"]
+          patient_id: string
+          priority: number
+          recurrence: string | null
+          source: string
+          status: Database["public"]["Enums"]["care_task_status"]
+          title: string
+          unable_reason: string | null
+          updated_at: string
+        }
       }
       confirm_ecg_report_extraction: {
         Args: {
@@ -16955,6 +17344,8 @@ export type Database = {
         | "asthma"
         | "copd"
         | "heart_failure"
+      care_plan_goal_source: "protocol" | "clinician" | "patient"
+      care_plan_goal_status: "proposed" | "active" | "achieved" | "abandoned"
       care_plan_recommendation_status: "proposed" | "accepted" | "dismissed"
       care_plan_review_prompt_status: "open" | "actioned" | "dismissed"
       care_plan_review_trigger_event:
@@ -16963,7 +17354,37 @@ export type Database = {
         | "new_diagnosis"
         | "risk_tier_change"
         | "hospital_discharge"
-      care_plan_status: "draft" | "active" | "completed" | "cancelled"
+      care_plan_status:
+        | "draft"
+        | "active"
+        | "completed"
+        | "cancelled"
+        | "paused"
+        | "transferred"
+        | "declined"
+        | "discharged"
+      care_task_escalation_stage:
+        | "none"
+        | "reminded"
+        | "coordinator_notified"
+        | "clinical_review"
+      care_task_owner_role:
+        | "patient"
+        | "clinician"
+        | "care_coordinator"
+        | "specialist"
+        | "pharmacist"
+        | "laboratory"
+        | "system"
+      care_task_status:
+        | "not_started"
+        | "scheduled"
+        | "in_progress"
+        | "completed"
+        | "missed"
+        | "cancelled"
+        | "unable_to_complete"
+        | "expired"
       care_voucher_event_type:
         | "created"
         | "payment_applied"
@@ -17280,6 +17701,7 @@ export type Database = {
         | "stale_monitoring"
         | "unactioned_abnormal"
         | "awaiting_result"
+        | "missed_care_task"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -17721,6 +18143,8 @@ export const Constants = {
         "copd",
         "heart_failure",
       ],
+      care_plan_goal_source: ["protocol", "clinician", "patient"],
+      care_plan_goal_status: ["proposed", "active", "achieved", "abandoned"],
       care_plan_recommendation_status: ["proposed", "accepted", "dismissed"],
       care_plan_review_prompt_status: ["open", "actioned", "dismissed"],
       care_plan_review_trigger_event: [
@@ -17730,7 +18154,41 @@ export const Constants = {
         "risk_tier_change",
         "hospital_discharge",
       ],
-      care_plan_status: ["draft", "active", "completed", "cancelled"],
+      care_plan_status: [
+        "draft",
+        "active",
+        "completed",
+        "cancelled",
+        "paused",
+        "transferred",
+        "declined",
+        "discharged",
+      ],
+      care_task_escalation_stage: [
+        "none",
+        "reminded",
+        "coordinator_notified",
+        "clinical_review",
+      ],
+      care_task_owner_role: [
+        "patient",
+        "clinician",
+        "care_coordinator",
+        "specialist",
+        "pharmacist",
+        "laboratory",
+        "system",
+      ],
+      care_task_status: [
+        "not_started",
+        "scheduled",
+        "in_progress",
+        "completed",
+        "missed",
+        "cancelled",
+        "unable_to_complete",
+        "expired",
+      ],
       care_voucher_event_type: [
         "created",
         "payment_applied",
@@ -18084,6 +18542,7 @@ export const Constants = {
         "stale_monitoring",
         "unactioned_abnormal",
         "awaiting_result",
+        "missed_care_task",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [

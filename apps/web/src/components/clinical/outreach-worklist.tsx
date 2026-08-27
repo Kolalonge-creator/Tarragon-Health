@@ -22,6 +22,7 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   stale_monitoring: "No recent monitoring",
   unactioned_abnormal: "Abnormal result, not yet in a programme",
   awaiting_result: "Self-arranged test not yet uploaded",
+  missed_care_task: "Missed care-plan task",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {
