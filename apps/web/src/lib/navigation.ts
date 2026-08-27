@@ -270,6 +270,7 @@ export function getNavSections(
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },
           ];

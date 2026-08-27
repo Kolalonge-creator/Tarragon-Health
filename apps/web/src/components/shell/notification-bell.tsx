@@ -48,6 +48,31 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: supporter ? "/patient/supporting" : "/patient/messages",
     };
   }
+  if (n.template === "clinician_new_care_message") {
+    // Provider-facing counterpart to new_care_message — a patient or their
+    // sponsor posted and the assigned clinician hadn't been told (see
+    // 20260827203614_provider_notifications.sql).
+    const who = String(payload.author_display ?? "").trim();
+    const from = payload.author_role === "sponsor" ? who || "a supporter" : who || "the patient";
+    return {
+      text: `New message from ${from}`,
+      href: `/clinician/patients/${String(payload.patient_id ?? "")}`,
+    };
+  }
+  if (n.template === "clinician_new_referral") {
+    const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
+    return {
+      text: `New referral to triage: ${specialist}`,
+      href: "/clinician/referrals",
+    };
+  }
+  if (n.template === "clinician_care_plan_task") {
+    const reason = String(payload.reason ?? "a care plan needs review");
+    return {
+      text: `Care plan task: ${reason}`,
+      href: "/clinician/care-plan-review",
+    };
+  }
   if (n.template === "health_reset_complete") {
     return {
       text: "Your 90-Day Health Reset is complete: claim your free trial",

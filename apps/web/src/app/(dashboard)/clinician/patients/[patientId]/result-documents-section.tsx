@@ -38,6 +38,24 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
   const supabase = await createClient();
   const documents = await loadResultDocuments(supabase, patientId);
 
+  // Read-access audit (Care Team / Provider Workspace §5.20), same shape and
+  // same best-effort-never-blocks-the-view rule as log_patient_record_view
+  // (20260812034612): one call per document a signed URL was actually
+  // generated for — that's the point at which access was granted and shown,
+  // not merely listed. See 20260827202722_clinician_audit_gaps.sql.
+  await Promise.all(
+    documents
+      .filter((doc) => doc.signedUrl)
+      .map(async (doc) => {
+        const { error } = await supabase.rpc("log_result_document_viewed", {
+          p_document_id: doc.id,
+        });
+        if (error) {
+          console.error("Failed to log result document view", error);
+        }
+      }),
+  );
+
   // Extraction drafts, keyed by document. Org-staff RLS on
   // lab_report_extractions is the gate — a patient never sees these.
   const { data: extractionRows } = await supabase

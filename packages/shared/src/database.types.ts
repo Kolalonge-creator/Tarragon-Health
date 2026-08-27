@@ -16206,6 +16206,10 @@ export type Database = {
         Args: { p_dob?: string; p_serial: string }
         Returns: Json
       }
+      high_risk_patient_ids: {
+        Args: never
+        Returns: { patient_id: string }[]
+      }
       htn_quality_metrics: { Args: { p_org: string }; Returns: Json }
       insert_audited_lab_result_document: {
         Args: {
@@ -16277,6 +16281,10 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: undefined
       }
+      log_result_document_viewed: {
+        Args: { p_document_id: string }
+        Returns: undefined
+      }
       mark_emergency_contact_notified: {
         Args: { p_actor_id: string; p_event_id: string }
         Returns: undefined
@@ -16329,6 +16337,10 @@ export type Database = {
           care_plan_id: string
           clinician_full_name: string
         }[]
+      }
+      my_provider_performance: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
       }
       open_health_check: { Args: never; Returns: string }
       patient_health_reset_progress: {

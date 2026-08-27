@@ -50,7 +50,7 @@ export default async function ClinicianPatientPage({
   // lookup in this app.
   const { data: patient } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, organisation_id, sex")
+    .select("id, full_name, phone, organisation_id, sex, date_of_birth")
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
@@ -170,7 +170,11 @@ export default async function ClinicianPatientPage({
             label: "Overview",
             content: (
               <>
-                <PreVisitSummary patientId={patient.id} />
+                <PreVisitSummary
+                  patientId={patient.id}
+                  sex={patient.sex}
+                  dateOfBirth={patient.date_of_birth}
+                />
                 {/* Two facts with outsized weight in a Nigerian emergency, and
                     the platform had nowhere to keep them until now. */}
                 <BloodProfileForm
