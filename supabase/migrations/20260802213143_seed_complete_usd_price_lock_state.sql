@@ -42,18 +42,20 @@ do $$
 declare
   v_rate numeric;
   v_base bigint;
+  v_dump text := '';
   v_row record;
 begin
   select ngn_per_usd into v_rate from public.platform_currency_settings where id;
   select price_minor into v_base from public.subscription_plans where code = 'complete';
-  raise notice 'DIAGNOSTIC: ngn_per_usd=%, complete.price_minor=%, round=%',
-    v_rate, v_base, (case when v_rate is null or v_rate <= 0 then null else round(v_base / v_rate) end);
+  v_dump := format('ngn_per_usd=%s complete.price_minor=%s round=%s | ',
+    v_rate, v_base, (case when v_rate is null or v_rate <= 0 then null else round(v_base / v_rate) end));
   for v_row in
-    select code, currency, price_minor, price_locked, is_active, derived_from_code
+    select code, price_minor, price_locked, is_active, derived_from_code
     from public.subscription_plans
-    where currency = 'USD' and price_locked
+    where currency = 'USD' and (price_locked or code = 'complete_usd')
   loop
-    raise notice 'DIAGNOSTIC locked USD row: code=%, price_minor=%, is_active=%, derived_from_code=%',
-      v_row.code, v_row.price_minor, v_row.is_active, v_row.derived_from_code;
+    v_dump := v_dump || format('[%s price_minor=%s locked=%s active=%s derived=%s] ',
+      v_row.code, v_row.price_minor, v_row.price_locked, v_row.is_active, v_row.derived_from_code);
   end loop;
+  raise exception 'DEBUG DUMP: %', v_dump;
 end $$;
