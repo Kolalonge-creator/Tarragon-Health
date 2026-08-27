@@ -203,7 +203,12 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  -- Deliberately do NOT set app.change_reason here.
+  -- app.change_reason is set via set_config(..., true) -- transaction-local,
+  -- not per-statement -- so test 2's reason is still "set" this far into the
+  -- same outer transaction unless explicitly cleared here. Empty string is
+  -- what nullif(current_setting(...), '') in the trigger treats as "no
+  -- reason", matching a real session that never called set_config at all.
+  perform set_config('app.change_reason', '', true);
   begin
     update public.patient_conditions set status = 'controlled' where id = v_condition;
   exception when others then

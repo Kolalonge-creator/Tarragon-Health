@@ -137,7 +137,7 @@ begin
 
   perform private.record_timeline_event(
     new.organisation_id, new.patient_id,
-    case when tg_op = 'INSERT' then 'condition_recorded' else 'condition_status_changed' end,
+    (case when tg_op = 'INSERT' then 'condition_recorded' else 'condition_status_changed' end)::public.timeline_event_type,
     'patient_conditions', new.id,
     case when tg_op = 'INSERT' then 'Condition added to your record' else 'Condition status updated' end,
     new.condition_name || ' · ' || replace(new.status::text, '_', ' '),
