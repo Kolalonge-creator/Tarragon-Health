@@ -135,6 +135,39 @@ grant execute on function public.admin_send_broadcast(uuid) to authenticated, se
 -- can't express -- a real migration, timestamped between the two migrations
 -- above, can.
 
+-- Stub #5: next confirmed CI failure after #4 above --
+-- 20260730215234_lab_turnaround_sla_stats.sql's own assertion on
+-- lab_provider_turnaround_stats (single creation site, same pattern again).
+-- Its sibling in the same assertion block, lab_partner_turnaround_stats,
+-- is NOT stubbed here -- its name matches the `lab\_partner\_%` pattern
+-- that 20260729234618_harden_is_org_staff_exclude_lab_partner.sql audits
+-- for "exactly 3" functions (same trap as stub #4), so it needs the same
+-- real-migration treatment -- see
+-- supabase/migrations/20260730215233_stub_lab_partner_turnaround_stats_grants.sql.
+-- lab_provider_turnaround_stats does not match that pattern and is safe here.
+create function public.lab_provider_turnaround_stats(p_days int default 90)
+returns table (
+  provider_id uuid,
+  provider_name text,
+  orders_resulted bigint,
+  avg_turnaround_hours numeric,
+  median_turnaround_hours numeric,
+  pct_over_72h numeric,
+  suppressed boolean
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return;
+end;
+$$;
+
+revoke all on function public.lab_provider_turnaround_stats(int) from public;
+revoke all on function public.lab_provider_turnaround_stats(int) from anon;
+grant execute on function public.lab_provider_turnaround_stats(int) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
