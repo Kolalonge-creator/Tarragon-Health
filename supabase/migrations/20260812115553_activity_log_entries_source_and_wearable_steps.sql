@@ -82,8 +82,15 @@ comment on function public.record_wearable_step_count(uuid, uuid, date, integer)
 -- revoke must name PUBLIC, not anon (see the standing note in CLAUDE.md:
 -- revoking "from anon" leaves the PUBLIC grant in place and the function
 -- still callable).
+-- Also revoke from authenticated explicitly: a from-scratch Supabase
+-- environment grants authenticated (not just anon) a direct execute
+-- default on new public-schema functions too, which this project's live
+-- database never had (found by the new CI migration-replay job,
+-- 2026-08-27 — this function is service_role-only, so authenticated
+-- needs the same explicit revoke anon already got above).
 revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from public;
 revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from anon;
+revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from authenticated;
 grant execute on function public.record_wearable_step_count(uuid, uuid, date, integer) to service_role;
 
 -- Prove it, rather than hope. Runs in the migration''s own transaction and
