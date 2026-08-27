@@ -36,6 +36,17 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
 - **Never hand-type a round-number migration timestamp.** Six real migrations once collided on the
   same `20260720120000` version number from parallel sessions doing exactly that —
   `supabase_migrations.version` is the primary key, so only the first of each group ever recorded.
+- **A live schema object can exist with no migration record at all — not even an uncommitted one.**
+  Found 2026-08-27: 7 migrations from a same-day audit pass were live but never committed (at least
+  present in `supabase_migrations.schema_migrations`, so comparing `list_migrations` against local
+  files caught them); 3 more had drifted filenames. Worse, `private.guard_profiles_self_update()` —
+  the trigger blocking a user from self-editing privileged `profiles` columns (`role`,
+  `organisation_id`, `lab_provider_id`, …) — existed live with **no migration record anywhere,
+  including in `schema_migrations`**, meaning it was applied by some means entirely outside the
+  migration system and a plain `list_migrations`-vs-local-files diff can't find it. Before assuming
+  a security-relevant trigger/function/policy doesn't exist (or extending one), check its live
+  definition directly (`pg_get_functiondef`/`pg_get_triggerdef` via `execute_sql`), not just
+  whether a migration file for it exists.
 - **A freshly created table needs its own `grant ... to authenticated`.** RLS restricts rows; it
   does not grant table-level access. Supabase auto-provisions that grant at project creation but not
   for a table added later by a plain migration. This silently broke access at least three times
