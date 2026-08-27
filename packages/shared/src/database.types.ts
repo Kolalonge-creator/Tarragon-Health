@@ -17301,6 +17301,7 @@ export type Database = {
         | "scale"
         | "thermometer"
         | "pulse_oximeter"
+        | "smart_band"
       payment_provider: "paystack" | "stripe" | "wallet" | "voucher"
       payment_transaction_type:
         | "charge.success"
@@ -18108,6 +18109,7 @@ export const Constants = {
         "scale",
         "thermometer",
         "pulse_oximeter",
+        "smart_band",
       ],
       payment_provider: ["paystack", "stripe", "wallet", "voucher"],
       payment_transaction_type: [

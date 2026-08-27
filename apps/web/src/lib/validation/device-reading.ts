@@ -63,6 +63,21 @@ export const deviceTemperatureSchema = z.object({
     .max(45, "Temperature must be at most 45°C"),
 });
 
+/** For a heart-rate-only device reading (no accompanying BP/SpO2 in the
+ * same sample) — e.g. a wearable band's pulse history, which arrives as its
+ * own vital_type rather than embedded in a blood_pressure or spo2 reading.
+ * Range matches deviceSpo2Schema's own pulse_bpm bound, not the tighter
+ * manual-entry pulseSchema in ./vitals — same reasoning as deviceSpo2Schema's
+ * comment: a device is a measuring instrument and a genuinely abnormal
+ * reading must reach the escalation pipeline, not bounce off validation. */
+export const devicePulseSchema = z.object({
+  vital_type: z.literal("pulse"),
+  device_id: deviceIdField,
+  external_reading_id: externalReadingIdField,
+  taken_at: takenAtField,
+  pulse_bpm: z.number().int().min(30, "Pulse must be at least 30 bpm").max(250, "Pulse must be at most 250 bpm"),
+});
+
 export const deviceSpo2Schema = z.object({
   vital_type: z.literal("spo2"),
   device_id: deviceIdField,
@@ -82,6 +97,7 @@ export const deviceReadingSchema = z
     deviceWeightSchema,
     deviceTemperatureSchema,
     deviceSpo2Schema,
+    devicePulseSchema,
   ])
   .superRefine((data, ctx) => {
     if (data.vital_type !== "glucose") return;

@@ -96,7 +96,9 @@ export async function POST(request: Request): Promise<NextResponse> {
           ? { ...shared, vital_type, weight_kg: reading.weight_kg }
           : vital_type === "temperature"
             ? { ...shared, vital_type, temperature_c: reading.temperature_c }
-            : { ...shared, vital_type, spo2_pct: reading.spo2_pct, pulse_bpm: reading.pulse_bpm };
+            : vital_type === "spo2"
+              ? { ...shared, vital_type, spo2_pct: reading.spo2_pct, pulse_bpm: reading.pulse_bpm }
+              : { ...shared, vital_type, pulse_bpm: reading.pulse_bpm };
 
   const { error: insertError } = await supabase.from("vitals_readings").insert(row);
   if (insertError) {

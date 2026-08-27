@@ -1,6 +1,15 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # apps/mobile/modules/* are Expo local native modules (currently just
+  # expo-yucheng-band) — consumed by apps/mobile via a `file:` dependency,
+  # but they need to be real pnpm workspace members (not just a file: dep)
+  # so pnpm gives each one its own `node_modules` symlink to its declared
+  # dependencies (expo-modules-core). Without this, tsc resolving the
+  # module's own source file in place (not through the consuming app's
+  # node_modules symlink) can't find expo-modules-core at all — confirmed
+  # by `pnpm typecheck` failing with TS2307 before this line was added.
+  - "apps/mobile/modules/*"
 
 # pnpm 11 removed `onlyBuiltDependencies`; approved build scripts now live in the
 # `allowBuilds` map (name -> boolean). sharp powers Next.js image optimisation,

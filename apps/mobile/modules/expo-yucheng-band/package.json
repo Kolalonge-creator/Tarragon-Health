@@ -1,0 +1,12 @@
+{
+  "name": "expo-yucheng-band",
+  "version": "0.1.0",
+  "description": "Local Expo module bridging the Yucheng (玉成创新科技) YCBT/YCProductSDK vendor BLE SDK — Android (ycbtsdk-release.aar) and iOS (YCProductSDK.framework) — into a single, minimal, platform-agnostic API surface: scan, connect, disconnect, read device info, and pull heart-rate/SpO2 vitals. Not published — consumed only by @tarragon/mobile via a file: dependency.",
+  "main": "index.ts",
+  "types": "index.ts",
+  "private": true,
+  "license": "UNLICENSED",
+  "dependencies": {
+    "expo-modules-core": "^3.0.30"
+  }
+}

@@ -135,6 +135,31 @@ describe("deviceReadingSchema — spo2", () => {
   });
 });
 
+describe("deviceReadingSchema — pulse", () => {
+  const valid = {
+    vital_type: "pulse",
+    device_id: deviceId,
+    external_reading_id: "1",
+    taken_at: "2026-08-27T08:30:00.000Z",
+    pulse_bpm: 68,
+  };
+
+  it("accepts a valid reading", () => {
+    expect(deviceReadingSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects pulse out of range", () => {
+    expect(deviceReadingSchema.safeParse({ ...valid, pulse_bpm: 20 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, pulse_bpm: 300 }).success).toBe(false);
+  });
+
+  it("requires pulse_bpm", () => {
+    const withoutPulse: Record<string, unknown> = { ...valid };
+    delete withoutPulse.pulse_bpm;
+    expect(deviceReadingSchema.safeParse(withoutPulse).success).toBe(false);
+  });
+});
+
 describe("deviceReadingSchema — discriminated union shape", () => {
   it("rejects an unknown vital_type", () => {
     expect(
