@@ -19,12 +19,15 @@ on:
       - "supabase/migrations/**"
       - "packages/db/tests/**"
       - "scripts/run-db-tests.sh"
+      - ".github/workflows/db-migration-tests.yml"
   push:
-    branches: [main, main-dev]
+    # Every branch on purpose, not just main/main-dev: the whole point is to
+    # catch a bad migration on a feature branch before it merges, not after.
     paths:
       - "supabase/migrations/**"
       - "packages/db/tests/**"
       - "scripts/run-db-tests.sh"
+      - ".github/workflows/db-migration-tests.yml"
 
 concurrency:
   group: db-migration-tests-${{ github.workflow }}-${{ github.ref }}
