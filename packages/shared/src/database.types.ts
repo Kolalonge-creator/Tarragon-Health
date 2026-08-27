@@ -16309,7 +16309,7 @@ export type Database = {
       }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       get_geo_health_aggregates: {
-        Args: { p_organisation_id: string }
+        Args: never
         Returns: {
           state: string
           patient_count: number | null

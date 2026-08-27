@@ -10,22 +10,29 @@
 -- product-usage data this function doesn't touch and are left for a
 -- follow-up rather than guessed at here.
 --
--- Privacy posture, deliberately stricter than the existing I9 institution-
--- aggregate pattern (lib/institutions/suppression.ts's isCohortSuppressed):
---   - State-level only (profiles.state) — never city/area, which the
---     platform also collects (20260716160000_profiles_location.sql) but
---     is granular enough to risk re-identifying a person in a sparse area.
---   - Gated to a genuine platform admin (private.is_admin()), not the
---     institution-admin class I9 already locked out of every patient-scoped
---     table — an employer/HMO has no legitimate reason to see population
---     health outside its own roster, and this is Tarragon's own population-
---     health tooling, not a per-institution report.
---   - The same small-cell suppression floor as I9 (5, fallback 10 from
---     organisations.min_cohort_size) applied per state, and a suppressed
---     state's entire row nulls out — not just the risk counts — so even the
---     total patient count in a sparse state can't be read off.
+-- Lives alongside, not instead of, the existing Analytics console (its
+-- other RPCs: 20260717180931_analytics_console_rpcs.sql) — same access
+-- gate (private.is_analyst(): role in ('analyst','admin')) and same
+-- platform-wide scope (no organisation_id parameter, mirroring
+-- analytics_population_summary()'s own "select count(*) from profiles
+-- where role = 'patient'" with no org filter) rather than inventing a
+-- second, narrower access model for what is conceptually one more section
+-- of the same console (see population-dashboard.tsx).
+--
+-- Privacy posture, stricter than that console's other RPCs (which have no
+-- suppression at all — org-wide totals are a coarser figure): a
+-- state-by-condition breakdown is a finer cut than a single platform total,
+-- so this applies the same small-cell-suppression FLOOR the I9 institution
+-- pattern uses (lib/institutions/suppression.ts: 5, fallback 10) — never a
+-- per-organisation threshold, since this is a cross-organisation, platform-
+-- wide view, not any one clinic's own report. State-level only
+-- (profiles.state) — never city/area, which the platform also collects
+-- (20260716160000_profiles_location.sql) but is granular enough to risk
+-- re-identifying a person in a sparse area. A suppressed state's entire row
+-- nulls out, not just the risk counts, so even its patient count can't be
+-- read off.
 
-create or replace function public.get_geo_health_aggregates(p_organisation_id uuid)
+create or replace function public.get_geo_health_aggregates()
 returns table (
   state text,
   patient_count integer,
@@ -41,22 +48,19 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_min_cohort integer;
+  v_min_cohort constant integer := 10;
 begin
-  if not private.is_admin() then
-    raise exception 'not authorised: geographic health aggregates are a platform-admin surface';
+  if not private.is_analyst() then
+    return query select null::text, null::integer, null::integer, null::integer, null::integer, null::integer, null::boolean
+      where false;
+    return;
   end if;
-
-  select greatest(coalesce(o.min_cohort_size, 10), 5) into v_min_cohort
-  from public.organisations o where o.id = p_organisation_id;
-  v_min_cohort := coalesce(v_min_cohort, 10);
 
   return query
   with patients as (
     select p.id, lower(trim(p.state)) as state_key, p.state as state_label
     from public.profiles p
-    where p.organisation_id = p_organisation_id
-      and p.role = 'patient'
+    where p.role = 'patient'
       and p.state is not null
       and trim(p.state) <> ''
   ),
@@ -64,13 +68,12 @@ begin
     select distinct on (prs.profile_id, prs.condition)
       prs.profile_id, prs.condition, prs.tier
     from public.prevention_risk_scores prs
-    where prs.organisation_id = p_organisation_id
     order by prs.profile_id, prs.condition, prs.computed_at desc
   ),
   overdue as (
     select ss.patient_id
     from public.screening_schedules ss
-    where ss.organisation_id = p_organisation_id and ss.status = 'overdue'
+    where ss.status = 'overdue'
   ),
   per_state as (
     select
@@ -105,11 +108,11 @@ begin
 end;
 $$;
 
-comment on function public.get_geo_health_aggregates(uuid) is
-  'Platform-admin-only, state-level, small-cell-suppressed population health '
-  'aggregates (spec §2.17). Never returns anything below organisations.'
-  'min_cohort_size (floor 5) for a state — the whole row nulls out instead.';
+comment on function public.get_geo_health_aggregates() is
+  'Analytics-console-only (private.is_analyst()), platform-wide, state-level, '
+  'small-cell-suppressed population health aggregates (spec §2.17). A state '
+  'with fewer than 10 patients nulls out entirely rather than showing a number.';
 
-revoke all on function public.get_geo_health_aggregates(uuid) from public;
-revoke all on function public.get_geo_health_aggregates(uuid) from anon;
-grant execute on function public.get_geo_health_aggregates(uuid) to authenticated;
+revoke all on function public.get_geo_health_aggregates() from public;
+revoke all on function public.get_geo_health_aggregates() from anon;
+grant execute on function public.get_geo_health_aggregates() to authenticated;

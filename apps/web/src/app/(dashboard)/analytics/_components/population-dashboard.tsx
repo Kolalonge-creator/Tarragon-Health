@@ -4,7 +4,7 @@ import { Activity, AlertTriangle, HeartPulse, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { usePopulationSummary } from "@/lib/analytics/queries";
+import { usePopulationSummary, useGeoHealthAggregates } from "@/lib/analytics/queries";
 import { formatNumber, formatPercent } from "@/lib/analytics/format";
 import { paletteColor } from "./chart-palette";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
@@ -12,6 +12,7 @@ import { ExportButton } from "./export-button";
 
 export function PopulationDashboard() {
   const { data: s, isLoading } = usePopulationSummary();
+  const { data: geo, isLoading: geoLoading } = useGeoHealthAggregates();
 
   const riskItems = (s?.risk_distribution ?? []).map((r) => ({
     label: r.risk_level ?? "unscored",
@@ -127,6 +128,53 @@ export function PopulationDashboard() {
           items={(s?.care_gaps ?? []).map((g) => ({ label: g.gap_type, value: g.count }))}
           emptyLabel="No open care gaps."
         />
+      </SectionCard>
+
+      <SectionCard
+        title="Geographic distribution"
+        description="State-level risk concentration and overdue-screening load — never anyone's own location. A state with fewer than 10 patients shows as insufficient data, not a number."
+        actions={<ExportButton filename="geographic-health" rows={geo ?? []} />}
+      >
+        {geoLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : !geo || geo.length === 0 ? (
+          <CenterNote>No patient locations recorded yet.</CenterNote>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
+                  <th className="py-2 pr-4 font-medium">State</th>
+                  <th className="py-2 pr-4 font-medium">Patients</th>
+                  <th className="py-2 pr-4 font-medium">High-risk hypertension</th>
+                  <th className="py-2 pr-4 font-medium">High-risk diabetes</th>
+                  <th className="py-2 pr-4 font-medium">High-risk CVD</th>
+                  <th className="py-2 pr-4 font-medium">Overdue screenings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {geo.map((row) => (
+                  <tr key={row.state} className="border-b border-charcoal-ink/5">
+                    <td className="py-2 pr-4 text-charcoal-ink">{row.state}</td>
+                    {row.suppressed ? (
+                      <td className="py-2 pr-4 text-charcoal-ink/40" colSpan={5}>
+                        Insufficient data
+                      </td>
+                    ) : (
+                      <>
+                        <td className="py-2 pr-4 tabular-nums">{row.patient_count}</td>
+                        <td className="py-2 pr-4 tabular-nums">{row.hypertension_high_count}</td>
+                        <td className="py-2 pr-4 tabular-nums">{row.diabetes_high_count}</td>
+                        <td className="py-2 pr-4 tabular-nums">{row.cvd_high_count}</td>
+                        <td className="py-2 pr-4 tabular-nums">{row.overdue_screening_count}</td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </SectionCard>
     </div>
   );
