@@ -9,6 +9,12 @@ packages:
 # upload during build (apps/web/next.config.ts's withSentryConfig).
 allowBuilds:
   '@sentry/cli': true
+  # Optional native DTrace-probe addon pulled in transitively by bunyan (a
+  # logging dep of eas-cli, added below for local `eas` builds). bunyan
+  # requires it in a try/catch and no-ops if it's missing, so skipping the
+  # native build is safe rather than compiling a probe library nothing here
+  # uses.
+  dtrace-provider: false
   # esbuild arrives via tsx, which runs the manual lab-corpus accuracy script.
   # Its postinstall only relinks the platform binary that tsx already ships as
   # an optional dependency, and the script was verified working with this build
