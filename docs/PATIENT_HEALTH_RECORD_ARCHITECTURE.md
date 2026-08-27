@@ -18,8 +18,9 @@
 
 ## 0. What this pass actually changed
 
-Three migrations landed alongside this document, all additive, all following an existing pattern in
-the codebase rather than inventing a new one:
+**Round 1 — the audit itself, plus the low-risk fixes it surfaced with no judgment call attached.**
+Three migrations, all additive, all following an existing pattern in the codebase rather than
+inventing a new one:
 
 - `20260827192712_profiles_self_update_column_guard.sql` — closed a **confirmed security gap**
   (§1.5 below): `profiles_update`'s own 2026-07-05 comment claimed "role escalation is prevented by
@@ -38,9 +39,32 @@ the codebase rather than inventing a new one:
 - `20260827193149_vitals_respiratory_rate_and_peak_flow.sql` — added the two core vitals from §1.12
   with no home in `vitals_readings`: `respiratory_rate` and `peak_flow` (§1.12).
 
-Everything else below is **findings and recommendations, not yet built** — either because it needs
-a founder decision first (§8 "Open questions"), or because it's additive but larger in scope than a
-single-pass schema tweak and is called out as follow-up work.
+**Round 2 — the four founder decisions from §3 (below), each now built.** Six more migrations:
+
+- `20260827195333_record_corrections_platform_wide.sql` — the platform-wide correction trail (§1.18,
+  Q3: full retrofit now), delivered as a new `record_corrections` table + `capture_record_
+  correction()` trigger attached to all 21 tables `audit_row_change` already covers, capturing real
+  old/new values for exactly the columns that changed (not the whole row) — **deliberately gated
+  narrower than `audit_log`** (`private.is_admin()` or the record's own patient, no `is_org_staff()`
+  clause) because full PHI values need a tighter default than the hash-only log's "any staff member"
+  bar. See §1.18 for the full reasoning and why this is a second table, not a column added to
+  `audit_log` itself.
+- `20260827195559_timeline_condition_event_types.sql` + `20260827195615_patient_conditions_
+  problem_list.sql` — the structured problem list (§1.7, Q1: new table). `care_plans` gets a new
+  nullable `patient_condition_id` FK; its own `condition` enum and lifecycle are untouched.
+- `20260827195741_family_history.sql` and `20260827195802_social_history.sql` — dedicated,
+  continuously-editable records (§1.9/§1.10, Q4), additive to the existing one-time `risk_
+  assessment_responses` intake, not a replacement for it (see each migration's header for exactly
+  which fields stayed put and why).
+- `20260827195857_medication_receipt_confirmations.sql` — the distinct "Patient received" event
+  (§1.15, Q2: build it now), separate from `pharmacy_order_dispenses` and `medication_logs`.
+
+Every new/changed table in both rounds has a matching test in `packages/db/tests/` (session pattern:
+`set_config('request.jwt.claims', ...)` + `set local role authenticated` to simulate real sessions,
+wrapped in `BEGIN`/`ROLLBACK`) — see the file list in §4.
+
+Everything else below is **findings and recommendations, not built this round** — smaller, lower-risk
+items called out as follow-up work (§5), not gated on a decision.
 
 ---
 
@@ -86,7 +110,7 @@ update_column_guard.sql` — see §0.
 verification" — implying an *ongoing* restriction. Today, `date_of_birth`/`sex` are freely
 self-editable via the same RLS path **forever, not just during onboarding** — nothing distinguishes
 "first-time intake" from "changing it two years later." DOB drives age-based risk scoring and
-screening eligibility, so this is a real product question, not a bug — see §8 Q4.
+screening eligibility, so this is a real product question, not a bug — see §4, still open.
 
 ### §1.6 Clinical summary — MISSING (as a persistent, patient-level artifact)
 No `clinical_summary`/`patient_summary` table. Three unrelated, narrower composites exist instead:
@@ -97,20 +121,23 @@ decided here," no free-text narrative, no clinician sign-off field); and a refer
 referral, not a standing PHR summary). **No dynamically-generated "52yo male with HTN and
 diabetes..." narrative exists anywhere, and no clinician can validate/pin one.**
 
-### §1.7 Problem list — MISSING (this is the biggest real gap in the whole review)
-No `patient_conditions`/`diagnoses`/`problem_list` table exists. The nearest analog, `care_plans`
-(`20260705211129_chronic_disease.sql:82-90`, condition enum extended in `20260716223124_...sql`),
-is a **care-management enrolment record**, not a problem list: it has `condition`, a *care-plan*
-lifecycle `status` (draft/active/completed/cancelled — not Active/Controlled/Uncontrolled/Suspected/
-Resolved/Historical), `target_ranges jsonb`, free-text `notes` — **no ICD-10 coding, no severity, no
-diagnosing clinician, no supporting evidence, no last/next-review date**. A patient can have a real,
-historical, resolved, or suspected condition with **no** active care plan (by definition — that's
-what "resolved" and "historical" mean), so there is structurally nowhere to put it today.
-Compounding this: `hbv_status`/`hcv_status`/`hiv_status` (§1.4) are a de facto mini problem-list
-living directly on `profiles`, and `patient_blood_profile` (blood group/genotype) is its own
-narrowly-scoped table — three different homes for "does this patient have condition X" with three
-different shapes, none of them the general one the spec asks for.
-**See §8 Q1 — this needs a founder decision on shape, not just schema.**
+### §1.7 Problem list — BUILT this round (was the biggest real gap in the whole review)
+Founder decision (§3 Q1): a genuinely new table, not an extension of `care_plans`. Built in
+`20260827195615_patient_conditions_problem_list.sql`: `public.patient_conditions` carries
+`condition_name`, `icd10_code`, `status` (new `condition_clinical_status` enum: suspected/
+under_investigation/active/controlled/uncontrolled/resolved/historical), `severity` (new
+`clinical_severity` enum: mild/moderate/severe), `date_identified`, `diagnosing_clinician_id`,
+`supporting_evidence`, `current_treatment`, `last_reviewed_at`, `next_review_due_at`. `care_plans`
+gets a new nullable `patient_condition_id` FK (its own `condition` enum and lifecycle `status` are
+completely untouched — nothing reading/writing `care_plans.condition` today changes behaviour).
+Per the spec's own intro ("a patient should never be able to simply edit a diagnosis") this table's
+RLS is **org-staff insert/update only** — the patient gets SELECT on their own rows, no write path
+at all, unlike `patient_allergies`' patient-reported model. Insert/update also feed `patient_
+timeline` (new `condition_recorded`/`condition_status_changed` event types) and the platform-wide
+correction trail (§1.18). Verified in `packages/db/tests/patient_conditions_problem_list.sql`.
+Previous three-different-homes problem remains true of `hbv_status`/`hcv_status`/`hiv_status` and
+`patient_blood_profile` — this migration did not move or duplicate that data into `patient_
+conditions`; a future pass could decide whether serology status belongs there too.
 
 ### §1.8 Allergies — BUILT, well-engineered
 `patient_allergies` (`20260716121000_...sql`): `allergen`, `reaction`, `severity` (enum), `source`
@@ -121,21 +148,31 @@ through `lib/clinical/patient-clinical-context.ts` into the clinician medication
 pharmacist order screen, and the patient's emergency QR card. This is the one section of the spec
 that is fully done to a high standard — hold it up as the reference pattern for §1.7/§1.9/§1.10.
 
-### §1.9 Family history — PARTIAL (EAV, one-time, missing fields)
-No `family_history` table. Captured as fixed boolean/array fields inside `risk_assessment_responses`
-(`20260706084905_prevention_risk_assessment.sql`, category `'family_history'`):
-`family_diabetes`, `family_hypertension`, `family_heart_disease`, `family_sickle_cell`,
-`family_cancer_types[]`. **Missing: relationship, age of onset, deceased/alive, and any mechanism to
-update it after the one-time onboarding intake** — it's presence/absence only, patient-reported
-only, frozen at signup.
+### §1.9 Family history — BUILT this round (dedicated table, additive to the existing intake)
+Founder decision (§3 Q4): promote to a dedicated, continuously-editable record rather than just add
+keys to the existing intake. Built in `20260827195741_family_history.sql`: `public.family_history`,
+one row per (condition, relative), with `relationship` (new `family_relationship` enum + a
+`relationship_detail` free-text refinement), `age_of_onset_years`, `is_deceased` (nullable — never
+defaults to false when unasked). RLS mirrors `patient_allergies`: patient can insert/update/delete
+their own rows, org staff manage org rows — family history is patient-sourced data, not a restricted
+diagnosis. **Deliberately does not touch or migrate** `risk_assessment_responses`' existing
+`family_diabetes`/`family_hypertension`/`family_heart_disease`/`family_sickle_cell`/`family_cancer_
+types[]` booleans, which stay exactly as-is and keep feeding `prevention_risk_scores` — this is an
+additional, more granular record, not a replacement (see the migration header for the full
+reasoning). Verified in `packages/db/tests/family_and_social_history.sql`.
 
-### §1.10 Social history — PARTIAL (same EAV pattern, missing fields)
-Same `risk_assessment_responses` table, category `'lifestyle'`: `smoking_status`, `cigarettes_per_
-day`, `alcohol_use`, `exercise_days_per_week`/`minutes_per_session`, `diet_pattern[]`, `sleep_
-hours`, `stress_level`, `height_cm`/`weight_kg`. Structured (enum-backed, not free text) but
-**missing occupation, occupational exposure, living situation, healthcare access, socioeconomic
-barriers** entirely, and — same limitation as §1.9 — a one-time intake snapshot, not a continuously
-updated record.
+### §1.10 Social history — BUILT this round (dedicated table, additive to the existing intake)
+Same founder decision and same non-destructive split as §1.9. Built in `20260827195802_social_
+history.sql`: `public.social_history`, **one row per patient** (continuously updated, not an
+append-only history table — its edit history is the platform-wide `record_corrections` trail from
+§1.18, not a separate versioning mechanism), covering exactly what was missing: `occupation`,
+`occupational_exposure`, `living_situation`, `healthcare_access`, `socioeconomic_barriers` (text
+array, same open-ended-tag shape as `screening_results.abnormal_flags`). `risk_assessment_
+responses`' existing smoking/alcohol/exercise/diet/sleep/stress/height/weight fields are untouched
+and remain the system of record for those specific fields feeding `prevention_risk_scores` — moving
+them would have been a breaking change to a live scoring pipeline, not what was asked for. Patient
+can insert/update their own row; org staff manage org rows. Verified in `packages/db/tests/family_
+and_social_history.sql`.
 
 ### §1.11 Lifestyle profile — PARTIAL (two disconnected systems)
 `packages/lifestyle-engine` (ongoing programme measurements: bp, glucose, weight, waist, derived
@@ -152,7 +189,7 @@ temperature, SpO2, waist circumference, ketones — each with `source` (manual/d
 fhir_import), `device_id`/`cgm_connection_id`/`wearable_connection_id`, and `logged_by_profile_id`
 (NULL = patient-self, server-derived). `20260827193149_vitals_respiratory_rate_and_peak_flow.sql`
 adds the two vitals from the spec's own list that had no home at all: **respiratory rate and peak
-flow** (schema only — see §8 follow-up list for input-form/threshold wiring).
+flow** (schema only — see §2 for input-form/threshold wiring, not built this round).
 **Still missing:** height/BMI live only in the unrelated `obesity_assessments` table, disconnected
 from `vitals_readings` — no unified observations view across BP/weight/height/BMI. **No `validated`/
 confirmed status column** on `vitals_readings` itself (there's an edit-lock trigger for non-manual
@@ -181,22 +218,26 @@ full, purpose-built three-table pipeline (`ecg_report_documents` → `ecg_report
 parameter_readings`, confirm-gated, "never patient-readable until confirmed") that is explicitly
 ECG-only by its own migration comment, not a generalized imaging model. "Imaging" otherwise appears
 only as screening-bundle line items (breast/abdominal/prostate ultrasound) inside the existing
-lab_orders flow. The spec itself says "initially, storing the report may be sufficient" — see §8
-follow-up list; this is additive and low-risk to build (mirrors the lab/ECG document pattern) but
+lab_orders flow. The spec itself says "initially, storing the report may be sufficient" — see §2;
+this is additive and low-risk to build (mirrors the lab/ECG document pattern) but
 was out of scope for this pass given everything else already in flight.
 
-### §1.15 Medications: Prescribed → Dispensed → Received → Taken — BY DESIGN, DIFFERENT (see §8 Q2)
+### §1.15 Medications: Prescribed → Dispensed → Received → Taken — BUILT this round (4th event added)
 **Prescribed:** real (`medications` table, `source` enum clinician/patient/specialist, prescriber
 fields, lifecycle fields). **Patient-reports-taking:** real and fully separate (`medication_logs`:
-taken/missed/skipped). **Dispensed and Patient-received are collapsed into one table/row**
-(`pharmacy_order_dispenses`, a single `dispensed_on` + `dispense_source` enum distinguishing *who
-recorded it*, not two linked events). Critically, `20260803132008_medication_collected_anywhere.sql`
-records an explicit **founder decision**: "Tarragon has no contracted pharmacy, and pharmacy_
-medications has 0 rows" — the migration deliberately removed the pharmacy-routing requirement and
-degraded the table to patient self-report ("I bought this at the chemist down the road"). Building
-out a genuine second Dispensed-vs-Received event today would be modeling a supply chain that, by
-founder decision, doesn't exist yet. **This is the spec's clearest collision with a real, dated
-business decision** — flagged, not silently overridden. See §8 Q2.
+taken/missed/skipped). **Dispensed** (`pharmacy_order_dispenses`, a `dispensed_on` + `dispense_
+source` enum) is a real but optional event — `20260803132008_medication_collected_anywhere.sql`'s
+founder decision ("Tarragon has no contracted pharmacy") means most medication today has no
+dispense row at all (self-arranged fulfilment). **Patient received is now its own, genuinely
+distinct event** (§3 Q2: build it now, ahead of a real pharmacy partnership) —
+`20260827195857_medication_receipt_confirmations.sql` adds `public.medication_receipt_
+confirmations`, linkable to a `medication_id` and/or a `pharmacy_order_dispense_id`, with its own
+`confirmation_source` (patient_self_report/delivery_confirmed/pharmacy_confirmed) and its own
+`medication_received` timeline event. **Deliberately not wired** to `pharmacy_orders.delivery_
+confirmed_at` — that delivery pathway is switched off in the UI with zero production rows, so
+auto-deriving a confirmation from it would be automation on top of a currently-dormant feature; the
+migration header calls this out as a follow-up once that pathway goes live. Verified in `packages/
+db/tests/medication_receipt_confirmations.sql`.
 
 ### §1.16 Clinical encounters — PARTIAL, narrow
 Only `video_consultations` exists, and it's Zoom-call scheduling metadata (context/status/timestamps
@@ -220,19 +261,36 @@ renders every row unconditionally with no filter state, and `usePatientTimeline`
 This is a genuinely small, low-risk fix (add a client-side filter over the existing `event_type`
 values — no new schema) — recommended as a quick follow-up.
 
-### §1.18 Record versioning / correction trail — PARTIAL, platform-wide gap
-A generic `private.audit_row_change()` trigger fires on 21 clinical-core tables into an append-only
-`audit_log` (`20260812030853_row_change_audit_triggers.sql`) — but it **stores only changed column
-names plus a SHA-256 hash of the row, never old/new values**, by explicit design. It can prove a
-value changed; it cannot show what it changed *from*. The underlying tables (`vitals_readings`,
-`medications`, `care_plans`, `profiles`, etc.) can still be `UPDATE`d/`DELETE`d in place — this is a
-change-*detection* log, not a correction trail. The one genuine "preserve original + reason + author
-+ timestamp" pattern in the codebase is `protocol_versions` (append-only, no update/delete policy,
-`change_summary`/`approved_by` per version, comment: *"correcting a mistake means signing a new
-version, not editing history"*) — but it governs clinical *protocols*, not patient records.
-**No patient clinical-record table anywhere enforces the spec's §1.18 requirement.** Retrofitting
-this platform-wide (append-only + correction-reason on ~20 live tables, each with its own RLS and
-app-layer write paths) is a large, invasive change — see §8 Q3 for scope options.
+### §1.18 Record versioning / correction trail — BUILT this round, platform-wide
+Founder decision (§3 Q3): full retrofit now, not phased. `private.audit_row_change()` (`20260812
+030853_row_change_audit_triggers.sql`) still exists exactly as before — it stores changed column
+names plus a SHA-256 hash into `audit_log`, never old/new values, by a deliberate design documented
+in its own header (`audit_log`'s read policy is `is_org_staff()`, and several of the 21 tables it
+covers gate *narrower* than that — copying full values in would have been a PHI exposure created by
+the audit feature itself). That reasoning still holds, so it was **not** reused for this.
+
+`20260827195333_record_corrections_platform_wide.sql` adds a **second**, purpose-built table,
+`public.record_corrections`, via a new `capture_record_correction()` trigger attached to the same 21
+tables (plus every new table this review added — `patient_conditions`, `family_history`, `social_
+history`, `medication_receipt_confirmations` — attach it directly in their own migrations). On every
+real `UPDATE` (a bare `updated_at` touch is suppressed, same rule as `audit_row_change`) it records
+the actual old and new values of exactly the columns that changed — not the whole row — plus an
+optional `reason` (read from a session GUC, `app.change_reason`, same opt-in idiom as `audit_row_
+change`'s existing `app.audit_actor_id` fallback), the acting `corrected_by`, and `corrected_at`.
+**Read access is deliberately narrower than `audit_log`'s**: `private.is_admin()` or the record's
+own patient only — no blanket `is_org_staff()` clause, because storing real PHI values needs a
+tighter default than "any staff member," which is exactly the exposure the original hash-only design
+was built to avoid. A clinician needing to see a specific correction for a legitimate reason gets a
+narrow SECURITY DEFINER RPC later, the same widen-with-a-named-reason pattern as `public.my_care_
+plan_clinicians()` — not a blanket grant added as an afterthought here. `record_corrections` is
+itself append-only (`private.reject_mutation()`, reused from `audit_log`).
+**Known, accepted limitation:** no existing call site sets `app.change_reason` yet, so every
+correction recorded today has `reason = null` until app-layer code starts setting it for the
+highest-stakes edits — a real correction record (original value, new value, author, timestamp) still
+exists without it; only the human-readable "why" is missing. Wiring that GUC into the highest-value
+call sites (problem-list status changes, allergy corrections) is the natural next step, not attempted
+here. Verified in `packages/db/tests/record_corrections_platform_wide.sql`, including the negative
+check that an ordinary org-staff session (not admin, not the patient) cannot read a correction back.
 
 ### §1.19 Patient record search — MISSING
 No full-text or structured search across a patient's history exists anywhere — no `tsvector`/GIN
@@ -303,57 +361,82 @@ storage) that needs its own dedicated review, not a byproduct of a record-archit
 
 ---
 
-## 2. What this review deliberately did NOT try to fix
+## 2. What this review deliberately did not try to fix
 
-Per the instruction driving this review — **enhance the present design, don't replace it** — several
-findings above are large enough that a schema change without a product decision first would be
-guessing, not enhancing. They're listed as open questions in §3, not implemented.
-
-Smaller, genuinely low-risk items **not** built this pass simply because of volume, not difficulty,
+Smaller, genuinely low-risk items **not** built this round simply because of volume, not difficulty,
 are worth a short follow-up PR each: the timeline category filter (§1.17, no schema change, just
 wire the existing `event_type` enum into `patient-timeline.tsx` and `usePatientTimeline`), a generic
 `patient_documents` table (§1.21, mirrors `lab_result_documents` exactly), export audit logging
 (§1.24, one shared helper called from ~6 existing routes), lab result trend display (§1.13, a
-query over existing rows, no schema change), and a unified "My conditions"/"My appointments" page
-once — and only once — §1.7 gives the former something structured to render.
+query over existing rows, no schema change), record reconciliation/discrepancy flagging (§1.22,
+sequenced after `patient_documents` since a discrepancy needs two things to compare), a generalized
+imaging model (§1.14, mirrors the lab/ECG document pattern), a proper clinical-encounter/consultation-
+note model (§1.16, larger — needs its own design pass, not a column tweak), and wiring the new
+`app.change_reason` GUC (§1.18) into the highest-stakes call sites so corrections start carrying a
+human-readable reason instead of `null`. A unified "My conditions" and "My appointments" page on the
+patient dashboard (§1.23) is now unblocked by §1.7's `patient_conditions` table but wasn't built this
+round either.
 
-## 3. Open questions for the founder (spec vs. real architecture collisions)
+## 3. Founder decisions made this round (previously open questions)
 
-These are the places the spec's mental model doesn't just add something missing — it implies a
-design choice this platform hasn't made yet, or asks for something that would contradict a real,
-dated decision already on record. Raised rather than decided.
+Four questions were raised here as genuine spec-vs-architecture collisions — places the spec implied
+a design choice this platform hadn't made yet, or asked for something that looked like it would
+contradict a real, dated decision already on record. All four were decided and built (§0, §1.7,
+§1.9, §1.10, §1.15, §1.18 above have the details); recorded here for the trail of *why*, not just
+*what*:
 
-1. **Problem list shape (§1.7).** Build a genuinely new `patient_conditions` table (ICD coding,
-   status ladder, severity, diagnosing clinician, review dates) that `care_plans` references by FK
-   once a condition gets an active care programme — keeping `care_plans` as the enrolment/programme
-   record it already is, not duplicating "what conditions does this patient have" a second time? Or
-   extend `care_plans` in place to carry the missing fields, accepting that a resolved/historical/
-   suspected condition with no care plan still has nowhere to live? The former avoids a second
-   source of truth (the same principle already applied to wearables vs. `vitals_readings`); the
-   latter is a smaller change but doesn't actually close the gap for non-enrolled conditions.
+1. **Problem list shape (§1.7) → new `patient_conditions` table**, with `care_plans` referencing it
+   by FK rather than extending `care_plans` in place — avoids a second source of truth for "what
+   conditions does this patient have" (the same principle already applied to wearables vs.
+   `vitals_readings`), and is the only shape that gives a resolved/historical/suspected condition
+   with no active care plan somewhere to live.
 
-2. **Medication Dispensed vs. Received (§1.15).** `pharmacy_order_dispenses` collapsing these two
-   events was a deliberate 2026-08-03 founder decision made *because* Tarragon has no contracted
-   pharmacy and the routing infrastructure had zero production rows. Build the second, distinct
-   event now (future-proofing for when/if a pharmacy partnership exists), or leave it collapsed to
-   match today's actual supply chain and revisit only if that changes?
+2. **Medication Dispensed vs. Received (§1.15) → build the distinct event now**, ahead of any real
+   pharmacy partnership, rather than waiting for one to exist. `pharmacy_order_dispenses` and its
+   2026-08-03 "no contracted pharmacy" decision are untouched; `medication_receipt_confirmations` is
+   additive.
 
-3. **Correction-trail scope (§1.18).** Retrofitting append-only-with-reason onto all ~20
-   clinician-editable clinical tables platform-wide is a large, invasive change (new RLS, new
-   app-layer write paths, on live tables). Take it on fully now, or scope it first to the
-   highest-stakes fields — problem-list status changes (once §1.7 exists) and allergy corrections —
-   following the existing `protocol_versions` precedent, and treat the rest as phased follow-up?
+3. **Correction-trail scope (§1.18) → full platform-wide retrofit now**, not phased to a handful of
+   fields first. Delivered without reopening the PHI-exposure risk `audit_row_change` was originally
+   designed to avoid, by giving the new `record_corrections` table a deliberately narrower read
+   policy than `audit_log`'s — see §1.18 for the full reasoning; this nuance surfaced only once the
+   correction trail was actually being designed; the resolution is a stricter policy, not a rollback
+   of the "do it fully now" decision.
 
-4. **Family/social history architecture (§1.9/§1.10).** Promote these to dedicated, continuously-
-   editable relational tables (relationship/age-of-onset/deceased-or-alive for family; occupation/
-   exposure/living-situation for social) — a genuine architecture change from the current one-time
-   onboarding EAV design — or keep `risk_assessment_responses` as-is and just add the missing keys
-   to its existing question set, accepting it stays a point-in-time intake rather than a living
-   record?
+4. **Family/social history (§1.9/§1.10) → promote to dedicated tables**, additive to — not replacing
+   — the existing `risk_assessment_responses` onboarding intake, which stays the system of record for
+   the fields it already owns (family boolean flags feeding `prevention_risk_scores`; smoking/
+   alcohol/diet/etc. feeding the same). The new tables cover exactly the fields that had no home at
+   all, and are continuously editable rather than a one-time snapshot.
 
-5. **Date of birth / sex / full name — ongoing vs. onboarding-only edit rights (§1.5).** Today these
-   are freely patient-self-editable via the same RLS path indefinitely, not just during initial
-   intake, which sits uneasily next to the spec's "may require verification" framing and against the
-   fact that DOB drives clinical age-based logic. Leave as-is, or add a rule (e.g. app-layer,
-   possibly backed by a trigger once onboarding is complete) requiring staff involvement or a
-   verification step for a *post-onboarding* change to these three fields specifically?
+## 4. Still open
+
+**5. Date of birth / sex / full name — ongoing vs. onboarding-only edit rights (§1.5).** Not part of
+the four decisions above; still genuinely open. Today these are freely patient-self-editable via the
+same RLS path indefinitely, not just during initial intake, which sits uneasily next to the spec's
+"may require verification" framing and against the fact that DOB drives clinical age-based logic.
+Leave as-is, or add a rule (app-layer, possibly backed by a trigger once onboarding is complete)
+requiring staff involvement or a verification step for a *post-onboarding* change to these three
+fields specifically?
+
+## 5. Tests
+
+Every table this review added or changed has a matching verification script in `packages/db/tests/`,
+following the codebase's existing pattern (`set_config('request.jwt.claims', ...)` + `set local role
+authenticated` to simulate real sessions, wrapped in `BEGIN`/`ROLLBACK` so nothing persists):
+
+- `profiles_self_update_column_guard.sql` — the §1.5 security fix, including the serology-cascade
+  regression check.
+- `patient_conditions_problem_list.sql` — patient cannot self-write, org staff can, timeline +
+  correction-trail wiring.
+- `family_and_social_history.sql` — patient self-write allowed, one-row-per-patient enforcement on
+  `social_history`, correction capture on both.
+- `medication_receipt_confirmations.sql` — the context check constraint, timeline wiring.
+- `record_corrections_platform_wide.sql` — old/new capture, reason-GUC capture, the no-op
+  suppression rule, and — the important negative check — that an ordinary org-staff session cannot
+  read a correction back, only admin or the record's own patient.
+
+None of these have been run against a live database (no local Supabase/Docker stack was available in
+the environment this review ran in) — they're reviewed carefully by hand against the actual schema
+and RLS helper functions in use, but running them for real (`supabase db query "$(cat
+packages/db/tests/<file>.sql)" --linked` or equivalent) before merging is still worth doing.
