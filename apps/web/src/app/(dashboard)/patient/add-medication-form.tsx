@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useAddMedication } from "@/lib/queries/medications";
 import { medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
+import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,6 +59,10 @@ export function AddMedicationForm({
   const [step, setStep] = useState<"form" | "review">("form");
   const [pendingData, setPendingData] = useState<MedicationInput | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
+  // Care Team / Provider Workspace §5.19 — an additional, separate
+  // acknowledgement for a controlled/restricted medicine, required alongside
+  // (not instead of) the general safety-notes checkbox above.
+  const [controlledAcknowledged, setControlledAcknowledged] = useState(false);
 
   function addTime() {
     if (newTime && !scheduleTimes.includes(newTime)) {
@@ -88,6 +93,7 @@ export function AddMedicationForm({
     setStep("form");
     setPendingData(null);
     setAcknowledged(false);
+    setControlledAcknowledged(false);
   }
 
   function submitMedication(data: MedicationInput) {
@@ -152,6 +158,8 @@ export function AddMedicationForm({
   // — the platform never blocks a prescription; the doctor decides. Shown for
   // recognised glucose-lowering drugs; patient self-add keeps a calm UI.
   const safetyNotes = source === "clinician" ? diabetesDrugSafety(drugName, { pregnant }) : [];
+  const controlledInfo =
+    step === "review" && pendingData ? controlledSubstanceInfo(pendingData.drug_name) : null;
 
   if (step === "review" && pendingData) {
     return (
@@ -197,6 +205,24 @@ export function AddMedicationForm({
             </div>
           )}
 
+          {controlledInfo && (
+            <div className="space-y-2 rounded-md border border-red-200 bg-red-50/60 p-2.5">
+              <p className="text-xs font-medium text-red-800">
+                Controlled/restricted medicine — {controlledInfo.label}
+              </p>
+              <p className="text-xs text-red-800/80">{controlledInfo.note}</p>
+              <label className="flex items-start gap-2 text-sm text-charcoal-ink">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4"
+                  checked={controlledAcknowledged}
+                  onChange={(event) => setControlledAcknowledged(event.target.checked)}
+                />
+                I confirm the additional safeguard above for this controlled/restricted medicine.
+              </label>
+            </div>
+          )}
+
           <label className="flex items-start gap-2 text-sm text-charcoal-ink">
             <input
               type="checkbox"
@@ -214,7 +240,7 @@ export function AddMedicationForm({
             <Button
               type="button"
               onClick={handleSign}
-              disabled={!acknowledged || addMedication.isPending}
+              disabled={!acknowledged || (!!controlledInfo && !controlledAcknowledged) || addMedication.isPending}
             >
               {addMedication.isPending ? "Signing…" : "Sign & prescribe"}
             </Button>

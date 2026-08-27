@@ -35,6 +35,7 @@ import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
+import { CarePlanManagementSection } from "./care-plan-management-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
 export default async function ClinicianPatientPage({
@@ -253,6 +254,15 @@ export default async function ClinicianPatientPage({
                 )}
                 <TreatmentLadder />
               </>
+            ),
+          },
+          {
+            id: "care-plan",
+            label: "Care plan",
+            content: patient.organisation_id ? (
+              <CarePlanManagementSection patientId={patient.id} organisationId={patient.organisation_id} />
+            ) : (
+              <p className="text-sm text-charcoal-ink/60">This patient has no organisation on file.</p>
             ),
           },
           {
