@@ -399,6 +399,24 @@ revoke all on function public.sponsor_request_refill(uuid, uuid) from public;
 revoke all on function public.sponsor_request_refill(uuid, uuid) from anon;
 grant execute on function public.sponsor_request_refill(uuid, uuid) to authenticated;
 
+-- Stub #17: next confirmed CI failure after #15/#16 above --
+-- 20260802213144_diaspora_usd_processing_fee.sql's own assertion (single
+-- creation site, same pattern again).
+create function public.set_usd_processing_fee(p_fee_pct numeric)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.set_usd_processing_fee(numeric) from public;
+revoke all on function public.set_usd_processing_fee(numeric) from anon;
+grant execute on function public.set_usd_processing_fee(numeric) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
