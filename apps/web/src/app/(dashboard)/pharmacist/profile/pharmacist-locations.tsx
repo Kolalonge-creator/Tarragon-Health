@@ -7,24 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  useLabPartnerOwnProviderId,
-  useLabPartnerFacilities,
-  useCreateLabPartnerFacility,
-  useSetLabPartnerFacilityActive,
-} from "@/lib/queries/lab-partner";
+  usePharmacistOwnPartnerId,
+  usePharmacistLocations,
+  useCreatePharmacistLocation,
+  useSetPharmacistLocationActive,
+} from "@/lib/queries/pharmacist";
 
 /**
- * Self-service branch/location management. Writes to lab_provider_locations
- * — the table that actually feeds the public /coverage map via
- * public_partner_locations(). A real partner with dozens of branches
- * maintains its own list directly; RLS (lab_provider_locations_*_partner,
- * 20260827203240) scopes every write to this lab's own rows.
+ * Self-service branch management — the pharmacist-side counterpart of
+ * apps/web/src/app/(dashboard)/lab-partner/lab-partner-facilities.tsx.
+ * Writes to pharmacy_partner_locations (20260827203240), which
+ * public_partner_locations() reads for the public /coverage map.
  */
-export function LabPartnerFacilities() {
-  const { data: providerId } = useLabPartnerOwnProviderId();
-  const { data: facilities, isLoading } = useLabPartnerFacilities(providerId);
-  const create = useCreateLabPartnerFacility();
-  const toggle = useSetLabPartnerFacilityActive();
+export function PharmacistLocations() {
+  const { data: partnerId } = usePharmacistOwnPartnerId();
+  const { data: locations, isLoading } = usePharmacistLocations(partnerId);
+  const create = useCreatePharmacistLocation();
+  const toggle = useSetPharmacistLocationActive();
 
   const [name, setName] = useState("");
   const [state, setState] = useState("");
@@ -32,18 +31,15 @@ export function LabPartnerFacilities() {
   const [contactPhone, setContactPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  if (!providerId) {
-    return null;
-  }
+  if (!partnerId) return null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Your branches</CardTitle>
         <CardDescription>
-          Patients pick from this list when booking with your lab — keep it accurate. Retiring a
-          branch deactivates it rather than deleting it. A branch only appears on the public
-          coverage map once it has coordinates on file — contact support to have one geocoded.
+          Add every branch patients can be routed to. A branch only appears on the public coverage
+          map once it has coordinates on file — contact support to have one geocoded.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -53,7 +49,7 @@ export function LabPartnerFacilities() {
             e.preventDefault();
             setError(null);
             create.mutate(
-              { providerId, name, state, address, contactPhone },
+              { partnerId, name, state, address, contactPhone },
               {
                 onSuccess: () => {
                   setName("");
@@ -67,26 +63,21 @@ export function LabPartnerFacilities() {
           }}
         >
           <div className="space-y-1">
-            <Label htmlFor="branch-name">Branch name</Label>
-            <Input id="branch-name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Label htmlFor="ph-branch-name">Branch name</Label>
+            <Input id="ph-branch-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="branch-state">State</Label>
-            <Input id="branch-state" value={state} onChange={(e) => setState(e.target.value)} required />
+            <Label htmlFor="ph-branch-state">State</Label>
+            <Input id="ph-branch-state" value={state} onChange={(e) => setState(e.target.value)} required />
           </div>
           <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="branch-address">Address</Label>
-            <Input
-              id="branch-address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              required
-            />
+            <Label htmlFor="ph-branch-address">Address (optional)</Label>
+            <Input id="ph-branch-address" value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="branch-phone">Contact phone (E.164, optional)</Label>
+            <Label htmlFor="ph-branch-phone">Contact phone (E.164, optional)</Label>
             <Input
-              id="branch-phone"
+              id="ph-branch-phone"
               placeholder="+234…"
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
@@ -103,21 +94,23 @@ export function LabPartnerFacilities() {
         <div className="space-y-2 border-t border-charcoal-ink/10 pt-4">
           {isLoading ? (
             <p className="text-sm text-charcoal-ink/60">Loading…</p>
-          ) : (facilities ?? []).length === 0 ? (
+          ) : (locations ?? []).length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No branches added yet.</p>
           ) : (
-            (facilities ?? []).map((f) => (
+            (locations ?? []).map((loc) => (
               <div
-                key={f.id}
+                key={loc.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-charcoal-ink/10 px-4 py-2"
               >
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium text-charcoal-ink">{f.name}</span>
-                  <Badge variant={f.is_active ? "green" : "grey"}>{f.is_active ? "Active" : "Inactive"}</Badge>
+                  <span className="font-medium text-charcoal-ink">{loc.name}</span>
+                  <Badge variant={loc.is_active ? "green" : "grey"}>
+                    {loc.is_active ? "Active" : "Inactive"}
+                  </Badge>
                   <span className="text-xs text-charcoal-ink/50">
-                    {[f.address, f.state].filter(Boolean).join(", ")}
+                    {[loc.address, loc.state].filter(Boolean).join(", ")}
                   </span>
-                  {(f.latitude == null || f.longitude == null) && (
+                  {(loc.latitude == null || loc.longitude == null) && (
                     <Badge variant="grey">Not on map yet</Badge>
                   )}
                 </div>
@@ -125,9 +118,9 @@ export function LabPartnerFacilities() {
                   variant="outline"
                   size="sm"
                   disabled={toggle.isPending}
-                  onClick={() => toggle.mutate({ id: f.id, isActive: !f.is_active })}
+                  onClick={() => toggle.mutate({ id: loc.id, isActive: !loc.is_active })}
                 >
-                  {f.is_active ? "Deactivate" : "Activate"}
+                  {loc.is_active ? "Deactivate" : "Activate"}
                 </Button>
               </div>
             ))

@@ -24,6 +24,7 @@ import {
   patientActivitySchema,
   patientSearchSchema,
   populationSummarySchema,
+  providerCapacitySchema,
   retentionCohortsSchema,
   riskRegisterSchema,
   staffActivitySchema,
@@ -371,6 +372,18 @@ export function useDoctorPerformance() {
       const { data, error } = await createClient().rpc("analytics_doctor_performance", {});
       if (error) throw error;
       return doctorPerformanceSchema.parse(data);
+    },
+  });
+}
+
+// ---- Provider capacity (docs/CLINICAL_NETWORK_SPEC.md §4.17) --------------
+export function useProviderCapacity() {
+  return useQuery({
+    queryKey: ["analytics", "provider-capacity"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_provider_capacity");
+      if (error) throw error;
+      return providerCapacitySchema.parse(data);
     },
   });
 }

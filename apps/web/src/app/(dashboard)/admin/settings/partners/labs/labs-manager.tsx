@@ -21,6 +21,7 @@ import {
   useUpdateLabProviderContact,
   useLabProviderTurnaroundStats,
   useLinkLabPartner,
+  useSetPartnerAdmin,
   useUpdateLabProviderLicense,
   useAllPanelBundles,
   useUpdatePanelBundleCommission,
@@ -149,6 +150,7 @@ function PartnerLoginLinker({
   logins: LabPartnerLoginRow[];
 }) {
   const link = useLinkLabPartner();
+  const setPartnerAdmin = useSetPartnerAdmin();
   const [selected, setSelected] = useState("");
   const linkedToThisLab = logins.filter((l) => l.lab_provider_id === lab.id);
   const unlinked = logins.filter((l) => l.lab_provider_id === null);
@@ -169,26 +171,44 @@ function PartnerLoginLinker({
               key={l.id}
               className="flex items-center justify-between gap-2 text-xs"
             >
-              <span>
+              <span className="flex items-center gap-1.5">
                 {l.full_name ?? "Unnamed"} {l.email ? `· ${l.email}` : ""}
+                {l.is_partner_admin && <Badge variant="blue">Partner admin</Badge>}
               </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 px-2 text-xs"
-                disabled={link.isPending}
-                onClick={() =>
-                  link.mutate({ profileId: l.id, labProviderId: null })
-                }
-              >
-                Unlink
-              </Button>
+              <span className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  disabled={setPartnerAdmin.isPending}
+                  title="Lets this login invite further staff for this lab"
+                  onClick={() =>
+                    setPartnerAdmin.mutate({ profileId: l.id, isPartnerAdmin: !l.is_partner_admin })
+                  }
+                >
+                  {l.is_partner_admin ? "Revoke admin" : "Make partner admin"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  disabled={link.isPending}
+                  onClick={() =>
+                    link.mutate({ profileId: l.id, labProviderId: null })
+                  }
+                >
+                  Unlink
+                </Button>
+              </span>
             </li>
           ))}
         </ul>
       )}
       {link.error && (
         <p className="text-xs text-red-600">{(link.error as Error).message}</p>
+      )}
+      {setPartnerAdmin.error && (
+        <p className="text-xs text-red-600">{(setPartnerAdmin.error as Error).message}</p>
       )}
       {unlinked.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
