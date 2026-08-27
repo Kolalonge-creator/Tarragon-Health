@@ -1,13 +1,34 @@
 # Clinical Network — Design Spec & Gap Analysis
 
-> **Status: design document, not a build order.** This reconciles an incoming "Clinical Network"
-> spec (§4.1–4.18 below) against what actually exists in the codebase as of 2026-08-27, and proposes
-> a phased path. It does not itself authorise building the guardrailed pieces — see §3. Subordinate
-> to `CLAUDE.md`, which remains authoritative on scope-gating language if the two ever conflict.
-> Where this doc's phase labels disagree with `docs/Tarragon_Health_Master_Operating_Plan_v4.md`
-> §7/§13 (they do, in places — see §3), treat the disagreement as a signal that the Master Plan
-> itself has drifted behind shipped work, not as license to build past `CLAUDE.md`'s explicit
-> guardrail without an explicit founder ask.
+> **Status: design/reconciliation doc, partially built.** This reconciles an incoming "Clinical
+> Network" spec (§4.1–4.18 below) against what actually exists in the codebase, and proposes a
+> phased path. It does not itself authorise building the guardrailed pieces — see §3. Subordinate to
+> `CLAUDE.md`, which remains authoritative on scope-gating language if the two ever conflict. Where
+> this doc's phase labels disagree with `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §7/§13
+> (they do, in places — see §3), treat the disagreement as a signal that the Master Plan itself has
+> drifted behind shipped work, not as license to build past `CLAUDE.md`'s explicit guardrail without
+> an explicit founder ask.
+>
+> **2026-08-27 — founder approved Phase 1 plus the org-accounts item from Phase 2; both are now
+> shipped**, on branch `claude/clinical-network-design-hwz821`. What actually shipped, in build
+> order: (1) `clinical_staff.license_expires_at` + a notify-only lapse sweep, mirroring the
+> existing indemnity-lapse pattern (§4.3); (2) `clinical_encounter_notes` — a real signed SOAP-style
+> encounter note, draft→finalized, server-derived attribution, wired into `patient_timeline` (§4.10);
+> (3) `analytics_provider_capacity()` — specialty×state provider counts, waitlist size/age, booking
+> turnaround, video-slot utilisation, in the analytics console (§4.17); (4) partner self-service:
+> `lab_provider_locations`/new `pharmacy_partner_locations` RLS opened to the partner's own rows (the
+> lab-partner UI was fixed to actually write to the live table — it had been writing to `facilities`,
+> which was suspended weeks earlier and dead), `lab_tests`/`pharmacy_medications` availability-only
+> partner editing (pricing/commission stay admin-only — financial-control decision, not a schema
+> one), `profiles.is_partner_admin` + a self-service staff-invite server action, `admin_link_pharmacist`
+> (didn't exist before — only the lab side had an admin-link RPC) (§4.13/§4.14). The matching/ranking
+> engine (§4.7/§4.8) was **not** built — that guardrail stands; §3 below is unchanged and still
+> governs. Also found and fixed along the way: 7 migrations applied live but never committed to git,
+> 3 more with drifted filenames, and — more seriously — `private.guard_profiles_self_update()` (the
+> trigger blocking self-privilege-escalation on `profiles`) existed live with **no migration record
+> at all**, anywhere; it was recommitted and extended to cover the new `is_partner_admin` column
+> (without which a lab_partner could have self-granted staff-invite rights). See the branch's commit
+> history for full detail on each piece.
 
 ## 0. What this document is
 
@@ -78,7 +99,7 @@ employed staff — see §1), hospital affiliations. `specialist_providers` has: 
 languages[] — closer to spec shape but still single-location and unverified beyond the license
 fields added 2026-07-31.
 
-### 4.3 Provider verification — 🟢 (for employed staff), 🟡 (for partners)
+### 4.3 Provider verification — 🟢 (for employed staff, license-expiry tracking shipped 2026-08-27), 🟡 (for partners)
 This is the strongest existing piece. `clinical_staff` verification is DB-enforced, not app-layer:
 a CHECK constraint blocks `active=true` without `license_verified_at`, a separate trigger blocks
 self-verification, indemnity is enforced by tier with a granular exemptions table, and Health
@@ -119,7 +140,7 @@ conversation is in-app only via `care_messages`/`care_message_threads`
 — exactly the "controlled Tarragon channels, avoid uncontrolled personal messaging" principle §4.9
 asks for, already enforced platform-wide rather than needing new work.
 
-### 4.10 Provider documentation — 🔴
+### 4.10 Provider documentation — 🟢 (shipped 2026-08-27: `clinical_encounter_notes`)
 Confirmed clean gap: no structured encounter/SOAP note (reason for encounter, history, exam,
 assessment, diagnosis, medication, investigation, referral, follow-up) exists anywhere. What exists
 are narrow free-text fields bolted onto workflow tables (`escalations.reason`/`resolution_note`,
@@ -147,7 +168,7 @@ self-facing one the `lab_partner` login can see
 type with performance tracking today, despite `docs/FEATURE_SPEC.md` §8 naming this for all partner
 types.
 
-### 4.13/4.14 Network organisations & organisation administration — 🔴 (for external institutions)
+### 4.13/4.14 Network organisations & organisation administration — 🟡 (lab/pharmacy partner self-service shipped 2026-08-27; no `organisations`-based institution type)
 This is the biggest structural gap. `organisations` exists but is Tarragon's own multi-tenancy/RLS
 boundary, not a partner-facing account — and a migration comment
 (`20260805234029_admin_create_institution_org.sql`) explicitly states clinic/lab/pharmacy partners
@@ -159,7 +180,7 @@ login each (`lab_partner`/`pharmacist` roles, three SECURITY DEFINER RPCs scoped
 catalogue. Building `Hospital A → doctors/clinics/locations` exactly as §4.13's diagram shows is real
 net-new scope, not a small extension.
 
-### 4.15 Network service catalogue — 🟡
+### 4.15 Network service catalogue — 🟡 (availability self-service shipped 2026-08-27; pricing/commission still admin-only, deliberately)
 `facility_services` (facilities directory) and `lab_tests`/`pharmacy_medications`/`panel_bundles`
 (with per-item commission config) already give structured, priced catalogue entries for labs/
 pharmacies/facilities. `specialist_providers` has one consultation_fee_kobo per row, not the
@@ -167,7 +188,7 @@ telemedicine-vs-physical/duration-vs-price matrix §4.15's example shows. No cat
 allied health services.
 
 ### 4.16 Specialist referral compatibility — 🟡, ⚠️ guardrail-adjacent, see §3
-### 4.17 Provider capacity management — 🔴
+### 4.17 Provider capacity management — 🟢 (shipped 2026-08-27: `analytics_provider_capacity()`)
 No shortage/capacity dashboard exists (average wait time, overloaded specialties, slot utilisation).
 `useWaitlistedReferrals` shows a live per-referral count of matching active providers, which is a
 useful primitive to build this from, but there is no aggregate ops view. This is admin-facing
@@ -225,47 +246,53 @@ recommendation.
 
 ### Phase 1 — safe to build now, no new ask needed
 Foundational, additive, filter-not-rank, matches patterns already in the codebase:
-1. **Encounter/consultation documentation schema** (§4.10) — genuine clean gap, no guardrail
-   overlap, high clinical value (currently nothing captures a structured assessment/plan).
+1. ✅ **SHIPPED 2026-08-27 — Encounter/consultation documentation schema** (§4.10) —
+   `clinical_encounter_notes`, draft→finalized, wired into `patient_timeline`.
 2. **`clinical_staff` profile enrichment** (§4.2) — subspecialty, qualifications, years_experience,
    languages[], hospital_affiliations — pure additive columns, same pattern as existing fields,
-   never priced/ranked, stays inside the employed-care-team model from §1.
-3. **License expiry tracking + renewal warning** (§4.3) — add `license_expires_at` alongside the
-   existing `license_verified_at` pattern on `clinical_staff`, and a scheduled check that surfaces
-   an expiring/expired credential to admins (warn, and per §4.3 potentially auto-suspend `active`) —
-   the columns already exist partner-side (`20260731011319`), this closes the same gap for
-   `clinical_staff` and wires up the read side nobody built yet.
+   never priced/ranked, stays inside the employed-care-team model from §1. *Not built yet.*
+3. ✅ **SHIPPED 2026-08-27 — License expiry tracking + renewal warning** (§4.3) —
+   `clinical_staff.license_expires_at` + a notify-only lapse sweep mirroring the indemnity-lapse
+   pattern. (The partner-side `license_expires_at` columns referenced below were already live
+   pre-2026-08-27 with a working notify sweep of their own — this closed the equivalent gap for
+   Tarragon's own `clinical_staff`.)
 4. **Unify "find a provider" discovery UX** (§4.6) — extend `ChooseReferralSpecialist`'s existing
    filters (price/gender/language are already columns, just not exposed) and add a standalone
    patient-initiated entry point that reuses the same filtered query — explicitly filtering, not
-   ranking, so it stays inside the guardrail per §3.
-5. **Capacity/shortage reporting for ops** (§4.17) — an admin-facing rollup (specialty × state
-   provider counts, slot utilisation, `useWaitlistedReferrals`-style live match counts aggregated)
-   — internal analytics, not a patient-facing recommendation, so it doesn't trip the matching-engine
-   guardrail.
+   ranking, so it stays inside the guardrail per §3. *Not built yet.*
+5. ✅ **SHIPPED 2026-08-27 — Capacity/shortage reporting for ops** (§4.17) —
+   `analytics_provider_capacity()`, a new "Provider capacity" tab in the analytics console.
 6. **Allied health as a real `specialist_type`** (§4.1) — dietitians/physiotherapists/psychologists
    currently have no representation at all; adding them as catalogue rows is the same shape as the
-   existing 9 placeholder specialist rows, not new architecture.
+   existing 9 placeholder specialist rows, not new architecture. *Not built yet.*
 
 ### Phase 2 — needs an explicit founder ask before functional code
-1. **Institutional organisation accounts** (§4.13/4.14) — `Hospital A → staff/clinics/locations`
-   self-service. This is a real new commitment (who administers it, what it costs to build/support,
-   whether it duplicates the existing `corporate`/`hmo` aggregate-account pattern) — scope it with
-   the founder rather than assuming the diagram in §4.13 is the final shape.
+1. ✅ **SHIPPED 2026-08-27, founder-approved — Partner org self-service** (§4.13/4.14) — scoped
+   narrower than the original "Hospital A → staff/clinics/locations" framing: `lab_provider_locations`
+   /`pharmacy_partner_locations` RLS opened to the partner's own rows, `lab_tests`/`pharmacy_medications`
+   availability-only partner editing (pricing/commission deliberately stayed admin-only — see §4.15
+   below), `profiles.is_partner_admin` + a self-service staff-invite action so a partner org doesn't
+   need a Tarragon admin in the loop for every new staff login. No new organisation *type* was
+   introduced — `organisations` still isn't used for lab/pharmacy partners (that architectural
+   decision, confirmed current as of this doc's original research, was left standing). A true
+   `Hospital A → clinics/locations` institution type, if ever needed beyond labs/pharmacies, is
+   still open scope.
 2. **Provider matching/ranking algorithm** (§4.7/§4.8) — per §3, explicit ask required by
-   `CLAUDE.md` directly.
+   `CLAUDE.md` directly. *Not built — guardrail unchanged.*
 3. **Provider payout/settlement for Tier 5 + referral-network specialists** (§4.11) — extends the
    Synlab liability/reconciliation pattern to a new provider type; real money movement, wants
-   founder sign-off same as the Synlab build did.
+   founder sign-off same as the Synlab build did. *Not built yet.*
 4. **Recurring availability + leave/blocked-time** (§4.4/§4.5) — a real scheduling-engine rebuild,
    not a small addition to the current slot picker; worth scoping once Phase 1 items prove the
-   simpler model is actually the bottleneck.
+   simpler model is actually the bottleneck. *Not built yet.*
 
 ### Phase 3 — capacity-dependent, revisit once Phase 1/2 data exists
 Full §4.16 "Tarragon should immediately identify suitable network options" automated referral
-routing, and any provider-facing self-service catalogue/pricing editing — both want real provider
-volume and real usage data (the current 9-placeholder-row catalogue can't validate an algorithm
-against), so building them earlier would be designing against fake data.
+routing wants real provider volume and real usage data (the current 9-placeholder-row catalogue
+can't validate an algorithm against), so building it earlier would be designing against fake data —
+*still not built, guardrail unchanged.* Provider-facing **pricing** editing (as opposed to the
+availability-only editing shipped in Phase 2 above) stays here for the same financial-control
+reason given in that item — a partner may mark a service unavailable, not reprice it.
 
 ## 5. Open questions for the founder
 
