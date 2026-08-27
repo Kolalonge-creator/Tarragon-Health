@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums, Tables } from "@tarragon/shared";
 
+export type CarePlanVersion = Tables<"care_plan_versions">;
+
 export type CarePlan = Tables<"care_plans"> & {
   assigned_clinician: { full_name: string | null } | null;
   /** False only when this condition's scheduled-review cadence is gated
@@ -81,6 +83,29 @@ export function useAllCarePlans(patientId: string) {
       return data;
     },
     enabled: !!patientId,
+  });
+}
+
+/**
+ * §3.18: "Old versions remain accessible." Every clinically meaningful
+ * change to a care plan (condition, status, target_ranges, notes,
+ * assigned_clinician_id) snapshots the row it's about to overwrite into
+ * care_plan_versions — this reads that history, newest first.
+ */
+export function useCarePlanVersions(carePlanId: string | null) {
+  return useQuery({
+    queryKey: ["care-plans", "versions", carePlanId ?? ""],
+    enabled: !!carePlanId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_plan_versions")
+        .select("*")
+        .eq("care_plan_id", carePlanId as string)
+        .order("changed_at", { ascending: false });
+      if (error) throw error;
+      return data as CarePlanVersion[];
+    },
   });
 }
 

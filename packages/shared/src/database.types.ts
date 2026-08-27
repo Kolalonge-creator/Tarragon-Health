@@ -17702,6 +17702,8 @@ export type Database = {
         | "unactioned_abnormal"
         | "awaiting_result"
         | "missed_care_task"
+        | "missed_appointment"
+        | "failed_referral"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -18543,6 +18545,8 @@ export const Constants = {
         "unactioned_abnormal",
         "awaiting_result",
         "missed_care_task",
+        "missed_appointment",
+        "failed_referral",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [

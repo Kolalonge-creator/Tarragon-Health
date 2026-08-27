@@ -5,7 +5,6 @@ import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
-import { CarePlanDisplay } from "@/app/(dashboard)/patient/care-plan-display";
 import { MyCarePlanTasks } from "@/app/(dashboard)/patient/my-care-plan-tasks";
 import { PregnancyStatus } from "@/app/(dashboard)/patient/pregnancy-status";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
@@ -42,7 +41,6 @@ export default async function PatientCarePage() {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4">
           <RequiresEntitlement feature="clinician_review" fallback={<UpgradePrompt feature="clinician_review" />}>
-            <CarePlanDisplay patientId={subjectId} />
             <MyCarePlanTasks patientId={subjectId} organisationId={profile.organisation_id} />
             <ObesitySummary
               patientId={subjectId}

@@ -3,15 +3,82 @@
 import { useState } from "react";
 import { useCareTasks, useCompleteCareTask, type CareTask } from "@/lib/queries/care-tasks";
 import { useCarePlanGoals, useProposeCarePlanGoal } from "@/lib/queries/care-plan-goals";
+import { useCarePlans, type CarePlan } from "@/lib/queries/care-plans";
 import { groupCareTasksByBucket } from "@/lib/rules/care-task-buckets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SEMANTIC_ICON } from "@/lib/icons";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
+
+function humanize(value: string) {
+  return value
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
 
 function formatDue(dueAt: string | null): string | null {
   if (!dueAt) return null;
   return new Date(dueAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/**
+ * §3.15: "Do not create four completely separate care plans that overwhelm
+ * the patient... Condition-specific protocols feeding into One unified
+ * patient care plan." This used to be its own "Care plan" card sitting next
+ * to a separate "My care plan" tasks card — two cards read as two plans.
+ * Folded in here as the top section of ONE card so a multimorbid patient
+ * sees one coordinated plan with several condition threads, not several
+ * plans, while the goals/tasks below are already unified by being
+ * patient-scoped rather than per-condition.
+ */
+function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
+  if (plans.length === 0) {
+    return (
+      <p className="text-sm text-charcoal-ink/60">
+        No care plan yet — your doctor will assign one after reviewing your health data.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      {plans.length > 1 && (
+        <p className="mb-2 text-xs text-charcoal-ink/60">
+          Managed together as one coordinated plan: {plans.map((p) => humanize(p.condition)).join(", ")}.
+        </p>
+      )}
+      <ul className="divide-y divide-charcoal-ink/10">
+        {plans.map((plan) => {
+          const targetRanges = (plan.target_ranges ?? {}) as Record<string, unknown>;
+          const targetRangeEntries = Object.entries(targetRanges);
+
+          return (
+            <li key={plan.id} className="space-y-1 py-2">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-charcoal-ink">{humanize(plan.condition)}</p>
+                <Badge variant="green">Active</Badge>
+              </div>
+              <p className="text-xs text-charcoal-ink/60">
+                {plan.assigned_clinician?.full_name
+                  ? `Managed by ${plan.assigned_clinician.full_name}`
+                  : "Not yet assigned to a doctor"}
+              </p>
+              {targetRangeEntries.length > 0 && (
+                <p className="text-xs text-charcoal-ink/60">
+                  {targetRangeEntries.map(([key, value]) => `${humanize(key)}: ${value}`).join("; ")}
+                </p>
+              )}
+              {plan.notes && <p className="text-xs text-charcoal-ink/60">{plan.notes}</p>}
+              {!plan.hasScheduledReview && <UpgradePrompt feature="multi_condition_review" />}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 function TaskRow({ task, patientId }: { task: CareTask; patientId: string }) {
@@ -134,10 +201,12 @@ function ProposeGoalForm({
 }
 
 /**
- * "My Care Plan" — spec §3.11's patient dashboard: Today / This week /
- * Upcoming, plus the patient's goals and a way to propose their own (§3.16).
- * Tasks come from care_tasks, generated automatically for a chronic
- * programme (§3.5) or added by a clinician; completing one is always via
+ * "Your Care Plan" — one unified surface across every active condition
+ * (§3.15), covering: the condition(s) it manages (§3.3, folded in from the
+ * old separate CarePlanDisplay), Today/This week/Upcoming/Overdue tasks
+ * (§3.11), and goals with a way to propose one (§3.16). Tasks come from
+ * care_tasks, generated automatically for a chronic programme (§3.5) or
+ * added by a clinician; completing one is always via
  * public.complete_care_task() (see useCompleteCareTask), never a raw update.
  */
 export function MyCarePlanTasks({
@@ -147,6 +216,7 @@ export function MyCarePlanTasks({
   patientId: string;
   organisationId: string | null;
 }) {
+  const { data: plans } = useCarePlans(patientId);
   const { data: tasks, isLoading, isError } = useCareTasks(patientId);
   const { data: goals } = useCarePlanGoals(patientId);
 
@@ -156,9 +226,14 @@ export function MyCarePlanTasks({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>My care plan</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Your care plan
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <ConditionsOverview plans={plans ?? []} />
+
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load your care plan tasks.</p>}
         {!isLoading && !isError && (tasks ?? []).length === 0 && (
