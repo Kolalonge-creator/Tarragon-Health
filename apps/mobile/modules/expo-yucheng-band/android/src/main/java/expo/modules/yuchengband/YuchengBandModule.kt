@@ -1,5 +1,6 @@
 package expo.modules.yuchengband
 
+import android.bluetooth.BluetoothDevice
 import android.os.Bundle
 import com.yucheng.ycbtsdk.YCBTClient
 import com.yucheng.ycbtsdk.Constants
@@ -18,28 +19,32 @@ import kotlin.math.roundToInt
  * exposing only what apps/mobile/modules/expo-yucheng-band/index.ts declares —
  * scan/connect/disconnect, device info, and pulse/SpO2 history.
  *
- * IMPORTANT — verification gap: `YCBTClient` and `Constants` are used here as
- * top-level classes in `com.yucheng.ycbtsdk` (matching how the vendor's own
- * API docs reference them unqualified, and how the .aar's decompiled
- * classes.jar package tree — bean/, core/, gatt/, jl/, log/, receiver/,
- * response/, upgrade/, utils/ as *sub*packages alongside a root package —
- * is laid out). That inference has never been checked against Android
- * Studio's own decompiled view of the class file, because doing so needs a
- * real Android Gradle sync, which this environment cannot run (no Android
- * SDK/emulator, no physical band). If either import fails to resolve on
- * first real build, open ycbtsdk-release-4.0.11.aar's classes.jar in
- * Android Studio (or `unzip` + `javap`) to find the real package and fix
- * these two import lines — everything downstream (method names, callback
- * shapes, DATATYPE/BLEState constants, DataBean/AllDataBean field names) is
- * transcribed directly from the vendor's own API doc
- * (文档/文档 V1.0.5/Android_SDK_V1.0.5_EN.docx §1, §3.1, §10.4), not guessed.
+ * Verified 2026-08-28 against the real compiled classes (`javap` on the
+ * decompiled ycbtsdk-release-4.0.11.aar), after a real EAS Android build
+ * caught a genuine mismatch between the vendor's own doc and what actually
+ * shipped in this version: the doc's "YCBTClient.connectBle(mac,
+ * bleConnectResponse)" does not exist in 4.0.11 at all — the real connect
+ * method is `connectBleDevice(BluetoothDevice, BleConnectResponse): Boolean`,
+ * taking the actual Android BluetoothDevice object (from ScanDeviceBean's
+ * public `device` field), not a MAC string. Fixed below by caching the
+ * BluetoothDevice objects scan() sees, same pattern the iOS module already
+ * uses for CBPeripheral. Everything else in this file — YCBTClient and
+ * Constants living directly in com.yucheng.ycbtsdk, the BleScanResponse/
+ * BleConnectResponse/BleDataResponse callback shapes, initClient/
+ * getDeviceInfo/healthHistoryData signatures, DATATYPE/BLEState constants —
+ * was checked the same way and matched the doc exactly; only the connect
+ * call itself was stale in the vendor's documentation.
  */
 class YuchengBandModule : Module() {
 
-  /** ycbtsdk keeps exactly one active connection at a time (connectBle takes
-   * a mac but disconnectBle takes no argument) — this mirrors that rather
-   * than pretending the native SDK is multi-device-concurrent. */
+  /** ycbtsdk keeps exactly one active connection at a time (connectBleDevice
+   * takes a device but disconnectBle takes no argument) — this mirrors that
+   * rather than pretending the native SDK is multi-device-concurrent. */
   private var connectedMac: String? = null
+
+  /** BluetoothDevice objects seen during scan(), keyed by MAC — connect()
+   * needs the actual object, not just the address string (see header). */
+  private val discoveredDevices = LinkedHashMap<String, BluetoothDevice>()
 
   override fun definition() = ModuleDefinition {
     Name("YuchengBand")
@@ -64,6 +69,7 @@ class YuchengBandModule : Module() {
           override fun onScanResponse(code: Int, device: ScanDeviceBean?) {
             if (device?.deviceMac != null) {
               found[device.deviceMac] = device
+              device.device?.let { discoveredDevices[device.deviceMac] = it }
             }
           }
         }, timeoutSeconds.roundToInt())
@@ -91,8 +97,17 @@ class YuchengBandModule : Module() {
     }
 
     AsyncFunction("connect") { deviceId: String, promise: Promise ->
+      val bluetoothDevice = discoveredDevices[deviceId]
+      if (bluetoothDevice == null) {
+        promise.reject("YUCHENG_UNKNOWN_DEVICE", "Call scan() before connect() — no cached device for $deviceId", null)
+        return@AsyncFunction
+      }
+
       var settled = false
-      YCBTClient.connectBle(deviceId, object : BleConnectResponse {
+      // connectBleDevice returns false when it couldn't even start (e.g. the
+      // SDK is already mid-connect elsewhere) — that's a synchronous failure,
+      // distinct from onConnectResponse's async TimeOut/Disconnect codes.
+      val started = YCBTClient.connectBleDevice(bluetoothDevice, object : BleConnectResponse {
         override fun onConnectResponse(code: Int) {
           if (settled) return
           // ReadWriteOK is the only code that means "connected and usable" —
@@ -110,6 +125,9 @@ class YuchengBandModule : Module() {
           // Other codes are intermediate connecting states — keep waiting.
         }
       })
+      if (!started) {
+        promise.reject("YUCHENG_CONNECT_FAILED", "connectBleDevice did not start (code=${YCBTClient.getLastConnectErrorCode()})", null)
+      }
     }
 
     AsyncFunction("disconnect") { deviceId: String, promise: Promise ->
