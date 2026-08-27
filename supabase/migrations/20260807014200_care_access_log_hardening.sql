@@ -40,6 +40,7 @@
 -- --- 1. read-only means read-only ------------------------------------------------
 revoke insert, update, delete, truncate on public.care_access_events from authenticated;
 revoke insert, update, delete, truncate on public.care_access_events from anon;
+revoke select on public.care_access_events from anon;
 
 -- --- 2. one row per person, per surface, per hour ----------------------------------
 create or replace function private.log_care_access(
