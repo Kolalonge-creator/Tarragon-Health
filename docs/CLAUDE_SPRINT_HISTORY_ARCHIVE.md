@@ -291,3 +291,160 @@ tables at once.**
   but nothing else should be named "Tarragon Platform" going forward.
 - ~~**Push `main-dev` to GitHub.**~~ Done 2026-07-29. `reference/tarragon-control/` is still the
   only copy of that repo's history and it still lives on one disk.
+
+## Current Sprint — v3 (FROZEN — not an active roadmap, see 2026-07-30 note)
+
+**2026-07-30 — founder confirmed: "V3 should be enhancement of what we already have, not a
+replacement."** This sharpens the pivot-reversal above. Concretely: neither of the two v3
+codebases below (this project's M1/M2, or the separate `tarragon-control` repo which independently
+reached M1-M4) continues as a milestone-by-milestone build. **Do not resume M3/M4/M5/etc. in
+either place.** Both stay dormant, reference-only — the only sanctioned path for anything in v3
+reaching the real platform is a deliberate, explicitly-asked-for port of one named feature/
+discipline into `apps/web`, the same way I1-I10, `rls_auto_enable`, and the four narrowing rules
+were each pulled in above. If asked to "continue v3," clarify which specific piece to port instead
+of resuming a milestone.
+
+The M1/M2 entries below are the historical record of what was built here before the pivot
+reversed, kept for reference — do not add new milestones to this section going forward.
+
+### 2026-07-29 — M1 built and verified: schema, RLS, audit, invariants (this session)
+Full Phase 1 §5 schema (all 17 enums, 33 tables — see build-spec-v3 §5.1–§5.11), RLS enabled and
+policied on every table (default-deny, matches §6), the generic audit trigger (§5.11) attached to
+every patient-linked table, and DB-level enforcement of I1 (CHECK constraints), I2 (readings →
+exactly one triage_classifications row, via a v0-provisional "everything needs_review" trigger —
+blocks reading inserts entirely until a real clinician approves at least a provisional protocol,
+which is correct per §7.1's own build order), I3 (NOT NULL, schema-level), I5 (BEFORE INSERT
+trigger — closing an urgent/emergency classification requires a linked voice/synchronous_in_app
+`clinical_contacts` row), I8 (no `capitation` enum value, structurally impossible to add without a
+migration), I9 (institution_admin returns zero rows on every patient-scoped table — proven, not
+assumed), I10 (proof_log triggers on clinical_notes/triage_classifications/escalations/
+medication_dispenses). I4's exact `funder_reads_summary` policy from §6.2 implemented on `proof_log`.
+- **Two mechanical deviations from the literal spec text** (not product decisions — invalid/missing
+  SQL, fixed the same way this codebase has always handled spec gaps): (1) `escalations.breached`
+  used `generated always as (... now() ...) stored`, which Postgres rejects (generated columns must
+  be immutable) — replaced with a plain column + `v_escalations` view exposing a live-computed
+  `breached_live`. (2) `programmes` (control/concierge) and `app_config` (accountability_model +
+  the four Phase 2 go-live guards L1–L4) are referenced throughout the spec but never DDL'd —
+  added both, `app_config` as a singleton row, superadmin-write-only.
+- **Real bugs the test suite caught and fixed** (see `packages/db/tests/m1_invariant_and_rls_suite.sql`
+  for the full account): `authenticated` had no base table-level GRANT after the schema reset
+  (RLS restricts rows, but the role still needs the underlying SQL grant — Supabase normally
+  provisions this at project creation, not on a schema rebuilt mid-project); `funder_reads_summary`/
+  `consent_records_select` let an institution_admin-role consent grantee through, which violates
+  I9's *absolute* "zero rows, no exceptions" — fixed by excluding institution_admin from those
+  policies regardless of any consent naming that profile (defence in depth for §13's product
+  promise); `lab_orders`' staff policy reused `can_see_patient()` (which includes patient
+  self-access), accidentally letting a patient query `commission_minor` directly instead of being
+  forced through the column-safe `lab_orders_patient()` function.
+- Two `security_definer_view`-flagged views (`lab_orders_patient`, `clinical_notes_summary` — the
+  column-restriction pattern for "patient/coordinator needs fewer columns than staff") were
+  converted to SECURITY DEFINER **functions** instead, which only carries the accepted
+  `authenticated_security_definer_function_executable` WARN every sibling RPC in this codebase's
+  history carries, not the ERROR-level view finding.
+- **Verified live** via `packages/db/tests/m1_invariant_and_rls_suite.sql`, a rolled-back
+  transaction (JWT-claims role simulation, `set local role authenticated`, matching this
+  codebase's established RLS-verification convention) — every invariant assertion and the full
+  six-role RLS matrix passed with zero leftover rows after rollback. `get_advisors` clean (only
+  the 2 accepted SECURITY DEFINER WARNs + a pre-existing, unrelated auth setting).
+- **Real gap, flagged not guessed at:** the spec has no table linking an `institution_admin`
+  profile to a specific `organisations` row (no `organisation_admins` bridge, no
+  `profiles.organisation_id`) — `organisations`/`invoice_lines` currently have no institution_admin
+  policy at all (safe default: zero rows, not broken), deferred to **M8** when the institution
+  portal actually needs it. Flag to the founder before M8 starts.
+- **Not yet built:** CI wiring for the test suite (needs a disposable/branch database + a
+  `pnpm --filter db test:rls` script — tracked in the test file's own header comment). Repo
+  scaffolding for `apps/patient`/`apps/screening`/`apps/console`/`apps/public` is READMEs only,
+  correctly not-yet-functional per the spec's own milestone-order discipline (§20: "do not begin
+  a milestone until the previous one passes its test").
+- **Open decisions, per spec §21 — stop and ask before guessing:** voice vendor, `who_hearts` v1
+  thresholds (ship v0-provisional until 200 real screening-day readings exist), Head of Clinical
+  Operations name, validated-device list source, referral criteria v1 document, and — separately
+  — the institution_admin↔organisation linkage gap noted above.
+
+### 2026-07-29 — M2 built and verified: activation guard + accountability signature (this session)
+Scoped tightly to §20's exit test — "Expired-MDCN clinician auto-suspends overnight; note
+signature block renders correctly under both models" — not the full auth-screens/patient-clinician
+CRUD surface, which has no consuming UI until M7/M8 per each app's own README discipline
+(`apps/patient`, `apps/console` are still correctly READMEs-only). `profiles`/`patients`/`clinicians`
+and the `handle_new_user` auth trigger already existed from M1; M2 adds the lifecycle rules around
+`clinicians.active` and the accountability model.
+- **Activation gate (write-time):** `private.enforce_clinician_activation_requirements` (BEFORE
+  INSERT/UPDATE trigger on `clinicians`) blocks a row from ever reaching `active = true` unless
+  `private.clinician_meets_activation_requirements` passes — MDCN current always; under
+  `tech_layer` (the default), indemnity provider/policy/expiry also required and current. Under
+  `provider`, indemnity is irrelevant, matching §4's table exactly. Re-validates on every update to
+  an already-active row, not just insert, so an ops edit can't accidentally leave stale credentials
+  active.
+- **Nightly sweep (time-based):** `private.run_clinician_activation_guard`, scheduled via
+  `cron.schedule('clinician-activation-guard-nightly', '15 2 * * *', ...)`, catches credentials that
+  lapse purely by the passage of time with no write ever happening — the write-time trigger
+  structurally can't see that. Only ever suspends (`active → false` + a `suspended_reason`), never
+  activates; activation stays a deliberate ops/superadmin action gated by the trigger above.
+  Suspension needs no `profiles.role` change or grant revocation — `private.actor_clinician_id()`
+  already filters on `active = true` (a belt-and-suspenders comment already in the M1 RLS helper
+  file anticipated this), so every `can_see_patient()` check for the clinician role goes dead the
+  instant this one column flips. This is what §5.2's "revokes the clinician role grant immediately"
+  means in this schema.
+- **Real gap the M1 RLS review missed, fixed same pass:** `clinicians_update` let a clinician
+  update their OWN row (`profile_id = auth.uid()`), including `active`/`suspended_reason`/
+  `mdcn_*`/`indemnity_*` — combined with the guard above, a clinician the nightly sweep just
+  suspended could have immediately reactivated themselves. Nothing in §5.2 defines a legitimate
+  clinician self-service field on this table, so the self-update clause was removed outright
+  (ops_admin/superadmin only) rather than patched with a second column-restriction trigger.
+- **Accountability stamping is server-derived, not client-supplied:** `private.stamp_clinical_note_accountability`
+  (BEFORE INSERT on `clinical_notes`) always overwrites `accountability_model_at_signing` (from
+  live `app_config`) and `mdcn_number_at_signing` (from the real `clinicians` row), regardless of
+  what the caller sends — same never-trust-the-client discipline as every other attribution field
+  in this codebase. Proven in the test suite by deliberately inserting spoofed values and asserting
+  they get overwritten.
+- **Signature block rendering:** `packages/protocol/src/accountability.ts`, `getSignatureBlock(clinician, model)`
+  — a pure function rendering the two §4 variants ("practising under own registration" /
+  "on behalf of Tarragon Health Ltd"), unit-tested for both models
+  (`accountability.test.ts`, 3 tests, added `jest.config.mjs` mirroring `packages/shared`'s since
+  none existed yet). Always render from a signed note's own `accountability_model_at_signing`
+  (or, for a not-yet-signed preview, live `app_config`) — never from live config for a past note,
+  so a later model switch doesn't rewrite history, per §4's own requirement.
+- **Verified live** via `packages/db/tests/m2_activation_guard_and_signature.sql`, a rolled-back
+  transaction: activation blocked on expired MDCN, blocked on missing indemnity under
+  `tech_layer`, allowed under `provider` with null indemnity, both nightly-suspension paths
+  (MDCN and indemnity lapse) correctly stamp `suspended_reason`, the self-update lockdown holds
+  (RLS admits zero matching rows, doesn't error — asserted on resulting state not an exception),
+  and the stamping trigger overwrites spoofed input. Re-ran `m1_invariant_and_rls_suite.sql`
+  unchanged afterward — no regression. `pnpm --filter @tarragon/protocol test`/`typecheck` green.
+  `get_advisors` shows no new finding (only the same 2 pre-existing accepted SECURITY DEFINER
+  WARNs from M1 + the pre-existing, unrelated leaked-password-protection setting — everything new
+  this pass lives in `private` schema, never exposed via PostgREST, so it doesn't need an explicit
+  anon/authenticated revoke the way a `public.*` RPC would).
+- **Not yet built (deliberately, per milestone discipline):** any actual sign-up/login screen —
+  there is no consuming app until M7 (patient) / M8 (console); `handle_new_user` (M1) is the whole
+  of "auth infrastructure" needed so far. CI wiring for either test suite is still the same
+  tracked-not-done follow-up as M1.
+- **Next: M3** — `apps/screening` offline-first capture: consent-before-measurement, BP×2 with a
+  rest-interval timer, `source = 'screening_day'`, on-device instant result card, aggregate
+  report with `min_cohort_size` suppression, duplicate-not-merge conflict resolution on sync,
+  attach-rate instrumentation (`screening_participants.converted_to_enrolment_id`). Exit test per
+  §20: "200 synthetic readings captured offline, synced, duplicates surfaced not merged."
+
+---
+
+## Current Sprint (UPDATE THIS EVERY SPRINT)
+
+**Status:** Sprint 4 (Python ML Microservice) is paused (2026-07-09) — do not resume without an explicit ask. All active work since then is TypeScript, logged chronologically below.
+
+### Sprint 4 — Python ML Microservice (paused 2026-07-09)
+Goal: build `services/ml` into the SCORE2 CVD/HbA1c-trajectory/BP-control/lab-interpretation/cohort-analytics service, wire it into TypeScript via `packages/shared/ml-client.ts`, deploy it — `docs/FEATURE_SPEC.md` §4 (weeks 7–9).
+
+State at pause (confirmed live 2026-07-12): all 6 endpoints typed and never-throw in `ml-client.ts`; wired into BP-control assessment on every BP vitals log, a clinician lab/screening-result form (CVD risk + HbA1c trajectory + `patient_risk_scores` writes), and the corporate dashboard's cohort analytics (org-scoped, no PII sent). Railway deploy confirmed live (`/health`, `/docs` both 200). `patient_risk_scores` has 2 real `bp_control` rows proving the full path (Vercel → Railway → Supabase) worked at least twice — though both predate the "Fix Railway build" PR by a day or two, so if in doubt, log a fresh BP reading and check for a newer row. Sentry wired behind optional `SENTRY_DSN` (no-op if unset); no Sentry project created yet (needs the user's cloud credentials).
+
+### 2026-07-11 — Marketing site + platform convergence (PR #15, merged to main-dev)
+- Full marketing site: homepage, 4 priority programmes, pricing, contact/leads, `/medication`, `/labs`
+- **AbnormalResultHandler** Edge Function (`supabase/functions/abnormal-result-handler`) — previously missing, now deployed and verified live
+- Abnormal-screening E2E test (`apps/web/e2e/`, opt-in via `pnpm test:e2e`)
+- WhatsApp policy change codified: app/web is the sole interface for signup/core actions; WhatsApp/SMS is notifications + human doctor↔patient chat only (see Non-Negotiable Business Rules, `docs/ARCHITECTURE.md` §1.3/§8)
+- `docs/FULL_SPECIFICATION_V4.md` roadmap doc added
+- Staging: Vercel auto-deployed the merge commit (`677735d`) to Preview; build passed but the URL sits behind Vercel's deployment-protection/SSO gate, never independently browser-verified
+- CI: TypeScript green; Python ML failed on a pre-existing, unrelated mypy error (confirmed already broken on main-dev before this merge)
+
+### 2026-07-12 — Reconciliation + clinical trust model foundation
+**Reconciliation:**
+- Local migration filenames now match remote's applied history exactly (30 renamed, committed `df955dd`); `20260711000000_leads.sql` had never actually run — the marketing Contact page's lead capture was silently failing — now live
