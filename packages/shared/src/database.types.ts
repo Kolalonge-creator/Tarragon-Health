@@ -11945,9 +11945,12 @@ export type Database = {
         Row: {
           computed_at: string
           condition: Database["public"]["Enums"]["prevention_condition"]
+          confidence: Database["public"]["Enums"]["risk_confidence"] | null
           created_at: string
           id: string
           inputs_snapshot: Json
+          model_name: string | null
+          model_version: string | null
           organisation_id: string
           profile_id: string
           tier: Database["public"]["Enums"]["risk_level"]
@@ -11955,9 +11958,12 @@ export type Database = {
         Insert: {
           computed_at?: string
           condition: Database["public"]["Enums"]["prevention_condition"]
+          confidence?: Database["public"]["Enums"]["risk_confidence"] | null
           created_at?: string
           id?: string
           inputs_snapshot?: Json
+          model_name?: string | null
+          model_version?: string | null
           organisation_id: string
           profile_id: string
           tier?: Database["public"]["Enums"]["risk_level"]
@@ -11965,9 +11971,12 @@ export type Database = {
         Update: {
           computed_at?: string
           condition?: Database["public"]["Enums"]["prevention_condition"]
+          confidence?: Database["public"]["Enums"]["risk_confidence"] | null
           created_at?: string
           id?: string
           inputs_snapshot?: Json
+          model_name?: string | null
+          model_version?: string | null
           organisation_id?: string
           profile_id?: string
           tier?: Database["public"]["Enums"]["risk_level"]
@@ -12902,6 +12911,60 @@ export type Database = {
           },
         ]
       }
+      risk_questionnaire_configs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          code: string
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          organisation_id: string
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code: string
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id: string
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_questionnaire_configs_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_questionnaire_configs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       risk_register: {
         Row: {
           category: string
@@ -12975,6 +13038,7 @@ export type Database = {
         Row: {
           age_from: number | null
           age_to: number | null
+          category: string | null
           clinical_basis: string | null
           code: string
           commission_rate: number | null
@@ -13000,6 +13064,7 @@ export type Database = {
         Insert: {
           age_from?: number | null
           age_to?: number | null
+          category?: string | null
           clinical_basis?: string | null
           code: string
           commission_rate?: number | null
@@ -13025,6 +13090,7 @@ export type Database = {
         Update: {
           age_from?: number | null
           age_to?: number | null
+          category?: string | null
           clinical_basis?: string | null
           code?: string
           commission_rate?: number | null
@@ -16810,6 +16876,10 @@ export type Database = {
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
+      sign_risk_questionnaire_config: {
+        Args: { p_config_id: string }
+        Returns: string
+      }
       sign_vaccination_schedule: {
         Args: { p_signoff_id: string }
         Returns: string
@@ -17336,6 +17406,9 @@ export type Database = {
         | "colorectal_ca"
         | "prostate_ca"
         | "other"
+        | "ckd"
+        | "asthma_copd"
+        | "mental_wellbeing"
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
@@ -17370,7 +17443,8 @@ export type Database = {
         | "meds"
         | "vaccination"
         | "screening_history"
-      risk_level: "low" | "moderate" | "high" | "very_high"
+      risk_confidence: "low" | "moderate" | "high"
+      risk_level: "low" | "moderate" | "high" | "very_high" | "unknown"
       screen_applicability: "all" | "male" | "female"
       screen_price_source:
         | "lab_price_list"
@@ -18146,6 +18220,9 @@ export const Constants = {
         "colorectal_ca",
         "prostate_ca",
         "other",
+        "ckd",
+        "asthma_copd",
+        "mental_wellbeing",
       ],
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
@@ -18185,7 +18262,8 @@ export const Constants = {
         "vaccination",
         "screening_history",
       ],
-      risk_level: ["low", "moderate", "high", "very_high"],
+      risk_confidence: ["low", "moderate", "high"],
+      risk_level: ["low", "moderate", "high", "very_high", "unknown"],
       screen_applicability: ["all", "male", "female"],
       screen_price_source: [
         "lab_price_list",

@@ -1,4 +1,5 @@
 import { evaluatePredicate, type Predicate, type PredicateContext } from "./predicate";
+import type { PreventionCondition } from "./risk-scoring";
 import type { Enums } from "@tarragon/shared";
 
 /**
@@ -58,7 +59,7 @@ export interface RiskFactorConfig {
 }
 
 export interface RiskConditionConfig {
-  condition: string;
+  condition: PreventionCondition;
   sex_applicability: "male" | "female" | null;
   forced_high_predicate?: Predicate | null;
   moderate_threshold: number;
@@ -88,7 +89,7 @@ export type RiskTier = "low" | "moderate" | "high" | "unknown";
 export type RiskConfidence = "low" | "moderate" | "high";
 
 export interface ComputedRiskScoreWithConfidence {
-  condition: string;
+  condition: PreventionCondition;
   tier: RiskTier;
   confidence: RiskConfidence;
   inputsSnapshot: Record<string, unknown>;
