@@ -67,7 +67,7 @@ export async function addChildDependentAction(
   const { error: updateError } = await svc.rpc("provision_dependent_profile_basics", {
     p_child_id: childId,
     p_date_of_birth: date_of_birth,
-    p_sex: sex ?? null,
+    p_sex: (sex ?? null) as unknown as "male" | "female",
     p_actor_id: parent.id,
   });
   if (updateError) {

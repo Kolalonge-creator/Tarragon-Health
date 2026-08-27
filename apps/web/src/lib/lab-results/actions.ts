@@ -120,14 +120,14 @@ export async function uploadResultDocumentForPatient(
     {
       p_organisation_id: patient.organisation_id,
       p_patient_id: patientId,
-      p_lab_order_id: labOrderId ?? null,
+      p_lab_order_id: (labOrderId ?? null) as unknown as string,
       p_file_path: path,
       p_original_filename: file.name,
       p_mime_type: file.type,
       p_file_size_bytes: file.size,
       p_source: source,
       p_uploaded_by: user.id,
-      p_note: note ?? null,
+      p_note: (note ?? null) as unknown as string,
       p_actor_id: user.id,
     }
   );
