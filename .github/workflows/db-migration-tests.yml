@@ -11,12 +11,22 @@ name: DB Migration Tests
 # Runs on GitHub's own Docker-enabled runners rather than Supabase branching
 # (branching needs a paid plan this project isn't on) — functionally the
 # same check, just on free infrastructure instead.
+#
+# Local/hosted parity note (found running this workflow for the first time,
+# 2026-08-27): a fresh `supabase start` + `db reset` failed
+# 20260730105131_v3_port_escalation_sla_config.sql's own anon-execute
+# assertion, even though the SAME check passes on the live project
+# (confirmed directly: `select has_function_privilege('anon',
+# 'public.sign_escalation_slas(uuid)', 'execute')` returns false on
+# koiplnmbgnqnbywhpjlf). The fix lives in supabase/roles.sql, not here or in
+# a migration — see that file's header for the full explanation of why.
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - "supabase/migrations/**"
+      - "supabase/roles.sql"
       - "packages/db/tests/**"
       - "scripts/run-db-tests.sh"
       - ".github/workflows/db-migration-tests.yml"
@@ -25,6 +35,7 @@ on:
     # catch a bad migration on a feature branch before it merges, not after.
     paths:
       - "supabase/migrations/**"
+      - "supabase/roles.sql"
       - "packages/db/tests/**"
       - "scripts/run-db-tests.sh"
       - ".github/workflows/db-migration-tests.yml"

@@ -1,0 +1,31 @@
+-- Supabase CLI applies this file to the local dev database before running
+-- supabase/migrations/*.sql (docs: "Custom Database Roles"). Used here to
+-- close a real local/hosted parity gap found running the DB Migration
+-- Tests CI job for the first time (2026-08-27), not to define new roles.
+--
+-- The live project ("Tarragon Health", koiplnmbgnqnbywhpjlf) has this
+-- default ACL for new functions in schema public:
+--   {postgres=X/postgres,service_role=X/postgres}
+-- — confirmed directly via `select * from pg_default_acl` on the live
+-- project. No implicit EXECUTE for anon or authenticated at all. Every
+-- migration in this repo that revokes execute from anon/authenticated on a
+-- sensitive function (e.g. sign_escalation_slas, sign_vaccination_schedule)
+-- was written assuming this precondition already holds — it's what makes
+-- `revoke ... from public; grant ... to authenticated;` sufficient on live.
+--
+-- The local CLI's bootstrap Postgres image does not set this same default,
+-- so a fresh `supabase start`/`db reset` grants those roles EXECUTE
+-- automatically on every new public-schema function, and the very first
+-- migration whose own self-check assumes otherwise
+-- (20260730105131_v3_port_escalation_sla_config.sql) fails immediately —
+-- not because of anything wrong in that migration, but because the
+-- environment precondition it depends on was never established locally.
+--
+-- This file cannot retroactively rewrite already-applied migration history
+-- (that migration already ran, correctly, on the live project — editing it
+-- now would create exactly the kind of committed-vs-applied drift
+-- CLAUDE.md's "Standing engineering lessons" already warns about), so the
+-- fix belongs here: match the live project's own precondition before any
+-- migration runs, in both local dev and CI.
+alter default privileges for role postgres in schema public
+  revoke execute on functions from public;
