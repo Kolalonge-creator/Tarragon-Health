@@ -259,6 +259,26 @@ revoke all on function public.sponsor_set_dependent_basics(uuid, date, text, tex
 revoke all on function public.sponsor_set_dependent_basics(uuid, date, text, text, text) from anon;
 grant execute on function public.sponsor_set_dependent_basics(uuid, date, text, text, text) to authenticated;
 
+-- Stub #10: next confirmed CI failure after #8/#9 above --
+-- 20260731112407_sponsor_payable_orders.sql's own assertion (single
+-- creation site at this point in history -- redefined again later in
+-- 20260801091000_sponsor_care_status_and_funding.sql with the identical
+-- signature, confirmed by inspection).
+create function public.sponsor_payable_orders(p_beneficiary uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.sponsor_payable_orders(uuid) from public;
+revoke all on function public.sponsor_payable_orders(uuid) from anon;
+grant execute on function public.sponsor_payable_orders(uuid) to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
