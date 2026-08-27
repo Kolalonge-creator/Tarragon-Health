@@ -16,6 +16,7 @@ import {
   featureAdoptionSchema,
   financeInputsSchema,
   financialSummarySchema,
+  geoHealthAggregatesSchema,
   governanceSummarySchema,
   growthTimeseriesSchema,
   investorSummarySchema,
@@ -110,6 +111,18 @@ export function usePopulationSummary() {
       const { data, error } = await createClient().rpc("analytics_population_summary");
       if (error) throw error;
       return populationSummarySchema.parse(data);
+    },
+  });
+}
+
+/** State-level risk/screening-gap concentration (spec §2.17) — see get_geo_health_aggregates(). */
+export function useGeoHealthAggregates() {
+  return useQuery({
+    queryKey: ["analytics", "geo-health-aggregates"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("get_geo_health_aggregates");
+      if (error) throw error;
+      return geoHealthAggregatesSchema.parse(data);
     },
   });
 }

@@ -30,7 +30,8 @@ import {
   QUESTION_CATEGORY,
   type RiskAssessmentInput,
 } from "@/lib/validation/risk-assessment";
-import { computeRiskTiers } from "@/lib/rules/risk-scoring";
+import { computePreventionRiskScores } from "@/lib/rules/compute-risk-scores";
+import type { ComputedRiskScore, PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
 import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
 import { computeCareProgrammeRecommendations } from "@/lib/rules/care-programme-recommendations";
 import { ageFromDateOfBirth, mgDlToMmolL, type Json } from "@tarragon/shared";
@@ -410,19 +411,25 @@ export async function submitRiskAssessment(
 
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);
 
-  const scores = computeRiskTiers(responses, {
+  const scoringProfile = {
     sex: profile.sex,
     ageYears,
     // Prefer what the patient just entered; fall back to their last logged
     // vitals weight if they left it blank this time.
     weightKg: responses.weight_kg ?? latestWeight?.weight_kg ?? null,
-  });
+  };
+
+  // Prefers a signed, active risk_questionnaire_configs row over the
+  // hardcoded engine — see lib/rules/compute-risk-scores.ts. Falls back to
+  // today's behaviour (confidence 'high' always, since the fixed Zod form
+  // requires every field) until a Clinical Director signs one.
+  const scores = await computePreventionRiskScores(supabase, organisationId, responses, scoringProfile);
 
   // prevention_risk_scores is written through the service-role client, not
   // the patient's own RLS-scoped session: the tier is meant to always be
   // the server's own computation, and a table-level RLS check can only ever
-  // verify row ownership, not that a given tier value actually came from
-  // computeRiskTiers. Identity/org are already verified above via the
+  // verify row ownership, not that a given tier value actually came from the
+  // scoring engine. Identity/org are already verified above via the
   // patient's own session before we reach this point.
   const { error: scoresError } = await createServiceRoleClient()
     .from("prevention_risk_scores")
@@ -432,6 +439,9 @@ export async function submitRiskAssessment(
         profile_id: subjectId,
         condition: score.condition,
         tier: score.tier,
+        confidence: score.confidence,
+        model_name: score.modelName,
+        model_version: score.modelVersion,
         inputs_snapshot: score.inputsSnapshot as Json,
       }))
     );
@@ -462,11 +472,20 @@ export async function submitRiskAssessment(
     }
   }
 
-  const tiersByCondition = new Map(scores.map((score) => [score.condition, score.tier]));
+  // computeScreeningRecommendations/computeCareProgrammeRecommendations only
+  // ever escalate on a definite "high"/"moderate" tier — an 'unknown' tier
+  // (insufficient data) is dropped here rather than passed through, so it
+  // can never accidentally tighten a screening cadence or trigger a care-
+  // programme suggestion off data that isn't actually there. Filtering here,
+  // at the boundary, keeps both of those already-tested engines untouched.
+  const knownTierScores = scores.filter(
+    (score): score is typeof score & { tier: "low" | "moderate" | "high" } => score.tier !== "unknown"
+  );
+  const tiersByCondition = new Map(knownTierScores.map((score) => [score.condition, score.tier]));
 
   const recommendations = computeScreeningRecommendations(
     screenTypes ?? [],
-    tiersByCondition,
+    tiersByCondition as Map<PreventionCondition, RiskTier>,
     { sex: profile.sex, ageYears },
     lastCompletedByScreenTypeId
   );
@@ -515,7 +534,7 @@ export async function submitRiskAssessment(
   // for the same reason as prevention_risk_scores: the tier/rationale are the
   // server's own computation, not values a patient session should set.
   const programmeRecommendations = computeCareProgrammeRecommendations(
-    scores,
+    knownTierScores as unknown as ComputedRiskScore[],
     responses,
     responses.weight_kg ?? latestWeight?.weight_kg ?? null,
   );
