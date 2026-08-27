@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { predicateSchema } from "./predicate-schema";
 
 /**
  * Structural validation for a risk_questionnaire_configs.config payload
@@ -12,24 +13,6 @@ import { z } from "zod";
  * this schema is what stands between free-text JSON and a config a
  * Clinical Director might sign.
  */
-
-const predicateSchema: z.ZodType<unknown> = z.lazy(() =>
-  z.discriminatedUnion("op", [
-    z.object({ op: z.literal("true") }),
-    z.object({ op: z.literal("false") }),
-    z.object({ op: z.literal("eq"), field: z.string().min(1), value: z.unknown() }),
-    z.object({ op: z.literal("neq"), field: z.string().min(1), value: z.unknown() }),
-    z.object({ op: z.literal("in"), field: z.string().min(1), value: z.array(z.unknown()) }),
-    z.object({ op: z.literal("includes"), field: z.string().min(1), value: z.unknown() }),
-    z.object({ op: z.literal("gte"), field: z.string().min(1), value: z.number() }),
-    z.object({ op: z.literal("lte"), field: z.string().min(1), value: z.number() }),
-    z.object({ op: z.literal("gt"), field: z.string().min(1), value: z.number() }),
-    z.object({ op: z.literal("lt"), field: z.string().min(1), value: z.number() }),
-    z.object({ op: z.literal("and"), clauses: z.array(predicateSchema).min(1) }),
-    z.object({ op: z.literal("or"), clauses: z.array(predicateSchema).min(1) }),
-    z.object({ op: z.literal("not"), clause: predicateSchema }),
-  ])
-);
 
 const questionOptionSchema = z.object({
   value: z.string().min(1),

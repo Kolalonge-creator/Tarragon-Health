@@ -11941,6 +11941,121 @@ export type Database = {
           },
         ]
       }
+      prevention_campaign_enrolments: {
+        Row: {
+          campaign_id: string
+          id: string
+          joined_at: string
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          id?: string
+          joined_at?: string
+          organisation_id: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          id?: string
+          joined_at?: string
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_campaign_enrolments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "prevention_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaign_enrolments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaign_enrolments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prevention_campaigns: {
+        Row: {
+          actions: Json
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          eligibility_rule: Json
+          ends_on: string | null
+          id: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          eligibility_rule?: Json
+          ends_on?: string | null
+          id?: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          eligibility_rule?: Json
+          ends_on?: string | null
+          id?: string
+          name?: string
+          organisation_id?: string
+          starts_on?: string
+          status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prevention_risk_scores: {
         Row: {
           computed_at: string
@@ -16193,6 +16308,18 @@ export type Database = {
         }[]
       }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
+      get_geo_health_aggregates: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          state: string
+          patient_count: number | null
+          hypertension_high_count: number | null
+          diabetes_high_count: number | null
+          cvd_high_count: number | null
+          overdue_screening_count: number | null
+          suppressed: boolean
+        }[]
+      }
       get_or_create_my_referral_code: { Args: never; Returns: string }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
@@ -17409,6 +17536,14 @@ export type Database = {
         | "ckd"
         | "asthma_copd"
         | "mental_wellbeing"
+      prevention_campaign_action_type:
+        | "education"
+        | "screening_invite"
+        | "assessment"
+        | "discount"
+        | "challenge"
+      prevention_campaign_enrolment_status: "invited" | "joined" | "completed" | "declined"
+      prevention_campaign_status: "draft" | "active" | "ended"
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
@@ -18224,6 +18359,15 @@ export const Constants = {
         "asthma_copd",
         "mental_wellbeing",
       ],
+      prevention_campaign_action_type: [
+        "education",
+        "screening_invite",
+        "assessment",
+        "discount",
+        "challenge",
+      ],
+      prevention_campaign_enrolment_status: ["invited", "joined", "completed", "declined"],
+      prevention_campaign_status: ["draft", "active", "ended"],
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],

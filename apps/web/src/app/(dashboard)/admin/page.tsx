@@ -191,6 +191,13 @@ export default async function AdminPage() {
           visible: can("protocols.manage"),
         },
         {
+          href: "/admin/settings/prevention-campaigns",
+          label: "Prevention campaigns",
+          blurb: "Time-boxed population health initiatives, e.g. Heart Health Month",
+          icon: SEMANTIC_ICON.preventive,
+          visible: can("protocols.manage"),
+        },
+        {
           href: "/admin/settings/conditions",
           label: "Chronic conditions",
           blurb: "The phased chronic-disease catalogue",

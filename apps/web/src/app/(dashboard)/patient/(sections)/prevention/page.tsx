@@ -16,6 +16,7 @@ import { RiskAssessmentDisplay } from "@/app/(dashboard)/patient/risk-assessment
 import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
 import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
+import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-campaigns-card";
 
 /**
  * The prevention hub — one destination for everything that keeps a healthy
@@ -132,6 +133,7 @@ export default async function PreventionHubPage() {
       label: "Programmes",
       content: (
         <div className="space-y-6">
+          <PreventionCampaignsCard patientId={subjectId} />
           <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
           {profile.sex === "female" && profile.organisation_id && (
             <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
