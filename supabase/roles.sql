@@ -59,9 +59,22 @@
 -- types have no CREATE OR REPLACE / IF NOT EXISTS to make that safe).
 -- Current approach: fix forward one confirmed failure (or small confirmed
 -- batch) at a time from what CI actually reports, rather than guessing.
+--
+-- ATTRIBUTES MATTER, not just the ACL (found the hard way on stub #4 below):
+-- 20260729234618_harden_is_org_staff_exclude_lab_partner.sql runs BEFORE
+-- lab_partner_own_provider_id is really created (20260730215206) and audits
+-- every already-existing lab_partner_* function for `security definer` by
+-- name pattern. Because this file's stub exists from the very start (before
+-- ANY migration), that earlier audit now sees the stub too -- and failed
+-- when the stub didn't carry `security definer`. Every stub below now
+-- matches its real definition's `security definer` / `set search_path`
+-- exactly, not just its final grants, since there's no way to know in
+-- advance which other historical migration might scan for it early.
 create function public.sign_escalation_slas(p_id uuid)
 returns uuid
 language plpgsql
+security definer
+set search_path = ''
 as $$
 begin
   return null;
@@ -84,6 +97,8 @@ grant execute on function public.sign_escalation_slas(uuid) to authenticated;
 create function public.admin_broadcast_content_check(p_text text)
 returns text[]
 language plpgsql
+security definer
+set search_path = ''
 as $$
 begin
   return null;
@@ -97,6 +112,8 @@ grant execute on function public.admin_broadcast_content_check(text) to authenti
 create function public.admin_send_broadcast(p_broadcast_id uuid)
 returns integer
 language plpgsql
+security definer
+set search_path = ''
 as $$
 begin
   return null;
@@ -110,9 +127,12 @@ grant execute on function public.admin_send_broadcast(uuid) to authenticated, se
 -- Stub #4: next confirmed CI failure after #2/#3 above --
 -- 20260730215206_facilities_lab_partner_self_service.sql's own assertion on
 -- lab_partner_own_provider_id (single creation site, same pattern again).
+-- `security definer` is required here, not optional -- see the note above.
 create function public.lab_partner_own_provider_id()
 returns uuid
 language plpgsql
+security definer
+set search_path = ''
 as $$
 begin
   return null;
