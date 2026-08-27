@@ -41,6 +41,24 @@
 -- committed-vs-applied drift — see CLAUDE.md's standing lessons); it's
 -- environment setup matching the live project's real, already-correct
 -- state.
+-- STATUS (2026-08-27): validated on 2 functions so far via real CI runs.
+-- Stub #1 (sign_escalation_slas) got past 20260730105131 entirely --
+-- notably, that same migration's OTHER anon-execute assertion, on
+-- private.escalation_sla_minutes(text, alert_level), passed on its own with
+-- no stub needed. So the underlying gap does NOT affect every function that
+-- has this style of revoke-then-assert self-check -- only some unlucky
+-- subset, for a reason still not understood. That rules out blanket
+-- pre-stubbing every such function in this codebase (of which there are
+-- roughly 45 across roughly 55 files, most involving custom enum/composite
+-- types that CAN'T be safely forward-declared here anyway -- see the note at
+-- the bottom of this file): it would spend a lot of effort re-implementing
+-- signatures that were never actually going to fail, for no benefit, and for
+-- the custom-type ones would introduce a NEW category of failure (the type
+-- itself not existing yet when this file runs, since roles.sql applies
+-- before ANY migration including the one that defines the type -- and enum
+-- types have no CREATE OR REPLACE / IF NOT EXISTS to make that safe).
+-- Current approach: fix forward one confirmed failure (or small confirmed
+-- batch) at a time from what CI actually reports, rather than guessing.
 create function public.sign_escalation_slas(p_id uuid)
 returns uuid
 language plpgsql
@@ -53,3 +71,53 @@ $$;
 revoke all on function public.sign_escalation_slas(uuid) from public;
 revoke all on function public.sign_escalation_slas(uuid) from anon;
 grant execute on function public.sign_escalation_slas(uuid) to authenticated;
+
+-- Stub #2/#3: 20260730155706_broadcast_content_class_enforcement.sql was the
+-- next real failure after fixing #1 above (confirmed via CI, not guessed).
+-- admin_broadcast_content_check(text) is created for the first time in that
+-- migration (same shape as sign_escalation_slas: single creation site, same-
+-- file assertion). admin_send_broadcast(uuid) is a redefinition (first
+-- created 20260716200000_notification_broadcasts.sql) sharing the same
+-- assertion do-block -- stubbed defensively alongside it since it costs
+-- nothing extra to include and would otherwise need its own CI round trip
+-- to discover either way.
+create function public.admin_broadcast_content_check(p_text text)
+returns text[]
+language plpgsql
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.admin_broadcast_content_check(text) from public;
+revoke all on function public.admin_broadcast_content_check(text) from anon;
+grant execute on function public.admin_broadcast_content_check(text) to authenticated;
+
+create function public.admin_send_broadcast(p_broadcast_id uuid)
+returns integer
+language plpgsql
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.admin_send_broadcast(uuid) from public;
+revoke all on function public.admin_send_broadcast(uuid) from anon;
+grant execute on function public.admin_send_broadcast(uuid) to authenticated, service_role;
+
+-- NOTE on custom types: several other functions with the same style of
+-- anon-execute self-check take a custom enum or composite (table row) type
+-- as an argument or return type (public.alert_level, public.masked_call_context,
+-- public.lpe_module, public.lpe_goal_status, public.payment_provider,
+-- public.broadcast_audience, public.lab_order_time_of_day, and composite row
+-- types like public.lab_orders/public.lpe_goal_instances). Those types are
+-- created BY migrations, so a stub function referencing them here would fail
+-- at roles.sql time (type does not exist yet) -- and pre-creating the type
+-- itself here would break the real migration's own un-guarded `create type`
+-- statement later (no CREATE TYPE ... IF NOT EXISTS for enums). If CI
+-- reports one of these as an actual failure, it needs a different fix
+-- (e.g. correcting the real migration in place, since none of this
+-- session's Care Management Engine migrations are applied anywhere yet --
+-- not a pre-stub here).
