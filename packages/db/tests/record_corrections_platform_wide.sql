@@ -2,11 +2,12 @@
 -- Verification: private.capture_record_correction() (20260827195333_record_
 -- corrections_platform_wide.sql) records old/new values for exactly the
 -- columns that changed on a real UPDATE (here, care_plans.status), captures
--- an optional reason via the app.change_reason GUC, and — the important
--- negative check — is NOT readable by an ordinary org-staff/clinician
--- session, only by admin or the record's own patient. That narrower policy
--- is the entire point of this migration (see its header): audit_log's own
--- is_org_staff() read policy is deliberately NOT reused here.
+-- an optional reason via the app.change_reason GUC, captures a DELETE too
+-- (old_values preserved, new_values null), is append-only, and — the
+-- important access check — private.can_read_record_correction() actually
+-- mirrors care_plans' own live RLS: the record's own patient AND ordinary
+-- same-org staff (not just the specific clinician who made the edit) can
+-- read it, while a DIFFERENT organisation's staff cannot.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -27,11 +28,13 @@ create temporary table rcpw_result(
 
 do $$
 declare
-  v_org       uuid;
-  v_patient   uuid;
-  v_clinician uuid := gen_random_uuid();
-  v_admin     uuid := gen_random_uuid();
-  v_plan      uuid;
+  v_org             uuid;
+  v_other_org       uuid;
+  v_patient         uuid;
+  v_clinician       uuid := gen_random_uuid();
+  v_other_clinician uuid := gen_random_uuid();
+  v_admin           uuid := gen_random_uuid();
+  v_plan            uuid;
 begin
   select organisation_id into v_org
   from public.profiles
@@ -42,20 +45,34 @@ begin
     raise exception 'no organisation has patient profiles — cannot run this test';
   end if;
 
+  select organisation_id into v_other_org
+  from public.organisations where id <> v_org limit 1;
+  if v_other_org is null then
+    -- Fall back to a synthetic second org if only one exists in this environment.
+    insert into public.organisations (name, type) values ('RCPW Test Other Org', 'clinic')
+    returning id into v_other_org;
+  end if;
+
   select id into v_patient
   from public.profiles
   where role = 'patient' and organisation_id = v_org limit 1;
 
   insert into rcpw_fixture(k, v) values
-    ('org', v_org), ('patient', v_patient), ('clinician', v_clinician), ('admin', v_admin);
+    ('org', v_org), ('other_org', v_other_org), ('patient', v_patient),
+    ('clinician', v_clinician), ('other_clinician', v_other_clinician), ('admin', v_admin);
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values
     (v_clinician, 'rcpw-test-clinician@example.invalid', 'x', now(), '{}', '{}'),
+    (v_other_clinician, 'rcpw-test-other-clinician@example.invalid', 'x', now(), '{}', '{}'),
     (v_admin, 'rcpw-test-admin@example.invalid', 'x', now(), '{}', '{}');
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_clinician, v_org, 'clinician', 'RCPW Test Clinician')
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_other_clinician, v_other_org, 'clinician', 'RCPW Test Other-Org Clinician')
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
 
   insert into public.profiles (id, organisation_id, role, full_name)
@@ -184,10 +201,12 @@ begin
 end $$;
 
 -- ==========================================================================
--- 4. Negative check — the assigned CLINICIAN (ordinary org staff, not
---    admin) who made the edit cannot read the correction row back. This is
---    the deliberate narrowing this migration exists to prove: is_org_staff
---    is NOT in record_corrections_select.
+-- 4. An ORDINARY same-org clinician who did NOT make the edit can still
+--    read it — care_plans_select grants blanket is_org_staff() read of the
+--    live row, so record_corrections should too. This is the corrected
+--    behaviour: the original version of this migration wrongly restricted
+--    this to admin-or-self-only, which would have been narrower than the
+--    real live policy for 19 of the 21 covered tables.
 -- ==========================================================================
 do $$
 declare
@@ -203,15 +222,41 @@ begin
   reset role;
 
   insert into rcpw_result values
-    ('org-staff clinician CANNOT read correction', 'clinician', v_count::text, '0',
-     case when v_count = 0 then 'PASS' else 'FAIL' end);
-  if v_count <> 0 then
-    raise exception 'LEAK: an ordinary org-staff session can read record_corrections (% rows) — is_org_staff must not be in this policy', v_count;
+    ('same-org clinician reads correction (matches live care_plans RLS)', 'clinician', v_count::text, '>=1',
+     case when v_count >= 1 then 'PASS' else 'FAIL' end);
+  if v_count < 1 then
+    raise exception 'BROKEN: an ordinary same-org clinician could not read record_corrections for a care_plans row they can already read in full';
   end if;
 end $$;
 
 -- ==========================================================================
--- 5. Admin can read it.
+-- 5. Negative check — a DIFFERENT organisation's clinician (same role,
+--    wrong org) cannot read it. Proves is_org_staff's own org-match
+--    requirement still applies inside can_read_record_correction.
+-- ==========================================================================
+do $$
+declare
+  v_other_clinician uuid := (select v from rcpw_fixture where k = 'other_clinician');
+  v_plan            uuid := (select v from rcpw_fixture where k = 'plan');
+  v_count           bigint;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_other_clinician::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_count from public.record_corrections
+    where table_name = 'care_plans' and entity_id = v_plan;
+  reset role;
+
+  insert into rcpw_result values
+    ('different-org clinician CANNOT read correction', 'other_clinician', v_count::text, '0',
+     case when v_count = 0 then 'PASS' else 'FAIL' end);
+  if v_count <> 0 then
+    raise exception 'LEAK: a different organisation''s clinician can read another org''s record_corrections (% rows)', v_count;
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 6. Admin can read it.
 -- ==========================================================================
 do $$
 declare
@@ -235,7 +280,7 @@ begin
 end $$;
 
 -- ==========================================================================
--- 6. record_corrections itself is append-only: an admin cannot update or
+-- 7. record_corrections itself is append-only: an admin cannot update or
 --    delete a correction row.
 -- ==========================================================================
 do $$
@@ -263,6 +308,47 @@ begin
      'blocked', case when v_caught then 'PASS' else 'FAIL' end);
   if not v_caught then
     raise exception 'BROKEN: a correction row could be updated in place';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 8. DELETE is captured too: old_values preserved, new_values null.
+-- ==========================================================================
+do $$
+declare
+  v_clinician uuid := (select v from rcpw_fixture where k = 'clinician');
+  v_plan      uuid := (select v from rcpw_fixture where k = 'plan');
+  v_row       record;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  delete from public.care_plans where id = v_plan;
+  reset role;
+
+  select * into v_row from public.record_corrections
+    where table_name = 'care_plans' and entity_id = v_plan
+    order by corrected_at desc limit 1;
+
+  insert into rcpw_result values
+    ('DELETE captured', 'clinician', case when v_row.id is not null then 'yes' else 'no' end, 'yes',
+     case when v_row.id is not null then 'PASS' else 'FAIL' end);
+  if v_row.id is null then
+    raise exception 'BROKEN: deleting a care_plans row created no record_corrections entry';
+  end if;
+
+  insert into rcpw_result values
+    ('DELETE old_values.status preserved', 'clinician', v_row.old_values ->> 'status', 'completed',
+     case when v_row.old_values ->> 'status' = 'completed' then 'PASS' else 'FAIL' end);
+  if v_row.old_values ->> 'status' is distinct from 'completed' then
+    raise exception 'BROKEN: DELETE old_values.status was %, expected completed', v_row.old_values ->> 'status';
+  end if;
+
+  insert into rcpw_result values
+    ('DELETE new_values is null', 'clinician', coalesce(v_row.new_values::text, 'null'), 'null',
+     case when v_row.new_values is null then 'PASS' else 'FAIL' end);
+  if v_row.new_values is not null then
+    raise exception 'BROKEN: DELETE new_values should be null, got %', v_row.new_values;
   end if;
 end $$;
 

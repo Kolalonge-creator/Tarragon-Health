@@ -106,7 +106,7 @@ create trigger audit_row_change_trg
   for each row execute function private.audit_row_change();
 
 create trigger capture_record_correction_trg
-  after update on public.medication_receipt_confirmations
+  after update or delete on public.medication_receipt_confirmations
   for each row execute function private.capture_record_correction();
 
 do $$

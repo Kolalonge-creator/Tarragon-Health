@@ -44,11 +44,17 @@ inventing a new one:
 - `20260827195333_record_corrections_platform_wide.sql` — the platform-wide correction trail (§1.18,
   Q3: full retrofit now), delivered as a new `record_corrections` table + `capture_record_
   correction()` trigger attached to all 21 tables `audit_row_change` already covers, capturing real
-  old/new values for exactly the columns that changed (not the whole row) — **deliberately gated
-  narrower than `audit_log`** (`private.is_admin()` or the record's own patient, no `is_org_staff()`
-  clause) because full PHI values need a tighter default than the hash-only log's "any staff member"
-  bar. See §1.18 for the full reasoning and why this is a second table, not a column added to
-  `audit_log` itself.
+  old/new values for exactly the columns that changed (not the whole row), on both **UPDATE and
+  DELETE**. Read access is `private.can_read_record_correction()`, a function whose every clause was
+  checked against the **live `pg_policies` on the production project** (not assumed from migration
+  history) — it mirrors each covered table's actual current reader set rather than inventing a
+  single blunter bar. `20260827201314_patient_allergies_audit_and_corrections.sql` closes a real gap
+  this review's own audit found: `patient_allergies` — the platform's reference-quality pattern for
+  a safety-critical field — was missing from `audit_row_change`'s original 21-table list entirely.
+  Reason is **mandatory** (the trigger raises, not silently records null) for corrections to
+  `patient_conditions` and `patient_allergies` specifically, confirmed safe because neither has any
+  existing UPDATE/DELETE call site in `apps/web/src` to break. See §1.18 for the full design and the
+  first version of this migration's more conservative mistake, corrected here.
 - `20260827195559_timeline_condition_event_types.sql` + `20260827195615_patient_conditions_
   problem_list.sql` — the structured problem list (§1.7, Q1: new table). `care_plans` gets a new
   nullable `patient_condition_id` FK; its own `condition` enum and lifecycle are untouched.
@@ -139,7 +145,7 @@ Previous three-different-homes problem remains true of `hbv_status`/`hcv_status`
 `patient_blood_profile` — this migration did not move or duplicate that data into `patient_
 conditions`; a future pass could decide whether serology status belongs there too.
 
-### §1.8 Allergies — BUILT, well-engineered
+### §1.8 Allergies — BUILT, well-engineered (and now covered by the correction trail)
 `patient_allergies` (`20260716121000_...sql`): `allergen`, `reaction`, `severity` (enum), `source`
 (enum: patient/clinician), `recorded_by`, `noted_at`. **Propagation is real and load-bearing**:
 `apps/web/src/lib/rules/drug-safety.ts` runs literal-name, same-class, and cross-reactivity checks
@@ -147,6 +153,11 @@ conditions`; a future pass could decide whether serology status belongs there to
 through `lib/clinical/patient-clinical-context.ts` into the clinician medication-safety panel, the
 pharmacist order screen, and the patient's emergency QR card. This is the one section of the spec
 that is fully done to a high standard — hold it up as the reference pattern for §1.7/§1.9/§1.10.
+**Gap found and closed this round (§1.18):** despite being the reference pattern, this table was
+missing from `audit_row_change`'s original 21-table clinical-core list — a wrongly corrected or
+deleted allergy left no trail anywhere, not even a hash. `20260827201314_patient_allergies_audit_
+and_corrections.sql` adds it to both `audit_row_change_trg` and `capture_record_correction_trg`
+(reason mandatory on correction, same as `patient_conditions`).
 
 ### §1.9 Family history — BUILT this round (dedicated table, additive to the existing intake)
 Founder decision (§3 Q4): promote to a dedicated, continuously-editable record rather than just add
@@ -265,32 +276,57 @@ values — no new schema) — recommended as a quick follow-up.
 Founder decision (§3 Q3): full retrofit now, not phased. `private.audit_row_change()` (`20260812
 030853_row_change_audit_triggers.sql`) still exists exactly as before — it stores changed column
 names plus a SHA-256 hash into `audit_log`, never old/new values, by a deliberate design documented
-in its own header (`audit_log`'s read policy is `is_org_staff()`, and several of the 21 tables it
-covers gate *narrower* than that — copying full values in would have been a PHI exposure created by
-the audit feature itself). That reasoning still holds, so it was **not** reused for this.
+in its own header (some tables' real access differs from `audit_log`'s uniform `is_org_staff()` read
+policy in ways that matter — copying full values into that one broadly-read table would have created
+an exposure for those). That reasoning still holds for `audit_log` itself, so it was **not** reused
+wholesale for this.
 
 `20260827195333_record_corrections_platform_wide.sql` adds a **second**, purpose-built table,
 `public.record_corrections`, via a new `capture_record_correction()` trigger attached to the same 21
-tables (plus every new table this review added — `patient_conditions`, `family_history`, `social_
-history`, `medication_receipt_confirmations` — attach it directly in their own migrations). On every
-real `UPDATE` (a bare `updated_at` touch is suppressed, same rule as `audit_row_change`) it records
-the actual old and new values of exactly the columns that changed — not the whole row — plus an
-optional `reason` (read from a session GUC, `app.change_reason`, same opt-in idiom as `audit_row_
-change`'s existing `app.audit_actor_id` fallback), the acting `corrected_by`, and `corrected_at`.
-**Read access is deliberately narrower than `audit_log`'s**: `private.is_admin()` or the record's
-own patient only — no blanket `is_org_staff()` clause, because storing real PHI values needs a
-tighter default than "any staff member," which is exactly the exposure the original hash-only design
-was built to avoid. A clinician needing to see a specific correction for a legitimate reason gets a
-narrow SECURITY DEFINER RPC later, the same widen-with-a-named-reason pattern as `public.my_care_
-plan_clinicians()` — not a blanket grant added as an afterthought here. `record_corrections` is
-itself append-only (`private.reject_mutation()`, reused from `audit_log`).
-**Known, accepted limitation:** no existing call site sets `app.change_reason` yet, so every
-correction recorded today has `reason = null` until app-layer code starts setting it for the
-highest-stakes edits — a real correction record (original value, new value, author, timestamp) still
-exists without it; only the human-readable "why" is missing. Wiring that GUC into the highest-value
-call sites (problem-list status changes, allergy corrections) is the natural next step, not attempted
-here. Verified in `packages/db/tests/record_corrections_platform_wide.sql`, including the negative
-check that an ordinary org-staff session (not admin, not the patient) cannot read a correction back.
+tables (plus every new table this review added, and — a real gap the audit itself surfaced —
+`patient_allergies`, added in `20260827201314_patient_allergies_audit_and_corrections.sql` because it
+was missing from the original 21 entirely despite being this platform's own reference-quality
+pattern for a safety-critical field). It fires on **UPDATE and DELETE** (a bare `updated_at` touch is
+suppressed, same rule as `audit_row_change`; a DELETE preserves the full old row with `new_values =
+null`, so a removed clinical record — the most extreme correction there is — still leaves a
+recoverable trail, not just a hash proving it once existed). It records the actual old and new values
+of exactly the columns that changed — not the whole row — plus `reason`, `corrected_by`, and
+`corrected_at`.
+
+**Read access — `private.can_read_record_correction()` — was built by checking the LIVE
+`pg_policies` on the production project for every one of the 21 tables, not by assuming a bar was
+needed and picking one.** That query showed 19 of the 21 already grant blanket same-org-staff
+`SELECT` on the *current* row (`is_org_staff()`, with no per-patient-assignment narrowing), often
+unioned with `private.can_read_clinical(patient_id)` (a real third path: a `profile_access` grantee
+with `clinical_access`, or an eldercare "manage" grantee for a dependent account). Letting that same
+set of people see that a value used to be different is not a new exposure category — it's the
+existing exposure model, extended to one more fact about a row they can already read in full today.
+Three tables needed their real, narrower-or-wider shape reproduced explicitly: `lab_result_documents`
+and `profiles` both additionally admit an in-org `lab_liaison` (verified live, not assumed);
+`clinical_staff` is readable by anyone in the same organisation, patient or staff (wider, not
+narrower). `private.can_read_record_correction()` also always admits `private.is_admin()` and the
+correction's own `corrected_by` (mirroring `audit_log`'s own `actor_id = auth.uid()`
+self-visibility clause). **An earlier version of this migration used a single flat `is_admin() or
+patient-self` policy for every table** — safe, but needlessly narrower than 19 of the 21 tables'
+real access model, cutting off genuine clinical utility (a same-org clinician who can already see a
+patient's current vitals couldn't see that a value had been corrected) for no matching security
+benefit. Corrected once the live-policy data made that visible, rather than left as the shipped
+design.
+
+**Reason is mandatory, not just optional, for the two tables this review's own audit flagged as the
+spec's clearest "never let this be silently changed" cases**: `patient_conditions` (diagnoses) and
+`patient_allergies` (safety-critical). The trigger raises rather than recording a null reason for an
+`UPDATE`/`DELETE` on either — confirmed safe to enforce immediately because neither had any existing
+UPDATE/DELETE call site in `apps/web/src` (`patient_conditions` is new this review; grepping
+`patient_allergies` across `apps/web/src` turns up only read-only consumers). Every other table keeps
+`reason` optional via the `app.change_reason` session GUC (same idiom as `audit_row_change`'s
+existing `app.audit_actor_id` fallback) — mandating it everywhere would have risked breaking live
+UPDATE call sites this review did not audit one-by-one. `record_corrections` is itself append-only
+(`private.reject_mutation()`, reused from `audit_log`). Verified in `packages/db/tests/record_
+corrections_platform_wide.sql` (old/new capture on UPDATE and DELETE, reason capture, the no-op
+suppression rule, append-only enforcement, and — the access checks — that an ordinary same-org
+clinician who did *not* make the edit can still read it while a *different* organisation's clinician
+cannot) and `packages/db/tests/patient_conditions_problem_list.sql` (the mandatory-reason raise).
 
 ### §1.19 Patient record search — MISSING
 No full-text or structured search across a patient's history exists anywhere — no `tsvector`/GIN
@@ -397,11 +433,15 @@ contradict a real, dated decision already on record. All four were decided and b
    additive.
 
 3. **Correction-trail scope (§1.18) → full platform-wide retrofit now**, not phased to a handful of
-   fields first. Delivered without reopening the PHI-exposure risk `audit_row_change` was originally
-   designed to avoid, by giving the new `record_corrections` table a deliberately narrower read
-   policy than `audit_log`'s — see §1.18 for the full reasoning; this nuance surfaced only once the
-   correction trail was actually being designed; the resolution is a stricter policy, not a rollback
-   of the "do it fully now" decision.
+   fields first. First delivered with a single flat "admin or the record's own patient" read policy
+   to avoid reopening the PHI-exposure risk `audit_row_change` was originally designed to avoid —
+   then corrected once the live `pg_policies` on the production project showed that policy was
+   needlessly narrower than 19 of the 21 tables' real access model, cutting off genuine clinical
+   utility for no matching security benefit. The final design (`private.can_read_record_correction()`)
+   mirrors each table's actual live policy instead of assuming one bar fits all — see §1.18. Also
+   extended to DELETE (not just UPDATE) and given a mandatory reason for the two highest-stakes
+   tables (`patient_conditions`, `patient_allergies`) once the audit confirmed neither had an
+   existing call site that enforcement could break.
 
 4. **Family/social history (§1.9/§1.10) → promote to dedicated tables**, additive to — not replacing
    — the existing `risk_assessment_responses` onboarding intake, which stays the system of record for
@@ -428,15 +468,25 @@ authenticated` to simulate real sessions, wrapped in `BEGIN`/`ROLLBACK` so nothi
 - `profiles_self_update_column_guard.sql` — the §1.5 security fix, including the serology-cascade
   regression check.
 - `patient_conditions_problem_list.sql` — patient cannot self-write, org staff can, timeline +
-  correction-trail wiring.
+  correction-trail wiring, and the mandatory-reason raise.
 - `family_and_social_history.sql` — patient self-write allowed, one-row-per-patient enforcement on
   `social_history`, correction capture on both.
 - `medication_receipt_confirmations.sql` — the context check constraint, timeline wiring.
-- `record_corrections_platform_wide.sql` — old/new capture, reason-GUC capture, the no-op
-  suppression rule, and — the important negative check — that an ordinary org-staff session cannot
-  read a correction back, only admin or the record's own patient.
+- `record_corrections_platform_wide.sql` — old/new capture on UPDATE and DELETE, reason-GUC capture,
+  the no-op suppression rule, append-only enforcement, and the access checks: a same-org clinician
+  who did not make the edit can still read it (matching care_plans' own live policy), a different
+  organisation's clinician cannot.
 
-None of these have been run against a live database (no local Supabase/Docker stack was available in
-the environment this review ran in) — they're reviewed carefully by hand against the actual schema
-and RLS helper functions in use, but running them for real (`supabase db query "$(cat
-packages/db/tests/<file>.sql)" --linked` or equivalent) before merging is still worth doing.
+**Verification method, and its real limit.** No local Supabase/Docker stack was available in the
+environment this review ran in, but this session did have live, read-only MCP access to the actual
+production project (`koiplnmbgnqnbywhpjlf`) — used to query `pg_policies` and `pg_proc` directly for
+every table this migration touches, which is how the §1.18 policy mistake was caught and corrected
+(design verified against live reality, not assumed from migration history). **What that access was
+NOT used for: actually executing these test scripts against the production database.** Running them
+would mean inserting and rolling back fixture rows (synthetic patients, clinicians, corrections) in a
+live system serving real patient data — a call for whoever is driving the merge to make deliberately,
+not one to make unilaterally from within an architecture review. Treat every test in `packages/db/
+tests/` here as reviewed carefully by hand against the live schema and RLS helper functions, not as
+having been run — running them for real (`supabase db query "$(cat packages/db/tests/<file>.sql)"
+--linked`, ideally against a branch/staging copy rather than production directly) is still worth
+doing before merging.

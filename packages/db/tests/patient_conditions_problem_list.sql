@@ -94,6 +94,10 @@ begin
   values (v_org, v_patient, 'Type 2 diabetes mellitus', 'suspected', v_clinician, v_clinician)
   returning id into v_condition;
 
+  -- patient_conditions is one of the two reason-mandatory tables (see
+  -- 20260827195333_record_corrections_platform_wide.sql) — omitting this
+  -- would make the UPDATE below raise (covered separately in test 6).
+  perform set_config('app.change_reason', 'confirmed on fasting glucose + HbA1c', true);
   update public.patient_conditions set status = 'active' where id = v_condition;
   reset role;
 
@@ -183,6 +187,55 @@ begin
      v_condition::text, case when v_linked_condition = v_condition then 'PASS' else 'FAIL' end);
   if v_linked_condition is distinct from v_condition then
     raise exception 'BROKEN: care_plans.patient_condition_id did not persist the link';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 6. Reason is mandatory for patient_conditions: an UPDATE without
+--    app.change_reason set raises rather than silently recording null.
+-- ==========================================================================
+do $$
+declare
+  v_clinician uuid := (select v from pcpl_fixture where k = 'clinician');
+  v_condition uuid := (select v from pcpl_fixture where k = 'condition');
+  v_caught boolean := false;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  -- Deliberately do NOT set app.change_reason here.
+  begin
+    update public.patient_conditions set status = 'controlled' where id = v_condition;
+  exception when others then
+    v_caught := true;
+  end;
+  reset role;
+
+  insert into pcpl_result values
+    ('reason is mandatory for patient_conditions', 'clinician',
+     case when v_caught then 'raised' else 'not raised' end, 'raised',
+     case when v_caught then 'PASS' else 'FAIL' end);
+  if not v_caught then
+    raise exception 'BROKEN: patient_conditions was updated without a reason, expected the mandatory-reason check to raise';
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 7. The rejected update from test 6 did not silently partially apply — the
+--    AFTER trigger's exception rolled back the whole statement.
+-- ==========================================================================
+do $$
+declare
+  v_condition uuid := (select v from pcpl_fixture where k = 'condition');
+  v_status public.condition_clinical_status;
+begin
+  select status into v_status from public.patient_conditions where id = v_condition;
+
+  insert into pcpl_result values
+    ('rejected update did not persist', 'system', v_status::text, 'active',
+     case when v_status = 'active' then 'PASS' else 'FAIL' end);
+  if v_status is distinct from 'active' then
+    raise exception 'BROKEN: the reason-less update from test 6 partially applied (status is %, expected it to stay active)', v_status;
   end if;
 end $$;
 

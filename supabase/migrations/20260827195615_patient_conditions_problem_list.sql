@@ -27,6 +27,11 @@
 -- triggers (audit_row_change_trg, capture_record_correction_trg) directly
 -- in this migration, since row_change_audit_triggers.sql and
 -- record_corrections_platform_wide.sql already exist by the time this runs.
+-- private.capture_record_correction() treats patient_conditions as one of
+-- its two reason-mandatory tables (the other is patient_allergies) — an
+-- UPDATE or DELETE here without app.change_reason set will raise, not
+-- silently record a null reason. Safe to enforce immediately: this table
+-- has no existing writer anywhere in apps/web/src.
 
 do $$ begin
   if not exists (select 1 from pg_type where typname = 'clinical_severity') then
@@ -163,7 +168,7 @@ create trigger audit_row_change_trg
   for each row execute function private.audit_row_change();
 
 create trigger capture_record_correction_trg
-  after update on public.patient_conditions
+  after update or delete on public.patient_conditions
   for each row execute function private.capture_record_correction();
 
 -- ---------------------------------------------------------------------------
