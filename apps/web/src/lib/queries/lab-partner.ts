@@ -151,3 +151,40 @@ export function useLabPartnerUploadResult() {
     },
   });
 }
+
+export type LabTestRow = Tables<"lab_tests">;
+
+/**
+ * A lab partner's own catalogue rows. is_active is the only column a plain
+ * lab_partner may change (private.restrict_lab_test_partner_edit_to_availability,
+ * 20260827203240 enforces this at the trigger level regardless of what the
+ * client sends).
+ */
+export function useLabPartnerOwnTests(providerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["lab-partner-own-tests", providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_tests")
+        .select("*")
+        .eq("provider_id", providerId as string)
+        .order("name");
+      if (error) throw error;
+      return data as LabTestRow[];
+    },
+  });
+}
+
+export function useSetLabPartnerTestActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("lab_tests").update({ is_active: isActive }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lab-partner-own-tests"] }),
+  });
+}

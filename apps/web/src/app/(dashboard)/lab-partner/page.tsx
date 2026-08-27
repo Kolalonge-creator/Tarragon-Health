@@ -8,6 +8,8 @@ import { startOfLagosDayUtc } from "@/lib/ai-coach/lagos-day";
 import { LabPartnerWorklist } from "./lab-partner-worklist";
 import { LabPartnerTurnaroundCard } from "./lab-partner-turnaround-card";
 import { LabPartnerFacilities } from "./lab-partner-facilities";
+import { LabPartnerServices } from "./lab-partner-services";
+import { PartnerStaffInviteForm } from "@/components/partner-admin/partner-staff-invite-form";
 
 type OrderRow = { status: string; resulted_at: string | null };
 
@@ -93,6 +95,8 @@ export default async function LabPartnerPage() {
       <LabPartnerTurnaroundCard />
       <LabPartnerWorklist />
       <LabPartnerFacilities />
+      <LabPartnerServices />
+      {profile.is_partner_admin && <PartnerStaffInviteForm />}
     </div>
   );
 }
