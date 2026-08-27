@@ -94,6 +94,7 @@ end;
 $$;
 
 revoke all on function public.sponsor_care_status(uuid) from public;
+revoke all on function public.sponsor_care_status(uuid) from anon;
 grant execute on function public.sponsor_care_status(uuid) to authenticated;
 
 -- 3. TURN A DUE REFILL INTO A PAYABLE BILL ------------------------------------
@@ -193,6 +194,7 @@ end;
 $$;
 
 revoke all on function public.sponsor_request_refill(uuid, uuid) from public;
+revoke all on function public.sponsor_request_refill(uuid, uuid) from anon;
 grant execute on function public.sponsor_request_refill(uuid, uuid) to authenticated;
 
 -- 4. VIDEO VISITS ARE PAYABLE TOO ---------------------------------------------
@@ -261,6 +263,7 @@ end;
 $$;
 
 revoke all on function public.sponsor_payable_orders(uuid) from public;
+revoke all on function public.sponsor_payable_orders(uuid) from anon;
 grant execute on function public.sponsor_payable_orders(uuid) to authenticated;
 
 -- 5. ASSERT -------------------------------------------------------------------

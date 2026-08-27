@@ -161,3 +161,4 @@ $$;
 
 grant execute on function public.patient_monitoring_latest_readings(uuid[]) to authenticated;
 revoke execute on function public.patient_monitoring_latest_readings(uuid[]) from public;
+revoke execute on function public.patient_monitoring_latest_readings(uuid[]) from anon;

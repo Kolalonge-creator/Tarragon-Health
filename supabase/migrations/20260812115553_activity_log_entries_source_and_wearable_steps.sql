@@ -83,6 +83,7 @@ comment on function public.record_wearable_step_count(uuid, uuid, date, integer)
 -- revoking "from anon" leaves the PUBLIC grant in place and the function
 -- still callable).
 revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from public;
+revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from anon;
 grant execute on function public.record_wearable_step_count(uuid, uuid, date, integer) to service_role;
 
 -- Prove it, rather than hope. Runs in the migration''s own transaction and

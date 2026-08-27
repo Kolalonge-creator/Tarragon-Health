@@ -418,6 +418,7 @@ end;
 $$;
 
 revoke all on function public.report_exposure(uuid, text, date, text) from public;
+revoke all on function public.report_exposure(uuid, text, date, text) from anon;
 grant execute on function public.report_exposure(uuid, text, date, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
