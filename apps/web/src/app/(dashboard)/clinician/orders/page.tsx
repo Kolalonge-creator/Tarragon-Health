@@ -27,6 +27,7 @@ const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["vari
   processing: { variant: "blue", label: "In progress" },
   resulted: { variant: "green", label: "Results ready" },
   cancelled: { variant: "grey", label: "Cancelled" },
+  sample_rejected: { variant: "red", label: "Sample rejected" },
 };
 
 const PHARMACY_ORDER_STATUS_BADGE: Record<PharmacyOrderStatus, { variant: BadgeProps["variant"]; label: string }> = {

@@ -4028,6 +4028,7 @@ export type Database = {
           created_at: string
           dedup_key: string
           detail: string | null
+          diagnostic_report_id: string | null
           duplicate_of: string | null
           escalation_level: number | null
           id: string
@@ -4074,6 +4075,7 @@ export type Database = {
           created_at?: string
           dedup_key?: string
           detail?: string | null
+          diagnostic_report_id?: string | null
           duplicate_of?: string | null
           escalation_level?: number | null
           id?: string
@@ -4120,6 +4122,7 @@ export type Database = {
           created_at?: string
           dedup_key?: string
           detail?: string | null
+          diagnostic_report_id?: string | null
           duplicate_of?: string | null
           escalation_level?: number | null
           id?: string
@@ -4175,6 +4178,13 @@ export type Database = {
             columns: ["closed_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_diagnostic_report_id_fkey"
+            columns: ["diagnostic_report_id"]
+            isOneToOne: false
+            referencedRelation: "diagnostic_reports"
             referencedColumns: ["id"]
           },
           {
@@ -5126,6 +5136,361 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      diagnostic_reports: {
+        Row: {
+          abnormal_severity: string | null
+          acknowledgement_status: Database["public"]["Enums"]["result_document_acknowledgement_status"]
+          action_completed_at: string | null
+          action_completed_by: string | null
+          clinician_alert_id: string | null
+          created_at: string
+          diagnostic_request_id: string
+          facility_name: string | null
+          file_path: string
+          file_size_bytes: number | null
+          findings: string | null
+          id: string
+          impression: string | null
+          is_abnormal: boolean | null
+          mime_type: string | null
+          note: string | null
+          organisation_id: string
+          original_filename: string | null
+          patient_id: string
+          report_date: string | null
+          reporting_clinician_name: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: Database["public"]["Enums"]["diagnostic_report_source"]
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          abnormal_severity?: string | null
+          acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
+          action_completed_at?: string | null
+          action_completed_by?: string | null
+          clinician_alert_id?: string | null
+          created_at?: string
+          diagnostic_request_id: string
+          facility_name?: string | null
+          file_path: string
+          file_size_bytes?: number | null
+          findings?: string | null
+          id?: string
+          impression?: string | null
+          is_abnormal?: boolean | null
+          mime_type?: string | null
+          note?: string | null
+          organisation_id: string
+          original_filename?: string | null
+          patient_id: string
+          report_date?: string | null
+          reporting_clinician_name?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: Database["public"]["Enums"]["diagnostic_report_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          abnormal_severity?: string | null
+          acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
+          action_completed_at?: string | null
+          action_completed_by?: string | null
+          clinician_alert_id?: string | null
+          created_at?: string
+          diagnostic_request_id?: string
+          facility_name?: string | null
+          file_path?: string
+          file_size_bytes?: number | null
+          findings?: string | null
+          id?: string
+          impression?: string | null
+          is_abnormal?: boolean | null
+          mime_type?: string | null
+          note?: string | null
+          organisation_id?: string
+          original_filename?: string | null
+          patient_id?: string
+          report_date?: string | null
+          reporting_clinician_name?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: Database["public"]["Enums"]["diagnostic_report_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_reports_action_completed_by_fkey"
+            columns: ["action_completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_reports_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_reports_diagnostic_request_id_fkey"
+            columns: ["diagnostic_request_id"]
+            isOneToOne: false
+            referencedRelation: "diagnostic_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_reports_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_reports_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnostic_requests: {
+        Row: {
+          action_note: string | null
+          actioned_at: string | null
+          attended_at: string | null
+          booked_at: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          care_plan_id: string | null
+          catalogue_id: string | null
+          clinical_question: string | null
+          created_at: string
+          facility_id: string | null
+          facility_name_freetext: string | null
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
+          id: string
+          indication: string
+          insurance_covered: boolean | null
+          insurance_note: string | null
+          modality: Database["public"]["Enums"]["diagnostic_modality"]
+          organisation_id: string
+          patient_id: string
+          preferred_time_of_day:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
+          relevant_information: string | null
+          reported_at: string | null
+          requested_by: string
+          reviewed_at: string | null
+          scheduled_date: string | null
+          service_name: string
+          specialist_referral_id: string | null
+          status: Database["public"]["Enums"]["diagnostic_request_status"]
+          updated_at: string
+          urgency: Database["public"]["Enums"]["diagnostic_urgency"]
+        }
+        Insert: {
+          action_note?: string | null
+          actioned_at?: string | null
+          attended_at?: string | null
+          booked_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          care_plan_id?: string | null
+          catalogue_id?: string | null
+          clinical_question?: string | null
+          created_at?: string
+          facility_id?: string | null
+          facility_name_freetext?: string | null
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
+          id?: string
+          indication: string
+          insurance_covered?: boolean | null
+          insurance_note?: string | null
+          modality: Database["public"]["Enums"]["diagnostic_modality"]
+          organisation_id: string
+          patient_id: string
+          preferred_time_of_day?:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
+          relevant_information?: string | null
+          reported_at?: string | null
+          requested_by: string
+          reviewed_at?: string | null
+          scheduled_date?: string | null
+          service_name: string
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["diagnostic_request_status"]
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["diagnostic_urgency"]
+        }
+        Update: {
+          action_note?: string | null
+          actioned_at?: string | null
+          attended_at?: string | null
+          booked_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          care_plan_id?: string | null
+          catalogue_id?: string | null
+          clinical_question?: string | null
+          created_at?: string
+          facility_id?: string | null
+          facility_name_freetext?: string | null
+          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
+          id?: string
+          indication?: string
+          insurance_covered?: boolean | null
+          insurance_note?: string | null
+          modality?: Database["public"]["Enums"]["diagnostic_modality"]
+          organisation_id?: string
+          patient_id?: string
+          preferred_time_of_day?:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
+          relevant_information?: string | null
+          reported_at?: string | null
+          requested_by?: string
+          reviewed_at?: string | null
+          scheduled_date?: string | null
+          service_name?: string
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["diagnostic_request_status"]
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["diagnostic_urgency"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_requests_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_requests_catalogue_id_fkey"
+            columns: ["catalogue_id"]
+            isOneToOne: false
+            referencedRelation: "diagnostic_service_catalogue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_requests_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_requests_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnostic_service_catalogue: {
+        Row: {
+          arrival_minutes_before: number | null
+          code: string
+          created_at: string
+          description: string | null
+          fasting_required: boolean
+          id: string
+          is_active: boolean
+          medication_instructions: string | null
+          modality: Database["public"]["Enums"]["diagnostic_modality"]
+          name: string
+          pregnancy_safety_question: boolean
+          prep_instructions: string | null
+          price_kobo: number
+          reporting_method: string | null
+          required_documents: string[]
+          turnaround_hours: number | null
+        }
+        Insert: {
+          arrival_minutes_before?: number | null
+          code: string
+          created_at?: string
+          description?: string | null
+          fasting_required?: boolean
+          id?: string
+          is_active?: boolean
+          medication_instructions?: string | null
+          modality: Database["public"]["Enums"]["diagnostic_modality"]
+          name: string
+          pregnancy_safety_question?: boolean
+          prep_instructions?: string | null
+          price_kobo?: number
+          reporting_method?: string | null
+          required_documents?: string[]
+          turnaround_hours?: number | null
+        }
+        Update: {
+          arrival_minutes_before?: number | null
+          code?: string
+          created_at?: string
+          description?: string | null
+          fasting_required?: boolean
+          id?: string
+          is_active?: boolean
+          medication_instructions?: string | null
+          modality?: Database["public"]["Enums"]["diagnostic_modality"]
+          name?: string
+          pregnancy_safety_question?: boolean
+          prep_instructions?: string | null
+          price_kobo?: number
+          reporting_method?: string | null
+          required_documents?: string[]
+          turnaround_hours?: number | null
+        }
+        Relationships: []
       }
       drug_monitoring_rules: {
         Row: {
@@ -7347,8 +7712,11 @@ export type Database = {
       }
       health_education_content: {
         Row: {
+          approved_at: string | null
+          audio_url: string | null
           body: string
           category: Database["public"]["Enums"]["health_education_category"]
+          clinical_author_name: string | null
           clinician_reviewed: boolean
           code: string
           condition: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -7356,21 +7724,29 @@ export type Database = {
           created_at: string
           drip_week: number | null
           estimated_minutes: number | null
+          evidence_source: string | null
           id: string
           is_active: boolean
           knowledge_check: Json | null
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
+          reading_level: Database["public"]["Enums"]["health_education_reading_level"]
+          review_due_at: string | null
           reviewed_at: string | null
           reviewed_by_name: string | null
           sort_order: number
           summary: string | null
           title: string
+          topic_group_code: string | null
           updated_at: string
+          version: number
           video_url: string | null
         }
         Insert: {
+          approved_at?: string | null
+          audio_url?: string | null
           body: string
           category: Database["public"]["Enums"]["health_education_category"]
+          clinical_author_name?: string | null
           clinician_reviewed?: boolean
           code: string
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -7378,21 +7754,29 @@ export type Database = {
           created_at?: string
           drip_week?: number | null
           estimated_minutes?: number | null
+          evidence_source?: string | null
           id?: string
           is_active?: boolean
           knowledge_check?: Json | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
+          review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by_name?: string | null
           sort_order?: number
           summary?: string | null
           title: string
+          topic_group_code?: string | null
           updated_at?: string
+          version?: number
           video_url?: string | null
         }
         Update: {
+          approved_at?: string | null
+          audio_url?: string | null
           body?: string
           category?: Database["public"]["Enums"]["health_education_category"]
+          clinical_author_name?: string | null
           clinician_reviewed?: boolean
           code?: string
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
@@ -7400,17 +7784,276 @@ export type Database = {
           created_at?: string
           drip_week?: number | null
           estimated_minutes?: number | null
+          evidence_source?: string | null
           id?: string
           is_active?: boolean
           knowledge_check?: Json | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
+          review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by_name?: string | null
           sort_order?: number
           summary?: string | null
           title?: string
+          topic_group_code?: string | null
           updated_at?: string
+          version?: number
           video_url?: string | null
+        }
+        Relationships: []
+      }
+      health_education_content_versions: {
+        Row: {
+          approved_at: string | null
+          audio_url: string | null
+          body: string
+          category: Database["public"]["Enums"]["health_education_category"]
+          changed_by: string | null
+          clinical_author_name: string | null
+          clinician_reviewed: boolean
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          evidence_source: string | null
+          id: string
+          knowledge_check: Json | null
+          min_risk_level: Database["public"]["Enums"]["risk_level"] | null
+          reading_level: Database["public"]["Enums"]["health_education_reading_level"]
+          review_due_at: string | null
+          reviewed_at: string | null
+          reviewed_by_name: string | null
+          summary: string | null
+          superseded_at: string
+          title: string
+          version: number
+          video_url: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          audio_url?: string | null
+          body: string
+          category: Database["public"]["Enums"]["health_education_category"]
+          changed_by?: string | null
+          clinical_author_name?: string | null
+          clinician_reviewed: boolean
+          code: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          evidence_source?: string | null
+          id?: string
+          knowledge_check?: Json | null
+          min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          reading_level: Database["public"]["Enums"]["health_education_reading_level"]
+          review_due_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
+          summary?: string | null
+          superseded_at?: string
+          title: string
+          version: number
+          video_url?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          audio_url?: string | null
+          body?: string
+          category?: Database["public"]["Enums"]["health_education_category"]
+          changed_by?: string | null
+          clinical_author_name?: string | null
+          clinician_reviewed?: boolean
+          code?: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          content_id?: string
+          content_type?: Database["public"]["Enums"]["health_education_content_type"]
+          evidence_source?: string | null
+          id?: string
+          knowledge_check?: Json | null
+          min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
+          review_due_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
+          summary?: string | null
+          superseded_at?: string
+          title?: string
+          version?: number
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_education_content_versions_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_content_versions_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_education_feedback: {
+        Row: {
+          comment: string | null
+          content_id: string
+          created_at: string
+          feedback_type: Database["public"]["Enums"]["health_education_feedback_type"]
+          id: string
+          organisation_id: string
+          patient_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["health_education_feedback_status"]
+        }
+        Insert: {
+          comment?: string | null
+          content_id: string
+          created_at?: string
+          feedback_type: Database["public"]["Enums"]["health_education_feedback_type"]
+          id?: string
+          organisation_id: string
+          patient_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["health_education_feedback_status"]
+        }
+        Update: {
+          comment?: string | null
+          content_id?: string
+          created_at?: string
+          feedback_type?: Database["public"]["Enums"]["health_education_feedback_type"]
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["health_education_feedback_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_education_feedback_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_feedback_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_feedback_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_feedback_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_education_programme_modules: {
+        Row: {
+          content_id: string
+          created_at: string
+          id: string
+          module_number: number
+          programme_id: string
+          title: string
+        }
+        Insert: {
+          content_id: string
+          created_at?: string
+          id?: string
+          module_number: number
+          programme_id: string
+          title: string
+        }
+        Update: {
+          content_id?: string
+          created_at?: string
+          id?: string
+          module_number?: number
+          programme_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_education_programme_modules_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_programme_modules_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_education_programmes: {
+        Row: {
+          category:
+            | Database["public"]["Enums"]["health_education_category"]
+            | null
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?:
+            | Database["public"]["Enums"]["health_education_category"]
+            | null
+          code: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?:
+            | Database["public"]["Enums"]["health_education_category"]
+            | null
+          code?: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -8208,7 +8851,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           resulted_at: string | null
+          sample_collected_at: string | null
           scheduled_date: string | null
           screening_schedule_id: string | null
           status: Database["public"]["Enums"]["lab_order_status"]
@@ -8254,7 +8901,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           resulted_at?: string | null
+          sample_collected_at?: string | null
           scheduled_date?: string | null
           screening_schedule_id?: string | null
           status?: Database["public"]["Enums"]["lab_order_status"]
@@ -8300,7 +8951,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           resulted_at?: string | null
+          sample_collected_at?: string | null
           scheduled_date?: string | null
           screening_schedule_id?: string | null
           status?: Database["public"]["Enums"]["lab_order_status"]
@@ -8368,6 +9023,13 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "lab_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_orders_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -14043,11 +14705,19 @@ export type Database = {
           commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
           created_at: string
           drug_name: string
+          expected_restock_at: string | null
+          generic_equivalent_of: string | null
           id: string
           is_active: boolean
+          is_generic: boolean
           pack_size: string | null
           pharmacy_partner_id: string
           price_kobo: number
+          stock_status:
+            | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
+            | null
+          stock_updated_at: string | null
+          strength: string | null
         }
         Insert: {
           commission_flat_kobo?: number | null
@@ -14055,11 +14725,19 @@ export type Database = {
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           drug_name: string
+          expected_restock_at?: string | null
+          generic_equivalent_of?: string | null
           id?: string
           is_active?: boolean
+          is_generic?: boolean
           pack_size?: string | null
           pharmacy_partner_id: string
           price_kobo?: number
+          stock_status?:
+            | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
+            | null
+          stock_updated_at?: string | null
+          strength?: string | null
         }
         Update: {
           commission_flat_kobo?: number | null
@@ -14067,11 +14745,19 @@ export type Database = {
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           drug_name?: string
+          expected_restock_at?: string | null
+          generic_equivalent_of?: string | null
           id?: string
           is_active?: boolean
+          is_generic?: boolean
           pack_size?: string | null
           pharmacy_partner_id?: string
           price_kobo?: number
+          stock_status?:
+            | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
+            | null
+          stock_updated_at?: string | null
+          strength?: string | null
         }
         Relationships: [
           {
@@ -14178,13 +14864,21 @@ export type Database = {
       }
       pharmacy_orders: {
         Row: {
+          accepted_at: string | null
+          accepted_by: string | null
           applied_voucher_id: string | null
+          cancellation_reason: string | null
+          confirmed_price_kobo: number | null
+          confirmed_quantity: string | null
           courier_reference: string | null
           created_at: string
+          declined_at: string | null
+          declined_by: string | null
           delivered_at: string | null
           delivery_address: Json | null
           delivery_confirmed_at: string | null
           estimated_delivery_at: string | null
+          estimated_fulfilment_at: string | null
           fulfilment_method: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id: string
           items: Json
@@ -14201,6 +14895,9 @@ export type Database = {
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
           pharmacy_partner_id: string | null
+          refund_amount_kobo: number | null
+          refund_ref: string | null
+          refund_status: string | null
           requested_at: string
           status: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo: number
@@ -14208,13 +14905,21 @@ export type Database = {
           voucher_covered_kobo: number
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           applied_voucher_id?: string | null
+          cancellation_reason?: string | null
+          confirmed_price_kobo?: number | null
+          confirmed_quantity?: string | null
           courier_reference?: string | null
           created_at?: string
+          declined_at?: string | null
+          declined_by?: string | null
           delivered_at?: string | null
           delivery_address?: Json | null
           delivery_confirmed_at?: string | null
           estimated_delivery_at?: string | null
+          estimated_fulfilment_at?: string | null
           fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
@@ -14231,6 +14936,9 @@ export type Database = {
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
           pharmacy_partner_id?: string | null
+          refund_amount_kobo?: number | null
+          refund_ref?: string | null
+          refund_status?: string | null
           requested_at?: string
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
@@ -14238,13 +14946,21 @@ export type Database = {
           voucher_covered_kobo?: number
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           applied_voucher_id?: string | null
+          cancellation_reason?: string | null
+          confirmed_price_kobo?: number | null
+          confirmed_quantity?: string | null
           courier_reference?: string | null
           created_at?: string
+          declined_at?: string | null
+          declined_by?: string | null
           delivered_at?: string | null
           delivery_address?: Json | null
           delivery_confirmed_at?: string | null
           estimated_delivery_at?: string | null
+          estimated_fulfilment_at?: string | null
           fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
@@ -14261,6 +14977,9 @@ export type Database = {
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
           pharmacy_partner_id?: string | null
+          refund_amount_kobo?: number | null
+          refund_ref?: string | null
+          refund_status?: string | null
           requested_at?: string
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
@@ -14268,6 +14987,20 @@ export type Database = {
           voucher_covered_kobo?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "pharmacy_orders_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_orders_declined_by_fkey"
+            columns: ["declined_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pharmacy_orders_logistics_partner_id_fkey"
             columns: ["logistics_partner_id"]
@@ -14317,6 +15050,8 @@ export type Database = {
           name: string
           pharmacy_partner_id: string
           state: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           address?: string | null
@@ -14329,6 +15064,8 @@ export type Database = {
           name: string
           pharmacy_partner_id: string
           state: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           address?: string | null
@@ -14341,6 +15078,8 @@ export type Database = {
           name?: string
           pharmacy_partner_id?: string
           state?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -14350,18 +15089,33 @@ export type Database = {
             referencedRelation: "pharmacy_partners"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pharmacy_partner_locations_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       pharmacy_partners: {
         Row: {
           address: string | null
+          approved_at: string | null
+          approved_by: string | null
           area: string | null
+          business_registration_number: string | null
+          business_verified_at: string | null
+          business_verified_by: string | null
           city: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
           delivery: boolean
+          delivery_fee_kobo: number | null
           id: string
+          integration_tested_at: string | null
+          integration_tested_by: string | null
           is_active: boolean
           latitude: number | null
           license_expires_at: string | null
@@ -14371,19 +15125,33 @@ export type Database = {
           license_verified_by: string | null
           longitude: number | null
           name: string
+          onboarding_status: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
           regions: string[]
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          service_configured_at: string | null
+          service_configured_by: string | null
           state: string | null
           uses_platform_login: boolean
         }
         Insert: {
           address?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           area?: string | null
+          business_registration_number?: string | null
+          business_verified_at?: string | null
+          business_verified_by?: string | null
           city?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
           delivery?: boolean
+          delivery_fee_kobo?: number | null
           id?: string
+          integration_tested_at?: string | null
+          integration_tested_by?: string | null
           is_active?: boolean
           latitude?: number | null
           license_expires_at?: string | null
@@ -14393,19 +15161,33 @@ export type Database = {
           license_verified_by?: string | null
           longitude?: number | null
           name: string
+          onboarding_status?: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
           regions?: string[]
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          service_configured_at?: string | null
+          service_configured_by?: string | null
           state?: string | null
           uses_platform_login?: boolean
         }
         Update: {
           address?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           area?: string | null
+          business_registration_number?: string | null
+          business_verified_at?: string | null
+          business_verified_by?: string | null
           city?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
           delivery?: boolean
+          delivery_fee_kobo?: number | null
           id?: string
+          integration_tested_at?: string | null
+          integration_tested_by?: string | null
           is_active?: boolean
           latitude?: number | null
           license_expires_at?: string | null
@@ -14415,14 +15197,55 @@ export type Database = {
           license_verified_by?: string | null
           longitude?: number | null
           name?: string
+          onboarding_status?: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
           regions?: string[]
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          service_configured_at?: string | null
+          service_configured_by?: string | null
           state?: string | null
           uses_platform_login?: boolean
         }
         Relationships: [
           {
+            foreignKeyName: "pharmacy_partners_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partners_business_verified_by_fkey"
+            columns: ["business_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partners_integration_tested_by_fkey"
+            columns: ["integration_tested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pharmacy_partners_license_verified_by_fkey"
             columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partners_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partners_service_configured_by_fkey"
+            columns: ["service_configured_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -16657,13 +17480,20 @@ export type Database = {
           applied_voucher_id: string | null
           appointment_date: string | null
           booking_confirmed_at: string | null
+          care_plan_update_note: string | null
           clinical_summary: Json | null
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
           fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path: string | null
+          outcome_document_uploaded_at: string | null
+          outcome_document_uploaded_by: string | null
+          parent_referral_id: string | null
           patient_id: string
           payable_kobo: number | null
           payment_provider:
@@ -16671,9 +17501,12 @@ export type Database = {
             | null
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
+          preferred_consultation_type: string | null
+          preferred_location: string | null
           referral_fee_kobo: number
           referral_number: string | null
           referral_reason: string | null
+          referred_by: string | null
           screening_upgrade_id: string | null
           set_by: string | null
           shared_care_handback_at: string | null
@@ -16691,13 +17524,20 @@ export type Database = {
           applied_voucher_id?: string | null
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          care_plan_update_note?: string | null
           clinical_summary?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path?: string | null
+          outcome_document_uploaded_at?: string | null
+          outcome_document_uploaded_by?: string | null
+          parent_referral_id?: string | null
           patient_id: string
           payable_kobo?: number | null
           payment_provider?:
@@ -16705,9 +17545,12 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          preferred_consultation_type?: string | null
+          preferred_location?: string | null
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referred_by?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
@@ -16725,13 +17568,20 @@ export type Database = {
           applied_voucher_id?: string | null
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          care_plan_update_note?: string | null
           clinical_summary?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path?: string | null
+          outcome_document_uploaded_at?: string | null
+          outcome_document_uploaded_by?: string | null
+          parent_referral_id?: string | null
           patient_id?: string
           payable_kobo?: number | null
           payment_provider?:
@@ -16739,9 +17589,12 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          preferred_consultation_type?: string | null
+          preferred_location?: string | null
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referred_by?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
@@ -16757,6 +17610,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "specialist_referrals_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "specialist_referrals_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
@@ -16764,10 +17624,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "specialist_referrals_outcome_document_uploaded_by_fkey"
+            columns: ["outcome_document_uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_parent_referral_id_fkey"
+            columns: ["parent_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "specialist_referrals_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
           {
@@ -18746,6 +19627,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_advance_pharmacy_partner_onboarding: {
+        Args: { p_partner_id: string }
+        Returns: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
+      }
       admin_broadcast_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]
@@ -18806,6 +19691,10 @@ export type Database = {
       }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_refresh_public_impact_metrics: { Args: never; Returns: undefined }
+      admin_reject_pharmacy_partner_onboarding: {
+        Args: { p_partner_id: string; p_reason: string }
+        Returns: undefined
+      }
       admin_revoke_protocol_api_key: {
         Args: { p_key_id: string }
         Returns: undefined
@@ -18820,6 +19709,10 @@ export type Database = {
       }
       admin_set_partner_admin: {
         Args: { p_is_partner_admin: boolean; p_profile_id: string }
+        Returns: undefined
+      }
+      admin_verify_pharmacy_partner_location: {
+        Args: { p_location_id: string }
         Returns: undefined
       }
       advance_appointment_status: {
@@ -18902,6 +19795,10 @@ export type Database = {
       analytics_clinical_outcomes: { Args: never; Returns: Json }
       analytics_deliverability: {
         Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      analytics_diagnostic_service_quality: {
+        Args: { p_days?: number }
         Returns: Json
       }
       analytics_doctor_performance: {
@@ -19541,6 +20438,27 @@ export type Database = {
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
       hbpm_summary: { Args: { p_patient: string }; Returns: Json }
+      health_education_analytics: {
+        Args: never
+        Returns: {
+          avg_check_score: number
+          avg_check_total: number
+          category: Database["public"]["Enums"]["health_education_category"]
+          code: string
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          helpful_count: number
+          is_active: boolean
+          needs_review_count: number
+          not_helpful_count: number
+          report_incorrect_count: number
+          title: string
+          unclear_count: number
+          understood_count: number
+          view_count: number
+          want_more_count: number
+        }[]
+      }
       health_education_category_counts: {
         Args: never
         Returns: {
@@ -19551,7 +20469,9 @@ export type Database = {
       health_education_feed: {
         Args: never
         Returns: {
+          audio_url: string
           body: string
+          category: Database["public"]["Enums"]["health_education_category"]
           check_score: number
           check_total: number
           clinician_reviewed: boolean
@@ -19562,6 +20482,7 @@ export type Database = {
           estimated_minutes: number
           has_knowledge_check: boolean
           knowledge_check: Json
+          reading_level: Database["public"]["Enums"]["health_education_reading_level"]
           reviewed_by_name: string
           status: Database["public"]["Enums"]["health_education_status"]
           summary: string
@@ -19574,6 +20495,7 @@ export type Database = {
           p_category?: Database["public"]["Enums"]["health_education_category"]
         }
         Returns: {
+          audio_url: string
           body: string
           category: Database["public"]["Enums"]["health_education_category"]
           check_score: number
@@ -19586,6 +20508,7 @@ export type Database = {
           estimated_minutes: number
           has_knowledge_check: boolean
           knowledge_check: Json
+          reading_level: Database["public"]["Enums"]["health_education_reading_level"]
           reviewed_by_name: string
           status: Database["public"]["Enums"]["health_education_status"]
           summary: string
@@ -19594,6 +20517,45 @@ export type Database = {
         }[]
       }
       health_education_locked_count: { Args: never; Returns: number }
+      health_education_programme_detail: {
+        Args: { p_code: string }
+        Returns: {
+          audio_url: string
+          check_score: number
+          check_total: number
+          content_body: string
+          content_code: string
+          content_id: string
+          content_summary: string
+          content_title: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          estimated_minutes: number
+          has_knowledge_check: boolean
+          knowledge_check: Json
+          module_id: string
+          module_number: number
+          module_title: string
+          programme_code: string
+          programme_description: string
+          programme_id: string
+          programme_title: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          video_url: string
+        }[]
+      }
+      health_education_programmes_list: {
+        Args: never
+        Returns: {
+          category: Database["public"]["Enums"]["health_education_category"]
+          code: string
+          completed_count: number
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          description: string
+          id: string
+          module_count: number
+          title: string
+        }[]
+      }
       health_passport_by_serial: {
         Args: { p_dob?: string; p_serial: string }
         Returns: Json
@@ -19695,6 +20657,10 @@ export type Database = {
         }[]
       }
       lab_partner_own_provider_id: { Args: never; Returns: string }
+      lab_partner_reject_sample: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       lab_partner_turnaround_stats: {
         Args: { p_days?: number }
         Returns: {
@@ -19853,6 +20819,19 @@ export type Database = {
           vital_type: Database["public"]["Enums"]["vital_type"]
         }[]
       }
+      pharmacist_accept_order: {
+        Args: {
+          p_confirmed_price_kobo?: number
+          p_confirmed_quantity: string
+          p_estimated_fulfilment_at?: string
+          p_order_id: string
+        }
+        Returns: undefined
+      }
+      pharmacist_decline_order: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       pharmacist_dispense_history: {
         Args: { p_limit?: number }
         Returns: {
@@ -19890,11 +20869,16 @@ export type Database = {
       pharmacist_orders: {
         Args: never
         Returns: {
+          cancellation_reason: string
+          confirmed_price_kobo: number
+          confirmed_quantity: string
+          estimated_fulfilment_at: string
           items: Json
           order_id: string
           order_number: string
           patient_name: string
           patient_number: string
+          payable_kobo: number
           requested_at: string
           status: string
         }[]
@@ -20106,7 +21090,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           resulted_at: string | null
+          sample_collected_at: string | null
           scheduled_date: string | null
           screening_schedule_id: string | null
           status: Database["public"]["Enums"]["lab_order_status"]
@@ -20267,6 +21255,58 @@ export type Database = {
         Args: { p_request_id: string; p_slot_id: string }
         Returns: string
       }
+      set_diagnostic_request_booking_preference: {
+        Args: {
+          p_facility_id?: string
+          p_facility_name_freetext?: string
+          p_insurance_covered?: boolean
+          p_insurance_note?: string
+          p_preferred_time_of_day?: Database["public"]["Enums"]["lab_order_time_of_day"]
+          p_request_id: string
+          p_scheduled_date?: string
+        }
+        Returns: {
+          action_note: string | null
+          actioned_at: string | null
+          attended_at: string | null
+          booked_at: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          care_plan_id: string | null
+          catalogue_id: string | null
+          clinical_question: string | null
+          created_at: string
+          facility_id: string | null
+          facility_name_freetext: string | null
+          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
+          id: string
+          indication: string
+          insurance_covered: boolean | null
+          insurance_note: string | null
+          modality: Database["public"]["Enums"]["diagnostic_modality"]
+          organisation_id: string
+          patient_id: string
+          preferred_time_of_day:
+            | Database["public"]["Enums"]["lab_order_time_of_day"]
+            | null
+          relevant_information: string | null
+          reported_at: string | null
+          requested_by: string
+          reviewed_at: string | null
+          scheduled_date: string | null
+          service_name: string
+          specialist_referral_id: string | null
+          status: Database["public"]["Enums"]["diagnostic_request_status"]
+          updated_at: string
+          urgency: Database["public"]["Enums"]["diagnostic_urgency"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "diagnostic_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }
         Returns: {
@@ -20302,7 +21342,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           resulted_at: string | null
+          sample_collected_at: string | null
           scheduled_date: string | null
           screening_schedule_id: string | null
           status: Database["public"]["Enums"]["lab_order_status"]
@@ -20340,13 +21384,20 @@ export type Database = {
           applied_voucher_id: string | null
           appointment_date: string | null
           booking_confirmed_at: string | null
+          care_plan_update_note: string | null
           clinical_summary: Json | null
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
           fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path: string | null
+          outcome_document_uploaded_at: string | null
+          outcome_document_uploaded_by: string | null
+          parent_referral_id: string | null
           patient_id: string
           payable_kobo: number | null
           payment_provider:
@@ -20354,9 +21405,12 @@ export type Database = {
             | null
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
+          preferred_consultation_type: string | null
+          preferred_location: string | null
           referral_fee_kobo: number
           referral_number: string | null
           referral_reason: string | null
+          referred_by: string | null
           screening_upgrade_id: string | null
           set_by: string | null
           shared_care_handback_at: string | null
@@ -20734,6 +21788,29 @@ export type Database = {
         | "health_connect_bridge"
         | "manual_only"
       diabetes_type: "type_1" | "type_2" | "gestational" | "other"
+      diagnostic_modality:
+        | "xray"
+        | "ultrasound"
+        | "ct"
+        | "mri"
+        | "ecg"
+        | "echocardiography"
+        | "mammography"
+        | "other"
+      diagnostic_report_source:
+        | "patient"
+        | "lab_liaison"
+        | "clinician"
+        | "admin"
+      diagnostic_request_status:
+        | "requested"
+        | "booked"
+        | "attended"
+        | "reported"
+        | "reviewed"
+        | "actioned"
+        | "cancelled"
+      diagnostic_urgency: "routine" | "urgent" | "emergency"
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
@@ -20832,7 +21909,22 @@ export type Database = {
         | "medicines"
         | "family_child"
         | "getting_started"
-      health_education_content_type: "article" | "video"
+      health_education_content_type:
+        | "article"
+        | "video"
+        | "audio"
+        | "infographic"
+        | "faq"
+        | "quiz"
+        | "interactive_module"
+      health_education_feedback_status: "open" | "reviewed" | "resolved"
+      health_education_feedback_type:
+        | "helpful"
+        | "not_helpful"
+        | "unclear"
+        | "want_more_information"
+        | "report_incorrect"
+      health_education_reading_level: "simple" | "detailed" | "clinician"
       health_education_status: "seen" | "understood" | "needs_review"
       health_passport_attestation_status:
         | "pending"
@@ -20862,6 +21954,7 @@ export type Database = {
         | "payment_confirmed"
         | "ordered"
         | "sample_collected"
+        | "sample_rejected"
         | "processing"
         | "resulted"
         | "cancelled"
@@ -21014,6 +22107,7 @@ export type Database = {
         | "missed_care_task"
         | "missed_appointment"
         | "failed_referral"
+        | "referral_follow_up"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -21052,6 +22146,7 @@ export type Database = {
         | "customer.subscription.updated"
         | "customer.subscription.deleted"
       pharmacy_fulfilment_method: "pickup" | "delivery"
+      pharmacy_medication_stock_status: "in_stock" | "low_stock" | "unavailable"
       pharmacy_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -21061,6 +22156,16 @@ export type Database = {
         | "out_for_delivery"
         | "delivered"
         | "cancelled"
+      pharmacy_partner_onboarding_status:
+        | "application"
+        | "business_verification"
+        | "regulatory_verification"
+        | "location_verification"
+        | "service_configuration"
+        | "integration_testing"
+        | "approved"
+        | "activated"
+        | "rejected"
       prevention_campaign_action_type:
         | "education"
         | "screening_invite"
@@ -21103,6 +22208,7 @@ export type Database = {
         | "booked"
         | "confirmed"
         | "completed"
+        | "closed"
         | "declined"
       referral_type:
         | "patient_refers_patient"
@@ -21180,6 +22286,7 @@ export type Database = {
         | "medication_missed"
         | "referral_created"
         | "referral_status_changed"
+        | "referral_outcome_recorded"
         | "screening_due"
         | "screening_completed"
         | "vaccination_recorded"
@@ -21714,6 +22821,32 @@ export const Constants = {
         "manual_only",
       ],
       diabetes_type: ["type_1", "type_2", "gestational", "other"],
+      diagnostic_modality: [
+        "xray",
+        "ultrasound",
+        "ct",
+        "mri",
+        "ecg",
+        "echocardiography",
+        "mammography",
+        "other",
+      ],
+      diagnostic_report_source: [
+        "patient",
+        "lab_liaison",
+        "clinician",
+        "admin",
+      ],
+      diagnostic_request_status: [
+        "requested",
+        "booked",
+        "attended",
+        "reported",
+        "reviewed",
+        "actioned",
+        "cancelled",
+      ],
+      diagnostic_urgency: ["routine", "urgent", "emergency"],
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
@@ -21823,7 +22956,24 @@ export const Constants = {
         "family_child",
         "getting_started",
       ],
-      health_education_content_type: ["article", "video"],
+      health_education_content_type: [
+        "article",
+        "video",
+        "audio",
+        "infographic",
+        "faq",
+        "quiz",
+        "interactive_module",
+      ],
+      health_education_feedback_status: ["open", "reviewed", "resolved"],
+      health_education_feedback_type: [
+        "helpful",
+        "not_helpful",
+        "unclear",
+        "want_more_information",
+        "report_incorrect",
+      ],
+      health_education_reading_level: ["simple", "detailed", "clinician"],
       health_education_status: ["seen", "understood", "needs_review"],
       health_passport_attestation_status: [
         "pending",
@@ -21856,6 +23006,7 @@ export const Constants = {
         "payment_confirmed",
         "ordered",
         "sample_collected",
+        "sample_rejected",
         "processing",
         "resulted",
         "cancelled",
@@ -22024,6 +23175,7 @@ export const Constants = {
         "missed_care_task",
         "missed_appointment",
         "failed_referral",
+        "referral_follow_up",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [
@@ -22067,6 +23219,11 @@ export const Constants = {
         "customer.subscription.deleted",
       ],
       pharmacy_fulfilment_method: ["pickup", "delivery"],
+      pharmacy_medication_stock_status: [
+        "in_stock",
+        "low_stock",
+        "unavailable",
+      ],
       pharmacy_order_status: [
         "pending_payment",
         "payment_confirmed",
@@ -22076,6 +23233,17 @@ export const Constants = {
         "out_for_delivery",
         "delivered",
         "cancelled",
+      ],
+      pharmacy_partner_onboarding_status: [
+        "application",
+        "business_verification",
+        "regulatory_verification",
+        "location_verification",
+        "service_configuration",
+        "integration_testing",
+        "approved",
+        "activated",
+        "rejected",
       ],
       prevention_campaign_action_type: [
         "education",
@@ -22123,6 +23291,7 @@ export const Constants = {
         "booked",
         "confirmed",
         "completed",
+        "closed",
         "declined",
       ],
       referral_type: [
@@ -22209,6 +23378,7 @@ export const Constants = {
         "medication_missed",
         "referral_created",
         "referral_status_changed",
+        "referral_outcome_recorded",
         "screening_due",
         "screening_completed",
         "vaccination_recorded",
