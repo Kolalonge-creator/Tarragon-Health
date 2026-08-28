@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { createClient } from "@/lib/supabase/server";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -22,6 +23,14 @@ export default async function WellnessHubPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (!profile.onboarding_completed_at) redirect("/onboarding");
+
+  const supabase = await createClient();
+  const { data: carePlans } = await supabase
+    .from("care_plans")
+    .select("condition")
+    .eq("patient_id", profile.id)
+    .eq("status", "active");
+  const activeConditions = Array.from(new Set((carePlans ?? []).map((p) => p.condition)));
 
   return (
     <div className="space-y-6">
@@ -55,7 +64,11 @@ export default async function WellnessHubPage() {
             <SEMANTIC_ICON.nutrition className="h-5 w-5 text-deep-forest" strokeWidth={2} />
             Meal log
           </h2>
-          <NutritionFlow patientId={profile.id} visionConfigured={isMealVisionConfigured()} />
+          <NutritionFlow
+            patientId={profile.id}
+            visionConfigured={isMealVisionConfigured()}
+            activeConditions={activeConditions}
+          />
         </div>
       </RequiresEntitlement>
 

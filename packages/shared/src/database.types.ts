@@ -10738,6 +10738,95 @@ export type Database = {
           },
         ]
       }
+      nigerian_food_portions: {
+        Row: {
+          food_id: string
+          grams: number
+          id: string
+          is_default: boolean
+          unit: Database["public"]["Enums"]["food_portion_unit"]
+        }
+        Insert: {
+          food_id: string
+          grams: number
+          id?: string
+          is_default?: boolean
+          unit: Database["public"]["Enums"]["food_portion_unit"]
+        }
+        Update: {
+          food_id?: string
+          grams?: number
+          id?: string
+          is_default?: boolean
+          unit?: Database["public"]["Enums"]["food_portion_unit"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nigerian_food_portions_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "nigerian_foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nigerian_foods: {
+        Row: {
+          aliases: string[]
+          calories_kcal_100g: number
+          carbs_g_100g: number
+          category: Database["public"]["Enums"]["nigerian_food_category"]
+          code: string
+          cost_tier: Database["public"]["Enums"]["food_cost_tier"]
+          created_at: string
+          data_quality: string
+          fat_g_100g: number
+          fibre_g_100g: number
+          id: string
+          name: string
+          protein_g_100g: number
+          sodium_mg_100g: number
+          source_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          aliases?: string[]
+          calories_kcal_100g: number
+          carbs_g_100g: number
+          category: Database["public"]["Enums"]["nigerian_food_category"]
+          code: string
+          cost_tier?: Database["public"]["Enums"]["food_cost_tier"]
+          created_at?: string
+          data_quality?: string
+          fat_g_100g: number
+          fibre_g_100g: number
+          id?: string
+          name: string
+          protein_g_100g: number
+          sodium_mg_100g: number
+          source_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          aliases?: string[]
+          calories_kcal_100g?: number
+          carbs_g_100g?: number
+          category?: Database["public"]["Enums"]["nigerian_food_category"]
+          code?: string
+          cost_tier?: Database["public"]["Enums"]["food_cost_tier"]
+          created_at?: string
+          data_quality?: string
+          fat_g_100g?: number
+          fibre_g_100g?: number
+          id?: string
+          name?: string
+          protein_g_100g?: number
+          sodium_mg_100g?: number
+          source_note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       note_templates: {
         Row: {
           body: string
@@ -11007,7 +11096,9 @@ export type Database = {
           id: string
           logged_at: string
           meal_type: Database["public"]["Enums"]["meal_type"]
+          nutrition_analysis: Json | null
           organisation_id: string
+          parsed_items: Json | null
           patient_confirmed: boolean
           patient_id: string
           photo_path: string | null
@@ -11023,7 +11114,9 @@ export type Database = {
           id?: string
           logged_at?: string
           meal_type: Database["public"]["Enums"]["meal_type"]
+          nutrition_analysis?: Json | null
           organisation_id: string
+          parsed_items?: Json | null
           patient_confirmed?: boolean
           patient_id: string
           photo_path?: string | null
@@ -11039,7 +11132,9 @@ export type Database = {
           id?: string
           logged_at?: string
           meal_type?: Database["public"]["Enums"]["meal_type"]
+          nutrition_analysis?: Json | null
           organisation_id?: string
+          parsed_items?: Json | null
           patient_confirmed?: boolean
           patient_id?: string
           photo_path?: string | null
@@ -11058,6 +11153,80 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_referrals: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          reason: string
+          requested_at: string
+          requested_by: string | null
+          risk_factors: Json
+          specialist_referral_id: string | null
+          status: Database["public"]["Enums"]["nutrition_referral_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          reason: string
+          requested_at?: string
+          requested_by?: string | null
+          risk_factors?: Json
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["nutrition_referral_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reason?: string
+          requested_at?: string
+          requested_by?: string | null
+          risk_factors?: Json
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["nutrition_referral_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_referrals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_referrals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_referrals_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_referrals_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
             referencedColumns: ["id"]
           },
         ]
@@ -19897,6 +20066,8 @@ export type Database = {
         | "MedicationStatement"
         | "MedicationRequest"
         | "Immunization"
+      food_cost_tier: "budget" | "mid" | "premium"
+      food_portion_unit: "plate" | "cup" | "spoon" | "handful" | "piece" | "serving"
       foot_risk_class: "low" | "increased" | "high" | "active"
       foot_sensation: "normal" | "reduced" | "absent"
       fulfilment_mode: "partner" | "self_arranged"
@@ -20063,6 +20234,13 @@ export type Database = {
       medication_log_status: "taken" | "missed" | "skipped"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
+      nigerian_food_category:
+        | "staple"
+        | "swallow"
+        | "legume"
+        | "soup"
+        | "protein"
+        | "snack_drink"
       notification_channel:
         | "email"
         | "sms"
@@ -20073,6 +20251,13 @@ export type Database = {
       notification_content_class: "clinical" | "non_clinical"
       notification_priority: "routine" | "critical"
       notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
+      nutrition_referral_status:
+        | "requested"
+        | "scheduled"
+        | "consultation_complete"
+        | "plan_issued"
+        | "declined"
+        | "not_applicable"
       obesity_bmi_category:
         | "underweight"
         | "healthy"
@@ -20825,6 +21010,15 @@ export const Constants = {
         "MedicationRequest",
         "Immunization",
       ],
+      food_cost_tier: ["budget", "mid", "premium"],
+      food_portion_unit: [
+        "plate",
+        "cup",
+        "spoon",
+        "handful",
+        "piece",
+        "serving",
+      ],
       foot_risk_class: ["low", "increased", "high", "active"],
       foot_sensation: ["normal", "reduced", "absent"],
       fulfilment_mode: ["partner", "self_arranged"],
@@ -21009,6 +21203,14 @@ export const Constants = {
       medication_log_status: ["taken", "missed", "skipped"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
+      nigerian_food_category: [
+        "staple",
+        "swallow",
+        "legume",
+        "soup",
+        "protein",
+        "snack_drink",
+      ],
       notification_channel: [
         "email",
         "sms",
@@ -21020,6 +21222,14 @@ export const Constants = {
       notification_content_class: ["clinical", "non_clinical"],
       notification_priority: ["routine", "critical"],
       notification_status: ["pending", "sent", "delivered", "failed", "read"],
+      nutrition_referral_status: [
+        "requested",
+        "scheduled",
+        "consultation_complete",
+        "plan_issued",
+        "declined",
+        "not_applicable",
+      ],
       obesity_bmi_category: [
         "underweight",
         "healthy",

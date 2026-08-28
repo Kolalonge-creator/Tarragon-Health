@@ -35,3 +35,18 @@ export const nutritionConfirmSchema = z.object({
   confirmed_carbs_g: z.coerce.number().min(0).max(2000).nullish(),
 });
 export type NutritionConfirmInput = z.infer<typeof nutritionConfirmSchema>;
+
+/** Patient self-requests nutrition professional support (spec 19.11). No
+ * required fields — the reason/risk factors are computed server-side from
+ * the patient's own conditions and recent logs, never trusted from the
+ * client (see requestNutritionReferralAction). */
+export const nutritionReferralRequestSchema = z.object({
+  note: z.string().trim().max(500).nullish(),
+});
+export type NutritionReferralRequestInput = z.infer<typeof nutritionReferralRequestSchema>;
+
+/** Budget-aware substitution ask (spec 19.9), e.g. "I cannot afford salmon". */
+export const budgetAlternativeQuerySchema = z.object({
+  food_query: z.string().trim().min(1).max(200),
+});
+export type BudgetAlternativeQueryInput = z.infer<typeof budgetAlternativeQuerySchema>;

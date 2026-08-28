@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -16,6 +17,18 @@ export default async function NutritionPage() {
     redirect("/onboarding");
   }
 
+  // Active chronic conditions drive condition-specific nutrition guidance
+  // (spec 19.6) and the nutrition-risk check for the professional-support
+  // pathway (19.11) — fetched here, server-side, from the same source of
+  // truth the rest of the platform uses (care_plans), not inferred.
+  const supabase = await createClient();
+  const { data: carePlans } = await supabase
+    .from("care_plans")
+    .select("condition")
+    .eq("patient_id", profile.id)
+    .eq("status", "active");
+  const activeConditions = Array.from(new Set((carePlans ?? []).map((p) => p.condition)));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -28,7 +41,11 @@ export default async function NutritionPage() {
         feature="lifestyle_coaching"
         fallback={<UpgradePrompt feature="lifestyle_coaching" />}
       >
-        <NutritionFlow patientId={profile.id} visionConfigured={isMealVisionConfigured()} />
+        <NutritionFlow
+          patientId={profile.id}
+          visionConfigured={isMealVisionConfigured()}
+          activeConditions={activeConditions}
+        />
       </RequiresEntitlement>
     </div>
   );

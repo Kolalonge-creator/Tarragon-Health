@@ -1,4 +1,9 @@
-import { nutritionLogSchema, nutritionConfirmSchema } from "./nutrition";
+import {
+  nutritionLogSchema,
+  nutritionConfirmSchema,
+  nutritionReferralRequestSchema,
+  budgetAlternativeQuerySchema,
+} from "./nutrition";
 
 describe("nutritionLogSchema", () => {
   it("accepts a meal type with no photo or description", () => {
@@ -41,5 +46,32 @@ describe("nutritionConfirmSchema", () => {
       confirmed_carbs_g: 5000,
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("nutritionReferralRequestSchema", () => {
+  it("accepts an empty request — no fields are required", () => {
+    expect(nutritionReferralRequestSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("accepts an optional note within the length limit", () => {
+    const parsed = nutritionReferralRequestSchema.safeParse({ note: "Struggling with portion sizes" });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a note over 500 characters", () => {
+    const parsed = nutritionReferralRequestSchema.safeParse({ note: "x".repeat(501) });
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe("budgetAlternativeQuerySchema", () => {
+  it("requires a non-empty food_query", () => {
+    expect(budgetAlternativeQuerySchema.safeParse({ food_query: "" }).success).toBe(false);
+  });
+
+  it("accepts a normal query", () => {
+    const parsed = budgetAlternativeQuerySchema.safeParse({ food_query: "I cannot afford salmon" });
+    expect(parsed.success).toBe(true);
   });
 });
