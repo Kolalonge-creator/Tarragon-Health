@@ -371,6 +371,19 @@ begin
 
   -- 5) Success path: complete, unclaimed, no paid plan -> grants a real
   -- trialing subscription and updates the reset row.
+  --
+  -- claim_health_reset_trial()'s OWN internal plan lookup (unlike this
+  -- fixture's v_plan_complete above) DOES filter on is_active, by design --
+  -- a deactivated plan must never be silently granted to a brand-new
+  -- signup. `complete` is genuinely is_active=false right now (deactivated
+  -- 2026-08-05 pending a Paystack "Sync now" re-sync after a price change,
+  -- 20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_
+  -- plans.sql) -- a real, current, deliberate ops state, not a code defect.
+  -- That is a separate concern from what THIS test proves (the claim
+  -- function's own guard rails + success-path logic), so reactivate it for
+  -- the life of this rolled-back transaction only.
+  update public.subscription_plans set is_active = true where code = 'complete';
+
   perform set_config('request.jwt.claims', json_build_object('sub', v_profile_success, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select public.claim_health_reset_trial() into v_result;

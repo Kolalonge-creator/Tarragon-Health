@@ -54,9 +54,32 @@ begin
   insert into public.lab_providers (name) values ('READINESS Lab A') returning id into v_lab_a;
   insert into public.lab_providers (name) values ('READINESS Lab B') returning id into v_lab_b;
 
-  select id into v_lp_a from public.profiles where role = 'pharmacist' limit 1;
-  select id into v_lp_b from public.profiles where role = 'lab_liaison' limit 1;
-  select id into v_unlinked from public.profiles where role = 'analyst' limit 1;
+  -- A fresh `supabase db reset` has no pre-existing "spare" pharmacist/
+  -- lab_liaison/analyst accounts to repurpose -- no migration or seed file
+  -- creates one (only clinician/care_coordinator/admin/corporate_admin/
+  -- hmo_admin are seeded, by 20260827100300_seed_ci_fixture_staff_and_
+  -- patient_subscriptions.sql). Self-provision them instead, same pattern
+  -- as packages/db/tests/scoped_access_roles_rls.sql: insert a fresh
+  -- auth.users row (on_auth_user_created defaults it to role='patient' in
+  -- the direct-consumer org) then update its role. Their role is
+  -- immediately overwritten to 'lab_partner' below anyway, so the
+  -- pharmacist/lab_liaison/analyst labels are just distinguishing accounts,
+  -- not roles this test depends on.
+  v_lp_a := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_lp_a, 'readiness.pharmacist@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set role = 'pharmacist', full_name = 'READINESS Pharmacist Fixture' where id = v_lp_a;
+
+  v_lp_b := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_lp_b, 'readiness.lab-liaison@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set role = 'lab_liaison', full_name = 'READINESS Lab Liaison Fixture' where id = v_lp_b;
+
+  v_unlinked := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_unlinked, 'readiness.analyst@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set role = 'analyst', full_name = 'READINESS Analyst Fixture' where id = v_unlinked;
+
   select id into v_admin from public.profiles where role = 'admin' order by id limit 1;
   select id into v_patient from public.profiles where role = 'patient' order by id limit 1;
 

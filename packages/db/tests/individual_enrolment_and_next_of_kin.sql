@@ -30,7 +30,6 @@ declare
   v_stranger uuid := gen_random_uuid();  -- no grant
   v_org      uuid := '00000000-0000-0000-0000-000000000001';
   v_vax      uuid;
-  v_wallet   uuid;
   v_n        int;
   v_wrote    boolean;
 begin
@@ -135,15 +134,24 @@ begin
 
   -- ---- 7. Funding still works, on consent alone ------------------------------
   -- can_fund_wallet used to accept a shared bill as authority. It now accepts
-  -- only a profile_access grant, which is the stricter condition.
-  v_wallet := private.ensure_wallet(v_owner);
-  if not private.can_fund_wallet(v_wallet, v_kin) then
-    raise exception 'FAIL: next of kin cannot fund the wallet they are consented to';
+  -- only a profile_access grant, which is the stricter condition. The Health
+  -- Wallet itself is retired (20260731215735_retire_health_wallet.sql); its
+  -- direct successor for "who may fund this person's care" is
+  -- private.can_purchase_voucher_for (added the same day, in
+  -- 20260731215226_care_vouchers_purchase_and_layaway.sql), which the
+  -- purchase_care_voucher/purchase_subscription_voucher RPCs both call for
+  -- authorisation. It keeps exactly the same shape can_fund_wallet had: self,
+  -- or ANY profile_access grant regardless of level -- so this still proves
+  -- that even the view-only next of kin (not just a 'manage' grantee) may pay
+  -- for care, because consent, not who can edit the record, is what funding
+  -- has always turned on.
+  if not private.can_purchase_voucher_for(v_owner, v_kin) then
+    raise exception 'FAIL: next of kin cannot fund care for someone they are consented to';
   end if;
-  if private.can_fund_wallet(v_wallet, v_stranger) then
-    raise exception 'FAIL: a stranger can fund the wallet';
+  if private.can_purchase_voucher_for(v_owner, v_stranger) then
+    raise exception 'FAIL: a stranger can fund care for the owner';
   end if;
-  raise notice 'PASS  wallet funding follows consent, not a shared bill';
+  raise notice 'PASS  care funding follows consent, not a shared bill';
 
   -- ---- 8. One price list, one diaspora currency ------------------------------
   select count(*) into v_n from public.subscription_plans where currency = 'GBP';

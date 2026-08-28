@@ -48,6 +48,13 @@ begin
   -- the QA roster has none since the 2026-07-29 database rebuild.
   -- license_verified_at is required by clinical_staff_active_requires_verification;
   -- indemnity is not, because Tier 2 is employed and covered institutionally.
+  -- The shared CI-fixture clinician this v_clin lookup now resolves to
+  -- already carries its own clinical_staff row (profile_id is unique) --
+  -- clear it first, same defensive pattern used elsewhere for this exact
+  -- collision (i1_i10_invariants_platform.sql's I5 section,
+  -- clinician_alert_override.sql).
+  delete from public.clinical_staff where profile_id = v_clin;
+
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, active, doctor_tier,
      credential_type, credential_number, license_verified_at)

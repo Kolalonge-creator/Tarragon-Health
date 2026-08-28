@@ -84,7 +84,11 @@ begin
   values (v_org, v_mum, 'ZZTestolol', '10 mg', 'Once daily', 'clinician', true, current_date + 5)
   returning id into v_med;
 
-  select id into v_partner from public.pharmacy_partners where is_active limit 1;
+  -- Self-provisioned (fresh-database pattern): no pharmacy_partners row is
+  -- guaranteed to exist on a fresh db, and this check only needs a real FK
+  -- target, not a specific named/live partner.
+  insert into public.pharmacy_partners (name) values ('ZZ Test Pharmacy Partner')
+    returning id into v_partner;
   insert into public.pharmacy_medications (pharmacy_partner_id, drug_name, pack_size, price_kobo)
   values (v_partner, 'ZZTestolol', '30 tablets', 450000) returning id into v_pm;
 

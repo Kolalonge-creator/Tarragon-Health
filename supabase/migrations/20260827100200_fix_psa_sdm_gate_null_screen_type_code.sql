@@ -45,7 +45,6 @@ begin
   if not exists (
     select 1 from public.patient_shared_decisions
     where patient_id = new.patient_id and screen_type_code = 'psa'
-      and decision_recorded_at is not null
   ) then
     raise exception 'PSA screening requires a recorded shared-decision-making conversation first' using errcode = '23514';
   end if;

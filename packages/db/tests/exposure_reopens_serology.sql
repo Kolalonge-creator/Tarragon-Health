@@ -37,6 +37,15 @@ begin
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Exposure Reopens Serology Test Patient'
     where id = v_p;
 
+  -- public.report_exposure() checks auth.uid() itself and raises 'not
+  -- authenticated' when it is null -- it is not just an RLS-gated table op
+  -- that this script's superuser connection can drive directly. v_p reports
+  -- their own exposure in every call below, so simulate v_p's session
+  -- around each call (set local role authenticated .. reset role), same
+  -- idiom as packages/db/tests/i5_emergency_escalation_synchronous_
+  -- contact.sql.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role','authenticated')::text, true);
+
   delete from public.screening_results where patient_id = v_p and screen_type_code = any(v_basics);
   delete from public.patient_exposure_reports where patient_id = v_p;
 
@@ -52,7 +61,9 @@ begin
   -- -----------------------------------------------------------------------
   -- A fresh exposure. Reopened, but far too early to test.
   -- -----------------------------------------------------------------------
+  set local role authenticated;
   v_res := public.report_exposure(v_p, 'needlestick_or_sharps', current_date - 2, 'used needle at work');
+  reset role;
 
   insert into test_results select 'e2_a_fresh_high_risk_exposure_is_urgent',
     (v_res ->> 'urgent')::boolean and (v_res ->> 'emergency_event_id') is not null,
@@ -102,11 +113,15 @@ begin
   -- An old exposure is not an emergency, and an unknown date is not either.
   -- -----------------------------------------------------------------------
   delete from public.patient_exposure_reports where patient_id = v_p;
+  set local role authenticated;
   v_res := public.report_exposure(v_p, 'needlestick_or_sharps', current_date - 200, 'years-old injury');
+  reset role;
   insert into test_results select 'e8_control_an_old_exposure_is_not_an_emergency',
     not (v_res ->> 'urgent')::boolean, v_res ->> 'urgent';
 
+  set local role authenticated;
   v_res := public.report_exposure(v_p, 'needlestick_or_sharps', null, 'cannot remember when');
+  reset role;
   insert into test_results select 'e9_an_unknown_date_goes_to_a_human_not_an_alarm',
     not (v_res ->> 'urgent')::boolean and (v_res ->> 'routes_to_human')::boolean,
     v_res ->> 'guidance';

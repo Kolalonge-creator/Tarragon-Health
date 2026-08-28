@@ -90,15 +90,19 @@ begin
     raise exception 'fixtures unavailable: need 2 patients and 1 clinician in org 0001';
   end if;
 
-  -- The lab partner. Reuses the existing partner-employee account and points it
-  -- at Lab A, keeping organisation_id set to a REAL org — that non-null org id
-  -- is precisely the misconfiguration the admin provisioning UI allows (its
+  -- The lab partner. A fresh `supabase db reset` has no pre-existing
+  -- partner-employee account to repurpose (only clinician/care_coordinator/
+  -- admin/corporate_admin/hmo_admin are seeded by 20260827100300_seed_ci_
+  -- fixture_staff_and_patient_subscriptions.sql), so self-provision one:
+  -- insert a fresh auth.users row (on_auth_user_created defaults it to
+  -- role='patient' in the direct-consumer org) then point it at Lab A,
+  -- keeping organisation_id set to a REAL org — that non-null org id is
+  -- precisely the misconfiguration the admin provisioning UI allows (its
   -- "Organisation (optional)" field does not distinguish by role), and
   -- precisely what used to satisfy private.is_org_staff.
-  select id into v_lp from public.profiles where role = 'pharmacist' limit 1;
-  if v_lp is null then
-    raise exception 'fixtures unavailable: no partner-employee account to repurpose';
-  end if;
+  v_lp := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_lp, 'verify.lab-partner@example.invalid', 'x', now(), '{}', '{}');
   update public.profiles
      set role = 'lab_partner', organisation_id = v_org, lab_provider_id = v_lab_a
    where id = v_lp;
