@@ -179,12 +179,17 @@ begin
   -- Part 3 — turnaround stats correctness (as superuser, seed one resulted
   -- order for Lab A only, then check both RPCs)
   -- =====================================================================
+  -- fulfilment = 'partner' is required: the column default, 'self_arranged'
+  -- (since 20260803124833_self_arranged_lab_fulfilment.sql), cannot name a
+  -- provider_id at all (private.enforce_lab_order_origin rejects it). No
+  -- panel_bundle_id is set here, so the pricing trigger no-ops regardless --
+  -- same reasoning already applied to packages/db/tests/lab_partner_rls.sql.
   insert into public.lab_orders
     (organisation_id, patient_id, provider_id, status, origin,
-     payment_confirmed_at, resulted_at)
+     payment_confirmed_at, resulted_at, fulfilment)
   values
     (v_org, v_patient, v_lab_a, 'resulted', 'patient_initiated',
-     now() - interval '30 hours', now())
+     now() - interval '30 hours', now(), 'partner')
   returning id into v_order_a;
 
   -- 8. Admin sees the scorecard across both labs; Lab A shows 1 resulted
