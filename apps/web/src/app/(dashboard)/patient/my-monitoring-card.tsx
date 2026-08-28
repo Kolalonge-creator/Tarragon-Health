@@ -1,17 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
-
-const VITAL_TYPE_LABEL: Record<string, string> = {
-  blood_pressure: "Blood pressure",
-  glucose: "Blood glucose",
-  weight: "Weight",
-  pulse: "Pulse",
-  temperature: "Temperature",
-  spo2: "Oxygen saturation",
-  waist_circumference: "Waist circumference",
-  ketones: "Ketones",
-};
+import { VITAL_TYPE_LABEL } from "@/lib/vitals/target-fields";
 
 /**
  * "My monitoring" (spec §6.15) — per-scheduled-vital completion over the

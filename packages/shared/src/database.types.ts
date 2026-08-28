@@ -11652,6 +11652,174 @@ export type Database = {
           },
         ]
       }
+      patient_spo2_targets: {
+        Row: {
+          amber_threshold_pct: number
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          rationale: string | null
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          amber_threshold_pct?: number
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          rationale?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amber_threshold_pct?: number
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          rationale?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_spo2_targets_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_spo2_targets_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_spo2_targets_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_temperature_targets: {
+        Row: {
+          amber_threshold_c: number
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          rationale: string | null
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          amber_threshold_c?: number
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          rationale?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amber_threshold_c?: number
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          rationale?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_temperature_targets_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_temperature_targets_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_temperature_targets_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_pulse_targets: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          rationale: string | null
+          resting_max_bpm: number
+          resting_min_bpm: number
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          rationale?: string | null
+          resting_max_bpm?: number
+          resting_min_bpm?: number
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          rationale?: string | null
+          resting_max_bpm?: number
+          resting_min_bpm?: number
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_pulse_targets_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_pulse_targets_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_pulse_targets_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_glucose_targets: {
         Row: {
           category: Database["public"]["Enums"]["glycaemic_target_category"]

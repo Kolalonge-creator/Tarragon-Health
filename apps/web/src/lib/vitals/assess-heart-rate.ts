@@ -31,19 +31,34 @@ export async function assessHeartRateBestEffort(
   organisationId: string
 ): Promise<void> {
   const since = new Date(Date.now() - HEART_RATE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const { data: readings } = await supabase
-    .from("vitals_readings")
-    .select("pulse_bpm")
-    .eq("patient_id", patientId)
-    .eq("vital_type", "pulse")
-    .gte("taken_at", since);
+  const [{ data: readings }, { data: target }] = await Promise.all([
+    supabase
+      .from("vitals_readings")
+      .select("pulse_bpm")
+      .eq("patient_id", patientId)
+      .eq("vital_type", "pulse")
+      .gte("taken_at", since),
+    // §6.10 — never one universal target. No emergency/red tier exists for
+    // pulse at all (this is a best-effort pattern flag, never a page), so a
+    // full resting-range override is safe — an athlete or a patient on
+    // rate-controlling medication can have a genuinely different normal.
+    supabase
+      .from("patient_pulse_targets")
+      .select("resting_min_bpm, resting_max_bpm")
+      .eq("patient_id", patientId)
+      .maybeSingle(),
+  ]);
+
+  const restingRange = target
+    ? { min: target.resting_min_bpm, max: target.resting_max_bpm }
+    : RESTING_RANGE;
 
   const values = (readings ?? [])
     .map((r) => r.pulse_bpm)
     .filter((v): v is number => v !== null);
   if (values.length < MIN_READINGS_FOR_ASSESSMENT) return;
 
-  const outOfRangeCount = values.filter((v) => v < RESTING_RANGE.min || v > RESTING_RANGE.max).length;
+  const outOfRangeCount = values.filter((v) => v < restingRange.min || v > restingRange.max).length;
   const outOfRangePercent = Math.round((outOfRangeCount / values.length) * 100);
 
   const serviceRoleClient = createServiceRoleClient();
@@ -78,6 +93,8 @@ export async function assessHeartRateBestEffort(
     level: "clinician_review",
     status: "open",
     title: HEART_RATE_ALERT_TITLE,
-    detail: `${outOfRangePercent}% of this patient's heart rate readings over the last ${HEART_RATE_WINDOW_DAYS} days were outside the typical 60-100 bpm resting range. This is a pattern-based triage flag, not a diagnosis — a single reading, exercise, or stress can all cause this on their own; worth a closer look if it persists.`,
+    detail: `${outOfRangePercent}% of this patient's heart rate readings over the last ${HEART_RATE_WINDOW_DAYS} days were outside ${
+      target ? "this patient's individualised" : "the typical"
+    } ${restingRange.min}-${restingRange.max} bpm resting range. This is a pattern-based triage flag, not a diagnosis — a single reading, exercise, or stress can all cause this on their own; worth a closer look if it persists.`,
   });
 }

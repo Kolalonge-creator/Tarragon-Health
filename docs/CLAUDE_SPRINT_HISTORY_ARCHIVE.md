@@ -2817,14 +2817,10 @@ all already built) and closed the real gaps found, rather than rebuilding anythi
   `""`, which `z.enum(...).optional()` rejects (only `undefined` passes `.optional()`) and which would
   have tripped `vitals_readings`' new `position`/`arm` CHECK constraints on insert — fixed with a shared
   `emptyToUndefined` Zod preprocessor.
-- **Explicitly not built**, per the spec's own "Eventually" framing for §6.19 (Remote Patient Monitoring)
-  and to stay inside the founder-set clinical-staffing/regulatory guardrails: no heart-failure-specific
-  daily-weight-decompensation engine. The generalised trend + risk-aware missed-monitoring machinery above
-  gets most of the way there for any condition without hard-coding one; a dedicated RPM programme is a
-  distinct future ask. Target-range configurability for SpO2/temperature/pulse (§6.10) stayed as the
-  existing hardcoded population bands (`private.classify_spo2_level`/`classify_temperature_level`) — BP
-  and glucose already have real per-patient targets (`patient_bp_targets`/`patient_glucose_targets`); widening
-  the other three was judged out of scope for this pass rather than attempted partially.
+- **Explicitly not built in this first pass**, per the spec's own "Eventually" framing for §6.19 (Remote
+  Patient Monitoring): no heart-failure-specific daily-weight-decompensation engine, no SpO2/temperature/
+  pulse target configurability, no schedule-editing UI — **closed the same day, on explicit founder ask,
+  in a direct follow-up** (see the next entry below).
 - Verified: `pnpm --filter @tarragon/shared typecheck` clean after hand-merging the new tables/columns/
   enums/RPC signatures into `database.types.ts` (same targeted-insert precedent as the device_catalog
   entries above — no live Supabase project access in this environment to regenerate from); `pnpm --filter
@@ -2842,4 +2838,65 @@ all already built) and closed the real gaps found, rather than rebuilding anythi
   and the baseline-vs-current card was left for a follow-up rather than rushed). No UI was built for editing
   a `monitoring_schedule_items` row after it's auto-seeded (frequency/target/instructions) — the table and
   RLS support clinician writes; there is no dedicated screen yet.
+
+### 2026-08-28 (same day, follow-up) — Monitoring Engine: heart-failure RPM alert, individualised SpO2/
+### temperature/pulse targets, schedule-editing UI
+
+Closes the three gaps the entry above flagged as "not built," on explicit founder ask — same "pull
+forward on explicit ask" precedent CLAUDE.md documents for Employer/HMO dashboards and Premium ParentCare.
+2 more migrations, both additive:
+
+- **Heart-failure RPM alert** (§6.19) — `private.handle_heart_failure_weight_gain_red_flag()`, a trigger
+  on `vitals_readings` scoped to patients with an ENROLLED `heart_failure` `chronic_programme_enrolments`
+  row only (an unrelated patient's hydration-driven weight swing must never trigger this). Fires on a
+  >2kg gain within the trailing 3 days, encoding `condition_protocols`' own already-Clinical-Director-
+  authored WHO/ESC guidance verbatim ("weigh daily and report gain of more than 2 kg in 3 days"; escalation
+  SLA "Priority-1 red alert - 4-hour clinician contact SLA", matching CLAUDE.md's own 4-hour figure for the
+  platform's other Priority-1 pathway) rather than inventing a number. Same one-open-alert-per-mechanism,
+  upgrade/refresh-only dedup shape as every other red-flag engine. Deliberately narrower than the full spec
+  example: this is the quantifiable weight-trend half only — a "worsening breathlessness" self-report
+  already reaches a clinician via the existing symptom-logging/danger-symptom safety net, so this doesn't
+  duplicate that.
+- **Individualised SpO2/temperature/pulse targets** (§6.10) — new `patient_spo2_targets`/`patient_
+  temperature_targets`/`patient_pulse_targets` tables, same shape as the existing `patient_bp_targets`/
+  `patient_glucose_targets` (H5/§9). Wired into `handle_spo2_reading_red_flag()`/`handle_temperature_
+  reading_red_flag()` the exact same way BP's H5.3 already does it: an override can only ever make the
+  ROUTINE ("amber") review threshold more or less sensitive — the RED/EMERGENCY safety floor is fixed by a
+  CHECK constraint the override literally cannot cross (`amber_threshold_pct > 92`, `amber_threshold_c <
+  39.0`), mirroring `patient_glucose_targets`' own explicit rule that emergency/hypo thresholds are never
+  relaxed. `classify_spo2_level()`/`classify_temperature_level()` themselves are untouched — still the
+  fixed classifier the TS presentation-only badges mirror; the override is a second explicit step in each
+  trigger, not folded into the classifier. **Deliberately NOT a full custom emergency-floor remap** for
+  chronic hypoxaemia (a severe COPD patient prescribed a target SpO2 range below the population "red"
+  band, e.g. 88-92%, is a real, distinct clinical policy decision — home-oxygen target-saturation
+  prescribing — needing actual Clinical Director sign-off, not something to invent inside a migration).
+  Flagged for that review, not decided here, same "flag rather than invent an unasked band" precedent the
+  temperature engine's own mild-hypothermia note already set. Pulse has no emergency/red tier at all
+  (`assess-heart-rate.ts` is a best-effort trailing-window pattern flag, never a page), so `patient_pulse_
+  targets` allows a full resting-range override (default 60-100bpm) with no safety-floor constraint to
+  enforce — wired into `assessHeartRateBestEffort()`.
+- **Schedule-editing UI** (§6.3/§6.4) — `MonitoringSchedulePanel` on the clinician per-patient detail page:
+  frequency/week, status (active/paused/completed), patient instructions, and a per-vital-type target editor
+  (`lib/vitals/target-fields.ts` — the same field-key shape `private.set_monitoring_baseline_on_first_
+  reading()` already uses for baseline jsonb, so target/baseline share one shape per vital_type). Direct
+  client-side `.update()` via a new `useUpdateMonitoringScheduleItem()` mutation hook — org staff already
+  have RLS write access to `monitoring_schedule_items`, same pattern `useAssignCareTeam()` already uses for
+  `care_team_assignment`, not a new RPC. Scoped to what a clinician asks for day to day (how often, what
+  target); `acceptable_range`/`escalation_threshold` stay DB/RLS-supported but without a dedicated editor —
+  flagged as future work, not attempted partially.
+- Verified: `pnpm --filter @tarragon/shared typecheck` clean after hand-merging the 3 new tables into
+  `database.types.ts`; `pnpm --filter web typecheck`/`lint`/`test`/`build` all clean (0 errors, same 4
+  pre-existing warnings, 109/109 suites, 1128/1128 tests — no new jest tests for `assess-heart-rate.ts`'s
+  change specifically, since that file had no existing test precedent to extend and a mock-heavy test for a
+  service-role side-effecting function would be lower quality than the two new SQL tests below). Two more
+  `packages/db/tests/` SQL checks, same rolled-back-transaction convention, covering the weight-gain
+  trigger's enrolled-vs-not scoping + dedup, and the SpO2 override's upgrade behaviour + the CHECK
+  constraint actually rejecting an attempt to cross into the fixed RED band.
+- **Not done, flagged not guessed at:** same live-migration caveat as the entry above — nothing here has
+  been applied to the live `koiplnmbgnqnbywhpjlf` project or run against a real database from this
+  environment. No UI surfaces a patient's individualised SpO2/temperature/pulse target anywhere yet (the
+  DB layer is complete and tested; a "your care team has set your oxygen target to X%" display is a natural
+  next step, not built here). No UI exists for a clinician to actually SET a patient_spo2_targets/patient_
+  temperature_targets/patient_pulse_targets row — the tables and RLS support it, entry is direct-DB/RPC
+  only for now, same scope boundary as `monitoring_schedule_items`' `acceptable_range` above.
 

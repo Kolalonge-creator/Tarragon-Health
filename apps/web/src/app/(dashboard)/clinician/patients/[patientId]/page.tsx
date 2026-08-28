@@ -26,6 +26,7 @@ import { HandOverCareSection } from "./hand-over-care-section";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
 import { FlaggedReadingsPanel } from "./flagged-readings-panel";
+import { MonitoringSchedulePanel } from "./monitoring-schedule-panel";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
 import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
@@ -275,6 +276,7 @@ export default async function ClinicianPatientPage({
             content: (
               <>
                 <FlaggedReadingsPanel patientId={patient.id} />
+                <MonitoringSchedulePanel patientId={patient.id} />
                 <BpLadderPanel patientId={patient.id} />
                 <HealthTrendsCard patientId={patient.id} audience="clinician" />
                 <VitalsTrendChart patientId={patient.id} />
