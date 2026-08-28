@@ -55,6 +55,34 @@ comment on column public.clinician_alerts.responsible_clinician_id is
 comment on column public.clinician_alerts.dedup_key is
   'type_code:patient_id. Used by the classify/assign trigger to find a recent (24h) open/acknowledged alert of the same type for the same patient -- see duplicate_of. A duplicate is always still inserted and visible; it is only ever hidden from active counts when alert_rules has explicitly turned on protocol-based suppression for that type (8.7) -- never a silent, ungoverned drop.';
 
+-- Live-checked before writing this fix: 2 pre-existing clinician_alerts
+-- rows (status='resolved', level='clinician_review' -> severity 2, both
+-- QA fixture rows from 2026-08-10 -- title 'A lab result document was
+-- uploaded (patient) -- QA fixture for ...') predate resolution_action/
+-- resolution_outcome entirely and would fail the documentation-required
+-- constraint below, including on the later backfill UPDATE further down in
+-- this file (a CHECK constraint is re-validated on every UPDATE that
+-- touches the row, NOT VALID or not -- it only skips the one-time bulk
+-- scan at ADD CONSTRAINT time, so NOT VALID alone does not help here).
+-- These are synthetic test fixtures, not real patient care records, so an
+-- honest "this predates the requirement" placeholder is not fabricating
+-- clinical documentation -- it is accurately describing why the field is
+-- empty. Condition-based (not a hardcoded row id) so it also covers any
+-- other legacy resolved/closed severity>=2 row this live check missed.
+update public.clinician_alerts
+set
+  resolution_action = coalesce(resolution_action,
+    'Legacy record: resolved before the Alert System resolution-documentation requirement (2026-08-28) existed. No contemporaneous action note was captured at the time.'),
+  resolution_outcome = coalesce(resolution_outcome, 'no_action_needed')
+where status in ('resolved', 'closed')
+  and resolution_action is null
+  and (case coalesce(override_level, level)
+         when 'emergency' then 4
+         when 'urgent_escalation' then 3
+         when 'clinician_review' then 2
+         when 'routine' then 1
+       end) >= 2;
+
 alter table public.clinician_alerts
   add constraint clinician_alerts_severity_range
     check (severity is null or severity between 0 and 4),
