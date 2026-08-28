@@ -20,11 +20,14 @@
 -- audited actor id set_config wouldn't otherwise see -- matching the real
 -- migration's own revoke-from-public/grant-to-service_role pattern.
 --
--- Explicit `revoke ... from anon` on every one of these, not just `from
--- public` (confirmed necessary via CI: a first pass with only the public
--- revoke still left anon directly EXECUTE-able) -- this environment's
--- default-ACL gap isn't purely PUBLIC-pseudo-role inheritance here, so
--- belt-and-suspenders on both.
+-- Explicit `revoke ... from anon` AND `from authenticated` on every one of
+-- these, not just `from public` -- confirmed both necessary via CI, one at
+-- a time: a first pass with only the public revoke still left anon
+-- directly EXECUTE-able, and after adding that, authenticated was still
+-- directly EXECUTE-able too. This environment's default-ACL gap isn't
+-- purely PUBLIC-pseudo-role inheritance here, so belt-and-suspenders on
+-- every role that must NOT have it, for a genuinely service-role-only
+-- surface.
 create function public.provision_dependent_profile_basics(
   p_child_id uuid,
   p_date_of_birth date,
@@ -42,6 +45,7 @@ $$;
 
 revoke all on function public.provision_dependent_profile_basics(uuid, date, public.sex, uuid) from public;
 revoke all on function public.provision_dependent_profile_basics(uuid, date, public.sex, uuid) from anon;
+revoke all on function public.provision_dependent_profile_basics(uuid, date, public.sex, uuid) from authenticated;
 grant execute on function public.provision_dependent_profile_basics(uuid, date, public.sex, uuid) to service_role;
 
 create function public.mark_emergency_contact_notified(
@@ -59,6 +63,7 @@ $$;
 
 revoke all on function public.mark_emergency_contact_notified(uuid, uuid) from public;
 revoke all on function public.mark_emergency_contact_notified(uuid, uuid) from anon;
+revoke all on function public.mark_emergency_contact_notified(uuid, uuid) from authenticated;
 grant execute on function public.mark_emergency_contact_notified(uuid, uuid) to service_role;
 
 create function public.mark_identity_verified(
@@ -77,6 +82,7 @@ $$;
 
 revoke all on function public.mark_identity_verified(uuid, timestamptz, uuid) from public;
 revoke all on function public.mark_identity_verified(uuid, timestamptz, uuid) from anon;
+revoke all on function public.mark_identity_verified(uuid, timestamptz, uuid) from authenticated;
 grant execute on function public.mark_identity_verified(uuid, timestamptz, uuid) to service_role;
 
 create function public.insert_audited_lab_result_document(
@@ -104,4 +110,5 @@ $$;
 
 revoke all on function public.insert_audited_lab_result_document(uuid, uuid, uuid, text, text, text, bigint, public.lab_result_document_source, uuid, text, uuid) from public;
 revoke all on function public.insert_audited_lab_result_document(uuid, uuid, uuid, text, text, text, bigint, public.lab_result_document_source, uuid, text, uuid) from anon;
+revoke all on function public.insert_audited_lab_result_document(uuid, uuid, uuid, text, text, text, bigint, public.lab_result_document_source, uuid, text, uuid) from authenticated;
 grant execute on function public.insert_audited_lab_result_document(uuid, uuid, uuid, text, text, text, bigint, public.lab_result_document_source, uuid, text, uuid) to service_role;
