@@ -64,6 +64,10 @@ export async function flagCvRiskEscalations(
       status: "open" as const,
       title: `${ALERT_TITLE_PREFIX}: ${e.code.replace(/_/g, " ")}`,
       detail: `${codeTag(e.code)} ${e.label}`,
+      // A worsening cardiovascular-risk trend is a clinical deterioration
+      // signal (8.1 deterioration), not a single abnormal reading.
+      category: "clinical" as const,
+      type_code: "deterioration" as const,
     }));
 
   if (rows.length > 0) {
