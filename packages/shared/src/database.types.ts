@@ -3148,6 +3148,8 @@ export type Database = {
           async_consult_id: string | null
           authored_by_profile: string | null
           authored_by_staff: string | null
+          call_ended_at: string | null
+          call_started_at: string | null
           created_at: string
           diagnosis: string | null
           encounter_date: string
@@ -3160,6 +3162,7 @@ export type Database = {
           history: string | null
           id: string
           organisation_id: string
+          outcome: Database["public"]["Enums"]["consultation_outcome"] | null
           patient_id: string
           plan: string | null
           reason_for_encounter: string
@@ -3172,6 +3175,8 @@ export type Database = {
           async_consult_id?: string | null
           authored_by_profile?: string | null
           authored_by_staff?: string | null
+          call_ended_at?: string | null
+          call_started_at?: string | null
           created_at?: string
           diagnosis?: string | null
           encounter_date?: string
@@ -3184,6 +3189,7 @@ export type Database = {
           history?: string | null
           id?: string
           organisation_id: string
+          outcome?: Database["public"]["Enums"]["consultation_outcome"] | null
           patient_id: string
           plan?: string | null
           reason_for_encounter: string
@@ -3196,6 +3202,8 @@ export type Database = {
           async_consult_id?: string | null
           authored_by_profile?: string | null
           authored_by_staff?: string | null
+          call_ended_at?: string | null
+          call_started_at?: string | null
           created_at?: string
           diagnosis?: string | null
           encounter_date?: string
@@ -3208,6 +3216,7 @@ export type Database = {
           history?: string | null
           id?: string
           organisation_id?: string
+          outcome?: Database["public"]["Enums"]["consultation_outcome"] | null
           patient_id?: string
           plan?: string | null
           reason_for_encounter?: string
@@ -4389,6 +4398,187 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultation_feedback: {
+        Row: {
+          comment: string | null
+          communication_rating: number | null
+          created_at: string
+          id: string
+          organisation_id: string
+          overall_rating: number
+          patient_id: string
+          punctuality_rating: number | null
+          technical_experience_rating: number | null
+          video_consultation_id: string
+        }
+        Insert: {
+          comment?: string | null
+          communication_rating?: number | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          overall_rating: number
+          patient_id: string
+          punctuality_rating?: number | null
+          technical_experience_rating?: number | null
+          video_consultation_id: string
+        }
+        Update: {
+          comment?: string | null
+          communication_rating?: number | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          overall_rating?: number
+          patient_id?: string
+          punctuality_rating?: number | null
+          technical_experience_rating?: number | null
+          video_consultation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_feedback_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_feedback_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_feedback_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: true
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultation_follow_ups: {
+        Row: {
+          action_type: string
+          actioned_at: string | null
+          actioned_by_staff: string | null
+          created_at: string
+          created_by_staff: string | null
+          description: string
+          due_at: string | null
+          encounter_note_id: string
+          id: string
+          linked_outreach_task_id: string | null
+          linked_referral_id: string | null
+          linked_vitals_reminder_rule_id: string | null
+          organisation_id: string
+          patient_id: string
+          resolution_note: string | null
+          status: string
+          structured_params: Json
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          actioned_at?: string | null
+          actioned_by_staff?: string | null
+          created_at?: string
+          created_by_staff?: string | null
+          description: string
+          due_at?: string | null
+          encounter_note_id: string
+          id?: string
+          linked_outreach_task_id?: string | null
+          linked_referral_id?: string | null
+          linked_vitals_reminder_rule_id?: string | null
+          organisation_id: string
+          patient_id: string
+          resolution_note?: string | null
+          status?: string
+          structured_params?: Json
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          actioned_at?: string | null
+          actioned_by_staff?: string | null
+          created_at?: string
+          created_by_staff?: string | null
+          description?: string
+          due_at?: string | null
+          encounter_note_id?: string
+          id?: string
+          linked_outreach_task_id?: string | null
+          linked_referral_id?: string | null
+          linked_vitals_reminder_rule_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          resolution_note?: string | null
+          status?: string
+          structured_params?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_follow_ups_actioned_by_staff_fkey"
+            columns: ["actioned_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_follow_ups_created_by_staff_fkey"
+            columns: ["created_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_follow_ups_encounter_note_id_fkey"
+            columns: ["encounter_note_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_encounter_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_follow_ups_linked_outreach_task_id_fkey"
+            columns: ["linked_outreach_task_id"]
+            isOneToOne: false
+            referencedRelation: "care_outreach_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_follow_ups_linked_referral_id_fkey"
+            columns: ["linked_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_follow_ups_linked_vitals_reminder_rule_id_fkey"
+            columns: ["linked_vitals_reminder_rule_id"]
+            isOneToOne: false
+            referencedRelation: "vitals_reminder_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_follow_ups_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_follow_ups_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -16539,6 +16729,8 @@ export type Database = {
           organisation_id: string
           patient_confirmed_at: string | null
           patient_id: string
+          patient_prep_notes: string | null
+          patient_prep_submitted_at: string | null
           proposed_slots: string[] | null
           scheduled_at: string | null
           specialist_referral_id: string | null
@@ -16560,6 +16752,8 @@ export type Database = {
           organisation_id: string
           patient_confirmed_at?: string | null
           patient_id: string
+          patient_prep_notes?: string | null
+          patient_prep_submitted_at?: string | null
           proposed_slots?: string[] | null
           scheduled_at?: string | null
           specialist_referral_id?: string | null
@@ -16581,6 +16775,8 @@ export type Database = {
           organisation_id?: string
           patient_confirmed_at?: string | null
           patient_id?: string
+          patient_prep_notes?: string | null
+          patient_prep_submitted_at?: string | null
           proposed_slots?: string[] | null
           scheduled_at?: string | null
           specialist_referral_id?: string | null
@@ -18016,6 +18212,15 @@ export type Database = {
         Args: { p_order_id: string; p_partner_reference: string }
         Returns: Json
       }
+      action_consultation_follow_up: {
+        Args: {
+          p_followup_id: string
+          p_monitoring_frequency_days?: number
+          p_referral_reason?: string
+          p_referral_specialist_type?: string
+        }
+        Returns: Json
+      }
       admin_broadcast_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]
@@ -18248,6 +18453,10 @@ export type Database = {
           p_report_date: string
         }
         Returns: number
+      }
+      consultation_prep_bundle: {
+        Args: { p_consultation_id: string }
+        Returns: Json
       }
       create_emergency_card: { Args: never; Returns: string }
       create_personalised_lifestyle_goal: {
@@ -18742,6 +18951,10 @@ export type Database = {
       }
       log_result_document_viewed: {
         Args: { p_document_id: string }
+        Returns: undefined
+      }
+      mark_consultation_follow_up_not_needed: {
+        Args: { p_followup_id: string; p_reason: string }
         Returns: undefined
       }
       mark_emergency_contact_notified: {
@@ -19347,6 +19560,10 @@ export type Database = {
         }
         Returns: string
       }
+      submit_consultation_prep: {
+        Args: { p_consultation_id: string; p_notes: string }
+        Returns: undefined
+      }
       touch_last_active: { Args: never; Returns: undefined }
       upsert_lab_report_template: {
         Args: {
@@ -19594,6 +19811,15 @@ export type Database = {
         | "resolved"
         | "historical"
       consent_type: "data_processing" | "telehealth" | "terms_of_service"
+      consultation_outcome:
+        | "reassurance"
+        | "continue_monitoring"
+        | "treatment_started"
+        | "treatment_changed"
+        | "investigation_requested"
+        | "referral"
+        | "follow_up"
+        | "emergency_escalation"
       contract_status:
         | "draft"
         | "submitted"
@@ -19878,6 +20104,8 @@ export type Database = {
         | "stale_monitoring"
         | "unactioned_abnormal"
         | "awaiting_result"
+        | "repeated_no_show"
+        | "consultation_follow_up"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -20500,6 +20728,16 @@ export const Constants = {
         "historical",
       ],
       consent_type: ["data_processing", "telehealth", "terms_of_service"],
+      consultation_outcome: [
+        "reassurance",
+        "continue_monitoring",
+        "treatment_started",
+        "treatment_changed",
+        "investigation_requested",
+        "referral",
+        "follow_up",
+        "emergency_escalation",
+      ],
       contract_status: [
         "draft",
         "submitted",
@@ -20816,6 +21054,8 @@ export const Constants = {
         "stale_monitoring",
         "unactioned_abnormal",
         "awaiting_result",
+        "repeated_no_show",
+        "consultation_follow_up",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [
