@@ -54,6 +54,7 @@ declare
   n_stats_rows   int;
   n_own_row      numeric;
   n_admin_result numeric;
+  v_staff        uuid; -- an active clinical_staff.id, for a clinically-triggered order below
 begin
   -- --------------------------------------------------------------------
   -- Fixtures (as the connecting superuser, RLS bypassed)
@@ -184,12 +185,25 @@ begin
   -- provider_id at all (private.enforce_lab_order_origin rejects it). No
   -- panel_bundle_id is set here, so the pricing trigger no-ops regardless --
   -- same reasoning already applied to packages/db/tests/lab_partner_rls.sql.
+  --
+  -- origin must be 'clinically_triggered', not 'patient_initiated': the
+  -- latter branch of enforce_lab_order_origin requires either a
+  -- self-bookable panel_bundle_id (none is set here) or a linked, due
+  -- screening_schedule_id -- neither applies to this fixture, which only
+  -- needs a real order to exist for the turnaround-stats RPCs to count.
+  -- The clinically_triggered branch instead requires ordered_by to name a
+  -- real, active clinical_staff row -- the shared CI-fixture clinician
+  -- (20260827100300_seed_ci_fixture_staff_and_patient_subscriptions.sql)
+  -- already has one, same as lab_partner_rls.sql's v_staff.
+  select id into v_staff from public.clinical_staff where organisation_id = v_org and active limit 1;
+  if v_staff is null then raise exception 'fixture: no active clinical_staff row in org %', v_org; end if;
+
   insert into public.lab_orders
     (organisation_id, patient_id, provider_id, status, origin,
-     payment_confirmed_at, resulted_at, fulfilment)
+     payment_confirmed_at, resulted_at, fulfilment, ordered_by)
   values
-    (v_org, v_patient, v_lab_a, 'resulted', 'patient_initiated',
-     now() - interval '30 hours', now(), 'partner')
+    (v_org, v_patient, v_lab_a, 'resulted', 'clinically_triggered',
+     now() - interval '30 hours', now(), 'partner', v_staff)
   returning id into v_order_a;
 
   -- 8. Admin sees the scorecard across both labs; Lab A shows 1 resulted
