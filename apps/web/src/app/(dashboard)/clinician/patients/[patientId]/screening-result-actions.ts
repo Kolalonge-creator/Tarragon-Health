@@ -2,14 +2,24 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { screeningResultSchema } from "@/lib/validation/screening-result";
+import { screeningResultSchema, type ScreeningResultInput } from "@/lib/validation/screening-result";
 import { computeNonHdl } from "@/lib/lipids/analytes";
 import { flagCvRiskEscalations } from "@/lib/cv-risk/escalate";
+import { flagTrendReviewEscalations } from "@/lib/clinical/trend-escalation";
 import {
   createMlClientFromEnv,
   type AnalyteReadingIn,
   type Json,
+  type LabInterpretationResponse,
 } from "@tarragon/shared";
+
+type AnalyteReadingRow = {
+  organisation_id: string;
+  patient_id: string;
+  code: string;
+  value: number;
+  unit: string;
+};
 
 export type SubmitScreeningResultState = { error?: string; success?: boolean } | undefined;
 
@@ -20,6 +30,103 @@ function ageFromDob(dateOfBirth: string): number {
   return Math.floor(
     (Date.now() - new Date(dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
   );
+}
+
+/**
+ * The single classification path for a screening/lab result — shared by
+ * submitScreeningResult and recordScreeningResultCorrection so a correction
+ * is classified exactly the same way a fresh result is: through the
+ * protocol-governed ML service, never a clinician's own direct assertion of
+ * result_status (see the trust-boundary note on record_result_correction()
+ * in its migration).
+ */
+async function classifyScreeningInput(
+  mlClient: NonNullable<ReturnType<typeof createMlClientFromEnv>>,
+  input: ScreeningResultInput,
+  sex: "male" | "female",
+  age: number
+): Promise<{ interpretation: LabInterpretationResponse; analytes: AnalyteReadingIn[] } | null> {
+  const analytes: AnalyteReadingIn[] = [];
+  if (input.screen_type_code === "hba1c" && input.hba1c_value !== undefined) {
+    analytes.push({ code: "hba1c", value: input.hba1c_value, hba1c_unit: input.hba1c_unit });
+  }
+  if (input.screen_type_code === "psa" && input.psa_value !== undefined) {
+    analytes.push({ code: "psa", value: input.psa_value });
+  }
+  if (input.screen_type_code === "ogtt_fpg" && input.ogtt_fpg_value !== undefined) {
+    // OGTT/fasting plasma glucose is the same measurement, same canonical
+    // unit, as the platform's existing 'fasting_glucose' analyte code —
+    // reused rather than adding a new ML-side AnalyteCode.
+    analytes.push({ code: "fasting_glucose", value: input.ogtt_fpg_value });
+  }
+  if (input.screen_type_code === "lipid_panel") {
+    if (input.total_cholesterol_mg_dl !== undefined) {
+      analytes.push({ code: "total_cholesterol", value: input.total_cholesterol_mg_dl });
+    }
+    if (input.hdl_cholesterol_mg_dl !== undefined) {
+      analytes.push({ code: "hdl_cholesterol", value: input.hdl_cholesterol_mg_dl });
+    }
+    if (input.ldl_cholesterol_mg_dl !== undefined) {
+      analytes.push({ code: "ldl_cholesterol", value: input.ldl_cholesterol_mg_dl });
+    }
+    if (input.triglycerides_mg_dl !== undefined) {
+      analytes.push({ code: "triglycerides", value: input.triglycerides_mg_dl });
+    }
+  }
+
+  const interpretation = await mlClient.interpretLabs({
+    screen_type_code: input.screen_type_code,
+    sex,
+    age,
+    analytes: analytes.length > 0 ? analytes : undefined,
+    qualitative_result: input.qualitative_result,
+    genotype: input.genotype,
+    procedural_status: input.procedural_status,
+  });
+  if (!interpretation) return null;
+
+  return { interpretation, analytes };
+}
+
+/**
+ * Store hba1c in its canonical percent value regardless of the unit the
+ * form submitted, so history stays comparable across readings. `code` is
+ * widened to string because Non-HDL is an app-derived analyte (not part of
+ * the ML AnalyteCode union); the DB column is free text. Also computes and
+ * appends the derived Non-HDL (Total − HDL) row for a lipid panel — never a
+ * separate table, just a derived row (see lib/lipids/analytes).
+ */
+function buildAnalyteReadingRows(
+  organisationId: string,
+  patientId: string,
+  input: ScreeningResultInput,
+  interpretation: LabInterpretationResponse
+): AnalyteReadingRow[] {
+  const unitFor = (code: AnalyteReadingIn["code"]): string =>
+    code === "hba1c" ? "percent" : code === "psa" ? "ng/mL" : "mg/dL";
+
+  const rows: AnalyteReadingRow[] = interpretation.analyte_results.map((result) => ({
+    organisation_id: organisationId,
+    patient_id: patientId,
+    code: result.code,
+    value: result.code === "hba1c" && result.value_percent !== null ? result.value_percent : result.value,
+    unit: unitFor(result.code),
+  }));
+
+  const nonHdl = computeNonHdl(
+    input.total_cholesterol_mg_dl ?? null,
+    input.hdl_cholesterol_mg_dl ?? null
+  );
+  if (input.screen_type_code === "lipid_panel" && nonHdl !== null) {
+    rows.push({
+      organisation_id: organisationId,
+      patient_id: patientId,
+      code: "non_hdl_cholesterol",
+      value: nonHdl,
+      unit: "mg/dL",
+    });
+  }
+  return rows;
 }
 
 /**
@@ -62,51 +169,16 @@ export async function submitScreeningResult(
   const sex = patient.sex;
   const age = ageFromDob(patient.date_of_birth);
 
-  const analytes: AnalyteReadingIn[] = [];
-  if (input.screen_type_code === "hba1c" && input.hba1c_value !== undefined) {
-    analytes.push({ code: "hba1c", value: input.hba1c_value, hba1c_unit: input.hba1c_unit });
-  }
-  if (input.screen_type_code === "psa" && input.psa_value !== undefined) {
-    analytes.push({ code: "psa", value: input.psa_value });
-  }
-  if (input.screen_type_code === "ogtt_fpg" && input.ogtt_fpg_value !== undefined) {
-    // OGTT/fasting plasma glucose is the same measurement, same canonical
-    // unit, as the platform's existing 'fasting_glucose' analyte code —
-    // reused rather than adding a new ML-side AnalyteCode.
-    analytes.push({ code: "fasting_glucose", value: input.ogtt_fpg_value });
-  }
-  if (input.screen_type_code === "lipid_panel") {
-    if (input.total_cholesterol_mg_dl !== undefined) {
-      analytes.push({ code: "total_cholesterol", value: input.total_cholesterol_mg_dl });
-    }
-    if (input.hdl_cholesterol_mg_dl !== undefined) {
-      analytes.push({ code: "hdl_cholesterol", value: input.hdl_cholesterol_mg_dl });
-    }
-    if (input.ldl_cholesterol_mg_dl !== undefined) {
-      analytes.push({ code: "ldl_cholesterol", value: input.ldl_cholesterol_mg_dl });
-    }
-    if (input.triglycerides_mg_dl !== undefined) {
-      analytes.push({ code: "triglycerides", value: input.triglycerides_mg_dl });
-    }
-  }
-
   const mlClient = createMlClientFromEnv();
   if (!mlClient) {
     return { error: "ML service is not configured, cannot interpret this result" };
   }
 
-  const interpretation = await mlClient.interpretLabs({
-    screen_type_code: input.screen_type_code,
-    sex,
-    age,
-    analytes: analytes.length > 0 ? analytes : undefined,
-    qualitative_result: input.qualitative_result,
-    genotype: input.genotype,
-    procedural_status: input.procedural_status,
-  });
-  if (!interpretation) {
+  const classified = await classifyScreeningInput(mlClient, input, sex, age);
+  if (!classified) {
     return { error: "ML service is unavailable, try again shortly" };
   }
+  const { interpretation, analytes } = classified;
 
   const { error: insertError } = await supabase.from("screening_results").insert({
     organisation_id: organisationId,
@@ -128,41 +200,7 @@ export async function submitScreeningResult(
   }
 
   if (analytes.length > 0) {
-    const unitFor = (code: AnalyteReadingIn["code"]): string =>
-      code === "hba1c" ? "percent" : code === "psa" ? "ng/mL" : "mg/dL";
-    // Store hba1c in its canonical percent value regardless of the unit the
-    // form submitted, so history stays comparable across readings.
-    // `code` is widened to string because Non-HDL is an app-derived analyte
-    // (not part of the ML AnalyteCode union); the DB column is free text.
-    const analyteReadingRows: {
-      organisation_id: string;
-      patient_id: string;
-      code: string;
-      value: number;
-      unit: string;
-    }[] = interpretation.analyte_results.map((result) => ({
-      organisation_id: organisationId,
-      patient_id: patientId,
-      code: result.code,
-      value: result.code === "hba1c" && result.value_percent !== null ? result.value_percent : result.value,
-      unit: unitFor(result.code),
-    }));
-    // Persist computed Non-HDL (Total − HDL) as its own longitudinal analyte
-    // so it trends alongside the measured lipids and feeds the CV-risk engine
-    // — never a separate table, just a derived row (see lib/lipids/analytes).
-    const nonHdl = computeNonHdl(
-      input.total_cholesterol_mg_dl ?? null,
-      input.hdl_cholesterol_mg_dl ?? null
-    );
-    if (input.screen_type_code === "lipid_panel" && nonHdl !== null) {
-      analyteReadingRows.push({
-        organisation_id: organisationId,
-        patient_id: patientId,
-        code: "non_hdl_cholesterol",
-        value: nonHdl,
-        unit: "mg/dL",
-      });
-    }
+    const analyteReadingRows = buildAnalyteReadingRows(organisationId, patientId, input, interpretation);
     const { error: readingsError } = await supabase
       .from("lab_analyte_readings")
       .insert(analyteReadingRows);
@@ -191,6 +229,18 @@ export async function submitScreeningResult(
       await flagCvRiskEscalations(patientId, organisationId);
     } catch {
       // A missing config or transient error must not fail result recording.
+    }
+  }
+
+  // §7.7 trend-aware interpretation — a persistent, real movement in any
+  // recorded analyte (lipids excluded, already covered above) prompts a
+  // review even when today's single reading isn't abnormal on its own.
+  // Best-effort for the same reason as flagCvRiskEscalations above.
+  if (analytes.length > 0) {
+    try {
+      await flagTrendReviewEscalations(patientId, organisationId, sex);
+    } catch {
+      // A transient error must not fail result recording.
     }
   }
 
@@ -247,6 +297,108 @@ export async function setScreeningResultFollowUpAction(
     .update({ follow_up_action: followUpAction })
     .eq("id", resultId);
   if (error) return { error: error.message };
+
+  return { success: true };
+}
+
+export type RecordResultCorrectionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Files a correction for an existing screening result — §7.15. Reuses the
+ * exact same classifyScreeningInput path as submitScreeningResult, locked
+ * to the original result's own screen_type_code, so a correction is
+ * classified by the same protocol-governed ML service a fresh result would
+ * be — never a clinician's own direct assertion of result_status (see the
+ * trust-boundary note on record_result_correction() in its migration).
+ *
+ * The DB RPC does the rest: the original row is retained and never
+ * mutated, the new row is linked back to it, every existing screening_
+ * results trigger reacts to it like a fresh result, and — when the
+ * correction walks a previously abnormal/critical result back to
+ * normal/borderline, the one direction the standard abnormal-result
+ * trigger doesn't itself cover — a stand-down review alert is raised so
+ * whatever the original alert already set in motion gets reconciled by a
+ * human rather than going silently stale.
+ */
+export async function recordScreeningResultCorrection(
+  patientId: string,
+  originalResultId: string,
+  _prevState: RecordResultCorrectionState,
+  formData: FormData
+): Promise<RecordResultCorrectionState> {
+  const correctionReason = String(formData.get("correction_reason") ?? "").trim();
+  if (!correctionReason) {
+    return { error: "Enter a reason for this correction" };
+  }
+  if (correctionReason.length > 500) {
+    return { error: "Keep the correction reason under 500 characters" };
+  }
+
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = screeningResultSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const input = parsed.data;
+
+  const supabase = await createClient();
+  const [{ data: patient }, { data: original }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("organisation_id, sex, date_of_birth")
+      .eq("id", patientId)
+      .eq("role", "patient")
+      .maybeSingle(),
+    supabase.from("screening_results").select("screen_type_code").eq("id", originalResultId).maybeSingle(),
+  ]);
+  if (!patient?.organisation_id) {
+    return { error: "Patient not found or has no organisation on file" };
+  }
+  if (!patient.sex || !patient.date_of_birth) {
+    return { error: "Patient is missing sex or date of birth, set these before recording a result" };
+  }
+  if (!original) {
+    return { error: "Original result not found" };
+  }
+  if (original.screen_type_code !== input.screen_type_code) {
+    return { error: "A correction must be filed for the same screening type as the original result" };
+  }
+
+  const organisationId = patient.organisation_id;
+  const sex = patient.sex;
+  const age = ageFromDob(patient.date_of_birth);
+
+  const mlClient = createMlClientFromEnv();
+  if (!mlClient) {
+    return { error: "ML service is not configured, cannot interpret this result" };
+  }
+
+  const classified = await classifyScreeningInput(mlClient, input, sex, age);
+  if (!classified) {
+    return { error: "ML service is unavailable, try again shortly" };
+  }
+  const { interpretation, analytes } = classified;
+
+  const { data: correctionId, error: rpcError } = await supabase.rpc("record_result_correction", {
+    p_original_result_id: originalResultId,
+    p_result_status: interpretation.result_status,
+    p_result_summary: interpretation.summary,
+    p_abnormal_flags: interpretation.abnormal_flags,
+    p_correction_reason: correctionReason,
+  });
+  if (rpcError) {
+    return { error: rpcError.message };
+  }
+
+  // A corrected analyte value gets its own fresh reading row — a genuine
+  // new data point ("this is what we now know, as of now"), not a rewrite
+  // of trend history, matching screening_results' own append-only
+  // discipline. Best-effort: the correction itself is already durably
+  // recorded via the RPC above even if this secondary write fails.
+  if (analytes.length > 0 && correctionId) {
+    const rows = buildAnalyteReadingRows(organisationId, patientId, input, interpretation);
+    await supabase.from("lab_analyte_readings").insert(rows);
+  }
 
   return { success: true };
 }

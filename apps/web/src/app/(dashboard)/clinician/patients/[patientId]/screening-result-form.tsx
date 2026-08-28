@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { submitScreeningResult } from "./screening-result-actions";
+import { submitScreeningResult, recordScreeningResultCorrection } from "./screening-result-actions";
 import {
   ANALYTE_SCREEN_TYPES,
   QUALITATIVE_SCREEN_TYPES,
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const SCREEN_TYPE_LABELS: Record<(typeof SCREENING_RESULT_SCREEN_TYPES)[number], string> = {
@@ -65,21 +66,31 @@ function groupOf(screenType: ScreenType): "analyte" | "qualitative" | "genotype"
  * needed). Used by the clinician's per-order result checklist; the
  * standalone "record a result for this patient" tool omits both and keeps
  * the free-choice dropdown exactly as before.
+ *
+ * `correction` puts the form in §7.15 correction mode instead of recording
+ * a fresh result: the screen type is always locked to the original result's
+ * own type (a correction can't silently change what was screened), a
+ * required "Reason for correction" field is added, and submission targets
+ * recordScreeningResultCorrection instead of submitScreeningResult.
  */
 export function ScreeningResultForm({
   patientId,
   labOrderId,
   lockedScreenType,
+  correction,
   onSuccess,
 }: {
   patientId: string;
   labOrderId?: string;
   lockedScreenType?: ScreenType;
+  correction?: { originalResultId: string };
   onSuccess?: () => void;
 }) {
   const [screenType, setScreenType] = useState<ScreenType>(lockedScreenType ?? "hba1c");
   const [state, formAction, pending] = useActionState(
-    submitScreeningResult.bind(null, patientId),
+    correction
+      ? recordScreeningResultCorrection.bind(null, patientId, correction.originalResultId)
+      : submitScreeningResult.bind(null, patientId),
     undefined
   );
   const group = groupOf(screenType);
@@ -92,9 +103,11 @@ export function ScreeningResultForm({
     <Card>
       <CardHeader>
         <CardTitle>
-          {lockedScreenType
-            ? `Record ${SCREEN_TYPE_LABELS[lockedScreenType]}`
-            : "Record a screening/lab result"}
+          {correction
+            ? `File a correction — ${SCREEN_TYPE_LABELS[lockedScreenType ?? screenType]}`
+            : lockedScreenType
+              ? `Record ${SCREEN_TYPE_LABELS[lockedScreenType]}`
+              : "Record a screening/lab result"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -207,10 +220,26 @@ export function ScreeningResultForm({
             </div>
           )}
 
+          {correction && (
+            <div className="space-y-1.5">
+              <Label htmlFor="correction_reason">Reason for correction</Label>
+              <Textarea
+                id="correction_reason"
+                name="correction_reason"
+                placeholder="Why is this result being corrected? (e.g. lab re-ran the sample, mislabelled tube, transcription error)"
+                required
+              />
+            </div>
+          )}
+
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-          {state?.success && <p className="text-sm text-brand-green">Result recorded.</p>}
+          {state?.success && (
+            <p className="text-sm text-brand-green">
+              {correction ? "Correction filed." : "Result recorded."}
+            </p>
+          )}
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Record result"}
+            {pending ? "Saving…" : correction ? "File correction" : "Record result"}
           </Button>
         </form>
       </CardContent>

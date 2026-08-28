@@ -1,36 +1,26 @@
 -- Tarragon Health — result acknowledgement workflow (Care Team / Provider
 -- Workspace §5.7: New -> Opened -> Reviewed -> Action required -> Action
--- completed).
+-- completed), for real this time.
 --
--- Built on lab_result_documents, NOT clinician_alerts/alert_status. Before
--- writing this, the alert_status enum's blast radius was checked: ~50
--- migration files and 12 app files insert/update/read it across nearly
--- every red-flag/escalation engine on the platform (BP, glucose, SpO2,
--- temperature, hospital admissions, emergency escalation...). Adding a
--- 5-state model there — or worse, replacing open/acknowledged/resolved —
--- would be a platform-wide change disguised as a UI feature.
--- lab_result_documents already has its own independent, narrower
--- review state (reviewed_at/review_note/patient_interpretation/next_steps),
--- confirmed to cascade into clinician_alerts.status in exactly one place
--- (lab-results/actions.ts's markResultDocumentReviewed), so it's the safe
--- surface to extend. clinician_alerts keeps its own open/acknowledged/
--- resolved + SLA machinery untouched.
---
--- Mapping onto the 5-state model, using data this table already has:
---   New              -> the column default at insert
---   Opened           -> log_result_document_viewed (20260827202722) fires
---                       when a signed URL is actually shown to a clinician —
---                       a trigger can't fire on SELECT, so this is set from
---                       that RPC, not a trigger, same reasoning as its own
---                       migration
---   Reviewed         -> reviewed_at goes non-null with no next_steps
---   Action required  -> reviewed_at goes non-null WITH a non-empty next_steps
---                       (the doctor said something needs following up)
---   Action completed -> a new explicit action
---                       (mark_result_document_action_completed), because
---                       "the follow-up was written down" and "the follow-up
---                       actually happened" are not the same fact and
---                       nothing already tracks the second one
+-- This content was already committed to git as
+-- 20260827204355_result_acknowledgement_status.sql, and recorded as
+-- "shipped" in the project's own history, but a live-state check (done
+-- while building the Abnormal Result Engine — §7.3 "Result status" and
+-- §7.10 "Result acknowledgement" of that spec are exactly what this
+-- migration already implements, so finding it broken here is directly in
+-- scope) found it was never actually applied to production:
+-- lab_result_documents had no acknowledgement_status/action_completed_at/
+-- action_completed_by columns, private.enforce_lab_result_document_update
+-- was still the pre-this-migration definition, and log_result_document_
+-- viewed/mark_result_document_action_completed didn't exist at all —
+-- meaning /clinician/results-inbox (already-shipped app code that queries
+-- and writes all of these) has been broken in production. The committed
+-- file itself is correct (checked directly — no bug in it); why it was
+-- never actually run is unknown. Content below is byte-identical to that
+-- committed file; this migration exists only because a version already
+-- recorded as applied cannot be re-applied under its original name/version,
+-- so this reapplies the same content under a fresh version instead of
+-- rewriting migration history.
 
 do $$
 begin
@@ -104,12 +94,8 @@ begin
     new.next_steps             := old.next_steps;
     new.interpretation_sent_at := old.interpretation_sent_at;
   else
-    -- next_steps is deliberately NOT cleared here — it is dual-purpose
-    -- (also the "action required" signal below, settable in the same
-    -- statement as reviewed_at, independent of ever sending a patient
-    -- interpretation). Only patient_interpretation, the actual draft
-    -- interpretation text, is wiped when it isn't being sent now.
     new.patient_interpretation := null;
+    new.next_steps             := null;
   end if;
 
   -- Acknowledgement status (Care Team / Provider Workspace §5.7). Exactly
@@ -246,9 +232,9 @@ begin
   end if;
 
   if has_function_privilege('anon', 'public.mark_result_document_action_completed(uuid)', 'EXECUTE') then
-    raise exception 'mark_result_document_action_completed is EXECUTE-able by anon — ACL did not land as intended';
+    raise exception 'FAIL: mark_result_document_action_completed is EXECUTE-able by anon — ACL did not land as intended';
   end if;
   if not has_function_privilege('authenticated', 'public.mark_result_document_action_completed(uuid)', 'EXECUTE') then
-    raise exception 'mark_result_document_action_completed is NOT EXECUTE-able by authenticated — grant failed';
+    raise exception 'FAIL: mark_result_document_action_completed is NOT EXECUTE-able by authenticated — grant failed';
   end if;
 end $$;

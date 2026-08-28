@@ -64,8 +64,13 @@ export async function ScreenOrderResultsSection({ patientId }: { patientId: stri
       .in("code", allCodes),
     supabase
       .from("screening_results")
-      .select("id, screen_type_code, lab_order_id, result_status, follow_up_action")
-      .eq("patient_id", patientId),
+      .select("id, screen_type_code, lab_order_id, result_status, follow_up_action, corrects_result_id, correction_reason")
+      .eq("patient_id", patientId)
+      // Newest first: a corrected result is a NEW row (screening_results is
+      // append-only — see the abnormal-result-engine correction migration),
+      // so without this ordering .find() below could pick the now-
+      // superseded original instead of its correction.
+      .order("created_at", { ascending: false }),
   ]);
 
   const stByCode = new Map((screenTypes ?? []).map((s) => [s.code, s]));
@@ -98,6 +103,7 @@ export async function ScreenOrderResultsSection({ patientId }: { patientId: stri
           resultId: result?.id ?? null,
           resultStatus: result?.result_status ?? null,
           followUpAction: result?.follow_up_action ?? null,
+          correctionReason: result?.corrects_result_id ? (result?.correction_reason ?? null) : null,
         };
       });
 

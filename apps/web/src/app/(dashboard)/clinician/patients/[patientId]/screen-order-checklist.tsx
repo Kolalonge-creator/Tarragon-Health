@@ -24,6 +24,8 @@ export type ScreenOrderChecklistItem = {
     resultId: string | null;
     resultStatus: string | null;
     followUpAction: string | null;
+    /** Set when the currently-displayed result is itself a correction of an earlier one — §7.15. */
+    correctionReason: string | null;
   }[];
 };
 
@@ -74,6 +76,7 @@ export function ScreenOrderChecklist({
 }) {
   const [activeCode, setActiveCode] = useState<string | null>(null);
   const [showFollowUpFor, setShowFollowUpFor] = useState<Record<string, boolean>>({});
+  const [correctingCode, setCorrectingCode] = useState<string | null>(null);
   const router = useRouter();
 
   const outstanding = item.codes.filter((c) => !c.satisfied);
@@ -125,6 +128,37 @@ export function ScreenOrderChecklist({
                   <p className="mt-1 text-xs text-charcoal-ink/70">
                     Follow-up: {c.followUpAction}
                   </p>
+                )}
+                {c.satisfied && c.correctionReason && (
+                  <p className="mt-1 text-xs text-charcoal-ink/70">
+                    Corrected result — {c.correctionReason}
+                  </p>
+                )}
+                {c.satisfied && c.resultId && (
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCorrectingCode(correctingCode === c.code ? null : c.code)}
+                    >
+                      {correctingCode === c.code ? "Cancel" : "Correct result"}
+                    </Button>
+                    {correctingCode === c.code && (
+                      <div className="mt-3">
+                        <ScreeningResultForm
+                          patientId={patientId}
+                          labOrderId={item.orderId}
+                          lockedScreenType={c.code as ScreenType}
+                          correction={{ originalResultId: c.resultId }}
+                          onSuccess={() => {
+                            setCorrectingCode(null);
+                            router.refresh();
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
                 {needsFollowUp && c.resultId && (
                   showFollowUpFor[c.code] ? (
