@@ -533,91 +533,19 @@ revoke all on function public.pharmacist_dispense_history(int) from public;
 revoke all on function public.pharmacist_dispense_history(int) from anon;
 grant execute on function public.pharmacist_dispense_history(int) to authenticated;
 
--- Stubs #23-26: next confirmed CI failure after #20-22 above --
--- 20260812041044_service_role_write_actor_attribution.sql's own assertion
--- on all four functions it defines (single creation site each). Unlike
--- every earlier stub, these are service-role-only surfaces (never granted
--- to authenticated) -- app code calls them via a service-role client so a
--- write can carry an audited actor id set_config wouldn't otherwise see.
--- Both custom-type args (public.sex, public.lab_result_document_source) are
--- long-established (since the very first migration and since
--- 20260720120100 respectively), safe to reference here.
-create function public.provision_dependent_profile_basics(
-  p_child_id uuid,
-  p_date_of_birth date,
-  p_sex public.sex,
-  p_actor_id uuid
-)
-returns void
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-end;
-$$;
-
-revoke all on function public.provision_dependent_profile_basics(uuid, date, public.sex, uuid) from public;
-grant execute on function public.provision_dependent_profile_basics(uuid, date, public.sex, uuid) to service_role;
-
-create function public.mark_emergency_contact_notified(
-  p_event_id uuid,
-  p_actor_id uuid
-)
-returns void
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-end;
-$$;
-
-revoke all on function public.mark_emergency_contact_notified(uuid, uuid) from public;
-grant execute on function public.mark_emergency_contact_notified(uuid, uuid) to service_role;
-
-create function public.mark_identity_verified(
-  p_patient_id uuid,
-  p_verified_at timestamptz,
-  p_actor_id uuid
-)
-returns void
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-end;
-$$;
-
-revoke all on function public.mark_identity_verified(uuid, timestamptz, uuid) from public;
-grant execute on function public.mark_identity_verified(uuid, timestamptz, uuid) to service_role;
-
-create function public.insert_audited_lab_result_document(
-  p_organisation_id uuid,
-  p_patient_id uuid,
-  p_lab_order_id uuid,
-  p_file_path text,
-  p_original_filename text,
-  p_mime_type text,
-  p_file_size_bytes bigint,
-  p_source public.lab_result_document_source,
-  p_uploaded_by uuid,
-  p_note text,
-  p_actor_id uuid
-)
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  return null;
-end;
-$$;
-
-revoke all on function public.insert_audited_lab_result_document(uuid, uuid, uuid, text, text, text, bigint, public.lab_result_document_source, uuid, text, uuid) from public;
-grant execute on function public.insert_audited_lab_result_document(uuid, uuid, uuid, text, text, text, bigint, public.lab_result_document_source, uuid, text, uuid) to service_role;
+-- Stubs #23-26 (provision_dependent_profile_basics, mark_emergency_contact_notified,
+-- mark_identity_verified, insert_audited_lab_result_document, all from
+-- 20260812041044_service_role_write_actor_attribution.sql) do NOT live here,
+-- unlike the stubs above -- first attempt put them here and CI caught a real
+-- mistake: "type public.sex does not exist" during roles.sql itself. Every
+-- migration-created type, however early in this history it's created, does
+-- NOT exist yet when roles.sql runs -- roles.sql applies before the very
+-- first migration, full stop, not just before "later" ones. public.sex and
+-- public.lab_result_document_source are both migration-created (by
+-- 20260705211044 and 20260720120100 respectively), so both are exactly as
+-- unusable here as any other custom type -- see
+-- supabase/migrations/20260812041043_stub_service_role_write_actor_attribution_grants.sql
+-- for the real-migration treatment these four actually needed.
 
 -- ROOT-CAUSE FIX for the TABLE half of this gap, replacing per-table stubs
 -- going forward: the same "anon can reach something it shouldn't" gap that
