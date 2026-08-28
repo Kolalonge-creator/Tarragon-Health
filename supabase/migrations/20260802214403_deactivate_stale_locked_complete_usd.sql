@@ -30,12 +30,24 @@ update public.subscription_plans
    set is_active = false
  where code = 'complete_usd';
 
+-- The price_locked=true / price_minor=1099 conditions this assertion
+-- originally also checked were incidental, point-in-time observations about
+-- live's real subscriber ("Test Diaspora Patient") at the moment this
+-- migration was authored, not something this migration itself sets —
+-- price_locked is flipped only by private.enforce_subscription_plan_price_lock,
+-- a trigger driven by real subscription rows that never exist on a
+-- from-scratch replay (confirmed: caught by the new CI migration-replay job,
+-- 2026-08-27 — a fresh environment has no such subscriber, so price_locked
+-- defaults false and price_minor is whatever restore_subscription_price_book
+-- set, neither of which this migration ever changes). Narrowed to the one
+-- thing this migration actually guarantees regardless of environment: the
+-- plan is off-sale.
 do $$
 begin
   if exists (
     select 1 from public.subscription_plans
-    where code = 'complete_usd' and (is_active or not price_locked or price_minor <> 1099)
+    where code = 'complete_usd' and is_active
   ) then
-    raise exception 'complete_usd is not in the expected off-sale/still-locked/still-1099 state';
+    raise exception 'complete_usd is not off-sale as expected';
   end if;
 end $$;

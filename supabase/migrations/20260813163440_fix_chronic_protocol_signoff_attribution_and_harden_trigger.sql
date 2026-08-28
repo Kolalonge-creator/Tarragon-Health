@@ -50,22 +50,41 @@ end;
 $function$;
 
 -- --- Prove it: the three real pathways still pass, a sabotage case is rejected -
-
+--
+-- This checks a real, already-signed fact from live: Dr Kola Longe's actual
+-- sign-off on all three (see the comment above) still validates under the
+-- new hardened trigger logic. A from-scratch replay has no such sign-off at
+-- all — no migration or seed path fabricates one, deliberately, per this
+-- codebase's own "no fabricated reviewed_by/attestation" rule — so there is
+-- nothing to regress-check yet on a fresh environment. Skips rather than
+-- failing when none exist (found by the new CI migration-replay job,
+-- 2026-08-27); still hard-fails on live-like data if some but not all three
+-- validate, which is the actual regression this was written to catch.
 do $$
 declare
   v_pass_count integer;
+  v_signed_count integer;
 begin
-  select count(*) into v_pass_count
-  from public.protocol_versions pv
-  join public.clinical_staff cs on cs.id = pv.approved_by
-  where pv.protocol_id in ('chronic_hypertension_who', 'chronic_diabetes_who', 'chronic_obesity_who')
-    and pv.approved_by is not null
-    and pv.approved_at is not null
-    and cs.is_clinical_director = true
-    and cs.active = true;
+  select count(*) into v_signed_count
+  from public.protocol_versions
+  where protocol_id in ('chronic_hypertension_who', 'chronic_diabetes_who', 'chronic_obesity_who')
+    and approved_by is not null;
 
-  if v_pass_count <> 3 then
-    raise exception 'Expected 3 chronic-pathway protocol_versions rows to pass the hardened Clinical-Director check, found %', v_pass_count;
+  if v_signed_count = 0 then
+    raise notice 'no chronic-pathway protocol sign-off exists in this environment; skipping the hardened-trigger regression check';
+  else
+    select count(*) into v_pass_count
+    from public.protocol_versions pv
+    join public.clinical_staff cs on cs.id = pv.approved_by
+    where pv.protocol_id in ('chronic_hypertension_who', 'chronic_diabetes_who', 'chronic_obesity_who')
+      and pv.approved_by is not null
+      and pv.approved_at is not null
+      and cs.is_clinical_director = true
+      and cs.active = true;
+
+    if v_pass_count <> 3 then
+      raise exception 'Expected 3 chronic-pathway protocol_versions rows to pass the hardened Clinical-Director check, found %', v_pass_count;
+    end if;
   end if;
 end $$;
 

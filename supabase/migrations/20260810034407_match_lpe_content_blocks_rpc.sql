@@ -51,6 +51,7 @@ $$;
 -- revoked from PUBLIC itself (not from `anon`) — standing gotcha, see
 -- feedback_supabase_anon_execute_gotcha in memory / CLAUDE.md.
 revoke execute on function public.match_lpe_content_blocks(extensions.vector, int, public.care_plan_condition, public.lpe_module) from public;
+revoke execute on function public.match_lpe_content_blocks(extensions.vector, int, public.care_plan_condition, public.lpe_module) from anon;
 grant execute on function public.match_lpe_content_blocks(extensions.vector, int, public.care_plan_condition, public.lpe_module) to authenticated;
 
 -- Prove the anon lockdown actually took, not just hope.

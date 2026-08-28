@@ -55,6 +55,7 @@ as $$
 $$;
 
 revoke all on function public.can_act_for(uuid) from public;
+revoke all on function public.can_act_for(uuid) from anon;
 grant execute on function public.can_act_for(uuid) to authenticated;
 
 -- 2. Who actually did it -------------------------------------------------------

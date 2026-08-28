@@ -102,6 +102,7 @@ end;
 $$;
 
 revoke all on function public.set_patient_reported_diabetes_type(public.diabetes_type) from public;
+revoke all on function public.set_patient_reported_diabetes_type(public.diabetes_type) from anon;
 grant execute on function public.set_patient_reported_diabetes_type(public.diabetes_type) to authenticated;
 
 do $$

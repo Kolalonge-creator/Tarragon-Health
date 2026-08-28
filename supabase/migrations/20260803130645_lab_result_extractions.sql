@@ -61,6 +61,7 @@ create policy lab_result_extractions_select on public.lab_result_extractions
 -- missed three times in this codebase's history (M1 sprint, case_briefs, the
 -- 30-table backfill), so it ships here with an assertion rather than a hope.
 grant select on public.lab_result_extractions to authenticated;
+revoke all on public.lab_result_extractions from anon;
 
 drop trigger if exists lab_result_extractions_set_updated_at on public.lab_result_extractions;
 create trigger lab_result_extractions_set_updated_at

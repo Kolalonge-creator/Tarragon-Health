@@ -174,10 +174,17 @@ end;
 $$;
 
 -- The anon-execute gotcha, corrected form (per this codebase's own
--- 2026-07-27 finding): revoking from anon is a no-op — anon inherits
--- EXECUTE via the PUBLIC pseudo-grant, not a direct grant. Revoke from
--- PUBLIC, then grant back to authenticated explicitly.
+-- 2026-07-27 finding): revoking from anon is usually a no-op because anon
+-- inherits EXECUTE via the PUBLIC pseudo-grant rather than a direct one —
+-- but a from-scratch replay (this project's first, run 2026-08-27 by the
+-- new CI migration-replay job) proved that assumption incomplete: whatever
+-- sets up a fresh Supabase Postgres instance grants anon a DIRECT execute
+-- default on new public-schema functions (scoped to schema `public` only —
+-- private.escalation_sla_minutes above is unaffected), which a
+-- public-only revoke does not remove. Revoke from both explicitly, then
+-- grant back to authenticated.
 revoke all on function public.sign_escalation_slas(uuid) from public;
+revoke all on function public.sign_escalation_slas(uuid) from anon;
 grant execute on function public.sign_escalation_slas(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------

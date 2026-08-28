@@ -48,16 +48,30 @@ values
 on conflict (code) do nothing;
 
 -- ---------------------------------------------------------------------------
+-- 1b. The 4 providers this migration needs, matched below by name rather
+-- than a hardcoded id. Migrations run BEFORE seed.sql on a from-scratch
+-- `supabase db reset` (seed only ever runs against a fresh local reset,
+-- never against a remote project — see CLAUDE.md's standing lessons on
+-- migration/seed ordering), so a fresh replay would otherwise find
+-- lab_providers still empty at this point. Idempotent and identical to
+-- seed.sql's own insert for these 4 (on conflict (name) do nothing), so
+-- whichever runs first — this migration on a fresh replay, or the founder's
+-- original one-off setup already live — wins safely with no drift.
+-- ---------------------------------------------------------------------------
+insert into public.lab_providers (name, home_collection, regions)
+values
+  ('Synlab Nigeria',      true, array['Lagos', 'Abuja']),
+  ('Cerba Lancet',        true, array['Lagos', 'Abuja']),
+  ('Healthtracka',        true, array['Lagos', 'Abuja']),
+  ('Afriglobal Medicare', true, array['Lagos'])
+on conflict (name) do nothing;
+
+-- ---------------------------------------------------------------------------
 -- 2. lab_tests — one row per active provider, lab-only codes only
 -- ---------------------------------------------------------------------------
 insert into public.lab_tests (provider_id, code, name, price_kobo, turnaround_hours, is_active)
 select p.id, t.code, t.name, t.price_kobo, 48, true
-from (values
-  ('413fa046-94b6-47fe-9f99-236737eb61e5'::uuid),
-  ('bf4b3d30-dcd5-4bfd-8a96-772beee65eab'::uuid),
-  ('c625d509-4d1c-4156-ba44-d1e535a900a3'::uuid),
-  ('d8d35107-4664-4191-8cf5-463ba746b332'::uuid)
-) as p(id)
+from public.lab_providers p
 cross join (values
   ('fbc',         'Full Blood Count',      400000),
   ('lft',         'Liver Function Test',   600000),
@@ -69,10 +83,11 @@ cross join (values
   ('syphilis',    'Syphilis Screening (VDRL/TPHA)', 600000),
   ('ogtt_fpg',    'OGTT / Fasting Plasma Glucose', 400000)
 ) as t(code, name, price_kobo)
-join public.lab_providers p2 on p2.id = p.id and p2.is_active
-where not exists (
-  select 1 from public.lab_tests lt where lt.provider_id = p.id and lt.code = t.code
-);
+where p.name in ('Synlab Nigeria', 'Cerba Lancet', 'Healthtracka', 'Afriglobal Medicare')
+  and p.is_active
+  and not exists (
+    select 1 from public.lab_tests lt where lt.provider_id = p.id and lt.code = t.code
+  );
 
 -- ---------------------------------------------------------------------------
 -- 3. Retire the two subsumed Health Check bundles

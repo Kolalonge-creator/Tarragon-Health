@@ -146,7 +146,17 @@ on conflict (name) do nothing;
 -- sends to a real inbox/handset. Plain UPDATE (not part of the INSERT ...
 -- ON CONFLICT above) since these columns didn't exist when the insert ran
 -- on an already-seeded environment; the null guard keeps it idempotent.
-update public.lab_providers set contact_email = 'labs@synlab.example', contact_phone = '+2348030000101' where name = 'Synlab Nigeria' and contact_email is null;
+--
+-- Synlab excluded from that guard (`and not is_active`): the 2026-08-21
+-- "switch on Synlab" migration deliberately sets its contact_email back to
+-- null on activation (a live laboratory may never carry a placeholder
+-- contact — lab_providers_active_needs_real_contacts — and null just means
+-- "no alert sent yet", not "never set"). Without this exclusion, seeding
+-- treats that deliberate null as "safe to backfill" and immediately puts
+-- the placeholder back on an active row, violating the constraint (found
+-- by the new CI migration-replay job, 2026-08-27 — the first time this
+-- file has ever actually been exercised by a full db reset).
+update public.lab_providers set contact_email = 'labs@synlab.example', contact_phone = '+2348030000101' where name = 'Synlab Nigeria' and contact_email is null and not is_active;
 update public.lab_providers set contact_email = 'labs@cerbalancet.example', contact_phone = '+2348030000102' where name = 'Cerba Lancet' and contact_email is null;
 update public.lab_providers set contact_email = 'labs@healthtracka.example', contact_phone = '+2348030000103' where name = 'Healthtracka' and contact_email is null;
 update public.lab_providers set contact_email = 'labs@afriglobalmedicare.example', contact_phone = '+2348030000104' where name = 'Afriglobal Medicare' and contact_email is null;
