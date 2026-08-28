@@ -43,7 +43,10 @@
 -- never client-supplied (see stamp_medication_review_completion,
 -- stamp_care_plan_review_prompt_action for the same idiom).
 
-alter type public.care_plan_goal_status add value if not exists 'proposed';
+-- 'proposed' is added to care_plan_goal_status by the standalone migration
+-- immediately before this one (Postgres forbids using a value added by
+-- ALTER TYPE ... ADD VALUE in the same transaction it was added in, and
+-- this file's RLS policy below does reference it).
 
 do $$ begin
   create type public.care_plan_goal_source as enum
