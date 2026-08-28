@@ -36,6 +36,7 @@ const WORKLIST_COUNT_TILES: WorklistCountTile[] = [
   { key: "asyncConsults", href: "/clinician/async-consults", label: "Async consults", icon: "inbox" },
   { key: "referralsNeedingUrgency", href: "/clinician/referrals", label: "Referrals to triage", icon: "referral" },
   { key: "waitlistedReferrals", href: "/clinician/referrals/waitlisted", label: "Waitlisted referrals", icon: "referral" },
+  { key: "referralsAwaitingClosure", href: "/clinician/referrals", label: "Referrals to review & close", icon: "referral" },
   { key: "adherenceAlerts", href: "/clinician/adherence", label: "Adherence alerts", icon: "medication" },
   { key: "recommendations", href: "/clinician/recommendations", label: "Care recommendations", icon: "carePlan" },
   { key: "vaccinationVerifications", href: "/clinician/vaccinations", label: "Vaccinations to verify", icon: "vaccination" },

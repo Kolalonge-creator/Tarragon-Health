@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Stepper } from "@/components/ui/stepper";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
+import { signReferralOutcomeDocumentPath } from "@/lib/referrals/outcome-documents";
 import { koboToNaira, type ReferralStatus } from "@tarragon/shared";
 import type { SpecialistReferralWithDetails } from "@/lib/queries/specialist-referrals";
 import { ClinicalSummaryPanel } from "./clinical-summary-panel";
@@ -14,6 +15,7 @@ const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["varia
   booked: { variant: "blue", label: "Booked" },
   confirmed: { variant: "blue", label: "Confirmed" },
   completed: { variant: "green", label: "Completed" },
+  closed: { variant: "grey", label: "Closed" },
   declined: { variant: "grey", label: "Declined" },
   waitlisted: { variant: "amber", label: "Waitlisted, no specialist available" },
 };
@@ -54,6 +56,12 @@ export default async function ReferralDetailPage({
 
   const typedReferral = referral as SpecialistReferralWithDetails;
   const statusBadge = REFERRAL_STATUS_BADGE[typedReferral.status];
+  // Authorised here (this select already went through is_org_staff RLS) —
+  // the signed URL itself is minted with the service-role client since org
+  // staff have no direct storage-object read policy on this bucket.
+  const outcomeDocumentUrl = typedReferral.outcome_document_path
+    ? await signReferralOutcomeDocumentPath(typedReferral.outcome_document_path)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -85,7 +93,7 @@ export default async function ReferralDetailPage({
         </CardContent>
       </Card>
 
-      <ClinicalSummaryPanel referral={typedReferral} />
+      <ClinicalSummaryPanel referral={typedReferral} outcomeDocumentUrl={outcomeDocumentUrl} />
     </div>
   );
 }

@@ -8,6 +8,8 @@ export interface ReferralPipelineInput {
   booking_confirmed_at: string | null;
   treatment_plan_received_at: string | null;
   shared_care_handback_at: string | null;
+  outcome_document_path?: string | null;
+  closed_at?: string | null;
 }
 
 const BOOKED_STATUSES: ReferralStatus[] = ["booked", "confirmed", "completed"];
@@ -29,9 +31,10 @@ export function deriveReferralPipelineStages(referral: ReferralPipelineInput): S
   const urgencySet = referral.urgency !== null;
   const providerAssigned = referral.specialist_provider_id !== null;
   const booked = BOOKED_STATUSES.includes(referral.status) || referral.booking_confirmed_at !== null;
-  const completed = referral.status === "completed";
-  const planReceived = referral.treatment_plan_received_at !== null;
+  const completed = referral.status === "completed" || referral.status === "closed";
+  const planReceived = referral.treatment_plan_received_at !== null || (referral.outcome_document_path ?? null) !== null;
   const handedBack = referral.shared_care_handback_at !== null;
+  const closed = referral.status === "closed";
 
   const state = (complete: boolean, current: boolean): StepperStepState => {
     if (declined && !complete) return "skipped";
@@ -72,7 +75,12 @@ export function deriveReferralPipelineStages(referral: ReferralPipelineInput): S
     {
       key: "monitoring_continues",
       label: "Monitoring continues",
-      state: state(false, planReceived),
+      state: state(closed, planReceived && !closed),
+    },
+    {
+      key: "referral_closed",
+      label: "Referral closed",
+      state: state(closed, false),
     },
   ];
 }

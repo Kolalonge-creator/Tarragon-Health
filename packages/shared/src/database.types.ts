@@ -15907,13 +15907,20 @@ export type Database = {
           applied_voucher_id: string | null
           appointment_date: string | null
           booking_confirmed_at: string | null
+          care_plan_update_note: string | null
           clinical_summary: Json | null
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
           fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path: string | null
+          outcome_document_uploaded_at: string | null
+          outcome_document_uploaded_by: string | null
+          parent_referral_id: string | null
           patient_id: string
           payable_kobo: number | null
           payment_provider:
@@ -15921,9 +15928,12 @@ export type Database = {
             | null
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
+          preferred_consultation_type: string | null
+          preferred_location: string | null
           referral_fee_kobo: number
           referral_number: string | null
           referral_reason: string | null
+          referred_by: string | null
           screening_upgrade_id: string | null
           set_by: string | null
           shared_care_handback_at: string | null
@@ -15941,13 +15951,20 @@ export type Database = {
           applied_voucher_id?: string | null
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          care_plan_update_note?: string | null
           clinical_summary?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path?: string | null
+          outcome_document_uploaded_at?: string | null
+          outcome_document_uploaded_by?: string | null
+          parent_referral_id?: string | null
           patient_id: string
           payable_kobo?: number | null
           payment_provider?:
@@ -15955,9 +15972,12 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          preferred_consultation_type?: string | null
+          preferred_location?: string | null
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referred_by?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
@@ -15975,13 +15995,20 @@ export type Database = {
           applied_voucher_id?: string | null
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          care_plan_update_note?: string | null
           clinical_summary?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path?: string | null
+          outcome_document_uploaded_at?: string | null
+          outcome_document_uploaded_by?: string | null
+          parent_referral_id?: string | null
           patient_id?: string
           payable_kobo?: number | null
           payment_provider?:
@@ -15989,9 +16016,12 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          preferred_consultation_type?: string | null
+          preferred_location?: string | null
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referred_by?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
@@ -16018,6 +16048,27 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_parent_referral_id_fkey"
+            columns: ["parent_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
           {
@@ -20106,6 +20157,7 @@ export type Database = {
         | "awaiting_result"
         | "repeated_no_show"
         | "consultation_follow_up"
+        | "referral_follow_up"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -20191,6 +20243,7 @@ export type Database = {
         | "booked"
         | "confirmed"
         | "completed"
+        | "closed"
         | "declined"
       referral_type:
         | "patient_refers_patient"
@@ -20268,6 +20321,7 @@ export type Database = {
         | "medication_missed"
         | "referral_created"
         | "referral_status_changed"
+        | "referral_outcome_recorded"
         | "screening_due"
         | "screening_completed"
         | "vaccination_recorded"
@@ -21056,6 +21110,7 @@ export const Constants = {
         "awaiting_result",
         "repeated_no_show",
         "consultation_follow_up",
+        "referral_follow_up",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [
@@ -21150,6 +21205,7 @@ export const Constants = {
         "booked",
         "confirmed",
         "completed",
+        "closed",
         "declined",
       ],
       referral_type: [
@@ -21236,6 +21292,7 @@ export const Constants = {
         "medication_missed",
         "referral_created",
         "referral_status_changed",
+        "referral_outcome_recorded",
         "screening_due",
         "screening_completed",
         "vaccination_recorded",

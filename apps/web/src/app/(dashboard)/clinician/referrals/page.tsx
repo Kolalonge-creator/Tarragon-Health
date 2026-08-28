@@ -27,6 +27,7 @@ const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["varia
   booked: { variant: "blue", label: "Booked" },
   confirmed: { variant: "blue", label: "Confirmed" },
   completed: { variant: "green", label: "Completed" },
+  closed: { variant: "grey", label: "Closed" },
   declined: { variant: "grey", label: "Declined" },
   waitlisted: { variant: "amber", label: "Waitlisted: no specialist available" },
 };

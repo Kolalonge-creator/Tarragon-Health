@@ -327,3 +327,113 @@ export function useCloseReferral() {
     },
   });
 }
+
+/**
+ * Closes a referral's episode once the specialist's outcome is on file
+ * (transcribed treatment plan or an uploaded document) — task spec §11.15.
+ * The DB does the real enforcement: private.
+ * enforce_specialist_referral_outcome_and_closure requires an active
+ * clinical-tier session and stamps closed_by/closed_at from it (never
+ * client-supplied), and specialist_referrals_closed_requires_outcome
+ * refuses the write outright without both an outcome and this note. A
+ * non-clinical or out-of-tier caller gets that exception back as a plain
+ * error message here.
+ */
+export function useCloseReferralWithCarePlanUpdate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ referralId, carePlanUpdateNote }: { referralId: string; carePlanUpdateNote: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("specialist_referrals")
+        .update({ status: "closed", care_plan_update_note: carePlanUpdateNote })
+        .eq("id", referralId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals", "detail", variables.referralId] });
+    },
+  });
+}
+
+/**
+ * Clinician-initiated referral creation (task spec §11.3/§11.4/§11.6) — the
+ * gap confirmed before writing this: the ONLY existing insert path was the
+ * abnormal-result-handler Edge Function. Mirrors useOrderLabTest's trust
+ * model exactly: referred_by is resolved from the caller's OWN active
+ * clinical_staff row, never trusted from a form field, and the insert only
+ * succeeds if RLS (private.is_org_staff) admits the caller. Self-arranged:
+ * this never assigns a specialist_provider or takes a fee — a letter is
+ * generated and the patient takes it to whichever specialist they choose,
+ * same as every other referral in this codebase since 2026-08-03.
+ */
+export function useCreateSpecialistReferral() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      organisationId,
+      patientId,
+      specialistType,
+      clinicalQuestion,
+      urgency,
+      preferredConsultationType,
+      preferredLocation,
+      parentReferralId,
+    }: {
+      organisationId: string;
+      patientId: string;
+      specialistType: Tables<"specialist_referrals">["specialist_type"];
+      clinicalQuestion: string;
+      urgency?: ReferralUrgency;
+      preferredConsultationType?: "telemedicine" | "in_person" | "either";
+      preferredLocation?: string;
+      parentReferralId?: string;
+    }) => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { data: staff, error: staffError } = await supabase
+        .from("clinical_staff")
+        .select("id")
+        .eq("profile_id", user.id)
+        .eq("organisation_id", organisationId)
+        .eq("active", true)
+        .maybeSingle();
+      if (staffError) throw staffError;
+      if (!staff) {
+        throw new Error("You must be an active clinical_staff member of this organisation to create a referral");
+      }
+
+      const { data, error } = await supabase
+        .from("specialist_referrals")
+        .insert({
+          organisation_id: organisationId,
+          patient_id: patientId,
+          specialist_type: specialistType,
+          referral_reason: clinicalQuestion,
+          urgency: urgency ?? null,
+          set_by: urgency ? user.id : null,
+          referred_by: staff.id,
+          preferred_consultation_type: preferredConsultationType ?? null,
+          preferred_location: preferredLocation ?? null,
+          parent_referral_id: parentReferralId ?? null,
+          // No third booking_origin value exists yet for "a clinician decided
+          // to refer" — clinically_triggered already covers "not the patient's
+          // own request," which is accurate here too (the abnormal-result
+          // pipeline is the automated case of the same origin).
+          origin: "clinically_triggered",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
+    },
+  });
+}

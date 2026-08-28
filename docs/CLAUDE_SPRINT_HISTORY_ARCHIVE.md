@@ -2751,3 +2751,89 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+### 2026-08-28 — Specialist Referral Engine: outcome capture, feedback loop, enforced closure, staleness escalation
+
+An incoming spec (task spec §11, "Specialist Referral Engine") was handed in describing the full
+referral-lifecycle journey. Same discipline as `docs/CLINICAL_NETWORK_SPEC.md`'s own reconciliation
+approach: read what already exists before writing anything, respect `CLAUDE.md`'s guardrail on the
+matching/ranking engine, and build the confirmed gaps additively — user explicitly confirmed the
+intent was "complementary to what we already have... to enhance it and not to replace it."
+
+**What research found before writing anything:** most of §11 already existed — `specialist_referrals`
+(8-stage `referral_status`, urgency, `clinical_summary`, waitlist + interim-management-plan workflow),
+`ChooseReferralSpecialist`/`useMatchedSpecialistProviders` (plain filter, no ranking — the guardrail has
+held), and referral letters. **Critically, specialist booking/matching was deliberately SUSPENDED
+2026-08-03** (`20260803142941_self_arranged_specialist_referrals.sql`) — `fulfilment` defaults
+`self_arranged`, all 9 `specialist_providers` deactivated, `set_referral_specialist_provider` now always
+raises. Building §11.7/§11.8's "match and book a specific provider" flow would have reversed that
+founder decision, not just brushed the matching guardrail — correctly out of scope. The real, confirmed
+gap was downstream: the lifecycle just stops at `completed` — no structured outcome, no notification to
+the referring clinician when a specialist's outcome comes back, no closure enforcement, no escalation for
+a referral nobody follows up on, and the referral letter already promises "upload it in the app" with no
+such path anywhere in the codebase.
+
+**Shipped, in build order** (8 migrations, `20260828030512` through `20260828033417`):
+1. `referral_status` gains `closed` (one new terminal value — kept the existing "status stays coarse,
+   timestamps carry the fine-grained pipeline" idiom rather than proliferating enum states).
+2. `timeline_event_type` gains `referral_outcome_recorded`; `outreach_trigger_type` gains
+   `referral_follow_up`.
+3. `specialist_referrals` gains `referred_by` (FK `clinical_staff`, nullable, never inferred — mirrors
+   `bariatric_referrals.referred_by`/`lab_orders.ordered_by`), `preferred_consultation_type`,
+   `preferred_location`, `parent_referral_id` (self-FK, specialist-to-specialist chaining, §11.16).
+4. `specialist_referrals` gains `outcome_document_path/_uploaded_at/_uploaded_by`, `care_plan_update_note`,
+   `closed_at`, `closed_by`, a `specialist_referrals_closed_requires_outcome` CHECK (closing requires an
+   outcome — transcribed plan or uploaded doc — + a non-empty care-plan note + clinical-tier attribution),
+   and `private.enforce_specialist_referral_outcome_and_closure` (BEFORE UPDATE): freezes `closed_at`/
+   `closed_by` once set, blocks reopening a closed referral, server-derives the document uploader and the
+   closer (clinical-tier only, mirrors `clinical_encounter_notes`' attribution trigger).
+5. Private storage bucket `specialist-referral-outcome-documents` (patient-own-folder policies, mirrors
+   `lab-result-documents`).
+6. Feedback-loop notifications (§11.14): outcome recorded → notify the referring/assigned clinician +
+   `referral_outcome_recorded` timeline event; closed → notify the patient.
+7. Three staleness sweeps (§11.12, adapted to the self-arranged model — "did not book a Tarragon
+   appointment" has no meaning anymore, so the real equivalent is "no outcome recorded"): 14d → patient
+   reminder, 30d → `care_outreach_tasks` row (`referral_follow_up`), urgent/priority + 7d → `clinician_alerts`
+   row (reused `failed_referral` type_code rather than adding a new ungoverned one).
+
+**App layer:** `useCreateSpecialistReferral`/`CreateReferralForm` (clinician-facing referral creation —
+confirmed zero prior UI existed; only the abnormal-result-handler Edge Function ever inserted a row),
+`useCloseReferralWithCarePlanUpdate`, outcome-document upload (patient self-upload + staff-on-behalf,
+mirrors `uploadResultDocumentAsPatient`/`uploadResultDocumentForPatient`), extended
+`ClinicalSummaryPanel`/`your-referrals.tsx`/`pipeline-stages.ts`/`notification-bell.tsx` describe() cases.
+`treatment_plan_note`/`treatment_plan_received_at`/`shared_care_handback_at` and the existing waitlist/
+urgency/assignment hooks are all untouched.
+
+**Two things found only by testing against the LIVE project, not by reading migration files:**
+- **Local git is hundreds of migrations behind the live `koiplnmbgnqnbywhpjlf` project.** `list_migrations`
+  showed real, applied-live migrations with no matching file anywhere in this git history —
+  `care_plan_goals`/`care_plan_decisions`/`care_tasks` (a real structured care-plan system), an
+  `outreach_trigger_type` already carrying `missed_care_task`/`missed_appointment`/`failed_referral`, a
+  `queue_care_outreach()` that already raises `failed_referral` outreach tasks for **declined** referrals
+  (confirmed non-overlapping with this work's staleness sweep, which covers **stuck-without-outcome**
+  referrals regardless of decline status) — none of it in git. Conversely, at least one git-committed
+  migration (`20260827203614_provider_notifications.sql`, the `specialist_referrals_notify_clinician`
+  trigger) has **no live counterpart at all** — committed but never applied. Every specific fact this
+  entry states about live state was checked directly via `execute_sql`/`list_migrations`, not assumed from
+  the git tree — the standing lesson in `CLAUDE.md` about checking live definitions directly applies to
+  entire migrations now, not just individual functions.
+- **`specialist_referrals`' UPDATE RLS policy is staff-only (`private.is_org_staff`), even for a patient's
+  own row** — confirmed only by actually running `packages/db/tests/specialist_referral_engine.sql`
+  against the live project (not just reading the original 2026-07-05 migration, which had patient-or-staff
+  UPDATE). The first cut of the patient outcome-document-upload action used the patient's own session for
+  the table write and silently no-op'd (0 rows, no error) — caught before shipping only because the SQL
+  proof test was run for real. Fixed to verify ownership via the patient's own RLS-scoped SELECT, then
+  write via the service-role client with `outcome_document_uploaded_by` passed explicitly (the enforcement
+  trigger only auto-derives it from `auth.uid()` when a real session is present, same pattern
+  `handle_lab_result_document` already uses for its staff-upload path).
+- Migrations applied directly to the live project via `apply_migration` (this project's own established
+  practice per this file's own precedent — no separate "push-live" step exists for database migrations).
+  `get_advisors` (security) shows nothing against any new object. `pnpm --filter web typecheck/lint/test`
+  clean (107/107 suites, 1120/1120 tests); `database.types.ts` hand-patched (new columns, `referral_status`
+  gains `closed`, `timeline_event_type`/`outreach_trigger_type` gain their new values) rather than
+  regenerated, same precedent as prior entries in this file.
+- **Not built, guardrail unchanged:** specialist matching/ranking, reactivating `specialist_providers`
+  booking, any integration with the live-only `care_plan_goals`/`care_plan_decisions` system (deliberately
+  left alone — `care_plan_update_note` stays a narrative note alongside the record, same relationship
+  `clinical_encounter_notes.plan` already has to `medications`/`lab_orders`, since the live-only system's
+  full constraints/RLS couldn't be verified from outside a single session).
+

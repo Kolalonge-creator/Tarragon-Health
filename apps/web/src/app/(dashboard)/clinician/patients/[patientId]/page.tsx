@@ -24,6 +24,7 @@ import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
 import { HandOverCareSection } from "./hand-over-care-section";
 import { OrderLabTestForm } from "./order-lab-test-form";
+import { CreateReferralForm } from "./create-referral-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
 import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
@@ -319,6 +320,9 @@ export default async function ClinicianPatientPage({
                 />
                 {patient.organisation_id && (
                   <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
+                )}
+                {patient.organisation_id && (
+                  <CreateReferralForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}
                 {/* Obesity pathway (TH-CP-OB-001): attestation gate, structured
                     assessment (classification + staging + screens), and the
