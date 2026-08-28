@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
 
 const ENCOUNTER_TYPE_LABEL: Record<ClinicalEncounterNote["encounter_type"], string> = {
   video_consult: "Video consult",
@@ -23,6 +24,18 @@ const ENCOUNTER_TYPE_LABEL: Record<ClinicalEncounterNote["encounter_type"], stri
   phone: "Phone",
   escalation_review: "Escalation review",
   other: "Other",
+};
+
+// Consultation System §9.15 — every finalized consultation records one of these.
+const OUTCOME_LABEL: Record<NonNullable<ClinicalEncounterNote["outcome"]>, string> = {
+  reassurance: "Reassurance",
+  continue_monitoring: "Continue monitoring",
+  treatment_started: "Treatment started",
+  treatment_changed: "Treatment changed",
+  investigation_requested: "Investigation requested",
+  referral: "Referral",
+  follow_up: "Follow-up",
+  emergency_escalation: "Emergency escalation",
 };
 
 function formatDateTime(value: string): string {
@@ -207,7 +220,15 @@ function NewNoteForm({ patientId, organisationId }: { patientId: string; organis
   );
 }
 
-function DraftNoteCard({ note, patientId }: { note: ClinicalEncounterNote; patientId: string }) {
+function DraftNoteCard({
+  note,
+  patientId,
+  organisationId,
+}: {
+  note: ClinicalEncounterNote;
+  patientId: string;
+  organisationId: string;
+}) {
   const [fields, setFields] = useState({
     reasonForEncounter: note.reason_for_encounter,
     history: note.history ?? "",
@@ -217,6 +238,7 @@ function DraftNoteCard({ note, patientId }: { note: ClinicalEncounterNote; patie
     plan: note.plan ?? "",
     followUpInstructions: note.follow_up_instructions ?? "",
   });
+  const [outcome, setOutcome] = useState<NonNullable<ClinicalEncounterNote["outcome"]> | "">("");
   const update = useUpdateEncounterNoteDraft();
   const finalize = useFinalizeEncounterNote();
 
@@ -257,21 +279,50 @@ function DraftNoteCard({ note, patientId }: { note: ClinicalEncounterNote; patie
           >
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
+        </div>
+        <div className="flex flex-wrap items-end gap-2 border-t border-charcoal-ink/10 pt-3">
+          <div className="min-w-[14rem]">
+            <Label>Outcome (required to sign)</Label>
+            <Select value={outcome} onChange={(e) => setOutcome(e.target.value as typeof outcome)}>
+              <option value="">Choose an outcome…</option>
+              {Object.entries(OUTCOME_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </div>
           <Button
             size="sm"
-            disabled={fields.reasonForEncounter.trim().length === 0 || finalize.isPending}
+            disabled={fields.reasonForEncounter.trim().length === 0 || outcome === "" || finalize.isPending}
             title="Locks this note permanently — no further edits after signing"
-            onClick={() => finalize.mutate({ noteId: note.id, patientId })}
+            onClick={() => finalize.mutate({ noteId: note.id, patientId, outcome: outcome as NonNullable<ClinicalEncounterNote["outcome"]> })}
           >
             {finalize.isPending ? "Signing…" : "Sign & finalize"}
           </Button>
         </div>
+        <ConsultationFollowUpsPanel
+          encounterNoteId={note.id}
+          organisationId={organisationId}
+          patientId={patientId}
+          canWrite
+        />
       </CardContent>
     </Card>
   );
 }
 
-function FinalizedNoteCard({ note }: { note: ClinicalEncounterNote }) {
+function FinalizedNoteCard({
+  note,
+  patientId,
+  organisationId,
+  canActionFollowUps,
+}: {
+  note: ClinicalEncounterNote;
+  patientId: string;
+  organisationId: string;
+  canActionFollowUps: boolean;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -327,6 +378,18 @@ function FinalizedNoteCard({ note }: { note: ClinicalEncounterNote }) {
             {note.follow_up_instructions}
           </p>
         )}
+        {note.outcome && (
+          <p>
+            <span className="font-medium">Outcome: </span>
+            {OUTCOME_LABEL[note.outcome]}
+          </p>
+        )}
+        <ConsultationFollowUpsPanel
+          encounterNoteId={note.id}
+          organisationId={organisationId}
+          patientId={patientId}
+          canWrite={canActionFollowUps}
+        />
       </CardContent>
     </Card>
   );
@@ -343,10 +406,17 @@ export function ClinicalEncounterNotesSection({
   patientId,
   organisationId,
   canWrite,
+  canActionFollowUps = canWrite,
 }: {
   patientId: string;
   organisationId: string;
   canWrite: boolean;
+  /** Any active org staff (Care Coordinator included) may action a
+   * logistics-flavoured follow-up (investigation/appointment/care plan
+   * review) or dismiss one as not needed — only monitoring_schedule/referral
+   * need canWrite's clinical tier. Server-enforced either way; defaults to
+   * canWrite for callers that don't distinguish. */
+  canActionFollowUps?: boolean;
 }) {
   const { data: notes, isLoading } = usePatientEncounterNotes(patientId);
 
@@ -366,9 +436,15 @@ export function ClinicalEncounterNotesSection({
         )}
         {notes?.map((note) =>
           note.status === "draft" && canWrite ? (
-            <DraftNoteCard key={note.id} note={note} patientId={patientId} />
+            <DraftNoteCard key={note.id} note={note} patientId={patientId} organisationId={organisationId} />
           ) : (
-            <FinalizedNoteCard key={note.id} note={note} />
+            <FinalizedNoteCard
+              key={note.id}
+              note={note}
+              patientId={patientId}
+              organisationId={organisationId}
+              canActionFollowUps={canActionFollowUps}
+            />
           )
         )}
       </CardContent>

@@ -23,6 +23,7 @@ export const consultSlotKeys = {
   myRequests: (patientId: string) => ["video-visit-requests", "mine", patientId] as const,
   orgRequests: ["video-visit-requests", "org"] as const,
   acceptanceStats: ["video-visit-requests", "acceptance-stats"] as const,
+  recentCompleted: (patientId: string) => ["video-consultations", "recent-completed", patientId] as const,
 };
 
 export type VideoVisitAcceptanceStats =
@@ -193,7 +194,7 @@ export function useUpcomingVideoVisits(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("video_consultations")
-        .select("id, scheduled_at, join_url, status")
+        .select("id, scheduled_at, join_url, status, patient_prep_notes")
         .eq("patient_id", patientId)
         .eq("context", "general_checkin")
         .gte("scheduled_at", new Date().toISOString())
@@ -201,6 +202,60 @@ export function useUpcomingVideoVisits(patientId: string) {
         .order("scheduled_at", { ascending: true });
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+/** One video consultation by id — powers the §9.6 waiting room page. */
+export function useVideoConsultation(consultationId: string) {
+  return useQuery({
+    queryKey: ["video-consultations", "one", consultationId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("video_consultations")
+        .select("id, patient_id, scheduled_at, join_url, status, patient_prep_notes")
+        .eq("id", consultationId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: Boolean(consultationId),
+  });
+}
+
+/**
+ * Recently completed video visits with no feedback submitted yet — drives
+ * the Consultation System §9.20 feedback prompt. Bounded to the last 14
+ * days so a patient isn't asked to rate a visit from months ago.
+ */
+export function useRecentUnratedVideoVisits(patientId: string) {
+  return useQuery({
+    queryKey: consultSlotKeys.recentCompleted(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const since = new Date(Date.now() - 14 * 24 * 3600_000).toISOString();
+      const { data: visits, error } = await supabase
+        .from("video_consultations")
+        .select("id, scheduled_at")
+        .eq("patient_id", patientId)
+        .eq("status", "completed")
+        .gte("scheduled_at", since)
+        .order("scheduled_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      if (!visits || visits.length === 0) return [];
+
+      const { data: rated, error: ratedError } = await supabase
+        .from("consultation_feedback")
+        .select("video_consultation_id")
+        .in(
+          "video_consultation_id",
+          visits.map((v) => v.id)
+        );
+      if (ratedError) throw ratedError;
+      const ratedIds = new Set((rated ?? []).map((r) => r.video_consultation_id));
+      return visits.filter((v) => !ratedIds.has(v.id));
     },
   });
 }

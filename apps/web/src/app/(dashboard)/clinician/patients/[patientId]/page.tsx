@@ -338,6 +338,7 @@ export default async function ClinicianPatientPage({
                 patientId={patient.id}
                 organisationId={patient.organisation_id}
                 canWrite={isClinicalTier(callerStaff)}
+                canActionFollowUps={Boolean(callerStaff)}
               />
             ) : null,
           },

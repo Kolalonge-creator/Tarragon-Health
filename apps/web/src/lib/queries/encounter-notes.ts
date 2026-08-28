@@ -46,6 +46,9 @@ export function useCreateEncounterNote() {
       followUpInstructions?: string;
       videoConsultationId?: string;
       escalationId?: string;
+      asyncConsultId?: string;
+      callStartedAt?: string;
+      callEndedAt?: string;
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -63,6 +66,9 @@ export function useCreateEncounterNote() {
           follow_up_instructions: input.followUpInstructions || null,
           video_consultation_id: input.videoConsultationId || null,
           escalation_id: input.escalationId || null,
+          async_consult_id: input.asyncConsultId || null,
+          call_started_at: input.callStartedAt || null,
+          call_ended_at: input.callEndedAt || null,
         })
         .select("id")
         .single();
@@ -115,16 +121,26 @@ export function useUpdateEncounterNoteDraft() {
  * Signs and locks a draft note. private.enforce_clinical_encounter_note_attribution
  * stamps finalized_by_staff/finalized_at server-side and blocks any further
  * edit — this is a one-way transition, mirrored by the DB's own CHECK
- * constraints (clinical_encounter_notes_finalized_requires_signoff).
+ * constraints (clinical_encounter_notes_finalized_requires_signoff /
+ * clinical_encounter_notes_finalized_requires_outcome — every finalized note
+ * must record a Consultation System §9.15 outcome, so `outcome` is required
+ * here, not optional).
  */
 export function useFinalizeEncounterNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ noteId }: { noteId: string; patientId: string }) => {
+    mutationFn: async ({
+      noteId,
+      outcome,
+    }: {
+      noteId: string;
+      patientId: string;
+      outcome: NonNullable<ClinicalEncounterNote["outcome"]>;
+    }) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("clinical_encounter_notes")
-        .update({ status: "finalized" })
+        .update({ status: "finalized", outcome })
         .eq("id", noteId);
       if (error) throw error;
     },

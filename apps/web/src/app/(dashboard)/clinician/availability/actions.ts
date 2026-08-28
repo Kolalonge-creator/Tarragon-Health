@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createMeeting } from "@/lib/zoom/meetings";
 import { isZoomConfigured } from "@/lib/zoom/client";
+import { sendVideoConsultBookedConfirmation } from "@/lib/notifications/video-consult-confirmation";
 
 export type VideoVisitDecisionState = { error?: string; message?: string } | undefined;
 
@@ -38,12 +39,14 @@ export async function acceptVideoVisit(
     .maybeSingle();
 
   const service = createServiceRoleClient();
+  let joinUrl: string | null = null;
   if (consult?.scheduled_at && isZoomConfigured()) {
     const meeting = await createMeeting({
       topic: "Tarragon Health: Video visit",
       startTime: consult.scheduled_at,
     });
     if (meeting.ok) {
+      joinUrl = meeting.data.joinUrl;
       await service
         .from("video_consultations")
         .update({
@@ -55,14 +58,7 @@ export async function acceptVideoVisit(
     }
   }
   if (consult) {
-    await service.from("notifications").insert({
-      organisation_id: consult.organisation_id,
-      recipient_id: consult.patient_id,
-      channel: "whatsapp",
-      status: "pending",
-      template: "video_consult_booked",
-      payload: { scheduled_at: consult.scheduled_at },
-    });
+    await sendVideoConsultBookedConfirmation({ service, consultId: consult.id, joinUrl });
   }
 
   return { message: "Accepted: the visit is booked and the patient has been told." };
