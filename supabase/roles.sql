@@ -417,6 +417,26 @@ revoke all on function public.set_usd_processing_fee(numeric) from public;
 revoke all on function public.set_usd_processing_fee(numeric) from anon;
 grant execute on function public.set_usd_processing_fee(numeric) to authenticated;
 
+-- Stub #18: next confirmed CI failure after #17 above --
+-- 20260803145146_emergency_cards.sql's own assertion on create_emergency_card
+-- (single creation site, no-arg, same pattern again). Its sibling
+-- revoke_emergency_card is not checked by that migration's own assertion, so
+-- it's left unstubbed until/unless CI reports it as an actual failure.
+create function public.create_emergency_card()
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return null;
+end;
+$$;
+
+revoke all on function public.create_emergency_card() from public;
+revoke all on function public.create_emergency_card() from anon;
+grant execute on function public.create_emergency_card() to authenticated;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
