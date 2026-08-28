@@ -437,6 +437,28 @@ revoke all on function public.create_emergency_card() from public;
 revoke all on function public.create_emergency_card() from anon;
 grant execute on function public.create_emergency_card() to authenticated;
 
+-- Stub #19: next confirmed CI failure after #18 above --
+-- 20260807112503_clinician_phone_admin_only_visibility.sql's own assertion
+-- on my_care_plan_clinicians (single creation site, no-arg, table-returning),
+-- same pattern again.
+create function public.my_care_plan_clinicians()
+returns table (
+  care_plan_id uuid,
+  clinician_full_name text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return;
+end;
+$$;
+
+revoke all on function public.my_care_plan_clinicians() from public;
+revoke all on function public.my_care_plan_clinicians() from anon;
+grant execute on function public.my_care_plan_clinicians() to authenticated;
+
 -- ROOT-CAUSE FIX for the TABLE half of this gap, replacing per-table stubs
 -- going forward: the same "anon can reach something it shouldn't" gap that
 -- affects an unpredictable subset of functions (fixed one at a time above)
