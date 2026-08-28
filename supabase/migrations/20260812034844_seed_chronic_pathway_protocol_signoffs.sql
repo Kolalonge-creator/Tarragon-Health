@@ -36,7 +36,10 @@
 -- private.enforce_clinical_staff_indemnity (20260715175909) -- satisfied
 -- here with a real future indemnity_expires_at rather than the
 -- indemnity_exempt escape hatch, so this fixture carries the same shape a
--- genuine Clinical Director record would.
+-- genuine Clinical Director record would. active = true also requires
+-- license_verified_at is not null (clinical_staff_active_requires_verification,
+-- 20260712220000) -- set to now(); verified_by is left null, which is fine
+-- since profile_id is also null (no self-verification conflict possible).
 --
 -- Looked up by natural key (full_name + credential_number), not a hardcoded
 -- id, matching this history's established pattern for cross-statement
@@ -45,7 +48,7 @@
 -- slugs, which is already true there.
 insert into public.clinical_staff (
   organisation_id, full_name, is_clinical_director, active,
-  credential_type, credential_number, indemnity_expires_at
+  credential_type, credential_number, indemnity_expires_at, license_verified_at
 )
 select
   o.id,
@@ -54,7 +57,8 @@ select
   true,
   'MDCN',
   'CI-FIXTURE-0001',
-  now() + interval '5 years'
+  now() + interval '5 years',
+  now()
 from public.organisations o
 where not exists (
   select 1 from public.protocol_versions
