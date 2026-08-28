@@ -9,6 +9,15 @@
 --
 -- Run inside a transaction that is always rolled back — nothing here should
 -- ever be committed.
+--
+-- NOTE: the live handle_spo2_reading_red_flag() gates the clinician_alerts
+-- step on private.patient_has_feature_access(..., 'vitals_red_flag_doctor_
+-- escalation') — a Free-tier patient gets an AI self-care suggestion
+-- instead of an alert row (see the migration's own correction note). Test 1
+-- below assumes the seed patient it reuses has paid-plan escalation
+-- access; if it doesn't, v_alert.id will be null for a different reason
+-- than a real failure. Not resolved here — fixing it needs reading the
+-- subscription/entitlement schema, out of scope for this pass.
 
 begin;
 

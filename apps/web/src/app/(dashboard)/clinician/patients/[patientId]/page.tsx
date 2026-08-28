@@ -27,6 +27,7 @@ import { OrderLabTestForm } from "./order-lab-test-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
 import { FlaggedReadingsPanel } from "./flagged-readings-panel";
 import { MonitoringSchedulePanel } from "./monitoring-schedule-panel";
+import { IndividualisedTargetsPanel } from "./individualised-targets-panel";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
 import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
@@ -277,6 +278,9 @@ export default async function ClinicianPatientPage({
               <>
                 <FlaggedReadingsPanel patientId={patient.id} />
                 <MonitoringSchedulePanel patientId={patient.id} />
+                {patient.organisation_id && (
+                  <IndividualisedTargetsPanel patientId={patient.id} organisationId={patient.organisation_id} />
+                )}
                 <BpLadderPanel patientId={patient.id} />
                 <HealthTrendsCard patientId={patient.id} audience="clinician" />
                 <VitalsTrendChart patientId={patient.id} />

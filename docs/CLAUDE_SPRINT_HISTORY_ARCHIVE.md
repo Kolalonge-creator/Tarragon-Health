@@ -2900,3 +2900,60 @@ forward on explicit ask" precedent CLAUDE.md documents for Employer/HMO dashboar
   temperature_targets/patient_pulse_targets row — the tables and RLS support it, entry is direct-DB/RPC
   only for now, same scope boundary as `monitoring_schedule_items`' `acceptable_range` above.
 
+### 2026-08-28 (same day, second follow-up) — Applied to the live project; caught real drift doing it;
+### clinician target-setting UI + patient target display
+
+All 6 monitoring-engine migrations from the two entries above applied to the live `koiplnmbgnqnbywhpjlf`
+project, plus the two UI gaps the previous entry flagged as not built. On explicit ask.
+
+- **Before touching anything**, fetched `list_migrations` and found the live project ~50 migrations ahead
+  of what this branch's `main-dev` fork point had — a live-only "Appointment Engine"/"Consultation" feature
+  set (~27 migrations) that doesn't exist in git at all yet, evidence another session is concurrently
+  working this same repo on an unmerged branch. Merged `origin/main-dev` into this branch first (10
+  migrations landed since the fork, zero collisions with this work — checked each one's touched
+  tables/columns before merging) and pushed that merge, so the branch's own migration folder is at least
+  consistent with `main-dev` before going anywhere near the live database. Then, rather than trust the git
+  history at all, queried the live schema directly for every table/column/enum/function/trigger name this
+  work's migrations reference or create — zero pre-existing collisions, every dependency present exactly as
+  assumed — before applying anything.
+- **Real near-miss, caught before it shipped:** `pg_get_functiondef`'d the live `private.handle_spo2_
+  reading_red_flag()`/`handle_temperature_reading_red_flag()` before overwriting them (CLAUDE.md's own
+  "check its live definition directly" lesson, applied deliberately this time) and found this branch's own
+  local migration files (`20260807090139`/`20260807090237`) were stale relative to what's actually live —
+  missing paid-plan-gated escalation (`private.patient_has_feature_access(..., 'vitals_red_flag_doctor_
+  escalation')`, with a Free-tier AI self-care fallback), configurable per-mechanism SLAs
+  (`private.escalation_sla_minutes`), and clinician paging (`private.enqueue_critical_notification`) — all
+  real, shipped, load-bearing logic. A plain `create or replace` from the local file (the second follow-up
+  entry's original migration) would have silently reverted all three. Rebuilt the trigger bodies from the
+  actual live definitions with only the individualised-target upgrade step added, applied that instead, then
+  verified via `pg_get_functiondef` again that both the override AND all three preserved behaviours are
+  present. Also checked (informational, untouched) `private.handle_bp_reading_red_flag` and confirmed it's
+  drifted even further (a pregnancy/pre-eclampsia obstetric-red-route branch this branch's git history has
+  never seen) and `private.flag_overdue_vitals()` matches this branch's assumptions exactly — narrowly
+  correct by luck there, not by having checked it first. Corrected the local migration file
+  (`20260828184053_...`) to match what's actually live, with the correction reasoning left in the migration
+  comment rather than silently rewritten.
+- `get_advisors(type: security)` after applying: zero findings against any of the new
+  tables/functions beyond the same `authenticated_security_definer_function_executable` WARN class every
+  other internally-gated SECURITY DEFINER RPC in this codebase already carries (708 occurrences platform-
+  wide) — not a new issue, the deliberate architecture.
+- **Clinician target-setting UI**: `IndividualisedTargetsPanel` on the clinician patient-detail page — one
+  row each for SpO2/temperature/pulse, upsert-on-save via new `lib/queries/vital-targets.ts` mutation hooks
+  (direct-table upsert, `set_by` resolved from the caller's own `clinical_staff` row, same as `clear_vitals_
+  validation_flag`'s attribution). Confirmed via grep that even the precedent features (`patient_bp_
+  targets`/`patient_glucose_targets`) never got a dedicated setting UI either — this is genuinely new ground
+  for the platform, not filling a gap next to an existing pattern.
+- **Patient target display**: `MyTargetsCard`, same null-gated "states the number, never a verdict" pattern
+  as the existing `GlucoseInsights` ("Your care team's target..."), on the patient Vitals page next to
+  `HbpmSummaryCard`/`GlucoseInsights`. Renders nothing when no target is set (the common case).
+- Verified: `pnpm --filter web typecheck`/`lint`/`test`/`build` all clean (0 errors, same 4 pre-existing
+  warnings, 109/109 suites, 1128/1128 tests) after the new query hooks and both UI components.
+- **Not done, flagged not guessed at:** the two new SQL test files still haven't been run against a real
+  database (no local Postgres in this environment); the `spo2_temperature_pulse_individualised_targets.sql`
+  test's first case now implicitly depends on its seed patient having paid-plan `vitals_red_flag_doctor_
+  escalation` access (a side effect of the drift correction) — noted in the test file itself, not resolved,
+  since resolving it needs reading the subscription/entitlement schema. The live "Appointment Engine" work
+  from the other in-flight session was left entirely alone — not investigated further, not merged, not
+  reported beyond this note; whoever owns that branch should merge/reconcile it in the normal course, not as
+  a side effect of this session.
+

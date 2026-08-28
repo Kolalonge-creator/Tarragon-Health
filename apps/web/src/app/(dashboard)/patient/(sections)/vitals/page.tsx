@@ -4,6 +4,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { VitalsForm } from "@/app/(dashboard)/patient/vitals-form";
 import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
 import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
+import { MyTargetsCard } from "@/app/(dashboard)/patient/my-targets-card";
 import { VitalsHistory } from "@/app/(dashboard)/patient/vitals-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
@@ -28,6 +29,7 @@ export default async function PatientVitalsPage() {
         <div className="space-y-4">
           <HbpmSummaryCard patientId={subjectId} />
           <GlucoseInsights patientId={subjectId} />
+          <MyTargetsCard patientId={subjectId} />
         </div>
       </div>
 
