@@ -232,6 +232,8 @@ async function raiseGlucoseAlert(
     detail: flag.detail,
     escalation_level: isUrgent ? 3 : 2,
     sla_due_at: new Date(Date.now() + (isUrgent ? 4 : 72) * 60 * 60 * 1000).toISOString(),
+    category: "clinical",
+    type_code: "abnormal_monitoring",
   });
 }
 

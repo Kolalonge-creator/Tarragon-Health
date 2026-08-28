@@ -3240,8 +3240,15 @@ export type Database = {
         Row: {
           acknowledged_at: string | null
           acknowledged_by: string | null
+          assigned_at: string | null
+          backup_clinician_id: string | null
+          category: Database["public"]["Enums"]["alert_category"]
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
+          dedup_key: string
           detail: string | null
+          duplicate_of: string | null
           escalation_level: number | null
           id: string
           level: Database["public"]["Enums"]["alert_level"]
@@ -3254,18 +3261,48 @@ export type Database = {
           protocol_scope_exceeded: boolean
           protocol_scope_exceeded_at: string | null
           protocol_scope_exceeded_note: string | null
+          resolution_action: string | null
+          resolution_outcome:
+            | Database["public"]["Enums"]["alert_resolution_outcome"]
+            | null
+          resolved_at: string | null
+          resolved_by: string | null
+          responsible_clinician_id: string | null
           screening_result_id: string | null
+          severity: number
           sla_due_at: string | null
+          snooze_reason: string | null
+          snoozed_by: string | null
+          snoozed_until: string | null
           status: Database["public"]["Enums"]["alert_status"]
+          suppressed: boolean
+          suppressed_reason: string | null
           title: string
+          type_code: Database["public"]["Enums"]["alert_type_code"]
           updated_at: string
           vital_reading_id: string | null
         }
         Insert: {
           acknowledged_at?: string | null
           acknowledged_by?: string | null
+          assigned_at?: string | null
+          backup_clinician_id?: string | null
+          // category/type_code are NOT NULL with no column DEFAULT, but are
+          // populated by private.classify_and_assign_clinician_alert()
+          // (BEFORE INSERT trigger) whenever left null -- optional here so a
+          // caller can either omit them (falls back to the trigger's
+          // title/column-based inference) or pass them explicitly to skip
+          // that inference, exactly as apps/web/src/lib/ai-coach/escalate.ts,
+          // cv-risk/escalate.ts and vitals/assess-*.ts do. A hand-maintained
+          // deviation from raw introspection, which cannot see trigger
+          // behaviour -- see severity/dedup_key below for the same reasoning.
+          category?: Database["public"]["Enums"]["alert_category"]
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
+          dedup_key?: string
           detail?: string | null
+          duplicate_of?: string | null
           escalation_level?: number | null
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
@@ -3278,18 +3315,43 @@ export type Database = {
           protocol_scope_exceeded?: boolean
           protocol_scope_exceeded_at?: string | null
           protocol_scope_exceeded_note?: string | null
+          resolution_action?: string | null
+          resolution_outcome?:
+            | Database["public"]["Enums"]["alert_resolution_outcome"]
+            | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          responsible_clinician_id?: string | null
           screening_result_id?: string | null
+          // Always trigger-derived from level/override_level -- never pass
+          // this from application code (it would be silently overwritten by
+          // the trigger regardless, so a client-supplied value here can only
+          // mislead a reader of the call site, not change behaviour).
+          severity?: number
           sla_due_at?: string | null
+          snooze_reason?: string | null
+          snoozed_by?: string | null
+          snoozed_until?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
+          suppressed?: boolean
+          suppressed_reason?: string | null
           title: string
+          type_code?: Database["public"]["Enums"]["alert_type_code"]
           updated_at?: string
           vital_reading_id?: string | null
         }
         Update: {
           acknowledged_at?: string | null
           acknowledged_by?: string | null
+          assigned_at?: string | null
+          backup_clinician_id?: string | null
+          category?: Database["public"]["Enums"]["alert_category"]
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
+          dedup_key?: string
           detail?: string | null
+          duplicate_of?: string | null
           escalation_level?: number | null
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
@@ -3302,10 +3364,24 @@ export type Database = {
           protocol_scope_exceeded?: boolean
           protocol_scope_exceeded_at?: string | null
           protocol_scope_exceeded_note?: string | null
+          resolution_action?: string | null
+          resolution_outcome?:
+            | Database["public"]["Enums"]["alert_resolution_outcome"]
+            | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          responsible_clinician_id?: string | null
           screening_result_id?: string | null
+          severity?: number
           sla_due_at?: string | null
+          snooze_reason?: string | null
+          snoozed_by?: string | null
+          snoozed_until?: string | null
           status?: Database["public"]["Enums"]["alert_status"]
+          suppressed?: boolean
+          suppressed_reason?: string | null
           title?: string
+          type_code?: Database["public"]["Enums"]["alert_type_code"]
           updated_at?: string
           vital_reading_id?: string | null
         }
@@ -3315,6 +3391,27 @@ export type Database = {
             columns: ["acknowledged_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_backup_clinician_id_fkey"
+            columns: ["backup_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_duplicate_of_fkey"
+            columns: ["duplicate_of"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
             referencedColumns: ["id"]
           },
           {
@@ -3339,6 +3436,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clinician_alerts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_responsible_clinician_id_fkey"
+            columns: ["responsible_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clinician_alerts_screening_result_id_fkey"
             columns: ["screening_result_id"]
             isOneToOne: false
@@ -3346,10 +3457,220 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clinician_alerts_snoozed_by_fkey"
+            columns: ["snoozed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clinician_alerts_vital_reading_id_fkey"
             columns: ["vital_reading_id"]
             isOneToOne: false
             referencedRelation: "vitals_readings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinician_alert_ack_escalations: {
+        Row: {
+          clinician_alert_id: string
+          created_at: string
+          hop: number
+          id: string
+          notified_role: string
+        }
+        Insert: {
+          clinician_alert_id: string
+          created_at?: string
+          hop: number
+          id?: string
+          notified_role: string
+        }
+        Update: {
+          clinician_alert_id?: string
+          created_at?: string
+          hop?: number
+          id?: string
+          notified_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_alert_ack_escalations_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_deliveries: {
+        Row: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          clinician_alert_id: string
+          created_at: string
+          id: string
+          notification_id: string | null
+          recipient_id: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          clinician_alert_id: string
+          created_at?: string
+          id?: string
+          notification_id?: string | null
+          recipient_id: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          clinician_alert_id?: string
+          created_at?: string
+          id?: string
+          notification_id?: string | null
+          recipient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_deliveries_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_deliveries_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_follow_up_tasks: {
+        Row: {
+          clinician_alert_id: string
+          created_at: string
+          created_by: string | null
+          due_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["alert_follow_up_status"]
+          updated_at: string
+        }
+        Insert: {
+          clinician_alert_id: string
+          created_at?: string
+          created_by?: string | null
+          due_at: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["alert_follow_up_status"]
+          updated_at?: string
+        }
+        Update: {
+          clinician_alert_id?: string
+          created_at?: string
+          created_by?: string | null
+          due_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["alert_follow_up_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_follow_up_tasks_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_follow_up_tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_follow_up_tasks_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_follow_up_tasks_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_follow_up_tasks_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_rules: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_rules_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
         ]
@@ -17029,6 +17350,11 @@ export type Database = {
         Args: { p_period?: string }
         Returns: Json
       }
+      analytics_alert_burden: { Args: never; Returns: Json }
+      analytics_alert_quality: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       analytics_audit_log: {
         Args: {
           p_action?: string
@@ -18225,6 +18551,7 @@ export type Database = {
       }
       set_usd_processing_fee: { Args: { p_fee_pct: number }; Returns: Json }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
+      sign_alert_rules: { Args: { p_id: string }; Returns: string }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
       sign_risk_questionnaire_config: {
@@ -18296,12 +18623,41 @@ export type Database = {
     }
     Enums: {
       activity_entry_type: "steps" | "workout"
+      alert_category: "clinical" | "care_management" | "medication" | "operational"
+      alert_follow_up_status: "open" | "done" | "dismissed"
       alert_level:
         | "routine"
         | "clinician_review"
         | "urgent_escalation"
         | "emergency"
-      alert_status: "open" | "acknowledged" | "resolved"
+      alert_resolution_outcome:
+        | "true_positive"
+        | "false_positive"
+        | "duplicate"
+        | "no_action_needed"
+      alert_status:
+        | "open"
+        | "acknowledged"
+        | "resolved"
+        | "snoozed"
+        | "closed"
+      alert_type_code:
+        | "abnormal_result"
+        | "abnormal_monitoring"
+        | "symptom_escalation"
+        | "medication_safety"
+        | "deterioration"
+        | "missed_appointment"
+        | "overdue_task"
+        | "overdue_monitoring"
+        | "failed_referral"
+        | "adherence_problem"
+        | "refill_due"
+        | "potential_interaction"
+        | "pharmacy_problem"
+        | "provider_unavailable"
+        | "appointment_failure"
+        | "laboratory_failure"
       allergy_severity: "mild" | "moderate" | "severe"
       allergy_source: "patient" | "clinician" | "fhir_import"
       annual_check_status: "pending" | "in_progress" | "completed"
@@ -19111,13 +19467,39 @@ export const Constants = {
   public: {
     Enums: {
       activity_entry_type: ["steps", "workout"],
+      alert_category: ["clinical", "care_management", "medication", "operational"],
+      alert_follow_up_status: ["open", "done", "dismissed"],
       alert_level: [
         "routine",
         "clinician_review",
         "urgent_escalation",
         "emergency",
       ],
-      alert_status: ["open", "acknowledged", "resolved"],
+      alert_resolution_outcome: [
+        "true_positive",
+        "false_positive",
+        "duplicate",
+        "no_action_needed",
+      ],
+      alert_status: ["open", "acknowledged", "resolved", "snoozed", "closed"],
+      alert_type_code: [
+        "abnormal_result",
+        "abnormal_monitoring",
+        "symptom_escalation",
+        "medication_safety",
+        "deterioration",
+        "missed_appointment",
+        "overdue_task",
+        "overdue_monitoring",
+        "failed_referral",
+        "adherence_problem",
+        "refill_due",
+        "potential_interaction",
+        "pharmacy_problem",
+        "provider_unavailable",
+        "appointment_failure",
+        "laboratory_failure",
+      ],
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician", "fhir_import"],
       annual_check_status: ["pending", "in_progress", "completed"],
