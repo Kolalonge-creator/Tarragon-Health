@@ -43,6 +43,9 @@ export function SpecialistsManager() {
   const [name, setName] = useState("");
   const [specialistType, setSpecialistType] = useState<SpecialistType>("cardiology");
   const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [feeNaira, setFeeNaira] = useState("");
   const [telemedicine, setTelemedicine] = useState(false);
   const [isActive, setIsActive] = useState(true);
@@ -68,6 +71,9 @@ export function SpecialistsManager() {
                   name,
                   specialistType,
                   state: state || null,
+                  city: city || null,
+                  contactEmail: contactEmail || null,
+                  contactPhone: contactPhone || null,
                   consultationFeeKobo: Math.round(naira * 100),
                   supportsTelemedicine: telemedicine,
                   isActive,
@@ -79,6 +85,9 @@ export function SpecialistsManager() {
                   onSuccess: () => {
                     setName("");
                     setState("");
+                    setCity("");
+                    setContactEmail("");
+                    setContactPhone("");
                     setFeeNaira("");
                     setTelemedicine(false);
                     setIsActive(true);
@@ -106,6 +115,31 @@ export function SpecialistsManager() {
             <div className="space-y-1">
               <Label htmlFor="sp-state">State</Label>
               <Input id="sp-state" value={state} onChange={(e) => setState(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sp-city">City</Label>
+              <Input id="sp-city" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sp-contact-email">Contact email</Label>
+              <Input
+                id="sp-contact-email"
+                type="email"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+              />
+              <p className="text-xs text-charcoal-ink/50">
+                Where a booking confirmation is sent once a referral is assigned to them.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sp-contact-phone">Contact phone</Label>
+              <Input
+                id="sp-contact-phone"
+                placeholder="+234XXXXXXXXXX"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="sp-fee">Consultation fee (₦)</Label>
@@ -163,7 +197,14 @@ export function SpecialistsManager() {
                     <Badge variant={sp.is_active ? "green" : "grey"}>{sp.is_active ? "Active" : "Inactive"}</Badge>
                     {sp.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
                     <PartnerLicenseBadge expiresAt={sp.license_expires_at} />
-                    {sp.state && <span className="text-xs text-charcoal-ink/50">{sp.state}</span>}
+                    {(sp.city || sp.state) && (
+                      <span className="text-xs text-charcoal-ink/50">
+                        {[sp.city, sp.state].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                    {!sp.contact_email && !sp.contact_phone && (
+                      <span className="text-xs text-amber-700">No contact details on file</span>
+                    )}
                   </div>
                   <Button
                     variant="outline"

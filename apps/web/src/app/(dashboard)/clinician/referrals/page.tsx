@@ -113,14 +113,17 @@ function AssignProviderForm({ referral }: { referral: SpecialistReferralWithDeta
             assign.mutate({
               referralId: referral.id,
               specialistProviderId: chosen.id,
-              feeKobo: chosen.consultation_fee_kobo,
             })
           }
         >
           {assign.isPending ? "Assigning…" : "Assign"}
         </Button>
       </div>
-      {assign.isError && <p className="w-full text-xs text-red-600">Could not assign. Try again.</p>}
+      {assign.isError && (
+        <p className="w-full text-xs text-red-600">
+          {(assign.error as Error).message || "Could not assign. Try again."}
+        </p>
+      )}
 
       {noMatches && (
         <div className="space-y-2 border-t border-charcoal-ink/10 pt-2">

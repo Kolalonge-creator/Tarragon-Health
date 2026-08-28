@@ -2837,3 +2837,67 @@ urgency/assignment hooks are all untouched.
   `clinical_encounter_notes.plan` already has to `medications`/`lab_orders`, since the live-only system's
   full constraints/RLS couldn't be verified from outside a single session).
 
+### 2026-08-28 — Partner-specialist booking: reactivated the "is_active flip", on explicit ask
+
+Same-day follow-up to the Specialist Referral Engine entry above. Founder explicitly asked to "build
+this full... so it can be easily activated when Tarragon start having specialist onboard" — read as
+authorising the specific piece the referral-engine work above deliberately left alone: finishing the
+`partner` half of `fulfilment_mode` (added 2026-08-03,
+`20260803142941_self_arranged_specialist_referrals.sql`) so a real contracted specialist can actually
+be booked once one exists, without reversing `self_arranged` as the default or touching the
+matching/ranking guardrail (still untouched — no scoring, no "Tarragon recommends", staff/patient still
+pick manually from a plain filtered list).
+
+**What was actually broken, found by reading the 2026-08-03 migration in full before writing anything:**
+its own comment says "Dormant, not deleted. Contracting a specialist is an `is_active` flip" — but
+`set_referral_specialist_provider` was left **unconditionally raising** ('Specialist booking is not
+available yet') regardless of whether a real active provider existed, so flipping `is_active` alone
+would never actually have activated anything; and the referrals worklist's `useAssignSpecialistProvider`
+hook did a raw `.update()` that would violate `enforce_referral_fulfilment`'s self_arranged guard (every
+referral defaults to `self_arranged`, and only the RPC is meant to flip it to `partner`) — so that whole
+assignment UI was silently dead in production. Also found, before building anything new: a **complete
+admin onboarding UI for specialist_providers already existed** at
+`admin/settings/partners/specialists/` (create form, license editor, commission-rate editor,
+activate/deactivate toggle, using the already-defined `partners.specialists.manage` RBAC permission) —
+almost built a duplicate before checking.
+
+**Shipped:**
+- `20260828234512_activate_partner_specialist_booking.sql` rewrites `set_referral_specialist_provider`
+  to do real work again: requires the caller to be org staff for the referral's own org, the referral to
+  still be assignable (`pending`/`waitlisted`, not already paid/booked/closed), and the chosen provider
+  to be genuinely active AND specialty-matched — then flips `fulfilment` to `partner`, locks in the fee
+  from the **provider's own row** (never a caller-supplied value), and advances `status` to
+  `pending_payment`. Everything downstream (payment checkout, `specialist_referrals_record_commission`,
+  the booking/close pipeline) is pre-existing and untouched — reaching `payment_confirmed` for real is
+  what re-activates it.
+- `useAssignSpecialistProvider` (`lib/queries/specialist-referrals.ts`) now calls the RPC via
+  `supabase.rpc(...)` instead of the raw update; `AssignProviderForm` surfaces the RPC's real error
+  message instead of a generic one.
+- Extended the existing specialist-onboarding form with `city`/`contact_email`/`contact_phone` — these
+  columns already existed but the form never collected them, and `contact_email`/`contact_phone` are
+  what `specialist_referrals_enqueue_notifications` actually sends the booking confirmation to; without
+  them a real specialist would never be told they'd been booked.
+- **Explicitly not built, guardrail unchanged**: no wiring into the Appointment Engine. Checked
+  `hold_appointment_slot`'s signature first — it's built around `p_clinician_id` (an internal
+  `clinical_staff`-linked profile with its own `provider_availability_rules`), which an external
+  contracted specialist has no equivalent of and, per this codebase's own "specialists have no platform
+  login" pattern, never will. Forcing partner-specialist booking through that engine would mean
+  inventing availability data no real specialist ever provided — the existing simple
+  `appointment_date`/`booking_confirmed_at` fields on the referral (a human coordinates the actual time
+  with the external party) are the architecturally correct model here, not a gap.
+- `packages/db/tests/specialist_referral_partner_booking.sql` run live: 6 cases (happy-path assignment
+  correctly locking fulfilment/status/fee; inactive-provider, specialty-mismatch, already-progressed-
+  referral, and non-staff-caller all correctly blocked; a waitlisted referral assignable too) — all pass.
+  One real bug caught only by running it: `select function_returning_composite() into record_var` failed
+  with a spurious "invalid input syntax for type uuid" even though the RPC itself succeeded (visible
+  inside the malformed error text) — a test-harness issue, not an RPC bug; fixed by reading the row back
+  with a plain `select ... into` from the table instead, same idiom already used in the closure-series
+  test above.
+- `pnpm --filter web typecheck/lint/test` clean (107/107 suites, 1120/1120 tests). Applied directly to
+  the live `koiplnmbgnqnbywhpjlf` project, same as the entry above.
+- **Still requires real ops work before any patient sees a partner-booked referral**: an admin adding a
+  genuine specialist through the existing onboarding UI (name, real contact details, real fee, license) and
+  flipping `is_active` true. Nothing else changes until that happens — every referral still defaults to
+  `self_arranged` and the assignment UI still shows "no active providers match" against an empty
+  catalogue, identical to today.
+

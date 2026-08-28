@@ -112,6 +112,14 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
  * pending_payment for the patient's own payment action, the only place that
  * runs initiateBookingCheckout for this referral.
  *
+ * Routed through public.set_referral_specialist_provider (RPC), not a raw
+ * `.update()` — a plain update would violate specialist_referrals_enforce_
+ * fulfilment's self_arranged guard, since every referral defaults to
+ * self_arranged and only this RPC flips fulfilment to 'partner' as part of
+ * assigning. The RPC re-validates the provider is genuinely active and
+ * specialty-matched server-side and locks in the fee from the provider's own
+ * row — never a client-supplied value.
+ *
  * Until 2026-07-29 this also checked the org for an active capitation
  * contract and confirmed such referrals without payment. Capitation is gone
  * (I8), so there is one path.
@@ -122,22 +130,15 @@ export function useAssignSpecialistProvider() {
     mutationFn: async ({
       referralId,
       specialistProviderId,
-      feeKobo,
     }: {
       referralId: string;
       specialistProviderId: string;
-      feeKobo: number;
     }) => {
       const supabase = createClient();
-
-      const { error } = await supabase
-        .from("specialist_referrals")
-        .update({
-          specialist_provider_id: specialistProviderId,
-          referral_fee_kobo: feeKobo,
-          status: "pending_payment" as const,
-        })
-        .eq("id", referralId);
+      const { error } = await supabase.rpc("set_referral_specialist_provider", {
+        p_referral_id: referralId,
+        p_specialist_provider_id: specialistProviderId,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
