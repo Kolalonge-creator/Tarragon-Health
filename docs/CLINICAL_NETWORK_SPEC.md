@@ -113,13 +113,34 @@ expires_at/verified_at/verified_by` columns in `20260731011319_partner_regulator
 no multi-step onboarding pipeline (identity → registration → qualification → licence → scope →
 approval) for any provider type — onboarding today is a manual admin insert.
 
-### 4.4/4.5 Provider availability & calendar — 🟢 (minimal, working), 🔴 (recurring/leave)
-Real and functional for Tarragon's own doctors: `consult_availability_slots` +
-`book_video_consult_slot` RPC (row-locked, no double-booking), `AvailabilityManager` UI at
-`(dashboard)/clinician/availability/`. **Missing:** recurring-availability rules, leave/blocked-time
-concepts, per-service duration/buffer config, multi-location slots. The old `appointments` table
-(`20260705211129_chronic_disease.sql`) is dead code — confirmed zero references in `apps/web/src` —
-do not resurrect it; extend the slot-based system instead.
+### 4.4/4.5 Provider availability & calendar — 🟢 (built 2026-08-28, Appointment Engine)
+`consult_availability_slots` + `book_video_consult_slot` (row-locked, no double-booking),
+`AvailabilityManager` UI at `(dashboard)/clinician/availability/`, is unchanged — it stays the
+economics-specific path for the paid on-demand video-visit product (`video_visit_requests`).
+**Corrected 2026-08-28 — the "old `appointments` table is dead code, do not resurrect it" line above
+is now stale.** `20260827203759_my_provider_performance_rpc.sql` started reading
+`public.appointments.status`/`clinician_id`/`scheduled_for` the same day this doc was written, which
+committed the codebase to that table meaning something real going forward. The Appointment Engine
+build generalised it in place (still zero-row-safe, guarded by a migration-time count check) into the
+universal 10.2 appointment object covering every appointment_type (gp/specialist/nurse/dietitian/
+physiotherapist/laboratory/imaging/vaccination/physical_clinic/telemedicine/follow_up/procedure), and
+closed every item this section used to list as missing: `provider_availability_rules` (recurring
+weekly windows, 10.4/10.9), `provider_time_off` (leave/blocked time, 10.5, cascading into an
+automatic cancel + notify + waiting-list offer per 10.10 via `provider_time_off_cascade`),
+per-rule duration/buffer config, and `get_available_appointment_slots()` computing bookable slots on
+demand. Double-booking prevention (10.6) uses a `tstzrange` GiST EXCLUDE constraint
+(`appointments_no_provider_overlap`) instead of the row-lock idiom `book_video_consult_slot` uses —
+new territory for this codebase, and a stronger guarantee under concurrency. Also shipped: the full
+hold -> booked/confirmed -> checked-in -> in progress -> completed state machine plus cancellation/
+reschedule/no-show (10.3/10.7/10.18), a waiting list with a sequential single-offer model (10.17),
+configurable cancellation policy (org/type-overridable, seeded with a conservative platform default —
+no invented fees), 24h/2h/shortly-before reminders with a tighter cadence for referral-urgency-driven
+appointments (10.13), a schema-scaffolded resource-scheduling link for rooms/equipment (10.15/10.16,
+unpopulated — no owned clinics/rooms exist yet), and an admin-gated `analytics_appointment_capacity()`
+rollup (10.19/10.20) that is the employed-care-team analog of this doc's own
+`analytics_provider_capacity()` (§4.17) for the referral-network pool — the two capacity pools are
+kept deliberately separate, same reasoning as that function's own comment. Multi-location slots
+remain unbuilt (a rule has one `location` field, not several).
 
 ### 4.6 Patient provider discovery — 🟡
 `FacilitySelector` (state/city/geolocation/nearest-first, verified badge) covers facilities

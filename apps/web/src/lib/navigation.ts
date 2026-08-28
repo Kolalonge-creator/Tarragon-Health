@@ -170,6 +170,7 @@ export function getNavSections(
               shortLabel: "Messages",
             },
             { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
+            { label: "Appointments", href: "/patient/appointments", icon: "booking" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
@@ -270,6 +271,7 @@ export function getNavSections(
               label: "My work",
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
