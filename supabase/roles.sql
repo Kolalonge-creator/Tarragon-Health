@@ -479,7 +479,21 @@ grant execute on function public.create_emergency_card() to authenticated;
 -- forward, but they're left in place rather than reverted: they're already
 -- confirmed working via CI, and removing them wouldn't change behaviour or
 -- reduce risk, just add churn to files this session has already validated.
-create or replace function public.ci_revoke_anon_table_defaults()
+--
+-- EXTENDED (still same CI run's next failure, confirmed): clearing the anon
+-- gap on care_access_events surfaced a second, related but distinct default-
+-- ACL gap in the SAME migration's own follow-up hardening
+-- (20260807014200_care_access_log_hardening.sql): `authenticated` held
+-- REFERENCES and TRIGGER on the table (information_schema.role_table_grants),
+-- neither of which any migration in this codebase ever intentionally grants
+-- to authenticated (confirmed by grep) -- this environment's bootstrap simply
+-- gives authenticated more than the SELECT/INSERT/UPDATE/DELETE that
+-- 20260731232749's own default-privileges fix establishes as the intended
+-- baseline. Narrowing authenticated down to that baseline here too, same
+-- create-time-before-any-explicit-grant timing as the anon/public revoke
+-- above -- a table that legitimately needs one of these for authenticated
+-- would need to say so explicitly (none currently do).
+create or replace function public.ci_normalize_table_grants()
 returns event_trigger
 language plpgsql
 security definer
@@ -496,27 +510,29 @@ begin
     if r.schema_name = 'public' then
       execute format('revoke all on %s from public', r.object_identity);
       execute format('revoke all on %s from anon', r.object_identity);
+      execute format('revoke references, trigger, truncate on %s from authenticated', r.object_identity);
     end if;
   end loop;
 end;
 $$;
 
-comment on function public.ci_revoke_anon_table_defaults() is
+comment on function public.ci_normalize_table_grants() is
   'Local/CI-only event-trigger function (ddl_command_end on CREATE TABLE). '
-  'Revokes whatever phantom anon/public table grant this environment''s '
-  'bootstrap gives every new public-schema table, before the owning '
-  'migration''s own later grants run. See supabase/roles.sql for the full '
-  'investigation. Never invoke directly.';
+  'Revokes whatever phantom anon/public grant and excess authenticated '
+  'privileges this environment''s bootstrap gives every new public-schema '
+  'table, before the owning migration''s own later grants run. See '
+  'supabase/roles.sql for the full investigation. Never invoke directly.';
 
 drop event trigger if exists ci_revoke_anon_table_defaults_trigger;
+drop event trigger if exists ci_normalize_table_grants_trigger;
 
-create event trigger ci_revoke_anon_table_defaults_trigger
+create event trigger ci_normalize_table_grants_trigger
   on ddl_command_end
   when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-  execute function public.ci_revoke_anon_table_defaults();
+  execute function public.ci_normalize_table_grants();
 
-revoke execute on function public.ci_revoke_anon_table_defaults() from public;
-revoke execute on function public.ci_revoke_anon_table_defaults() from anon;
+revoke execute on function public.ci_normalize_table_grants() from public;
+revoke execute on function public.ci_normalize_table_grants() from anon;
 
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
