@@ -14705,11 +14705,19 @@ export type Database = {
           commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
           created_at: string
           drug_name: string
+          expected_restock_at: string | null
+          generic_equivalent_of: string | null
           id: string
           is_active: boolean
+          is_generic: boolean
           pack_size: string | null
           pharmacy_partner_id: string
           price_kobo: number
+          stock_status:
+            | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
+            | null
+          stock_updated_at: string | null
+          strength: string | null
         }
         Insert: {
           commission_flat_kobo?: number | null
@@ -14717,11 +14725,19 @@ export type Database = {
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           drug_name: string
+          expected_restock_at?: string | null
+          generic_equivalent_of?: string | null
           id?: string
           is_active?: boolean
+          is_generic?: boolean
           pack_size?: string | null
           pharmacy_partner_id: string
           price_kobo?: number
+          stock_status?:
+            | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
+            | null
+          stock_updated_at?: string | null
+          strength?: string | null
         }
         Update: {
           commission_flat_kobo?: number | null
@@ -14729,11 +14745,19 @@ export type Database = {
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
           created_at?: string
           drug_name?: string
+          expected_restock_at?: string | null
+          generic_equivalent_of?: string | null
           id?: string
           is_active?: boolean
+          is_generic?: boolean
           pack_size?: string | null
           pharmacy_partner_id?: string
           price_kobo?: number
+          stock_status?:
+            | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
+            | null
+          stock_updated_at?: string | null
+          strength?: string | null
         }
         Relationships: [
           {
@@ -14840,13 +14864,21 @@ export type Database = {
       }
       pharmacy_orders: {
         Row: {
+          accepted_at: string | null
+          accepted_by: string | null
           applied_voucher_id: string | null
+          cancellation_reason: string | null
+          confirmed_price_kobo: number | null
+          confirmed_quantity: string | null
           courier_reference: string | null
           created_at: string
+          declined_at: string | null
+          declined_by: string | null
           delivered_at: string | null
           delivery_address: Json | null
           delivery_confirmed_at: string | null
           estimated_delivery_at: string | null
+          estimated_fulfilment_at: string | null
           fulfilment_method: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id: string
           items: Json
@@ -14863,6 +14895,9 @@ export type Database = {
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
           pharmacy_partner_id: string | null
+          refund_amount_kobo: number | null
+          refund_ref: string | null
+          refund_status: string | null
           requested_at: string
           status: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo: number
@@ -14870,13 +14905,21 @@ export type Database = {
           voucher_covered_kobo: number
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           applied_voucher_id?: string | null
+          cancellation_reason?: string | null
+          confirmed_price_kobo?: number | null
+          confirmed_quantity?: string | null
           courier_reference?: string | null
           created_at?: string
+          declined_at?: string | null
+          declined_by?: string | null
           delivered_at?: string | null
           delivery_address?: Json | null
           delivery_confirmed_at?: string | null
           estimated_delivery_at?: string | null
+          estimated_fulfilment_at?: string | null
           fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
@@ -14893,6 +14936,9 @@ export type Database = {
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
           pharmacy_partner_id?: string | null
+          refund_amount_kobo?: number | null
+          refund_ref?: string | null
+          refund_status?: string | null
           requested_at?: string
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
@@ -14900,13 +14946,21 @@ export type Database = {
           voucher_covered_kobo?: number
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           applied_voucher_id?: string | null
+          cancellation_reason?: string | null
+          confirmed_price_kobo?: number | null
+          confirmed_quantity?: string | null
           courier_reference?: string | null
           created_at?: string
+          declined_at?: string | null
+          declined_by?: string | null
           delivered_at?: string | null
           delivery_address?: Json | null
           delivery_confirmed_at?: string | null
           estimated_delivery_at?: string | null
+          estimated_fulfilment_at?: string | null
           fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
@@ -14923,6 +14977,9 @@ export type Database = {
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
           pharmacy_partner_id?: string | null
+          refund_amount_kobo?: number | null
+          refund_ref?: string | null
+          refund_status?: string | null
           requested_at?: string
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
@@ -14930,6 +14987,20 @@ export type Database = {
           voucher_covered_kobo?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "pharmacy_orders_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_orders_declined_by_fkey"
+            columns: ["declined_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pharmacy_orders_logistics_partner_id_fkey"
             columns: ["logistics_partner_id"]
@@ -14979,6 +15050,8 @@ export type Database = {
           name: string
           pharmacy_partner_id: string
           state: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           address?: string | null
@@ -14991,6 +15064,8 @@ export type Database = {
           name: string
           pharmacy_partner_id: string
           state: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           address?: string | null
@@ -15003,6 +15078,8 @@ export type Database = {
           name?: string
           pharmacy_partner_id?: string
           state?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -15012,18 +15089,33 @@ export type Database = {
             referencedRelation: "pharmacy_partners"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pharmacy_partner_locations_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       pharmacy_partners: {
         Row: {
           address: string | null
+          approved_at: string | null
+          approved_by: string | null
           area: string | null
+          business_registration_number: string | null
+          business_verified_at: string | null
+          business_verified_by: string | null
           city: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
           delivery: boolean
+          delivery_fee_kobo: number | null
           id: string
+          integration_tested_at: string | null
+          integration_tested_by: string | null
           is_active: boolean
           latitude: number | null
           license_expires_at: string | null
@@ -15033,19 +15125,33 @@ export type Database = {
           license_verified_by: string | null
           longitude: number | null
           name: string
+          onboarding_status: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
           regions: string[]
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          service_configured_at: string | null
+          service_configured_by: string | null
           state: string | null
           uses_platform_login: boolean
         }
         Insert: {
           address?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           area?: string | null
+          business_registration_number?: string | null
+          business_verified_at?: string | null
+          business_verified_by?: string | null
           city?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
           delivery?: boolean
+          delivery_fee_kobo?: number | null
           id?: string
+          integration_tested_at?: string | null
+          integration_tested_by?: string | null
           is_active?: boolean
           latitude?: number | null
           license_expires_at?: string | null
@@ -15055,19 +15161,33 @@ export type Database = {
           license_verified_by?: string | null
           longitude?: number | null
           name: string
+          onboarding_status?: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
           regions?: string[]
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          service_configured_at?: string | null
+          service_configured_by?: string | null
           state?: string | null
           uses_platform_login?: boolean
         }
         Update: {
           address?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           area?: string | null
+          business_registration_number?: string | null
+          business_verified_at?: string | null
+          business_verified_by?: string | null
           city?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
           delivery?: boolean
+          delivery_fee_kobo?: number | null
           id?: string
+          integration_tested_at?: string | null
+          integration_tested_by?: string | null
           is_active?: boolean
           latitude?: number | null
           license_expires_at?: string | null
@@ -15077,14 +15197,55 @@ export type Database = {
           license_verified_by?: string | null
           longitude?: number | null
           name?: string
+          onboarding_status?: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
           regions?: string[]
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          service_configured_at?: string | null
+          service_configured_by?: string | null
           state?: string | null
           uses_platform_login?: boolean
         }
         Relationships: [
           {
+            foreignKeyName: "pharmacy_partners_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partners_business_verified_by_fkey"
+            columns: ["business_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partners_integration_tested_by_fkey"
+            columns: ["integration_tested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pharmacy_partners_license_verified_by_fkey"
             columns: ["license_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partners_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partners_service_configured_by_fkey"
+            columns: ["service_configured_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -17319,13 +17480,20 @@ export type Database = {
           applied_voucher_id: string | null
           appointment_date: string | null
           booking_confirmed_at: string | null
+          care_plan_update_note: string | null
           clinical_summary: Json | null
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
           fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path: string | null
+          outcome_document_uploaded_at: string | null
+          outcome_document_uploaded_by: string | null
+          parent_referral_id: string | null
           patient_id: string
           payable_kobo: number | null
           payment_provider:
@@ -17333,9 +17501,12 @@ export type Database = {
             | null
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
+          preferred_consultation_type: string | null
+          preferred_location: string | null
           referral_fee_kobo: number
           referral_number: string | null
           referral_reason: string | null
+          referred_by: string | null
           screening_upgrade_id: string | null
           set_by: string | null
           shared_care_handback_at: string | null
@@ -17353,13 +17524,20 @@ export type Database = {
           applied_voucher_id?: string | null
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          care_plan_update_note?: string | null
           clinical_summary?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path?: string | null
+          outcome_document_uploaded_at?: string | null
+          outcome_document_uploaded_by?: string | null
+          parent_referral_id?: string | null
           patient_id: string
           payable_kobo?: number | null
           payment_provider?:
@@ -17367,9 +17545,12 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          preferred_consultation_type?: string | null
+          preferred_location?: string | null
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referred_by?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
@@ -17387,13 +17568,20 @@ export type Database = {
           applied_voucher_id?: string | null
           appointment_date?: string | null
           booking_confirmed_at?: string | null
+          care_plan_update_note?: string | null
           clinical_summary?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path?: string | null
+          outcome_document_uploaded_at?: string | null
+          outcome_document_uploaded_by?: string | null
+          parent_referral_id?: string | null
           patient_id?: string
           payable_kobo?: number | null
           payment_provider?:
@@ -17401,9 +17589,12 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          preferred_consultation_type?: string | null
+          preferred_location?: string | null
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referred_by?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
@@ -17419,6 +17610,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "specialist_referrals_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "specialist_referrals_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
@@ -17426,10 +17624,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "specialist_referrals_outcome_document_uploaded_by_fkey"
+            columns: ["outcome_document_uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_parent_referral_id_fkey"
+            columns: ["parent_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "specialist_referrals_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
           {
@@ -19408,6 +19627,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_advance_pharmacy_partner_onboarding: {
+        Args: { p_partner_id: string }
+        Returns: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
+      }
       admin_broadcast_audience_count: {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]
@@ -19468,6 +19691,10 @@ export type Database = {
       }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_refresh_public_impact_metrics: { Args: never; Returns: undefined }
+      admin_reject_pharmacy_partner_onboarding: {
+        Args: { p_partner_id: string; p_reason: string }
+        Returns: undefined
+      }
       admin_revoke_protocol_api_key: {
         Args: { p_key_id: string }
         Returns: undefined
@@ -19482,6 +19709,10 @@ export type Database = {
       }
       admin_set_partner_admin: {
         Args: { p_is_partner_admin: boolean; p_profile_id: string }
+        Returns: undefined
+      }
+      admin_verify_pharmacy_partner_location: {
+        Args: { p_location_id: string }
         Returns: undefined
       }
       advance_appointment_status: {
@@ -20588,6 +20819,19 @@ export type Database = {
           vital_type: Database["public"]["Enums"]["vital_type"]
         }[]
       }
+      pharmacist_accept_order: {
+        Args: {
+          p_confirmed_price_kobo?: number
+          p_confirmed_quantity: string
+          p_estimated_fulfilment_at?: string
+          p_order_id: string
+        }
+        Returns: undefined
+      }
+      pharmacist_decline_order: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       pharmacist_dispense_history: {
         Args: { p_limit?: number }
         Returns: {
@@ -20625,11 +20869,16 @@ export type Database = {
       pharmacist_orders: {
         Args: never
         Returns: {
+          cancellation_reason: string
+          confirmed_price_kobo: number
+          confirmed_quantity: string
+          estimated_fulfilment_at: string
           items: Json
           order_id: string
           order_number: string
           patient_name: string
           patient_number: string
+          payable_kobo: number
           requested_at: string
           status: string
         }[]
@@ -21135,13 +21384,20 @@ export type Database = {
           applied_voucher_id: string | null
           appointment_date: string | null
           booking_confirmed_at: string | null
+          care_plan_update_note: string | null
           clinical_summary: Json | null
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
           fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
+          outcome_document_path: string | null
+          outcome_document_uploaded_at: string | null
+          outcome_document_uploaded_by: string | null
+          parent_referral_id: string | null
           patient_id: string
           payable_kobo: number | null
           payment_provider:
@@ -21149,9 +21405,12 @@ export type Database = {
             | null
           payment_provider_ref: string | null
           pending_payment_provider_ref: string | null
+          preferred_consultation_type: string | null
+          preferred_location: string | null
           referral_fee_kobo: number
           referral_number: string | null
           referral_reason: string | null
+          referred_by: string | null
           screening_upgrade_id: string | null
           set_by: string | null
           shared_care_handback_at: string | null
@@ -21848,6 +22107,7 @@ export type Database = {
         | "missed_care_task"
         | "missed_appointment"
         | "failed_referral"
+        | "referral_follow_up"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -21886,6 +22146,7 @@ export type Database = {
         | "customer.subscription.updated"
         | "customer.subscription.deleted"
       pharmacy_fulfilment_method: "pickup" | "delivery"
+      pharmacy_medication_stock_status: "in_stock" | "low_stock" | "unavailable"
       pharmacy_order_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -21895,6 +22156,16 @@ export type Database = {
         | "out_for_delivery"
         | "delivered"
         | "cancelled"
+      pharmacy_partner_onboarding_status:
+        | "application"
+        | "business_verification"
+        | "regulatory_verification"
+        | "location_verification"
+        | "service_configuration"
+        | "integration_testing"
+        | "approved"
+        | "activated"
+        | "rejected"
       prevention_campaign_action_type:
         | "education"
         | "screening_invite"
@@ -21937,6 +22208,7 @@ export type Database = {
         | "booked"
         | "confirmed"
         | "completed"
+        | "closed"
         | "declined"
       referral_type:
         | "patient_refers_patient"
@@ -22014,6 +22286,7 @@ export type Database = {
         | "medication_missed"
         | "referral_created"
         | "referral_status_changed"
+        | "referral_outcome_recorded"
         | "screening_due"
         | "screening_completed"
         | "vaccination_recorded"
@@ -22902,6 +23175,7 @@ export const Constants = {
         "missed_care_task",
         "missed_appointment",
         "failed_referral",
+        "referral_follow_up",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [
@@ -22945,6 +23219,11 @@ export const Constants = {
         "customer.subscription.deleted",
       ],
       pharmacy_fulfilment_method: ["pickup", "delivery"],
+      pharmacy_medication_stock_status: [
+        "in_stock",
+        "low_stock",
+        "unavailable",
+      ],
       pharmacy_order_status: [
         "pending_payment",
         "payment_confirmed",
@@ -22954,6 +23233,17 @@ export const Constants = {
         "out_for_delivery",
         "delivered",
         "cancelled",
+      ],
+      pharmacy_partner_onboarding_status: [
+        "application",
+        "business_verification",
+        "regulatory_verification",
+        "location_verification",
+        "service_configuration",
+        "integration_testing",
+        "approved",
+        "activated",
+        "rejected",
       ],
       prevention_campaign_action_type: [
         "education",
@@ -23001,6 +23291,7 @@ export const Constants = {
         "booked",
         "confirmed",
         "completed",
+        "closed",
         "declined",
       ],
       referral_type: [
@@ -23087,6 +23378,7 @@ export const Constants = {
         "medication_missed",
         "referral_created",
         "referral_status_changed",
+        "referral_outcome_recorded",
         "screening_due",
         "screening_completed",
         "vaccination_recorded",

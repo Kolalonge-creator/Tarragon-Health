@@ -39,13 +39,9 @@
 -- ---------------------------------------------------------------------------
 -- 1. The liability account.
 --
--- Modelled on 2100 Customer wallet funds, which already exists for exactly
--- this shape of problem: money sitting in Tarragon's bank account that belongs
--- to somebody else.
--- ---------------------------------------------------------------------------
 -- 2700, not 2500. Dry-running this migration posted a live split into 2500 and
 -- the ledger came back reading "Accounts payable — vendors": 2500 was already
--- taken by the accounts-payable migration, and `on conflict do nothing` had
+-- taken by the accounts-payable migration, and ON CONFLICT DO NOTHING had
 -- silently accepted that and carried on posting partner money into someone
 -- else's account. A code collision in a chart of accounts does not raise
 -- anything — it just quietly files the money in the wrong place — so the
@@ -55,6 +51,7 @@
 -- migration uses both: money is held in 2700 while it is merely owed to the
 -- laboratory, moves to 2500 when a statement is agreed and becomes a formal
 -- vendor payable, and leaves 2500 for the bank when the bill is paid.
+-- ---------------------------------------------------------------------------
 insert into public.finance_accounts
   (code, name, account_type, normal_balance, vat_treatment, sort_order, description)
 values

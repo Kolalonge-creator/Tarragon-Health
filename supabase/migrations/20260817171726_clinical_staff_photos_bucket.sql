@@ -1,3 +1,4 @@
+
 -- Tarragon Health
 -- Public storage bucket for clinical_staff.photo_url. The column has existed
 -- since clinical_staff was created (20260712191500) but nothing has ever

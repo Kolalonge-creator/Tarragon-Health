@@ -1,0 +1,1 @@
+alter type public.timeline_event_type add value if not exists 'encounter_documented';

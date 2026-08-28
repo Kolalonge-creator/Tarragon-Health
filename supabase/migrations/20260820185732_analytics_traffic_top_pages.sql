@@ -1,18 +1,3 @@
--- Tarragon Health — Acquisition: "top pages" breakdown
---
--- Adds a by_page distribution to analytics_traffic_summary alongside the
--- existing by_country/by_region/by_referrer/by_source/by_device breakdowns,
--- so the Acquisition tab can answer "which page do visitors visit most."
--- Same signature as before (create or replace), so no grant/revoke needed —
--- the authenticated-only EXECUTE grant from the phase-2 migration's DO block
--- still applies.
---
--- Dynamic route segments (uuid ids, e.g. /clinician/patients/<uuid>) are
--- normalised to ":id" so a page template aggregates as one row instead of
--- fragmenting into one near-zero row per record — otherwise every
--- UUID-keyed detail page would show a "count of 1" and the list would be
--- dominated by noise instead of showing real page-level traffic.
-
 create or replace function public.analytics_traffic_summary(p_from timestamptz default null, p_to timestamptz default null)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
 begin

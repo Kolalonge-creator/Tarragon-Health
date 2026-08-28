@@ -1,0 +1,182 @@
+alter table public.profiles
+  add column is_partner_admin boolean not null default false,
+  add constraint profiles_partner_admin_requires_partner_role check (
+    not is_partner_admin or role in ('lab_partner', 'pharmacist')
+  );
+
+comment on column public.profiles.is_partner_admin is
+  'True only for a lab_partner/pharmacist login authorised to invite further staff logins for its own provider (see the partner self-service staff-invite server action). Never itself a broader privilege -- an is_partner_admin lab_partner is still scoped to its own lab_provider_id like any other lab_partner login.';
+
+create policy lab_provider_locations_insert_partner
+  on public.lab_provider_locations
+  for insert to authenticated
+  with check (lab_provider_id = private.lab_partner_provider());
+
+create policy lab_provider_locations_update_partner
+  on public.lab_provider_locations
+  for update to authenticated
+  using (lab_provider_id = private.lab_partner_provider())
+  with check (lab_provider_id = private.lab_partner_provider());
+
+create policy lab_provider_locations_delete_partner
+  on public.lab_provider_locations
+  for delete to authenticated
+  using (lab_provider_id = private.lab_partner_provider());
+
+create table public.pharmacy_partner_locations (
+  id                  uuid primary key default gen_random_uuid(),
+  pharmacy_partner_id uuid not null references public.pharmacy_partners (id) on delete cascade,
+  name                text not null,
+  state               text not null,
+  address             text,
+  contact_phone       text,
+  latitude            double precision,
+  longitude           double precision,
+  is_active           boolean not null default true,
+  created_at          timestamptz not null default now()
+);
+
+comment on table public.pharmacy_partner_locations is
+  'Per-branch locations for a pharmacy partner -- the pharmacist-side equivalent of lab_provider_locations. pharmacy_partners itself keeps its single city/state/regions summary; this table is the real per-branch list once a partner has more than one.';
+
+create index pharmacy_partner_locations_partner_idx
+  on public.pharmacy_partner_locations (pharmacy_partner_id);
+
+alter table public.pharmacy_partner_locations enable row level security;
+
+create policy pharmacy_partner_locations_select on public.pharmacy_partner_locations
+  for select to authenticated using (true);
+
+create policy pharmacy_partner_locations_insert_admin on public.pharmacy_partner_locations
+  for insert to authenticated
+  with check (private.is_admin() or private.has_permission('partners.pharmacies.manage'));
+
+create policy pharmacy_partner_locations_update_admin on public.pharmacy_partner_locations
+  for update to authenticated
+  using (private.is_admin() or private.has_permission('partners.pharmacies.manage'))
+  with check (private.is_admin() or private.has_permission('partners.pharmacies.manage'));
+
+create policy pharmacy_partner_locations_delete_admin on public.pharmacy_partner_locations
+  for delete to authenticated
+  using (private.is_admin() or private.has_permission('partners.pharmacies.manage'));
+
+create policy pharmacy_partner_locations_insert_partner on public.pharmacy_partner_locations
+  for insert to authenticated
+  with check (pharmacy_partner_id = private.pharmacist_partner());
+
+create policy pharmacy_partner_locations_update_partner on public.pharmacy_partner_locations
+  for update to authenticated
+  using (pharmacy_partner_id = private.pharmacist_partner())
+  with check (pharmacy_partner_id = private.pharmacist_partner());
+
+create policy pharmacy_partner_locations_delete_partner on public.pharmacy_partner_locations
+  for delete to authenticated
+  using (pharmacy_partner_id = private.pharmacist_partner());
+
+grant select, insert, update, delete on public.pharmacy_partner_locations to authenticated;
+
+create policy lab_tests_update_partner
+  on public.lab_tests
+  for update to authenticated
+  using (provider_id = private.lab_partner_provider())
+  with check (provider_id = private.lab_partner_provider());
+
+create policy pharmacy_medications_update_partner
+  on public.pharmacy_medications
+  for update to authenticated
+  using (pharmacy_partner_id = private.pharmacist_partner())
+  with check (pharmacy_partner_id = private.pharmacist_partner());
+
+create or replace function private.restrict_lab_test_partner_edit_to_availability()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if private.is_admin() or private.has_permission('partners.labs.manage') then
+    return new;
+  end if;
+  new.provider_id := old.provider_id;
+  new.code := old.code;
+  new.name := old.name;
+  new.price_kobo := old.price_kobo;
+  new.commission_rate := old.commission_rate;
+  new.commission_rate_type := old.commission_rate_type;
+  new.commission_flat_kobo := old.commission_flat_kobo;
+  new.turnaround_hours := old.turnaround_hours;
+  return new;
+end;
+$$;
+
+comment on function private.restrict_lab_test_partner_edit_to_availability() is
+  'A lab_partner may only toggle is_active on their own lab_tests rows -- every other column is forced back to its prior value for a non-admin, non-partners.labs.manage writer. Pricing/commission changes stay admin-only, since they feed the commission ledger and partner billing pipeline.';
+
+create trigger lab_tests_restrict_partner_edit
+  before update on public.lab_tests
+  for each row execute function private.restrict_lab_test_partner_edit_to_availability();
+
+create or replace function private.restrict_pharmacy_medication_partner_edit_to_availability()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if private.is_admin() or private.has_permission('partners.pharmacies.manage') then
+    return new;
+  end if;
+  new.pharmacy_partner_id := old.pharmacy_partner_id;
+  new.drug_name := old.drug_name;
+  new.pack_size := old.pack_size;
+  new.price_kobo := old.price_kobo;
+  new.commission_rate := old.commission_rate;
+  new.commission_rate_type := old.commission_rate_type;
+  new.commission_flat_kobo := old.commission_flat_kobo;
+  return new;
+end;
+$$;
+
+comment on function private.restrict_pharmacy_medication_partner_edit_to_availability() is
+  'A pharmacist may only toggle is_active on their own pharmacy_medications rows -- every other column is forced back to its prior value for a non-admin, non-partners.pharmacies.manage writer.';
+
+create trigger pharmacy_medications_restrict_partner_edit
+  before update on public.pharmacy_medications
+  for each row execute function private.restrict_pharmacy_medication_partner_edit_to_availability();
+
+revoke all on function private.restrict_lab_test_partner_edit_to_availability() from public;
+revoke all on function private.restrict_pharmacy_medication_partner_edit_to_availability() from public;
+
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'is_partner_admin'
+  ) then
+    raise exception 'profiles.is_partner_admin missing after migration';
+  end if;
+
+  if not exists (
+    select 1 from pg_tables where schemaname = 'public' and tablename = 'pharmacy_partner_locations'
+  ) then
+    raise exception 'pharmacy_partner_locations missing after migration';
+  end if;
+
+  if not exists (
+    select 1 from pg_trigger
+    where tgrelid = 'public.lab_tests'::regclass and tgname = 'lab_tests_restrict_partner_edit'
+      and not tgisinternal
+  ) then
+    raise exception 'lab_tests_restrict_partner_edit trigger missing';
+  end if;
+
+  if not exists (
+    select 1 from pg_trigger
+    where tgrelid = 'public.pharmacy_medications'::regclass and tgname = 'pharmacy_medications_restrict_partner_edit'
+      and not tgisinternal
+  ) then
+    raise exception 'pharmacy_medications_restrict_partner_edit trigger missing';
+  end if;
+
+  raise notice 'PASS: partner self-service locations + availability-only catalogue editing in place';
+end $$;

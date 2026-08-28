@@ -1,0 +1,1 @@
+alter type public.timeline_event_type add value if not exists 'referral_outcome_recorded' after 'referral_status_changed';

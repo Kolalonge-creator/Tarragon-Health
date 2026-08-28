@@ -241,26 +241,9 @@ begin
 
   -- sabotage check: an intentionally-wrong filter (email is NOT NULL, i.e.
   -- "any user") must NOT match real_patient_ids()'s actual definition —
-  -- confirms the exclusion clause is doing real work, not vacuously true.
-  -- Needs a real discriminating case to mean anything: on a from-scratch
-  -- replay there are no patient profiles at all (seed.sql inserts only
-  -- reference/lookup data), so both counts below were trivially 0 = 0,
-  -- passing vacuously — the opposite of what this check is for (found by
-  -- the new CI migration-replay job, 2026-08-27). Creates one real and one
-  -- @tarragon.test patient to force an actual comparison, then cleans up.
-  declare
-    v_real_id uuid := gen_random_uuid();
-    v_qa_id uuid := gen_random_uuid();
-  begin
-    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-    values
-      (v_real_id, 'real-patient-check@example.invalid', 'x', now(), '{}', '{}'),
-      (v_qa_id, 'qa-patient-check@tarragon.test', 'x', now(), '{}', '{}');
-
-    if (select count(*) from private.real_patient_ids() where patient_id in (v_real_id, v_qa_id)) <> 1 then
-      raise exception 'private.real_patient_ids() did not exclude the @tarragon.test account as expected';
-    end if;
-
-    delete from auth.users where id in (v_real_id, v_qa_id);
-  end;
+  -- confirms the exclusion clause is doing real work, not vacuously true
+  if (select count(*) from private.real_patient_ids()) =
+     (select count(*) from public.profiles p join auth.users u on u.id = p.id where p.role = 'patient') then
+    raise exception 'private.real_patient_ids() did not exclude any account — filter may be a no-op against current seed data';
+  end if;
 end $$;

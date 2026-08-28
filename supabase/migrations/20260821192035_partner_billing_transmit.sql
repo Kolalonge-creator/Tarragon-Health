@@ -148,7 +148,6 @@ end;
 $$;
 
 revoke all on function public.mark_lab_order_transmitted(uuid, text, text) from public;
-revoke all on function public.mark_lab_order_transmitted(uuid, text, text) from anon;
 grant execute on function public.mark_lab_order_transmitted(uuid, text, text) to authenticated;
 
 create or replace function public.acknowledge_lab_order(
@@ -197,7 +196,6 @@ end;
 $$;
 
 revoke all on function public.acknowledge_lab_order(uuid, text) from public;
-revoke all on function public.acknowledge_lab_order(uuid, text) from anon;
 grant execute on function public.acknowledge_lab_order(uuid, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
