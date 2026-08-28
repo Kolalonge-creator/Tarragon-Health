@@ -77,9 +77,9 @@ export function useActionFollowUp() {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("action_consultation_follow_up", {
         p_followup_id: input.followUpId,
-        p_monitoring_frequency_days: input.monitoringFrequencyDays ?? null,
-        p_referral_specialist_type: input.referralSpecialistType ?? null,
-        p_referral_reason: input.referralReason ?? null,
+        p_monitoring_frequency_days: input.monitoringFrequencyDays,
+        p_referral_specialist_type: input.referralSpecialistType,
+        p_referral_reason: input.referralReason,
       });
       if (error) throw error;
       return data;

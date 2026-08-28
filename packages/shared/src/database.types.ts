@@ -598,300 +598,41 @@ export type Database = {
           },
         ]
       }
-      appointment_cancellation_policies: {
-        Row: {
-          appointment_type:
-            | Database["public"]["Enums"]["appointment_type"]
-            | null
-          cancellation_window_hours: number
-          created_at: string
-          id: string
-          is_active: boolean
-          no_show_fee_kobo: number
-          organisation_id: string | null
-          refund_pct_after_window: number
-          refund_pct_within_window: number
-          updated_at: string
-        }
-        Insert: {
-          appointment_type?:
-            | Database["public"]["Enums"]["appointment_type"]
-            | null
-          cancellation_window_hours?: number
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          no_show_fee_kobo?: number
-          organisation_id?: string | null
-          refund_pct_after_window?: number
-          refund_pct_within_window?: number
-          updated_at?: string
-        }
-        Update: {
-          appointment_type?:
-            | Database["public"]["Enums"]["appointment_type"]
-            | null
-          cancellation_window_hours?: number
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          no_show_fee_kobo?: number
-          organisation_id?: string | null
-          refund_pct_after_window?: number
-          refund_pct_within_window?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "appointment_cancellation_policies_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      appointment_reminder_sends: {
-        Row: {
-          appointment_id: string
-          milestone: string
-          sent_at: string
-        }
-        Insert: {
-          appointment_id: string
-          milestone: string
-          sent_at?: string
-        }
-        Update: {
-          appointment_id?: string
-          milestone?: string
-          sent_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "appointment_reminder_sends_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      appointment_waiting_list: {
-        Row: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          clinician_id: string | null
-          consultation_method:
-            | Database["public"]["Enums"]["appointment_consultation_method"]
-            | null
-          created_at: string
-          id: string
-          offer_expires_at: string | null
-          offered_appointment_id: string | null
-          organisation_id: string
-          patient_id: string
-          preferred_from: string
-          preferred_until: string
-          source_appointment_id: string | null
-          status: Database["public"]["Enums"]["appointment_waiting_list_status"]
-          updated_at: string
-        }
-        Insert: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          clinician_id?: string | null
-          consultation_method?:
-            | Database["public"]["Enums"]["appointment_consultation_method"]
-            | null
-          created_at?: string
-          id?: string
-          offer_expires_at?: string | null
-          offered_appointment_id?: string | null
-          organisation_id: string
-          patient_id: string
-          preferred_from: string
-          preferred_until: string
-          source_appointment_id?: string | null
-          status?: Database["public"]["Enums"]["appointment_waiting_list_status"]
-          updated_at?: string
-        }
-        Update: {
-          appointment_type?: Database["public"]["Enums"]["appointment_type"]
-          clinician_id?: string | null
-          consultation_method?:
-            | Database["public"]["Enums"]["appointment_consultation_method"]
-            | null
-          created_at?: string
-          id?: string
-          offer_expires_at?: string | null
-          offered_appointment_id?: string | null
-          organisation_id?: string
-          patient_id?: string
-          preferred_from?: string
-          preferred_until?: string
-          source_appointment_id?: string | null
-          status?: Database["public"]["Enums"]["appointment_waiting_list_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "appointment_waiting_list_clinician_id_fkey"
-            columns: ["clinician_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointment_waiting_list_offered_appointment_id_fkey"
-            columns: ["offered_appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointment_waiting_list_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointment_waiting_list_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointment_waiting_list_source_appointment_id_fkey"
-            columns: ["source_appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       appointments: {
         Row: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          booked_by: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          care_plan_id: string | null
-          checked_in_at: string | null
           clinician_id: string | null
-          completed_at: string | null
-          confirmed_at: string | null
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at: string
-          ends_at: string
-          hold_expires_at: string | null
           id: string
-          is_high_priority: boolean
-          location: string | null
-          no_show_marked_at: string | null
           organisation_id: string
           patient_id: string
-          payment_status: Database["public"]["Enums"]["appointment_payment_status"]
           reason: string | null
-          rescheduled_from_id: string | null
-          resource_id: string | null
           scheduled_for: string
-          service: string | null
-          specialist_referral_id: string | null
-          started_at: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
-          video_consultation_id: string | null
         }
         Insert: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          booked_by?: string | null
-          cancellation_reason?: string | null
-          cancelled_at?: string | null
-          cancelled_by?: string | null
-          care_plan_id?: string | null
-          checked_in_at?: string | null
           clinician_id?: string | null
-          completed_at?: string | null
-          confirmed_at?: string | null
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at?: string
-          ends_at: string
-          hold_expires_at?: string | null
           id?: string
-          is_high_priority?: boolean
-          location?: string | null
-          no_show_marked_at?: string | null
           organisation_id: string
           patient_id: string
-          payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
           reason?: string | null
-          rescheduled_from_id?: string | null
-          resource_id?: string | null
           scheduled_for: string
-          service?: string | null
-          specialist_referral_id?: string | null
-          started_at?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
-          video_consultation_id?: string | null
         }
         Update: {
-          appointment_type?: Database["public"]["Enums"]["appointment_type"]
-          booked_by?: string | null
-          cancellation_reason?: string | null
-          cancelled_at?: string | null
-          cancelled_by?: string | null
-          care_plan_id?: string | null
-          checked_in_at?: string | null
           clinician_id?: string | null
-          completed_at?: string | null
-          confirmed_at?: string | null
-          consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at?: string
-          ends_at?: string
-          hold_expires_at?: string | null
           id?: string
-          is_high_priority?: boolean
-          location?: string | null
-          no_show_marked_at?: string | null
           organisation_id?: string
           patient_id?: string
-          payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
           reason?: string | null
-          rescheduled_from_id?: string | null
-          resource_id?: string | null
           scheduled_for?: string
-          service?: string | null
-          specialist_referral_id?: string | null
-          started_at?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
-          video_consultation_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "appointments_booked_by_fkey"
-            columns: ["booked_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_cancelled_by_fkey"
-            columns: ["cancelled_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_care_plan_id_fkey"
-            columns: ["care_plan_id"]
-            isOneToOne: false
-            referencedRelation: "care_plans"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "appointments_clinician_id_fkey"
             columns: ["clinician_id"]
@@ -911,34 +652,6 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_rescheduled_from_id_fkey"
-            columns: ["rescheduled_from_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_resource_id_fkey"
-            columns: ["resource_id"]
-            isOneToOne: false
-            referencedRelation: "clinical_resources"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_specialist_referral_id_fkey"
-            columns: ["specialist_referral_id"]
-            isOneToOne: false
-            referencedRelation: "specialist_referrals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_video_consultation_id_fkey"
-            columns: ["video_consultation_id"]
-            isOneToOne: false
-            referencedRelation: "video_consultations"
             referencedColumns: ["id"]
           },
         ]
@@ -1696,6 +1409,149 @@ export type Database = {
           },
         ]
       }
+      care_plan_goals: {
+        Row: {
+          care_plan_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["care_plan_goal_status"]
+        }
+        Insert: {
+          care_plan_id: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["care_plan_goal_status"]
+        }
+        Update: {
+          care_plan_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["care_plan_goal_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_goals_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_plan_interventions: {
+        Row: {
+          care_plan_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          frequency: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          removed_at: string | null
+          removed_by: string | null
+          status: Database["public"]["Enums"]["care_plan_intervention_status"]
+        }
+        Insert: {
+          care_plan_id: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          frequency?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          removed_at?: string | null
+          removed_by?: string | null
+          status?: Database["public"]["Enums"]["care_plan_intervention_status"]
+        }
+        Update: {
+          care_plan_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          frequency?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          status?: Database["public"]["Enums"]["care_plan_intervention_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_interventions_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_interventions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_interventions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_interventions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_interventions_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_plan_recommendations: {
         Row: {
           care_plan_id: string | null
@@ -1840,6 +1696,58 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_plan_versions: {
+        Row: {
+          care_plan_id: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          organisation_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          care_plan_id: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          care_plan_id?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_versions_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_versions_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_versions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -1997,6 +1905,78 @@ export type Database = {
             foreignKeyName: "care_team_assignment_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_team_handovers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_profile_id: string | null
+          id: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          role: string
+          to_profile_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_profile_id?: string | null
+          id?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          role: string
+          to_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_profile_id?: string | null
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          role?: string
+          to_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_team_handovers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_handovers_from_profile_id_fkey"
+            columns: ["from_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_handovers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_handovers_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_team_handovers_to_profile_id_fkey"
+            columns: ["to_profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2952,44 +2932,6 @@ export type Database = {
             columns: ["reviewed_by_staff"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      clinical_resources: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          location: string | null
-          name: string
-          organisation_id: string
-          resource_type: Database["public"]["Enums"]["clinical_resource_type"]
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          location?: string | null
-          name: string
-          organisation_id: string
-          resource_type: Database["public"]["Enums"]["clinical_resource_type"]
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          location?: string | null
-          name?: string
-          organisation_id?: string
-          resource_type?: Database["public"]["Enums"]["clinical_resource_type"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "clinical_resources_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -9812,8 +9754,11 @@ export type Database = {
           created_at: string
           dose: string | null
           drug_name: string
+          duration_days: number | null
           frequency: string | null
           id: string
+          indication: string | null
+          instructions: string | null
           is_active: boolean
           last_confirmed_at: string | null
           last_confirmed_by: string | null
@@ -9821,7 +9766,10 @@ export type Database = {
           patient_id: string
           prescriber_document_url: string | null
           prescriber_name: string | null
+          quantity: string | null
           refill_date: string | null
+          repeats_allowed: number
+          route: string | null
           schedule_times: Json
           source: Database["public"]["Enums"]["medication_source"]
           stopped_at: string | null
@@ -9834,8 +9782,11 @@ export type Database = {
           created_at?: string
           dose?: string | null
           drug_name: string
+          duration_days?: number | null
           frequency?: string | null
           id?: string
+          indication?: string | null
+          instructions?: string | null
           is_active?: boolean
           last_confirmed_at?: string | null
           last_confirmed_by?: string | null
@@ -9843,7 +9794,10 @@ export type Database = {
           patient_id: string
           prescriber_document_url?: string | null
           prescriber_name?: string | null
+          quantity?: string | null
           refill_date?: string | null
+          repeats_allowed?: number
+          route?: string | null
           schedule_times?: Json
           source?: Database["public"]["Enums"]["medication_source"]
           stopped_at?: string | null
@@ -9856,8 +9810,11 @@ export type Database = {
           created_at?: string
           dose?: string | null
           drug_name?: string
+          duration_days?: number | null
           frequency?: string | null
           id?: string
+          indication?: string | null
+          instructions?: string | null
           is_active?: boolean
           last_confirmed_at?: string | null
           last_confirmed_by?: string | null
@@ -9865,7 +9822,10 @@ export type Database = {
           patient_id?: string
           prescriber_document_url?: string | null
           prescriber_name?: string | null
+          quantity?: string | null
           refill_date?: string | null
+          repeats_allowed?: number
+          route?: string | null
           schedule_times?: Json
           source?: Database["public"]["Enums"]["medication_source"]
           stopped_at?: string | null
@@ -9998,6 +9958,51 @@ export type Database = {
             columns: ["subscriber_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_templates: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          organisation_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organisation_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organisation_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_templates_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -13123,13 +13128,131 @@ export type Database = {
           },
         ]
       }
+      prevention_campaign_enrolments: {
+        Row: {
+          campaign_id: string
+          id: string
+          joined_at: string
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          id?: string
+          joined_at?: string
+          organisation_id: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          id?: string
+          joined_at?: string
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["prevention_campaign_enrolment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_campaign_enrolments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "prevention_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaign_enrolments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaign_enrolments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prevention_campaigns: {
+        Row: {
+          actions: Json
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          eligibility_rule: Json
+          ends_on: string | null
+          id: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          eligibility_rule?: Json
+          ends_on?: string | null
+          id?: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          eligibility_rule?: Json
+          ends_on?: string | null
+          id?: string
+          name?: string
+          organisation_id?: string
+          starts_on?: string
+          status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prevention_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prevention_risk_scores: {
         Row: {
           computed_at: string
           condition: Database["public"]["Enums"]["prevention_condition"]
+          confidence: Database["public"]["Enums"]["risk_confidence"] | null
           created_at: string
           id: string
           inputs_snapshot: Json
+          model_name: string | null
+          model_version: string | null
           organisation_id: string
           profile_id: string
           tier: Database["public"]["Enums"]["risk_level"]
@@ -13137,9 +13260,12 @@ export type Database = {
         Insert: {
           computed_at?: string
           condition: Database["public"]["Enums"]["prevention_condition"]
+          confidence?: Database["public"]["Enums"]["risk_confidence"] | null
           created_at?: string
           id?: string
           inputs_snapshot?: Json
+          model_name?: string | null
+          model_version?: string | null
           organisation_id: string
           profile_id: string
           tier?: Database["public"]["Enums"]["risk_level"]
@@ -13147,9 +13273,12 @@ export type Database = {
         Update: {
           computed_at?: string
           condition?: Database["public"]["Enums"]["prevention_condition"]
+          confidence?: Database["public"]["Enums"]["risk_confidence"] | null
           created_at?: string
           id?: string
           inputs_snapshot?: Json
+          model_name?: string | null
+          model_version?: string | null
           organisation_id?: string
           profile_id?: string
           tier?: Database["public"]["Enums"]["risk_level"]
@@ -13644,136 +13773,6 @@ export type Database = {
           },
           {
             foreignKeyName: "protocol_versions_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      provider_availability_rules: {
-        Row: {
-          appointment_types: Database["public"]["Enums"]["appointment_type"][]
-          buffer_minutes: number
-          clinician_id: string
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at: string
-          day_of_week: number
-          effective_from: string
-          effective_until: string | null
-          end_time: string
-          id: string
-          is_active: boolean
-          location: string | null
-          organisation_id: string
-          slot_duration_minutes: number
-          start_time: string
-          updated_at: string
-        }
-        Insert: {
-          appointment_types: Database["public"]["Enums"]["appointment_type"][]
-          buffer_minutes?: number
-          clinician_id: string
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at?: string
-          day_of_week: number
-          effective_from?: string
-          effective_until?: string | null
-          end_time: string
-          id?: string
-          is_active?: boolean
-          location?: string | null
-          organisation_id: string
-          slot_duration_minutes?: number
-          start_time: string
-          updated_at?: string
-        }
-        Update: {
-          appointment_types?: Database["public"]["Enums"]["appointment_type"][]
-          buffer_minutes?: number
-          clinician_id?: string
-          consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at?: string
-          day_of_week?: number
-          effective_from?: string
-          effective_until?: string | null
-          end_time?: string
-          id?: string
-          is_active?: boolean
-          location?: string | null
-          organisation_id?: string
-          slot_duration_minutes?: number
-          start_time?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "provider_availability_rules_clinician_id_fkey"
-            columns: ["clinician_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "provider_availability_rules_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      provider_time_off: {
-        Row: {
-          clinician_id: string
-          created_at: string
-          created_by: string | null
-          ends_at: string
-          id: string
-          kind: string
-          organisation_id: string
-          reason: string | null
-          starts_at: string
-        }
-        Insert: {
-          clinician_id: string
-          created_at?: string
-          created_by?: string | null
-          ends_at: string
-          id?: string
-          kind: string
-          organisation_id: string
-          reason?: string | null
-          starts_at: string
-        }
-        Update: {
-          clinician_id?: string
-          created_at?: string
-          created_by?: string | null
-          ends_at?: string
-          id?: string
-          kind?: string
-          organisation_id?: string
-          reason?: string | null
-          starts_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "provider_time_off_clinician_id_fkey"
-            columns: ["clinician_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "provider_time_off_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "provider_time_off_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -14281,6 +14280,111 @@ export type Database = {
           },
         ]
       }
+      risk_questionnaire_configs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          code: string
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          organisation_id: string
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code: string
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id: string
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_questionnaire_configs_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_questionnaire_configs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_reassessment_queue: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          processed_at: string | null
+          reason: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at: string
+          source_id: string | null
+          source_table: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          processed_at?: string | null
+          reason: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at?: string
+          source_id?: string | null
+          source_table: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          processed_at?: string | null
+          reason?: Database["public"]["Enums"]["reassessment_reason"]
+          requested_at?: string
+          source_id?: string | null
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_reassessment_queue_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_reassessment_queue_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       risk_register: {
         Row: {
           category: string
@@ -14354,6 +14458,7 @@ export type Database = {
         Row: {
           age_from: number | null
           age_to: number | null
+          category: string | null
           clinical_basis: string | null
           code: string
           commission_rate: number | null
@@ -14379,6 +14484,7 @@ export type Database = {
         Insert: {
           age_from?: number | null
           age_to?: number | null
+          category?: string | null
           clinical_basis?: string | null
           code: string
           commission_rate?: number | null
@@ -14404,6 +14510,7 @@ export type Database = {
         Update: {
           age_from?: number | null
           age_to?: number | null
+          category?: string | null
           clinical_basis?: string | null
           code?: string
           commission_rate?: number | null
@@ -14516,8 +14623,6 @@ export type Database = {
       screening_results: {
         Row: {
           abnormal_flags: string[]
-          correction_reason: string | null
-          corrects_result_id: string | null
           created_at: string
           follow_up_action: string | null
           id: string
@@ -14531,8 +14636,6 @@ export type Database = {
         }
         Insert: {
           abnormal_flags?: string[]
-          correction_reason?: string | null
-          corrects_result_id?: string | null
           created_at?: string
           follow_up_action?: string | null
           id?: string
@@ -14546,8 +14649,6 @@ export type Database = {
         }
         Update: {
           abnormal_flags?: string[]
-          correction_reason?: string | null
-          corrects_result_id?: string | null
           created_at?: string
           follow_up_action?: string | null
           id?: string
@@ -14560,13 +14661,6 @@ export type Database = {
           screen_type_code?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "screening_results_corrects_result_id_fkey"
-            columns: ["corrects_result_id"]
-            isOneToOne: false
-            referencedRelation: "screening_results"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "screening_results_lab_order_id_fkey"
             columns: ["lab_order_id"]
@@ -14620,6 +14714,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at: string | null
+          reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
           status: Database["public"]["Enums"]["screening_status"]
           updated_at: string
@@ -14632,6 +14727,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
@@ -14644,6 +14740,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id?: string
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
@@ -15789,6 +15886,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at: string | null
+          reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           status: Database["public"]["Enums"]["screening_status"]
           updated_at: string
           vaccination_catalog_id: string
@@ -15800,6 +15898,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
           vaccination_catalog_id: string
@@ -15811,6 +15910,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           status?: Database["public"]["Enums"]["screening_status"]
           updated_at?: string
           vaccination_catalog_id?: string
@@ -17032,55 +17132,9 @@ export type Database = {
       }
     }
     Functions: {
-      abnormal_result_dashboard_counts: {
-        Args: { p_organisation_id: string }
-        Returns: Json
-      }
       accept_video_visit_request: {
         Args: { p_request_id: string }
         Returns: string
-      }
-      accept_waiting_list_offer: {
-        Args: { p_waiting_list_id: string }
-        Returns: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          booked_by: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          care_plan_id: string | null
-          checked_in_at: string | null
-          clinician_id: string | null
-          completed_at: string | null
-          confirmed_at: string | null
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at: string
-          ends_at: string
-          hold_expires_at: string | null
-          id: string
-          is_high_priority: boolean
-          location: string | null
-          no_show_marked_at: string | null
-          organisation_id: string
-          patient_id: string
-          payment_status: Database["public"]["Enums"]["appointment_payment_status"]
-          reason: string | null
-          rescheduled_from_id: string | null
-          resource_id: string | null
-          scheduled_for: string
-          service: string | null
-          specialist_referral_id: string | null
-          started_at: string | null
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-          video_consultation_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       acknowledge_lab_order: {
         Args: { p_order_id: string; p_partner_reference: string }
@@ -17171,51 +17225,6 @@ export type Database = {
         Args: { p_is_partner_admin: boolean; p_profile_id: string }
         Returns: undefined
       }
-      advance_appointment_status: {
-        Args: {
-          p_appointment_id: string
-          p_to: Database["public"]["Enums"]["appointment_status"]
-        }
-        Returns: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          booked_by: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          care_plan_id: string | null
-          checked_in_at: string | null
-          clinician_id: string | null
-          completed_at: string | null
-          confirmed_at: string | null
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at: string
-          ends_at: string
-          hold_expires_at: string | null
-          id: string
-          is_high_priority: boolean
-          location: string | null
-          no_show_marked_at: string | null
-          organisation_id: string
-          patient_id: string
-          payment_status: Database["public"]["Enums"]["appointment_payment_status"]
-          reason: string | null
-          rescheduled_from_id: string | null
-          resource_id: string | null
-          scheduled_for: string
-          service: string | null
-          specialist_referral_id: string | null
-          started_at: string | null
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-          video_consultation_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       analytics_accounting_summary: { Args: never; Returns: Json }
       analytics_acquisition_funnel: {
         Args: { p_from?: string; p_to?: string }
@@ -17225,7 +17234,6 @@ export type Database = {
         Args: { p_period?: string }
         Returns: Json
       }
-      analytics_appointment_capacity: { Args: never; Returns: Json }
       analytics_audit_log: {
         Args: {
           p_action?: string
@@ -17336,55 +17344,9 @@ export type Database = {
       }
       bp_secondary_flags: { Args: { p_patient: string }; Returns: Json }
       can_act_for: { Args: { p_beneficiary: string }; Returns: boolean }
-      cancel_appointment: {
-        Args: { p_appointment_id: string; p_reason?: string }
-        Returns: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          booked_by: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          care_plan_id: string | null
-          checked_in_at: string | null
-          clinician_id: string | null
-          completed_at: string | null
-          confirmed_at: string | null
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at: string
-          ends_at: string
-          hold_expires_at: string | null
-          id: string
-          is_high_priority: boolean
-          location: string | null
-          no_show_marked_at: string | null
-          organisation_id: string
-          patient_id: string
-          payment_status: Database["public"]["Enums"]["appointment_payment_status"]
-          reason: string | null
-          rescheduled_from_id: string | null
-          resource_id: string | null
-          scheduled_for: string
-          service: string | null
-          specialist_referral_id: string | null
-          started_at: string | null
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-          video_consultation_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       cancel_care_voucher: {
         Args: { p_reason: string; p_voucher: string }
         Returns: Json
-      }
-      cancel_waiting_list_entry: {
-        Args: { p_waiting_list_id: string }
-        Returns: undefined
       }
       care_receipt: {
         Args: { p_beneficiary: string; p_from?: string; p_to?: string }
@@ -17398,48 +17360,6 @@ export type Database = {
       close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
-      }
-      confirm_appointment_booking: {
-        Args: { p_appointment_id: string }
-        Returns: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          booked_by: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          care_plan_id: string | null
-          checked_in_at: string | null
-          clinician_id: string | null
-          completed_at: string | null
-          confirmed_at: string | null
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at: string
-          ends_at: string
-          hold_expires_at: string | null
-          id: string
-          is_high_priority: boolean
-          location: string | null
-          no_show_marked_at: string | null
-          organisation_id: string
-          patient_id: string
-          payment_status: Database["public"]["Enums"]["appointment_payment_status"]
-          reason: string | null
-          rescheduled_from_id: string | null
-          resource_id: string | null
-          scheduled_for: string
-          service: string | null
-          specialist_referral_id: string | null
-          started_at: string | null
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-          video_consultation_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       confirm_ecg_report_extraction: {
         Args: {
@@ -17800,25 +17720,23 @@ export type Database = {
         }[]
       }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
-      get_available_appointment_slots: {
-        Args: {
-          p_appointment_type: Database["public"]["Enums"]["appointment_type"]
-          p_clinician_id?: string
-          p_consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
-          p_from?: string
-          p_organisation_id: string
-          p_to?: string
-        }
+      get_geo_health_aggregates: {
+        Args: never
         Returns: {
-          clinician_id: string
-          clinician_name: string
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          location: string
-          slot_end: string
-          slot_start: string
+          state: string
+          patient_count: number | null
+          hypertension_high_count: number | null
+          diabetes_high_count: number | null
+          cvd_high_count: number | null
+          overdue_screening_count: number | null
+          suppressed: boolean
         }[]
       }
       get_or_create_my_referral_code: { Args: never; Returns: string }
+      hand_over_care: {
+        Args: { p_new_profile_id: string; p_note?: string; p_patient_id: string; p_role: string }
+        Returns: undefined
+      }
       has_ai_coach_access: { Args: never; Returns: boolean }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
       hbpm_summary: { Args: { p_patient: string }; Returns: Json }
@@ -17879,61 +17797,9 @@ export type Database = {
         Args: { p_dob?: string; p_serial: string }
         Returns: Json
       }
-      hold_appointment_slot: {
-        Args: {
-          p_appointment_type: Database["public"]["Enums"]["appointment_type"]
-          p_care_plan_id?: string
-          p_clinician_id: string
-          p_consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          p_ends_at: string
-          p_hold_minutes?: number
-          p_location?: string
-          p_organisation_id: string
-          p_patient_id?: string
-          p_reason?: string
-          p_scheduled_for: string
-          p_service?: string
-          p_specialist_referral_id?: string
-        }
-        Returns: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          booked_by: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          care_plan_id: string | null
-          checked_in_at: string | null
-          clinician_id: string | null
-          completed_at: string | null
-          confirmed_at: string | null
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at: string
-          ends_at: string
-          hold_expires_at: string | null
-          id: string
-          is_high_priority: boolean
-          location: string | null
-          no_show_marked_at: string | null
-          organisation_id: string
-          patient_id: string
-          payment_status: Database["public"]["Enums"]["appointment_payment_status"]
-          reason: string | null
-          rescheduled_from_id: string | null
-          resource_id: string | null
-          scheduled_for: string
-          service: string | null
-          specialist_referral_id: string | null
-          started_at: string | null
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-          video_consultation_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+      high_risk_patient_ids: {
+        Args: never
+        Returns: { patient_id: string }[]
       }
       htn_quality_metrics: { Args: { p_org: string }; Returns: Json }
       insert_audited_lab_result_document: {
@@ -18070,6 +17936,10 @@ export type Database = {
           care_plan_id: string
           clinician_full_name: string
         }[]
+      }
+      my_provider_performance: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
       }
       open_health_check: { Args: never; Returns: string }
       patient_health_reset_progress: {
@@ -18254,16 +18124,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      record_result_correction: {
-        Args: {
-          p_abnormal_flags: string[]
-          p_correction_reason: string
-          p_original_result_id: string
-          p_result_status: Database["public"]["Enums"]["result_status"]
-          p_result_summary: string
-        }
-        Returns: string
-      }
       record_voucher_payment_intent: {
         Args: {
           p_amount_minor: number
@@ -18392,52 +18252,6 @@ export type Database = {
           p_staff_profile_id: string
         }
         Returns: string
-      }
-      reschedule_appointment: {
-        Args: {
-          p_appointment_id: string
-          p_new_ends_at: string
-          p_new_scheduled_for: string
-        }
-        Returns: {
-          appointment_type: Database["public"]["Enums"]["appointment_type"]
-          booked_by: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          care_plan_id: string | null
-          checked_in_at: string | null
-          clinician_id: string | null
-          completed_at: string | null
-          confirmed_at: string | null
-          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
-          created_at: string
-          ends_at: string
-          hold_expires_at: string | null
-          id: string
-          is_high_priority: boolean
-          location: string | null
-          no_show_marked_at: string | null
-          organisation_id: string
-          patient_id: string
-          payment_status: Database["public"]["Enums"]["appointment_payment_status"]
-          reason: string | null
-          rescheduled_from_id: string | null
-          resource_id: string | null
-          scheduled_for: string
-          service: string | null
-          specialist_referral_id: string | null
-          started_at: string | null
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-          video_consultation_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       resolve_personalised_lifestyle_goal: {
         Args: {
@@ -18626,6 +18440,10 @@ export type Database = {
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
+      sign_risk_questionnaire_config: {
+        Args: { p_config_id: string }
+        Returns: string
+      }
       sign_vaccination_schedule: {
         Args: { p_signoff_id: string }
         Returns: string
@@ -18724,48 +18542,7 @@ export type Database = {
         | "completed"
         | "not_applicable"
       appetite_level: "normal" | "reduced" | "none"
-      appointment_consultation_method: "telemedicine" | "in_person"
-      appointment_payment_status:
-        | "not_required"
-        | "pending"
-        | "paid"
-        | "refund_due"
-        | "refunded"
-        | "waived"
-      appointment_status:
-        | "scheduled"
-        | "completed"
-        | "cancelled"
-        | "no_show"
-        | "held"
-        | "booked"
-        | "confirmed"
-        | "checked_in"
-        | "in_progress"
-        | "rescheduled"
-        | "provider_cancelled"
-        | "patient_cancelled"
-        | "failed"
-        | "expired"
-      appointment_type:
-        | "gp"
-        | "specialist"
-        | "nurse"
-        | "dietitian"
-        | "physiotherapist"
-        | "laboratory"
-        | "imaging"
-        | "vaccination"
-        | "physical_clinic"
-        | "telemedicine"
-        | "follow_up"
-        | "procedure"
-      appointment_waiting_list_status:
-        | "waiting"
-        | "offered"
-        | "accepted"
-        | "expired"
-        | "cancelled"
+      appointment_status: "scheduled" | "completed" | "cancelled" | "no_show"
       async_consult_status: "submitted" | "in_review" | "answered" | "closed"
       bariatric_referral_status:
         | "proposed"
@@ -18824,7 +18601,9 @@ export type Database = {
         | "new_diagnosis"
         | "risk_tier_change"
         | "hospital_discharge"
-      care_plan_status: "draft" | "active" | "completed" | "cancelled"
+      care_plan_goal_status: "open" | "achieved" | "abandoned"
+      care_plan_intervention_status: "active" | "removed"
+      care_plan_status: "draft" | "active" | "completed" | "cancelled" | "paused" | "discharged"
       care_voucher_event_type:
         | "created"
         | "payment_applied"
@@ -18864,7 +18643,6 @@ export type Database = {
         | "not_yet_established"
       chronic_enrolment_source: "recommended" | "staff" | "clinician"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
-      clinical_resource_type: "room" | "equipment"
       clinical_severity: "mild" | "moderate" | "severe"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
@@ -19235,9 +19013,26 @@ export type Database = {
         | "colorectal_ca"
         | "prostate_ca"
         | "other"
+        | "ckd"
+        | "asthma_copd"
+        | "mental_wellbeing"
+      prevention_campaign_action_type:
+        | "education"
+        | "screening_invite"
+        | "assessment"
+        | "discount"
+        | "challenge"
+      prevention_campaign_enrolment_status: "invited" | "joined" | "completed" | "declined"
+      prevention_campaign_status: "draft" | "active" | "ended"
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
+      reassessment_reason:
+        | "new_diagnosis"
+        | "abnormal_result"
+        | "hospital_discharge"
+        | "pregnancy_life_stage"
+        | "major_weight_change"
       referral_reward_status: "pending" | "earned" | "paid"
       referral_status:
         | "pending_payment"
@@ -19253,6 +19048,7 @@ export type Database = {
         | "doctor_refers_patient"
         | "corporate_champion"
       referral_urgency: "routine" | "priority" | "urgent"
+      reminder_stage: "upcoming" | "due" | "overdue" | "escalated"
       reproductive_life_stage:
         | "menstruating"
         | "trying_to_conceive"
@@ -19275,7 +19071,8 @@ export type Database = {
         | "meds"
         | "vaccination"
         | "screening_history"
-      risk_level: "low" | "moderate" | "high" | "very_high"
+      risk_confidence: "low" | "moderate" | "high"
+      risk_level: "low" | "moderate" | "high" | "very_high" | "unknown"
       screen_applicability: "all" | "male" | "female"
       screen_price_source:
         | "lab_price_list"
@@ -19575,52 +19372,7 @@ export const Constants = {
         "not_applicable",
       ],
       appetite_level: ["normal", "reduced", "none"],
-      appointment_consultation_method: ["telemedicine", "in_person"],
-      appointment_payment_status: [
-        "not_required",
-        "pending",
-        "paid",
-        "refund_due",
-        "refunded",
-        "waived",
-      ],
-      appointment_status: [
-        "scheduled",
-        "completed",
-        "cancelled",
-        "no_show",
-        "held",
-        "booked",
-        "confirmed",
-        "checked_in",
-        "in_progress",
-        "rescheduled",
-        "provider_cancelled",
-        "patient_cancelled",
-        "failed",
-        "expired",
-      ],
-      appointment_type: [
-        "gp",
-        "specialist",
-        "nurse",
-        "dietitian",
-        "physiotherapist",
-        "laboratory",
-        "imaging",
-        "vaccination",
-        "physical_clinic",
-        "telemedicine",
-        "follow_up",
-        "procedure",
-      ],
-      appointment_waiting_list_status: [
-        "waiting",
-        "offered",
-        "accepted",
-        "expired",
-        "cancelled",
-      ],
+      appointment_status: ["scheduled", "completed", "cancelled", "no_show"],
       async_consult_status: ["submitted", "in_review", "answered", "closed"],
       bariatric_referral_status: [
         "proposed",
@@ -19686,7 +19438,9 @@ export const Constants = {
         "risk_tier_change",
         "hospital_discharge",
       ],
-      care_plan_status: ["draft", "active", "completed", "cancelled"],
+      care_plan_goal_status: ["open", "achieved", "abandoned"],
+      care_plan_intervention_status: ["active", "removed"],
+      care_plan_status: ["draft", "active", "completed", "cancelled", "paused", "discharged"],
       care_voucher_event_type: [
         "created",
         "payment_applied",
@@ -19732,7 +19486,6 @@ export const Constants = {
       ],
       chronic_enrolment_source: ["recommended", "staff", "clinician"],
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
-      clinical_resource_type: ["room", "equipment"],
       clinical_severity: ["mild", "moderate", "severe"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
@@ -20144,10 +19897,29 @@ export const Constants = {
         "colorectal_ca",
         "prostate_ca",
         "other",
+        "ckd",
+        "asthma_copd",
+        "mental_wellbeing",
       ],
+      prevention_campaign_action_type: [
+        "education",
+        "screening_invite",
+        "assessment",
+        "discount",
+        "challenge",
+      ],
+      prevention_campaign_enrolment_status: ["invited", "joined", "completed", "declined"],
+      prevention_campaign_status: ["draft", "active", "ended"],
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
+      reassessment_reason: [
+        "new_diagnosis",
+        "abnormal_result",
+        "hospital_discharge",
+        "pregnancy_life_stage",
+        "major_weight_change",
+      ],
       referral_reward_status: ["pending", "earned", "paid"],
       referral_status: [
         "pending_payment",
@@ -20165,6 +19937,7 @@ export const Constants = {
         "corporate_champion",
       ],
       referral_urgency: ["routine", "priority", "urgent"],
+      reminder_stage: ["upcoming", "due", "overdue", "escalated"],
       reproductive_life_stage: [
         "menstruating",
         "trying_to_conceive",
@@ -20190,7 +19963,8 @@ export const Constants = {
         "vaccination",
         "screening_history",
       ],
-      risk_level: ["low", "moderate", "high", "very_high"],
+      risk_confidence: ["low", "moderate", "high"],
+      risk_level: ["low", "moderate", "high", "very_high", "unknown"],
       screen_applicability: ["all", "male", "female"],
       screen_price_source: [
         "lab_price_list",
