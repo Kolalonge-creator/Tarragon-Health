@@ -17,6 +17,7 @@ import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
 import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-completion-card";
+import { MyMonitoringCard } from "@/app/(dashboard)/patient/my-monitoring-card";
 import { YourCareTeam } from "@/components/your-care-team";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -179,6 +180,8 @@ export default async function PatientOverviewPage() {
           prevention completion dashboard is safer and more actionable"),
           answering "what's outstanding" rather than "how am I doing overall". */}
       <PreventionCompletionCard patientId={subjectId} />
+
+      <MyMonitoringCard patientId={subjectId} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <VitalsTrendChart patientId={subjectId} />

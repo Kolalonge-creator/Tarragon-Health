@@ -7,6 +7,7 @@ import type { GlucoseUnit } from "@/lib/validation/vitals";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { crosscheckVital, type VitalCrosscheck } from "@/lib/vitals/plausibility";
 import { VITAL_TYPES, type VitalType } from "@/lib/vitals/vital-types";
+import { usePatientDevices } from "@/lib/queries/patient-devices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ export function VitalsForm({
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
   const [state, formAction, pending] = useActionState(logVital, undefined);
   const queryClient = useQueryClient();
+  const { data: bpCuffs } = usePatientDevices(patientId, "bp_cuff");
 
   // Crosscheck nudge: when a reading lands outside the normal band we ask the
   // patient to confirm it before saving, and show how to take a cleaner
@@ -110,15 +112,49 @@ export function VitalsForm({
           )}
 
           {vitalType === "blood_pressure" && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="systolic">Systolic (mmHg)</Label>
-                <Input id="systolic" name="systolic" type="number" required />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="systolic">Systolic (mmHg)</Label>
+                  <Input id="systolic" name="systolic" type="number" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="diastolic">Diastolic (mmHg)</Label>
+                  <Input id="diastolic" name="diastolic" type="number" required />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="diastolic">Diastolic (mmHg)</Label>
-                <Input id="diastolic" name="diastolic" type="number" required />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="position">Position (optional)</Label>
+                  <Select id="position" name="position" defaultValue="">
+                    <option value="">Not recorded</option>
+                    <option value="seated">Seated</option>
+                    <option value="standing">Standing</option>
+                    <option value="lying">Lying down</option>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="arm">Arm (optional)</Label>
+                  <Select id="arm" name="arm" defaultValue="">
+                    <option value="">Not recorded</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                  </Select>
+                </div>
               </div>
+              {bpCuffs && bpCuffs.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="device_id">Device used (optional)</Label>
+                  <Select id="device_id" name="device_id" defaultValue="">
+                    <option value="">Not recorded / other device</option>
+                    {bpCuffs.map((device) => (
+                      <option key={device.id} value={device.id}>
+                        {device.nickname ?? ([device.manufacturer, device.model].filter(Boolean).join(" ") || "Paired BP cuff")}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
             </div>
           )}
 
@@ -275,6 +311,12 @@ export function VitalsForm({
               </p>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="taken_at">When measured (optional)</Label>
+            <Input id="taken_at" name="taken_at" type="datetime-local" max={new Date().toISOString().slice(0, 16)} />
+            <p className="text-xs text-charcoal-ink/60">Leave blank to log this as just now.</p>
+          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="note">Note (optional)</Label>

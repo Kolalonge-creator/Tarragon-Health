@@ -25,6 +25,7 @@ import { CareTeamForm } from "./care-team-form";
 import { HandOverCareSection } from "./hand-over-care-section";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
+import { FlaggedReadingsPanel } from "./flagged-readings-panel";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
 import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
@@ -273,6 +274,7 @@ export default async function ClinicianPatientPage({
             label: "Vitals & chronic care",
             content: (
               <>
+                <FlaggedReadingsPanel patientId={patient.id} />
                 <BpLadderPanel patientId={patient.id} />
                 <HealthTrendsCard patientId={patient.id} audience="clinician" />
                 <VitalsTrendChart patientId={patient.id} />

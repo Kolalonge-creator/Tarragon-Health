@@ -55,7 +55,7 @@ function TemperatureLevelBadge({ reading }: { reading: Tables<"vitals_readings">
   );
 }
 
-function formatReading(reading: Tables<"vitals_readings">): string {
+export function formatReading(reading: Tables<"vitals_readings">): string {
   switch (reading.vital_type) {
     case "blood_pressure":
       return `${reading.systolic}/${reading.diastolic} mmHg`;
@@ -115,6 +115,14 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                     {reading.vital_type === "spo2" && <Spo2LevelBadge reading={reading} />}
                     {reading.vital_type === "temperature" && (
                       <TemperatureLevelBadge reading={reading} />
+                    )}
+                    {reading.validation_status === "requires_validation" && (
+                      <span
+                        className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                        title="Your care team may follow up to confirm this reading."
+                      >
+                        Needs a second look
+                      </span>
                     )}
                   </p>
                   {reading.note && (

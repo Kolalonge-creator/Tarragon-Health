@@ -2,6 +2,26 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 
+/** Per-scheduled-vital expected/completed/missed/adherence% over a rolling
+ * window (§6.13) — see public.patient_vitals_adherence(). Empty array (not
+ * an error) for a patient with no active monitoring_schedule_items, e.g.
+ * nobody enrolled in a chronic programme yet. */
+export function useVitalsAdherence(patientId: string, windowDays = 28) {
+  return useQuery({
+    queryKey: ["vitals-adherence", patientId, windowDays],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("patient_vitals_adherence", {
+        p_patient_id: patientId,
+        p_window_days: windowDays,
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
+}
+
 export function useVitalsReadings(patientId: string) {
   return useQuery({
     queryKey: ["vitals-readings", patientId],
@@ -54,6 +74,28 @@ export function useVitalsTrend(
 
 /** Most recent logged weight, for the weight-goal card's "current weight"
  * figure — cheaper than pulling the whole trend just for the last point. */
+/** Readings a clinician should give a second look (§6.6/§6.7) — flagged by
+ * private.flag_vitals_requiring_validation() at insert, never a value the
+ * platform simply discarded. */
+export function useFlaggedVitalsReadings(patientId: string) {
+  return useQuery({
+    queryKey: ["flagged-vitals-readings", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vitals_readings")
+        .select("*")
+        .eq("patient_id", patientId)
+        .eq("validation_status", "requires_validation")
+        .order("taken_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
+}
+
 export function useLatestWeightKg(patientId: string) {
   return useQuery({
     queryKey: ["latest-weight-kg", patientId],

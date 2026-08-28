@@ -3245,6 +3245,7 @@ export type Database = {
           escalation_level: number | null
           id: string
           level: Database["public"]["Enums"]["alert_level"]
+          monitoring_schedule_item_id: string | null
           organisation_id: string
           overridden_at: string | null
           overridden_by: string | null
@@ -3269,6 +3270,7 @@ export type Database = {
           escalation_level?: number | null
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
+          monitoring_schedule_item_id?: string | null
           organisation_id: string
           overridden_at?: string | null
           overridden_by?: string | null
@@ -3293,6 +3295,7 @@ export type Database = {
           escalation_level?: number | null
           id?: string
           level?: Database["public"]["Enums"]["alert_level"]
+          monitoring_schedule_item_id?: string | null
           organisation_id?: string
           overridden_at?: string | null
           overridden_by?: string | null
@@ -11308,11 +11311,133 @@ export type Database = {
           },
         ]
       }
+      monitoring_schedule_items: {
+        Row: {
+          acceptable_range: Json | null
+          baseline_set_at: string | null
+          baseline_source:
+            | Database["public"]["Enums"]["monitoring_baseline_source"]
+            | null
+          baseline_value: Json | null
+          care_plan_id: string | null
+          created_at: string
+          created_by: string | null
+          end_date: string | null
+          escalation_threshold: Json | null
+          frequency_per_week: number
+          id: string
+          organisation_id: string
+          patient_id: string
+          patient_instructions: string | null
+          programme_id: string | null
+          reminder_sent_at: string | null
+          reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
+          responsible_clinician_id: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["monitoring_item_status"]
+          target: Json | null
+          updated_at: string
+          vital_type: Database["public"]["Enums"]["vital_type"]
+        }
+        Insert: {
+          acceptable_range?: Json | null
+          baseline_set_at?: string | null
+          baseline_source?:
+            | Database["public"]["Enums"]["monitoring_baseline_source"]
+            | null
+          baseline_value?: Json | null
+          care_plan_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          escalation_threshold?: Json | null
+          frequency_per_week: number
+          id?: string
+          organisation_id: string
+          patient_id: string
+          patient_instructions?: string | null
+          programme_id?: string | null
+          reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
+          responsible_clinician_id?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["monitoring_item_status"]
+          target?: Json | null
+          updated_at?: string
+          vital_type: Database["public"]["Enums"]["vital_type"]
+        }
+        Update: {
+          acceptable_range?: Json | null
+          baseline_set_at?: string | null
+          baseline_source?:
+            | Database["public"]["Enums"]["monitoring_baseline_source"]
+            | null
+          baseline_value?: Json | null
+          care_plan_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          escalation_threshold?: Json | null
+          frequency_per_week?: number
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          patient_instructions?: string | null
+          programme_id?: string | null
+          reminder_sent_at?: string | null
+          reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
+          responsible_clinician_id?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["monitoring_item_status"]
+          target?: Json | null
+          updated_at?: string
+          vital_type?: Database["public"]["Enums"]["vital_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitoring_schedule_items_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_schedule_items_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_schedule_items_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_condition_programmes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_schedule_items_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_schedule_items_responsible_clinician_id_fkey"
+            columns: ["responsible_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_devices: {
         Row: {
           ble_device_id: string
+          calibration_status: string | null
           created_at: string
           device_type: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version: string | null
           id: string
           last_synced_at: string | null
           manufacturer: string | null
@@ -11321,12 +11446,15 @@ export type Database = {
           organisation_id: string
           paired_at: string
           patient_id: string
+          serial_number: string | null
           status: Database["public"]["Enums"]["patient_device_status"]
         }
         Insert: {
           ble_device_id: string
+          calibration_status?: string | null
           created_at?: string
           device_type: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version?: string | null
           id?: string
           last_synced_at?: string | null
           manufacturer?: string | null
@@ -11335,12 +11463,15 @@ export type Database = {
           organisation_id: string
           paired_at?: string
           patient_id: string
+          serial_number?: string | null
           status?: Database["public"]["Enums"]["patient_device_status"]
         }
         Update: {
           ble_device_id?: string
+          calibration_status?: string | null
           created_at?: string
           device_type?: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version?: string | null
           id?: string
           last_synced_at?: string | null
           manufacturer?: string | null
@@ -11349,6 +11480,7 @@ export type Database = {
           organisation_id?: string
           paired_at?: string
           patient_id?: string
+          serial_number?: string | null
           status?: Database["public"]["Enums"]["patient_device_status"]
         }
         Relationships: [
@@ -16040,7 +16172,9 @@ export type Database = {
           note: string | null
           organisation_id: string
           patient_id: string
+          arm: string | null
           peak_flow_l_min: number | null
+          position: string | null
           pulse_bpm: number | null
           respiratory_rate_bpm: number | null
           source: Database["public"]["Enums"]["vital_source"]
@@ -16048,6 +16182,10 @@ export type Database = {
           systolic: number | null
           taken_at: string
           temperature_c: number | null
+          validated_at: string | null
+          validated_by: string | null
+          validation_flags: string[]
+          validation_status: Database["public"]["Enums"]["vitals_validation_status"]
           vital_type: Database["public"]["Enums"]["vital_type"]
           waist_cm: number | null
           wearable_connection_id: string | null
@@ -16070,7 +16208,9 @@ export type Database = {
           note?: string | null
           organisation_id: string
           patient_id: string
+          arm?: string | null
           peak_flow_l_min?: number | null
+          position?: string | null
           pulse_bpm?: number | null
           respiratory_rate_bpm?: number | null
           source?: Database["public"]["Enums"]["vital_source"]
@@ -16078,6 +16218,10 @@ export type Database = {
           systolic?: number | null
           taken_at?: string
           temperature_c?: number | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_flags?: string[]
+          validation_status?: Database["public"]["Enums"]["vitals_validation_status"]
           vital_type: Database["public"]["Enums"]["vital_type"]
           waist_cm?: number | null
           wearable_connection_id?: string | null
@@ -16100,7 +16244,9 @@ export type Database = {
           note?: string | null
           organisation_id?: string
           patient_id?: string
+          arm?: string | null
           peak_flow_l_min?: number | null
+          position?: string | null
           pulse_bpm?: number | null
           respiratory_rate_bpm?: number | null
           source?: Database["public"]["Enums"]["vital_source"]
@@ -16108,6 +16254,10 @@ export type Database = {
           systolic?: number | null
           taken_at?: string
           temperature_c?: number | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_flags?: string[]
+          validation_status?: Database["public"]["Enums"]["vitals_validation_status"]
           vital_type?: Database["public"]["Enums"]["vital_type"]
           waist_cm?: number | null
           wearable_connection_id?: string | null
@@ -17745,6 +17895,8 @@ export type Database = {
       patient_monitoring_latest_readings: {
         Args: { p_patient_ids: string[] }
         Returns: {
+          abnormal_reading_count_7d: number
+          avg_adherence_pct: number
           bp_taken_at: string
           diastolic: number
           glucose_mmol_l: number
@@ -17766,6 +17918,26 @@ export type Database = {
           weight_kg: number
           weight_taken_at: string
         }[]
+      }
+      patient_vitals_adherence: {
+        Args: { p_patient_id: string; p_window_days?: number }
+        Returns: {
+          adherence_pct: number
+          completed_count: number
+          expected_count: number
+          frequency_per_week: number
+          missed_count: number
+          schedule_item_id: string
+          vital_type: Database["public"]["Enums"]["vital_type"]
+        }[]
+      }
+      clear_vitals_validation_flag: {
+        Args: { p_reading_id: string }
+        Returns: undefined
+      }
+      set_monitoring_baseline: {
+        Args: { p_item_id: string; p_baseline: Json }
+        Returns: undefined
       }
       pharmacist_dispense_history: {
         Args: { p_limit?: number }
@@ -18820,6 +18992,8 @@ export type Database = {
         | "doctor_refers_patient"
         | "corporate_champion"
       referral_urgency: "routine" | "priority" | "urgent"
+      monitoring_baseline_source: "first_reading" | "clinician_set"
+      monitoring_item_status: "active" | "paused" | "completed"
       reminder_stage: "upcoming" | "due" | "overdue" | "escalated"
       reproductive_life_stage:
         | "menstruating"
@@ -18960,6 +19134,7 @@ export type Database = {
         | "ketones"
         | "respiratory_rate"
         | "peak_flow"
+      vitals_validation_status: "valid" | "requires_validation"
       wearable_connection_status: "active" | "disconnected" | "error"
       wearable_provider:
         | "apple_health"
@@ -19697,6 +19872,8 @@ export const Constants = {
         "corporate_champion",
       ],
       referral_urgency: ["routine", "priority", "urgent"],
+      monitoring_baseline_source: ["first_reading", "clinician_set"],
+      monitoring_item_status: ["active", "paused", "completed"],
       reminder_stage: ["upcoming", "due", "overdue", "escalated"],
       reproductive_life_stage: [
         "menstruating",
@@ -19852,6 +20029,7 @@ export const Constants = {
         "respiratory_rate",
         "peak_flow",
       ],
+      vitals_validation_status: ["valid", "requires_validation"],
       wearable_connection_status: ["active", "disconnected", "error"],
       wearable_provider: [
         "apple_health",

@@ -46,6 +46,14 @@ export interface PatientMonitoringRow {
   };
   openAlertLevel: AlertLevel | null;
   openAlertCount: number;
+  /** Average adherence % across this patient's active monitoring_schedule_
+   * items over a 28-day window (§6.13). Null when they have none — not
+   * enrolled in a chronic programme, not "0% adherent". */
+  avgAdherencePct: number | null;
+  /** Readings in the last 7 days that raised a clinician_alerts row (§6.16
+   * "2 abnormal readings") — reuses the platform's own red-flag
+   * classification rather than a second one computed here. */
+  abnormalReadingCount7d: number;
 }
 
 export interface LoadPatientMonitoringRosterOptions {
@@ -150,6 +158,8 @@ export async function loadPatientMonitoringRoster(
       },
       openAlertLevel: r?.open_alert_level ?? null,
       openAlertCount: r?.open_alert_count ?? 0,
+      avgAdherencePct: r?.avg_adherence_pct ?? null,
+      abnormalReadingCount7d: r?.abnormal_reading_count_7d ?? 0,
     };
   });
 }

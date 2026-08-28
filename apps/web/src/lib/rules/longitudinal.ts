@@ -39,6 +39,17 @@ export type TrendSignificance =
   /** A real movement that has taken the value outside the usual range, or was already outside and is getting worse. */
   | "outside_range";
 
+/** §6.9 "variability": whether the WHOLE window (not just the monotonic run
+ * analyseSeries anchors on) sits close to its own mean or swings widely. A
+ * separate dimension from direction/persistence — a series can be
+ * "improving" over its last three readings while still fluctuating overall. */
+export type TrendVariability = "stable" | "fluctuating";
+
+/** §6.9 "rate of change": how fast the run's movement happened, not just how
+ * much. A 10% rise over 3 days reads very differently to clinicians than the
+ * same 10% over 6 months. */
+export type TrendRateOfChange = "gradual" | "rapid";
+
 export interface TrendFinding {
   code: string;
   label: string;
@@ -59,6 +70,48 @@ export interface TrendFinding {
   range: { low: number; high: number } | null;
   /** Days spanned by the run. */
   spanDays: number;
+  /** Null when there are too few points in the whole (not just the run)
+   * series to say anything about spread. */
+  variability: TrendVariability | null;
+  rateOfChange: TrendRateOfChange;
+}
+
+/** Explicit config for a series analyseSeries has no catalogue entry for
+ * (e.g. a home-monitored vital rather than a lab analyte) — see
+ * lib/rules/vitals-trend.ts. When omitted, analyseSeries falls back to
+ * looking `code` up in the lab analyte catalogue exactly as before; passing
+ * this is what lets the SAME engine serve a series the catalogue has never
+ * heard of, with no change to any existing caller. */
+export interface SeriesConfig {
+  label: string;
+  unit: string;
+  /** Minimum %, across the whole run, for a movement to count as real. */
+  meaningfulChangePct: number;
+  range?: { low: number; high: number } | null;
+}
+
+/** % change per day, across the run, above which a movement counts as
+ * "rapid" rather than "gradual". Deliberately generic (not per-analyte) —
+ * this is about the SHAPE of the change, not its clinical meaning. */
+const RAPID_CHANGE_PCT_PER_DAY = 2;
+
+/** Coefficient of variation (stddev / mean, as a %) above which a series
+ * counts as "fluctuating" rather than "stable". */
+const FLUCTUATING_CV_PCT = 15;
+
+function classifyVariability(points: SeriesPoint[]): TrendVariability | null {
+  if (points.length < MIN_POINTS_FOR_TREND) return null;
+  const values = points.map((p) => p.value);
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  if (mean === 0) return null;
+  const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
+  const cv = (Math.sqrt(variance) / Math.abs(mean)) * 100;
+  return cv > FLUCTUATING_CV_PCT ? "fluctuating" : "stable";
+}
+
+function classifyRateOfChange(percentChange: number, spanDays: number): TrendRateOfChange {
+  const perDay = spanDays > 0 ? Math.abs(percentChange) / spanDays : Math.abs(percentChange);
+  return perDay >= RAPID_CHANGE_PCT_PER_DAY ? "rapid" : "gradual";
 }
 
 /**
@@ -118,10 +171,12 @@ export const MIN_POINTS_FOR_TREND = 3;
 export function analyseSeries(
   code: string,
   points: SeriesPoint[],
-  options: { sex?: string | null } = {},
+  options: { sex?: string | null; config?: SeriesConfig } = {},
 ): TrendFinding | null {
-  const analyte = getAnalyte(code);
-  if (!analyte) return null;
+  const analyte = options.config ? null : getAnalyte(code);
+  if (!analyte && !options.config) return null;
+  const label = options.config?.label ?? analyte!.label;
+  const unit = options.config?.unit ?? analyte!.canonicalUnit;
 
   const sorted = [...points]
     .filter((p) => Number.isFinite(p.value) && !Number.isNaN(new Date(p.takenAt).getTime()))
@@ -153,10 +208,10 @@ export function analyseSeries(
   const percentChange =
     first.value === 0 ? 0 : ((latest.value - first.value) / Math.abs(first.value)) * 100;
 
-  const range = orientationRange(code, options.sex ?? null);
+  const range = options.config ? (options.config.range ?? null) : orientationRange(code, options.sex ?? null);
   const latestOutsideRange = range ? latest.value < range.low || latest.value > range.high : false;
 
-  const threshold = MIN_MEANINGFUL_CHANGE_PCT[code] ?? DEFAULT_MIN_CHANGE_PCT;
+  const threshold = options.config?.meaningfulChangePct ?? MIN_MEANINGFUL_CHANGE_PCT[code] ?? DEFAULT_MIN_CHANGE_PCT;
   let significance: TrendSignificance;
   if (Math.abs(percentChange) < threshold) {
     significance = "noise";
@@ -176,7 +231,7 @@ export function analyseSeries(
 
   return {
     code,
-    label: analyte.label,
+    label,
     direction,
     significance,
     consecutiveCount: run.length,
@@ -185,10 +240,12 @@ export function analyseSeries(
     firstTakenAt: first.takenAt,
     latestTakenAt: latest.takenAt,
     percentChange: Math.round(percentChange * 10) / 10,
-    unit: analyte.canonicalUnit,
+    unit,
     latestOutsideRange,
     range,
     spanDays,
+    variability: classifyVariability(sorted),
+    rateOfChange: classifyRateOfChange(percentChange, spanDays),
   };
 }
 

@@ -2751,3 +2751,95 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+### 2026-08-28 — Monitoring Engine gap-closure: provenance/validation, structured schedules, adherence, risk-aware missed-monitoring ladder, trend analysis on vitals, baseline, dashboards
+
+Worked from a detailed Monitoring Engine spec (§6.1-6.20) against a prior audit of what already existed
+(`vitals_readings` provenance/source, `chronic_condition_programmes`/`care_plans` targets, the BP/SpO2/
+temperature red-flag triggers, `patient_monitoring_latest_readings`, the BLE/wearable device pipeline —
+all already built) and closed the real gaps found, rather than rebuilding anything already working.
+4 migrations, all additive:
+
+- **Measurement provenance & validation** (§6.5-6.7) — `vitals_readings` gains `position`/`arm` (BP-only
+  measurement context), and `validation_status`/`validation_flags`/`validated_by`/`validated_at`. A new
+  BEFORE INSERT trigger (`private.flag_vitals_requiring_validation`, plain invoker — it only reads the
+  inserting session's own rows, no elevated privilege needed) flags `duplicate_entry` (identical reading
+  within 2 minutes), `sudden_change` (vs. the patient's own last-5 valid readings, needs >=3 prior to
+  fire), and `insufficient_context` (BP with neither position nor arm) — deliberately never blocks a
+  save, matching the spec's "should not simply discard questionable information" rule; a flagged reading
+  still reaches its own red-flag trigger untouched. `public.clear_vitals_validation_flag()` is the
+  clinician review RPC — a `FlaggedReadingsPanel` on the clinician patient-detail page and a "Needs a
+  second look" badge in the patient's own reading history are the two surfaces.
+- **Structured monitoring schedule** (§6.3/6.4/6.8) — new `monitoring_schedule_items` table (one row per
+  patient+vital_type: frequency/target/acceptable_range/escalation_threshold/responsible_clinician/
+  patient_instructions/baseline), auto-seeded on `chronic_programme_enrolments` insert via
+  `private.default_monitoring_frequency()` (grounded in the spec's own worked examples — hypertension BP
+  3x/week, heart failure daily). Baseline auto-captures from the patient's first matching reading
+  (`private.set_monitoring_baseline_on_first_reading`) or can be clinician-set
+  (`public.set_monitoring_baseline`) — never both, first-reading only fills a null baseline.
+- **Adherence + risk-aware missed-monitoring ladder** (§6.13/6.14) — `public.patient_vitals_adherence()`
+  computes expected/completed/missed/adherence% per schedule item over a rolling window (existing
+  "adherence" in this codebase meant medication adherence only). `private.evaluate_vitals_monitoring_gaps()`
+  (nightly cron, `vitals-monitoring-gaps-daily`) reuses the existing `reminder_stage` enum
+  (upcoming/due/overdue/escalated, from the 2026-08-27 preventive-reminder ladder) but generalises missed-
+  monitoring detection to every scheduled vital, not just BP — staging thresholds tighten or widen per
+  `private.patient_worst_risk_level()` (most severe `patient_risk_scores.risk_level` in the last 6 months),
+  the direct implementation of the spec's "missing a BP reading in a low-risk patient should not generate
+  the same workflow as a high-risk patient" line. Deliberately skips the clinician_alerts step for
+  `blood_pressure` specifically — `private.flag_overdue_vitals()` (2026-07-20) already owns that gap, and
+  this must not raise a second, independently-tracked alert for the same missing reading. A genuine
+  reading resets the ladder and auto-resolves any open alert immediately
+  (`private.reset_monitoring_gap_on_reading`), same auto-resolve precedent as the BP-specific mechanism.
+- **Trend analysis extended to vitals** (§6.8/6.9) — until now `lib/rules/longitudinal.ts`'s
+  direction/persistence/significance engine only ever saw `lab_analyte_readings`; BP/glucose/weight/pulse/
+  temperature/spo2 had no equivalent, just a per-reading red/green classification with no memory of the
+  series. `analyseSeries` gained an optional `config` override (label/unit/range/meaningfulChangePct) so
+  the SAME engine can serve a series it has no lab-analyte-catalogue entry for — zero change to any
+  existing lab caller. Also added `variability` (coefficient-of-variation stable/fluctuating) and
+  `rateOfChange` (gradual/rapid) as two more explicit dimensions, matching the spec's four-part "more
+  clinically useful than red/green" framing (direction/variability/persistence/rate-of-change). New
+  `lib/rules/vitals-trend.ts` adapter + `lib/rules/baseline.ts` (baseline-vs-current-average comparison,
+  §6.8's own "Baseline BP 155/94, Current average 138/84, Change: Improving" example) — pure functions,
+  unit-tested, not yet wired into the clinician per-patient trend panel (flagged below, not guessed at).
+- **Dashboards** (§6.15/6.16) — patient gets a new `MyMonitoringCard` ("My monitoring", per-vital
+  completion bars over 28 days, deliberately not gamified per the spec's own caution) on the main
+  dashboard. `patient_monitoring_latest_readings` (the clinician roster RPC) gained `avg_adherence_pct`
+  and `abnormal_reading_count_7d` (readings that raised a `clinician_alerts` row in the last 7 days —
+  reused the platform's own already-audited red-flag classification rather than a second one); the roster
+  card now also surfaces `open_alert_count`, which the RPC had computed since 2026-08-26 but the card
+  never rendered.
+- **Device registration provenance** (§6.18) — `patient_devices` gained `serial_number`/
+  `calibration_status`/`firmware_version` (all optional; `ble_device_id` stays the real join key, being
+  app-install-local rather than a stable hardware serial).
+- **Measurement entry UI** (§6.5) — `VitalsForm` gained BP position/arm selects, an optional "when
+  measured" datetime-local field (`taken_at` already existed in the Zod schema and DB column but had no
+  UI input at all), and an optional device selector sourced from the patient's own `patient_devices` rows.
+  Caught and fixed a real bug before it shipped: the optional selects' "not recorded" placeholder submits
+  `""`, which `z.enum(...).optional()` rejects (only `undefined` passes `.optional()`) and which would
+  have tripped `vitals_readings`' new `position`/`arm` CHECK constraints on insert — fixed with a shared
+  `emptyToUndefined` Zod preprocessor.
+- **Explicitly not built**, per the spec's own "Eventually" framing for §6.19 (Remote Patient Monitoring)
+  and to stay inside the founder-set clinical-staffing/regulatory guardrails: no heart-failure-specific
+  daily-weight-decompensation engine. The generalised trend + risk-aware missed-monitoring machinery above
+  gets most of the way there for any condition without hard-coding one; a dedicated RPM programme is a
+  distinct future ask. Target-range configurability for SpO2/temperature/pulse (§6.10) stayed as the
+  existing hardcoded population bands (`private.classify_spo2_level`/`classify_temperature_level`) — BP
+  and glucose already have real per-patient targets (`patient_bp_targets`/`patient_glucose_targets`); widening
+  the other three was judged out of scope for this pass rather than attempted partially.
+- Verified: `pnpm --filter @tarragon/shared typecheck` clean after hand-merging the new tables/columns/
+  enums/RPC signatures into `database.types.ts` (same targeted-insert precedent as the device_catalog
+  entries above — no live Supabase project access in this environment to regenerate from); `pnpm --filter
+  web typecheck`/`lint`/`test`/`build` all clean (0 errors, same 4 pre-existing lint warnings, 109/109
+  suites, 1128/1128 tests including 24 new ones for `vitals-trend.ts`/`baseline.ts`). Wrote (but could not
+  execute — no live Postgres in this environment) two `packages/db/tests/` SQL checks covering the
+  validation trigger's three flag types + the review RPC, and the schedule auto-seed/baseline-capture/
+  adherence-math path, in the repo's existing rolled-back-transaction convention.
+- **Not done, flagged not guessed at:** migrations are committed but were NOT applied to the live
+  `koiplnmbgnqnbywhpjlf` project from this environment — no Supabase credentials were available/appropriate
+  to use for a direct write to the shared project from this session; apply and re-run `get_advisors`
+  before relying on any of this in production. The two new SQL test files have never actually been run
+  against a real database. The clinician per-patient detail page does not yet surface the new vitals-trend/
+  baseline panel (the pure functions exist and are tested; the UI wiring for BP/glucose/weight trend labels
+  and the baseline-vs-current card was left for a follow-up rather than rushed). No UI was built for editing
+  a `monitoring_schedule_items` row after it's auto-seeded (frequency/target/instructions) — the table and
+  RLS support clinician writes; there is no dedicated screen yet.
+

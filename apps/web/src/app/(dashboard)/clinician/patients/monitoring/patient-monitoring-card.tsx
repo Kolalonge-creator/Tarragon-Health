@@ -113,6 +113,22 @@ export function PatientMonitoringCard({ patient }: { patient: PatientMonitoringR
             </div>
           )}
 
+          {(patient.openAlertCount > 0 || patient.avgAdherencePct != null || patient.abnormalReadingCount7d > 0) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-charcoal-ink/10 pt-3 text-xs text-charcoal-ink/70">
+              {patient.openAlertCount > 0 && (
+                <span className="font-medium text-red-700">
+                  {patient.openAlertCount} unresolved {patient.openAlertCount === 1 ? "alert" : "alerts"}
+                </span>
+              )}
+              {patient.avgAdherencePct != null && <span>Monitoring adherence: {patient.avgAdherencePct}%</span>}
+              {patient.abnormalReadingCount7d > 0 && (
+                <span>
+                  {patient.abnormalReadingCount7d} abnormal {patient.abnormalReadingCount7d === 1 ? "reading" : "readings"} (7d)
+                </span>
+              )}
+            </div>
+          )}
+
           <p className="text-xs text-charcoal-ink/40">
             {patient.wearable.lastSyncedAt
               ? `Last synced ${timeAgo(patient.wearable.lastSyncedAt)}`

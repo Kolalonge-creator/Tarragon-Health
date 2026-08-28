@@ -2,6 +2,14 @@ import { z } from "zod";
 
 const noteField = z.string().trim().max(500).optional();
 
+/** A `<select>`'s "not recorded" placeholder submits an empty string, not an
+ * absent field — z.enum(...).optional() would reject "" (only undefined
+ * passes .optional()), and an empty string surviving to the insert would
+ * trip vitals_readings' `position is null or position in (...)` CHECK
+ * constraint. Coercing "" -> undefined before validation is what actually
+ * makes the field optional end to end. */
+const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
+
 /** Raw string from a datetime-local input; converted to an ISO string in the Server Action. */
 const takenAtField = z
   .string()
@@ -9,6 +17,14 @@ const takenAtField = z
   .refine((value) => !value || !Number.isNaN(Date.parse(value)), {
     message: "Enter a valid date and time",
   });
+
+/** §6.5's measurement-context fields — genuinely change a BP reading, and
+ * without them a clinician reviewing a borderline value has no way to judge
+ * technique (see private.flag_vitals_requiring_validation's
+ * insufficient_context check). Both optional: a patient who skips them still
+ * gets their reading recorded, just flagged for a second look. */
+export const BP_POSITIONS = ["seated", "standing", "lying"] as const;
+export const BP_ARMS = ["left", "right"] as const;
 
 export const bloodPressureSchema = z
   .object({
@@ -28,6 +44,12 @@ export const bloodPressureSchema = z
       .int()
       .min(30, "Diastolic must be at least 30 mmHg")
       .max(160, "Please re-check — diastolic above 160 mmHg is outside the measurable range"),
+    position: z.preprocess(emptyToUndefined, z.enum(BP_POSITIONS).optional()),
+    arm: z.preprocess(emptyToUndefined, z.enum(BP_ARMS).optional()),
+    // Not .uuid()-validated: the form only ever submits this field when the
+    // patient picked a real device_devices row from their own list, or omits
+    // it entirely for "no device" — the FK constraint is the real guard.
+    device_id: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
     note: noteField,
     taken_at: takenAtField,
   })
