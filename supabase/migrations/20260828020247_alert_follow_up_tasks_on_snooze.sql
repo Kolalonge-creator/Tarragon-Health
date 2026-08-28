@@ -141,10 +141,21 @@ begin
       new.snoozed_by := v_staff_id;
       new.status := 'snoozed';
 
-      insert into public.alert_follow_up_tasks
-        (organisation_id, clinician_alert_id, patient_id, due_at, reason, created_by)
-      values
-        (new.organisation_id, new.id, new.patient_id, new.snoozed_until, new.snooze_reason, v_staff_id);
+      -- Guarded on snooze_reason being present: a BEFORE trigger runs
+      -- before clinician_alerts' own CHECK constraints are evaluated, so a
+      -- null reason reaching this insert would fail on
+      -- alert_follow_up_tasks.reason's NOT NULL first -- a confusing
+      -- not_null_violation (23502) on the wrong table, instead of the
+      -- intended check_violation (23514) from
+      -- clinician_alerts_snooze_requires_reason (part 2b). Skipping the
+      -- insert here lets control fall through to that constraint, which
+      -- still correctly rejects the whole update.
+      if new.snooze_reason is not null then
+        insert into public.alert_follow_up_tasks
+          (organisation_id, clinician_alert_id, patient_id, due_at, reason, created_by)
+        values
+          (new.organisation_id, new.id, new.patient_id, new.snoozed_until, new.snooze_reason, v_staff_id);
+      end if;
     else
       new.snoozed_by := null;
       new.snooze_reason := null;
