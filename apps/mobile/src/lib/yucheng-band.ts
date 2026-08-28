@@ -139,6 +139,11 @@ export async function syncYuchengBandReadings(
 
   for (const reading of readings) {
     const externalReadingId = `yucheng:${reading.kind}:${reading.takenAt}`;
+    // source: "wearable" — deliberate, not the endpoint's "device" default.
+    // This band is a consumer wrist-worn optical sensor, not the same
+    // confidence level as the validated standard-GATT pulse oximeter/heart-
+    // rate devices this endpoint was originally built for; see
+    // device-reading.ts's deviceSourceField comment.
     const payload =
       reading.kind === "pulse"
         ? {
@@ -147,6 +152,7 @@ export async function syncYuchengBandReadings(
             external_reading_id: externalReadingId,
             taken_at: reading.takenAt,
             pulse_bpm: reading.pulseBpm,
+            source: "wearable" as const,
           }
         : {
             vital_type: "spo2" as const,
@@ -155,6 +161,7 @@ export async function syncYuchengBandReadings(
             taken_at: reading.takenAt,
             spo2_pct: reading.spo2Pct,
             pulse_bpm: reading.pulseBpm ?? undefined,
+            source: "wearable" as const,
           };
 
     const result = await postDeviceReading(payload);

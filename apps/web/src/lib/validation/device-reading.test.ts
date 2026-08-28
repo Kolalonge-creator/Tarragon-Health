@@ -133,6 +133,29 @@ describe("deviceReadingSchema — spo2", () => {
     expect(deviceReadingSchema.safeParse({ ...valid, spo2_pct: 101 }).success).toBe(false);
     expect(deviceReadingSchema.safeParse({ ...valid, spo2_pct: 40 }).success).toBe(false);
   });
+
+  it("defaults source to 'device' when omitted, for the existing standard-GATT pulse-oximeter call site", () => {
+    const parsed = deviceReadingSchema.safeParse(valid);
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.vital_type === "spo2") {
+      expect(parsed.data.source).toBe("device");
+    }
+  });
+
+  it("accepts an explicit source: 'wearable', for the Yucheng band", () => {
+    const parsed = deviceReadingSchema.safeParse({ ...valid, source: "wearable" });
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.vital_type === "spo2") {
+      expect(parsed.data.source).toBe("wearable");
+    }
+  });
+
+  it("rejects a source value that isn't 'device' or 'wearable'", () => {
+    // In particular: 'manual' must not be reachable here — this endpoint's
+    // whole reason for existing is instrument-sourced data, and 'manual' is
+    // reserved for actual patient-typed entries elsewhere.
+    expect(deviceReadingSchema.safeParse({ ...valid, source: "manual" }).success).toBe(false);
+  });
 });
 
 describe("deviceReadingSchema — pulse", () => {
@@ -157,6 +180,22 @@ describe("deviceReadingSchema — pulse", () => {
     const withoutPulse: Record<string, unknown> = { ...valid };
     delete withoutPulse.pulse_bpm;
     expect(deviceReadingSchema.safeParse(withoutPulse).success).toBe(false);
+  });
+
+  it("defaults source to 'device' when omitted, for the existing standard-GATT heart-rate call site", () => {
+    const parsed = deviceReadingSchema.safeParse(valid);
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.vital_type === "pulse") {
+      expect(parsed.data.source).toBe("device");
+    }
+  });
+
+  it("accepts an explicit source: 'wearable', for the Yucheng band", () => {
+    const parsed = deviceReadingSchema.safeParse({ ...valid, source: "wearable" });
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.vital_type === "pulse") {
+      expect(parsed.data.source).toBe("wearable");
+    }
   });
 });
 

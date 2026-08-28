@@ -10,6 +10,22 @@ const takenAtField = z.string().refine((value) => !Number.isNaN(Date.parse(value
   message: "taken_at must be a valid ISO date-time",
 });
 
+/**
+ * Only on devicePulseSchema/deviceSpo2Schema, not the other four types —
+ * this is the discriminator route.ts uses instead of the blanket
+ * `source: "device"` it used to hardcode for every insert. The other four
+ * schemas (BP/glucose/weight/temperature) are only ever populated by the
+ * real standard-GATT clinical instruments this endpoint was built for
+ * (bp_cuff/glucometer/scale/thermometer via ble.ts) — genuinely "device"
+ * grade, correctly labelled, nothing to parametrise there yet. Pulse/SpO2
+ * are also fed by the Yucheng band (yucheng-band.ts), a consumer wrist-worn
+ * optical sensor that is not the same confidence level as a validated
+ * clinical instrument — defaults to "device" so the two existing GATT
+ * pulse-oximeter/heart-rate call sites need no changes, but a caller that
+ * knows it's a wearable must say so explicitly.
+ */
+const deviceSourceField = z.enum(["device", "wearable"]).default("device");
+
 export const deviceBloodPressureSchema = z.object({
   vital_type: z.literal("blood_pressure"),
   device_id: deviceIdField,
@@ -76,6 +92,7 @@ export const devicePulseSchema = z.object({
   external_reading_id: externalReadingIdField,
   taken_at: takenAtField,
   pulse_bpm: z.number().int().min(30, "Pulse must be at least 30 bpm").max(250, "Pulse must be at most 250 bpm"),
+  source: deviceSourceField,
 });
 
 export const deviceSpo2Schema = z.object({
@@ -88,6 +105,7 @@ export const deviceSpo2Schema = z.object({
   // escalation pipeline rather than bounce off validation.
   spo2_pct: z.number().int().min(50, "SpO2 must be at least 50%").max(100, "SpO2 must be at most 100%"),
   pulse_bpm: z.number().int().min(30).max(250).optional(),
+  source: deviceSourceField,
 });
 
 export const deviceReadingSchema = z
