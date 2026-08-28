@@ -1,0 +1,35 @@
+-- Local/CI-only fix-forward, NOT a functional migration -- same rationale
+-- family as the other backdated fix-forward migrations in this history: a
+-- later migration's own assertion depends on real elapsed wall-clock time
+-- between migrations that a fresh replay compresses away.
+--
+-- 20260810021017_health_education_em_dash_cleanup.sql's own assertion scopes
+-- itself to "rows this migration touched" via
+--   created_at > now() - interval '3 hours'
+-- -- a proxy that works live (that migration's own new content was genuinely
+-- inserted minutes earlier the same day, while the pre-existing
+-- 2026-07-17/07-23/07-30 curriculum content is genuinely weeks old at that
+-- point) but breaks on a fresh replay, where every migration runs within the
+-- same few minutes: the time filter can no longer tell old content from new,
+-- so 021017 fails on the un-cleaned legacy rows it was never responsible for
+-- cleaning up in the first place (confirmed via CI: found 51). That's
+-- 20260810021557_health_education_legacy_em_dash_cleanup.sql's job instead --
+-- it correctly scans the whole table with no time filter, so it's unaffected
+-- by any of this and needs no fix.
+--
+-- Backdates created_at on every health_education_content row that exists at
+-- this point in history (inserted by 20260717150000, 20260723122000 and
+-- 20260730115924 -- the only content-inserting migrations before this one,
+-- all "legacy" relative to 20260810021017) by a full day, so a fresh
+-- replay's compressed timeline still correctly places them outside 021017's
+-- 3-hour recency window, matching what real elapsed time already gives the
+-- live project. Metadata-only (created_at), touches no content.
+--
+-- Guarded to be a genuine no-op on live: by the time this reaches
+-- production, these rows' created_at is already months old relative to
+-- "now", so the `> now() - interval '1 hour'` guard is false for all of
+-- them there -- it only ever fires against rows a fresh replay just
+-- inserted moments ago.
+update public.health_education_content
+   set created_at = created_at - interval '1 day'
+ where created_at > now() - interval '1 hour';
