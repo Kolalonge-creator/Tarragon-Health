@@ -47,6 +47,30 @@ const TRACKERS = [
     icon: SEMANTIC_ICON.steps,
   },
   {
+    href: "/patient/exercise",
+    label: "Exercise programmes",
+    description: "Structured plans, paced to what's safe for you",
+    icon: SEMANTIC_ICON.exerciseProgramme,
+  },
+  {
+    href: "/patient/sleep",
+    label: "Sleep",
+    description: "Duration, quality, and how alert you feel",
+    icon: SEMANTIC_ICON.sleep,
+  },
+  {
+    href: "/patient/smoking",
+    label: "Smoking",
+    description: "Track your status, or work towards quitting",
+    icon: SEMANTIC_ICON.smoking,
+  },
+  {
+    href: "/patient/alcohol",
+    label: "Alcohol",
+    description: "Track what you drink and set a goal",
+    icon: SEMANTIC_ICON.alcohol,
+  },
+  {
     href: "/patient/wellness",
     label: "Rewards",
     description: "Points, badges, and challenges",

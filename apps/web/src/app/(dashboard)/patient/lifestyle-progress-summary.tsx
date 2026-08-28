@@ -41,7 +41,7 @@ export function LifestyleProgressSummary({ patientId }: { patientId: string }) {
             <p className="font-heading text-xl font-bold text-charcoal-ink">{headline}</p>
             <p className="text-xs text-charcoal-ink/60">
               {steps.toLocaleString()} of {stepGoal.toLocaleString()} steps today · meals, weight,
-              activity &amp; rewards
+              activity, exercise, sleep, smoking, alcohol &amp; rewards
             </p>
           </div>
         </div>

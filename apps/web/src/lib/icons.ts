@@ -77,6 +77,8 @@ import {
   Thermometer,
   Wind,
   Heart,
+  Cigarette,
+  Wine,
   type LucideIcon,
 } from "lucide-react";
 
@@ -127,6 +129,10 @@ export const SEMANTIC_ICON = {
   spo2: Wind,
   pulse: Heart,
   hrv: Activity,
+  smoking: Cigarette,
+  alcohol: Wine,
+  exerciseProgramme: Dumbbell,
+  barrier: AlertTriangle,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Meal-type tab icons for the "Log a meal" picker — a page-local visual set,

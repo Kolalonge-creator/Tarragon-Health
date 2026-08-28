@@ -8,6 +8,7 @@ import {
   scoreGad7,
   scoreAuditC,
 } from "@/lib/rules/mental-health-screening";
+import { flagHazardousAlcoholUse } from "@/lib/alcohol/escalate";
 import type { Json } from "@tarragon/shared";
 
 export type SubmitMentalHealthState =
@@ -97,6 +98,12 @@ export async function submitMentalHealthScreen(
       trigger_detail: "Wellbeing check-in: reported thoughts of self-harm (PHQ-9 item 9)",
       status: "active",
     });
+  }
+
+  // Alcohol referral pathway (spec §18.10) — best-effort, never blocks the
+  // screen itself from saving.
+  if (auditc.hazardous) {
+    await flagHazardousAlcoholUse(user.id, profile.organisation_id, auditc.total).catch(() => undefined);
   }
 
   return { success: true, crisis: phq9.crisis };
