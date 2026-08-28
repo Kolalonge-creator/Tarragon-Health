@@ -110,6 +110,20 @@ begin
   -- An active clinical_staff row to own the orders: enforce_lab_order_origin
   -- refuses a clinically_triggered order without one. Tier 2 and not a clinical
   -- director, so the indemnity activation trigger does not apply.
+  --
+  -- v_clin is picked by `order by id limit 1` (see above) -- a random UUID
+  -- order, not a stable one -- so which of the shared CI fixture's two
+  -- clinician profiles it resolves to varies run to run: sometimes the one
+  -- with its own clinical_staff row already
+  -- (20260827100300_seed_ci_fixture_staff_and_patient_subscriptions.sql),
+  -- sometimes the one without. clinical_staff.profile_id is unique, so clear
+  -- any pre-existing row first -- same defensive pattern already used for
+  -- this exact class of flake elsewhere this sprint
+  -- (self_arranged_fulfilment.sql, clinician_alert_override.sql,
+  -- emergency_escalation_tier_gate.sql, i1_i10_invariants_platform.sql's I5
+  -- section).
+  delete from public.clinical_staff where profile_id = v_clin;
+
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, doctor_tier, active,
      license_verified_at, verified_by)
