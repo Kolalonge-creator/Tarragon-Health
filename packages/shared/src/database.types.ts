@@ -19952,7 +19952,7 @@ export const Constants = {
         "patient_cancelled",
         "failed",
         "expired",
-      ]
+      ],
       appointment_type: [
         "gp",
         "specialist",
@@ -19966,8 +19966,8 @@ export const Constants = {
         "telemedicine",
         "follow_up",
         "procedure",
-      ]
-      appointment_consultation_method: ["telemedicine", "in_person"]
+      ],
+      appointment_consultation_method: ["telemedicine", "in_person"],
       appointment_payment_status: [
         "not_required",
         "pending",
@@ -19975,14 +19975,14 @@ export const Constants = {
         "refund_due",
         "refunded",
         "waived",
-      ]
+      ],
       appointment_waiting_list_status: [
         "waiting",
         "offered",
         "accepted",
         "expired",
         "cancelled",
-      ]
+      ],
       clinical_resource_type: ["room", "equipment"],
       async_consult_status: ["submitted", "in_review", "answered", "closed"],
       bariatric_referral_status: [
