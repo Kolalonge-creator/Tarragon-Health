@@ -193,6 +193,18 @@ export const activeUsersTimeseriesSchema = z
   .default([]);
 export type ActiveUsersTimeseries = z.infer<typeof activeUsersTimeseriesSchema>;
 
+// Patient Engagement Engine §16.17 — care engagement level/segment
+// distribution + re-engagement count, distinct from the DAU/WAU summary
+// above (that's product-analytics "how patients use the app"; this is
+// per-patient "are they keeping up with their own care").
+export const careEngagementSummarySchema = z.object({
+  scored_patients: z.number().default(0),
+  level_counts: z.record(z.string(), z.number()).default({}),
+  segment_counts: z.record(z.string(), z.number()).default({}),
+  re_engaged_30d: z.number().default(0),
+});
+export type CareEngagementSummary = z.infer<typeof careEngagementSummarySchema>;
+
 export const featureAdoptionSchema = z
   .array(z.object({ feature: z.string(), patients: z.number() }))
   .default([]);

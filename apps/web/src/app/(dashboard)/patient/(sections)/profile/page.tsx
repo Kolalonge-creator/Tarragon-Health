@@ -6,6 +6,7 @@ import { ConditionLanguageForm } from "@/app/(dashboard)/patient/condition-langu
 import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contact-form";
 import { AvatarUploadForm } from "@/app/(dashboard)/patient/avatar-upload-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { NotificationPreferencesForm } from "@/app/(dashboard)/patient/notification-preferences-form";
 
 export default async function PatientProfilePage() {
   const { profile, subjectId } = await getPatientDashboardContext();
@@ -51,6 +52,7 @@ export default async function PatientProfilePage() {
           <ConditionLanguageForm
             initial={{ condition_language_preference: profile.condition_language_preference }}
           />
+          <NotificationPreferencesForm patientId={subjectId} />
           <ChangePasswordForm />
         </div>
       </div>

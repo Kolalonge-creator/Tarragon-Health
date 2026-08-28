@@ -18,6 +18,7 @@ import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
 import { WellnessPointsSummary } from "@/app/(dashboard)/patient/wellness-points-summary";
+import { GoalsAndMilestonesCard } from "@/app/(dashboard)/patient/goals-and-milestones-card";
 import { TestimonialForm } from "@/components/testimonial-form";
 
 export default async function PatientCarePage() {
@@ -76,6 +77,7 @@ export default async function PatientCarePage() {
           lower priority than anything above. */}
       <CareVouchersCard patientId={subjectId} />
       <WellnessPointsSummary patientId={subjectId} />
+      <GoalsAndMilestonesCard patientId={subjectId} />
       <TestimonialForm />
     </DashboardSection>
   );

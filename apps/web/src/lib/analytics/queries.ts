@@ -7,6 +7,7 @@ import {
   auditLogSchema,
   auditSummarySchema,
   businessSummarySchema,
+  careEngagementSummarySchema,
   clinicalOutcomesSchema,
   deliverabilitySchema,
   doctorPerformanceSchema,
@@ -214,6 +215,17 @@ export function useEngagementSummary() {
       const { data, error } = await createClient().rpc("analytics_engagement_summary");
       if (error) throw error;
       return engagementSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useCareEngagementSummary() {
+  return useQuery({
+    queryKey: ["analytics", "care-engagement-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_care_engagement_summary");
+      if (error) throw error;
+      return careEngagementSummarySchema.parse(data);
     },
   });
 }

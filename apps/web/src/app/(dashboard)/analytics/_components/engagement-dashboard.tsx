@@ -8,6 +8,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Button } from "@/components/ui/button";
 import {
   useActiveUsersTimeseries,
+  useCareEngagementSummary,
   useEngagementSummary,
   useFeatureAdoption,
   useRetentionCohorts,
@@ -19,14 +20,41 @@ import { ExportButton } from "./export-button";
 
 const PERIODS: GrowthPeriod[] = ["day", "week", "month"];
 
+const LEVEL_LABEL: Record<string, string> = {
+  highly_engaged: "Highly engaged",
+  engaged: "Engaged",
+  at_risk: "At risk of disengagement",
+  disengaged: "Disengaged",
+  unreachable: "Unreachable",
+};
+
+const SEGMENT_LABEL: Record<string, string> = {
+  highly_motivated: "Highly motivated",
+  needs_reminders: "Needs reminders",
+  low_health_literacy: "Low health literacy",
+  inconsistent: "Inconsistent",
+  access_constrained: "Access constrained",
+  digitally_disengaged: "Digitally disengaged",
+};
+
 export function EngagementDashboard() {
   const [period, setPeriod] = useState<GrowthPeriod>("day");
   const summary = useEngagementSummary();
   const active = useActiveUsersTimeseries(period);
   const adoption = useFeatureAdoption();
   const cohorts = useRetentionCohorts();
+  const careEngagement = useCareEngagementSummary();
 
   const s = summary.data;
+  const ce = careEngagement.data;
+  const levelItems = Object.entries(ce?.level_counts ?? {}).map(([level, value]) => ({
+    label: LEVEL_LABEL[level] ?? level,
+    value,
+  }));
+  const segmentItems = Object.entries(ce?.segment_counts ?? {}).map(([segment, value]) => ({
+    label: SEGMENT_LABEL[segment] ?? segment,
+    value,
+  }));
   const activeRows = active.data ?? [];
   const cohortRows = cohorts.data ?? [];
 
@@ -135,6 +163,42 @@ export function EngagementDashboard() {
                 </tbody>
               </table>
             </div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Patient Engagement Engine (§16.17) — per-patient "are they keeping
+          up with their own care," distinct from the DAU/WAU/retention
+          numbers above ("how patients use the app"). Same page rather than
+          a new nav category: analytics/_components/analytics-nav.tsx's 16
+          categories are an explicitly fixed, designed list, and this is a
+          natural extension of the existing Engagement category. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile icon={Users} label="Patients scored" value={formatNumber(ce?.scored_patients ?? 0)} />
+        <StatTile icon={Repeat} label="Re-engaged (30d)" value={formatNumber(ce?.re_engaged_30d ?? 0)} />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Care engagement level"
+          description="Latest computed level per patient — highly_engaged through unreachable."
+          actions={<ExportButton filename="care-engagement-levels" rows={levelItems} />}
+        >
+          {careEngagement.isLoading ? (
+            <CenterNote>Loading…</CenterNote>
+          ) : (
+            <MiniBarList items={levelItems} emptyLabel="No care engagement scores computed yet." />
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="Behavioural segments"
+          description="A patient can carry more than one segment at once."
+          actions={<ExportButton filename="care-engagement-segments" rows={segmentItems} />}
+        >
+          {careEngagement.isLoading ? (
+            <CenterNote>Loading…</CenterNote>
+          ) : (
+            <MiniBarList items={segmentItems} emptyLabel="No segments assigned yet." />
           )}
         </SectionCard>
       </div>
