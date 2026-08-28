@@ -146,7 +146,18 @@ on conflict (name) do nothing;
 -- sends to a real inbox/handset. Plain UPDATE (not part of the INSERT ...
 -- ON CONFLICT above) since these columns didn't exist when the insert ran
 -- on an already-seeded environment; the null guard keeps it idempotent.
-update public.lab_providers set contact_email = 'labs@synlab.example', contact_phone = '+2348030000101' where name = 'Synlab Nigeria' and contact_email is null;
+--
+-- Synlab's own guard adds `and not is_active`: migration
+-- 20260821193144_switch_on_synlab.sql deliberately nulls out Synlab's
+-- contact_email/contact_phone when it flips is_active to true (an active
+-- lab must never carry a placeholder .example address — the paid-order
+-- notification trigger sends it the patient's name and patient number, see
+-- lab_providers_active_needs_real_contacts). Without this guard, a fresh
+-- `db reset` re-fills that intentionally-null contact with the placeholder
+-- right after the switch-on migration clears it, violating that same
+-- constraint. The other three labs stay inactive, so no such guard is
+-- needed for them.
+update public.lab_providers set contact_email = 'labs@synlab.example', contact_phone = '+2348030000101' where name = 'Synlab Nigeria' and contact_email is null and not is_active;
 update public.lab_providers set contact_email = 'labs@cerbalancet.example', contact_phone = '+2348030000102' where name = 'Cerba Lancet' and contact_email is null;
 update public.lab_providers set contact_email = 'labs@healthtracka.example', contact_phone = '+2348030000103' where name = 'Healthtracka' and contact_email is null;
 update public.lab_providers set contact_email = 'labs@afriglobalmedicare.example', contact_phone = '+2348030000104' where name = 'Afriglobal Medicare' and contact_email is null;
