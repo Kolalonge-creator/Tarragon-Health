@@ -59,6 +59,20 @@ function appUrl(path: string): string {
   return `${base}${path}`;
 }
 
+// Health Communication Engine — DB-driven template fallback (17.5). Every
+// template above is a hardcoded TEMPLATE_MAP entry; this substitutes
+// `{{token}}` in a notification_template_locales row's body/subject against
+// the notification's own payload, for a template key that was never added
+// to TEMPLATE_MAP at all. Deliberately dumb (no conditionals, no loops,
+// just a flat key lookup) — anything requiring real logic still needs a
+// real TEMPLATE_MAP entry.
+function substituteTemplatePlaceholders(text: string, payload: Record<string, unknown>): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    const value = payload[key];
+    return value === undefined || value === null ? "" : String(value);
+  });
+}
+
 interface NotificationRow {
   id: string;
   recipient_id: string;
@@ -1867,15 +1881,49 @@ Deno.serve(async () => {
       }
     };
 
+    const payload = row.payload ?? {};
     const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
-    if (!renderFn) {
+    let render: TemplateRender | undefined = renderFn ? renderFn(payload) : undefined;
+
+    if (!render && row.template && row.channel !== "whatsapp") {
+      // DB-driven fallback (17.5) — a template that was registered in
+      // notification_templates/notification_template_locales but never
+      // added to TEMPLATE_MAP above. WhatsApp is excluded: it needs a
+      // Meta-approved fixed template structure this table cannot express,
+      // so a whatsapp row with no TEMPLATE_MAP entry still fails below,
+      // exactly as before this change.
+      const { data: localeRow } = await supabase
+        .from("notification_template_locales")
+        .select("subject, body")
+        .eq("template_key", row.template)
+        .eq("locale", "en")
+        .eq("channel", row.channel)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (localeRow) {
+        const body = substituteTemplatePlaceholders(localeRow.body, payload);
+        render = {
+          metaTemplateName: row.template,
+          languageCode: "en",
+          components: [],
+          smsText: body,
+          email: row.channel === "email"
+            ? {
+                subject: substituteTemplatePlaceholders(localeRow.subject ?? row.template, payload),
+                html: body,
+                text: body,
+              }
+            : undefined,
+        };
+      }
+    }
+
+    if (!render) {
       await markFailed("unknown template");
       failed++;
       continue;
     }
-
-    const payload = row.payload ?? {};
-    const render = renderFn(payload);
 
     // Destination resolution. Rows queued for a non-profile recipient (e.g. a
     // no-login partner pharmacy) carry an explicit `to_phone`/`to_email` in the

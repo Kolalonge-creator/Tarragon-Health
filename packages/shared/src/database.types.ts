@@ -1652,6 +1652,8 @@ export type Database = {
           author_role: Database["public"]["Enums"]["care_message_author"]
           body: string
           created_at: string
+          flagged_alert_id: string | null
+          flagged_potential_emergency: boolean
           id: string
           organisation_id: string
           patient_id: string
@@ -1664,6 +1666,8 @@ export type Database = {
           author_role: Database["public"]["Enums"]["care_message_author"]
           body: string
           created_at?: string
+          flagged_alert_id?: string | null
+          flagged_potential_emergency?: boolean
           id?: string
           organisation_id: string
           patient_id: string
@@ -1676,6 +1680,8 @@ export type Database = {
           author_role?: Database["public"]["Enums"]["care_message_author"]
           body?: string
           created_at?: string
+          flagged_alert_id?: string | null
+          flagged_potential_emergency?: boolean
           id?: string
           organisation_id?: string
           patient_id?: string
@@ -1687,6 +1693,13 @@ export type Database = {
             columns: ["actor_clinical_staff_id"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_messages_flagged_alert_id_fkey"
+            columns: ["flagged_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
             referencedColumns: ["id"]
           },
           {
@@ -10792,6 +10805,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          is_marketing: boolean
           recipient_count: number
           sent_at: string | null
           status: Database["public"]["Enums"]["broadcast_status"]
@@ -10806,6 +10820,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          is_marketing?: boolean
           recipient_count?: number
           sent_at?: string | null
           status?: Database["public"]["Enums"]["broadcast_status"]
@@ -10820,6 +10835,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          is_marketing?: boolean
           recipient_count?: number
           sent_at?: string | null
           status?: Database["public"]["Enums"]["broadcast_status"]
@@ -10887,8 +10903,109 @@ export type Database = {
           },
         ]
       }
+      notification_template_locales: {
+        Row: {
+          body: string
+          channel: Database["public"]["Enums"]["notification_channel"]
+          created_at: string
+          id: string
+          is_active: boolean
+          locale: string
+          subject: string | null
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          channel: Database["public"]["Enums"]["notification_channel"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          locale: string
+          subject?: string | null
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          locale?: string
+          subject?: string | null
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_template_locales_template_key_fkey"
+            columns: ["template_key"]
+            isOneToOne: false
+            referencedRelation: "notification_templates"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      notification_templates: {
+        Row: {
+          audience: string
+          business_priority: Database["public"]["Enums"]["notification_business_priority"]
+          category: Database["public"]["Enums"]["notification_category"]
+          clinical_approved_at: string | null
+          clinical_approved_by: string | null
+          created_at: string
+          default_channels: Database["public"]["Enums"]["notification_channel"][]
+          description: string
+          is_active: boolean
+          key: string
+          requires_clinical_approval: boolean
+          timing: string
+          updated_at: string
+        }
+        Insert: {
+          audience: string
+          business_priority: Database["public"]["Enums"]["notification_business_priority"]
+          category: Database["public"]["Enums"]["notification_category"]
+          clinical_approved_at?: string | null
+          clinical_approved_by?: string | null
+          created_at?: string
+          default_channels: Database["public"]["Enums"]["notification_channel"][]
+          description: string
+          is_active?: boolean
+          key: string
+          requires_clinical_approval?: boolean
+          timing?: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          business_priority?: Database["public"]["Enums"]["notification_business_priority"]
+          category?: Database["public"]["Enums"]["notification_category"]
+          clinical_approved_at?: string | null
+          clinical_approved_by?: string | null
+          created_at?: string
+          default_channels?: Database["public"]["Enums"]["notification_channel"][]
+          description?: string
+          is_active?: boolean
+          key?: string
+          requires_clinical_approval?: boolean
+          timing?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_templates_clinical_approved_by_fkey"
+            columns: ["clinical_approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
+          action_completed_at: string | null
           attempts: number
           channel: Database["public"]["Enums"]["notification_channel"]
           content_class: Database["public"]["Enums"]["notification_content_class"]
@@ -10909,6 +11026,9 @@ export type Database = {
           priority: Database["public"]["Enums"]["notification_priority"]
           provider_message_id: string | null
           recipient_id: string
+          responded_at: string | null
+          response_options: Json | null
+          response_value: string | null
           sent_at: string | null
           source_id: string | null
           source_table: string | null
@@ -10917,6 +11037,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          action_completed_at?: string | null
           attempts?: number
           channel?: Database["public"]["Enums"]["notification_channel"]
           content_class?: Database["public"]["Enums"]["notification_content_class"]
@@ -10937,6 +11058,9 @@ export type Database = {
           priority?: Database["public"]["Enums"]["notification_priority"]
           provider_message_id?: string | null
           recipient_id: string
+          responded_at?: string | null
+          response_options?: Json | null
+          response_value?: string | null
           sent_at?: string | null
           source_id?: string | null
           source_table?: string | null
@@ -10945,6 +11069,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          action_completed_at?: string | null
           attempts?: number
           channel?: Database["public"]["Enums"]["notification_channel"]
           content_class?: Database["public"]["Enums"]["notification_content_class"]
@@ -10965,6 +11090,9 @@ export type Database = {
           priority?: Database["public"]["Enums"]["notification_priority"]
           provider_message_id?: string | null
           recipient_id?: string
+          responded_at?: string | null
+          response_options?: Json | null
+          response_value?: string | null
           sent_at?: string | null
           source_id?: string | null
           source_table?: string | null
@@ -14332,9 +14460,13 @@ export type Database = {
           is_pregnant: boolean
           lab_provider_id: string | null
           language: string
+          marketing_opt_in: boolean
           metadata: Json
           next_of_kin_name: string | null
           next_of_kin_phone: string | null
+          notification_channel_preference:
+            | Database["public"]["Enums"]["notification_channel"]
+            | null
           onboarding_completed_at: string | null
           organisation_id: string | null
           patient_number: string | null
@@ -14374,9 +14506,13 @@ export type Database = {
           is_pregnant?: boolean
           lab_provider_id?: string | null
           language?: string
+          marketing_opt_in?: boolean
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
+          notification_channel_preference?:
+            | Database["public"]["Enums"]["notification_channel"]
+            | null
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -14416,9 +14552,13 @@ export type Database = {
           is_pregnant?: boolean
           lab_provider_id?: string | null
           language?: string
+          marketing_opt_in?: boolean
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
+          notification_channel_preference?:
+            | Database["public"]["Enums"]["notification_channel"]
+            | null
           onboarding_completed_at?: string | null
           organisation_id?: string | null
           patient_number?: string | null
@@ -19626,6 +19766,7 @@ export type Database = {
         | "provider_unavailable"
         | "appointment_failure"
         | "laboratory_failure"
+        | "message_safety_flag"
       allergy_severity: "mild" | "moderate" | "severe"
       allergy_source: "patient" | "clinician" | "fhir_import"
       annual_check_status: "pending" | "in_progress" | "completed"
@@ -20063,6 +20204,20 @@ export type Database = {
       medication_log_status: "taken" | "missed" | "skipped"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
+      notification_business_priority:
+        | "critical"
+        | "urgent"
+        | "important"
+        | "routine"
+        | "marketing"
+      notification_category:
+        | "clinical"
+        | "operational"
+        | "medication"
+        | "laboratory"
+        | "referral"
+        | "education"
+        | "administrative"
       notification_channel:
         | "email"
         | "sms"
@@ -20520,6 +20675,7 @@ export const Constants = {
         "provider_unavailable",
         "appointment_failure",
         "laboratory_failure",
+        "message_safety_flag",
       ],
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician", "fhir_import"],
@@ -21009,6 +21165,22 @@ export const Constants = {
       medication_log_status: ["taken", "missed", "skipped"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
+      notification_business_priority: [
+        "critical",
+        "urgent",
+        "important",
+        "routine",
+        "marketing",
+      ],
+      notification_category: [
+        "clinical",
+        "operational",
+        "medication",
+        "laboratory",
+        "referral",
+        "education",
+        "administrative",
+      ],
       notification_channel: [
         "email",
         "sms",

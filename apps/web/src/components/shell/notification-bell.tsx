@@ -9,14 +9,21 @@ import {
   useInAppNotifications,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
+  useRespondToNotification,
   type InAppNotification,
 } from "@/lib/queries/notifications";
+
+interface ResponseOption {
+  label: string;
+  value: string;
+}
 
 /** Renders each in-app template's payload as a short line + a link to where
  * it's actually acted on. Add a case here for every new in_app template —
  * anything unmapped still shows (generic text, dashboard link) rather than
- * silently disappearing from the bell. */
-function describe(n: InAppNotification): { text: string; href: string } {
+ * silently disappearing from the bell. Exported so the communication-history
+ * card (17.8) can reuse the same copy instead of a second, drifting mapping. */
+export function describe(n: InAppNotification): { text: string; href: string } {
   const payload = (n.payload ?? {}) as Record<string, unknown>;
   if (n.template === "health_education_unlock") {
     const title = String(payload.lesson_title ?? "a new lesson");
@@ -198,6 +205,17 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: isPayer ? "/patient/supporting" : "/patient/subscription",
     };
   }
+  if (n.template === "care_message_safety_flag") {
+    // From private.after_care_message_insert_safety_screen() (17.12) — a
+    // patient/sponsor care message matched the deterministic danger-phrase
+    // safety screen. Always clinical content, always in_app-first per
+    // private.notify_clinician_alert() — this is the proactive page, the
+    // clinician_alerts worklist entry is the record of it.
+    return {
+      text: "Priority 1: a care message may describe an emergency, needs review now",
+      href: "/clinician/escalations",
+    };
+  }
   if (n.template === "critical_notification_escalation_exhausted") {
     // From private.escalate_unconfirmed_critical_notifications() —
     // every channel in a critical alert's ladder (push -> whatsapp -> sms)
@@ -361,6 +379,7 @@ export function NotificationBell() {
   const { data } = useInAppNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const respond = useRespondToNotification();
 
   React.useEffect(() => {
     if (!open) return;
@@ -425,6 +444,14 @@ export function NotificationBell() {
               <ul className="divide-y divide-charcoal-ink/10">
                 {items.map((n) => {
                   const { text } = describe(n);
+                  // Two-way communication (17.9) — a quick-reply option set
+                  // attached at send time (e.g. appointment_reminder's
+                  // confirm/reschedule/cancel/need_help). Rendered as its
+                  // own row of buttons, never folded into the row's own
+                  // click-to-navigate button, so tapping a reply doesn't
+                  // also navigate away.
+                  const options = (n.response_options ?? []) as unknown as ResponseOption[];
+                  const canRespond = options.length > 0 && !n.responded_at;
                   return (
                     <li key={n.id}>
                       <button
@@ -448,6 +475,39 @@ export function NotificationBell() {
                           </span>
                         </span>
                       </button>
+                      {canRespond && (
+                        <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+                          {options.map((o) => (
+                            <button
+                              key={o.value}
+                              type="button"
+                              disabled={respond.isPending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                respond.mutate(
+                                  { id: n.id, value: o.value },
+                                  {
+                                    onSuccess: (result) => {
+                                      if (result.redirect) {
+                                        setOpen(false);
+                                        router.push(result.redirect);
+                                      }
+                                    },
+                                  },
+                                );
+                              }}
+                              className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-xs font-medium text-charcoal-ink hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {n.responded_at && options.length > 0 && (
+                        <p className="px-4 pb-3 text-xs text-charcoal-ink/50">
+                          You responded: {options.find((o) => o.value === n.response_value)?.label ?? n.response_value}
+                        </p>
+                      )}
                     </li>
                   );
                 })}
