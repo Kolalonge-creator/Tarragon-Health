@@ -138,9 +138,15 @@ begin
     end if;
 
     -- Clean up: this migration is not itself rolled back, unlike a
-    -- packages/db/tests file.
+    -- packages/db/tests file. The fixture auth.users/profiles row is
+    -- deliberately left in place rather than deleted -- record_corrections
+    -- (platform-wide, applied since this test was written) is append-only
+    -- and rejects the ON DELETE SET NULL cascade a full auth.users delete
+    -- would trigger against it. Same tradeoff this codebase's other CI
+    -- fixture-seeding migrations already make (e.g.
+    -- seed_ci_fixture_patient_profile.sql): a clearly-marked
+    -- .example.invalid fixture profile left behind is harmless.
     delete from public.notifications where recipient_id = v_sponsor and template = 'sponsor_monthly_report';
     delete from public.care_vouchers where voucher_number = 'DEDUP-GUARD-TEST-1';
-    delete from auth.users where id = v_sponsor;
   end;
 end $$;
