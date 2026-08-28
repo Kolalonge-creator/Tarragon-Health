@@ -2,14 +2,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 /**
- * The three anchors a patient can ask "help me understand this" about.
- * Each one always explains the patient's LATEST value for that kind+key --
+ * The anchors a patient can ask "help me understand this" about. The first
+ * three always explain the patient's LATEST value for that kind+key --
  * matching how RiskSignalsCard/LipidProfileCard already present "latest"
  * data -- so no specific row id needs threading through the UI, and a past
  * reading never changing means the cache in patient_result_explanations
  * never goes stale.
+ *
+ * "medication" is different in shape (see MedicationSnapshot below) --
+ * subjectKey is a specific medications.id, not a repeatable measurement key,
+ * since two rows can share a drug_name (e.g. dose changed) and a stale
+ * cached explanation for the wrong row would be worse than none.
  */
-export type ExplainerKind = "risk_score" | "lab_analyte" | "vitals";
+export type ExplainerKind = "risk_score" | "lab_analyte" | "vitals" | "medication";
 
 export interface ResultSnapshot {
   kind: ExplainerKind;
@@ -32,7 +37,7 @@ export interface ResultSnapshot {
 export async function buildResultSnapshot(
   supabase: SupabaseClient<Database>,
   patientId: string,
-  kind: ExplainerKind,
+  kind: Exclude<ExplainerKind, "medication">,
   subjectKey: string,
   label: string
 ): Promise<ResultSnapshot | null> {
@@ -157,5 +162,83 @@ export function formatResultSnapshotForPrompt(snapshot: ResultSnapshot): string 
   } else {
     lines.push("Previous value: none on file yet (this is the first recorded reading).");
   }
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// "Explain my medication" (docs Module 20 §20.7) -- same cache/generation table
+// as the result explainer, different snapshot shape: a medication has no
+// latest/previous trend, it has a name, dose, frequency, indication and
+// instructions. subjectKey is the specific medications.id (see ExplainerKind).
+// ---------------------------------------------------------------------------
+
+export interface MedicationSnapshot {
+  kind: "medication";
+  subjectKey: string;
+  /** Human label for the thing being explained -- the drug name. */
+  label: string;
+  drugName: string;
+  dose: string | null;
+  frequency: string | null;
+  route: string | null;
+  indication: string | null;
+  instructions: string | null;
+  /** 'clinician' | 'specialist' | 'patient' -- who this was prescribed/added by. */
+  source: string;
+  startedAt: string;
+}
+
+/**
+ * Best-effort -- never throws. Scoped to the CALLER's own medication row
+ * (patientId, enforced both here and by RLS) so this can never be pointed at
+ * another patient's medicine.
+ */
+export async function buildMedicationSnapshot(
+  supabase: SupabaseClient<Database>,
+  patientId: string,
+  medicationId: string,
+  label: string
+): Promise<MedicationSnapshot | null> {
+  const { data } = await supabase
+    .from("medications")
+    .select("drug_name, dose, frequency, route, indication, instructions, source, created_at")
+    .eq("id", medicationId)
+    .eq("patient_id", patientId)
+    .maybeSingle();
+  if (!data) return null;
+
+  return {
+    kind: "medication",
+    subjectKey: medicationId,
+    label,
+    drugName: data.drug_name,
+    dose: data.dose,
+    frequency: data.frequency,
+    route: data.route,
+    indication: data.indication,
+    instructions: data.instructions,
+    source: data.source,
+    startedAt: data.created_at,
+  };
+}
+
+/** Renders a medication snapshot into the plain-text block the model sees. */
+export function formatMedicationSnapshotForPrompt(snapshot: MedicationSnapshot): string {
+  const prescribedBy =
+    snapshot.source === "clinician"
+      ? "the Tarragon care team"
+      : snapshot.source === "specialist"
+        ? "a specialist doctor"
+        : "self-reported by the patient (not prescribed on this platform)";
+  const lines: string[] = [
+    `Medication name: ${snapshot.drugName}`,
+    `Dose: ${snapshot.dose ?? "not recorded"}`,
+    `Frequency: ${snapshot.frequency ?? "not recorded"}`,
+  ];
+  if (snapshot.route) lines.push(`Route: ${snapshot.route}`);
+  if (snapshot.indication) lines.push(`Recorded reason for taking it: ${snapshot.indication}`);
+  if (snapshot.instructions) lines.push(`Recorded instructions: ${snapshot.instructions}`);
+  lines.push(`Added to the record by: ${prescribedBy}`);
+  lines.push(`On file since: ${snapshot.startedAt.slice(0, 10)}`);
   return lines.join("\n");
 }

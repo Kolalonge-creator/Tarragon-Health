@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { ResultExplainer } from "@/components/result-explainer";
 
 const SOURCE_BADGE: Record<
   string,
@@ -107,6 +108,13 @@ export function MedicationsList({
                     {[medication.dose, medication.frequency].filter(Boolean).join(", ") ||
                       "No dose/frequency set"}
                   </p>
+                  {!isClinicianView && (
+                    <ResultExplainer
+                      kind="medication"
+                      subjectKey={medication.id}
+                      label={medication.drug_name}
+                    />
+                  )}
                   {medication.source === "specialist" && medication.prescriber_name && (
                     <p className="text-xs text-charcoal-ink/60">
                       Started by {medication.prescriber_name}

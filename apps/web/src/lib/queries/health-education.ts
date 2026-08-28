@@ -19,6 +19,24 @@ export type HealthEducationCategoryCount =
 
 export type HealthEducationStatus = Enums<"health_education_status">;
 export type HealthEducationCategory = Enums<"health_education_category">;
+export type HealthEducationReadingLevel = Enums<"health_education_reading_level">;
+export type HealthEducationFeedbackType = Enums<"health_education_feedback_type">;
+
+/** §20.5 reading levels — display order simple → clinician. */
+export const HEALTH_EDUCATION_READING_LEVELS: { value: HealthEducationReadingLevel; label: string }[] = [
+  { value: "simple", label: "Simple" },
+  { value: "detailed", label: "Detailed" },
+  { value: "clinician", label: "Clinician-level" },
+];
+
+/** §20.15 patient feedback reactions, in the order they're offered. */
+export const HEALTH_EDUCATION_FEEDBACK_OPTIONS: { value: HealthEducationFeedbackType; label: string }[] = [
+  { value: "helpful", label: "Helpful" },
+  { value: "not_helpful", label: "Not helpful" },
+  { value: "unclear", label: "Unclear" },
+  { value: "want_more_information", label: "Want more information" },
+  { value: "report_incorrect", label: "Report incorrect information" },
+];
 
 /** Display order + labels for the browsable category taxonomy — broader than
  * the clinical `condition` used for personalisation, so a patient can read
@@ -211,6 +229,175 @@ export function useSetContentDripWeek() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
+    },
+  });
+}
+
+/** Admin: set (or clear) an item's next scheduled review date (§20.8 content safety). */
+export function useSetContentReviewDueAt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reviewDueAt }: { id: string; reviewDueAt: string | null }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("health_education_content")
+        .update({ review_due_at: reviewDueAt })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// §20.13 Education programmes — an ordered module sequence built from existing
+// catalogue content (see health_education_programmes/_modules migrations).
+// ---------------------------------------------------------------------------
+export type HealthEducationProgrammeSummary =
+  Database["public"]["Functions"]["health_education_programmes_list"]["Returns"][number];
+export type HealthEducationProgrammeModule =
+  Database["public"]["Functions"]["health_education_programme_detail"]["Returns"][number];
+
+/** Active programmes with the caller's own module/completion counts. */
+export function useHealthEducationProgrammes() {
+  return useQuery({
+    queryKey: ["health-education-programmes"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_programmes_list");
+      if (error) throw error;
+      return (data ?? []) as HealthEducationProgrammeSummary[];
+    },
+  });
+}
+
+/** One programme's ordered modules, each carrying the caller's own progress. */
+export function useHealthEducationProgrammeDetail(code: string | null) {
+  return useQuery({
+    queryKey: ["health-education-programme-detail", code] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_programme_detail", {
+        p_code: code as string,
+      });
+      if (error) throw error;
+      return (data ?? []) as HealthEducationProgrammeModule[];
+    },
+    enabled: !!code,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// §20.15 Patient feedback — a reaction on one content item, upserted per
+// (patient, content, feedback_type) so a repeat tap updates rather than
+// duplicates. "report_incorrect" additionally enters the admin governance
+// queue via the row's own status column (see the feedback migration).
+// ---------------------------------------------------------------------------
+export function useSubmitContentFeedback(patientId: string, organisationId: string) {
+  return useMutation({
+    mutationFn: async ({
+      contentId,
+      feedbackType,
+      comment,
+    }: {
+      contentId: string;
+      feedbackType: HealthEducationFeedbackType;
+      comment?: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("health_education_feedback").upsert(
+        {
+          patient_id: patientId,
+          organisation_id: organisationId,
+          content_id: contentId,
+          feedback_type: feedbackType,
+          comment: comment?.trim() || null,
+        },
+        { onConflict: "patient_id,content_id,feedback_type" }
+      );
+      if (error) throw error;
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Admin governance queue (§20.15) + analytics (§20.18).
+// ---------------------------------------------------------------------------
+export type HealthEducationFeedbackRow = Tables<"health_education_feedback"> & {
+  content: { code: string; title: string } | null;
+  patient: { full_name: string | null } | null;
+};
+
+const FEEDBACK_QUEUE_SELECT =
+  "*, content:health_education_content(code, title), patient:profiles!health_education_feedback_patient_id_fkey(full_name)";
+
+export const healthEducationFeedbackQueueKey = ["health-education-feedback-queue"] as const;
+
+/** All feedback rows, open reports first — the admin governance queue. */
+export function useHealthEducationFeedbackQueue() {
+  return useQuery({
+    queryKey: healthEducationFeedbackQueueKey,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("health_education_feedback")
+        .select(FEEDBACK_QUEUE_SELECT)
+        .order("status", { ascending: true })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as HealthEducationFeedbackRow[];
+    },
+  });
+}
+
+/** Admin: move a feedback report through the governance queue. */
+export function useResolveContentFeedback() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      status,
+      reviewNote,
+    }: {
+      id: string;
+      status: "reviewed" | "resolved";
+      reviewNote?: string;
+    }) => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("health_education_feedback")
+        .update({
+          status,
+          review_note: reviewNote?.trim() || null,
+          reviewed_by: user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: healthEducationFeedbackQueueKey });
+    },
+  });
+}
+
+export type HealthEducationAnalyticsRow =
+  Database["public"]["Functions"]["health_education_analytics"]["Returns"][number];
+
+/** Admin: per-content view/completion/quiz/feedback rollup. */
+export function useHealthEducationAnalytics() {
+  return useQuery({
+    queryKey: ["health-education-analytics"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_analytics");
+      if (error) throw error;
+      return (data ?? []) as HealthEducationAnalyticsRow[];
     },
   });
 }
