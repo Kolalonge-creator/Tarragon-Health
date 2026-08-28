@@ -437,6 +437,87 @@ revoke all on function public.create_emergency_card() from public;
 revoke all on function public.create_emergency_card() from anon;
 grant execute on function public.create_emergency_card() to authenticated;
 
+-- ROOT-CAUSE FIX for the TABLE half of this gap, replacing per-table stubs
+-- going forward: the same "anon can reach something it shouldn't" gap that
+-- affects an unpredictable subset of functions (fixed one at a time above)
+-- also affects an unpredictable subset of newly created TABLES -- hit so far
+-- on lab_result_extractions (fixed via
+-- supabase/migrations/20260803130644_fix_lab_result_extractions_anon_table_grant.sql)
+-- and emergency_cards (fixed via
+-- supabase/migrations/20260803145145_fix_emergency_cards_anon_table_grant.sql),
+-- both using the same "pre-create the table here with correct grants, one
+-- second before its real consumer" trick as the function stubs, which works
+-- ONLY because both of those migrations' own `create table` used
+-- `IF NOT EXISTS` (making the real migration's create a harmless no-op on
+-- top of the pre-created table).
+--
+-- 20260807010452_care_access_events.sql is the confirmed next CI failure
+-- after stub #18 above, with the SAME assertion shape ("anon must not reach
+-- the access log") -- but its own `create table public.care_access_events`
+-- has NO `IF NOT EXISTS`, so pre-creating it here would make the real
+-- migration's own create fail outright with "relation already exists". The
+-- per-table pre-create trick is structurally incompatible with this
+-- migration, and there's no way to know how many more of the remaining
+-- migration history share this same non-idempotent-create shape.
+--
+-- Fixing at the root instead, the same way 20260729235803's
+-- rls_auto_enable_trigger closes the analogous "a migration author forgot to
+-- enable RLS" gap: an event trigger, installed here so it exists before ANY
+-- migration runs, that fires the instant any public-schema table is created
+-- and revokes whatever phantom anon/public grant this environment's bootstrap
+-- gives it -- BEFORE the owning migration's own later, explicit
+-- `grant ... to authenticated` (and, for the handful of deliberately public
+-- tables like marketing_resources/patient_testimonials, `grant ... to anon`)
+-- statements run. Since GRANT only ever adds privileges, an explicit later
+-- grant to anon is completely unaffected by this earlier revoke -- order of
+-- operations is create -> (this trigger fires: revoke all from public/anon)
+-- -> the migration's own policies/grants, so a table that deliberately wants
+-- anon access still ends up with it, and one that doesn't (the common case)
+-- no longer has to fight an unexplained phantom grant.
+--
+-- This also makes the two per-table migrations above redundant going
+-- forward, but they're left in place rather than reverted: they're already
+-- confirmed working via CI, and removing them wouldn't change behaviour or
+-- reduce risk, just add churn to files this session has already validated.
+create or replace function public.ci_revoke_anon_table_defaults()
+returns event_trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r record;
+begin
+  for r in
+    select * from pg_event_trigger_ddl_commands()
+    where command_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      and object_type = 'table'
+  loop
+    if r.schema_name = 'public' then
+      execute format('revoke all on %s from public', r.object_identity);
+      execute format('revoke all on %s from anon', r.object_identity);
+    end if;
+  end loop;
+end;
+$$;
+
+comment on function public.ci_revoke_anon_table_defaults() is
+  'Local/CI-only event-trigger function (ddl_command_end on CREATE TABLE). '
+  'Revokes whatever phantom anon/public table grant this environment''s '
+  'bootstrap gives every new public-schema table, before the owning '
+  'migration''s own later grants run. See supabase/roles.sql for the full '
+  'investigation. Never invoke directly.';
+
+drop event trigger if exists ci_revoke_anon_table_defaults_trigger;
+
+create event trigger ci_revoke_anon_table_defaults_trigger
+  on ddl_command_end
+  when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+  execute function public.ci_revoke_anon_table_defaults();
+
+revoke execute on function public.ci_revoke_anon_table_defaults() from public;
+revoke execute on function public.ci_revoke_anon_table_defaults() from anon;
+
 -- NOTE on custom types: several other functions with the same style of
 -- anon-execute self-check take a custom enum or composite (table row) type
 -- as an argument or return type (public.alert_level, public.masked_call_context,
