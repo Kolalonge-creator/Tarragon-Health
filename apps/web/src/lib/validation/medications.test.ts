@@ -57,4 +57,19 @@ describe("medicationSchema", () => {
       medicationSchema.safeParse({ ...valid, refill_date: "not-a-date" }).success
     ).toBe(false);
   });
+
+  it("accepts a well-formed replaces_medication_id", () => {
+    expect(
+      medicationSchema.safeParse({
+        ...valid,
+        replaces_medication_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects a malformed replaces_medication_id", () => {
+    expect(
+      medicationSchema.safeParse({ ...valid, replaces_medication_id: "not-a-uuid" }).success
+    ).toBe(false);
+  });
 });

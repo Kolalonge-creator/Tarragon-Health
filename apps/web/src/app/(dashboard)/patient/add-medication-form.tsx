@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useAddMedication } from "@/lib/queries/medications";
+import { useAddMedication, useMedications } from "@/lib/queries/medications";
 import { medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const SEVERITY_STYLE: Record<DrugSafetySeverity, string> = {
@@ -27,6 +28,12 @@ export function AddMedicationForm({
   pregnant?: boolean;
 }) {
   const addMedication = useAddMedication();
+  // Reuses whatever MedicationsList already has cached for this patient — no
+  // extra request. Only rendered/used for the clinician path (13.12/13.13
+  // change-workflow linkage; a patient self-adding a drug they're already
+  // taking has nothing to "replace").
+  const { data: existingMedications } = useMedications(patientId);
+  const [replacesMedicationId, setReplacesMedicationId] = useState("");
   const [drugName, setDrugName] = useState("");
   const [dose, setDose] = useState("");
   const [frequency, setFrequency] = useState("");
@@ -90,6 +97,7 @@ export function AddMedicationForm({
     setRepeatsAllowed("");
     setIndication("");
     setInstructions("");
+    setReplacesMedicationId("");
     setStep("form");
     setPendingData(null);
     setAcknowledged(false);
@@ -127,6 +135,8 @@ export function AddMedicationForm({
       repeats_allowed: source === "clinician" ? repeatsAllowed || undefined : undefined,
       indication: source === "clinician" ? indication || undefined : undefined,
       instructions: source === "clinician" ? instructions || undefined : undefined,
+      replaces_medication_id:
+        source === "clinician" ? replacesMedicationId || undefined : undefined,
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -184,6 +194,13 @@ export function AddMedicationForm({
             />
             <ReviewRow label="Indication" value={pendingData.indication} />
             <ReviewRow label="Instructions" value={pendingData.instructions} />
+            <ReviewRow
+              label="Replaces"
+              value={
+                existingMedications?.find((m) => m.id === pendingData.replaces_medication_id)
+                  ?.drug_name
+              }
+            />
             <ReviewRow label="Refill date" value={pendingData.refill_date} />
             <ReviewRow
               label="Dose times"
@@ -373,6 +390,23 @@ export function AddMedicationForm({
                   onChange={(event) => setInstructions(event.target.value)}
                 />
               </div>
+              {existingMedications && existingMedications.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="replaces_medication_id">This replaces (optional)</Label>
+                  <Select
+                    id="replaces_medication_id"
+                    value={replacesMedicationId}
+                    onChange={(event) => setReplacesMedicationId(event.target.value)}
+                  >
+                    <option value="">Not a replacement</option>
+                    {existingMedications.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.drug_name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
             </div>
           )}
           <div className="space-y-1.5">

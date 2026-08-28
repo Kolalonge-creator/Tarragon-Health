@@ -8,6 +8,8 @@ import { AdherenceCheckins } from "@/app/(dashboard)/patient/adherence-checkins"
 import { CheckMyPack } from "@/app/(dashboard)/patient/check-my-pack";
 import { LabMonitoringCard } from "@/app/(dashboard)/patient/lab-monitoring-card";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
+import { WeeklyAdherenceSummary } from "@/app/(dashboard)/patient/weekly-adherence-summary";
+import { SideEffectReportForm } from "@/app/(dashboard)/patient/side-effect-report-form";
 
 export default async function PatientMedicationsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -36,7 +38,9 @@ export default async function PatientMedicationsPage() {
 
         <div className="space-y-4">
           <TodaysDoses patientId={subjectId} />
+          <WeeklyAdherenceSummary patientId={subjectId} />
           <AdherenceCheckins patientId={subjectId} />
+          <SideEffectReportForm patientId={subjectId} />
           {/* Patients buy from any pharmacy now, so nobody here sees the box.
               Reads it back and compares it with what was prescribed — and points
               at NAFDAC for the authenticity question we cannot answer. */}

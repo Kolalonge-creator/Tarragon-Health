@@ -39,6 +39,11 @@ export const medicationSchema = z.object({
   repeats_allowed: z.coerce.number().int().min(0).max(99).optional(),
   indication: z.string().trim().max(300).optional(),
   instructions: z.string().trim().max(1000).optional(),
+  // Medication change workflow (13.12/13.13) — links a new prescription to
+  // the one it replaces. Clinician-source only, same as the order-entry
+  // fields above; DB trigger enforces it points at a medication belonging to
+  // the same patient.
+  replaces_medication_id: z.string().uuid().optional(),
 });
 export type MedicationInput = z.infer<typeof medicationSchema>;
 

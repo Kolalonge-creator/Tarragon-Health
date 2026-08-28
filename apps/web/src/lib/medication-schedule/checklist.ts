@@ -1,6 +1,16 @@
 import type { Tables } from "@tarragon/shared";
 
-export type DoseStatus = "pending" | "taken" | "missed" | "skipped";
+// Mirrors medicationLogStatusValues (13.5) plus the checklist-only "pending"
+// state for a slot with no log yet.
+export type DoseStatus =
+  | "pending"
+  | "taken"
+  | "missed"
+  | "skipped"
+  | "unable_to_obtain"
+  | "vomited"
+  | "side_effect"
+  | "other";
 
 export type DoseChecklistItem = {
   medicationId: string;
@@ -10,7 +20,10 @@ export type DoseChecklistItem = {
 };
 
 type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times">;
-type LogForChecklist = Pick<Tables<"medication_logs">, "medication_id" | "scheduled_time" | "status">;
+// status is intentionally a plain string here, not the (stale, pre-13.5)
+// generated medication_log_status union — buildTodaysDoseChecklist already
+// defensively casts an unrecognised value through DoseStatus below.
+type LogForChecklist = { medication_id: string; scheduled_time: string | null; status: string };
 
 /** `logs` is expected to already be scoped to today's date by the caller. */
 export function buildTodaysDoseChecklist(

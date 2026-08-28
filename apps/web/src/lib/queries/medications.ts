@@ -1,24 +1,43 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
+import { writableTable } from "@/lib/supabase/pending-schema-overrides";
+import type {
+  MedicationAccessBarrierReason,
+  MedicationLogStatus,
+} from "@/lib/supabase/pending-schema-overrides";
 import type { MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
 
-export type Medication = Tables<"medications">;
-export type MedicationLog = Tables<"medication_logs">;
+// medications/medication_logs are read fine through the plain generated
+// Tables<> type (reads need no help — see pending-schema-overrides.ts's
+// header) but gained columns/enum values this migration set adds ahead of
+// the next `database.types.ts` regeneration, so the domain types here widen
+// them by hand for anything downstream that reads the new fields.
+export type Medication = Tables<"medications"> & {
+  replaces_medication_id: string | null;
+  stopped_by_profile_id: string | null;
+};
+export type MedicationLog = Omit<Tables<"medication_logs">, "status"> & {
+  status: MedicationLogStatus;
+  access_barrier_reason: MedicationAccessBarrierReason | null;
+};
 export type MedicationCollection = Tables<"pharmacy_order_dispenses">;
 
 /** A medication row plus the condition of its linked care plan, if any —
  * lets the "digital medicines cabinet" show what each drug is treating.
  * added_by_profile resolves the prescriber's name for the "Signed by"
- * step of the prescription status trail (added_by is a bare uuid). */
+ * step of the prescription status trail (added_by is a bare uuid).
+ * replaces_medication resolves the drug name of whatever this one replaced
+ * (13.12/13.13 change-workflow linkage). */
 export type MedicationWithCarePlan = Medication & {
   care_plan: { condition: string; status: string } | null;
   added_by_profile: { full_name: string | null } | null;
+  replaces_medication: { drug_name: string } | null;
 };
 
 const MEDICATION_SELECT =
-  "*, care_plan:care_plans(condition, status), added_by_profile:profiles!medications_added_by_fkey(full_name)";
+  "*, care_plan:care_plans(condition, status), added_by_profile:profiles!medications_added_by_fkey(full_name), replaces_medication:medications!replaces_medication_id(drug_name)";
 
 function medicationsKey(patientId: string) {
   return ["medications", patientId];
@@ -55,7 +74,7 @@ export function useMedications(patientId: string) {
         .eq("is_active", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as MedicationWithCarePlan[];
+      return data as unknown as MedicationWithCarePlan[];
     },
     enabled: !!patientId,
   });
@@ -81,7 +100,7 @@ export function useStoppedMedications(patientId: string) {
         .order("stopped_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false });
       if (error) throw error;
-      return data as MedicationWithCarePlan[];
+      return data as unknown as MedicationWithCarePlan[];
     },
     enabled: !!patientId,
   });
@@ -127,7 +146,7 @@ export function useTodaysDoseLogs(patientId: string) {
         .eq("patient_id", patientId)
         .eq("scheduled_for_date", today);
       if (error) throw error;
-      return data as MedicationLog[];
+      return data as unknown as MedicationLog[];
     },
     enabled: !!patientId,
   });
@@ -136,7 +155,9 @@ export function useTodaysDoseLogs(patientId: string) {
 /**
  * Shared by both the patient self-add and clinician-prescribe flows — RLS
  * enforces who may write what, so the two call sites just pass a different
- * `patientId`/`source`, not different query logic.
+ * `patientId`/`source`, not different query logic. Goes through
+ * writableTable() because replaces_medication_id (13.12/13.13) is a column
+ * the generated Insert type doesn't know about yet.
  */
 export function useAddMedication() {
   const queryClient = useQueryClient();
@@ -167,7 +188,7 @@ export function useAddMedication() {
         prescriber_document_url,
         ...rest
       } = input;
-      const { error } = await supabase.from("medications").insert({
+      const { error } = await writableTable("medications").insert({
         ...rest,
         patient_id: patientId,
         organisation_id: profile.organisation_id,
@@ -193,7 +214,8 @@ export function useAddMedication() {
  * (pathway Scenario 2). RLS + enforce_medication_confirm_only decide who may:
  * the patient on their own self-/specialist-sourced rows, or a prescriber
  * (Tier 2+/Director) on a clinician row. Tier 1 cannot — an is_active change
- * is already outside its confirm-only grant.
+ * is already outside its confirm-only grant. stopped_by_profile_id is
+ * server-stamped by private.stamp_medication_stopped_by — never sent from here.
  */
 export function useStopMedication() {
   const queryClient = useQueryClient();
@@ -269,6 +291,9 @@ export function useConfirmMedicationRefill() {
  * Select-then-branch upsert against the (medication_id, scheduled_for_date,
  * scheduled_time) partial unique index — supabase-js's `onConflict` can't
  * target a partial index, same rationale as the reminder-rules mutations.
+ * Goes through writableTable() for the insert/update because status can now
+ * be one of 13.5's extra values and access_barrier_reason (13.16) is a
+ * column the generated Insert/Update types don't know about yet.
  */
 export function useLogDose() {
   const queryClient = useQueryClient();
@@ -289,22 +314,22 @@ export function useLogDose() {
           .maybeSingle();
 
         const { error } = existing
-          ? await supabase
-              .from("medication_logs")
+          ? await writableTable("medication_logs")
               .update({
                 status: rest.status,
                 reason: rest.reason ?? null,
+                access_barrier_reason: rest.access_barrier_reason ?? null,
                 logged_at: new Date().toISOString(),
               })
               .eq("id", existing.id)
-          : await supabase.from("medication_logs").insert({
+          : await writableTable("medication_logs").insert({
               ...rest,
               patient_id: patientId,
               organisation_id: organisationId,
             });
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("medication_logs").insert({
+        const { error } = await writableTable("medication_logs").insert({
           ...rest,
           patient_id: patientId,
           organisation_id: organisationId,

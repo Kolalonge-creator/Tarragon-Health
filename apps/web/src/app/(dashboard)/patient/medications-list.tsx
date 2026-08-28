@@ -107,6 +107,11 @@ export function MedicationsList({
                     {[medication.dose, medication.frequency].filter(Boolean).join(", ") ||
                       "No dose/frequency set"}
                   </p>
+                  {medication.replaces_medication && (
+                    <p className="text-xs text-charcoal-ink/50">
+                      Replaces {medication.replaces_medication.drug_name}
+                    </p>
+                  )}
                   {medication.source === "specialist" && medication.prescriber_name && (
                     <p className="text-xs text-charcoal-ink/60">
                       Started by {medication.prescriber_name}
@@ -172,7 +177,7 @@ export function MedicationsList({
           </ul>
         )}
 
-        <PastMedications patientId={patientId} />
+        <PastMedications patientId={patientId} activeMedications={data ?? []} />
       </CardContent>
     </Card>
   );
@@ -441,7 +446,15 @@ function StopMedicationForm({
 }
 
 /** Collapsible medication history — stopped/switched drugs with when + why. */
-function PastMedications({ patientId }: { patientId: string }) {
+function PastMedications({
+  patientId,
+  activeMedications,
+}: {
+  patientId: string;
+  /** For resolving "Replaced by X" (13.12/13.13) — the reverse of a stopped
+   * medication's own replaces_medication_id, which only the newer row carries. */
+  activeMedications: MedicationWithCarePlan[];
+}) {
   const [open, setOpen] = useState(false);
   const { data } = useStoppedMedications(patientId);
 
@@ -461,21 +474,31 @@ function PastMedications({ patientId }: { patientId: string }) {
       </Button>
       {open && (
         <ul className="mt-1 divide-y divide-charcoal-ink/10">
-          {data.map((medication) => (
-            <li key={medication.id} className="py-2">
-              <p className="text-sm text-charcoal-ink/70 line-through decoration-charcoal-ink/30">
-                {medication.drug_name}
-                {medication.dose ? `, ${medication.dose}` : ""}
-              </p>
-              <p className="text-xs text-charcoal-ink/50">
-                Stopped
-                {medication.stopped_at
-                  ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
-                  : ""}
-                {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
-              </p>
-            </li>
-          ))}
+          {data.map((medication) => {
+            const replacement = activeMedications.find(
+              (m) => m.replaces_medication_id === medication.id
+            );
+            return (
+              <li key={medication.id} className="py-2">
+                <p className="text-sm text-charcoal-ink/70 line-through decoration-charcoal-ink/30">
+                  {medication.drug_name}
+                  {medication.dose ? `, ${medication.dose}` : ""}
+                </p>
+                <p className="text-xs text-charcoal-ink/50">
+                  Stopped
+                  {medication.stopped_at
+                    ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
+                    : ""}
+                  {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
+                </p>
+                {replacement && (
+                  <p className="text-xs text-charcoal-ink/50">
+                    Replaced by {replacement.drug_name}
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

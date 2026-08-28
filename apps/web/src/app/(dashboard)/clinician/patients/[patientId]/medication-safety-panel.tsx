@@ -3,6 +3,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { loadMedicationSafety } from "@/lib/clinical/patient-clinical-context";
 import type { DrugSafetySeverity, FindingKind } from "@/lib/rules/drug-safety";
+import { FlagSafetyFindingButton } from "./medication-safety-flag-button";
+
+// Which unified clinician_alerts type_code a finding kind maps to when a
+// clinician chooses to persist it (13.9's manual-raise mechanism) —
+// allergy/renal/drug-specific concerns are a general medication_safety
+// alert; a genuine two-drug interaction or duplicate therapy is more
+// specifically potential_interaction.
+const FINDING_TYPE_CODE: Record<FindingKind, "medication_safety" | "potential_interaction"> = {
+  interaction: "potential_interaction",
+  duplicate_therapy: "potential_interaction",
+  renal_dosing: "medication_safety",
+  drug_specific: "medication_safety",
+  allergy: "medication_safety",
+};
 
 const SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {
   contraindicated: { label: "Avoid", variant: "red" },
@@ -147,6 +161,16 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
                   <p className="mt-1 text-xs text-charcoal-ink/55">
                     {[...new Set(finding.drugNames)].join(" · ")}
                   </p>
+                  {(finding.severity === "contraindicated" || finding.severity === "caution") &&
+                    finding.medicationIds[0] && (
+                      <FlagSafetyFindingButton
+                        patientId={patientId}
+                        medicationId={finding.medicationIds[0]}
+                        typeCode={FINDING_TYPE_CODE[finding.kind]}
+                        severity={finding.severity}
+                        message={`${finding.title}: ${finding.message}`}
+                      />
+                    )}
                 </li>
               );
             })}

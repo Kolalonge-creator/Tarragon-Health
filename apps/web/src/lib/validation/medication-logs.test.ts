@@ -55,4 +55,41 @@ describe("medicationLogSchema", () => {
   it("rejects a missing medication_id", () => {
     expect(medicationLogSchema.safeParse({ status: "taken" }).success).toBe(false);
   });
+
+  it.each(["unable_to_obtain", "vomited", "side_effect", "other"])(
+    "accepts the %s status",
+    (status) => {
+      expect(medicationLogSchema.safeParse({ ...validFreeform, status }).success).toBe(true);
+    }
+  );
+
+  it("accepts access_barrier_reason alongside unable_to_obtain", () => {
+    expect(
+      medicationLogSchema.safeParse({
+        ...validFreeform,
+        status: "unable_to_obtain",
+        access_barrier_reason: "cost",
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects access_barrier_reason on any other status", () => {
+    expect(
+      medicationLogSchema.safeParse({
+        ...validFreeform,
+        status: "missed",
+        access_barrier_reason: "cost",
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects an invalid access_barrier_reason value", () => {
+    expect(
+      medicationLogSchema.safeParse({
+        ...validFreeform,
+        status: "unable_to_obtain",
+        access_barrier_reason: "too_expensive",
+      }).success
+    ).toBe(false);
+  });
 });
