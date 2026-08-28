@@ -459,6 +459,80 @@ revoke all on function public.my_care_plan_clinicians() from public;
 revoke all on function public.my_care_plan_clinicians() from anon;
 grant execute on function public.my_care_plan_clinicians() to authenticated;
 
+-- Stubs #20/#21/#22: next confirmed CI failure after #19 above --
+-- 20260809182227_pharmacist_portal_extension.sql's own assertion on all
+-- three functions it defines (single creation site each, same pattern
+-- again, all built-in argument types so safe to stub here).
+create function public.pharmacist_profile()
+returns table (
+  name text,
+  regions text[],
+  city text,
+  state text,
+  contact_phone text,
+  contact_email text,
+  delivery boolean,
+  license_number text,
+  license_expires_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return;
+end;
+$$;
+
+revoke all on function public.pharmacist_profile() from public;
+revoke all on function public.pharmacist_profile() from anon;
+grant execute on function public.pharmacist_profile() to authenticated;
+
+create function public.pharmacist_update_profile(
+  p_name text,
+  p_regions text[],
+  p_city text,
+  p_state text,
+  p_contact_phone text,
+  p_contact_email text,
+  p_delivery boolean,
+  p_license_number text,
+  p_license_expires_at timestamptz
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+end;
+$$;
+
+revoke all on function public.pharmacist_update_profile(text, text[], text, text, text, text, boolean, text, timestamptz) from public;
+revoke all on function public.pharmacist_update_profile(text, text[], text, text, text, text, boolean, text, timestamptz) from anon;
+grant execute on function public.pharmacist_update_profile(text, text[], text, text, text, text, boolean, text, timestamptz) to authenticated;
+
+create function public.pharmacist_dispense_history(p_limit int default 200)
+returns table (
+  dispense_id uuid,
+  patient_name text,
+  drug_name text,
+  quantity text,
+  dispensed_on date
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return;
+end;
+$$;
+
+revoke all on function public.pharmacist_dispense_history(int) from public;
+revoke all on function public.pharmacist_dispense_history(int) from anon;
+grant execute on function public.pharmacist_dispense_history(int) to authenticated;
+
 -- ROOT-CAUSE FIX for the TABLE half of this gap, replacing per-table stubs
 -- going forward: the same "anon can reach something it shouldn't" gap that
 -- affects an unpredictable subset of functions (fixed one at a time above)
