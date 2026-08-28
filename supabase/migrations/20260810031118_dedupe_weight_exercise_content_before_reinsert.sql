@@ -1,0 +1,33 @@
+-- Local/CI-only fix-forward, NOT a functional migration -- same rationale
+-- family as the other backdated fix-forward migrations in this history.
+--
+-- 20260810030619_health_education_weight_exercise_content.sql's own header
+-- explains why this pair of migrations exists: that migration's timestamp
+-- sorted after two migrations (health_education_categories_and_library,
+-- health_education_track_expansions) that hadn't been committed yet on this
+-- branch at the time it was written, so it was applied directly to the live
+-- project instead of via a normal migration replay -- "matching this
+-- project's established pattern for reconciling out-of-band DB state."
+-- 20260810031119_health_education_weight_exercise_content.sql is the
+-- properly-timestamped re-commit of the exact same insert (byte-identical:
+-- same 3 codes, same content), meant to supersede it once replay order was
+-- correct.
+--
+-- On the live project only one of these two ever genuinely executed its
+-- INSERT (the other's version was presumably reconciled via migration
+-- repair, per the pattern the header references, without re-running its
+-- SQL) -- so live never saw a collision. A fresh replay has no such
+-- bookkeeping: it runs every committed migration's literal SQL in order, so
+-- 030619's insert succeeds and 031119's identical insert then collides on
+-- the unique `code` column (confirmed via CI: "duplicate key value violates
+-- unique constraint health_education_content_code_key").
+--
+-- Deletes the 3 rows 030619 just inserted, immediately before 031119 would
+-- re-insert the identical content, so the fresh-replay end state matches
+-- live's (these 3 codes exist, with 031119's content -- byte-identical to
+-- 030619's anyway). Guarded to only ever touch rows inserted in the last
+-- hour, so it's a no-op on live, where by push time these rows are already
+-- old regardless of which of the two migrations actually created them.
+delete from public.health_education_content
+where code in ('ob-exercise-starting-point', 'ob-exercise-without-gym', 'ob-exercise-how-much')
+  and created_at > now() - interval '1 hour';

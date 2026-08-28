@@ -262,7 +262,17 @@ declare
   v_sub_id uuid;
 begin
   select id into v_org from public.organisations limit 1;
-  select id into v_plan_complete from public.subscription_plans where code = 'complete' and is_active limit 1;
+  -- No `and is_active` here on purpose: claim_health_reset_trial()'s own
+  -- "already have an active paid plan" check
+  -- (20260730122844_health_reset_trial_ngn_usd_only.sql) only looks at the
+  -- plan's `code` (anything not 'free') and the subscription's own status,
+  -- never subscription_plans.is_active -- so this fixture doesn't need an
+  -- active plan either, just a real one. `complete` was deactivated for new
+  -- signups on 2026-08-05 (pending a payment re-sync) but the row itself,
+  -- and every existing subscription referencing it, is untouched; filtering
+  -- on is_active here made this fixture insert silently resolve to NULL
+  -- after that migration, which is what broke this test.
+  select id into v_plan_complete from public.subscription_plans where code = 'complete' limit 1;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values
@@ -361,6 +371,19 @@ begin
 
   -- 5) Success path: complete, unclaimed, no paid plan -> grants a real
   -- trialing subscription and updates the reset row.
+  --
+  -- claim_health_reset_trial()'s OWN internal plan lookup (unlike this
+  -- fixture's v_plan_complete above) DOES filter on is_active, by design --
+  -- a deactivated plan must never be silently granted to a brand-new
+  -- signup. `complete` is genuinely is_active=false right now (deactivated
+  -- 2026-08-05 pending a Paystack "Sync now" re-sync after a price change,
+  -- 20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_
+  -- plans.sql) -- a real, current, deliberate ops state, not a code defect.
+  -- That is a separate concern from what THIS test proves (the claim
+  -- function's own guard rails + success-path logic), so reactivate it for
+  -- the life of this rolled-back transaction only.
+  update public.subscription_plans set is_active = true where code = 'complete';
+
   perform set_config('request.jwt.claims', json_build_object('sub', v_profile_success, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select public.claim_health_reset_trial() into v_result;

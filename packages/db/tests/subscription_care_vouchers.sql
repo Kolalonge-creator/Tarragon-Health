@@ -14,15 +14,32 @@ grant insert, select on r to authenticated;
 do $$
 declare
   v_org uuid; v_pt uuid; v_sponsor uuid; v_stranger uuid;
-  v_yearly uuid; v_monthly uuid; v_res jsonb; v_v uuid; v_n int; v_ok boolean;
+  v_yearly uuid; v_yearly_price bigint; v_monthly uuid; v_res jsonb; v_v uuid; v_n int; v_ok boolean;
   v_sub public.subscriptions%rowtype; v_end timestamptz;
 begin
+  -- Every NGN paid tier is currently is_active=false, pending a Paystack
+  -- "Sync now" re-sync after the 2026-08-05 price change
+  -- (20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_
+  -- plans.sql) -- a real, current, deliberate ops state, not a code defect.
+  -- Reactivate Complete Care's yearly row for the life of this rolled-back
+  -- transaction only, then look plans up by the real properties
+  -- purchase_subscription_voucher() actually cares about (active, NGN,
+  -- yearly, a real price) rather than a hardcoded code -- plan
+  -- code/price/is_active have churned repeatedly per CLAUDE.md's own
+  -- standing notes, and this lookup doesn't need a specific code to prove
+  -- the RPC's own logic.
+  update public.subscription_plans set is_active = true where code = 'complete_yearly';
+
   select id, organisation_id into v_pt, v_org from public.profiles
    where role='patient' and organisation_id is not null order by created_at limit 1;
   select id into v_sponsor from public.profiles where role='patient' and organisation_id=v_org and id<>v_pt limit 1;
   select id into v_stranger from public.profiles where role='patient' and id not in (v_pt, v_sponsor) limit 1;
-  select id into v_yearly from public.subscription_plans where code='complete_yearly';
-  select id into v_monthly from public.subscription_plans where code='complete';
+  select id, price_minor into v_yearly, v_yearly_price from public.subscription_plans
+   where is_active and currency = 'NGN' and interval = 'yearly' and coalesce(price_minor, 0) > 0
+   order by price_minor limit 1;
+  select id into v_monthly from public.subscription_plans
+   where currency = 'NGN' and interval = 'monthly' and code <> 'free'
+   order by price_minor desc limit 1;
   if v_pt is null or v_sponsor is null or v_stranger is null or v_yearly is null or v_monthly is null then
     raise exception 'fixture lookup failed - test would be vacuous';
   end if;
@@ -35,7 +52,7 @@ begin
   v_res := public.purchase_subscription_voucher(v_pt, v_yearly, 'Get well soon Mum');
   v_v := (v_res->>'voucher_id')::uuid;
   insert into r values ('01 sponsor buys a year of a plan for a linked person',
-    case when (v_res->>'ok')::boolean and (v_res->>'face_value_kobo')::bigint = 15000000 then 'PASS' else 'FAIL' end);
+    case when (v_res->>'ok')::boolean and (v_res->>'face_value_kobo')::bigint = v_yearly_price then 'PASS' else 'FAIL' end);
   begin
     perform public.purchase_subscription_voucher(v_pt, v_monthly, null);
     insert into r values ('02 monthly plans refused, yearly only','FAIL - accepted');

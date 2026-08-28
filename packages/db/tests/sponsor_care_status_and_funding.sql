@@ -84,7 +84,11 @@ begin
   values (v_org, v_mum, 'ZZTestolol', '10 mg', 'Once daily', 'clinician', true, current_date + 5)
   returning id into v_med;
 
-  select id into v_partner from public.pharmacy_partners where is_active limit 1;
+  -- Self-provisioned (fresh-database pattern): no pharmacy_partners row is
+  -- guaranteed to exist on a fresh db, and this check only needs a real FK
+  -- target, not a specific named/live partner.
+  insert into public.pharmacy_partners (name) values ('ZZ Test Pharmacy Partner')
+    returning id into v_partner;
   insert into public.pharmacy_medications (pharmacy_partner_id, drug_name, pack_size, price_kobo)
   values (v_partner, 'ZZTestolol', '30 tablets', 450000) returning id into v_pm;
 
@@ -171,6 +175,15 @@ begin
   --------------------------------------------------------------------------
   -- 5. the sponsor pays the plan
   --------------------------------------------------------------------------
+  -- Every NGN paid plan is currently is_active=false pending a Paystack
+  -- "Sync now" re-sync after the 2026-08-05 price change
+  -- (20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_
+  -- plans.sql) -- a real, current ops state, not a code defect. Reactivate
+  -- for the life of this rolled-back transaction only, same as
+  -- care_vouchers.sql/health_reset_90_day.sql/subscription_care_vouchers.sql.
+  update public.subscription_plans set is_active = true
+   where currency = 'NGN' and price_minor > 0;
+
   select id, code into v_plan, v_plan_code
     from public.subscription_plans
    where is_active and currency = 'NGN' and price_minor > 0 limit 1;

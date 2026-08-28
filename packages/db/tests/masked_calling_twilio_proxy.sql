@@ -23,6 +23,14 @@ create temporary table test_result (
   case_num int, label text, outcome text, detail text
 ) on commit drop;
 
+-- Case 5 below inserts into test_result while `role` is still switched to
+-- `authenticated` (the reset back to postgres happens after that insert) --
+-- without this grant that insert fails with "permission denied for table
+-- test_result", since a temp table created by the connecting superuser
+-- grants no access to authenticated by default. Same pattern as
+-- packages/db/tests/self_arranged_fulfilment.sql's `r` temp table.
+grant insert, select on test_result to authenticated;
+
 do $$
 declare
   v_org           uuid := '00000000-0000-0000-0000-000000000001';

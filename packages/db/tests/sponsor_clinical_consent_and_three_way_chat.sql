@@ -92,11 +92,15 @@ begin
   values (v_org, v_patient, v_screen, current_date + 30)
   returning id into v_sched;
   -- A self-bookable bundle with no schedule link: the one patient-initiated
-  -- shape private.enforce_lab_order_origin lets through on its own.
+  -- shape private.enforce_lab_order_origin lets through on its own. Self-
+  -- arranged (no fulfilment/provider given) is billed by the lab directly,
+  -- so total_kobo must be 0 -- private.enforce_lab_order_origin now rejects
+  -- a nonzero amount on this shape ("A self-arranged lab order is not
+  -- billed by Tarragon").
   select id into v_bundle from public.panel_bundles where self_bookable order by code limit 1;
   if v_bundle is null then raise exception 'no self-bookable panel_bundles seeded'; end if;
   insert into public.lab_orders (organisation_id, patient_id, origin, total_kobo, panel_bundle_id)
-  values (v_org, v_patient, 'patient_initiated', 18000, v_bundle);
+  values (v_org, v_patient, 'patient_initiated', 0, v_bundle);
   insert into public.patient_risk_scores (organisation_id, patient_id, score_type, risk_level)
   values (v_org, v_patient, 'bp_control', 'high');
 
