@@ -24,17 +24,40 @@ begin;
 
 do $$
 declare
-  v_owner    uuid := 'ef684028-c40f-4f64-bde9-f84150fb19fd';  -- Ada Lovelace
-  v_kin      uuid := 'cb100ba5-204a-4048-a585-2634c27a4c46';  -- next of kin, 'view'
-  v_guardian uuid := '3bb0a97c-3cd5-49e7-ba74-23b1b37b9510';  -- control, 'manage'
-  v_stranger uuid := 'fc8a158d-d5bc-499c-aa6a-07678356e5bf';  -- no grant
-  v_org      uuid;
+  v_owner    uuid := gen_random_uuid();  -- Ada Lovelace
+  v_kin      uuid := gen_random_uuid();  -- next of kin, 'view'
+  v_guardian uuid := gen_random_uuid();  -- control, 'manage'
+  v_stranger uuid := gen_random_uuid();  -- no grant
+  v_org      uuid := '00000000-0000-0000-0000-000000000001';
   v_vax      uuid;
   v_wallet   uuid;
   v_n        int;
   v_wrote    boolean;
 begin
-  select organisation_id into v_org from public.profiles where id = v_owner;
+  -- Self-provisioned fixtures (fresh-database pattern) -- these four are pure
+  -- relationship roles (owner/kin/guardian/stranger) for the profile_access
+  -- grant checks below, so a plain patient profile is all each one needs; no
+  -- demographic fields are asserted on anywhere in this file.
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_owner, 'individual-enrolment-ada-owner@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Ada Lovelace'
+    where id = v_owner;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_kin, 'individual-enrolment-next-of-kin@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Individual Enrolment Test Next of Kin'
+    where id = v_kin;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_guardian, 'individual-enrolment-guardian@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Individual Enrolment Test Guardian'
+    where id = v_guardian;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_stranger, 'individual-enrolment-stranger@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Individual Enrolment Test Stranger'
+    where id = v_stranger;
+
   select id into v_vax from public.vaccination_catalog limit 1;
 
   -- ---- 1. The billing construct is gone --------------------------------------

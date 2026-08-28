@@ -18,10 +18,11 @@
 -- To re-run:
 --   npx supabase db query --linked -f packages/db/tests/computed_review_price.sql
 --
--- Reuses the same three real patient fixtures as
+-- Self-provisions the same three-patient shape used by
 -- packages/db/tests/screening_ladder_order_completeness.sql -- one with
--- sex=null (~41), one male (~66), one female (~71) -- swap the ids below if
--- any stops existing.
+-- sex=null (~41), one male (~66), one female (~71) -- as fresh auth.users
+-- rows inside the rolled-back transaction, rather than relying on any
+-- specific pre-existing profile id.
 
 begin;
 
@@ -29,9 +30,9 @@ create temporary table test_results (case_name text, passed boolean, detail text
 
 do $$
 declare
-  v_patient uuid := 'bb707ae8-1d0b-49c2-b990-1950de601db4'; -- sex null, age ~41
-  v_male    uuid := '04280ae6-f1bd-4fc9-a588-fac792e032af'; -- male, age ~66
-  v_female  uuid := '365067dc-7c0f-45e8-a807-8cd70f2da8dd'; -- female, age ~71
+  v_patient uuid := gen_random_uuid(); -- sex null, age ~41
+  v_male    uuid := gen_random_uuid(); -- male, age ~66
+  v_female  uuid := gen_random_uuid(); -- female, age ~71
   v_org     uuid := '00000000-0000-0000-0000-000000000001';
   v_comp    uuid;
   v_core    uuid;
@@ -43,6 +44,30 @@ declare
   v_delivered text[];
   v_year int := extract(year from (now() at time zone 'Africa/Lagos'))::int;
 begin
+  -- Self-provisioned fixtures (fresh-database pattern) -- no live/QA-seeded
+  -- profile rows exist to reuse, so each patient is minted here with the
+  -- sex/date_of_birth its own case above actually depends on (see
+  -- p1c_age_gated_line_is_excluded_at_the_boundary for why v_female must be
+  -- older than cervical_smear's age_to=64, and p2b_male_review_does_include_psa
+  -- for why v_male must be male).
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_patient, 'computed-review-price-null-sex-patient@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Computed Review Price Test Patient',
+         date_of_birth = '1985-01-01'
+    where id = v_patient;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_male, 'computed-review-price-male-patient@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Computed Review Price Test Male',
+         sex = 'male', date_of_birth = '1960-01-01'
+    where id = v_male;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_female, 'computed-review-price-female-patient@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Computed Review Price Test Female',
+         sex = 'female', date_of_birth = '1955-01-01'
+    where id = v_female;
+
   select id into v_comp from public.panel_bundles where code = 'screen_comprehensive';
   select id into v_core from public.panel_bundles where code = 'screen_core';
 
@@ -223,7 +248,7 @@ end $$;
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  v_female uuid := '365067dc-7c0f-45e8-a807-8cd70f2da8dd';
+  v_female uuid := gen_random_uuid();
   v_org    uuid := '00000000-0000-0000-0000-000000000001';
   v_core   uuid;
   v_order  uuid;
@@ -232,6 +257,19 @@ declare
   v_actual   bigint;
   v_state    text;
 begin
+  -- Own fresh fixture -- this do-block is a separate transaction scope from
+  -- the one above, so its v_female variable is unrelated even though it
+  -- shares a name; nothing here is sex/age-sensitive (screen_core carries no
+  -- sex-gated lines), but state must be a real, already-active
+  -- service_regions row (Lagos, flipped live in
+  -- 20260717100000_service_regions.sql) or the "if not found" branch below
+  -- would try to insert a NULL into service_regions.state, which is NOT NULL.
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_female, 'computed-review-price-order-level-female@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Computed Review Price Order-Level Test Female',
+         sex = 'female', date_of_birth = '1955-01-01', state = 'Lagos'
+    where id = v_female;
+
   select id, price_kobo into v_core, v_headline
     from public.panel_bundles where code = 'screen_core';
 

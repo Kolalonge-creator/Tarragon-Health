@@ -22,7 +22,7 @@ create temporary table test_results (case_name text, passed boolean, detail text
 
 do $$
 declare
-  v_p     uuid := 'bb707ae8-1d0b-49c2-b990-1950de601db4';
+  v_p     uuid := gen_random_uuid();  -- was: 'bb707ae8-1d0b-49c2-b990-1950de601db4'
   v_org   uuid := '00000000-0000-0000-0000-000000000001';
   v_basics text[] := array['blood_group', 'sickle_cell_genotype', 'hep_b', 'hep_c'];
   v_d     text[];
@@ -32,6 +32,11 @@ declare
   v_before int;
   v_res   jsonb;
 begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_p, 'exposure-reopens-serology-test-patient@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Exposure Reopens Serology Test Patient'
+    where id = v_p;
+
   delete from public.screening_results where patient_id = v_p and screen_type_code = any(v_basics);
   delete from public.patient_exposure_reports where patient_id = v_p;
 

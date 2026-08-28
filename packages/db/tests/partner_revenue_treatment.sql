@@ -16,13 +16,18 @@ create temporary table test_results (case_name text, passed boolean, detail text
 
 do $$
 declare
-  v_female uuid := '365067dc-7c0f-45e8-a807-8cd70f2da8dd';
+  v_female uuid := gen_random_uuid();  -- was: '365067dc-7c0f-45e8-a807-8cd70f2da8dd'
   v_org    uuid := '00000000-0000-0000-0000-000000000001';
   v_core   uuid;
   v_syn    uuid;
   v_o1     uuid;
   v_o2     uuid;
 begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_female, 'partner-revenue-treatment-test-patient@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Partner Revenue Treatment Test Patient'
+    where id = v_female;
+
   select id into v_core from public.panel_bundles where code = 'screen_core';
   update public.lab_providers set is_active = true where name = 'Synlab Nigeria';
   select id into v_syn from public.lab_providers where name = 'Synlab Nigeria';

@@ -123,7 +123,7 @@ begin
     (v_recipient_profile, 'notif-fallback-test-recipient@example.invalid', 'x', now(), '{}', '{}'),
     (v_other_patient_profile, 'notif-fallback-test-other@example.invalid', 'x', now(), '{}', '{}');
 
-  update public.profiles set organisation_id = v_org, role = 'doctor', full_name = 'Notif Fallback Test Recipient'
+  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Notif Fallback Test Recipient'
     where id = v_recipient_profile;
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Notif Fallback Test Other Patient'
     where id = v_other_patient_profile;

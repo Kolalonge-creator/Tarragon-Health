@@ -30,7 +30,7 @@ create temporary table test_results (case_name text, passed boolean, detail text
 
 do $$
 declare
-  v_female uuid := '365067dc-7c0f-45e8-a807-8cd70f2da8dd';
+  v_female uuid := gen_random_uuid();  -- was: '365067dc-7c0f-45e8-a807-8cd70f2da8dd' -- the female fixture
   v_org    uuid := '00000000-0000-0000-0000-000000000001';
   v_core   uuid;
   v_syn    uuid;
@@ -42,7 +42,30 @@ declare
   v_disc   bigint;
   v_paid   bigint;
   v_t      text;
+  v_plan   uuid;
 begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_female, 'partner-billing-money-path-test-patient@example.invalid', 'x', now(), '{}', '{}');
+  -- state = 'Lagos' is required here (not just cosmetic): the region-gate
+  -- trigger on lab_orders (private.enforce_lab_order_region) skips its check
+  -- entirely when the patient's profile.state is null, which would make the
+  -- service_regions/lab_providers activation two lines below a no-op. Lagos
+  -- is already seeded active in service_regions, matching this file's own
+  -- assumption that the fixture patient resolves to a live region.
+  update public.profiles
+    set organisation_id = v_org, role = 'patient', full_name = 'Partner Billing Money Path Test Patient',
+        state = 'Lagos'
+    where id = v_female;
+
+  -- The header comment above depends on this patient actually holding an
+  -- active paid subscription — otherwise m2 below would only prove a
+  -- non-subscriber's margin, not the subscriber-vs-non-subscriber regression
+  -- check the comment describes.
+  select id into v_plan from public.subscription_plans where code = 'essential';
+  insert into public.subscriptions
+    (organisation_id, subscriber_id, plan_id, status, currency, amount_minor, interval, started_at)
+  values (v_org, v_female, v_plan, 'active', 'NGN', 800000, 'monthly', now() - interval '3 months');
+
   select id into v_core from public.panel_bundles where code = 'screen_core';
   select state into v_state from public.profiles where id = v_female;
 

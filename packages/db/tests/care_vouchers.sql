@@ -23,9 +23,9 @@ grant usage on sequence _checks_n_seq to authenticated;
 do $$
 declare
   c_org      constant uuid := '00000000-0000-0000-0000-000000000001';
-  v_alice    uuid := '8487376b-7844-428a-bcb8-8795e89eb0f5';  -- beneficiary
-  v_bob      uuid := 'bb707ae8-1d0b-49c2-b990-1950de601db4';  -- sponsor (granted)
-  v_carol    uuid := '3bb0a97c-3cd5-49e7-ba74-23b1b37b9510';  -- stranger (control)
+  v_alice    uuid := gen_random_uuid();  -- beneficiary
+  v_bob      uuid := gen_random_uuid();  -- sponsor (granted)
+  v_carol    uuid := gen_random_uuid();  -- stranger (control)
   v_ahc      uuid;   -- annual_health_check bundle
   v_basic    uuid;   -- health_check_basic bundle: the wrong-SKU control
   v_ahc_price bigint;
@@ -41,6 +41,25 @@ declare
   v_expires  timestamptz;
   v_n        int;
 begin
+  -- Self-provisioned fixtures (fresh-database pattern) -- these three are
+  -- pure relationship roles (beneficiary/sponsor/stranger) for the
+  -- profile_access / voucher-redemption checks below, so a plain patient
+  -- profile is all each one needs -- no demographic fields matter here.
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_alice, 'care-vouchers-alice-beneficiary@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = c_org, role = 'patient', full_name = 'Care Vouchers Test Alice'
+    where id = v_alice;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_bob, 'care-vouchers-bob-sponsor@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = c_org, role = 'patient', full_name = 'Care Vouchers Test Bob'
+    where id = v_bob;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_carol, 'care-vouchers-carol-stranger@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = c_org, role = 'patient', full_name = 'Care Vouchers Test Carol'
+    where id = v_carol;
+
   select id, price_kobo into v_ahc, v_ahc_price
     from public.panel_bundles where code = 'annual_health_check';
   select id into v_basic from public.panel_bundles where code = 'health_check_basic';

@@ -262,7 +262,17 @@ declare
   v_sub_id uuid;
 begin
   select id into v_org from public.organisations limit 1;
-  select id into v_plan_complete from public.subscription_plans where code = 'complete' and is_active limit 1;
+  -- No `and is_active` here on purpose: claim_health_reset_trial()'s own
+  -- "already have an active paid plan" check
+  -- (20260730122844_health_reset_trial_ngn_usd_only.sql) only looks at the
+  -- plan's `code` (anything not 'free') and the subscription's own status,
+  -- never subscription_plans.is_active -- so this fixture doesn't need an
+  -- active plan either, just a real one. `complete` was deactivated for new
+  -- signups on 2026-08-05 (pending a payment re-sync) but the row itself,
+  -- and every existing subscription referencing it, is untouched; filtering
+  -- on is_active here made this fixture insert silently resolve to NULL
+  -- after that migration, which is what broke this test.
+  select id into v_plan_complete from public.subscription_plans where code = 'complete' limit 1;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values

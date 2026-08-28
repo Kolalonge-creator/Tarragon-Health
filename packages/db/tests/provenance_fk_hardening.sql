@@ -32,7 +32,7 @@ begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v_profile, 'provenance-fk-test@example.invalid', 'x', now(), '{}', '{}');
 
-  update public.profiles set organisation_id = v_org, role = 'doctor', full_name = 'Provenance FK Test'
+  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Provenance FK Test'
     where id = v_profile;
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, is_clinical_director, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
