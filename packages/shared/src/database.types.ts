@@ -8098,7 +8098,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           resulted_at: string | null
+          sample_collected_at: string | null
           scheduled_date: string | null
           screening_schedule_id: string | null
           status: Database["public"]["Enums"]["lab_order_status"]
@@ -8144,7 +8148,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           resulted_at?: string | null
+          sample_collected_at?: string | null
           scheduled_date?: string | null
           screening_schedule_id?: string | null
           status?: Database["public"]["Enums"]["lab_order_status"]
@@ -8190,7 +8198,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           resulted_at?: string | null
+          sample_collected_at?: string | null
           scheduled_date?: string | null
           screening_schedule_id?: string | null
           status?: Database["public"]["Enums"]["lab_order_status"]
@@ -18913,6 +18925,10 @@ export type Database = {
         }[]
       }
       lab_partner_own_provider_id: { Args: never; Returns: string }
+      lab_partner_reject_sample: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       lab_partner_turnaround_stats: {
         Args: { p_days?: number }
         Returns: {
@@ -19292,7 +19308,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           resulted_at: string | null
+          sample_collected_at: string | null
           scheduled_date: string | null
           screening_schedule_id: string | null
           status: Database["public"]["Enums"]["lab_order_status"]
@@ -19442,7 +19462,11 @@ export type Database = {
             | Database["public"]["Enums"]["lab_order_time_of_day"]
             | null
           provider_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           resulted_at: string | null
+          sample_collected_at: string | null
           scheduled_date: string | null
           screening_schedule_id: string | null
           status: Database["public"]["Enums"]["lab_order_status"]
@@ -19968,6 +19992,7 @@ export type Database = {
         | "payment_confirmed"
         | "ordered"
         | "sample_collected"
+        | "sample_rejected"
         | "processing"
         | "resulted"
         | "cancelled"
@@ -20903,6 +20928,7 @@ export const Constants = {
         "payment_confirmed",
         "ordered",
         "sample_collected",
+        "sample_rejected",
         "processing",
         "resulted",
         "cancelled",
