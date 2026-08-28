@@ -45,7 +45,7 @@ begin
     raise exception 'no organisation has patient profiles — cannot run this test';
   end if;
 
-  select organisation_id into v_other_org
+  select id into v_other_org
   from public.organisations where id <> v_org limit 1;
   if v_other_org is null then
     -- Fall back to a synthetic second org if only one exists in this environment.
@@ -326,9 +326,15 @@ begin
   delete from public.care_plans where id = v_plan;
   reset role;
 
+  -- Not `order by corrected_at desc limit 1`: now() returns the
+  -- TRANSACTION's start time in Postgres, not per-statement time, so every
+  -- correction inserted anywhere in this whole test file shares the exact
+  -- same corrected_at -- ordering by it cannot distinguish the DELETE row
+  -- from the earlier UPDATE row. new_values is null is what's actually
+  -- unique to the DELETE-generated row.
   select * into v_row from public.record_corrections
-    where table_name = 'care_plans' and entity_id = v_plan
-    order by corrected_at desc limit 1;
+    where table_name = 'care_plans' and entity_id = v_plan and new_values is null
+    limit 1;
 
   insert into rcpw_result values
     ('DELETE captured', 'clinician', case when v_row.id is not null then 'yes' else 'no' end, 'yes',

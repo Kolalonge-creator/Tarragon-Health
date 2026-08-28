@@ -188,7 +188,20 @@ create policy record_corrections_select on public.record_corrections
 -- insert (unlike audit_log, which intentionally also accepts direct
 -- app-authored entries). Nothing here for a compromised client session to
 -- forge.
+--
+-- The explicit revoke below is not redundant: this project auto-grants
+-- select/insert/update/delete to `authenticated` on every newly created
+-- public-schema table via an `alter default privileges` rule, so a bare
+-- `grant select` here would have left insert/update/delete silently
+-- present anyway (confirmed live via information_schema.role_table_grants
+-- after this migration first ran without the revoke). RLS's default-deny
+-- already made that safe in practice (no INSERT/UPDATE/DELETE policy
+-- exists, so those commands are denied/filtered regardless of the grant),
+-- but relying solely on "no policy happens to exist" is fragile -- the
+-- revoke is a second, independent layer that doesn't depend on nobody ever
+-- adding a policy here by mistake.
 grant select on public.record_corrections to authenticated;
+revoke insert, update, delete on public.record_corrections from authenticated;
 revoke all on public.record_corrections from anon;
 
 -- ---------------------------------------------------------------------------
@@ -343,5 +356,13 @@ begin
     raise exception 'FAIL: record_corrections_select policy is missing';
   end if;
 
-  raise notice 'PASS: record_corrections_platform_wide -- table, trigger, and 21 attachments installed';
+  if exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'record_corrections'
+      and grantee = 'authenticated' and privilege_type in ('INSERT', 'UPDATE', 'DELETE')
+  ) then
+    raise exception 'FAIL: authenticated still has INSERT/UPDATE/DELETE on record_corrections';
+  end if;
+
+  raise notice 'PASS: record_corrections_platform_wide -- table, trigger, 21 attachments, and grant revoke installed';
 end $$;
