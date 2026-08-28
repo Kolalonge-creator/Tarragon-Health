@@ -157,12 +157,27 @@ begin
   select count(*) into v_n from public.subscription_plans where currency = 'GBP';
   if v_n <> 0 then raise exception 'FAIL: % GBP plan rows remain', v_n; end if;
 
+  -- Derive the expected price the same way the platform itself does --
+  -- private.expected_derived_price_minor(), which as of
+  -- 20260802213144_diaspora_usd_processing_fee.sql applies BOTH the
+  -- reference rate (ngn_per_usd, 1365 as of 2026-07-29) AND a 10% USD
+  -- processing fee on top -- rather than hardcoding the pre-fee "/ 1365.0"
+  -- rate this check originally shipped with (that formula predates the
+  -- processing-fee migration and would now flag every unlocked dollar row as
+  -- "wrong" for correctly including the fee). A price-locked row (an
+  -- existing subscriber's price, e.g. complete_usd) is excluded by design --
+  -- private.recompute_derived_prices() deliberately leaves it stale until an
+  -- admin resyncs it after a rate/fee change, exactly as
+  -- 20260802213144's own assertions require, so a locked row is EXPECTED to
+  -- disagree with the current formula and is not a "one price list"
+  -- violation.
   select count(*) into v_n
     from public.subscription_plans p
     join public.subscription_plans b on b.code = p.derived_from_code
-   where p.price_minor <> round(b.price_minor / 1365.0);
+   where not p.price_locked
+     and p.price_minor <> private.expected_derived_price_minor(b.price_minor, p.currency);
   if v_n <> 0 then raise exception 'FAIL: % dollar rows are off the reference rate', v_n; end if;
-  raise notice 'PASS  every dollar price is its naira price at 1365';
+  raise notice 'PASS  every unlocked dollar price matches private.expected_derived_price_minor() at the current rate + fee';
 
   raise notice '--- all checks passed ---';
 end $$;

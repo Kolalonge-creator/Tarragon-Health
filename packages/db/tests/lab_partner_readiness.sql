@@ -27,6 +27,13 @@ create temporary table readiness_result(
   verdict    text
 ) on commit drop;
 
+-- Results are recorded from inside simulated `authenticated` sessions further
+-- down, so that role needs write access to this scratch table -- same grant
+-- self_arranged_fulfilment.sql/masked_calling_twilio_proxy.sql already need
+-- for the identical reason (a temp table created by the connecting
+-- superuser grants no access to authenticated by default).
+grant insert, select on readiness_result to authenticated;
+
 do $$
 declare
   v_org          uuid := '00000000-0000-0000-0000-000000000001';

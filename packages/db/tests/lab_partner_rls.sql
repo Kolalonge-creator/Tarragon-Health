@@ -122,13 +122,26 @@ begin
   -- against real values rather than against an RLS-scoped subquery — such a
   -- subquery returns nothing inside the partner's own session and would make
   -- the isolation check pass vacuously.
+  --
+  -- fulfilment = 'partner' is required here: the table default, 'self_arranged'
+  -- (since 20260803124833_self_arranged_lab_fulfilment.sql), cannot name a
+  -- provider_id at all (private.enforce_lab_order_origin rejects it outright).
+  -- No panel_bundle_id/pricing/region setup is needed to go with it, though:
+  -- these orders are origin = 'clinically_triggered', not 'patient_initiated',
+  -- so enforce_lab_order_origin's self-bookable/schedule branch and
+  -- enforce_lab_order_region's gate never run for them (both only apply to the
+  -- patient_initiated branch); and private.set_lab_order_computed_price (the
+  -- trigger that would compute total_kobo/partner_cost_kobo for a partner
+  -- order) itself no-ops whenever panel_bundle_id is null, which it is here —
+  -- this file is proving RLS isolation between two lab-partner-linked staff
+  -- accounts, not money, so total_kobo staying at its 0 default is correct.
   insert into public.lab_orders
-    (organisation_id, patient_id, provider_id, status, origin, ordered_by)
-  values (v_org, v_pat_a, v_lab_a, 'payment_confirmed', 'clinically_triggered', v_staff)
+    (organisation_id, patient_id, provider_id, status, origin, ordered_by, fulfilment)
+  values (v_org, v_pat_a, v_lab_a, 'payment_confirmed', 'clinically_triggered', v_staff, 'partner')
   returning id into v_order_a;
   insert into public.lab_orders
-    (organisation_id, patient_id, provider_id, status, origin, ordered_by)
-  values (v_org, v_pat_b, v_lab_b, 'payment_confirmed', 'clinically_triggered', v_staff)
+    (organisation_id, patient_id, provider_id, status, origin, ordered_by, fulfilment)
+  values (v_org, v_pat_b, v_lab_b, 'payment_confirmed', 'clinically_triggered', v_staff, 'partner')
   returning id into v_order_b;
 
   -- ------------------------------------------------------------------------

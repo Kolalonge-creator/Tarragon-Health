@@ -23,6 +23,14 @@
 -- sex=null (~41), one male (~66), one female (~71) -- as fresh auth.users
 -- rows inside the rolled-back transaction, rather than relying on any
 -- specific pre-existing profile id.
+--
+-- Note (2026-08-28 CI fix): 20260821191743_synlab_contract_prices_and_tier_
+-- restructure.sql landed later the same day as the pricing engine below and
+-- raised cervical_smear's age_to from 64 to 65, and moved blood_group /
+-- sickle_cell_genotype out of screen_core's test_codes into a new
+-- know_your_basics bundle. p1c, p6/p6b and p11b were written against the
+-- pre-restructure numbers/bundle and are updated below to match current
+-- reality rather than re-litigate it.
 
 begin;
 
@@ -35,7 +43,7 @@ declare
   v_female  uuid := gen_random_uuid(); -- female, age ~71
   v_org     uuid := '00000000-0000-0000-0000-000000000001';
   v_comp    uuid;
-  v_core    uuid;
+  v_basics  uuid;  -- know_your_basics: the once-per-lifetime bundle, see note above
   v_male_price   jsonb;
   v_female_price jsonb;
   v_before jsonb;
@@ -48,7 +56,7 @@ begin
   -- profile rows exist to reuse, so each patient is minted here with the
   -- sex/date_of_birth its own case above actually depends on (see
   -- p1c_age_gated_line_is_excluded_at_the_boundary for why v_female must be
-  -- older than cervical_smear's age_to=64, and p2b_male_review_does_include_psa
+  -- older than cervical_smear's age_to=65, and p2b_male_review_does_include_psa
   -- for why v_male must be male).
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v_patient, 'computed-review-price-null-sex-patient@example.invalid', 'x', now(), '{}', '{}');
@@ -68,8 +76,8 @@ begin
          sex = 'female', date_of_birth = '1955-01-01'
     where id = v_female;
 
-  select id into v_comp from public.panel_bundles where code = 'screen_comprehensive';
-  select id into v_core from public.panel_bundles where code = 'screen_core';
+  select id into v_comp   from public.panel_bundles where code = 'screen_comprehensive';
+  select id into v_basics from public.panel_bundles where code = 'know_your_basics';
 
   delete from public.annual_health_checks
    where patient_id in (v_patient, v_male, v_female) and year = v_year;
@@ -89,13 +97,14 @@ begin
     null;
 
   -- Age gating is live too, and this fixture is the case that proves it:
-  -- she is ~71 and screen_types.cervical_smear.age_to is 64, so cervical
-  -- screening is correctly NOT in her review and correctly not billed to
-  -- her. (A woman aged 25-64 would have it; this assertion deliberately
-  -- pins the boundary rather than the happy path.)
+  -- she is ~71 and screen_types.cervical_smear.age_to is 65 (raised from 64
+  -- by 20260821191743_synlab_contract_prices_and_tier_restructure.sql), so
+  -- cervical screening is correctly NOT in her review and correctly not
+  -- billed to her. (A woman aged 25-65 would have it; this assertion
+  -- deliberately pins the boundary rather than the happy path.)
   insert into test_results select 'p1c_age_gated_line_is_excluded_at_the_boundary',
     not (v_delivered && array['cervical_smear'])
-    and (select age_to = 64 from public.screen_types where code = 'cervical_smear'),
+    and (select age_to = 65 from public.screen_types where code = 'cervical_smear'),
     null;
 
   v_delivered := private.patient_delivered_test_codes(
@@ -147,14 +156,23 @@ begin
   -- 3. Year two costs less than year one: the lifetime-once items drop out
   --    of the delivered set once they are on file, so they stop being
   --    billed. This is the "month 13 costs less than month 1" promise.
+  --
+  -- Proven against Know Your Basics, not Core Screen: 20260821191743_
+  -- synlab_contract_prices_and_tier_restructure.sql moved blood_group and
+  -- sickle_cell_genotype OUT of screen_core's test_codes entirely -- Core
+  -- Screen is now deliberately the "true annual" tier with no once-per-
+  -- lifetime line left in it at all -- and put them in the new
+  -- know_your_basics bundle instead, alongside hep_b/hep_c. Running this
+  -- against screen_core would insert screening_results for two codes the
+  -- bundle no longer contains, so nothing would ever leave the delivered set.
   -- -----------------------------------------------------------------------
-  v_before := private.compute_review_price(v_female, v_org, v_core);
+  v_before := private.compute_review_price(v_female, v_org, v_basics);
 
   insert into public.screening_results (organisation_id, patient_id, screen_type_code, result_status)
   values (v_org, v_female, 'blood_group', 'normal'),
          (v_org, v_female, 'sickle_cell_genotype', 'normal');
 
-  v_after := private.compute_review_price(v_female, v_org, v_core);
+  v_after := private.compute_review_price(v_female, v_org, v_basics);
 
   insert into test_results select 'p6_second_year_review_costs_less',
     (v_after ->> 'total_kobo')::bigint < (v_before ->> 'total_kobo')::bigint,
@@ -259,19 +277,27 @@ declare
 begin
   -- Own fresh fixture -- this do-block is a separate transaction scope from
   -- the one above, so its v_female variable is unrelated even though it
-  -- shares a name; nothing here is sex/age-sensitive (screen_core carries no
-  -- sex-gated lines), but state must be a real, already-active
-  -- service_regions row (Lagos, flipped live in
-  -- 20260717100000_service_regions.sql) or the "if not found" branch below
-  -- would try to insert a NULL into service_regions.state, which is NOT NULL.
+  -- shares a name; state must be a real, already-active service_regions row
+  -- (Lagos, flipped live in 20260717100000_service_regions.sql) or the "if
+  -- not found" branch below would try to insert a NULL into
+  -- service_regions.state, which is NOT NULL.
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v_female, 'computed-review-price-order-level-female@example.invalid', 'x', now(), '{}', '{}');
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Computed Review Price Order-Level Test Female',
          sex = 'female', date_of_birth = '1955-01-01', state = 'Lagos'
     where id = v_female;
 
+  -- Know Your Basics, not Core Screen: 20260821191743_synlab_contract_
+  -- prices_and_tier_restructure.sql zeroed every active screen tier's
+  -- review_discount_bp and reset its headline price_kobo to exactly the sum
+  -- of its own lines. Core Screen also no longer contains a single
+  -- patient-varying line (its once-per-lifetime items moved out to Know Your
+  -- Basics that same migration), so a patient receiving its whole,
+  -- unexcluded test list now prices identically to its flat number and could
+  -- never demonstrate p11b. One lifetime-once item already on file below is
+  -- what actually produces the divergence p11b proves.
   select id, price_kobo into v_core, v_headline
-    from public.panel_bundles where code = 'screen_core';
+    from public.panel_bundles where code = 'know_your_basics';
 
   insert into public.lab_orders
     (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin, investigation_tier)
@@ -281,6 +307,9 @@ begin
   insert into test_results select 'p10_self_arranged_order_still_costs_nothing',
     (select total_kobo = 0 from public.lab_orders where id = v_order),
     null;
+
+  insert into public.screening_results (organisation_id, patient_id, screen_type_code, result_status)
+  values (v_org, v_female, 'hep_b', 'normal');
 
   v_computed := (private.compute_review_price(v_female, v_org, v_core) ->> 'total_kobo')::bigint;
 

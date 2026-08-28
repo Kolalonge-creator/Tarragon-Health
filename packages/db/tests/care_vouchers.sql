@@ -31,6 +31,8 @@ declare
   v_plan_essential      uuid;   -- essential_yearly: Bob's gift, a different plan
   v_bundle       uuid;   -- a real panel bundle, needed only for the lab-order fixtures in 4/6/7
   v_bundle_price bigint;
+  v_synlab       uuid;   -- the one lab partner actually switched on anywhere in this history
+  v_order_total  bigint; -- engine-computed total_kobo read back after a partner-order insert
   v_voucher  uuid;
   v_reward   uuid;
   v_order2   uuid;
@@ -90,11 +92,32 @@ begin
   -- purchase/redemption below now exercises. A real panel bundle is still
   -- needed for sections 4/6/7, which prove a voucher cannot be spent against
   -- an unrelated lab order.
+  --
+  -- That fixture now has to be a REAL, partner-billed, computed-priced order
+  -- for redeem_care_voucher to reach its 'pending_payment' precondition at
+  -- all — a self-arranged order (the table default since 20260803124833) can
+  -- never be pending_payment or carry a nonzero total_kobo, see
+  -- private.enforce_lab_order_origin. screen_core is self-bookable (needs no
+  -- screening_schedule_id) and, priced for a female/1955/Lagos patient, is
+  -- the exact combination already proven clean and nonzero by
+  -- partner_billing_money_path.sql and sponsor_pay_booking_order.sql — same
+  -- demographics, same lab partner (Synlab Nigeria, the only one actually
+  -- switched on anywhere in this project's history), reused here.
   select id, price_kobo into v_bundle, v_bundle_price
-    from public.panel_bundles where price_kobo > 100000 order by price_kobo desc limit 1;
+    from public.panel_bundles where code = 'screen_core';
   if v_bundle is null then
     raise exception 'fixture bundle missing — is the clinical catalogue restored?';
   end if;
+
+  update public.profiles
+     set sex = 'female', date_of_birth = date '1955-01-01', state = 'Lagos'
+   where id in (v_alice, v_carol);
+
+  update public.service_regions set is_active = true where state = 'Lagos';
+  if not found then insert into public.service_regions (state, is_active) values ('Lagos', true); end if;
+  update public.lab_providers set is_active = true, regions = array['Lagos'] where name = 'Synlab Nigeria';
+  select id into v_synlab from public.lab_providers where name = 'Synlab Nigeria';
+  if v_synlab is null then raise exception 'fixture: Synlab Nigeria lab_providers row missing'; end if;
 
   -- Bob is a consented sponsor for Alice with full manage rights.
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
@@ -228,8 +251,9 @@ begin
   -- against an unrelated lab order — two redemption mechanisms on the same
   -- table must never cross-contaminate.
   insert into public.lab_orders
-    (organisation_id, patient_id, status, total_kobo, origin, panel_bundle_id)
-  values (c_org, v_alice, 'pending_payment', v_bundle_price, 'patient_initiated', v_bundle)
+    (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin,
+     investigation_tier, fulfilment, provider_id)
+  values (c_org, v_alice, v_bundle, 'pending_payment', 0, 'patient_initiated', 1, 'partner', v_synlab)
   returning id into v_order2;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_alice, 'role', 'authenticated')::text, true);
@@ -296,19 +320,30 @@ begin
   insert into _checks (msg) values ('PASS 6a: reward vouchers are issued active with no purchaser (not customer money)');
 
   -- A reward discounts a pricier order rather than settling it outright.
+  -- Needs a REAL, partner-billed order — a self-arranged one can never carry
+  -- a nonzero total_kobo or be pending_payment (private.enforce_lab_order_
+  -- origin) — so read back the actual engine-computed total_kobo after
+  -- insert rather than assuming the flat panel_bundles catalogue price
+  -- (v_bundle_price), which a partner order no longer carries verbatim.
   insert into public.lab_orders
-    (organisation_id, patient_id, status, total_kobo, origin, panel_bundle_id)
-  values (c_org, v_alice, 'pending_payment', v_bundle_price, 'patient_initiated', v_bundle)
+    (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin,
+     investigation_tier, fulfilment, provider_id)
+  values (c_org, v_alice, v_bundle, 'pending_payment', 0, 'patient_initiated', 1, 'partner', v_synlab)
   returning id into v_order2;
+
+  select total_kobo into v_order_total from public.lab_orders where id = v_order2;
+  if v_order_total is null or v_order_total <= 50000 then
+    raise exception 'fixture: screen_core did not price cleanly above the reward value for Alice (got %)', v_order_total;
+  end if;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_alice, 'role', 'authenticated')::text, true);
   set local role authenticated;
   v_res := public.redeem_care_voucher(v_reward, 'lab', v_order2);
   if (v_res ->> 'fully_covered')::boolean is not false then
-    raise exception 'FAIL 6b: a NGN 500 reward should not fully cover a pricier check (bundle price % kobo)', v_bundle_price;
+    raise exception 'FAIL 6b: a NGN 500 reward should not fully cover a pricier check (order total % kobo)', v_order_total;
   end if;
   select status::text, payable_kobo into v_status, v_payable from public.lab_orders where id = v_order2;
-  if v_status <> 'pending_payment' or v_payable <> v_bundle_price - 50000 then
+  if v_status <> 'pending_payment' or v_payable <> v_order_total - 50000 then
     raise exception 'FAIL 6b: expected a reduced payable amount, got % / %', v_status, v_payable;
   end if;
   insert into _checks (msg) values ('PASS 6b: a reward reduces what is payable and the rest is still owed');
@@ -318,9 +353,14 @@ begin
   -- =========================================================================
   reset role;
   v_reward := private.issue_reward_voucher(v_alice, 50000, 'Referral reward', 'test2');
+  -- Same treatment as section 6: a real, partner-billed order for Carol (her
+  -- profile was given the same female/1955/Lagos demographics above so this
+  -- prices cleanly too). This section only checks who is authorised to spend
+  -- the voucher, not the order's price, so the exact total does not matter.
   insert into public.lab_orders
-    (organisation_id, patient_id, status, total_kobo, origin, panel_bundle_id)
-  values (c_org, v_carol, 'pending_payment', v_bundle_price, 'patient_initiated', v_bundle)
+    (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin,
+     investigation_tier, fulfilment, provider_id)
+  values (c_org, v_carol, v_bundle, 'pending_payment', 0, 'patient_initiated', 1, 'partner', v_synlab)
   returning id into v_order2;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_carol, 'role', 'authenticated')::text, true);

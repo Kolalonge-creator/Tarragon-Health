@@ -175,6 +175,15 @@ begin
   --------------------------------------------------------------------------
   -- 5. the sponsor pays the plan
   --------------------------------------------------------------------------
+  -- Every NGN paid plan is currently is_active=false pending a Paystack
+  -- "Sync now" re-sync after the 2026-08-05 price change
+  -- (20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_
+  -- plans.sql) -- a real, current ops state, not a code defect. Reactivate
+  -- for the life of this rolled-back transaction only, same as
+  -- care_vouchers.sql/health_reset_90_day.sql/subscription_care_vouchers.sql.
+  update public.subscription_plans set is_active = true
+   where currency = 'NGN' and price_minor > 0;
+
   select id, code into v_plan, v_plan_code
     from public.subscription_plans
    where is_active and currency = 'NGN' and price_minor > 0 limit 1;

@@ -183,23 +183,51 @@ begin
 
   ------------------------------------------------------------------
   -- 4. Extraction confirmation: AI proposes, a clinician decides.
+  --
+  -- Rewritten 2026-08-28 for 20260807151847_nigerian_lab_ingestion_engine.sql,
+  -- which retired public.lab_result_extractions / confirm_lab_result_extraction
+  -- (the narrower of two duplicate AI-extraction engines) in favour of the
+  -- richer public.lab_report_extractions / confirm_lab_report_extraction,
+  -- "taking the retired engine's stronger confirmation path with it" per that
+  -- migration's own header. Same properties proved, adapted to the surviving
+  -- engine's shape:
+  --   * status starts 'extracted', not 'ready' (lab_report_extractions' check
+  --     constraint never had a 'ready' value);
+  --   * the model's reading lives in `rows`, not `proposed`, and its elements
+  --     use extract.ts's field names (code/value/unit/valueText/reportedLabel/
+  --     reportedRange/confidence), not the retired engine's plain
+  --     code/value/unit;
+  --   * confirm_lab_report_extraction takes a third argument, p_report_date
+  --     (what lab_analyte_readings.taken_at is set from), and returns an
+  --     integer (count of readings filed) rather than the old function's void;
+  --   * confirmed_by on THIS table is, and always was (it predates the
+  --     retirement migration by four days, unchanged by it), a
+  --     public.profiles FK -- confirm_lab_report_extraction stamps
+  --     `(select auth.uid())`, the confirming clinician's own profile id, not
+  --     a clinical_staff.id the way the retired engine's confirmed_by (a
+  --     clinical_staff FK) did. 4f is updated to prove the property that
+  --     actually holds for this table: non-forgeable, server-derived
+  --     attribution to the real caller -- gated on an active clinical_staff
+  --     row existing (the same v_staff created above), just not stored as
+  --     that row's own id.
   ------------------------------------------------------------------
-  insert into public.lab_result_extractions
-    (organisation_id, patient_id, document_id, status, model_id, proposed)
-  values (v_org, v_pt, v_doc, 'ready', 'claude-haiku-4-5',
+  insert into public.lab_report_extractions
+    (organisation_id, patient_id, document_id, status, model_id, rows)
+  values (v_org, v_pt, v_doc, 'extracted', 'claude-haiku-4-5',
     '[{"code":"total_cholesterol","value":201.08,"unit":"mg/dL"}]'::jsonb)
   returning id into v_extraction;
 
   -- A patient must not even see an unconfirmed machine reading of their blood.
   perform set_config('request.jwt.claims', v_claims, true);
   set local role authenticated;
-  select count(*) into v_n from public.lab_result_extractions where id = v_extraction;
+  select count(*) into v_n from public.lab_report_extractions where id = v_extraction;
   insert into r values ('4a patient cannot see an unconfirmed extraction',
     case when v_n = 0 then 'PASS' else 'FAIL - visible' end);
 
   begin
-    perform public.confirm_lab_result_extraction(v_extraction,
-      '[{"code":"total_cholesterol","value":201.08,"unit":"mg/dL"}]'::jsonb);
+    perform public.confirm_lab_report_extraction(v_extraction,
+      '[{"code":"total_cholesterol","value":201.08,"unit":"mg/dL"}]'::jsonb,
+      current_date);
     insert into r values ('4b patient cannot confirm an extraction', 'FAIL - accepted');
   exception when insufficient_privilege then
     insert into r values ('4b patient cannot confirm an extraction', 'PASS');
@@ -211,16 +239,18 @@ begin
     json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
   set local role authenticated;
 
-  select count(*) into v_n from public.lab_result_extractions where id = v_extraction;
+  select count(*) into v_n from public.lab_report_extractions where id = v_extraction;
   insert into r values ('4c CONTROL clinician can see the extraction',
     case when v_n = 1 then 'PASS' else 'FAIL - hidden' end);
 
-  perform public.confirm_lab_result_extraction(v_extraction,
-    '[{"code":"total_cholesterol","value":195,"unit":"mg/dL"}]'::jsonb);
+  perform public.confirm_lab_report_extraction(v_extraction,
+    '[{"code":"total_cholesterol","value":195,"unit":"mg/dL"}]'::jsonb,
+    current_date);
 
   begin
-    perform public.confirm_lab_result_extraction(v_extraction,
-      '[{"code":"total_cholesterol","value":195,"unit":"mg/dL"}]'::jsonb);
+    perform public.confirm_lab_report_extraction(v_extraction,
+      '[{"code":"total_cholesterol","value":195,"unit":"mg/dL"}]'::jsonb,
+      current_date);
     insert into r values ('4e double confirmation refused', 'FAIL - accepted');
   exception when unique_violation then
     insert into r values ('4e double confirmation refused', 'PASS');
@@ -235,9 +265,9 @@ begin
     case when v_val = 195 and v_unit = 'mg/dL' then 'PASS'
          else 'FAIL - got ' || coalesce(v_val::text, 'null') end);
 
-  select confirmed_by into v_confirmed from public.lab_result_extractions where id = v_extraction;
-  insert into r values ('4f confirmed_by stamped to the real clinical_staff row',
-    case when v_confirmed = v_staff then 'PASS' else 'FAIL' end);
+  select confirmed_by into v_confirmed from public.lab_report_extractions where id = v_extraction;
+  insert into r values ('4f confirmed_by stamped server-side to the confirming clinician, not the client',
+    case when v_confirmed = v_clin then 'PASS' else 'FAIL' end);
 end $$;
 
 select step, verdict from r order by step;

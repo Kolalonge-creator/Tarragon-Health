@@ -129,6 +129,16 @@ begin
   -- billing tests at all) -- the voucher need not even be paid off: the
   -- report groups by purchaser/beneficiary pair regardless of the voucher's
   -- status.
+  -- Every NGN paid plan is currently is_active=false pending a Paystack
+  -- "Sync now" re-sync after the 2026-08-05 price change
+  -- (20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_
+  -- plans.sql) -- a real, current ops state, not a code defect. Reactivate
+  -- the yearly NGN tiers for the life of this rolled-back transaction only,
+  -- same as care_vouchers.sql/health_reset_90_day.sql/subscription_care_
+  -- vouchers.sql already do.
+  update public.subscription_plans set is_active = true
+   where interval = 'yearly' and currency = 'NGN' and price_minor > 0;
+
   select id into v_yearly
     from public.subscription_plans
    where interval = 'yearly' and is_active and currency = 'NGN' and price_minor > 0
