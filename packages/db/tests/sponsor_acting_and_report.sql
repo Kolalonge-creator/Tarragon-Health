@@ -30,12 +30,11 @@
 -- purchasing a voucher as a gift (private.can_purchase_voucher_for is what
 -- makes someone count as a "sponsor" now, same as a wallet topup used to) and
 -- counting the notifications it produces, since there is no longer a count to
--- return. NOTE: unlike the wallet-era function -- which explicitly skipped a
--- sponsor already notified in the last 20 days -- the rewritten version has
--- no such guard, even though its own comment claims the replacement works
--- "exactly as before". That looks like a dropped idempotency guard rather
--- than a deliberate change, so this file does not assert idempotency any
--- more; flagged for a human to confirm whether the guard should be restored.
+-- return. The rewrite had DROPPED the wallet-era 20-day anti-duplicate
+-- guard despite its own comment claiming parity with the old function --
+-- confirmed a real regression, not a deliberate change, and restored in
+-- 20260828140000_restore_sponsor_monthly_report_dedup_guard.sql. Check 6
+-- below proves the guard holds again.
 --
 --   1. A 'manage' sponsor can request care for the person they support (an
 --      unpaid, self-arranged request -- there is nothing left to fund here).
@@ -45,6 +44,8 @@
 --   5. queue_sponsor_monthly_reports notifies a voucher purchaser on two
 --      channels, non_clinical, once care_vouchers has a purchaser/beneficiary
 --      pair to summarise.
+--   6. A second run inside the 20-day window does not renotify the same
+--      sponsor.
 begin;
 
 do $$
@@ -163,7 +164,16 @@ begin
     raise exception 'FAIL 5: content_class was %, expected non_clinical', v_classes;
   end if;
 
-  raise notice 'PASS: booking, permission gates, basics and the monthly report all behaved';
+  ------------------------------------------------------- 6. no duplicate on a second run
+  perform private.queue_sponsor_monthly_reports();
+
+  select count(*) into v_rows from public.notifications
+   where template = 'sponsor_monthly_report' and recipient_id = v_sponsor;
+  if v_rows <> 2 then
+    raise exception 'FAIL 6: a second run inside the window changed the row count to %, expected still 2', v_rows;
+  end if;
+
+  raise notice 'PASS: booking, permission gates, basics, the monthly report and its dedup guard all behaved';
 end $$;
 
 rollback;
