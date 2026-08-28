@@ -9,6 +9,7 @@ import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card
 import { LabResults } from "@/app/(dashboard)/patient/lab-results";
 import { ResultDocuments } from "@/app/(dashboard)/patient/result-documents";
 import { BookingRequestsList } from "@/app/(dashboard)/patient/booking-requests-list";
+import { DiagnosticRequestsList } from "@/app/(dashboard)/patient/diagnostic-requests-list";
 
 export default async function PatientLabsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -43,6 +44,7 @@ export default async function PatientLabsPage() {
           </div>
           <div className="space-y-4">
             <LabOrdersList patientId={subjectId} />
+            <DiagnosticRequestsList patientId={subjectId} />
             <LabCatalogue />
             {/* No facility directory. Labs, pharmacies and specialists are all
                 suspended (founder decision 2026-08-03): the platform takes no
@@ -66,6 +68,7 @@ export default async function PatientLabsPage() {
               <ResultsTrendsCard patientId={subjectId} />
             </div>
             <LabOrdersList patientId={subjectId} />
+            <DiagnosticRequestsList patientId={subjectId} />
           </div>
         </>
       )}
