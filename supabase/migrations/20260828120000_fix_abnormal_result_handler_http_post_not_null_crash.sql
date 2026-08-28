@@ -163,6 +163,14 @@ begin
       raise exception 'handle_abnormal_screening_result() did not create the screening_upgrades audit row';
     end if;
 
+    -- clinician_alerts_guard_deletion (Alert System, applied earlier today)
+    -- now blocks deleting an unresolved severity>=2 alert outright -- this
+    -- fixture alert is severity 3 (urgent_escalation). Resolve it first,
+    -- matching the same documentation-required-for-severity>=2 constraint,
+    -- before cleaning it up.
+    update public.clinician_alerts
+      set status = 'resolved', resolution_action = 'test fixture cleanup', resolution_outcome = 'no_action_needed'
+      where screening_result_id = v_result_id;
     delete from public.clinician_alerts where screening_result_id = v_result_id;
     delete from public.screening_upgrades where screening_result_id = v_result_id;
     delete from public.screening_results where id = v_result_id;
