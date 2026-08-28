@@ -64,10 +64,20 @@ begin
     insert into test_result values (0, 'fixture check', 'SKIPPED',
       'org 00000000-0000-0000-0000-000000000001 needs at least one active non-director and one active Clinical Director clinical_staff row for cases 1-2');
   else
+    -- Includes ack_timeout_minutes: signing this draft in case 2 makes it
+    -- the new active alert_rules version for the rest of this transaction
+    -- (is_active is a single platform-wide singleton), retiring the v1
+    -- seed cases 3-4 depend on for abnormal_result's governed timeout. A
+    -- config entry missing that key would make private.alert_rule_config()
+    -- return no timeout at all, and the ack-timeout sweep correctly (and
+    -- silently) no-ops for a type with no governed timeout -- so cases 3-4
+    -- would see 0 hops for reasons that have nothing to do with the sweep
+    -- itself. Carrying the same value forward keeps cases 3-4 order-
+    -- independent of cases 1-2.
     insert into public.alert_rules (version, config)
       values (
         (select coalesce(max(version), 0) + 1 from public.alert_rules),
-        jsonb_build_array(jsonb_build_object('type_code', 'abnormal_result', 'default_severity', 3))
+        jsonb_build_array(jsonb_build_object('type_code', 'abnormal_result', 'default_severity', 3, 'ack_timeout_minutes', 30))
       )
       returning id into v_draft_id;
 
