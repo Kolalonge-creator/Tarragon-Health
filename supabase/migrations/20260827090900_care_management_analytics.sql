@@ -87,7 +87,7 @@ begin
 
     'goals_active', (
       select count(*) from public.care_plan_goals
-      where organisation_id = p_org and status = 'active'
+      where organisation_id = p_org and status = 'open'
     )
   ) into v_result;
 

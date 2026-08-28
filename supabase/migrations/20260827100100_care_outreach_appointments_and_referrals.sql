@@ -12,9 +12,26 @@
 -- all close on a real state change elsewhere — e.g. a new active care plan
 -- for unactioned_abnormal — which neither of these has).
 --
--- Everything else in the function body is preserved byte-for-byte from the
--- live definition (20260827090600), same discipline this codebase already
--- applies to every queue_care_outreach edit.
+-- RECONCILED during main-dev integration, not a byte-for-byte carry-forward:
+-- private.queue_care_outreach() was independently rewritten by THREE
+-- concurrent sessions on 2026-08-27/28, each preserving only what it knew
+-- about at the time —
+--   1. this feature's own prior step (20260827090600): added
+--      missed_care_task.
+--   2. the Consultation System's repeated_no_show_care_gap migration
+--      (20260828002100, merged and live before this integration): added a
+--      repeated_no_show branch reading from patient_care_gaps, PLUS a
+--      second, guaranteed in_app notification insert alongside the
+--      existing whatsapp one (guarantee_in_app_notification_companions,
+--      20260811235133) — this feature's own carry-forward predates that
+--      change and only ever sent whatsapp.
+--   3. this migration: originally added missed_appointment/failed_referral
+--      on top of (1) alone, with no knowledge of (2).
+-- This version is the union of all three: every branch, plus the dual
+-- in_app + whatsapp notification insert live definition (2) already
+-- shipped. Confirmed against the live pg_get_functiondef immediately before
+-- writing this, same "read live before touching a shared function"
+-- discipline this codebase's own migrations already document repeatedly.
 
 create or replace function private.queue_care_outreach()
 returns void
@@ -48,7 +65,10 @@ as $function$
 
     union all
 
-    -- Open care gaps (derived view; recomputed live each run).
+    -- Open care gaps (derived view; recomputed live each run) — covers
+    -- unactioned_abnormal/overdue_screening/awaiting_result/repeated_no_show
+    -- explicitly, stale_monitoring as the fallback for everything else the
+    -- view produces.
     select
       g.organisation_id,
       g.patient_id,
@@ -56,6 +76,7 @@ as $function$
         when 'unactioned_abnormal' then 'unactioned_abnormal'
         when 'overdue_screening' then 'overdue_screening'
         when 'awaiting_result' then 'awaiting_result'
+        when 'repeated_no_show' then 'repeated_no_show'
         else 'stale_monitoring'
       end::public.outreach_trigger_type,
       g.detail || jsonb_build_object('condition_or_type', g.condition_or_type, 'opened_at', g.opened_at),
@@ -63,6 +84,7 @@ as $function$
         when 'unactioned_abnormal' then 1
         when 'overdue_screening' then 2
         when 'awaiting_result' then 2
+        when 'repeated_no_show' then 2
         else 3
       end
     from public.patient_care_gaps g
@@ -128,6 +150,22 @@ as $function$
       where status in ('open', 'in_progress', 'contacted')
       do nothing
     returning id, organisation_id, patient_id, trigger_type
+  ),
+  queued as (
+    -- Guaranteed in_app companion (guarantee_in_app_notification_companions,
+    -- 20260811235133) — whatsapp delivery is never the only channel a
+    -- coordinator nudge goes out on.
+    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+    select
+      i.organisation_id,
+      i.patient_id,
+      'whatsapp',
+      'pending',
+      'care_outreach_checkin',
+      jsonb_build_object('reasons', array_agg(distinct i.trigger_type::text))
+    from inserted i
+    group by i.organisation_id, i.patient_id
+    returning recipient_id
   )
   -- One aggregated, warm nudge per patient per run — only when something NEW
   -- surfaced (re-runs insert nothing, so nobody is re-nudged nightly).
@@ -135,7 +173,7 @@ as $function$
   select
     i.organisation_id,
     i.patient_id,
-    'whatsapp',
+    'in_app',
     'pending',
     'care_outreach_checkin',
     jsonb_build_object('reasons', array_agg(distinct i.trigger_type::text))
@@ -162,9 +200,14 @@ begin
   -- Every pre-existing branch must survive this rewrite.
   if v_def not like '%missed_care_task%'
      or v_def not like '%high_risk_score%'
-     or v_def not like '%unactioned_abnormal%' then
+     or v_def not like '%unactioned_abnormal%'
+     or v_def not like '%repeated_no_show%' then
     raise exception 'FAIL: queue_care_outreach lost a pre-existing branch';
   end if;
+  -- The guaranteed in_app companion (20260811235133) must also survive.
+  if v_def not like '%in_app%' then
+    raise exception 'FAIL: queue_care_outreach lost the guaranteed in_app notification companion';
+  end if;
 
-  raise notice 'PASS: queue_care_outreach covers missed_appointment and failed_referral, prior branches intact';
+  raise notice 'PASS: queue_care_outreach covers missed_appointment, failed_referral and repeated_no_show; prior branches and the in_app notification companion are intact';
 end $$;

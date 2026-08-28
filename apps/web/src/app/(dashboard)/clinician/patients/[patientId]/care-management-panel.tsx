@@ -117,7 +117,7 @@ function CarePlanHistory({ carePlanId }: { carePlanId: string }) {
       {versions.map((version) => (
         <li key={version.id} className="text-xs text-charcoal-ink/70">
           <span className="font-medium text-charcoal-ink/50">
-            {new Date(version.changed_at).toLocaleString("en-GB", {
+            {new Date(version.created_at).toLocaleString("en-GB", {
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -202,7 +202,7 @@ function GoalsPanel({ patientId }: { patientId: string }) {
   const { data: goals } = useCarePlanGoals(patientId);
   const update = useUpdateCarePlanGoal(patientId);
   const proposed = (goals ?? []).filter((g) => g.status === "proposed");
-  const active = (goals ?? []).filter((g) => g.status === "active");
+  const active = (goals ?? []).filter((g) => g.status === "open");
 
   return (
     <div>
@@ -215,7 +215,7 @@ function GoalsPanel({ patientId }: { patientId: string }) {
                 <Badge variant="blue">Patient proposed</Badge> {goal.description}
               </span>
               <div className="flex shrink-0 gap-2">
-                <Button size="sm" onClick={() => update.mutate({ goalId: goal.id, status: "active" })}>
+                <Button size="sm" onClick={() => update.mutate({ goalId: goal.id, status: "open" })}>
                   Approve
                 </Button>
                 <Button

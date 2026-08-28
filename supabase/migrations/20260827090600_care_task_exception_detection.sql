@@ -1,16 +1,19 @@
 -- Tarragon Health — Care Management Engine, step 6b
 --
--- Two closely related additions, kept in one migration because the second
--- depends on the enum value the previous (standalone) migration just added:
+-- Originally two closely related additions in one migration: a
+-- 'missed_care_task' branch on private.queue_care_outreach(), plus the
+-- task-level escalation chain below. The queue_care_outreach() piece was
+-- pulled out during integration with main-dev: two OTHER concurrent
+-- sessions (Consultation System's repeated_no_show branch, and this
+-- feature's own missed_appointment/failed_referral branches two migrations
+-- later) each independently rewrote the same live function, and a third
+-- rewrite here that didn't know about either would silently drop whichever
+-- branch it overwrote. The final, single reconciled version carrying EVERY
+-- branch (this one's missed_care_task included) lives in
+-- 20260827100100_care_outreach_appointments_and_referrals.sql instead,
+-- applied once all three sources of truth are known.
 --
--- 1. private.queue_care_outreach() gains a 'missed_care_task' branch, so a
---    task nobody completed surfaces on the SAME coordinator worklist as
---    every other exception type, instead of a new one nobody would think to
---    check. Everything else in the function body is preserved byte-for-byte
---    from the live definition (pulled from 20260803125639), same discipline
---    this codebase already applies to every queue_care_outreach edit.
---
--- 2. private.escalate_overdue_care_tasks() — the task-level escalation chain
+-- private.escalate_overdue_care_tasks() — the task-level escalation chain
 --    spec §3.14 describes: "Task due -> No completion -> Reminder -> Still
 --    incomplete -> Care coordinator -> Clinical review if necessary. The
 --    exact timing is configurable." Timing lives in escalation_slas
@@ -29,99 +32,6 @@
 --    "-> clinical review if necessary" step is gated on a grace period, and
 --    only for priority-1 tasks — a missed routine weekly weigh-in does not
 --    need a doctor, which is the entire reason care_tasks.priority exists.
-
-create or replace function private.queue_care_outreach()
-returns void
-language sql
-security definer
-set search_path to ''
-as $function$
-  with latest_risk as (
-    select distinct on (prs.patient_id)
-      prs.patient_id, prs.organisation_id, prs.risk_level, prs.score_type,
-      prs.id as score_id, prs.computed_at
-    from public.patient_risk_scores prs
-    where prs.computed_at >= now() - interval '120 days'
-    order by prs.patient_id, prs.computed_at desc
-  ),
-  candidates as (
-    -- High/very-high latest risk score → priority 1/2.
-    select
-      lr.organisation_id,
-      lr.patient_id,
-      'high_risk_score'::public.outreach_trigger_type as trigger_type,
-      jsonb_build_object(
-        'risk_level', lr.risk_level,
-        'score_type', lr.score_type,
-        'score_id', lr.score_id,
-        'computed_at', lr.computed_at
-      ) as trigger_detail,
-      case when lr.risk_level = 'very_high' then 1 else 2 end as priority
-    from latest_risk lr
-    where lr.risk_level in ('high', 'very_high')
-
-    union all
-
-    -- Open care gaps (derived view; recomputed live each run).
-    select
-      g.organisation_id,
-      g.patient_id,
-      case g.gap_type
-        when 'unactioned_abnormal' then 'unactioned_abnormal'
-        when 'overdue_screening' then 'overdue_screening'
-        when 'awaiting_result' then 'awaiting_result'
-        else 'stale_monitoring'
-      end::public.outreach_trigger_type,
-      g.detail || jsonb_build_object('condition_or_type', g.condition_or_type, 'opened_at', g.opened_at),
-      case g.gap_type
-        when 'unactioned_abnormal' then 1
-        when 'overdue_screening' then 2
-        when 'awaiting_result' then 2
-        else 3
-      end
-    from public.patient_care_gaps g
-
-    union all
-
-    -- Care-plan tasks nobody completed by their due date (§3.13's "missed
-    -- monitoring" / "non-adherence" exception types, for the first time
-    -- backed by a real task rather than only a domain-specific table).
-    select
-      ct.organisation_id,
-      ct.patient_id,
-      'missed_care_task'::public.outreach_trigger_type,
-      jsonb_build_object('task_id', ct.id, 'title', ct.title, 'status', ct.status, 'due_at', ct.due_at),
-      case when ct.priority = 1 then 1 else 2 end
-    from public.care_tasks ct
-    where ct.status in ('missed', 'expired', 'unable_to_complete')
-  ),
-  inserted as (
-    -- nudge_sent_at is stamped at insert because the nudge below is enqueued
-    -- for every newly inserted task's patient in this same transaction. (A
-    -- post-hoc UPDATE can't work here: data-modifying CTEs share one snapshot,
-    -- so a sibling statement never sees the rows this INSERT creates.)
-    insert into public.care_outreach_tasks
-      (organisation_id, patient_id, trigger_type, trigger_detail, priority, nudge_sent_at)
-    select organisation_id, patient_id, trigger_type, trigger_detail, priority, now()
-    from candidates
-    on conflict (patient_id, trigger_type)
-      where status in ('open', 'in_progress', 'contacted')
-      do nothing
-    returning id, organisation_id, patient_id, trigger_type
-  )
-  -- One aggregated, warm nudge per patient per run — only when something NEW
-  -- surfaced (re-runs insert nothing, so nobody is re-nudged nightly).
-  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
-  select
-    i.organisation_id,
-    i.patient_id,
-    'whatsapp',
-    'pending',
-    'care_outreach_checkin',
-    jsonb_build_object('reasons', array_agg(distinct i.trigger_type::text))
-  from inserted i
-  group by i.organisation_id, i.patient_id;
-$function$;
 
 -- ---------------------------------------------------------------------------
 -- escalation_slas — new 'care_task_overdue' pathway, unsigned draft.

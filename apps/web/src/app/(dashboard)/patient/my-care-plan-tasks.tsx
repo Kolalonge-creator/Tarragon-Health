@@ -221,7 +221,7 @@ export function MyCarePlanTasks({
   const { data: goals } = useCarePlanGoals(patientId);
 
   const buckets = groupCareTasksByBucket(tasks ?? [], new Date());
-  const visibleGoals = (goals ?? []).filter((g) => g.status === "active" || g.status === "proposed");
+  const visibleGoals = (goals ?? []).filter((g) => g.status === "open" || g.status === "proposed");
 
   return (
     <Card>

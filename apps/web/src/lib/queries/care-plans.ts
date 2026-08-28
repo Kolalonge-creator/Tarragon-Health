@@ -102,7 +102,7 @@ export function useCarePlanVersions(carePlanId: string | null) {
         .from("care_plan_versions")
         .select("*")
         .eq("care_plan_id", carePlanId as string)
-        .order("changed_at", { ascending: false });
+        .order("version_number", { ascending: false });
       if (error) throw error;
       return data as CarePlanVersion[];
     },

@@ -31,7 +31,7 @@ export function useCarePlanGoals(patientId: string | null) {
  * A patient proposing their own goal (§3.16). Always status='proposed',
  * source='patient' — the insert RLS policy requires exactly this shape (see
  * the care_plan_goals migration), so a patient can never insert an
- * already-active or clinician-attributed goal this way.
+ * already-open or clinician-attributed goal this way.
  */
 export function useProposeCarePlanGoal(patientId: string) {
   const queryClient = useQueryClient();
@@ -65,10 +65,10 @@ export function useProposeCarePlanGoal(patientId: string) {
 }
 
 /**
- * Clinician approves (-> active), modifies, or abandons a goal — including
+ * Clinician approves (-> open), modifies, or abandons a goal — including
  * one a patient proposed (§3.16: "Clinicians can approve or modify goals
  * where clinically relevant"). approved_by/approved_at are stamped
- * server-side on the transition into 'active'; never sent from here.
+ * server-side on the transition into 'open'; never sent from here.
  */
 export function useUpdateCarePlanGoal(patientId: string) {
   const queryClient = useQueryClient();

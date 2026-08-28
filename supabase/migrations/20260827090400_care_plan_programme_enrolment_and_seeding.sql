@@ -91,7 +91,7 @@ begin
         case when v_goal->>'target_date_days' is not null
           then current_date + ((v_goal->>'target_date_days')::integer || ' days')::interval
           else null end,
-        'active',
+        'open',
         'protocol'
       );
     end loop;
