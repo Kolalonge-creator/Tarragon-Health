@@ -142,6 +142,15 @@ selected through the wrong recurring-billing flow (the patient's own plan switch
 their plan" card) — Care Pass's one-off activation trigger doesn't know those flows' period-end math
 or `cancel_at_period_end` semantics, and routing it through them would silently mis-grant either.
 
+**A follow-up sweep of the whole codebase for stale references to the retired tiers** found three
+more real functional bugs beyond copy: a crash in the `/for-you` marketing page (a non-null-asserted
+`.find()` for the removed `"essential"` tier id), a dead live-price sync on the public pricing page
+for Care Pass (an admin price change would never show up), and — the serious one — the 90-Day Health
+Reset free trial RPC hardcoded `'complete'`/`'complete_usd' and is_active`, so retiring Complete Care
+silently broke every trial claim. All three fixed; see the commit history for the full list of
+copy updated alongside them (`upgrade-prompt.tsx`, the FAQ, several marketing pages, one admin
+screen, `docs/MARKETING_SITE_SPEC.md`).
+
 **Found and fixed a second time, checking Care Pass's features array against
 `packages/db/tests/gate_second_condition_review_to_complete_care.sql` rather than assuming "full
 union" was actually complete**: Care Pass was missing `vitals_red_flag_doctor_escalation` (gates
