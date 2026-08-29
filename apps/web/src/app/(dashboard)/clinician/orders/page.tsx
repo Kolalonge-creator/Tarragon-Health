@@ -26,7 +26,6 @@ const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["vari
   sample_collected: { variant: "blue", label: "Sample collected" },
   processing: { variant: "blue", label: "In progress" },
   resulted: { variant: "green", label: "Results ready" },
-  sample_rejected: { variant: "red", label: "Sample rejected — recollect" },
   cancelled: { variant: "grey", label: "Cancelled" },
 };
 
