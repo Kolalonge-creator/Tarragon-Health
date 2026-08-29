@@ -147,6 +147,7 @@ export function getNavSections(
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
             { label: "Get a device", href: "/patient/devices", icon: "devices" },
           ],
         },

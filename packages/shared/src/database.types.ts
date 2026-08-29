@@ -15818,6 +15818,7 @@ export type Database = {
           accepted_hmos: string[]
           area: string | null
           city: string | null
+          clinical_interests: string[]
           commission_flat_kobo: number | null
           commission_rate: number | null
           commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
@@ -15835,15 +15836,24 @@ export type Database = {
           license_verified_by: string | null
           location: string | null
           name: string
+          organisation_id: string | null
+          provider_tier:
+            | Database["public"]["Enums"]["specialist_provider_tier"]
+            | null
+          qualifications: string[]
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           state: string | null
+          subspecialty: string | null
           supports_in_person: boolean
           supports_telemedicine: boolean
+          verification_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+          years_of_experience: number | null
         }
         Insert: {
           accepted_hmos?: string[]
           area?: string | null
           city?: string | null
+          clinical_interests?: string[]
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
@@ -15861,15 +15871,24 @@ export type Database = {
           license_verified_by?: string | null
           location?: string | null
           name: string
+          organisation_id?: string | null
+          provider_tier?:
+            | Database["public"]["Enums"]["specialist_provider_tier"]
+            | null
+          qualifications?: string[]
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           state?: string | null
+          subspecialty?: string | null
           supports_in_person?: boolean
           supports_telemedicine?: boolean
+          verification_stage?: Database["public"]["Enums"]["specialist_verification_stage"]
+          years_of_experience?: number | null
         }
         Update: {
           accepted_hmos?: string[]
           area?: string | null
           city?: string | null
+          clinical_interests?: string[]
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
@@ -15887,10 +15906,18 @@ export type Database = {
           license_verified_by?: string | null
           location?: string | null
           name?: string
+          organisation_id?: string | null
+          provider_tier?:
+            | Database["public"]["Enums"]["specialist_provider_tier"]
+            | null
+          qualifications?: string[]
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           state?: string | null
+          subspecialty?: string | null
           supports_in_person?: boolean
           supports_telemedicine?: boolean
+          verification_stage?: Database["public"]["Enums"]["specialist_verification_stage"]
+          years_of_experience?: number | null
         }
         Relationships: [
           {
@@ -15900,7 +15927,269 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "specialist_providers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      specialist_provider_locations: {
+        Row: {
+          address: string
+          city: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          name: string
+          specialist_provider_id: string
+          state: string
+          supports_in_person: boolean
+          supports_telemedicine: boolean
+        }
+        Insert: {
+          address: string
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          specialist_provider_id: string
+          state: string
+          supports_in_person?: boolean
+          supports_telemedicine?: boolean
+        }
+        Update: {
+          address?: string
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          specialist_provider_id?: string
+          state?: string
+          supports_in_person?: boolean
+          supports_telemedicine?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_provider_locations_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialist_provider_availability_rules: {
+        Row: {
+          buffer_minutes: number
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          created_at: string
+          created_by: string | null
+          day_of_week: number
+          duration_type: Database["public"]["Enums"]["consultation_duration_type"]
+          effective_from: string
+          effective_until: string | null
+          end_time: string
+          id: string
+          is_active: boolean
+          slot_duration_minutes: number
+          specialist_provider_id: string
+          specialist_provider_location_id: string | null
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          buffer_minutes?: number
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          created_at?: string
+          created_by?: string | null
+          day_of_week: number
+          duration_type?: Database["public"]["Enums"]["consultation_duration_type"]
+          effective_from?: string
+          effective_until?: string | null
+          end_time: string
+          id?: string
+          is_active?: boolean
+          slot_duration_minutes: number
+          specialist_provider_id: string
+          specialist_provider_location_id?: string | null
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          buffer_minutes?: number
+          consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
+          created_at?: string
+          created_by?: string | null
+          day_of_week?: number
+          duration_type?: Database["public"]["Enums"]["consultation_duration_type"]
+          effective_from?: string
+          effective_until?: string | null
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          slot_duration_minutes?: number
+          specialist_provider_id?: string
+          specialist_provider_location_id?: string | null
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_provider_availabil_specialist_provider_location_fkey"
+            columns: ["specialist_provider_location_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_provider_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_provider_availability_ru_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_provider_availability_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialist_provider_time_off: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          id: string
+          kind: string
+          reason: string | null
+          specialist_provider_id: string
+          starts_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          id?: string
+          kind: string
+          reason?: string | null
+          specialist_provider_id: string
+          starts_at: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          id?: string
+          kind?: string
+          reason?: string | null
+          specialist_provider_id?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_provider_time_off_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_provider_time_off_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialist_provider_verification_events: {
+        Row: {
+          created_at: string
+          from_stage:
+            | Database["public"]["Enums"]["specialist_verification_stage"]
+            | null
+          id: string
+          note: string | null
+          performed_by: string
+          specialist_provider_id: string
+          to_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+        }
+        Insert: {
+          created_at?: string
+          from_stage?:
+            | Database["public"]["Enums"]["specialist_verification_stage"]
+            | null
+          id?: string
+          note?: string | null
+          performed_by: string
+          specialist_provider_id: string
+          to_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+        }
+        Update: {
+          created_at?: string
+          from_stage?:
+            | Database["public"]["Enums"]["specialist_verification_stage"]
+            | null
+          id?: string
+          note?: string | null
+          performed_by?: string
+          specialist_provider_id?: string
+          to_stage?: Database["public"]["Enums"]["specialist_verification_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_provider_verification_ev_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_provider_verification_events_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_consultation_duration_defaults: {
+        Row: {
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          default_minutes: number
+          duration_type: Database["public"]["Enums"]["consultation_duration_type"]
+          updated_at: string
+        }
+        Insert: {
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          default_minutes: number
+          duration_type: Database["public"]["Enums"]["consultation_duration_type"]
+          updated_at?: string
+        }
+        Update: {
+          consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
+          default_minutes?: number
+          duration_type?: Database["public"]["Enums"]["consultation_duration_type"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       specialist_referrals: {
         Row: {
@@ -17908,6 +18197,77 @@ export type Database = {
       }
     }
     Functions: {
+      advance_specialist_verification_stage: {
+        Args: {
+          p_note?: string
+          p_specialist_provider_id: string
+          p_to_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+        }
+        Returns: {
+          accepted_hmos: string[]
+          area: string | null
+          city: string | null
+          clinical_interests: string[]
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
+          consultation_fee_kobo: number
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          languages: string[]
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          license_verified_by: string | null
+          location: string | null
+          name: string
+          organisation_id: string | null
+          provider_tier:
+            | Database["public"]["Enums"]["specialist_provider_tier"]
+            | null
+          qualifications: string[]
+          specialist_type: Database["public"]["Enums"]["specialist_type"]
+          state: string | null
+          subspecialty: string | null
+          supports_in_person: boolean
+          supports_telemedicine: boolean
+          verification_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+          years_of_experience: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "specialist_providers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_available_specialist_slots: {
+        Args: {
+          p_from?: string
+          p_specialist_provider_id: string
+          p_to?: string
+        }
+        Returns: {
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          duration_type: Database["public"]["Enums"]["consultation_duration_type"]
+          location_id: string
+          slot_end: string
+          slot_start: string
+        }[]
+      }
+      analytics_specialist_provider_workload: {
+        Args: { p_specialist_provider_id: string }
+        Returns: Json
+      }
+      analytics_specialist_provider_performance: {
+        Args: { p_specialist_provider_id: string }
+        Returns: Json
+      }
+
       accept_video_visit_request: {
         Args: { p_request_id: string }
         Returns: string
@@ -20235,6 +20595,12 @@ export type Database = {
         | "overdue"
         | "cancelled"
       sex: "male" | "female"
+      consultation_duration_type: "standard" | "extended" | "follow_up"
+      specialist_provider_tier:
+        | "primary_care"
+        | "specialist"
+        | "subspecialist"
+        | "allied_professional"
       specialist_type:
         | "urologist"
         | "oncologist"
@@ -20246,6 +20612,18 @@ export type Database = {
         | "dietetics"
         | "podiatry"
         | "other"
+        | "psychiatry"
+        | "psychology"
+      specialist_verification_stage:
+        | "application"
+        | "identity_verification"
+        | "registration_verification"
+        | "qualification_verification"
+        | "specialty_verification"
+        | "contract"
+        | "onboarding"
+        | "clinical_approval"
+        | "active"
       subscription_status: "trialing" | "active" | "past_due" | "cancelled"
       symptom_type:
         | "pain"
@@ -21201,6 +21579,13 @@ export const Constants = {
         "cancelled",
       ],
       sex: ["male", "female"],
+      consultation_duration_type: ["standard", "extended", "follow_up"],
+      specialist_provider_tier: [
+        "primary_care",
+        "specialist",
+        "subspecialist",
+        "allied_professional",
+      ],
       specialist_type: [
         "urologist",
         "oncologist",
@@ -21212,6 +21597,19 @@ export const Constants = {
         "dietetics",
         "podiatry",
         "other",
+        "psychiatry",
+        "psychology",
+      ],
+      specialist_verification_stage: [
+        "application",
+        "identity_verification",
+        "registration_verification",
+        "qualification_verification",
+        "specialty_verification",
+        "contract",
+        "onboarding",
+        "clinical_approval",
+        "active",
       ],
       subscription_status: ["trialing", "active", "past_due", "cancelled"],
       symptom_type: [

@@ -52,21 +52,31 @@ export interface SpecialistProviderMatchFilters {
   city?: string;
   requireTelemedicine?: boolean;
   hmo?: string;
+  /** Filters out providers whose consultation_fee_kobo exceeds this — a real column, just never exposed as a filter until now (docs/CLINICAL_NETWORK_SPEC.md §4.6 Phase 1 item 4). */
+  maxFeeKobo?: number;
+  /** Filters to providers whose languages[] contains this language — same "already a column, not yet a filter" gap. */
+  language?: string;
 }
 
 /**
  * Active specialist_providers matching a specialist_type plus optional
- * state/telemedicine/HMO filters — populates the worklist's assignment
- * picker. Ordered so a same-state match sorts first, then alphabetically;
- * done client-side rather than a Postgres CASE ORDER BY since the provider
- * list is small (9 placeholder rows today) and this keeps the query itself
- * simple. Patients don't choose between matched options themselves in this
- * slice — the clinician still picks on their behalf, per
+ * state/telemedicine/HMO/price/language filters — populates the worklist's
+ * assignment picker and the patient-initiated find-a-specialist entry point
+ * (find-a-specialist.tsx). This is filtering an existing catalogue, not
+ * ranking it — see docs/CLINICAL_NETWORK_SPEC.md §3: adding a price/language
+ * predicate is explicitly listed as safe to build without a new founder ask,
+ * scoring/weighting is not, and this function still does neither. Ordered so
+ * a same-state match sorts first, then alphabetically; done client-side
+ * rather than a Postgres CASE ORDER BY since the provider list is small (9
+ * placeholder rows today) and this keeps the query itself simple. Patients
+ * don't choose between matched options themselves in the clinician-worklist
+ * slice — the clinician still picks on their behalf there, per
  * docs/Tarragon_Health_Master_Operating_Plan_v4.md §7 Level 5a's Phase 1
- * clinician-mediated model; patient choice is a flagged fast-follow.
+ * clinician-mediated model — but CAN now browse/filter independently via
+ * find-a-specialist.tsx, which reuses this same hook.
  */
 export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFilters) {
-  const { specialistType, state, city, requireTelemedicine, hmo } = filters;
+  const { specialistType, state, city, requireTelemedicine, hmo, maxFeeKobo, language } = filters;
   return useQuery({
     queryKey: [
       "specialist-providers",
@@ -75,6 +85,8 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
       city ?? "",
       requireTelemedicine ?? false,
       hmo ?? "",
+      maxFeeKobo ?? "",
+      language ?? "",
     ],
     queryFn: async () => {
       const supabase = createClient();
@@ -88,6 +100,12 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
       }
       if (hmo) {
         query = query.contains("accepted_hmos", [hmo]);
+      }
+      if (typeof maxFeeKobo === "number") {
+        query = query.lte("consultation_fee_kobo", maxFeeKobo);
+      }
+      if (language) {
+        query = query.contains("languages", [language]);
       }
       const { data, error } = await query.order("name", { ascending: true });
       if (error) throw error;
