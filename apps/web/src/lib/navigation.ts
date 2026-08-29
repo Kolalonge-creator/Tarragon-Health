@@ -147,6 +147,7 @@ export function getNavSections(
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Adolescent Health", href: "/patient/adolescent-health", icon: "mood" },
             { label: "Get a device", href: "/patient/devices", icon: "devices" },
           ],
         },
@@ -218,6 +219,7 @@ export function getNavSections(
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
               ],
@@ -233,6 +235,7 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
                 { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },

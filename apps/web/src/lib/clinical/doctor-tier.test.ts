@@ -1,6 +1,7 @@
 import {
   canConfirmMedicationRefill,
   canHandleEmergencyEscalation,
+  canReviewSafeguardingConcern,
   hasPrescribingAuthority,
 } from "./doctor-tier";
 
@@ -112,12 +113,46 @@ describe("canHandleEmergencyEscalation", () => {
   });
 });
 
+/**
+ * Mirrors private.can_review_safeguarding_concern
+ * (20260829121248_adolescent_health_module.sql) — resolving or closing a
+ * safeguarding_concerns row needs the same Tier 2+/Clinical Director
+ * threshold as an emergency escalation.
+ */
+describe("canReviewSafeguardingConcern", () => {
+  it("refuses Tier 1 and Care Coordinator", () => {
+    expect(canReviewSafeguardingConcern(staff("tier_1"))).toBe(false);
+    expect(canReviewSafeguardingConcern(staff("care_coordinator"))).toBe(false);
+  });
+
+  it("allows Tier 2 through Tier 5", () => {
+    for (const tier of [
+      "tier_2",
+      "tier_3",
+      "tier_4_senior_registrar",
+      "tier_5_partner_specialist",
+    ] as const) {
+      expect(canReviewSafeguardingConcern(staff(tier))).toBe(true);
+    }
+  });
+
+  it("allows a Clinical Director with no tier recorded at all", () => {
+    expect(canReviewSafeguardingConcern(staff(null, true))).toBe(true);
+  });
+
+  it("refuses an account with no clinical_staff row at all, never inferring a tier", () => {
+    expect(canReviewSafeguardingConcern(null)).toBe(false);
+    expect(canReviewSafeguardingConcern(staff(null))).toBe(false);
+  });
+});
+
 describe("tier authority is monotonic", () => {
   it("never allows a lower tier something a higher tier is denied", () => {
     const gates = {
       hasPrescribingAuthority,
       canConfirmMedicationRefill,
       canHandleEmergencyEscalation,
+      canReviewSafeguardingConcern,
     };
 
     for (const [name, gate] of Object.entries(gates)) {

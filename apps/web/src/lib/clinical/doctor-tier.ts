@@ -154,3 +154,24 @@ export function canHandleEmergencyEscalation(staff: PrescribingAuthority | null)
     (staff.doctor_tier !== null && EMERGENCY_ESCALATION_TIERS.includes(staff.doctor_tier))
   );
 }
+
+/**
+ * Mirrors private.can_review_safeguarding_concern(org)
+ * (20260829121248_adolescent_health_module.sql) — resolving or closing a
+ * safeguarding_concerns row requires Tier 2+ or the Clinical Director; Tier 1
+ * and Care Coordinator may raise/read a concern but never close one. Same
+ * tier threshold as canHandleEmergencyEscalation, reused rather than
+ * duplicated — the two DB functions are still kept separate so they can
+ * diverge later without one silently changing the other.
+ *
+ * This copy only gates the UI so a Tier 1 gets a friendly explanation rather
+ * than a raw RLS/trigger error. private.enforce_safeguarding_concern_
+ * resolution_tier is the real enforcement boundary.
+ */
+export function canReviewSafeguardingConcern(staff: PrescribingAuthority | null): boolean {
+  if (!staff) return false;
+  return (
+    staff.is_clinical_director ||
+    (staff.doctor_tier !== null && EMERGENCY_ESCALATION_TIERS.includes(staff.doctor_tier))
+  );
+}
