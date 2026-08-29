@@ -2,7 +2,12 @@
 
 import { Activity, HeartPulse, ShieldCheck, TrendingUp } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
-import { useClinicalOutcomes, useEscalationQuality } from "@/lib/analytics/queries";
+import {
+  useClinicalOutcomes,
+  useDiagnosticGovernanceAnalytics,
+  useDiagnosticPathwayAnalytics,
+  useEscalationQuality,
+} from "@/lib/analytics/queries";
 import { formatNumber, formatPercent } from "@/lib/analytics/format";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
@@ -10,9 +15,16 @@ import { ExportButton } from "./export-button";
 export function OutcomesDashboard() {
   const outcomes = useClinicalOutcomes();
   const escalation = useEscalationQuality();
+  const pathway = useDiagnosticPathwayAnalytics();
+  const governance = useDiagnosticGovernanceAnalytics();
 
   const o = outcomes.data;
   const e = escalation.data;
+  const pw = pathway.data;
+  const gov = governance.data;
+  const failureByCondition = Object.entries(gov?.follow_up_failure_by_condition ?? {}).map(
+    ([condition, pct]) => ({ label: condition, value: pct ?? 0 })
+  );
 
   const controlRows = [
     { metric: "BP controlled (<140/90)", controlled: o?.bp_control.controlled ?? 0, total: o?.bp_control.total ?? 0, pct: o?.bp_control.pct ?? 0 },
@@ -117,6 +129,47 @@ export function OutcomesDashboard() {
               <div className="flex justify-between"><span className="text-charcoal-ink/60">Open alerts</span><span className="font-medium tabular-nums">{formatNumber(e?.open_alerts ?? 0)}</span></div>
               <div className="flex justify-between"><span className="text-charcoal-ink/60">Overdue alerts</span><span className="font-medium tabular-nums text-red-700">{formatNumber(e?.overdue_alerts ?? 0)}</span></div>
             </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Diagnostic episode closure & follow-through"
+        description="Once a clinician_alerts row opens a diagnostic episode: review/response/closure time, referral and repeat-test follow-through, patient notification rate."
+      >
+        {pathway.isLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              {[
+                ["Episodes opened (30d)", formatNumber(pw?.episodes_opened ?? 0)],
+                ["Still open", formatNumber(pw?.still_open_count ?? 0)],
+                ["Avg review time", `${formatNumber(pw?.avg_review_time_hours ?? 0)}h`],
+                ["Avg critical response", `${formatNumber(pw?.avg_critical_response_time_hours ?? 0)}h`],
+                ["Avg closure time", `${formatNumber(pw?.avg_closure_time_hours ?? 0)}h`],
+                ["Avg result turnaround", `${formatNumber(pw?.avg_result_turnaround_hours ?? 0)}h`],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between rounded-md border border-charcoal-ink/10 px-3 py-2">
+                  <span className="text-charcoal-ink/60">{label}</span>
+                  <span className="font-medium tabular-nums text-charcoal-ink">{value}</span>
+                </div>
+              ))}
+            </dl>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-charcoal-ink/60">Patient notification rate</span><span className="font-medium tabular-nums">{formatPercent(pw?.patient_notification_rate_pct ?? 0)}</span></div>
+              <div className="flex justify-between"><span className="text-charcoal-ink/60">Referral completion rate</span><span className="font-medium tabular-nums">{formatPercent(pw?.referral_completion_rate_pct ?? 0)}</span></div>
+              <div className="flex justify-between"><span className="text-charcoal-ink/60">Repeat-test completion rate</span><span className="font-medium tabular-nums">{formatPercent(pw?.repeat_test_completion_rate_pct ?? 0)}</span></div>
+              <div className="flex justify-between"><span className="text-charcoal-ink/60">Critical reviewed within SLA</span><span className="font-medium tabular-nums">{formatNumber(gov?.critical_reviewed_within_sla ?? 0)} / {formatNumber(gov?.critical_results_received ?? 0)}</span></div>
+              <div className="flex justify-between"><span className="text-charcoal-ink/60">Near-miss (clinician-flagged)</span><span className="font-medium tabular-nums text-sprout-gold">{formatNumber(gov?.near_miss_count ?? 0)}</span></div>
+              <div className="flex justify-between"><span className="text-charcoal-ink/60">Harm (clinician-flagged)</span><span className="font-medium tabular-nums text-red-700">{formatNumber(gov?.harm_count ?? 0)}</span></div>
+            </div>
+          </div>
+        )}
+        {failureByCondition.length > 0 && (
+          <div className="mt-4 border-t border-charcoal-ink/10 pt-4">
+            <p className="mb-2 text-xs text-charcoal-ink/60">Follow-up escalation rate by condition (this month)</p>
+            <MiniBarList items={failureByCondition} emptyLabel="No episodes this month." />
           </div>
         )}
       </SectionCard>

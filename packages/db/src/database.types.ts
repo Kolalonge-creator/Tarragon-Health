@@ -16953,6 +16953,15 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      diagnostic_governance_analytics: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      diagnostic_pathway_analytics: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      diagnostic_safety_dashboard: { Args: never; Returns: Json }
       emergency_card_by_token: { Args: { p_token: string }; Returns: Json }
       enqueue_critical_notification: {
         Args: {
