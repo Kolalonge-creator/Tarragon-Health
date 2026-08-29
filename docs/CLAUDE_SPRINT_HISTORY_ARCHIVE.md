@@ -2751,3 +2751,101 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+
+### 2026-08-29 — Modules 27/28: insurer/payer platform and provider organisation platform, built fully, shipped dormant
+
+Founder instruction: build both spec modules — 27 (insurer/payer platform: plans, members, benefits,
+network, pre-authorisation, claims, care programmes, aggregate analytics) and 28 (provider organisation
+platform: locations, departments, staff, services, resources, referral/order queue, settlement, analytics)
+— completely, but do not make either live. Both are future-business-model bets with no signed counterparty
+yet, so "built" had to mean something a founder can trust is inert until deliberately switched on, not just
+"no nav link points at it."
+
+- **The dormancy mechanism is `public.platform_modules`** (`20260829092227_platform_module_activation_gate.sql`):
+  one row per module, `is_enabled` defaults false, and a CHECK constraint refuses to let it read true
+  without `enabled_at`/`enabled_by` set — so a bare `UPDATE` can never switch a module on, only
+  `public.set_platform_module(key, true, note)` can (superadmin-only, requires a reason, audit-logged).
+  Checked in three independent places, matching the same defence-in-depth CLAUDE.md already asks for
+  elsewhere on this platform: every payer/provider-org table's RLS policies call
+  `private.module_enabled()`/gate through `private.is_payer_admin_for()`/`private.is_provider_org_staff_for()`
+  (both of which check the module themselves), every write RPC does the same, and the Next.js route groups
+  (`(dashboard)/payer`, `(dashboard)/provider-org`) render an honest "not yet activated" placeholder instead
+  of an empty console when the module — or, for a provider organisation, that specific org's own
+  `is_operational` flag — is off. A superadmin can still fully configure either platform (create insurers,
+  plans, provider organisations, staff seats) before flipping the switch; `is_admin()` passes unconditionally
+  in both scoping predicates for exactly that reason.
+- **Two new account roles**, `payer_admin` and `provider_org_staff` — added to `public.user_role` in their
+  own migration (enum values can't be used in the transaction that adds them) and, in the very next
+  migration, added to `private.is_org_staff()`'s exclusion list before either role could exist unguarded.
+  CLAUDE.md calls `is_org_staff` "the highest-leverage security function in the codebase" (~110 patient-
+  scoped tables) and records two prior real leaks from exactly this shape of mistake (a new role added
+  without updating the deny-list) — this time the exclusion landed first, and
+  `packages/db/tests/payer_provider_org_platform.sql` proves it behaviourally (a real seated account of
+  each new role fails `is_org_staff` while a real clinician control passes) rather than by inspection.
+  Neither role is a re-split of `clinician`/`profiles.role` — both are wholly new counterparty roles for
+  wholly new platforms, so the "never re-split the account role" rule is untouched. Authority within each
+  platform is carried by a scoped membership row (`payer_administrators.payer_role`,
+  `provider_org_members.org_role`), never by the account role or which dashboard a login reaches — same
+  discipline as the doctor-tier ladder.
+- **Module 27 extends the existing dormant insurance core** (`insurers`/`insurance_policies`/
+  `insurance_benefits`/`insurance_preauthorizations`/`insurance_claims`, built earlier the same day on a
+  sibling branch and merged in rather than duplicated) instead of growing a parallel copy: `insurers`
+  gained an `organisation_id`/onboarding pipeline so it can be an operator, not just a directory row;
+  `payer_plans` gives a plan an identity (a sync trigger keeps `insurance_policies`/`insurance_benefits`
+  .`plan_name` text in lockstep so the existing string-matched benefit lookup never drifts from the
+  structured picture); `payer_network_providers` records exceptions to open-network coverage across all
+  four existing provider directories; `payer_programme_directives` + `apply_payer_programme_directive()`
+  let a payer enrol every member with a diagnosed condition into a Tarragon chronic-disease programme
+  without ever diagnosing on the payer's behalf (only acts on a `patient_conditions` row a Tarragon
+  clinician already wrote); `payer_decide_preauthorization()`/`payer_adjudicate_claim()` let the insurer
+  record its own decision directly instead of Tarragon staff transcribing a phone call; and
+  `payer_dashboard_analytics()` is a suppressed aggregate view (I9's small-cell floor, mirrored via
+  `insurers.min_cohort_size`) — never a per-member row, matching the institution-privacy line the platform
+  already draws for HMO/corporate dashboards. I8 (no capitation, ever) holds throughout: an insurer here is
+  strictly a per-service payer.
+- **Module 28** anchors a provider organisation as a first-class tenant (`organisations.type = 'provider_org'`,
+  `provider_organisations` as its extension row) with real structure (`provider_org_locations`/
+  `_departments`/`_services`/`_resources`/`_operating_hours`) and staff (`provider_org_members`).
+  Deliberately did NOT build a parallel booking/appointment engine for a provider org's own operational
+  visits — the existing `appointments` table (generalised into "the universal appointment object" the day
+  before) is Tarragon's own care-team visit record, and blurring a third party's own scheduling into it
+  would cut against the exact line `is_org_staff`'s exclusion exists to hold. What a provider org gets
+  instead: "claiming" one of the four existing provider directories (adding `organisation_id` to
+  `facilities`/`lab_providers`/`pharmacy_partners`/`specialist_providers`, same move as insurers) surfaces a
+  read-only referral/lab/pharmacy queue over work already routed there (`provider_org_referral_queue()` and
+  siblings) — visibility only, since uploading a result or dispensing an order stays the existing
+  `lab_partner`/`pharmacist` login's job, not a new fulfilment path. `provider_org_settlements` is a
+  generic billing ledger (the existing `partner_statements` is hard-typed to `lab_providers` alone and
+  can't represent a hospital or specialist practice). `provider_org_analytics()` reports only what the
+  built tables can actually measure (staffing, structure, queue volume, referral response time) rather than
+  fabricating appointment/utilisation figures for a booking engine that doesn't exist yet.
+- **A real bug shipped and was fixed the same session**: `provider_org_analytics()`'s first draft
+  aggregated referral-status counts and average response time in one subquery whose outer
+  `jsonb_object_agg(status, n)` referenced a column (`n`) that subquery never produced. It went live
+  undetected because the migration's own assertion called the function with no fixture organisation, so
+  `is_provider_org_staff_for()` raised 42501 before execution ever reached the buggy line — an exception-
+  shaped pass that never exercised the SQL. Fixed forward in
+  `20260829094538_fix_provider_org_analytics_referral_aggregation_bug.sql` (split into two independent
+  queries) with an assertion that runs the corrected aggregation against synthetic literal rows instead of
+  trusting the same shallow raise-and-catch again.
+- **Concurrency note**: this build ran against the live, shared `koiplnmbgnqnbywhpjlf` project while at
+  least three other sessions were applying migrations in parallel (an integration/outbound-queue build, an
+  employer-platform roster build, a clinical-rules-engine build all landed mid-session) — one migration
+  name collided on an auto-assigned timestamp and had to be retried. Local migration filenames were
+  renamed to match whatever timestamp the live apply actually assigned, not the name first guessed.
+- Verified: `pnpm --filter web typecheck`/`lint` clean on every new/changed file (the handful of
+  pre-existing errors elsewhere in the tree — `sample_rejected`/`closed`/`declined`/`transferred`/
+  `missed_care_task` and friends missing from a few `Record<...>` maps — are enum values other concurrent
+  sessions added the same day to tables unrelated to this work, left untouched rather than fixed
+  opportunistically in someone else's in-flight change). `packages/db/tests/payer_provider_org_platform.sql`
+  (10 checks: `is_org_staff` exclusion behaviourally proven for both new roles against a real clinician
+  control; both modules' dormant→live transition proven live; a provider organisation's own
+  `is_operational` gate proven independent of the platform-wide switch; the analytics suppression floor
+  proven to discriminate) passes clean and leaves no fixture behind. `database.types.ts` regenerated (both
+  `packages/shared` and `packages/db` copies) against the live post-migration schema.
+- **Not done, flagged not guessed at**: no UI was built for claiming a directory row from the admin side
+  beyond the existing per-table edit path (an admin sets `organisation_id` via SQL/the existing
+  facilities/lab/pharmacy/specialist admin screens, none of which gained a dedicated "claim for this
+  provider organisation" control) — a real onboarding flow for the first provider organisation would want
+  one. Neither platform's activation has ever been exercised against a real counterparty; the first real
+  insurer or provider organisation to onboard is the actual test of everything built here.

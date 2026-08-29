@@ -6903,6 +6903,437 @@ export type Database = {
           },
         ]
       }
+      insurance_benefits: {
+        Row: {
+          annual_limit_kobo: number | null
+          copay_fixed_kobo: number
+          coverage_pct: number
+          created_at: string
+          id: string
+          insurer_id: string
+          notes: string | null
+          payer_plan_id: string | null
+          plan_name: string | null
+          preauth_threshold_kobo: number | null
+          requires_preauth: boolean
+          service_category: string
+          updated_at: string
+        }
+        Insert: {
+          annual_limit_kobo?: number | null
+          copay_fixed_kobo?: number
+          coverage_pct?: number
+          created_at?: string
+          id?: string
+          insurer_id: string
+          notes?: string | null
+          payer_plan_id?: string | null
+          plan_name?: string | null
+          preauth_threshold_kobo?: number | null
+          requires_preauth?: boolean
+          service_category: string
+          updated_at?: string
+        }
+        Update: {
+          annual_limit_kobo?: number | null
+          copay_fixed_kobo?: number
+          coverage_pct?: number
+          created_at?: string
+          id?: string
+          insurer_id?: string
+          notes?: string | null
+          payer_plan_id?: string | null
+          plan_name?: string | null
+          preauth_threshold_kobo?: number | null
+          requires_preauth?: boolean
+          service_category?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_benefits_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_benefits_payer_plan_id_fkey"
+            columns: ["payer_plan_id"]
+            isOneToOne: false
+            referencedRelation: "payer_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_claims: {
+        Row: {
+          adjudicated_at: string | null
+          adjudicated_by: string | null
+          billed_amount_kobo: number
+          claim_reference: string | null
+          created_at: string
+          denial_reason: string | null
+          id: string
+          insurer_covered_kobo: number | null
+          organisation_id: string
+          paid_at: string | null
+          patient_copay_kobo: number
+          policy_id: string
+          preauthorization_id: string | null
+          service_category: string
+          source_id: string
+          status: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          adjudicated_at?: string | null
+          adjudicated_by?: string | null
+          billed_amount_kobo: number
+          claim_reference?: string | null
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          insurer_covered_kobo?: number | null
+          organisation_id: string
+          paid_at?: string | null
+          patient_copay_kobo: number
+          policy_id: string
+          preauthorization_id?: string | null
+          service_category: string
+          source_id: string
+          status?: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          adjudicated_at?: string | null
+          adjudicated_by?: string | null
+          billed_amount_kobo?: number
+          claim_reference?: string | null
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          insurer_covered_kobo?: number | null
+          organisation_id?: string
+          paid_at?: string | null
+          patient_copay_kobo?: number
+          policy_id?: string
+          preauthorization_id?: string | null
+          service_category?: string
+          source_id?: string
+          status?: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at?: string
+          submitted_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_claims_adjudicated_by_fkey"
+            columns: ["adjudicated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_preauthorization_id_fkey"
+            columns: ["preauthorization_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_preauthorizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_policies: {
+        Row: {
+          created_at: string
+          effective_from: string | null
+          effective_to: string | null
+          group_number: string | null
+          id: string
+          insurer_id: string
+          member_id: string
+          organisation_id: string
+          patient_id: string
+          payer_plan_id: string | null
+          plan_name: string | null
+          policy_holder_name: string | null
+          relationship: Database["public"]["Enums"]["insurance_relationship"]
+          status: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          group_number?: string | null
+          id?: string
+          insurer_id: string
+          member_id: string
+          organisation_id: string
+          patient_id: string
+          payer_plan_id?: string | null
+          plan_name?: string | null
+          policy_holder_name?: string | null
+          relationship?: Database["public"]["Enums"]["insurance_relationship"]
+          status?: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          group_number?: string | null
+          id?: string
+          insurer_id?: string
+          member_id?: string
+          organisation_id?: string
+          patient_id?: string
+          payer_plan_id?: string | null
+          plan_name?: string | null
+          policy_holder_name?: string | null
+          relationship?: Database["public"]["Enums"]["insurance_relationship"]
+          status?: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_policies_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_payer_plan_id_fkey"
+            columns: ["payer_plan_id"]
+            isOneToOne: false
+            referencedRelation: "payer_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_preauthorizations: {
+        Row: {
+          authorization_number: string | null
+          clinical_justification: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          denial_reason: string | null
+          estimated_amount_kobo: number
+          id: string
+          organisation_id: string
+          policy_id: string
+          requested_at: string
+          requested_by: string
+          service_category: string
+          source_id: string | null
+          status: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          authorization_number?: string | null
+          clinical_justification?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          denial_reason?: string | null
+          estimated_amount_kobo: number
+          id?: string
+          organisation_id: string
+          policy_id: string
+          requested_at?: string
+          requested_by: string
+          service_category: string
+          source_id?: string | null
+          status?: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          authorization_number?: string | null
+          clinical_justification?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          denial_reason?: string | null
+          estimated_amount_kobo?: number
+          id?: string
+          organisation_id?: string
+          policy_id?: string
+          requested_at?: string
+          requested_by?: string
+          service_category?: string
+          source_id?: string | null
+          status?: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_preauthorizations_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurers: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          claim_submission_method: string
+          code: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          member_id_format: string | null
+          min_cohort_size: number
+          name: string
+          notes: string | null
+          onboarding_status: Database["public"]["Enums"]["payer_onboarding_status"]
+          organisation_id: string | null
+          portal_url: string | null
+          settlement_terms_days: number | null
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          claim_submission_method?: string
+          code?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          member_id_format?: string | null
+          min_cohort_size?: number
+          name: string
+          notes?: string | null
+          onboarding_status?: Database["public"]["Enums"]["payer_onboarding_status"]
+          organisation_id?: string | null
+          portal_url?: string | null
+          settlement_terms_days?: number | null
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          claim_submission_method?: string
+          code?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          member_id_format?: string | null
+          min_cohort_size?: number
+          name?: string
+          notes?: string | null
+          onboarding_status?: Database["public"]["Enums"]["payer_onboarding_status"]
+          organisation_id?: string | null
+          portal_url?: string | null
+          settlement_terms_days?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurers_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_analyte_readings: {
         Row: {
           abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
@@ -12256,6 +12687,230 @@ export type Database = {
           },
         ]
       }
+      payer_administrators: {
+        Row: {
+          created_at: string
+          id: string
+          insurer_id: string
+          invited_by: string | null
+          is_active: boolean
+          job_title: string | null
+          payer_role: Database["public"]["Enums"]["payer_admin_role"]
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          insurer_id: string
+          invited_by?: string | null
+          is_active?: boolean
+          job_title?: string | null
+          payer_role?: Database["public"]["Enums"]["payer_admin_role"]
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          insurer_id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          job_title?: string | null
+          payer_role?: Database["public"]["Enums"]["payer_admin_role"]
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_administrators_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_administrators_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_administrators_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payer_network_providers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_id: string
+          notes: string | null
+          provider_id: string
+          provider_type: Database["public"]["Enums"]["payer_network_provider_type"]
+          service_category: string | null
+          status: Database["public"]["Enums"]["payer_network_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id: string
+          notes?: string | null
+          provider_id: string
+          provider_type: Database["public"]["Enums"]["payer_network_provider_type"]
+          service_category?: string | null
+          status?: Database["public"]["Enums"]["payer_network_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id?: string
+          notes?: string | null
+          provider_id?: string
+          provider_type?: Database["public"]["Enums"]["payer_network_provider_type"]
+          service_category?: string | null
+          status?: Database["public"]["Enums"]["payer_network_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_network_providers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_network_providers_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payer_plans: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          insurer_id: string
+          name: string
+          plan_year: number | null
+          status: Database["public"]["Enums"]["payer_plan_status"]
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          insurer_id: string
+          name: string
+          plan_year?: number | null
+          status?: Database["public"]["Enums"]["payer_plan_status"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          insurer_id?: string
+          name?: string
+          plan_year?: number | null
+          status?: Database["public"]["Enums"]["payer_plan_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_plans_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payer_programme_directives: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_id: string
+          is_active: boolean
+          programme_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id: string
+          is_active?: boolean
+          programme_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id?: string
+          is_active?: boolean
+          programme_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_programme_directives_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_programme_directives_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_programme_directives_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_condition_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_reconciliation_flags: {
         Row: {
           created_at: string
@@ -12913,6 +13568,50 @@ export type Database = {
           },
         ]
       }
+      platform_modules: {
+        Row: {
+          activation_note: string | null
+          created_at: string
+          description: string
+          enabled_at: string | null
+          enabled_by: string | null
+          is_enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          activation_note?: string | null
+          created_at?: string
+          description: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          is_enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          activation_note?: string | null
+          created_at?: string
+          description?: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          is_enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_modules_enabled_by_fkey"
+            columns: ["enabled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prevention_risk_scores: {
         Row: {
           computed_at: string
@@ -13436,6 +14135,561 @@ export type Database = {
             foreignKeyName: "protocol_versions_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_departments: {
+        Row: {
+          created_at: string
+          department_type: string | null
+          id: string
+          is_active: boolean
+          location_id: string | null
+          name: string
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_type?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name: string
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_type?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name?: string
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_departments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_departments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_headquarters: boolean
+          name: string
+          organisation_id: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_headquarters?: boolean
+          name: string
+          organisation_id: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_headquarters?: boolean
+          name?: string
+          organisation_id?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_locations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_members: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          id: string
+          invited_by: string | null
+          is_active: boolean
+          job_title: string | null
+          location_id: string | null
+          org_role: Database["public"]["Enums"]["provider_org_role"]
+          organisation_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          job_title?: string | null
+          location_id?: string | null
+          org_role?: Database["public"]["Enums"]["provider_org_role"]
+          organisation_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          job_title?: string | null
+          location_id?: string | null
+          org_role?: Database["public"]["Enums"]["provider_org_role"]
+          organisation_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_members_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_members_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_operating_hours: {
+        Row: {
+          closes_at: string
+          created_at: string
+          day_of_week: number
+          id: string
+          location_id: string | null
+          opens_at: string
+          organisation_id: string
+          resource_id: string | null
+        }
+        Insert: {
+          closes_at: string
+          created_at?: string
+          day_of_week: number
+          id?: string
+          location_id?: string | null
+          opens_at: string
+          organisation_id: string
+          resource_id?: string | null
+        }
+        Update: {
+          closes_at?: string
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          location_id?: string | null
+          opens_at?: string
+          organisation_id?: string
+          resource_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_operating_hours_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_operating_hours_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_operating_hours_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_resources: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          location_id: string | null
+          name: string
+          organisation_id: string
+          resource_type: Database["public"]["Enums"]["provider_org_resource_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name: string
+          organisation_id: string
+          resource_type: Database["public"]["Enums"]["provider_org_resource_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name?: string
+          organisation_id?: string
+          resource_type?: Database["public"]["Enums"]["provider_org_resource_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_resources_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_resources_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_resources_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_services: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_active: boolean
+          location_id: string | null
+          name: string
+          organisation_id: string
+          price_kobo: number | null
+          provider_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name: string
+          organisation_id: string
+          price_kobo?: number | null
+          provider_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name?: string
+          organisation_id?: string
+          price_kobo?: number | null
+          provider_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_services_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_services_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_settlement_lines: {
+        Row: {
+          amount_kobo: number
+          created_at: string
+          description: string
+          id: string
+          reference_id: string | null
+          reference_type: string | null
+          settlement_id: string
+        }
+        Insert: {
+          amount_kobo: number
+          created_at?: string
+          description: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          settlement_id: string
+        }
+        Update: {
+          amount_kobo?: number
+          created_at?: string
+          description?: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          settlement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_settlement_lines_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_settlements: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_total_kobo: number | null
+          bill_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          invoiced_total_kobo: number
+          note: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          reference: string | null
+          settled_at: string | null
+          status: Database["public"]["Enums"]["provider_org_settlement_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_total_kobo?: number | null
+          bill_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          invoiced_total_kobo?: number
+          note?: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          reference?: string | null
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["provider_org_settlement_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_total_kobo?: number | null
+          bill_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          invoiced_total_kobo?: number
+          note?: string | null
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          reference?: string | null
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["provider_org_settlement_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_settlements_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_settlements_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "finance_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_settlements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_settlements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_organisations: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          id: string
+          is_operational: boolean
+          legal_name: string
+          min_cohort_size: number
+          onboarding_status: Database["public"]["Enums"]["provider_org_onboarding_status"]
+          org_type: Database["public"]["Enums"]["provider_org_type"]
+          organisation_id: string
+          registration_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          id?: string
+          is_operational?: boolean
+          legal_name: string
+          min_cohort_size?: number
+          onboarding_status?: Database["public"]["Enums"]["provider_org_onboarding_status"]
+          org_type: Database["public"]["Enums"]["provider_org_type"]
+          organisation_id: string
+          registration_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          id?: string
+          is_operational?: boolean
+          legal_name?: string
+          min_cohort_size?: number
+          onboarding_status?: Database["public"]["Enums"]["provider_org_onboarding_status"]
+          org_type?: Database["public"]["Enums"]["provider_org_type"]
+          organisation_id?: string
+          registration_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_organisations_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_organisations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_organisations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
             referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
@@ -16870,6 +18124,10 @@ export type Database = {
         Returns: string
       }
       analytics_user_segments: { Args: never; Returns: Json }
+      apply_payer_programme_directive: {
+        Args: { p_directive_id: string }
+        Returns: Json
+      }
       approve_lab_order_refund: { Args: { p_refund_id: string }; Returns: Json }
       approve_partner_statement: {
         Args: { p_force_note?: string; p_statement_id: string }
@@ -16887,6 +18145,14 @@ export type Database = {
       }
       care_receipt: {
         Args: { p_beneficiary: string; p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      check_insurance_coverage: {
+        Args: {
+          p_amount_kobo: number
+          p_patient_id: string
+          p_service_category: string
+        }
         Returns: Json
       }
       claim_employer_roster_member: {
@@ -16944,6 +18210,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      decide_preauthorization: {
+        Args: {
+          p_authorization_number?: string
+          p_decision: string
+          p_denial_reason?: string
+          p_preauthorization_id: string
+          p_valid_until?: string
+        }
+        Returns: Json
       }
       decline_health_passport_attestation: {
         Args: { p_reason: string; p_request_id: string }
@@ -17477,6 +18753,30 @@ export type Database = {
           weight_taken_at: string
         }[]
       }
+      payer_adjudicate_claim: {
+        Args: {
+          p_claim_id: string
+          p_claim_reference?: string
+          p_denial_reason?: string
+          p_insurer_covered_kobo?: number
+          p_status: string
+        }
+        Returns: Json
+      }
+      payer_dashboard_analytics: {
+        Args: { p_insurer_id: string }
+        Returns: Json
+      }
+      payer_decide_preauthorization: {
+        Args: {
+          p_authorization_number?: string
+          p_decision: string
+          p_denial_reason?: string
+          p_preauthorization_id: string
+          p_valid_until?: string
+        }
+        Returns: Json
+      }
       pharmacist_dispense_history: {
         Args: { p_limit?: number }
         Returns: {
@@ -17565,6 +18865,55 @@ export type Database = {
         Args: { p_request_id: string; p_slot_ids: string[] }
         Returns: undefined
       }
+      provider_org_analytics: {
+        Args: { p_organisation_id: string }
+        Returns: Json
+      }
+      provider_org_lab_order_queue: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          order_id: string
+          order_number: string
+          ordered_at: string
+          panel_name: string
+          patient_name: string
+          patient_number: string
+          resulted_at: string
+          status: string
+        }[]
+      }
+      provider_org_pharmacy_order_queue: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          delivered_at: string
+          order_id: string
+          order_number: string
+          patient_name: string
+          patient_number: string
+          requested_at: string
+          status: string
+          total_kobo: number
+        }[]
+      }
+      provider_org_referral_queue: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          appointment_date: string
+          created_at: string
+          patient_name: string
+          patient_number: string
+          referral_id: string
+          referral_number: string
+          referral_reason: string
+          specialist_type: string
+          status: string
+          urgency: string
+        }[]
+      }
+      provider_org_referral_queue_summary: {
+        Args: { p_organisation_id: string }
+        Returns: Json
+      }
       provision_dependent_profile_basics: {
         Args: {
           p_actor_id: string
@@ -17620,6 +18969,16 @@ export type Database = {
           p_reason: string
         }
         Returns: boolean
+      }
+      record_claim_adjudication: {
+        Args: {
+          p_claim_id: string
+          p_claim_reference?: string
+          p_denial_reason?: string
+          p_insurer_covered_kobo?: number
+          p_status: string
+        }
+        Returns: Json
       }
       record_voucher_payment_intent: {
         Args: {
@@ -17749,6 +19108,16 @@ export type Database = {
           p_staff_profile_id: string
         }
         Returns: string
+      }
+      request_preauthorization: {
+        Args: {
+          p_clinical_justification?: string
+          p_estimated_amount_kobo: number
+          p_policy_id: string
+          p_service_category: string
+          p_source_id?: string
+        }
+        Returns: Json
       }
       resolve_personalised_lifestyle_goal: {
         Args: {
@@ -17890,6 +19259,10 @@ export type Database = {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
       }
+      set_platform_module: {
+        Args: { p_enabled: boolean; p_key: string; p_note?: string }
+        Returns: Json
+      }
       set_referral_specialist_provider: {
         Args: { p_referral_id: string; p_specialist_provider_id: string }
         Returns: {
@@ -17975,6 +19348,16 @@ export type Database = {
           p_subject: string
         }
         Returns: string
+      }
+      submit_insurance_claim: {
+        Args: {
+          p_billed_amount_kobo: number
+          p_policy_id: string
+          p_preauthorization_id?: string
+          p_service_category: string
+          p_source_id: string
+        }
+        Returns: Json
       }
       touch_last_active: { Args: never; Returns: undefined }
       upsert_lab_report_template: {
@@ -18158,7 +19541,11 @@ export type Database = {
         | "at_target"
         | "above_target"
         | "not_yet_established"
-      chronic_enrolment_source: "recommended" | "staff" | "clinician"
+      chronic_enrolment_source:
+        | "recommended"
+        | "staff"
+        | "clinician"
+        | "payer_directive"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
       clinical_severity: "mild" | "moderate" | "severe"
       commission_rate_type: "percentage" | "flat"
@@ -18315,6 +19702,16 @@ export type Database = {
         | "premixed"
         | "analogue_rapid"
         | "analogue_long"
+      insurance_claim_status:
+        | "submitted"
+        | "adjudicating"
+        | "approved"
+        | "partially_approved"
+        | "denied"
+        | "paid"
+      insurance_policy_status: "active" | "expired" | "suspended" | "cancelled"
+      insurance_preauth_status: "pending" | "approved" | "denied" | "expired"
+      insurance_relationship: "self" | "spouse" | "child" | "other"
       lab_analyte_flag:
         | "normal"
         | "low"
@@ -18449,6 +19846,7 @@ export type Database = {
         | "pharmacy"
         | "direct_consumer"
         | "protocol_partner"
+        | "provider_org"
       outcomes_contract_type: "fee_at_risk" | "flat"
       outreach_contact_channel: "call" | "whatsapp"
       outreach_task_status:
@@ -18484,6 +19882,26 @@ export type Database = {
         | "scale"
         | "thermometer"
         | "pulse_oximeter"
+      payer_admin_role:
+        | "owner"
+        | "benefits_manager"
+        | "authorisation_officer"
+        | "claims_officer"
+        | "analyst"
+      payer_network_provider_type:
+        | "facility"
+        | "lab_provider"
+        | "pharmacy_partner"
+        | "specialist_provider"
+      payer_network_status: "in_network" | "out_of_network" | "restricted"
+      payer_onboarding_status:
+        | "prospect"
+        | "contracting"
+        | "configuring"
+        | "live"
+        | "suspended"
+        | "terminated"
+      payer_plan_status: "draft" | "active" | "closed"
       payment_provider: "paystack" | "stripe" | "wallet" | "voucher"
       payment_transaction_type:
         | "charge.success"
@@ -18522,6 +19940,35 @@ export type Database = {
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
+      provider_org_onboarding_status:
+        | "application"
+        | "verification"
+        | "credentialing"
+        | "configuring"
+        | "active"
+        | "suspended"
+        | "terminated"
+      provider_org_resource_type: "room" | "equipment"
+      provider_org_role:
+        | "owner"
+        | "clinical_lead"
+        | "operations_manager"
+        | "finance_manager"
+        | "hr_admin"
+        | "clinician"
+        | "receptionist"
+      provider_org_settlement_status:
+        | "draft"
+        | "issued"
+        | "disputed"
+        | "approved"
+        | "settled"
+      provider_org_type:
+        | "hospital"
+        | "clinic"
+        | "diagnostic_centre"
+        | "pharmacy"
+        | "specialist_practice"
       referral_reward_status: "pending" | "earned" | "paid"
       referral_status:
         | "pending_payment"
@@ -18631,6 +20078,8 @@ export type Database = {
         | "lab_liaison"
         | "finance"
         | "lab_partner"
+        | "payer_admin"
+        | "provider_org_staff"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -18989,7 +20438,12 @@ export const Constants = {
         "above_target",
         "not_yet_established",
       ],
-      chronic_enrolment_source: ["recommended", "staff", "clinician"],
+      chronic_enrolment_source: [
+        "recommended",
+        "staff",
+        "clinician",
+        "payer_directive",
+      ],
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
       clinical_severity: ["mild", "moderate", "severe"],
       commission_rate_type: ["percentage", "flat"],
@@ -19164,6 +20618,17 @@ export const Constants = {
         "analogue_rapid",
         "analogue_long",
       ],
+      insurance_claim_status: [
+        "submitted",
+        "adjudicating",
+        "approved",
+        "partially_approved",
+        "denied",
+        "paid",
+      ],
+      insurance_policy_status: ["active", "expired", "suspended", "cancelled"],
+      insurance_preauth_status: ["pending", "approved", "denied", "expired"],
+      insurance_relationship: ["self", "spouse", "child", "other"],
       lab_analyte_flag: [
         "normal",
         "low",
@@ -19312,6 +20777,7 @@ export const Constants = {
         "pharmacy",
         "direct_consumer",
         "protocol_partner",
+        "provider_org",
       ],
       outcomes_contract_type: ["fee_at_risk", "flat"],
       outreach_contact_channel: ["call", "whatsapp"],
@@ -19353,6 +20819,29 @@ export const Constants = {
         "thermometer",
         "pulse_oximeter",
       ],
+      payer_admin_role: [
+        "owner",
+        "benefits_manager",
+        "authorisation_officer",
+        "claims_officer",
+        "analyst",
+      ],
+      payer_network_provider_type: [
+        "facility",
+        "lab_provider",
+        "pharmacy_partner",
+        "specialist_provider",
+      ],
+      payer_network_status: ["in_network", "out_of_network", "restricted"],
+      payer_onboarding_status: [
+        "prospect",
+        "contracting",
+        "configuring",
+        "live",
+        "suspended",
+        "terminated",
+      ],
+      payer_plan_status: ["draft", "active", "closed"],
       payment_provider: ["paystack", "stripe", "wallet", "voucher"],
       payment_transaction_type: [
         "charge.success",
@@ -19394,6 +20883,39 @@ export const Constants = {
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
+      provider_org_onboarding_status: [
+        "application",
+        "verification",
+        "credentialing",
+        "configuring",
+        "active",
+        "suspended",
+        "terminated",
+      ],
+      provider_org_resource_type: ["room", "equipment"],
+      provider_org_role: [
+        "owner",
+        "clinical_lead",
+        "operations_manager",
+        "finance_manager",
+        "hr_admin",
+        "clinician",
+        "receptionist",
+      ],
+      provider_org_settlement_status: [
+        "draft",
+        "issued",
+        "disputed",
+        "approved",
+        "settled",
+      ],
+      provider_org_type: [
+        "hospital",
+        "clinic",
+        "diagnostic_centre",
+        "pharmacy",
+        "specialist_practice",
+      ],
       referral_reward_status: ["pending", "earned", "paid"],
       referral_status: [
         "pending_payment",
@@ -19513,6 +21035,8 @@ export const Constants = {
         "lab_liaison",
         "finance",
         "lab_partner",
+        "payer_admin",
+        "provider_org_staff",
       ],
       vaccination_verification_status: [
         "self_reported",

@@ -13,6 +13,13 @@ export const USER_ROLES = [
   "hmo_admin",
   "corporate_admin",
   "admin",
+  // Module 27/28 — the account role exists so a seat can be provisioned and
+  // linked to a payer_administrators/provider_org_members row ahead of
+  // activation, but reaches nothing until a superadmin switches the module
+  // on (public.set_platform_module) AND, for a provider org, that specific
+  // organisation is is_operational. See platform_modules.
+  "payer_admin",
+  "provider_org_staff",
 ] as const;
 
 export type UserRoleValue = (typeof USER_ROLES)[number];
@@ -30,6 +37,8 @@ export const USER_ROLE_LABELS: Record<UserRoleValue, string> = {
   hmo_admin: "HMO Admin",
   corporate_admin: "Employer/Corporate Admin",
   admin: "Super Admin",
+  payer_admin: "Payer Admin (insurer platform — dormant until activated)",
+  provider_org_staff: "Provider Organisation Staff (dormant until activated)",
 };
 
 const optionalUuid = z

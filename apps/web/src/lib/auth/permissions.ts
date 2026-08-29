@@ -49,6 +49,11 @@ export const PERMISSION_KEYS = [
   "finance.tax.manage",
   "finance.export",
   "leads.manage",
+  // Seeded by 20260829011711_insurance_core_policies_and_benefits.sql
+  // (private.is_insurance_admin) — mirrored here so admin/settings pages can
+  // gate on it the same way every other capability does.
+  "insurance.manage",
+  "insurance.claims.manage",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
