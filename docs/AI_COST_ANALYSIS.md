@@ -1,8 +1,11 @@
 # AI/LLM Cost Analysis — 1,000 Daily Active Users
 
-> Written 2026-08-29. Grounded in the actual code (`apps/web/src/lib/`), not the aspirational
-> caching architecture described elsewhere — see the correction below. Prices and adoption
-> assumptions will drift; re-verify both before trusting a number here more than a few months out.
+> Written 2026-08-29, updated same day once prompt caching was actually implemented (see
+> "What was implemented" below — the first version of this doc overclaimed what caching would
+> save; read that section before trusting the original "one clear lever" pitch). Grounded in the
+> actual code (`apps/web/src/lib/`), not the aspirational caching architecture described
+> elsewhere. Prices and adoption assumptions will drift; re-verify both before trusting a number
+> here more than a few months out.
 
 ## What's actually AI-backed today
 
@@ -93,24 +96,81 @@ used for the two lightweight text-only features, and every `maxTokens` cap is sm
 architecture is accidentally cost-disciplined on the model/output-size axis, even though the
 caching axis is completely unexploited.
 
-## The one clear, currently-unrealized lever: prompt caching
+## Prompt caching: what was implemented, and the correction to this doc's first pass
 
-Every one of the 9 features sends a **fixed, byte-identical block on every single call, regardless
-of which patient triggered it** — the lab-report analyte vocabulary, the ECG parameter catalogue,
-the meal-vision food reference text, the coach's fixed coaching-prompt text, the lifestyle nudge's
-coaching instructions. None of that is caching-eligible in the code today because no `cache_control`
-is set anywhere. A cache hit costs roughly 10% of a normal input token; a cache write costs about
-1.25x — so this pays for itself within the second call that hits the same cached prefix, and at
-1,000-DAU volume, the same fixed system prompt is being re-sent thousands of times a month.
+The first version of this document claimed caching the fixed system-prompt/vocabulary block on
+"every one of the 9 features" would cut platform-wide input spend by 30–45%. That was wrong — it
+skipped checking Anthropic's **minimum cacheable prefix**, which is model-dependent and, critically,
+**not** the same for Sonnet 5 and Haiku 4.5:
 
-Rough impact: the fixed-vocabulary/system-prompt portion is a large minority-to-roughly-half share
-of input tokens on the four vision-extraction features and the coach (less so on the two Haiku
-features, which are already small). Caching that portion plausibly cuts total input-token spend by
-something in the 30–45% range platform-wide — on Scenario B's ~$360/month, that's roughly
-$80–110/month back; on Scenario A's ~$1,315/month ceiling, roughly $350–500/month. Given the
-zero-`cache_control`-calls finding above, this is a real, currently-unclaimed savings opportunity,
-not a hypothetical one — and it costs nothing in output quality, unlike model downgrades or effort
-tuning.
+| Model | Minimum cacheable prefix |
+|---|---:|
+| Claude Sonnet 5 | 1,024 tokens |
+| Claude Haiku 4.5 | 4,096 tokens |
+
+A `cache_control` marker on a block shorter than the model's minimum is a documented no-op — no
+error, the request just proceeds uncached (`cache_creation_input_tokens: 0`). Checking each
+feature's actual fixed-block size against its model's threshold narrows the real opportunity to
+2–3 of the 9 features, not all of them:
+
+| Feature | Model | Fixed-block size (est.) | Threshold | Cacheable? |
+|---|---|---:|---:|---|
+| Lab report extraction | Sonnet 5 | ~2,200–2,700 tok (71-analyte vocabulary + instructions) | 1,024 | **Yes, comfortably** |
+| ECG extraction | Sonnet 5 | ~900–1,100 tok (13-parameter vocabulary + instructions) | 1,024 | Borderline — added anyway, zero cost if it doesn't hit yet |
+| AI Coach chat | Sonnet 5 | ~300–900 tok per turn (system + patient context + history), grows each turn | 1,024 | Only from the ~3rd exchange in a session onward |
+| Case brief | Haiku 4.5 | ~400 tok | 4,096 | **No — ~10x too small** |
+| Patient result explainer | Haiku 4.5 | ~330 tok | 4,096 | **No — ~12x too small** |
+| Meal-photo vision | Sonnet 5 | ~500 tok (26-item food reference + instructions) | 1,024 | **No — ~2x too small** |
+| Medication pack vision | Sonnet 5 | ~450 tok (no vocabulary block) | 1,024 | **No — ~2x too small** |
+| Lifestyle nudge | Sonnet 5 | ~260 tok | 1,024 | **No — ~4x too small** |
+
+Padding a prompt with unrelated filler just to clear the threshold would cost more than it saves
+(more billed tokens, for a cache that's disposable in 5 minutes) — not worth it. So caching only
+went into the three rows where it does something real:
+
+- **`apps/web/src/lib/lab-reports/extract.ts`** — `cache_control` on the fixed instructions +
+  full analyte/qualitative vocabulary. The per-laboratory "learned hints" text (`hintsPromptBlock`,
+  which varies call to call) was split into its own uncached block *after* the breakpoint — it used
+  to be string-concatenated onto the same block, which would have invalidated the cached vocabulary
+  on every single call for a laboratory the platform has already learned something about.
+- **`apps/web/src/lib/ecg-reports/extract.ts`** — same pattern, on the smaller 13-parameter
+  vocabulary. This one sits right around the 1,024-token line by estimate; it may or may not
+  actually cache today, but the marker is free to leave in either way and starts working
+  automatically if the catalogue grows.
+- **`apps/web/src/lib/ai-coach/graph.ts`** — the multi-turn pattern instead of a system-prompt
+  breakpoint: `cache_control` on each turn's newest message, so a session's system prompt +
+  accumulated history become one growing cached prefix. Early turns in a session are usually still
+  under 1,024 tokens combined (no-op, as above); it starts reading from cache once a session's
+  system + context + history crosses that line, typically the 3rd exchange onward.
+
+Verified with `tsc --noEmit`, the existing Jest suite (all passing), and new tests
+(`lab-reports/extract.test.ts`, additions to `ecg-reports/extract.test.ts`) that assert the cache
+breakpoint lands in the right place and that per-call content stays out of the cached block.
+**Not yet verified against real `usage.cache_read_input_tokens`** — no live traffic has hit these
+code paths yet. That's the next thing to check once this is deployed (see Caveats).
+
+### Corrected savings estimate
+
+Because only 2–3 of 9 features actually benefit, and one of those three (the coach) only helps
+partway through a session, the realistic savings are much smaller than the first draft claimed:
+
+- **Scenario B (realistic mix, ~$360/month baseline):** lab-report + ECG extraction together are
+  a small slice of total spend (~8%, ~$1/day) at assumed realistic volumes (50 + 30 calls/day) —
+  even a ~50–65% cut to their input cost on a cache hit nets roughly **$15–40/month**, not the
+  $80–110/month the first draft claimed. The coach's multi-turn caching costs nothing to have added
+  but, at an assumed ~3 turns/session, most sessions end right around where caching would start
+  reading — expect close to zero measurable benefit at this session length; it pays off more as
+  sessions get longer, not at today's assumed usage shape.
+- **Scenario A (literal ceiling, ~$1,315/month):** lab-report + ECG extraction are a much bigger
+  slice here (~52% of total spend, since every one of 1,000 users triggers them daily) and
+  clustered call volume makes cache hits far more likely — this is where caching's real value
+  shows up, roughly **$150–200/month** off the ceiling.
+
+The honest takeaway: prompt caching was worth adding here because it's free where it doesn't apply
+and real where it does, but it was never the 30–45%-of-the-whole-bill lever the first draft of this
+document claimed. The bigger cost lever at *today's* likely volumes is simply that most of these
+calls are single-turn with small `maxTokens` caps on a cheap model — which the architecture already
+does, by accident rather than by a caching strategy.
 
 ## Caveats
 
