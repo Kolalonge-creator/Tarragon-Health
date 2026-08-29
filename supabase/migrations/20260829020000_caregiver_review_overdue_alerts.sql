@@ -93,6 +93,13 @@ $$;
 comment on function private.notify_caregivers_of_overdue_reviews() is
   'Reads clinician_alerts the same way sponsor_care_status does (count/min(sla_due_at) where status=open, never title or detail) and notifies a clinical_access grantee holding receive_alerts once per newly-overdue review. Scheduled every 15 minutes below, same cadence as the profile_access expiry sweep.';
 
+-- Postgres grants EXECUTE on a new function to PUBLIC by default, and anon
+-- inherits through PUBLIC — cron-only, never meant to be reachable by any
+-- client-facing role. Must come before the self-test below: a fresh replay
+-- runs that test the moment this migration applies, not after whatever
+-- later migration might also touch this function's grants.
+revoke all on function private.notify_caregivers_of_overdue_reviews() from public;
+
 select cron.schedule(
   'caregiver-overdue-review-alerts',
   '*/15 * * * *',

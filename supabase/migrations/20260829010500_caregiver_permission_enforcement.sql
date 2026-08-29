@@ -287,6 +287,11 @@ as $$
    where expires_at is not null and expires_at <= now();
 $$;
 
+-- Postgres grants EXECUTE on a new function to PUBLIC by default, and anon
+-- inherits through PUBLIC — cron-only, never meant to be reachable by any
+-- client-facing role.
+revoke all on function private.expire_stale_profile_access() from public;
+
 comment on function private.expire_stale_profile_access() is
   'Deletes any profile_access grant past its expires_at. The DELETE is itself what withdraws the access (every RLS policy and RPC re-checks profile_access live); the profile_access_log_lifecycle trigger records it as an ''expired'' care_access_events row. Scheduled every 15 minutes below — that cadence is the staleness window between a grant expiring and it actually stopping working.';
 
