@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import {
   AlarmClock,
   BellRing,
+  FlaskConical,
   HeartPulse,
+  PillBottle,
   ShieldAlert,
   ShieldCheck,
   Siren,
@@ -98,6 +100,11 @@ export default async function ClinicalSafetyPage() {
         title="Clinical safety"
         description="How the safety-management system is doing right now — what has been reported, what is still unattended, and what is overdue. Every number is for your organisation as a whole, not just your own caseload."
       />
+      <p className="text-xs text-charcoal-ink/50">
+        Nothing here about patients quietly disengaging from a high-risk programme yet — that
+        needs a definition of what counts as disappearing, not just a query, and is deliberately
+        left out until one is agreed.
+      </p>
 
       {concerns.length > 0 ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4">
@@ -168,6 +175,38 @@ export default async function ClinicalSafetyPage() {
           tintClassName="bg-amber-100"
           iconClassName="text-amber-700"
           delta={{ text: "Specialist referrals declined", direction: "flat" }}
+        />
+        <StatTile
+          icon={FlaskConical}
+          label="Abnormal results unreviewed"
+          value={String(metrics.abnormalResultsUnreviewed)}
+          tintClassName={metrics.abnormalResultsUnreviewed > 0 ? "bg-red-100" : "bg-charcoal-ink/10"}
+          iconClassName={
+            metrics.abnormalResultsUnreviewed > 0 ? "text-red-700" : "text-charcoal-ink/60"
+          }
+          delta={{ text: "Open, any severity", direction: "flat" }}
+        />
+        <StatTile
+          icon={Split}
+          label="Referrals without follow-up"
+          value={String(metrics.referralsWithoutFollowUp)}
+          tintClassName={metrics.referralsWithoutFollowUp > 0 ? "bg-amber-100" : "bg-charcoal-ink/10"}
+          iconClassName={
+            metrics.referralsWithoutFollowUp > 0 ? "text-amber-700" : "text-charcoal-ink/60"
+          }
+          delta={{ text: "Appointment passed, nothing came back", direction: "flat" }}
+        />
+        <StatTile
+          icon={PillBottle}
+          label="Medications overdue for monitoring"
+          value={String(metrics.medicationsOverdueMonitoring)}
+          tintClassName={
+            metrics.medicationsOverdueMonitoring > 0 ? "bg-amber-100" : "bg-charcoal-ink/10"
+          }
+          iconClassName={
+            metrics.medicationsOverdueMonitoring > 0 ? "text-amber-700" : "text-charcoal-ink/60"
+          }
+          delta={{ text: "Required lab check past due", direction: "flat" }}
         />
       </div>
 

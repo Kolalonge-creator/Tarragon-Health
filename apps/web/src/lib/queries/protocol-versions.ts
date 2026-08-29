@@ -76,6 +76,16 @@ export function useProtocolVersions() {
  * fine at pilot write volume, and the unique constraint still catches a
  * concurrent-signing race).
  */
+export interface ProtocolRegistryFields {
+  /** Spec §31.4 registry fields — every one optional, see the migration's own comment for why. */
+  specialty?: string;
+  evidenceBasis?: string;
+  effectiveDate?: string;
+  reviewDate?: string;
+  retirementDate?: string;
+  applicablePopulation?: string;
+}
+
 export function useCreateProtocolVersion() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -84,11 +94,13 @@ export function useCreateProtocolVersion() {
       title,
       changeSummary,
       content,
+      registry,
     }: {
       protocolId: string;
       title: string;
       changeSummary: string;
       content: Json;
+      registry?: ProtocolRegistryFields;
     }) => {
       const supabase = createClient();
       const { organisationId, directorStaffId } = await getCallerOrgAndDirector();
@@ -110,6 +122,12 @@ export function useCreateProtocolVersion() {
         change_summary: changeSummary,
         content,
         approved_by: directorStaffId,
+        specialty: registry?.specialty || null,
+        evidence_basis: registry?.evidenceBasis || null,
+        effective_date: registry?.effectiveDate || null,
+        review_date: registry?.reviewDate || null,
+        retirement_date: registry?.retirementDate || null,
+        applicable_population: registry?.applicablePopulation || null,
       });
       if (error) throw error;
     },

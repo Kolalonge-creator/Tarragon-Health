@@ -329,6 +329,18 @@ function describe(n: InAppNotification): { text: string; href: string } {
     const title = String(payload.challenge_title ?? "Your challenge");
     return { text: `${title} ends soon, keep going`, href: "/patient/wellness" };
   }
+  if (n.template === "serious_clinical_incident_filed") {
+    // From private.notify_serious_clinical_incident() (spec §31.9). Payload
+    // deliberately carries only category/severity/incident_id, never the
+    // free-text description — same "that it happened, never what was found"
+    // posture as sponsor_care_reviewed. The full report is one tap away.
+    const severity = String(payload.severity ?? "serious");
+    const category = String(payload.category ?? "incident").replace(/_/g, " ");
+    return {
+      text: `A ${severity} incident was reported: ${category}`,
+      href: "/clinician/incidents",
+    };
+  }
   if (n.template === "second_condition_needs_upgrade") {
     // From private.ensure_medication_review() — the patient's second
     // concurrent active condition. Framed as good news (caught early), not

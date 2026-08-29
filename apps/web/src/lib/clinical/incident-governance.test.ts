@@ -162,6 +162,9 @@ describe("safety dashboard concerns (§31.12/§31.17)", () => {
     overdueClinicalReviews: 0,
     unacknowledgedCritical: 0,
     referralFailures: 0,
+    abnormalResultsUnreviewed: 0,
+    referralsWithoutFollowUp: 0,
+    medicationsOverdueMonitoring: 0,
   };
 
   it("raises nothing when nothing is unattended", () => {
@@ -192,5 +195,23 @@ describe("safety dashboard concerns (§31.12/§31.17)", () => {
 
   it("does not treat open incidents or declined referrals as unattended on their own", () => {
     expect(safetyConcerns({ ...base, openIncidents: 12, referralFailures: 34 })).toEqual([]);
+  });
+
+  it("raises an alarm for unreviewed abnormal results", () => {
+    expect(safetyConcerns({ ...base, abnormalResultsUnreviewed: 3 })[0]).toMatch(
+      /3 abnormal results still unreviewed/,
+    );
+  });
+
+  it("raises an alarm for referrals with a past appointment and no follow-up", () => {
+    expect(safetyConcerns({ ...base, referralsWithoutFollowUp: 1 })[0]).toMatch(
+      /1 referral with a past appointment/,
+    );
+  });
+
+  it("raises an alarm for medications overdue for required monitoring", () => {
+    expect(safetyConcerns({ ...base, medicationsOverdueMonitoring: 2 })[0]).toMatch(
+      /2 medications overdue for required monitoring/,
+    );
   });
 });

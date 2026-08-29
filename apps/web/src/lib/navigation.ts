@@ -329,6 +329,12 @@ export function getNavSections(
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
+            // §31.13 escalation policy per alert type (owner/backup/senior
+            // tier, response time, channel sequence) — shipped with the rest
+            // of the Alert System taxonomy but never reachable from the UI.
+            { label: "Alert rules", href: "/admin/settings/alert-rules", icon: "bell" },
+            // §31.3/§31.18 — who is accountable for each governance domain.
+            { label: "Governance domains", href: "/admin/settings/governance", icon: "governance" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
           ],
         },

@@ -3283,6 +3283,61 @@ export type Database = {
           },
         ]
       }
+      clinical_governance_domain_owners: {
+        Row: {
+          accountable_staff: string | null
+          assigned_by: string | null
+          created_at: string
+          domain: Database["public"]["Enums"]["clinical_governance_domain"]
+          id: string
+          notes: string | null
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          accountable_staff?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          domain: Database["public"]["Enums"]["clinical_governance_domain"]
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          accountable_staff?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          domain?: Database["public"]["Enums"]["clinical_governance_domain"]
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_governance_domain_owners_accountable_staff_fkey"
+            columns: ["accountable_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_governance_domain_owners_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_governance_domain_owners_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_incident_reports: {
         Row: {
           category: string
@@ -12222,6 +12277,7 @@ export type Database = {
       patient_consents: {
         Row: {
           accepted_at: string
+          action: string
           consent_type: Database["public"]["Enums"]["consent_type"]
           consent_version_id: string
           created_at: string
@@ -12232,6 +12288,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string
+          action?: string
           consent_type: Database["public"]["Enums"]["consent_type"]
           consent_version_id: string
           created_at?: string
@@ -12242,6 +12299,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string
+          action?: string
           consent_type?: Database["public"]["Enums"]["consent_type"]
           consent_version_id?: string
           created_at?: string
@@ -14504,38 +14562,56 @@ export type Database = {
       }
       protocol_versions: {
         Row: {
+          applicable_population: string | null
           approved_at: string
           approved_by: string
           change_summary: string
           content: Json
           created_at: string
+          effective_date: string | null
+          evidence_basis: string | null
           id: string
           organisation_id: string
           protocol_id: string
+          retirement_date: string | null
+          review_date: string | null
+          specialty: string | null
           title: string
           version_number: number
         }
         Insert: {
+          applicable_population?: string | null
           approved_at?: string
           approved_by: string
           change_summary: string
           content?: Json
           created_at?: string
+          effective_date?: string | null
+          evidence_basis?: string | null
           id?: string
           organisation_id: string
           protocol_id: string
+          retirement_date?: string | null
+          review_date?: string | null
+          specialty?: string | null
           title: string
           version_number: number
         }
         Update: {
+          applicable_population?: string | null
           approved_at?: string
           approved_by?: string
           change_summary?: string
           content?: Json
           created_at?: string
+          effective_date?: string | null
+          evidence_basis?: string | null
           id?: string
           organisation_id?: string
           protocol_id?: string
+          retirement_date?: string | null
+          review_date?: string | null
+          specialty?: string | null
           title?: string
           version_number?: number
         }
@@ -19590,6 +19666,17 @@ export type Database = {
       }
     }
     Enums: {
+      clinical_governance_domain:
+        | "clinical_standards"
+        | "patient_safety"
+        | "protocol_approval"
+        | "clinical_content"
+        | "escalation_policies"
+        | "incident_review"
+        | "quality_improvement"
+        | "ai_clinical_governance"
+        | "medication_safety"
+        | "referral_pathways"
       activity_entry_type: "steps" | "workout"
       alert_category: "clinical" | "care_management" | "medication" | "operational"
       alert_follow_up_status: "open" | "done" | "dismissed"
