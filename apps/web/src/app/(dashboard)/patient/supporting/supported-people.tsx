@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { koboToNaira } from "@tarragon/shared";
+import { koboToNaira, fromMinorUnits } from "@tarragon/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -310,6 +310,8 @@ function PersonCard({
 
         {person.permissionLevel === "manage" && <PayTheirPlan person={person} />}
 
+        {person.permissionLevel === "manage" && <FundFamilyWatch person={person} />}
+
         {person.permissionLevel === "manage" && <ManageActions person={person} />}
 
         {person.usedVouchers.length > 0 && (
@@ -501,6 +503,61 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
       {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
       <p className="text-xs text-charcoal-ink/50">
         Billed to you, held by them. They keep their own account and can cancel it themselves at any
+        time. Both of you are told when it starts.
+      </p>
+    </form>
+  );
+}
+
+/**
+ * Tarragon Family Watch (E1, diaspora) — funding continuous monitoring for a
+ * relative in Nigeria, billed in dollars, from abroad. Deliberately a
+ * separate card from PayTheirPlan above, not the same list filtered wider:
+ * PayTheirPlan's own copy promises "the same price converted... not a
+ * diaspora premium," which is exactly what Family Watch is NOT — it's
+ * priced on its own, well above the naira-equivalent rate, because that
+ * premium is the whole reason this engine exists (see the plan rows'
+ * migration header). Reuses paySomeonesPlan unchanged: it already reads
+ * currency from formData generically, this just sends "USD" instead of
+ * "NGN".
+ */
+function FundFamilyWatch({ person }: { person: SupportedPerson }) {
+  const { data: plans } = useActivePatientPlans();
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    paySomeonesPlan,
+    undefined,
+  );
+
+  if (person.permissionLevel !== "manage") return null;
+
+  const payable = (plans ?? []).filter(
+    (plan) => plan.currency === "USD" && plan.code.startsWith("family_watch"),
+  );
+  if (payable.length === 0) return null;
+
+  return (
+    <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
+      <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
+      <input type="hidden" name="currency" value="USD" />
+      <p className="text-xs font-medium text-charcoal-ink">Fund Family Watch from abroad</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select name="planCode" defaultValue="" className="max-w-xs">
+          <option value="">Choose a plan</option>
+          {payable.map((plan) => (
+            <option key={plan.code} value={plan.code}>
+              {plan.name} (${fromMinorUnits(plan.price_minor, "USD").toLocaleString("en-US")}
+              {plan.interval === "yearly" ? "/yr" : "/mo"})
+            </option>
+          ))}
+        </Select>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Starting…" : "Pay on my card"}
+        </Button>
+      </div>
+      {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
+      <p className="text-xs text-charcoal-ink/50">
+        Protocol-based tracking, a doctor&apos;s review of anything that drifts, and a written
+        monthly update sent to you. They keep their own account and can cancel it themselves at any
         time. Both of you are told when it starts.
       </p>
     </form>

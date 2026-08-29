@@ -1,7 +1,8 @@
 import { recommendPlan } from "./plan-finder";
-import { NGN_TIERS } from "../_content/pricing";
+import { NGN_TIERS, USD_TIERS } from "../_content/pricing";
 
 const carePass = NGN_TIERS.find((t) => t.id === "care_pass_12mo")!;
+const familyWatch = USD_TIERS.find((t) => t.id === "family_watch")!;
 
 /**
  * The PlanFinder mapping is a pure function and a real conversion surface;
@@ -36,10 +37,17 @@ describe("recommendPlan", () => {
     expect(rec.secondary).toContain("Tarragon Free");
   });
 
-  it("is honest that diaspora funding isn't live yet, rather than naming a plan that doesn't exist", () => {
+  it("routes an abroad payer to Family Watch, whatever their own health answer", () => {
+    for (const health of ["none", "one", "multiple"] as const) {
+      const rec = recommendPlan("me", health, "abroad");
+      expect(rec.plan).toBe(familyWatch.name);
+      expect(rec.price).toContain(familyWatch.priceSecondary!.replace(/^or\s+/, ""));
+    }
+  });
+
+  it("tells a solo abroad payer Family Watch is for someone else, not themselves", () => {
     const rec = recommendPlan("me", "none", "abroad");
-    expect(rec.price).toBe("coming soon");
-    expect(rec.plan).not.toBe("Care Pass");
+    expect(rec.secondary).toContain("someone else's care");
   });
 
   it("recommends the cared-for person's own plan, not a household one", () => {
@@ -60,7 +68,10 @@ describe("recommendPlan", () => {
   });
 
   it("never recommends a plan that no longer exists", () => {
-    const retired = ["Family", "ParentCare", "Premium Care", "Tarragon Prevent", "Essential Care", "Complete Care"];
+    // "Family" alone is too broad a substring now that "Tarragon Family
+    // Watch" is a real, current product — check the retired household-plan
+    // names specifically instead.
+    const retired = ["Family Lite", "Family Plus", "Family Premium", "ParentCare", "Premium Care", "Tarragon Prevent", "Essential Care", "Complete Care"];
     for (const who of ["me", "someone-else"] as const) {
       for (const health of ["none", "one", "multiple"] as const) {
         for (const from of ["nigeria", "abroad"] as const) {

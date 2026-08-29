@@ -47,10 +47,11 @@ function monthlyPrice(tier: PricingTier): string {
  * It's kept as a question because it's still the one people arrive with, and
  * a plan-your-visit-shaped answer is more useful than a generic one.
  *
- * `from === "abroad"` has no live product yet: Family Watch (E1, diaspora)
- * is being built next (docs/REVENUE_ARCHITECTURE_AND_EARNINGS_PLAN.md §5) —
- * until it ships this is an honest "not yet" rather than a fabricated plan
- * name, which is worse than admitting the gap.
+ * `from === "abroad"` routes to Family Watch (E1, diaspora) — funding a
+ * relative's care in Nigeria from abroad, not a self-serve plan for the
+ * answering person themselves (see the "who=me" secondary copy below,
+ * which says so plainly rather than mis-selling a solo-abroad product
+ * Tarragon can't actually deliver).
  *
  * Since removal 4 (2026-07-29) there is no household plan to route to, so
  * "who" doesn't change which Nigeria plan is recommended; it changes whose
@@ -65,14 +66,15 @@ export function recommendPlan(who: Who, health: Health, from: From): Recommendat
     "They hold their own Tarragon account and their own subscription. Name each other as next of kin and you can follow their care and fund their plan; their lab tests are still paid straight to the laboratory.";
 
   if (from === "abroad") {
+    const familyWatch = tierById(USD_TIERS, "family_watch");
     return {
-      plan: "Diaspora funding",
-      price: "coming soon",
-      why: "Tarragon's care is delivered in Nigeria. We're building a way to pay from abroad for continuous monitoring of someone there — it isn't live yet, so for now pricing is in naira only.",
+      plan: familyWatch.name,
+      price: monthlyPrice(familyWatch),
+      why: "Tarragon's care is delivered in Nigeria. Family Watch funds continuous monitoring for a relative there: a doctor-set care plan, defined escalation, and a written monthly update sent to you.",
       secondary:
         who === "someone-else"
           ? forSomeoneElse
-          : "Care for yourself while you're outside Nigeria isn't available yet — this is for funding someone else's care there.",
+          : "Care for yourself while you're outside Nigeria isn't available yet — Family Watch is for funding someone else's care there, not your own.",
     };
   }
 

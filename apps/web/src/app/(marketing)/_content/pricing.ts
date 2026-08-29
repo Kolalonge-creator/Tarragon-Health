@@ -290,14 +290,51 @@ export const DIASPORA_PROCESSING_FEE_NOTE_SHORT = "Includes a 10% international 
  */
 // Repurposed 2026-08-29: the three cards this array used to carry
 // (diaspora-prevent/essential/complete, derived from the now-retired NGN
-// tiers) are gone with their naira parents. Populated by Family Watch (E1)
-// in the next migration/PR — a diaspora-set USD price, not a derived one
-// (see care-pass-checkout.ts's sibling for Family Watch and
-// docs/REVENUE_ARCHITECTURE_AND_EARNINGS_PLAN.md §5 for why that's a
-// deliberate departure from the one-price-list/no-diaspora-premium rule
-// DIASPORA_ONE_PRICE_NOTE below still states — that note needs rewriting in
-// the same change, not before).
-export const USD_TIERS: PricingTier[] = [];
+// tiers) are gone with their naira parents. Now carries Tarragon Family
+// Watch (E1) — a diaspora-SET USD price, deliberately not derived from the
+// naira list (see 20260829012655_family_watch_diaspora_plans.sql's header
+// and docs/REVENUE_ARCHITECTURE_AND_EARNINGS_PLAN.md §5/§6). This is the
+// one place on the platform where DIASPORA_ONE_PRICE_NOTE's older "nobody
+// pays a different rate" claim no longer holds — see its rewritten wording
+// below.
+export const USD_TIERS: PricingTier[] = [
+  {
+    id: "family_watch",
+    name: "Tarragon Family Watch",
+    whoFor: "A parent or relative in Nigeria, monitored from abroad",
+    priceMain: "$300",
+    pricePeriod: "per year",
+    priceSecondary: "or $30/month",
+    description:
+      "For one relative in Nigeria: protocol-based tracking of their condition, medication and appointment prompts, a doctor's review of anything that drifts, defined escalation, and a written monthly update sent to you. They keep their own account and consent; you fund the care, you don't hold their record.",
+    items: [
+      { feature: "A doctor-set care plan for their condition, with scheduled review", label: "INCLUDED" },
+      { feature: "Medication and appointment prompts, confirmed", label: "INCLUDED" },
+      { feature: "A short, honest written update sent to you every month", label: "INCLUDED" },
+      { feature: "Defined escalation if a reading or result needs attention", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills, paid straight to the lab or pharmacy in Nigeria", label: "YOU PAY THE LAB" },
+    ],
+    footnote:
+      "Funding a second relative today means a second Family Watch subscription for them, at the same price — there's no multi-relative discount yet.",
+  },
+  {
+    id: "family_watch_plus",
+    name: "Tarragon Family Watch Plus",
+    whoFor: "The same, with more visibility",
+    priceMain: "$550",
+    pricePeriod: "per year",
+    priceSecondary: "or $55/month",
+    highlight: true,
+    description:
+      "Everything in Family Watch, plus a monthly video review with a doctor you can join from abroad, and coordination of their annual health check with a partner laboratory.",
+    items: [
+      { feature: "Everything in Family Watch", label: "INCLUDED" },
+      { feature: "A monthly video review with a doctor, joinable from abroad", label: "INCLUDED" },
+      { feature: "Their annual health check, coordinated with a partner laboratory", label: "INCLUDED" },
+      { feature: "Lab tests and medication refills, paid straight to the lab or pharmacy in Nigeria", label: "YOU PAY THE LAB" },
+    ],
+  },
+];
 
 /**
  * The diaspora pitch, reframed.
@@ -341,8 +378,16 @@ export const DIASPORA_SPONSOR_PITCH = {
   ],
 };
 
+/**
+ * Rewritten 2026-08-29 for Family Watch (E1): the claim that every dollar
+ * price is the naira price converted stopped being universally true the
+ * moment Family Watch shipped — its price is set on its own, in dollars,
+ * not derived from a naira number. Still true of every OTHER paid plan on
+ * the platform, so this states the actual rule (individual enrolment,
+ * no household billing) without the now-inaccurate blanket pricing claim.
+ */
 export const DIASPORA_ONE_PRICE_NOTE =
-  "The dollar price starts from the naira price, converted at our published rate. Tarragon runs one price list: nobody pays a different rate for the same plan because of who they are. Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you fund their plan; their lab tests are still paid straight to the laboratory, not through us.";
+  "Everyone enrols individually: if you are paying for a parent or a sibling, they hold their own account and you fund their plan; their lab tests are still paid straight to the laboratory, not through us. Most plans price the same in dollars as they do in naira, just converted at our published rate — Family Watch is priced on its own, in dollars, because it's a different kind of product for a different kind of buyer.";
 
 /**
  * Founder decision, 2026-08-02: an international card charge genuinely costs
