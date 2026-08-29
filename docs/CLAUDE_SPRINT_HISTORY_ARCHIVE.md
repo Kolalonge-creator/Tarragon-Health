@@ -2751,3 +2751,54 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+### 2026-08-29 — repo-wide migration drift reconciliation: 225 live migrations backfilled, 62 dead local files removed
+
+Reported as "migrations applied live by other concurrent sessions on this shared project that were never
+pushed to main-dev git history." Confirmed and fixed by diffing `main-dev`'s `supabase/migrations/`
+against `koiplnmbgnqnbywhpjlf`'s `supabase_migrations.schema_migrations` (the Postgres-side record of
+every migration actually run, statement-by-statement — the authoritative source, not `list_migrations`'
+version/name pairs alone). Two distinct failure modes, both stemming from multiple concurrent sessions
+applying migrations directly against the one shared live project between 2026-08-15 and 2026-08-29
+without a corresponding commit landing in git first:
+
+- **225 migrations were live with zero git record** (not even an uncommitted local file) — the same
+  "live schema object, no migration record anywhere" failure CLAUDE.md's standing lessons already
+  named, just at much larger scale (previously found: 1 trigger function + 10 migrations; this time: 225
+  migrations across an 11-hour span, mostly 2026-08-27 through 2026-08-29). Backfilled by reconstructing
+  each migration file directly from `schema_migrations.statements` (joined with `;\n\n`, normalizing any
+  statement that already carried a trailing `;` in the recorded text so files never got a doubled
+  semicolon) — this is byte-faithful to what Postgres actually executed, not a schema-diff reconstruction,
+  so it preserves the original author's comments/rationale wherever the CLI's statement-splitter kept them
+  attached to a following statement.
+- **62 already-committed local migration files had never actually applied at all** — a second, subtler
+  drift: a session writes and commits a migration file at timestamp T1, but by the time it (or a
+  different concurrent session doing the same work) actually pushes it live, it lands under a fresh,
+  later timestamp T2 — sometimes unchanged, sometimes revised. The T1 file stays in git, dead: it never
+  ran, and a fresh `supabase db reset` would replay it at the wrong point in history alongside its real
+  T2 counterpart. Diffed every T1/T2 pair by content before touching anything: 59 were the same
+  migration verbatim or byte-identical apart from a leading comment block that the live recording
+  dropped (merged that unique header/rationale text into the T2 file, then deleted the T1 file — no
+  content lost); 3 needed individual judgment because the name also changed, not just the timestamp —
+  one was a superseded, since-reversed design decision (an earlier "exclude fasting_insulin" file made
+  dead by a later, broader migration that included it — deleted, not merged, since the two rationales
+  contradict); one was a **committed migration that had a real bug** (`v_def` referenced without being
+  declared) that meant every attempt to apply it as committed had silently failed forever, only caught
+  when a concurrent session's live-state check found the columns/functions it was supposed to create
+  simply didn't exist — the fix landed live under a new name
+  (`result_acknowledgement_status_actually_apply`) whose own migration comment documents the whole find;
+  the broken original was deleted, not merged, since the fix's header already restates its content plus
+  the root cause; one was a partial supersession where a later migration dropped a scope the original
+  file's own comment says was deliberately cut (cancel/no-show RPCs, to avoid a second competing
+  `appointments`-engine build) — merged the original's section-header commentary into the live file for
+  the still-shipped part (§9.4/§9.5 prep bundle), deleted the original.
+- Verified clean afterward: exact 1:1 match between `supabase/migrations/*.sql` filenames (version _and_
+  name) and every row in `schema_migrations` (797 = 797), zero duplicate version prefixes anywhere in the
+  directory, zero unbalanced dollar-quote tags across all 797 files. No live schema/RLS change was made —
+  this is a git-history-only reconciliation; nothing was applied, reverted, or altered on the live
+  project.
+- **Not verified**: a full `supabase db reset` replay against a real local Postgres — no `supabase` CLI
+  and no running Docker daemon were available in this environment. The byte-level reconstruction from
+  `schema_migrations.statements` plus the balanced-dollar-quote/no-duplicate-version checks are the
+  confidence this entry can offer; a fresh local reset against these 797 files is still worth doing once
+  tooling is available, per CLAUDE.md's standing "check the live definition directly" caution.
+
