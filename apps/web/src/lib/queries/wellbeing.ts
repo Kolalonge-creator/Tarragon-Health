@@ -53,11 +53,9 @@ export function useWellbeingCheckinPreference(patientId: string) {
 }
 
 /**
- * The patient's nearest upcoming pending medication review, if any — used as
- * the dashboard's "Next review" tile (§46.2). Deliberately reuses whatever's
- * already scheduled by the existing medication-review cadence rather than
- * inventing a new mental-health-specific screening interval (that would be a
- * Clinical-Director-signed protocol decision, not a code one).
+ * The patient's nearest upcoming pending medication review, if any — one of
+ * two sources for the dashboard's "Next review" tile (§46.2), the other
+ * being useNextMentalHealthScreeningDue below.
  */
 export function useNextMedicationReview(patientId: string) {
   return useQuery({
@@ -69,6 +67,31 @@ export function useNextMedicationReview(patientId: string) {
         .select("id, due_date")
         .eq("patient_id", patientId)
         .eq("status", "pending")
+        .order("due_date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * The patient's nearest upcoming mental-health screening due date, if any —
+ * rolled forward automatically by private.schedule_next_mental_health_screen
+ * after each screen submission, per the governed cadence in
+ * mental_health_screening_cadences (§46.4/§46.5).
+ */
+export function useNextMentalHealthScreeningDue(patientId: string) {
+  return useQuery({
+    queryKey: ["next-mental-health-screening-due", patientId] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("mental_health_screening_schedules")
+        .select("instrument, due_date")
+        .eq("patient_id", patientId)
         .order("due_date", { ascending: true })
         .limit(1)
         .maybeSingle();

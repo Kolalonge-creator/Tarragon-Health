@@ -3411,6 +3411,7 @@ export type Database = {
           is_clinical_director: boolean
           license_expires_at: string | null
           license_verified_at: string | null
+          offers_therapy_sessions: boolean
           organisation_id: string
           photo_url: string | null
           profile_id: string | null
@@ -3439,6 +3440,7 @@ export type Database = {
           is_clinical_director?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
+          offers_therapy_sessions?: boolean
           organisation_id: string
           photo_url?: string | null
           profile_id?: string | null
@@ -3467,6 +3469,7 @@ export type Database = {
           is_clinical_director?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
+          offers_therapy_sessions?: boolean
           organisation_id?: string
           photo_url?: string | null
           profile_id?: string | null
@@ -10639,6 +10642,92 @@ export type Database = {
           },
           {
             foreignKeyName: "medications_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mental_health_screening_cadences: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mental_health_screening_cadences_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mental_health_screening_schedules: {
+        Row: {
+          created_at: string
+          due_date: string
+          id: string
+          instrument: string
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          id?: string
+          instrument: string
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          id?: string
+          instrument?: string
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mental_health_screening_schedules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mental_health_screening_schedules_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -19622,6 +19711,7 @@ export type Database = {
       sign_alert_rules: { Args: { p_id: string }; Returns: string }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
+      sign_mental_health_screening_cadences: { Args: { p_id: string }; Returns: string }
       sign_risk_questionnaire_config: {
         Args: { p_config_id: string }
         Returns: string
@@ -19781,6 +19871,7 @@ export type Database = {
         | "telemedicine"
         | "follow_up"
         | "procedure"
+        | "therapy"
       appointment_consultation_method: "telemedicine" | "in_person"
       appointment_payment_status:
         | "not_required"
@@ -20682,6 +20773,7 @@ export const Constants = {
         "telemedicine",
         "follow_up",
         "procedure",
+        "therapy",
       ],
       appointment_consultation_method: ["telemedicine", "in_person"],
       appointment_payment_status: [

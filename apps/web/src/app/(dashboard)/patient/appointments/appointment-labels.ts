@@ -13,6 +13,7 @@ export const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
   telemedicine: "Telemedicine check-in",
   follow_up: "Follow-up",
   procedure: "Procedure",
+  therapy: "Therapy session",
 };
 
 export const APPOINTMENT_STATUS_LABELS: Record<

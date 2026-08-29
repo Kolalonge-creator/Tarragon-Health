@@ -7,7 +7,8 @@ import { WellbeingCheckinForm } from "@/app/(dashboard)/patient/wellbeing-checki
 import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { MentalHealthScreenForm } from "@/app/(dashboard)/patient/mental-health-form";
 import { CategoryDetail } from "@/app/(dashboard)/patient/health-education";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default async function PatientWellbeingPage() {
   const { profile, subjectId } = await getPatientDashboardContext();
@@ -32,6 +33,26 @@ export default async function PatientWellbeingPage() {
           <MentalHealthScreenForm patientId={subjectId} />
         </div>
       </div>
+
+      {/* Module 46 §46.8: in-house therapy, booked through the same general
+          appointment engine as any other visit — see 20260829098000. An
+          external psychiatry/psychology referral (a clinical decision your
+          care team makes, not self-service) is still available when that's
+          a better fit — ask them about it during a review or check-in. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Talk to someone</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-charcoal-ink/70">
+            Book a session with one of our therapists — over telemedicine or in person,
+            whichever suits you.
+          </p>
+          <Button asChild>
+            <Link href="/patient/appointments?type=therapy">Book a therapy session</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <CategoryDetail
         category="mental_health"

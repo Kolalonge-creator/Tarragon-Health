@@ -5,6 +5,7 @@ import {
   useLatestWellbeingCheckin,
   useWellbeingCheckinPreference,
   useNextMedicationReview,
+  useNextMentalHealthScreeningDue,
 } from "@/lib/queries/wellbeing";
 import { bandHigherIsBetter, bandLowerIsBetter, wellbeingBandLabel } from "@/lib/wellbeing/banding";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,8 @@ function Tile({ label, value }: { label: string; value: string | null }) {
 export function WellbeingTiles({ patientId }: { patientId: string }) {
   const { data: latest, isLoading } = useLatestWellbeingCheckin(patientId);
   const { data: preference } = useWellbeingCheckinPreference(patientId);
-  const { data: nextReview } = useNextMedicationReview(patientId);
+  const { data: nextMedicationReview } = useNextMedicationReview(patientId);
+  const { data: nextScreeningDue } = useNextMentalHealthScreeningDue(patientId);
   // Lazy initializer runs once on mount, not on every render — the accepted
   // pattern for reading the clock from a component body without tripping the
   // "impure function during render" rule. A stale "now" across a long-open
@@ -48,6 +50,17 @@ export function WellbeingTiles({ patientId }: { patientId: string }) {
     ? Math.floor((now - new Date(latest.checked_in_at).getTime()) / (1000 * 60 * 60 * 24))
     : null;
   const isDue = daysSinceLastCheckin === null || daysSinceLastCheckin >= frequencyDays;
+
+  // "Next review" surfaces whichever clinical touchpoint is soonest — a
+  // pending medication review or the next due mental-health screen — rather
+  // than picking one source arbitrarily.
+  const candidateDueDates = [nextMedicationReview?.due_date, nextScreeningDue?.due_date].filter(
+    (d): d is string => Boolean(d)
+  );
+  const nextReviewDate =
+    candidateDueDates.length > 0
+      ? candidateDueDates.reduce((earliest, d) => (d < earliest ? d : earliest))
+      : null;
 
   return (
     <Card>
@@ -74,11 +87,11 @@ export function WellbeingTiles({ patientId }: { patientId: string }) {
               {isDue ? <Badge variant="amber">Due</Badge> : <span className="text-brand-green">Up to date</span>}
             </p>
           </div>
-          {nextReview && (
+          {nextReviewDate && (
             <div className="rounded-lg border border-charcoal-ink/10 p-3">
               <p className="text-xs uppercase tracking-wide text-charcoal-ink/60">Next review</p>
               <p className="mt-1 text-sm font-medium text-charcoal-ink">
-                {new Date(nextReview.due_date).toLocaleDateString("en-GB", {
+                {new Date(nextReviewDate).toLocaleDateString("en-GB", {
                   day: "numeric",
                   month: "long",
                 })}
