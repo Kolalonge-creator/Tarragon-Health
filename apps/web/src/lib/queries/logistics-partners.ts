@@ -36,16 +36,24 @@ export function useMatchedHomeVisitProviders(params: { region?: string; sampleTy
   });
 }
 
-/** Active logistics_partners matching a region — powers the delivery-availability check and the ops courier picker. */
-export function useMatchedLogisticsPartners(params: { region?: string }) {
-  const { region } = params;
+/**
+ * Active logistics_partners matching a region — powers the
+ * delivery-availability check and the ops courier picker. When
+ * requiresColdChain is set, only couriers with supports_cold_chain=true are
+ * returned (spec §63.11's delivery-constraint requirement).
+ */
+export function useMatchedLogisticsPartners(params: { region?: string; requiresColdChain?: boolean }) {
+  const { region, requiresColdChain } = params;
   return useQuery({
-    queryKey: ["logistics-partners", region ?? ""],
+    queryKey: ["logistics-partners", region ?? "", requiresColdChain ?? false],
     queryFn: async () => {
       const supabase = createClient();
       let query = supabase.from("logistics_partners").select("*").eq("is_active", true);
       if (region) {
         query = query.contains("regions", [region]);
+      }
+      if (requiresColdChain) {
+        query = query.eq("supports_cold_chain", true);
       }
       const { data, error } = await query.order("name", { ascending: true });
       if (error) throw error;
@@ -111,6 +119,7 @@ export function useAssignLogisticsPartner() {
           logistics_partner_id: logisticsPartnerId,
           estimated_delivery_at: estimatedDeliveryAt,
           courier_reference: courierReference || null,
+          courier_assigned_at: new Date().toISOString(),
           status: "out_for_delivery",
         })
         .eq("id", orderId);
@@ -122,24 +131,63 @@ export function useAssignLogisticsPartner() {
   });
 }
 
-/** Staff marks a pharmacy order delivered, recording delivery_confirmed_at. */
+/**
+ * Staff marks a pharmacy order delivered — routes through
+ * record_pharmacy_delivery_attempt (result='delivered') so every outcome,
+ * successful or failed, lands in the same attempts history (spec §63.10).
+ * Signature unchanged so existing callers ("Mark delivered" in
+ * clinician/orders/page.tsx) need no changes.
+ */
 export function useConfirmPharmacyDelivery() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (orderId: string) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("pharmacy_orders")
-        .update({
-          status: "delivered",
-          delivered_at: new Date().toISOString(),
-          delivery_confirmed_at: new Date().toISOString(),
-        })
-        .eq("id", orderId);
+      const { error } = await supabase.rpc("record_pharmacy_delivery_attempt", {
+        p_order_id: orderId,
+        p_result: "delivered",
+      });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pharmacy-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["pharmacy-order-delivery-attempts"] });
+    },
+  });
+}
+
+export type DeliveryFailureReason =
+  | "patient_unavailable"
+  | "incorrect_address"
+  | "courier_failure"
+  | "security_access_issue"
+  | "other";
+
+/** Staff records a failed delivery attempt with a reason + optional notes (spec §63.10). Moves the order to delivery_failed so staff can reassign a courier to retry. */
+export function useRecordFailedDelivery() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      failureReason,
+      notes,
+    }: {
+      orderId: string;
+      failureReason: DeliveryFailureReason;
+      notes?: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("record_pharmacy_delivery_attempt", {
+        p_order_id: orderId,
+        p_result: "failed",
+        p_failure_reason: failureReason,
+        p_notes: notes || undefined,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacy-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["pharmacy-order-delivery-attempts"] });
     },
   });
 }

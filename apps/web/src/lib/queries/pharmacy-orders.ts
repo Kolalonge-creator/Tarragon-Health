@@ -37,16 +37,18 @@ export type PharmacyOrderItem = {
   pack_size: string | null;
   price_kobo: number;
   quantity: number;
+  /** Snapshotted from pharmacy_medications.requires_cold_chain at order time (spec §63.11). */
+  requires_cold_chain?: boolean;
 };
 
 export type PharmacyOrder = Tables<"pharmacy_orders">;
 
 export type PharmacyOrderWithLogistics = PharmacyOrder & {
-  logistics_partner: { name: string } | null;
+  logistics_partner: { name: string; delivery_fee_kobo: number; supports_cold_chain: boolean } | null;
 };
 
 const PHARMACY_ORDER_SELECT =
-  "*, logistics_partner:logistics_partners!pharmacy_orders_logistics_partner_id_fkey(name)";
+  "*, logistics_partner:logistics_partners!pharmacy_orders_logistics_partner_id_fkey(name, delivery_fee_kobo, supports_cold_chain)";
 
 /** Patient's own pharmacy_orders, newest first. Client hook from the start — Build 4's lab-orders-list bug (server component missed cache invalidation) taught this. */
 export function usePatientPharmacyOrders(patientId: string) {
@@ -122,6 +124,9 @@ export function useRecordDispense() {
       dispensedOn,
       source,
       recordedBy,
+      quantityPrescribed,
+      isPartial,
+      outstandingNote,
     }: {
       order: Pick<PharmacyOrder, "id" | "organisation_id" | "patient_id">;
       drugName: string;
@@ -129,6 +134,10 @@ export function useRecordDispense() {
       dispensedOn: string;
       source: "patient" | "pharmacy";
       recordedBy: string;
+      /** Spec §63.5 partial-dispensing distinction — same fields as the pharmacist RPC, for the patient self-report path. */
+      quantityPrescribed?: string | null;
+      isPartial?: boolean;
+      outstandingNote?: string | null;
     }) => {
       const supabase = createClient();
       const { error } = await supabase.from("pharmacy_order_dispenses").insert({
@@ -140,12 +149,35 @@ export function useRecordDispense() {
         dispensed_on: dispensedOn,
         source,
         recorded_by: recordedBy,
+        quantity_prescribed: quantityPrescribed || null,
+        is_partial: isPartial ?? false,
+        outstanding_note: outstandingNote || null,
       });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["pharmacy-order-dispenses", variables.order.id] });
     },
+  });
+}
+
+export type PharmacyOrderDeliveryAttempt = Tables<"pharmacy_order_delivery_attempts">;
+
+/** Delivery-attempt history for an order (spec §63.10) — newest first. */
+export function useOrderDeliveryAttempts(orderId: string) {
+  return useQuery({
+    queryKey: ["pharmacy-order-delivery-attempts", orderId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_order_delivery_attempts")
+        .select("*")
+        .eq("pharmacy_order_id", orderId)
+        .order("attempted_at", { ascending: false });
+      if (error) throw error;
+      return data as PharmacyOrderDeliveryAttempt[];
+    },
+    enabled: !!orderId,
   });
 }
 
@@ -182,6 +214,7 @@ export function useCreatePharmacyOrder() {
         pack_size: medication.pack_size,
         price_kobo: medication.price_kobo,
         quantity,
+        requires_cold_chain: medication.requires_cold_chain,
       };
       const { error } = await supabase.from("pharmacy_orders").insert({
         organisation_id: organisationId,
@@ -191,6 +224,7 @@ export function useCreatePharmacyOrder() {
         total_kobo: medication.price_kobo * quantity,
         status: "pending_payment",
         fulfilment_method: fulfilmentMethod,
+        requires_cold_chain: medication.requires_cold_chain,
       });
       if (error) throw error;
     },

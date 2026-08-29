@@ -719,6 +719,210 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // The five templates below close spec §63.16's acceptance criterion — the
+  // patient must be able to know "has my medicine actually been supplied?"
+  // — for the dormant routed pharmacy_orders path. Queued by
+  // private.enqueue_pharmacy_order_fulfilment_notifications
+  // (20260829143035_medication_dispensing_fulfilment_notifications.sql) on
+  // every status transition after payment_confirmed that pharmacy_order_
+  // notifications.sql never covered. Same shape as pharmacy_order_patient_
+  // confirmation: WhatsApp first, SMS fallback until the Meta template is
+  // approved, email when on file, pushUrl so tapping the notification opens
+  // the right page.
+  pharmacy_order_ready_for_collection: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const pharmacyName = String(payload.pharmacy_name ?? "the pharmacy");
+    const itemsSummary = String(payload.items_summary ?? "your medication");
+    const path = "/patient/medications";
+    const smsText =
+      `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) is ready for collection at ` +
+      `${pharmacyName}. Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_ready_for_collection",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: itemsSummary },
+            { type: "text", text: pharmacyName },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber} is ready for collection`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p>Your medication has been prepared and is ready to collect from <strong>${pharmacyName}</strong>.</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
+  pharmacy_order_out_for_delivery: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const itemsSummary = String(payload.items_summary ?? "your medication");
+    const courierName = String(payload.courier_name ?? "your courier");
+    const eta = payload.estimated_delivery_at
+      ? new Date(String(payload.estimated_delivery_at)).toLocaleString("en-GB", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : null;
+    const coldChainNote = payload.requires_cold_chain === true ? " Keep it refrigerated once it arrives." : "";
+    const path = "/patient/medications";
+    const smsText =
+      `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) is out for delivery with ${courierName}` +
+      `${eta ? `, estimated ${eta}` : ""}.${coldChainNote} Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_out_for_delivery",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: itemsSummary },
+            { type: "text", text: courierName },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber} is out for delivery`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p>Your order is on its way with <strong>${courierName}</strong>${eta ? `, estimated ${eta}` : ""}.</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `${coldChainNote ? `<p style="color:#b45309">${coldChainNote.trim()}</p>` : ""}` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
+  pharmacy_order_delivered: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const itemsSummary = String(payload.items_summary ?? "your medication");
+    const path = "/patient/medications";
+    const smsText = `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) has been delivered. Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_delivered",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: itemsSummary },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber} was delivered`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p>Your order has been delivered.</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
+  pharmacy_order_delivery_failed: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const itemsSummary = String(payload.items_summary ?? "your medication");
+    const reasonCopy: Record<string, string> = {
+      patient_unavailable: "nobody was available to receive it",
+      incorrect_address: "the delivery address needs to be corrected",
+      courier_failure: "the courier could not complete the delivery",
+      security_access_issue: "the courier could not access the delivery location",
+      other: "the delivery could not be completed",
+    };
+    const reason = reasonCopy[String(payload.failure_reason ?? "other")] ?? reasonCopy.other;
+    const path = "/patient/medications";
+    const smsText =
+      `Hi, delivery of your Tarragon Health order ${orderNumber} (${itemsSummary}) did not succeed: ${reason}. ` +
+      `We'll be in touch to arrange redelivery. Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_delivery_failed",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: reason },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Delivery attempt for your Tarragon Health order ${orderNumber} was unsuccessful`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p>We tried to deliver your order but ${reason}. We'll be in touch to arrange redelivery — no action ` +
+          `needed from you right now, but you can update your delivery address in the app.</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
+  pharmacy_order_unavailable: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const pharmacyName = String(payload.pharmacy_name ?? "the pharmacy");
+    const alternatives = String(payload.alternatives ?? "");
+    const path = "/patient/medications";
+    const altCopy = alternatives ? ` Other pharmacies you could try: ${alternatives}.` : "";
+    const smsText =
+      `Hi, ${pharmacyName} could not fulfil your Tarragon Health order ${orderNumber} as prescribed.${altCopy} ` +
+      `Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_unavailable",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: pharmacyName },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber}: medicine unavailable`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p><strong>${pharmacyName}</strong> was unable to fulfil your order as prescribed.</p>` +
+          `${alternatives ? `<p>Other pharmacies you could try: ${alternatives}.</p>` : ""}` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
   // Sent to whoever funded someone else's Health Wallet, when that money
   // actually becomes care (private.notify_sponsors_of_wallet_spend). Queued on
   // in_app and email only: a sponsor abroad often has no Nigerian number, and

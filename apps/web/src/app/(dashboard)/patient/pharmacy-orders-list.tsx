@@ -5,6 +5,7 @@ import {
   usePatientPharmacyOrders,
   useOrderDispenses,
   useRecordDispense,
+  useOrderDeliveryAttempts,
   type PharmacyOrderItem,
   type PharmacyOrderWithLogistics,
 } from "@/lib/queries/pharmacy-orders";
@@ -16,10 +17,9 @@ import { Label } from "@/components/ui/label";
 import { koboToNaira, type PharmacyOrderStatus } from "@tarragon/shared";
 import { PayForPharmacyOrderButton } from "@/components/pay-for-pharmacy-order-button";
 import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
-import { DeliveryAvailability } from "@/components/delivery-availability";
 import { DeliveryAddressForm } from "@/components/delivery-address-form";
-
-type DeliveryAddress = { street: string; area: string; state: string; phone: string };
+import { DeliveryStatusTimeline } from "@/components/delivery-status-timeline";
+import { PharmacyOrderCostBreakdown } from "@/components/pharmacy-order-cost-breakdown";
 
 /** Patient records what they collected against an order (self-service, works
  * even when the pharmacy doesn't log in). Existing dispense records shown too. */
@@ -140,14 +140,41 @@ const PHARMACY_ORDER_STATUS_BADGE: Record<PharmacyOrderStatus, { variant: BadgeP
   payment_confirmed: { variant: "blue", label: "Booking confirmed" },
   requested: { variant: "blue", label: "In progress" },
   confirmed: { variant: "blue", label: "In progress" },
+  unavailable: { variant: "amber", label: "Medicine unavailable" },
   dispensed: { variant: "blue", label: "Dispensed" },
   out_for_delivery: { variant: "blue", label: "Out for delivery" },
+  delivery_failed: { variant: "red", label: "Delivery attempt failed" },
   delivered: { variant: "green", label: "Delivered" },
   cancelled: { variant: "grey", label: "Cancelled" },
 };
 
 function itemsSummary(items: PharmacyOrderItem[]): string {
   return items.map((item) => `${item.drug_name} × ${item.quantity}`).join(", ");
+}
+
+/** Wraps DeliveryStatusTimeline with the dispense/delivery-attempt data it needs (spec §63.9, §63.10). */
+function OrderStatusTimeline({ order }: { order: PharmacyOrderWithLogistics }) {
+  const { data: dispenses } = useOrderDispenses(order.id);
+  const { data: attempts } = useOrderDeliveryAttempts(order.id);
+  const latestDispense = dispenses?.[0];
+  const latestFailedAttempt = attempts?.find((a) => a.result === "failed");
+
+  return (
+    <DeliveryStatusTimeline
+      orderNumber={order.order_number}
+      status={order.status}
+      fulfilmentMethod={order.fulfilment_method}
+      requestedAt={order.requested_at}
+      dispensedAt={latestDispense?.dispensed_on}
+      courierName={order.logistics_partner?.name}
+      courierAssignedAt={order.courier_assigned_at}
+      estimatedDeliveryAt={order.estimated_delivery_at}
+      deliveredAt={order.delivery_confirmed_at}
+      requiresColdChain={order.requires_cold_chain}
+      unavailableReason={order.unavailable_reason}
+      latestFailureReason={latestFailedAttempt?.failure_reason}
+    />
+  );
 }
 
 export function PharmacyOrdersList({ patientId }: { patientId: string }) {
@@ -188,20 +215,19 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                     />
                   </>
                 )}
-                {order.status === "payment_confirmed" && !order.delivery_address && (
-                  <DeliveryAddressForm orderId={order.id} />
+                {order.fulfilment_method === "delivery" &&
+                  order.status === "payment_confirmed" &&
+                  !order.delivery_address && <DeliveryAddressForm orderId={order.id} />}
+                {order.status !== "pending_payment" && order.status !== "cancelled" && (
+                  <OrderStatusTimeline order={order} />
                 )}
-                {(order.delivery_address ||
-                  order.status === "confirmed" ||
-                  order.status === "dispensed" ||
-                  order.status === "out_for_delivery" ||
-                  order.status === "delivered") && (
-                  <DeliveryAvailability
-                    region={(order.delivery_address as unknown as DeliveryAddress | null)?.state ?? null}
-                    logisticsPartnerName={order.logistics_partner?.name ?? null}
-                    estimatedDeliveryAt={order.estimated_delivery_at}
-                    courierReference={order.courier_reference}
-                    deliveryConfirmedAt={order.delivery_confirmed_at}
+                {order.status === "delivery_failed" && <DeliveryAddressForm orderId={order.id} />}
+                {order.status !== "pending_payment" && order.status !== "cancelled" && (
+                  <PharmacyOrderCostBreakdown
+                    items={items}
+                    totalKobo={order.total_kobo}
+                    deliveryFeeKobo={order.logistics_partner?.delivery_fee_kobo ?? null}
+                    fulfilmentMethod={order.fulfilment_method}
                   />
                 )}
                 {order.status !== "pending_payment" && order.status !== "cancelled" && (

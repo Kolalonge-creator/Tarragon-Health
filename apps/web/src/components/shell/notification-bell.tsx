@@ -263,7 +263,25 @@ function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "pharmacy_order_patient_confirmation") {
     const items = String(payload.items_summary ?? "your medication");
-    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/pharmacy" };
+    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_ready_for_collection") {
+    const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
+    return { text: `Your medication is ready for collection at ${pharmacy}`, href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_out_for_delivery") {
+    const courier = String(payload.courier_name ?? "your courier");
+    return { text: `Your medication order is out for delivery with ${courier}`, href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_delivered") {
+    return { text: "Your medication order has been delivered", href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_delivery_failed") {
+    return { text: "A delivery attempt for your medication order was unsuccessful", href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_unavailable") {
+    const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
+    return { text: `${pharmacy} could not fulfil your medication order as prescribed`, href: "/patient/medications" };
   }
   if (n.template === "referral_patient_confirmation") {
     const specialist = String(payload.specialist_name ?? "your specialist");

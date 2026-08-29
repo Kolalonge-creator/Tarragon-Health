@@ -60,11 +60,30 @@ export function usePharmacistRecordDispense() {
       drugName,
       quantity,
       dispensedOn,
+      quantityPrescribed,
+      isPartial,
+      outstandingNote,
+      batchNumber,
+      substitutedFor,
+      substitutionReason,
+      controlledTier,
+      enhancedVerificationConfirmed,
     }: {
       orderId: string;
       drugName: string;
       quantity: string;
       dispensedOn: string;
+      /** Snapshot of what was prescribed, so a partial fill records "Prescribed: 30 / Dispensed: 20" (spec §63.5). */
+      quantityPrescribed?: string;
+      isPartial?: boolean;
+      outstandingNote?: string;
+      batchNumber?: string;
+      /** Set when dispensing a substitute for the originally prescribed drug (spec §63.13). */
+      substitutedFor?: string;
+      substitutionReason?: string;
+      /** Advisory classification from controlled-substances.ts, snapshotted for audit (spec §63.12). */
+      controlledTier?: "narcotic" | "restricted" | null;
+      enhancedVerificationConfirmed?: boolean;
     }) => {
       const supabase = createClient();
       const { error } = await supabase.rpc("pharmacist_record_dispense", {
@@ -72,12 +91,53 @@ export function usePharmacistRecordDispense() {
         p_drug_name: drugName,
         p_quantity: quantity,
         p_dispensed_on: dispensedOn,
+        p_quantity_prescribed: quantityPrescribed || undefined,
+        p_is_partial: isPartial ?? false,
+        p_outstanding_note: outstandingNote || undefined,
+        p_batch_number: batchNumber || undefined,
+        p_substituted_for: substitutedFor || undefined,
+        p_substitution_reason: substitutionReason || undefined,
+        p_controlled_tier: controlledTier || undefined,
+        p_enhanced_verification_confirmed: enhancedVerificationConfirmed ?? false,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
       queryClient.invalidateQueries({ queryKey: ["pharmacist-dispense-history"] });
+    },
+  });
+}
+
+/** Pharmacy accepts a routed order (requested/payment_confirmed -> confirmed). Spec §63.2. */
+export function usePharmacistAcceptOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("pharmacist_accept_order", { p_order_id: orderId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
+    },
+  });
+}
+
+/** Pharmacy flags an order as unavailable — no stock lookup, the pharmacist states why (spec §63.4). */
+export function usePharmacistFlagUnavailable() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("pharmacist_flag_unavailable", {
+        p_order_id: orderId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
     },
   });
 }
