@@ -86,7 +86,11 @@ export type CaregiverPermission = (typeof CAREGIVER_PERMISSIONS)[number];
 
 export const CAREGIVER_PERMISSION_LABEL: Record<CaregiverPermission, string> = {
   view_appointments: "See appointments",
-  book_appointments: "Book appointments",
+  // Also gates requesting a screening/lab check (sponsor_book_care) — there
+  // is no separate "book a check" capability in this list, and both are the
+  // same kind of action (scheduling care, not spending money or reading a
+  // record), so the label says so rather than only naming the narrower half.
+  book_appointments: "Book appointments and screening checks",
   view_medication: "See medications",
   manage_pharmacy: "Order and refill medication",
   view_results: "See test results",
