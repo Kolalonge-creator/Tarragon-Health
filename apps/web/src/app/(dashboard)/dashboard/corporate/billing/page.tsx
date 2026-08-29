@@ -1,11 +1,13 @@
 import { loadCorporateDashboardData } from "../dashboard-data";
 import { EmployerBillingPanel } from "../employer-billing-panel";
 
-/** Only ever rendered when corporate/layout.tsx has already established the
- * "ready" state — see page.tsx's own note. */
+/** Only ever rendered once corporate/layout.tsx has established an
+ * organisation exists. Contract/invoice data needs only `organisationId` —
+ * never the cohort-sized ML analytics "ready" gates — so this renders in
+ * "suppressed" and "no-analytics" too, not just "ready". */
 export default async function CorporateBillingPage() {
   const data = await loadCorporateDashboardData();
-  if (data.state !== "ready") {
+  if (data.state === "no-org" || data.state === "no-access") {
     return null;
   }
 
