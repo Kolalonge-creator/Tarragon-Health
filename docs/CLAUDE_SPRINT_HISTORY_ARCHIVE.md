@@ -2751,3 +2751,174 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+### 2026-08-21–25 — Synlab Nigeria contracted and switched on (logged retroactively 2026-08-29)
+
+**This entry did not exist until a 2026-08-29 session found the gap while reconciling a new lab-network
+spec against the self-arranged-fulfilment correction above — five real migrations had shipped and gone
+live with no changelog entry here or in CLAUDE.md, discoverable only by reading commit messages and live
+migration files directly.** Recorded now, after the fact, from that evidence — treat any date/detail below
+as reconstructed from the commit history rather than a first-hand session account, and re-verify against
+`git log`/live migrations if the exact sequence ever matters.
+
+Founder decision 2026-08-21: contract Synlab Nigeria as a real partner laboratory and bill patients
+directly for it — "Option A" — reversing part of the 2026-08-03 self-arranged-default correction for
+exactly this one laboratory, not a return to the pre-08-03 model generally.
+
+- `64c40eb` "Load Synlab's contracted prices and restructure the tiers around them" — real contracted
+  prices loaded (`20260821191743_synlab_contract_prices_and_tier_restructure.sql`), the Screen ladder
+  restructured around them (Know Your Basics / Core Screen / periodic add-ons / condition panels,
+  Advanced/Comprehensive retired).
+- `6496caa`/`dee24cb` "Collect for a partner review, and hold the lab's share as a liability" /
+  "Transmit, reconcile, settle and refund a partner-billed review"
+  (`20260821191942_partner_billing_collect_and_liability.sql`,
+  `20260821192256_partner_billing_reconcile_settle_refund.sql`) — a patient payment for a partner-billed
+  order now splits at the moment it lands (Dr 1020 clearing, Cr 2700 "Partner lab funds payable" for what
+  Synlab charges Tarragon, Cr 4100 for the margin only) instead of booking the whole amount as revenue;
+  `private.resolve_lab_order_provider` and `private.compute_partner_cost` built here, already
+  provider-parameterised rather than Synlab-hardcoded (see the 2026-08-29 entry below — this is why that
+  session's generalisation needed no changes to either function).
+- `efbd2c4` "Make principal-vs-agent a row of data, not a rewrite" — the agent-vs-principal revenue
+  treatment question the founder flagged as "a real question for an accountant, not a coding one" is a
+  toggle, not a hardcoded assumption.
+- `d675ee2` / `20260821193144_switch_on_synlab.sql` "Switch Synlab on" — `lab_providers.is_active = true`
+  for Synlab only, gated behind a new `lab_providers_active_needs_real_contacts` constraint (a laboratory
+  cannot go live carrying a placeholder `.example` contact — the paid-order trigger emails/texts it the
+  patient's name and patient number) and a rewritten `private.record_lab_commission` that stops recording
+  a phantom commission on a partner-billed order (the margin already posted to revenue IS the income —
+  a commission row on top would double-count it). Asserted exactly one active laboratory at migration end,
+  by design: `resolve_lab_order_provider`'s no-provider-named fallback only resolves unambiguously with
+  one active laboratory, and two would mean picking a price list at random.
+- `932dda6` (2026-08-25) "Remove the subscriber discount, and build the Synlab checkout path" — the actual
+  gap this commit's own message names: none of the migrations above had any application code path that
+  ever created a `fulfilment='partner'` order, so nothing a patient could click reached the money path.
+  Added `createAndPayForPartnerLabOrder`
+  (`apps/web/src/app/(dashboard)/patient/lab-tests/actions.ts`) and the "Book & pay" button in
+  `annual-health-check-booking.tsx`. Same-day migrations gave Synlab real branch data —
+  `lab_provider_locations` (a proper one-row-per-branch child table, superseding a short-lived
+  single-address-column attempt the same session), nationwide regions, and seeded locations — feeding the
+  public `/coverage` partner map, but at this point still NOT wired into the booking flow itself; a
+  patient booking Synlab picked no branch, relying entirely on the single-active-provider fallback. Closed
+  2026-08-29 (see below).
+- **Left inconsistent by this sequence, found 2026-08-29:** CLAUDE.md's "Non-Negotiable Business Rules"
+  and this archive were never updated to mention the exception — a session reading only those two sources
+  would reasonably conclude Tarragon never bills a lab, when for Synlab, in Lagos, it already does.
+  `docs/FEATURE_SPEC.md` and `docs/FULL_SPECIFICATION_V4.md` (last touched before 2026-08-03) still
+  describe the pre-correction, all-labs-partner-network vision and were never marked stale on this point
+  either — treat their lab-booking mechanics as historical target-state, not current truth, until someone
+  does that reconciliation pass.
+
+### 2026-08-29 — Laboratory Network & Diagnostic Services Platform (§56): self-arranged-default reversed, network booking built out
+
+Founder decision, put explicitly to the founder before any code was written (the incoming spec read as
+a full re-adoption of the pre-2026-08-03 all-labs-partner-network vision, which is exactly what the
+self-arranged correction and the Synlab exception above were built to constrain): build the spec as
+written, including generalised network-wide booking/payment/coverage/negotiated pricing/dispatch for any
+laboratory Tarragon contracts — not scoped down to "fulfilment-agnostic pieces only." CLAUDE.md's
+business rules were asked to be updated to match, which the entry above and the new paragraph in
+"Where things actually stand" both do.
+
+**What research found before writing anything, and why it changed the shape of the build:**
+`private.resolve_lab_order_provider` (built 2026-08-21, see above) already resolved an explicitly-named
+`provider_id`/`facility_id` before ever falling back to "the single active laboratory", and
+`public.region_service_available` already used `exists(...)` for lab coverage rather than "exactly one" —
+neither was Synlab-hardcoded despite only ever having had one real laboratory to resolve. The only
+standing "exactly one active laboratory" assertion was a one-time `DO` block inside
+`switch_on_synlab.sql`'s own migration run, not a live constraint. So the real gap was narrower than the
+spec implied: no patient-facing flow ever let someone choose a provider/branch, and several §56 pieces
+(specimen tracking, rejection/recollection, turnaround alerting, a real staff dashboard, versioned
+multi-payer pricing, home-collection phlebotomist assignment) simply didn't exist yet, for either
+fulfilment mode.
+
+**Ten migrations, `20260829122804` through `20260829123733`, each independently applying and each ending
+in a `DO` block of assertions** (house convention): `lab_network_provider_profile` (accreditation,
+`integration_status`, branch `opening_hours`/`capabilities` — the `lab_providers_active_needs_real_contacts`
+guard and the fact that Cerba Lancet/Healthtracka/Afriglobal Medicare stay genuinely `is_active=false`
+are both asserted at the end, not just left alone); `lab_network_test_catalogue_definitions`
+(`screen_types` gains `specimen_type`/`preparation_instructions`/`units`/`reference_range_text`/
+`patient_explainer`, backfilled for every currently-bookable test — this is orientation copy, explicitly
+not authoritative for interpreting a real result, which stays on `lab_analyte_readings`);
+`lab_network_panel_governance` (`panel_bundles.category`/`clinical_protocol_ref`, plus a real
+`kidney_panel` bundle from two already-contracted Synlab tests — deliberately did NOT fabricate a
+"Cardiovascular assessment" bundle, since no cardiac-specific marker is in Synlab's contracted price list
+and inventing one would be exactly the kind of below-cost/no-real-contract test the margin-safety
+triggers exist to catch); `lab_network_location_discovery` (`list_lab_test_locations`, a read-only RPC —
+the actual missing piece for provider/branch choice); `lab_network_specimen_tracking` (new
+`lab_specimens` table, unique `specimen_number`, a status pipeline from `pending_collection` through
+`completed`, auto-created by a trigger the moment a partner order becomes real, backfilled for any order
+that reached that state before the migration ran); `lab_network_specimen_rejection`
+(`lab_partner_reject_specimen` — closes the rejected specimen and opens a chained recollection specimen
+plus patient/staff notifications in one call); `lab_network_turnaround_alerts` (`lab_turnaround_alerts`
+table; the sweep that populates it is a Vercel Cron TypeScript route, same shape as every other cron job
+in `apps/web/src/app/api/cron/`, not a new SQL-function pattern); `lab_network_home_collection`
+(`phlebotomist_name`/`phlebotomist_phone` on `lab_orders`, `assign_home_phlebotomist` — re-derives
+"location verified" via `region_service_available(state, 'home_visit')` server-side rather than trusting
+the caller); `lab_network_versioned_pricing` (`lab_test_price_versions` — cash/payer/employer/
+tarragon_negotiated, append-only, a close-out-on-insert trigger keeps `lab_tests.price_kobo` in sync so
+every existing margin-safety trigger keeps working unmodified); `lab_network_partner_dashboard_stats`
+(`lab_partner_dashboard_stats()` — orders today, samples received/processing/completed/rejected today,
+and currently-open delay alerts, scoped to the caller's own lab like every other `lab_partner_*` RPC).
+
+**A real authorization bug found and fixed before any of this reached a database.** No Supabase project
+or Docker was available in this session, so a local PostgreSQL 16 instance was stood up with a hand-built
+stand-in schema (roles, `private.*` helper stubs, condensed versions of every table the new migrations
+touch) plus realistic seed data (a real Synlab row, real screen_types/lab_tests/panel_bundles, a
+`payment_confirmed` lab_order) — all ten migrations were run against it, end to end, from a clean
+database, twice. The first pass caught nothing wrong with the SQL itself (every table/column/function
+reference resolved correctly), but a follow-up functional smoke test — simulating a signed-in session via
+`set_config('request.jwt.claim.sub', ...)` + `set role authenticated`, the same technique
+`lab_partner_rls.sql` uses — found that `lab_partner_update_specimen_status`, `lab_partner_reject_specimen`,
+and `assign_home_phlebotomist` all shared one bug: `if x is null or x <> private.lab_partner_provider()
+then raise exception` looks like a refusal, but when `lab_partner_provider()` returns NULL (any caller who
+is not a lab partner at all — which is the *normal* case for a patient, a clinician, anyone), SQL's
+three-valued logic makes the whole condition NULL, and PL/pgSQL's `if null then` does not raise — the
+exception was silently skipped for exactly the caller each check exists to refuse. All three RLS
+policies elsewhere in the same migrations used the safe idiom already (`x is not null and x = ...`, which
+correctly excludes/denies under RLS's different NULL-handling), so only the plpgsql functions needed
+fixing — rewritten to check `private.lab_partner_provider() is null` explicitly before the equality, with
+a comment at each site explaining why. Re-ran the full ten-migration sequence and the specific attack
+(a patient session calling `lab_partner_update_specimen_status` against a Synlab specimen) after the fix —
+correctly refused. This is exactly the kind of bug a "the migration is the test" `DO` block cannot catch
+on its own (it runs as the migration's own privileged connection, never as an unprivileged caller) — worth
+remembering next time a plpgsql authorization check is written against a nullable "which tenant/partner is
+this caller" lookup.
+
+**UI**: patient booking flow (`annual-health-check-booking.tsx`) gained a location picker
+(`LabLocationPicker`, feeding an explicit `providerId` into `createAndPayForPartnerLabOrder` — omitted,
+falls back to the pre-existing single-active-provider resolution, so today's one-real-lab behaviour is
+unchanged unless a second lab is ever actually contracted), prep/specimen-type display from the new
+catalogue fields, and a specimen-tracking card (`LabSpecimenTracker`, renders nothing for a
+self-arranged order — no specimen row exists for one, by design). Lab-partner dashboard
+(`/lab-partner`) gained the §56.13 stat row and a specimen worklist (`LabPartnerSpecimenBoard`) with
+one-tap forward progress and a reject-with-reason flow.
+
+**`packages/shared/src/database.types.ts` hand-patched, not regenerated** — no Supabase credentials in
+this session to run `generate_typescript_types` against the live project, same precedent as the
+2026-08-25/26 device_catalog entries above (targeted inserts at the right position, not a full
+regenerate-and-overwrite). Three new tables, one new view, five new RPC signatures, six new enums, and
+new columns on `lab_orders`/`lab_providers`/`lab_provider_locations`/`panel_bundles`/`screen_types`
+added by hand; the `Constants.public.Enums` runtime-array block at the bottom of the file was left
+un-patched (nothing this session's UI code reads from it) — worth closing the next time this file gets a
+real regeneration.
+
+**Explicitly not done, and why:** no real HL7/FHIR or partner-API connector — `lab_providers.
+integration_status` is schema-ready ('api'/'hl7_fhir'/'file_exchange'/'structured_upload'/'manual') the
+same "credential-drop-in-ready, not live" way the wearables integration was built, but no real lab has
+ever offered credentials to build against, and building a fake connector would be worse than not building
+one. No contract fabricated for Cerba Lancet/Healthtracka/Afriglobal Medicare — they stay exactly as
+inactive as they were; the mechanism now supports more than one active laboratory, the roster does not.
+No marketing-site rewrite beyond `/coverage`'s own framing paragraph (still fully data-driven off
+`region_service_available`/`getServiceCoverage()`, so no claim in it changed, only tone) — `pricing.ts`'s
+`PricingLabel` type (`INCLUDED`/`YOU PAY THE LAB`/`FREE ELSEWHERE`/`ADD-ON`) and the per-test/per-panel
+pricing rows across the marketing site were deliberately left untouched rather than blanket-renamed,
+since most regions still have no contracted lab and a wholesale rename would overclaim coverage that
+doesn't exist yet — exactly the mistake the 2026-08-04 deployment-promotion entry above already
+documents once. Revisit that page-by-page, region-aware, once more than one laboratory is real.
+
+- Verified: all ten migrations run clean, twice, from a fresh seeded local PostgreSQL 16 instance (no
+  live Supabase project reachable this session) — first for pure dependency/syntax correctness, then
+  again after the authorization fix above, plus a functional smoke test of the full specimen lifecycle
+  (create → collect → receive → reject → recollection chain → dashboard stats) as a simulated lab-partner
+  session. `pnpm --filter web typecheck` and `eslint` both clean on every new/changed file. Not run this
+  session: `packages/db/tests` (needs a real linked Supabase project) and the app's own Jest suite — flagged
+  as the next session's first job, not assumed clean.
+

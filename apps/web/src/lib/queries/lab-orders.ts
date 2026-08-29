@@ -5,6 +5,83 @@ import type { Database, Tables } from "@tarragon/shared";
 export type PanelBundle = Tables<"panel_bundles">;
 export type LabProvider = Tables<"lab_providers">;
 
+/**
+ * §56.4/§56.6 test-definition fields (specimen/prep/units/reference range/
+ * explainer) added by the 2026-08-29 lab-network migration series — not yet
+ * reflected in the generated Database type (packages/shared regenerates
+ * against the live project; this session has no credentials to run that),
+ * so extended locally the same way LabTurnaroundSelfStats and other
+ * ahead-of-codegen shapes already are in this file. Regenerate and fold
+ * this into Tables<"screen_types"> directly next time codegen runs.
+ */
+export type ScreenTypeCatalogueFields = {
+  specimen_type: string | null;
+  preparation_instructions: string | null;
+  units: string | null;
+  reference_range_text: string | null;
+  patient_explainer: string | null;
+};
+
+/** One branch of one active laboratory that offers a given test — the
+ * §56.7 booking flow's location-selection step. Backed by the
+ * list_lab_test_locations RPC (read-only, composes already-readable
+ * catalogues), ahead of codegen for the same reason as above. */
+export type LabTestLocation = {
+  provider_id: string;
+  provider_name: string;
+  integration_status: string;
+  accreditation: string | null;
+  location_id: string;
+  location_name: string;
+  location_state: string;
+  location_address: string;
+  contact_phone: string | null;
+  opening_hours: Record<string, { open: string; close: string } | null> | null;
+  capabilities: string[];
+  turnaround_hours: number | null;
+  price_kobo: number | null;
+};
+
+/** Which branches (across every active, priced laboratory) can actually run
+ * this test — pass no code to list every active branch. */
+export function useLabTestLocations(testCode: string | null | undefined, state?: string | null) {
+  return useQuery({
+    queryKey: ["lab-test-locations", testCode, state],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("list_lab_test_locations", {
+        p_test_code: testCode ?? undefined,
+        p_state: state ?? undefined,
+      });
+      if (error) throw error;
+      return (data ?? []) as LabTestLocation[];
+    },
+    enabled: !!testCode,
+  });
+}
+
+/** §56.4/§56.6 catalogue detail for one screen_type — what it is, why it may
+ * be requested, prep, and turnaround-relevant fields, for the test-search
+ * result / booking prep step. */
+export function useScreenTypeDetails(code: string | null | undefined) {
+  return useQuery({
+    queryKey: ["screen-type-details", code],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("screen_types")
+        .select(
+          "code, name, specimen_type, preparation_instructions, units, reference_range_text, patient_explainer",
+        )
+        .eq("code", code as string)
+        .maybeSingle();
+      if (error) throw error;
+      return data as ({ code: string; name: string } & ScreenTypeCatalogueFields) | null;
+    },
+    enabled: !!code,
+  });
+}
+
 /** Active panel_bundles — the bookable unit (lab_orders has no per-test junction, only panel_bundle_id; a "single test" is just a one-item bundle). */
 export function useLabCatalogue() {
   return useQuery({

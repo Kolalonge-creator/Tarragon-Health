@@ -70,11 +70,13 @@ export default async function CoveragePage() {
             otherwise.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Billing a lab on your behalf is the one exception: for some
-            screening bundles, you can opt in to have us arrange it with our
-            contracted lab partner and bill you directly, instead of paying the
-            lab yourself. It is always optional, alongside the self-arranged
-            path above.
+            Where we have a contracted lab partner covering you, we book it
+            and bill you one price directly — no separate lab visit to
+            arrange. Today that means Synlab Nigeria, in the states listed
+            below. Everywhere else, the self-arranged path above still works
+            exactly the same: take the request to any lab you like and pay
+            them directly. As we contract more laboratories, more of the map
+            below moves into the first group.
           </p>
           {liveStates.length > 0 && (
             <p className="mt-4 text-sm text-charcoal-ink/60">
