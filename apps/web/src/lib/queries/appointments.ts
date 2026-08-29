@@ -17,6 +17,45 @@ export type AvailableAppointmentSlot = {
   slot_end: string;
   consultation_method: ConsultationMethod;
   location: string | null;
+  facility_id: string | null;
+  facility_name: string | null;
+};
+
+export type FacilityQueueEntry = {
+  appointment_id: string;
+  patient_id: string;
+  patient_name: string | null;
+  patient_number: string | null;
+  clinician_id: string | null;
+  clinician_name: string | null;
+  appointment_type: AppointmentType;
+  status: AppointmentStatus;
+  scheduled_for: string;
+  checked_in_at: string | null;
+  called_at: string | null;
+  is_high_priority: boolean;
+  is_late_arrival: boolean;
+  queue_position: number;
+};
+
+export type AppointmentFacility = {
+  id: string;
+  name: string;
+  type: string;
+  state: string;
+  city: string;
+};
+
+export type FacilityCapacityToday = {
+  facility_id: string;
+  date: string;
+  available_slots: number;
+  booked: number;
+  checked_in: number;
+  called: number;
+  completed: number;
+  cancelled: number;
+  no_show: number;
 };
 
 export const appointmentKeys = {
@@ -26,6 +65,9 @@ export const appointmentKeys = {
   myWaitingList: (patientId: string) => ["appointments", "waiting-list", "mine", patientId] as const,
   availabilityRules: (clinicianId: string) => ["appointments", "availability-rules", clinicianId] as const,
   timeOff: (clinicianId: string) => ["appointments", "time-off", clinicianId] as const,
+  facilityQueue: (facilityId: string, clinicianId?: string) =>
+    ["appointments", "facility-queue", facilityId, clinicianId ?? null] as const,
+  facilityCapacityToday: (facilityId: string) => ["appointments", "facility-capacity-today", facilityId] as const,
 };
 
 const UPCOMING_STATUSES = ["held", "booked", "confirmed", "checked_in", "in_progress"] as const;
@@ -38,6 +80,7 @@ export function useAvailableAppointmentSlots(params: {
   appointmentType: AppointmentType;
   consultationMethod?: ConsultationMethod;
   clinicianId?: string;
+  facilityId?: string;
   from?: string;
   to?: string;
   enabled?: boolean;
@@ -53,6 +96,7 @@ export function useAvailableAppointmentSlots(params: {
         p_appointment_type: params.appointmentType,
         p_consultation_method: params.consultationMethod,
         p_clinician_id: params.clinicianId,
+        p_facility_id: params.facilityId,
         p_from: params.from,
         p_to: params.to,
       });
@@ -73,12 +117,15 @@ export function useMyUpcomingAppointments(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("appointments")
-        .select("*, clinician:profiles!appointments_clinician_id_fkey(full_name)")
+        .select("*, clinician:profiles!appointments_clinician_id_fkey(full_name), facility:facilities(name)")
         .eq("patient_id", patientId)
         .in("status", UPCOMING_STATUSES)
         .order("scheduled_for", { ascending: true });
       if (error) throw error;
-      return data as (Appointment & { clinician: { full_name: string | null } | null })[];
+      return data as (Appointment & {
+        clinician: { full_name: string | null } | null;
+        facility: { name: string } | null;
+      })[];
     },
   });
 }
@@ -107,6 +154,29 @@ function invalidateAppointmentQueries(queryClient: ReturnType<typeof useQueryCli
   queryClient.invalidateQueries({ queryKey: ["appointments"] });
 }
 
+/** 69.5 — the Facility step of the booking pipeline. Any active facility,
+ * not filtered to a specific facility_type: which physical location makes
+ * sense for a given appointment_type is a patient/staff judgement call, not
+ * one this picker should guess at. Facilities the founder hasn't activated
+ * yet (see docs/CLAUDE.md's 2026-08-03 facilities-suspension note) simply
+ * never appear here, since is_active is the same gate every other
+ * facility-facing surface already uses. */
+export function useAppointmentFacilities() {
+  return useQuery({
+    queryKey: ["appointments", "facilities"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("facilities")
+        .select("id, name, type, state, city")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as AppointmentFacility[];
+    },
+  });
+}
+
 /** 10.7 hold — the first step of booking. */
 export function useHoldAppointmentSlot() {
   const queryClient = useQueryClient();
@@ -123,6 +193,10 @@ export function useHoldAppointmentSlot() {
       location?: string;
       specialistReferralId?: string;
       carePlanId?: string;
+      facilityId?: string;
+      preparationInstructions?: string;
+      documentsRequired?: string[];
+      investigationsRequired?: string[];
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("hold_appointment_slot", {
@@ -137,6 +211,10 @@ export function useHoldAppointmentSlot() {
         p_location: input.location,
         p_specialist_referral_id: input.specialistReferralId,
         p_care_plan_id: input.carePlanId,
+        p_facility_id: input.facilityId,
+        p_preparation_instructions: input.preparationInstructions,
+        p_documents_required: input.documentsRequired,
+        p_investigations_required: input.investigationsRequired,
       });
       if (error) throw error;
       return data as Appointment;
@@ -159,11 +237,14 @@ export function useConfirmAppointmentBooking() {
   });
 }
 
-/** 10.3 check-in / start / complete / no-show. */
+/** 69.8 check-in / called / start / complete / no-show. */
 export function useAdvanceAppointmentStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { appointmentId: string; to: "checked_in" | "in_progress" | "completed" | "no_show" }) => {
+    mutationFn: async (input: {
+      appointmentId: string;
+      to: "checked_in" | "called" | "in_progress" | "completed" | "no_show";
+    }) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("advance_appointment_status", {
         p_appointment_id: input.appointmentId,
@@ -389,5 +470,74 @@ export function useCreateProviderTimeOff() {
       if (error) throw error;
     },
     onSuccess: () => invalidateAppointmentQueries(queryClient),
+  });
+}
+
+/** 69.7/69.9 — today's booked/confirmed appointments at a facility not yet
+ * checked in, so reception can check someone in manually (by name) rather
+ * than only by QR/barcode scan or the patient's own app. */
+export function useFacilityUpcomingToday(facilityId: string) {
+  return useQuery({
+    queryKey: ["appointments", "facility-upcoming-today", facilityId],
+    enabled: !!facilityId,
+    refetchInterval: 20_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("id, patient_id, appointment_type, scheduled_for, is_late_arrival, patient:profiles!appointments_patient_id_fkey(full_name, patient_number)")
+        .eq("facility_id", facilityId)
+        .in("status", ["booked", "confirmed"])
+        .gte("scheduled_for", startOfDay.toISOString())
+        .lt("scheduled_for", endOfDay.toISOString())
+        .order("scheduled_for", { ascending: true });
+      if (error) throw error;
+      return data as (Pick<Appointment, "id" | "patient_id" | "appointment_type" | "scheduled_for" | "is_late_arrival"> & {
+        patient: { full_name: string | null; patient_number: string | null } | null;
+      })[];
+    },
+  });
+}
+
+/** 69.8 — today's waiting-room queue at a facility, front-desk facing.
+ * Polls every 20s rather than relying only on invalidation, since check-ins
+ * can come from the patient's own device (via useAdvanceAppointmentStatus)
+ * with no shared connection back to a reception screen watching this. */
+export function useFacilityQueueToday(facilityId: string, clinicianId?: string) {
+  return useQuery({
+    queryKey: appointmentKeys.facilityQueue(facilityId, clinicianId),
+    enabled: !!facilityId,
+    refetchInterval: 20_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("get_facility_queue_today", {
+        p_facility_id: facilityId,
+        p_clinician_id: clinicianId,
+      });
+      if (error) throw error;
+      return (data ?? []) as FacilityQueueEntry[];
+    },
+  });
+}
+
+/** 69.12 — a facility's own "today" capacity snapshot (available/booked/
+ * checked-in/called/completed/cancelled/no-show). */
+export function useFacilityCapacityToday(facilityId: string) {
+  return useQuery({
+    queryKey: appointmentKeys.facilityCapacityToday(facilityId),
+    enabled: !!facilityId,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("analytics_facility_capacity_today", {
+        p_facility_id: facilityId,
+      });
+      if (error) throw error;
+      return data as FacilityCapacityToday;
+    },
   });
 }

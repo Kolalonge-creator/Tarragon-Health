@@ -9,7 +9,11 @@ import {
   useCreateFacilityService,
   useUpdateFacilityService,
   useDeleteFacilityService,
+  useFacilityClinicians,
+  useAddFacilityClinician,
+  useSetFacilityClinicianActive,
 } from "@/lib/queries/facility-admin";
+import { useOrgClinicians } from "@/lib/queries/clinical-staff";
 import { facilitySchema, facilityServiceSchema, FACILITY_TYPES } from "@/lib/validation/facility-admin";
 import { koboToNaira, nairaToKobo } from "@tarragon/shared";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +30,20 @@ const FACILITY_TYPE_LABEL: Record<(typeof FACILITY_TYPES)[number], string> = {
   radiology: "Radiology",
   optician: "Optician",
   vaccination_centre: "Vaccination centre",
+  clinic: "Clinic",
+  diagnostic_centre: "Diagnostic centre",
+  specialist_centre: "Specialist centre",
 };
+
+/** Comma-separated free text -> a trimmed, non-empty string[] — shared by
+ * the specialties/accessibility/diagnostic-capabilities/accepted-HMOs
+ * fields below, none of which has a canonical taxonomy to pick from. */
+function parseTagList(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
 
 export function FacilityManager() {
   const facilities = useAdminFacilities();
@@ -45,6 +62,11 @@ export function FacilityManager() {
   const [hours, setHours] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
+  const [specialties, setSpecialties] = useState("");
+  const [accessibilityFeatures, setAccessibilityFeatures] = useState("");
+  const [diagnosticCapabilities, setDiagnosticCapabilities] = useState("");
+  const [acceptedHmos, setAcceptedHmos] = useState("");
+  const [capacityNotes, setCapacityNotes] = useState("");
 
   function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -59,6 +81,11 @@ export function FacilityManager() {
       hours: hours || undefined,
       latitude: latitude || undefined,
       longitude: longitude || undefined,
+      specialties: parseTagList(specialties),
+      accessibility_features: parseTagList(accessibilityFeatures),
+      diagnostic_capabilities: parseTagList(diagnosticCapabilities),
+      accepted_hmos: parseTagList(acceptedHmos),
+      appointment_capacity_notes: capacityNotes || undefined,
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -76,6 +103,11 @@ export function FacilityManager() {
         setHours("");
         setLatitude("");
         setLongitude("");
+        setSpecialties("");
+        setAccessibilityFeatures("");
+        setDiagnosticCapabilities("");
+        setAcceptedHmos("");
+        setCapacityNotes("");
       },
     });
   }
@@ -166,6 +198,53 @@ export function FacilityManager() {
                 onChange={(e) => setHours(e.target.value)}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new_facility_capacity_notes">Appointment capacity notes (optional)</Label>
+              <Input
+                id="new_facility_capacity_notes"
+                placeholder="e.g. 3 consult rooms, 2 GPs on-site"
+                value={capacityNotes}
+                onChange={(e) => setCapacityNotes(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="new_facility_specialties">Specialties (comma-separated, optional)</Label>
+                <Input
+                  id="new_facility_specialties"
+                  placeholder="e.g. cardiology, orthopaedics"
+                  value={specialties}
+                  onChange={(e) => setSpecialties(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new_facility_diagnostic_capabilities">Diagnostic capabilities (comma-separated, optional)</Label>
+                <Input
+                  id="new_facility_diagnostic_capabilities"
+                  placeholder="e.g. X-ray, ultrasound"
+                  value={diagnosticCapabilities}
+                  onChange={(e) => setDiagnosticCapabilities(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new_facility_accessibility">Accessibility features (comma-separated, optional)</Label>
+                <Input
+                  id="new_facility_accessibility"
+                  placeholder="e.g. wheelchair_access, ground_floor"
+                  value={accessibilityFeatures}
+                  onChange={(e) => setAccessibilityFeatures(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new_facility_hmos">Accepted HMOs (comma-separated, optional)</Label>
+                <Input
+                  id="new_facility_hmos"
+                  placeholder="e.g. Reliance, Avon"
+                  value={acceptedHmos}
+                  onChange={(e) => setAcceptedHmos(e.target.value)}
+                />
+              </div>
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="new_facility_latitude">Latitude (optional)</Label>
@@ -250,11 +329,16 @@ export function FacilityManager() {
                         variant="ghost"
                         onClick={() => setExpandedId(expandedId === facility.id ? null : facility.id)}
                       >
-                        {expandedId === facility.id ? "Hide services" : "Manage services"}
+                        {expandedId === facility.id ? "Hide" : "Manage services & clinicians"}
                       </Button>
                     </div>
                   </div>
-                  {expandedId === facility.id && <FacilityServicesManager facilityId={facility.id} />}
+                  {expandedId === facility.id && (
+                    <>
+                      <FacilityServicesManager facilityId={facility.id} />
+                      <FacilityCliniciansManager facilityId={facility.id} />
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
@@ -398,6 +482,92 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
         </Button>
       </form>
       {displayError && <p className="text-sm text-red-600">{displayError}</p>}
+    </div>
+  );
+}
+
+/** 69.3/69.5 roster — which of Tarragon's own employed clinicians practise at
+ * this facility, so the booking flow's Facility -> Clinician step has real
+ * options. */
+function FacilityCliniciansManager({ facilityId }: { facilityId: string }) {
+  const roster = useFacilityClinicians(facilityId);
+  const clinicians = useOrgClinicians();
+  const addClinician = useAddFacilityClinician();
+  const setActive = useSetFacilityClinicianActive();
+  const [selectedProfileId, setSelectedProfileId] = useState("");
+
+  const rosteredProfileIds = new Set((roster.data ?? []).map((r) => r.clinician_id));
+  const available = (clinicians.data ?? []).filter(
+    (c) => c.profile_id && !rosteredProfileIds.has(c.profile_id)
+  );
+
+  function handleAdd(event: FormEvent) {
+    event.preventDefault();
+    const staff = (clinicians.data ?? []).find((c) => c.profile_id === selectedProfileId);
+    if (!staff || !staff.profile_id) return;
+    addClinician.mutate(
+      { facility_id: facilityId, clinician_id: staff.profile_id, organisationId: staff.organisation_id },
+      { onSuccess: () => setSelectedProfileId("") }
+    );
+  }
+
+  const mutationError =
+    (addClinician.error as Error | null)?.message ?? (setActive.error as Error | null)?.message ?? null;
+
+  return (
+    <div className="mt-3 space-y-3 rounded-md bg-charcoal-ink/5 p-3">
+      <p className="text-xs font-medium text-charcoal-ink/60">Clinician roster</p>
+      {roster.isLoading && <p className="text-sm text-charcoal-ink/60">Loading roster…</p>}
+      {roster.data && roster.data.length === 0 && (
+        <p className="text-sm text-charcoal-ink/60">No clinicians rostered at this facility yet.</p>
+      )}
+      {roster.data && roster.data.length > 0 && (
+        <ul className="divide-y divide-charcoal-ink/10">
+          {roster.data.map((entry) => (
+            <li key={entry.id} className="flex items-center justify-between gap-2 py-2">
+              <p className="text-sm text-charcoal-ink">{entry.clinician?.full_name ?? "Clinician"}</p>
+              <div className="flex items-center gap-2">
+                <Badge variant={entry.is_active ? "green" : "grey"}>
+                  {entry.is_active ? "Active" : "Inactive"}
+                </Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={setActive.isPending}
+                  onClick={() =>
+                    setActive.mutate({ id: entry.id, facilityId, isActive: !entry.is_active })
+                  }
+                >
+                  {entry.is_active ? "Deactivate" : "Activate"}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor={`clinician_select_${facilityId}`}>Add a clinician</Label>
+          <Select
+            id={`clinician_select_${facilityId}`}
+            value={selectedProfileId}
+            onChange={(e) => setSelectedProfileId(e.target.value)}
+          >
+            <option value="">Select…</option>
+            {available.map((c) => (
+              <option key={c.id} value={c.profile_id ?? ""}>
+                {c.full_name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <Button type="submit" size="sm" disabled={!selectedProfileId || addClinician.isPending}>
+          Add to roster
+        </Button>
+      </form>
+      {mutationError && <p className="text-sm text-red-600">{mutationError}</p>}
     </div>
   );
 }

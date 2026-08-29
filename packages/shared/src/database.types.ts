@@ -602,6 +602,7 @@ export type Database = {
         Row: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          called_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -612,15 +613,20 @@ export type Database = {
           confirmed_at: string | null
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at: string
+          documents_required: string[]
           ends_at: string
+          facility_id: string | null
           hold_expires_at: string | null
           id: string
+          investigations_required: string[]
           is_high_priority: boolean
+          is_late_arrival: boolean
           location: string | null
           no_show_marked_at: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions: string | null
           reason: string | null
           rescheduled_from_id: string | null
           resource_id: string | null
@@ -635,6 +641,7 @@ export type Database = {
         Insert: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by?: string | null
+          called_at?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -645,15 +652,20 @@ export type Database = {
           confirmed_at?: string | null
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at?: string
+          documents_required?: string[]
           ends_at: string
+          facility_id?: string | null
           hold_expires_at?: string | null
           id?: string
+          investigations_required?: string[]
           is_high_priority?: boolean
+          is_late_arrival?: boolean
           location?: string | null
           no_show_marked_at?: string | null
           organisation_id: string
           patient_id: string
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions?: string | null
           reason?: string | null
           rescheduled_from_id?: string | null
           resource_id?: string | null
@@ -668,6 +680,7 @@ export type Database = {
         Update: {
           appointment_type?: Database["public"]["Enums"]["appointment_type"]
           booked_by?: string | null
+          called_at?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -678,15 +691,20 @@ export type Database = {
           confirmed_at?: string | null
           consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at?: string
+          documents_required?: string[]
           ends_at?: string
+          facility_id?: string | null
           hold_expires_at?: string | null
           id?: string
+          investigations_required?: string[]
           is_high_priority?: boolean
+          is_late_arrival?: boolean
           location?: string | null
           no_show_marked_at?: string | null
           organisation_id?: string
           patient_id?: string
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions?: string | null
           reason?: string | null
           rescheduled_from_id?: string | null
           resource_id?: string | null
@@ -704,6 +722,13 @@ export type Database = {
             columns: ["booked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
             referencedColumns: ["id"]
           },
           {
@@ -782,6 +807,7 @@ export type Database = {
           effective_from: string
           effective_until: string | null
           end_time: string
+          facility_id: string | null
           id: string
           is_active: boolean
           location: string | null
@@ -800,6 +826,7 @@ export type Database = {
           effective_from?: string
           effective_until?: string | null
           end_time: string
+          facility_id?: string | null
           id?: string
           is_active?: boolean
           location?: string | null
@@ -818,6 +845,7 @@ export type Database = {
           effective_from?: string
           effective_until?: string | null
           end_time?: string
+          facility_id?: string | null
           id?: string
           is_active?: boolean
           location?: string | null
@@ -832,6 +860,13 @@ export type Database = {
             columns: ["clinician_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_availability_rules_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
             referencedColumns: ["id"]
           },
           {
@@ -1003,6 +1038,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          late_arrival_grace_minutes: number
           no_show_fee_kobo: number
           organisation_id: string | null
           refund_pct_after_window: number
@@ -1017,6 +1053,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          late_arrival_grace_minutes?: number
           no_show_fee_kobo?: number
           organisation_id?: string | null
           refund_pct_after_window?: number
@@ -1031,6 +1068,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          late_arrival_grace_minutes?: number
           no_show_fee_kobo?: number
           organisation_id?: string | null
           refund_pct_after_window?: number
@@ -3144,6 +3182,7 @@ export type Database = {
       }
       clinical_encounter_notes: {
         Row: {
+          appointment_id: string | null
           assessment: string | null
           async_consult_id: string | null
           authored_by_profile: string | null
@@ -3171,6 +3210,7 @@ export type Database = {
           video_consultation_id: string | null
         }
         Insert: {
+          appointment_id?: string | null
           assessment?: string | null
           async_consult_id?: string | null
           authored_by_profile?: string | null
@@ -3198,6 +3238,7 @@ export type Database = {
           video_consultation_id?: string | null
         }
         Update: {
+          appointment_id?: string | null
           assessment?: string | null
           async_consult_id?: string | null
           authored_by_profile?: string | null
@@ -3225,6 +3266,13 @@ export type Database = {
           video_consultation_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "clinical_encounter_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clinical_encounter_notes_async_consult_id_fkey"
             columns: ["async_consult_id"]
@@ -5844,12 +5892,16 @@ export type Database = {
       }
       facilities: {
         Row: {
+          accepted_hmos: string[]
+          accessibility_features: string[]
           address: string | null
+          appointment_capacity_notes: string | null
           area: string | null
           city: string
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          diagnostic_capabilities: string[]
           hours: string | null
           id: string
           is_active: boolean
@@ -5858,17 +5910,22 @@ export type Database = {
           longitude: number | null
           name: string
           pharmacy_partner_id: string | null
+          specialties: string[]
           state: string
           type: Database["public"]["Enums"]["facility_type"]
           verified: boolean
         }
         Insert: {
+          accepted_hmos?: string[]
+          accessibility_features?: string[]
           address?: string | null
+          appointment_capacity_notes?: string | null
           area?: string | null
           city: string
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          diagnostic_capabilities?: string[]
           hours?: string | null
           id?: string
           is_active?: boolean
@@ -5877,17 +5934,22 @@ export type Database = {
           longitude?: number | null
           name: string
           pharmacy_partner_id?: string | null
+          specialties?: string[]
           state: string
           type: Database["public"]["Enums"]["facility_type"]
           verified?: boolean
         }
         Update: {
+          accepted_hmos?: string[]
+          accessibility_features?: string[]
           address?: string | null
+          appointment_capacity_notes?: string | null
           area?: string | null
           city?: string
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          diagnostic_capabilities?: string[]
           hours?: string | null
           id?: string
           is_active?: boolean
@@ -5896,6 +5958,7 @@ export type Database = {
           longitude?: number | null
           name?: string
           pharmacy_partner_id?: string | null
+          specialties?: string[]
           state?: string
           type?: Database["public"]["Enums"]["facility_type"]
           verified?: boolean
@@ -5913,6 +5976,55 @@ export type Database = {
             columns: ["pharmacy_partner_id"]
             isOneToOne: false
             referencedRelation: "pharmacy_partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      facility_clinicians: {
+        Row: {
+          clinician_id: string
+          created_at: string
+          facility_id: string
+          id: string
+          is_active: boolean
+          organisation_id: string
+        }
+        Insert: {
+          clinician_id: string
+          created_at?: string
+          facility_id: string
+          id?: string
+          is_active?: boolean
+          organisation_id: string
+        }
+        Update: {
+          clinician_id?: string
+          created_at?: string
+          facility_id?: string
+          id?: string
+          is_active?: boolean
+          organisation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_clinicians_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facility_clinicians_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facility_clinicians_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -17918,11 +18030,15 @@ export type Database = {
           p_care_plan_id?: string
           p_clinician_id: string
           p_consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          p_documents_required?: string[]
           p_ends_at: string
+          p_facility_id?: string
           p_hold_minutes?: number
+          p_investigations_required?: string[]
           p_location?: string
           p_organisation_id: string
           p_patient_id?: string
+          p_preparation_instructions?: string
           p_reason?: string
           p_scheduled_for: string
           p_service?: string
@@ -17931,6 +18047,7 @@ export type Database = {
         Returns: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          called_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -17941,15 +18058,20 @@ export type Database = {
           confirmed_at: string | null
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at: string
+          documents_required: string[]
           ends_at: string
+          facility_id: string | null
           hold_expires_at: string | null
           id: string
+          investigations_required: string[]
           is_high_priority: boolean
+          is_late_arrival: boolean
           location: string | null
           no_show_marked_at: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions: string | null
           reason: string | null
           rescheduled_from_id: string | null
           resource_id: string | null
@@ -17973,6 +18095,7 @@ export type Database = {
         Returns: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          called_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -17983,15 +18106,20 @@ export type Database = {
           confirmed_at: string | null
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at: string
+          documents_required: string[]
           ends_at: string
+          facility_id: string | null
           hold_expires_at: string | null
           id: string
+          investigations_required: string[]
           is_high_priority: boolean
+          is_late_arrival: boolean
           location: string | null
           no_show_marked_at: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions: string | null
           reason: string | null
           rescheduled_from_id: string | null
           resource_id: string | null
@@ -18018,6 +18146,7 @@ export type Database = {
         Returns: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          called_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -18028,15 +18157,20 @@ export type Database = {
           confirmed_at: string | null
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at: string
+          documents_required: string[]
           ends_at: string
+          facility_id: string | null
           hold_expires_at: string | null
           id: string
+          investigations_required: string[]
           is_high_priority: boolean
+          is_late_arrival: boolean
           location: string | null
           no_show_marked_at: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions: string | null
           reason: string | null
           rescheduled_from_id: string | null
           resource_id: string | null
@@ -18060,6 +18194,7 @@ export type Database = {
         Returns: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          called_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -18070,15 +18205,20 @@ export type Database = {
           confirmed_at: string | null
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at: string
+          documents_required: string[]
           ends_at: string
+          facility_id: string | null
           hold_expires_at: string | null
           id: string
+          investigations_required: string[]
           is_high_priority: boolean
+          is_late_arrival: boolean
           location: string | null
           no_show_marked_at: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions: string | null
           reason: string | null
           rescheduled_from_id: string | null
           resource_id: string | null
@@ -18106,6 +18246,7 @@ export type Database = {
         Returns: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          called_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -18116,15 +18257,20 @@ export type Database = {
           confirmed_at: string | null
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at: string
+          documents_required: string[]
           ends_at: string
+          facility_id: string | null
           hold_expires_at: string | null
           id: string
+          investigations_required: string[]
           is_high_priority: boolean
+          is_late_arrival: boolean
           location: string | null
           no_show_marked_at: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions: string | null
           reason: string | null
           rescheduled_from_id: string | null
           resource_id: string | null
@@ -18148,6 +18294,7 @@ export type Database = {
         Returns: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          called_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -18158,15 +18305,20 @@ export type Database = {
           confirmed_at: string | null
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
           created_at: string
+          documents_required: string[]
           ends_at: string
+          facility_id: string | null
           hold_expires_at: string | null
           id: string
+          investigations_required: string[]
           is_high_priority: boolean
+          is_late_arrival: boolean
           location: string | null
           no_show_marked_at: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
+          preparation_instructions: string | null
           reason: string | null
           rescheduled_from_id: string | null
           resource_id: string | null
@@ -18194,6 +18346,7 @@ export type Database = {
           p_appointment_type: Database["public"]["Enums"]["appointment_type"]
           p_clinician_id?: string
           p_consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
+          p_facility_id?: string
           p_from?: string
           p_organisation_id: string
           p_to?: string
@@ -18202,11 +18355,33 @@ export type Database = {
           clinician_id: string
           clinician_name: string
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          facility_id: string | null
+          facility_name: string | null
           location: string
           slot_end: string
           slot_start: string
         }[]
       }
+      get_facility_queue_today: {
+        Args: { p_clinician_id?: string; p_facility_id: string }
+        Returns: {
+          appointment_id: string
+          appointment_type: Database["public"]["Enums"]["appointment_type"]
+          called_at: string | null
+          checked_in_at: string | null
+          clinician_id: string | null
+          clinician_name: string | null
+          is_high_priority: boolean
+          is_late_arrival: boolean
+          patient_id: string
+          patient_name: string | null
+          patient_number: string | null
+          queue_position: number
+          scheduled_for: string
+          status: Database["public"]["Enums"]["appointment_status"]
+        }[]
+      }
+      analytics_facility_capacity_today: { Args: { p_facility_id: string }; Returns: Json }
       analytics_appointment_capacity: { Args: never; Returns: Json }
       acknowledge_lab_order: {
         Args: { p_order_id: string; p_partner_reference: string }
@@ -19664,6 +19839,7 @@ export type Database = {
         | "patient_cancelled"
         | "failed"
         | "expired"
+        | "called"
       appointment_type:
         | "gp"
         | "specialist"
@@ -19874,6 +20050,9 @@ export type Database = {
         | "radiology"
         | "optician"
         | "vaccination_centre"
+        | "clinic"
+        | "diagnostic_centre"
+        | "specialist_centre"
       family_relationship:
         | "mother"
         | "father"
@@ -20562,6 +20741,7 @@ export const Constants = {
         "patient_cancelled",
         "failed",
         "expired",
+        "called",
       ],
       appointment_type: [
         "gp",
@@ -20798,6 +20978,9 @@ export const Constants = {
         "radiology",
         "optician",
         "vaccination_centre",
+        "clinic",
+        "diagnostic_centre",
+        "specialist_centre",
       ],
       family_relationship: [
         "mother",

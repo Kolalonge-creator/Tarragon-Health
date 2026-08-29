@@ -6,6 +6,7 @@ import {
   useHoldAppointmentSlot,
   useConfirmAppointmentBooking,
   useJoinWaitingList,
+  useAppointmentFacilities,
   type AppointmentType,
 } from "@/lib/queries/appointments";
 import { APPOINTMENT_TYPE_LABELS } from "./appointment-labels";
@@ -39,12 +40,15 @@ export function BookAppointment({
 }) {
   const [appointmentType, setAppointmentType] = useState<AppointmentType>("gp");
   const [consultationMethod, setConsultationMethod] = useState<"telemedicine" | "in_person" | "">("");
+  const [facilityId, setFacilityId] = useState("");
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
+  const { data: facilities } = useAppointmentFacilities();
   const { data: slots, isLoading } = useAvailableAppointmentSlots({
     organisationId,
     appointmentType,
     consultationMethod: consultationMethod || undefined,
+    facilityId: facilityId || undefined,
   });
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
@@ -58,6 +62,7 @@ export function BookAppointment({
     slot_end: string;
     consultation_method: "telemedicine" | "in_person";
     location: string | null;
+    facility_id: string | null;
   }) {
     setMessage(null);
     try {
@@ -69,6 +74,7 @@ export function BookAppointment({
         scheduledFor: slot.slot_start,
         endsAt: slot.slot_end,
         location: slot.location ?? undefined,
+        facilityId: slot.facility_id ?? undefined,
       });
       await confirm.mutateAsync(held.id);
       setMessage({ tone: "success", text: `Booked for ${formatSlot(slot.slot_start)}.` });
@@ -133,6 +139,21 @@ export function BookAppointment({
               <option value="in_person">In person</option>
             </Select>
           </div>
+          {consultationMethod !== "telemedicine" && (
+            <div className="space-y-1">
+              <label className="text-xs text-charcoal-ink/60" htmlFor="facility">
+                Facility
+              </label>
+              <Select id="facility" value={facilityId} onChange={(e) => setFacilityId(e.target.value)}>
+                <option value="">Any facility</option>
+                {(facilities ?? []).map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} — {f.city}, {f.state}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
         </div>
 
         {message && (
@@ -169,7 +190,10 @@ export function BookAppointment({
                 <div>
                   <p className="text-sm text-charcoal-ink">{formatSlot(slot.slot_start)}</p>
                   <p className="text-xs text-charcoal-ink/60">
-                    {slot.clinician_name} · {slot.consultation_method === "telemedicine" ? "Telemedicine" : slot.location || "In person"}
+                    {slot.clinician_name} ·{" "}
+                    {slot.consultation_method === "telemedicine"
+                      ? "Telemedicine"
+                      : slot.facility_name || slot.location || "In person"}
                   </p>
                 </div>
                 <Button size="sm" className="ml-auto" disabled={isBooking} onClick={() => bookSlot(slot)}>

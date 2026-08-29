@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   useMyUpcomingAppointments,
   useCancelAppointment,
   useConfirmAppointmentBooking,
+  useAdvanceAppointmentStatus,
   useMyWaitingListEntries,
   useCancelWaitingListEntry,
   useAcceptWaitingListOffer,
@@ -32,6 +34,7 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
   const { data: waitingList } = useMyWaitingListEntries(patientId);
   const cancel = useCancelAppointment();
   const confirm = useConfirmAppointmentBooking();
+  const advance = useAdvanceAppointmentStatus();
   const acceptOffer = useAcceptWaitingListOffer();
   const cancelWaitingListEntry = useCancelWaitingListEntry();
   const [error, setError] = useState<string | null>(null);
@@ -61,36 +64,73 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
           <ul className="divide-y divide-charcoal-ink/10">
             {appointments.map((appt) => {
               const status = APPOINTMENT_STATUS_LABELS[appt.status] ?? { label: appt.status, tone: "grey" as const };
+              const hasPrep =
+                !!appt.preparation_instructions ||
+                (appt.documents_required?.length ?? 0) > 0 ||
+                (appt.investigations_required?.length ?? 0) > 0;
               return (
-                <li key={appt.id} className="flex flex-wrap items-center gap-2 py-2">
-                  <div>
-                    <p className="text-sm text-charcoal-ink">
-                      {APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type} —{" "}
-                      {formatSlot(appt.scheduled_for)}
-                    </p>
-                    <p className="text-xs text-charcoal-ink/60">
-                      {appt.clinician?.full_name ?? "Care team"} ·{" "}
-                      {appt.consultation_method === "telemedicine" ? "Telemedicine" : appt.location || "In person"}
-                    </p>
+                <li key={appt.id} className="space-y-2 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div>
+                      <p className="text-sm text-charcoal-ink">
+                        {APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type} —{" "}
+                        {formatSlot(appt.scheduled_for)}
+                      </p>
+                      <p className="text-xs text-charcoal-ink/60">
+                        {appt.clinician?.full_name ?? "Care team"} ·{" "}
+                        {appt.consultation_method === "telemedicine"
+                          ? "Telemedicine"
+                          : appt.facility?.name ?? appt.location ?? "In person"}
+                      </p>
+                    </div>
+                    <Badge variant={status.tone}>{status.label}</Badge>
+                    <div className="ml-auto flex gap-2">
+                      {appt.status === "held" && (
+                        <Button size="sm" variant="outline" disabled={confirm.isPending} onClick={() => confirm.mutate(appt.id)}>
+                          Confirm
+                        </Button>
+                      )}
+                      {["booked", "confirmed"].includes(appt.status) && appt.consultation_method === "in_person" && (
+                        <>
+                          <Link href={`/patient/appointments/${appt.id}/check-in`}>
+                            <Button size="sm" variant="outline">
+                              Show QR
+                            </Button>
+                          </Link>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={advance.isPending}
+                            onClick={() => advance.mutate({ appointmentId: appt.id, to: "checked_in" })}
+                          >
+                            Check in
+                          </Button>
+                        </>
+                      )}
+                      {["held", "booked", "confirmed"].includes(appt.status) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={cancel.isPending}
+                          onClick={() => handleCancel(appt.id)}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant={status.tone}>{status.label}</Badge>
-                  <div className="ml-auto flex gap-2">
-                    {appt.status === "held" && (
-                      <Button size="sm" variant="outline" disabled={confirm.isPending} onClick={() => confirm.mutate(appt.id)}>
-                        Confirm
-                      </Button>
-                    )}
-                    {["held", "booked", "confirmed"].includes(appt.status) && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={cancel.isPending}
-                        onClick={() => handleCancel(appt.id)}
-                      >
-                        Cancel
-                      </Button>
-                    )}
-                  </div>
+                  {hasPrep && (
+                    <div className="rounded-md bg-amber-50 p-2 text-xs text-charcoal-ink/80">
+                      <p className="font-medium">Before your visit</p>
+                      {appt.preparation_instructions && <p>{appt.preparation_instructions}</p>}
+                      {(appt.documents_required?.length ?? 0) > 0 && (
+                        <p>Bring: {appt.documents_required.join(", ")}</p>
+                      )}
+                      {(appt.investigations_required?.length ?? 0) > 0 && (
+                        <p>Get done first: {appt.investigations_required.join(", ")}</p>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}

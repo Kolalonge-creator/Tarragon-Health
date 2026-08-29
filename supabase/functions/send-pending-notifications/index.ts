@@ -59,6 +59,44 @@ function appUrl(path: string): string {
   return `${base}${path}`;
 }
 
+// Shared by the six appointment_* templates below (69.14 Appointment
+// Reminders) — same "medium date, short time, Africa/Lagos" idiom the
+// annual-review/video-consult templates already use, factored out once here
+// since six new templates need it rather than three scattered call sites.
+function formatApptWhen(raw: unknown): string {
+  const d = new Date(String(raw ?? ""));
+  return Number.isNaN(d.getTime())
+    ? "the scheduled time"
+    : d.toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" });
+}
+
+// Mirrors apps/web/src/app/(dashboard)/patient/appointments/appointment-labels.ts's
+// APPOINTMENT_TYPE_LABELS — duplicated rather than imported since this Deno
+// edge function has no build-time link to the Next.js app's source tree.
+const APPOINTMENT_TYPE_LABEL: Record<string, string> = {
+  gp: "GP",
+  specialist: "specialist",
+  nurse: "nurse",
+  dietitian: "dietitian",
+  physiotherapist: "physiotherapist",
+  laboratory: "laboratory",
+  imaging: "imaging",
+  vaccination: "vaccination",
+  physical_clinic: "physical clinic",
+  telemedicine: "telemedicine",
+  follow_up: "follow-up",
+  procedure: "procedure",
+};
+
+// Returns e.g. "GP " (trailing space) or "" for an unknown/missing type, so
+// callers can write `Your ${apptTypeLabel(...)}appointment` and get a
+// grammatical sentence either way instead of a doubled "your your".
+function apptTypeLabel(raw: unknown): string {
+  const key = String(raw ?? "");
+  const label = APPOINTMENT_TYPE_LABEL[key];
+  return label ? `${label} ` : "";
+}
+
 interface NotificationRow {
   id: string;
   recipient_id: string;
@@ -1465,6 +1503,161 @@ const TEMPLATE_MAP: Record<
           `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
           `</div>`,
       },
+    };
+  },
+  // 69.14 — Physical Consultation & Facility Appointment Orchestration. The
+  // Appointment Engine (20260828*) RPCs (hold_appointment_slot,
+  // confirm_appointment_booking, cancel_appointment, reschedule_appointment,
+  // provider_time_off_cascade, offer_next_waiting_list_candidate) already
+  // insert notifications rows against these six template keys — until now
+  // none of them existed here, so every one of those rows was silently
+  // failing with "unknown template" the moment this function tried to send
+  // it. formatApptWhen/APPOINTMENT_TYPE_LABEL are shared by all six below.
+  appointment_booking_confirmation: (payload) => {
+    const when = formatApptWhen(payload.scheduled_for);
+    const type = apptTypeLabel(payload.appointment_type);
+    const path = "/patient/appointments";
+    return {
+      metaTemplateName: "appointment_booking_confirmation",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: type },
+            { type: "text", text: when },
+          ],
+        },
+      ],
+      smsText: `Your ${type}appointment is booked for ${when}. Details: ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  appointment_reminder: (payload) => {
+    const when = formatApptWhen(payload.scheduled_for);
+    const type = apptTypeLabel(payload.appointment_type);
+    const milestone = String(payload.milestone ?? "");
+    const lead =
+      milestone === "72h" ? "in 3 days"
+      : milestone === "24h" ? "tomorrow"
+      : milestone === "2h" ? "in 2 hours"
+      : milestone === "shortly_before" ? "shortly"
+      : "soon";
+    const path = "/patient/appointments";
+    return {
+      metaTemplateName: "appointment_reminder",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: type },
+            { type: "text", text: when },
+          ],
+        },
+      ],
+      smsText: `Reminder: your ${type}appointment is ${lead} (${when}). ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  appointment_cancelled: (payload) => {
+    const when = formatApptWhen(payload.scheduled_for);
+    const byPatient = payload.cancelled_by_patient === true;
+    const path = "/patient/appointments";
+    const smsText = byPatient
+      ? `Your appointment for ${when} has been cancelled, as you requested. Book another any time: ${appUrl(path)} Tarragon Health`
+      : `Your appointment for ${when} was cancelled. We're sorry for the disruption — rebook here: ${appUrl(path)} Tarragon Health`;
+    return {
+      metaTemplateName: "appointment_cancelled",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: when }] }],
+      smsText,
+      pushUrl: path,
+    };
+  },
+  appointment_rescheduled: (payload) => {
+    const when = formatApptWhen(payload.scheduled_for);
+    const path = "/patient/appointments";
+    return {
+      metaTemplateName: "appointment_rescheduled",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: when }] }],
+      smsText: `Your appointment has been rescheduled to ${when}. ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  appointment_provider_cancelled: (payload) => {
+    const when = formatApptWhen(payload.scheduled_for);
+    const reason = typeof payload.reason === "string" && payload.reason.length > 0
+      ? payload.reason
+      : "your provider became unavailable";
+    const path = "/patient/appointments";
+    return {
+      metaTemplateName: "appointment_provider_cancelled",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: when },
+            { type: "text", text: reason },
+          ],
+        },
+      ],
+      smsText: `Your appointment for ${when} was cancelled by your provider (${reason}). We've added you to the waiting list for the next open slot — or rebook here: ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  appointment_waiting_list_offer: (payload) => {
+    const when = formatApptWhen(payload.scheduled_for);
+    const minutes = String(payload.offer_expires_minutes ?? "30");
+    const path = "/patient/appointments";
+    return {
+      metaTemplateName: "appointment_waiting_list_offer",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: when },
+            { type: "text", text: minutes },
+          ],
+        },
+      ],
+      smsText: `A slot just opened for ${when} — you're next on the waiting list. Confirm within ${minutes} minutes or it goes to the next person: ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  // 69.6/69.14 — sent once, 48h before, only for appointments that actually
+  // carry preparation content (private.queue_appointment_reminders' 'prep'
+  // milestone gates the insert on this, so an appointment with nothing to
+  // prepare never queues this template at all).
+  appointment_preparation_reminder: (payload) => {
+    const when = formatApptWhen(payload.scheduled_for);
+    const type = apptTypeLabel(payload.appointment_type);
+    const instructions = typeof payload.preparation_instructions === "string" ? payload.preparation_instructions : null;
+    const documents = Array.isArray(payload.documents_required) ? payload.documents_required.map(String) : [];
+    const investigations = Array.isArray(payload.investigations_required) ? payload.investigations_required.map(String) : [];
+    const parts: string[] = [];
+    if (instructions) parts.push(instructions);
+    if (documents.length > 0) parts.push(`Bring: ${documents.join(", ")}`);
+    if (investigations.length > 0) parts.push(`Get done first: ${investigations.join(", ")}`);
+    const prepSummary = parts.length > 0 ? parts.join(" ") : "There's something to prepare before your visit";
+    const path = "/patient/appointments";
+    return {
+      metaTemplateName: "appointment_preparation_reminder",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: when },
+            { type: "text", text: prepSummary },
+          ],
+        },
+      ],
+      smsText: `Ahead of your ${type}appointment on ${when}: ${prepSummary}. Full details: ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
     };
   },
 };

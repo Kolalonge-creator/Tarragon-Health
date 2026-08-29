@@ -7,7 +7,19 @@ export const FACILITY_TYPES = [
   "radiology",
   "optician",
   "vaccination_centre",
+  "clinic",
+  "diagnostic_centre",
+  "specialist_centre",
 ] as const;
+
+// 69.3 facility profile — free-form tag lists. A comma-separated input field
+// is parsed into one of these; kept as plain strings (no canonical taxonomy
+// has been specified for any of the three) rather than an enum.
+const tagList = z
+  .array(z.string().trim().min(1).max(100))
+  .max(50)
+  .optional()
+  .default([]);
 
 export const facilitySchema = z.object({
   name: z.string().trim().min(1, "Enter a facility name").max(200),
@@ -30,8 +42,19 @@ export const facilitySchema = z.object({
   hours: z.string().trim().max(200).optional(),
   latitude: z.coerce.number().min(-90).max(90).optional(),
   longitude: z.coerce.number().min(-180).max(180).optional(),
+  specialties: tagList,
+  accessibility_features: tagList,
+  diagnostic_capabilities: tagList,
+  accepted_hmos: tagList,
+  appointment_capacity_notes: z.string().trim().max(500).optional(),
 });
 export type FacilityInput = z.infer<typeof facilitySchema>;
+
+export const facilityClinicianSchema = z.object({
+  facility_id: z.string().uuid(),
+  clinician_id: z.string().uuid(),
+});
+export type FacilityClinicianInput = z.infer<typeof facilityClinicianSchema>;
 
 export const facilityServiceSchema = z.object({
   facility_id: z.string().uuid(),

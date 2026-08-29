@@ -272,6 +272,7 @@ export function getNavSections(
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
+                { label: "Facility queue", href: "/clinician/facility-queue", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
