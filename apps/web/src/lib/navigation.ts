@@ -266,6 +266,7 @@ export function getNavSections(
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
                 { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
+                { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },
               ],
             },
             {

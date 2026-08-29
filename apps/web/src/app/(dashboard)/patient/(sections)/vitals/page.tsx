@@ -10,6 +10,7 @@ import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-connect-section";
 import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
+import { DeviceSyncSupportCard } from "@/app/(dashboard)/patient/device-sync-support-card";
 
 export default async function PatientVitalsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -41,6 +42,7 @@ export default async function PatientVitalsPage() {
           plan — see diabetes-daily-log.tsx for the gate. */}
       <DiabetesDailyLog patientId={subjectId} />
       <WearableConnectSection patientId={subjectId} />
+      <DeviceSyncSupportCard patientId={subjectId} />
     </DashboardSection>
   );
 }
