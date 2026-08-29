@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { APP_ICON } from "@/lib/icons";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
+const INVOICEABLE_STATUSES: PatientReceiptStatus[] = ["successful", "refunded"];
+
 const SERVICE_ICON: Record<PatientReceiptServiceType, keyof typeof APP_ICON> = {
   membership: "billing",
   laboratory: "labs",
@@ -61,6 +63,14 @@ function ReceiptRow({ receipt }: { receipt: PatientReceipt }) {
         <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[receipt.status]}`}>
           {STATUS_LABEL[receipt.status]}
         </span>
+        {INVOICEABLE_STATUSES.includes(receipt.status) && (
+          <a
+            href={`/api/patient/receipts/${receipt.service_type}/${receipt.id}/invoice`}
+            className="mt-1 block text-xs font-medium text-brand-green hover:underline"
+          >
+            Download invoice
+          </a>
+        )}
       </div>
     </div>
   );

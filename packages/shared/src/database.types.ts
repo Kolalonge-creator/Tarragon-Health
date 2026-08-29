@@ -7815,6 +7815,78 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          invoice_number: string
+          issued_at: string
+          organisation_id: string
+          patient_id: string
+          reference: string
+          service_label: string
+          service_type: string
+          source_id: string
+          subtotal_minor: number
+          total_minor: number
+          vat_minor: number
+          vat_rate_pct: number | null
+          vat_treatment: string
+        }
+        Insert: {
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency"]
+          id?: string
+          invoice_number: string
+          issued_at?: string
+          organisation_id: string
+          patient_id: string
+          reference: string
+          service_label: string
+          service_type: string
+          source_id: string
+          subtotal_minor: number
+          total_minor: number
+          vat_minor?: number
+          vat_rate_pct?: number | null
+          vat_treatment?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          invoice_number?: string
+          issued_at?: string
+          organisation_id?: string
+          patient_id?: string
+          reference?: string
+          service_label?: string
+          service_type?: string
+          source_id?: string
+          subtotal_minor?: number
+          total_minor?: number
+          vat_minor?: number
+          vat_rate_pct?: number | null
+          vat_treatment?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_analyte_readings: {
         Row: {
           abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
@@ -18900,6 +18972,10 @@ export type Database = {
           suppressed: boolean
         }[]
       }
+      get_or_create_invoice: {
+        Args: { p_service_type: string; p_source_id: string }
+        Returns: Json
+      }
       get_or_create_my_referral_code: { Args: never; Returns: string }
       hand_over_care: {
         Args: { p_new_profile_id: string; p_note?: string; p_patient_id: string; p_role: string }
@@ -18986,6 +19062,7 @@ export type Database = {
         }
         Returns: string
       }
+      invoice_letterhead_details: { Args: never; Returns: Json }
       lab_partner_order_patient: {
         Args: { p_order_id: string }
         Returns: string
