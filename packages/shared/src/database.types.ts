@@ -232,6 +232,102 @@ export type Database = {
           },
         ]
       }
+      ai_assistant_turns: {
+        Row: {
+          clinician_alert_id: string | null
+          conversation_id: string
+          created_at: string
+          error_message: string | null
+          escalation_id: string | null
+          final_action: string
+          generated_at: string
+          id: string
+          input_snapshot: Json
+          interaction_type: string
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          prompt_version: string | null
+          retrieved_source_ids: string[]
+          safety_classification: string | null
+          status: string
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          conversation_id: string
+          created_at?: string
+          error_message?: string | null
+          escalation_id?: string | null
+          final_action: string
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          interaction_type: string
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          prompt_version?: string | null
+          retrieved_source_ids?: string[]
+          safety_classification?: string | null
+          status: string
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          conversation_id?: string
+          created_at?: string
+          error_message?: string | null
+          escalation_id?: string | null
+          final_action?: string
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          interaction_type?: string
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          prompt_version?: string | null
+          retrieved_source_ids?: string[]
+          safety_classification?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_assistant_turns_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_assistant_turns_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_assistant_turns_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_assistant_turns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_assistant_turns_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       annual_health_checks: {
         Row: {
           completion_pct: number
@@ -7245,6 +7341,7 @@ export type Database = {
           content_type: Database["public"]["Enums"]["health_education_content_type"]
           created_at: string
           drip_week: number | null
+          embedding: string | null
           estimated_minutes: number | null
           id: string
           is_active: boolean
@@ -7267,6 +7364,7 @@ export type Database = {
           content_type?: Database["public"]["Enums"]["health_education_content_type"]
           created_at?: string
           drip_week?: number | null
+          embedding?: string | null
           estimated_minutes?: number | null
           id?: string
           is_active?: boolean
@@ -7289,6 +7387,7 @@ export type Database = {
           content_type?: Database["public"]["Enums"]["health_education_content_type"]
           created_at?: string
           drip_week?: number | null
+          embedding?: string | null
           estimated_minutes?: number | null
           id?: string
           is_active?: boolean
@@ -18980,6 +19079,22 @@ export type Database = {
       mark_result_document_action_completed: {
         Args: { p_document_id: string }
         Returns: undefined
+      }
+      match_health_education_content: {
+        Args: {
+          filter_condition?: Database["public"]["Enums"]["care_plan_condition"]
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          body: string
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          id: string
+          similarity: number
+          summary: string
+          title: string
+        }[]
       }
       match_lpe_content_blocks: {
         Args: {

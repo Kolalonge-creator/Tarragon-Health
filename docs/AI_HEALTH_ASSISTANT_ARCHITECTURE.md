@@ -13,6 +13,27 @@
 > Written against the tree at branch `claude/ai-health-assistant-arch-a186k2`. Every "what exists"
 > claim in §2 was read out of the source, not taken from `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md` —
 > per that archive's own warning, it records decisions, not current facts.
+>
+> **2026-08-29 — Phases A–D below are now shipped, same branch.** Built, in order: (A) an
+> `ai_assistant_turns` audit table mirroring `case_briefs`' provenance columns, wired into every
+> `runCoachTurn()` exit path including the two short-circuits, plus a narrowed `ai_conversations`
+> staff-read policy (blanket `is_org_staff()` read → only conversations that actually raised a
+> `clinician_alerts`/`escalations` row); (B) `loadPatientContext()` widened from 2 of §36.3's 11
+> items to all 11, a second retrieval source (`health_education_content`, embedded and queried the
+> same way `lpe_content_blocks` already was, still inert pending a `VOYAGE_API_KEY` and reviewed
+> content — see §8, item 3), and retrieved source ids now recorded per turn; (C) six read-only record
+> tools (`tools.ts` — vitals, medications, allergies, appointments, conditions, recent labs) bound
+> into a bounded tool-calling loop ahead of the existing classify+reply call, plus three
+> deterministic (no-LLM) composed surfaces — "explain my record", "what do I need this month",
+> "prepare for my appointment" — reachable from the chat UI as quick-action buttons; (D) an
+> AI-Coach-raised emergency now opens a real `care_messages` thread (linked via
+> `care_message_threads.escalation_id`) so a clinician's reply reaches the patient in-app, closing
+> §36.14's "conversation continues" half — **the `clinician_review` tier is deliberately NOT linked**,
+> since `logAiCoachReviewFlag` creates no `escalations` row to hang a thread off (see §7 Phase D).
+> §36.10's referral-write guardrail (§3) was not touched and still stands; §36.7 (medication
+> information) was not built — no approved content source exists yet, see §8, item 2. The sections below
+> are the original, unedited analysis this work was built from; §5's status table and §9's acceptance
+> table have been updated in place to reflect what shipped, everything else is left as written.
 
 ## 0. What this document is
 
@@ -336,25 +357,25 @@ Two adjacent issues to settle in the same change:
 | § | Requirement | State | Detail |
 |---|---|---|---|
 | 36.1 | Purpose — bounded, not an unrestricted chatbot | ✅ | `COACH_SYSTEM_PROMPT` bounds scope to education/guidance/triage; explicit "never diagnose, never recommend a dose, never claim to replace the care team" |
-| 36.2 | Core pipeline | 🟡 | Identity/context and retrieval are partial; **post-response safety check absent** — classification is pre-response only, so a model reply is appended and returned without a second pass. The deterministic pre-pass mitigates but does not replace it |
-| 36.3 | Context awareness (11 items) | 🟡 | 2 of 11 (§4.2) |
-| 36.4 | Patient questions | ❌ | 4 of 6 example questions unanswerable; 2 answerable only from model internal knowledge (§4.1) |
-| 36.5 | "Explain my health record" | ❌ | No entry point, and no fact/interpretation labelling. Note the closest shipped precedent is `case_briefs` — clinician-facing; this is its patient-facing sibling |
-| 36.6 | Result explanation | ✅ | `patient_result_explanations` + `lib/patient-explainer/` — cached, 5 languages, latest+previous trend framing, `model_id` and `input_snapshot` recorded. **Not reachable from chat**, and see §3 on its example copy |
-| 36.7 | Medication explanation | ❌ | **No approved medication-information source exists.** `medications` holds prescriptions, not patient education. Answering from model internal knowledge is what §36.15/36.16 forbid — this needs content authored and clinician-reviewed before it can ship |
-| 36.8 | Care-plan explanation ("what do I need this month") | ❌ | `lpe_task_instances`, `care_plan_goals`, `screening_schedules`, `vitals_reminder_state` all exist; nothing composes them into the checklist §36.8 draws |
-| 36.9 | Appointment preparation | ❌ | Every input exists (symptoms, vitals, medication adherence, changes since last review); no composition, no entry point |
-| 36.10 | Health navigation | 🔒 | Deep-linking safe now; creating a referral needs an explicit ask (§3) |
-| 36.11 | Emergency safety | ✅ | Deterministic pre-model guardrail; verbatim safety copy; `clinician_alerts` + `escalations` + `emergency_events` with a 4h SLA; reuses the acknowledge-gated patient emergency pathway. **The strongest part of the current build** |
-| 36.12 | Structured symptom capture | ❌ | Free text only. `symptoms` table and `lib/triage/score.ts` exist but are unreachable from chat; nothing collects onset/duration/severity/associated symptoms |
-| 36.13 | AI uncertainty | 🟡 | Real as a *system* property (fail-cautious to `clinician_review`; `COACH_UNAVAILABLE_REPLY`); **absent as a first-class model behaviour** — no tier or response mode for "I don't have enough information to answer that safely." §36.13 asks for it as a feature, and once §4.1's tools exist, "the tool returned nothing" becomes the natural, honest trigger for it |
-| 36.14 | Human handoff | 🟡 | The alerting half is shipped and good. The **"conversation continues" half is missing**: a flagged turn opens a `clinician_alerts` row, but the patient's chat thread and the clinician's reply live in different systems — `care_messages`/`care_message_threads` is the real patient↔care-team channel and nothing links the two. From the patient's side the handoff is currently silent |
-| 36.15 | Approved knowledge base | 🟡 | One of the named sources retrievable (`lpe_content_blocks`); `health_education_content` not embedded; **`condition_protocols`/`protocol_versions` — §36.15's first-named source — not retrievable at all**; no approved medication content (36.7) |
-| 36.16 | Retrieval-augmented generation | 🟡 | Correct architecture, narrow scope, currently inert (§2.4) |
-| 36.17 | Response logging | ❌ | The central governance gap (§4.3) |
+| 36.2 | Core pipeline | 🟡 | **2026-08-29: identity/context and retrieval are now full** (§7 Phases B/C). **Post-response safety check is still absent** — classification is pre-response only, so a model reply is appended and returned without a second pass. The deterministic pre-pass mitigates but does not replace it — this is the one §36.2 stage this session did not build |
+| 36.3 | Context awareness (11 items) | ✅ | **2026-08-29: all 11** (`context.ts`'s widened `loadPatientContext`), though only demographics + risk tiers + lifestyle state are pushed into every prompt as static context — the rest (medications, allergies, vitals, labs, appointments, conditions) is available on demand via the read-only tools below, deliberately, to avoid pushing PHI into every turn regardless of relevance (§4.1) |
+| 36.4 | Patient questions | ✅ | **2026-08-29:** all six example questions now answerable — `tools.ts`'s six read-only record tools (`getVitals`, `getMedications`, `getAllergies`, `getAppointments`, `getConditions`, `getRecentLabResults`), bound into `llmTurn`'s bounded tool-calling loop (`graph.ts`) |
+| 36.5 | "Explain my health record" | ✅ | **2026-08-29:** `composed-surfaces.ts`'s `explainHealthRecord()`, a chat quick-action button. Deliberately deterministic (no LLM call) rather than model-narrated — every field is a value read straight from the record, formatted, never phrased by a model, which is the strictest way to satisfy §36.5's "distinguish documented facts from AI interpretation" |
+| 36.6 | Result explanation | 🟡 | `patient_result_explanations` + `lib/patient-explainer/` — cached, 5 languages, latest+previous trend framing, `model_id` and `input_snapshot` recorded. **Still not reachable from chat** as a citation source (the new `getRecentLabResults`/`getVitals` tools read raw values, not this cached explainer), and see §3 on its example copy |
+| 36.7 | Medication explanation | ❌ | **Still not built, deliberately.** No approved medication-information source exists — `medications` holds prescriptions, not patient education — so the system prompt (2026-08-29 revision) now explicitly instructs the assistant to decline medication questions and route to the care team rather than answer from model internal knowledge, which is what §36.15/36.16 forbid. Needs content authored and clinician-reviewed before it can ship (§8, item 2) |
+| 36.8 | Care-plan explanation ("what do I need this month") | ✅ | **2026-08-29:** `composed-surfaces.ts`'s `careTasksThisMonth()`, composing `vitals_reminder_state`, medication refill dates, `screening_schedules`, and upcoming appointments into the ✓/○ checklist §36.8's own example shows |
+| 36.9 | Appointment preparation | 🟡 | **2026-08-29:** `composed-surfaces.ts`'s `prepareForAppointment()` covers symptoms, recent measurements, and medication issues (an overdue refill). Not included: "changes since previous review" (needs a review-history read not yet built) and a generated "questions to ask" list (deliberately out of scope — see composed-surfaces.ts's own top comment on why these three surfaces stay LLM-free) |
+| 36.10 | Health navigation | 🔒 | Deep-linking safe now; creating a referral needs an explicit ask (§3) — **untouched this session** |
+| 36.11 | Emergency safety | ✅ | Deterministic pre-model guardrail; verbatim safety copy; `clinician_alerts` + `escalations` + `emergency_events` with a 4h SLA; reuses the acknowledge-gated patient emergency pathway. **2026-08-29: now also opens a real `care_messages` thread** (§36.14 below) |
+| 36.12 | Structured symptom capture | ❌ | Free text only, still. `symptoms` table and `lib/triage/score.ts` exist and are now *readable* from chat (`prepareForAppointment` reads recent `symptoms` rows), but nothing *collects* a new structured report (onset/duration/severity/associated symptoms) from within a conversation |
+| 36.13 | AI uncertainty | 🟡 | Real as a *system* property (fail-cautious to `clinician_review`; `COACH_UNAVAILABLE_REPLY`) and, as of 2026-08-29, reinforced at the prompt level: `COACH_SYSTEM_PROMPT`'s grounding rules now explicitly instruct "if a tool returns nothing... say plainly you don't have enough information... do not fill the gap from general knowledge." Still not a first-class, separately audited response *mode* — it's prompt instruction, not a structural guarantee the way the keyword guardrail is |
+| 36.14 | Human handoff | 🟡 | **2026-08-29: the emergency half of the "conversation continues" gap is closed** — `logAiCoachEscalation` now opens a `care_messages` thread (linked via `care_message_threads.escalation_id`) so a clinician's reply reaches the patient in-app. **The `clinician_review` tier is still unlinked** — `logAiCoachReviewFlag` creates no `escalations` row to hang a thread off, and adding one was judged out of scope for a schema change to a shared table within this pass (§7 Phase D) |
+| 36.15 | Approved knowledge base | 🟡 | **2026-08-29: two of the named sources retrievable** (`lpe_content_blocks` and now `health_education_content`, mirrored the same way — `knowledge-base.ts`, `match_health_education_content` RPC). Both remain inert pending a `VOYAGE_API_KEY` and reviewed content (§8, item 3), same as before this session. **`condition_protocols`/`protocol_versions` — §36.15's first-named source — still not retrievable at all**; no approved medication content (36.7) |
+| 36.16 | Retrieval-augmented generation | 🟡 | **2026-08-29: now multi-source** (two libraries queried per turn instead of one, source ids recorded per turn into the new audit table). Still inert pending the same operational blockers as §36.15 |
+| 36.17 | Response logging | ✅ | **2026-08-29:** `ai_assistant_turns` (migration `20260829100000`) — `audit.ts`'s `logAssistantTurn`, called from every `runCoachTurn()`/`runQuickAction()` exit path, recording model id, prompt version, safety classification, retrieved source ids, escalation linkage, and status. The central governance gap this document identified (§4.3) is closed |
 | 36.18 | Acceptance criteria | 🟡 | See §9 |
 
-**Summary: 3 shipped, 7 partial, 7 absent, 1 guardrailed.**
+**Summary, 2026-08-29: 7 shipped, 8 partial, 2 absent, 1 guardrailed** (was 3/7/7/1 before this session — see the status callout at the top of this document for exactly what changed and why 36.7/36.10/36.12 are unchanged on purpose).
 
 ## 6. Target architecture
 
@@ -408,7 +429,12 @@ Four design commitments worth stating explicitly, because each is a place this c
 
 Ordered by the governance ladder (§1), not by visible impact — audit before breadth.
 
-### Phase A — Governance foundation (no new patient-facing behaviour)
+**2026-08-29 — Phases A, B, and C below are done; Phase D is done for the emergency tier only.** See
+the status callout at the top of this document for the summary and exact file names. What follows is
+left as originally written (the plan this work was built from) except where a phase heading below is
+marked done inline.
+
+### Phase A — Governance foundation (no new patient-facing behaviour) — ✅ done 2026-08-29
 
 The prerequisite for everything else. Nothing here changes what a patient sees.
 
@@ -422,7 +448,7 @@ The prerequisite for everything else. Nothing here changes what a patient sees.
 
 *Level 3. Migrations + one library change. No UI.*
 
-### Phase B — Context and grounding (Level 1 breadth)
+### Phase B — Context and grounding (Level 1 breadth) — ✅ done 2026-08-29
 
 6. Widen `loadPatientContext()` to §36.3's 11 items (§4.2), preserving its never-throws contract.
 7. Embed `health_education_content`; add a `match_health_education_content` RPC mirroring
@@ -435,7 +461,7 @@ The prerequisite for everything else. Nothing here changes what a patient sees.
 *Blocked on: a `VOYAGE_API_KEY`, and at least some content actually marked `clinician_reviewed` —
 both are operational, not engineering (§8).*
 
-### Phase C — The structured surfaces patients asked for
+### Phase C — The structured surfaces patients asked for — ✅ done 2026-08-29
 
 10. Read-only record tools (§4.1(b)).
 11. "Explain my health record" (§36.5) — fact/interpretation split, reusing the
@@ -446,7 +472,7 @@ both are operational, not engineering (§8).*
 
 *Level 1 throughout. This is where the assistant becomes the thing §36.1 describes.*
 
-### Phase D — Handoff continuity and symptom capture
+### Phase D — Handoff continuity and symptom capture — 🟡 emergency-tier handoff done 2026-08-29, symptom capture not built
 
 15. Close the §36.14 loop: link an assistant-raised flag to a `care_messages` thread so the clinician's
     reply reaches the patient in-app, and the patient can see that a human picked it up. **In-app only** —
@@ -493,17 +519,19 @@ Genuine founder/clinical calls, not engineering choices. Each blocks something a
 
 | Criterion | Standing | What closes it |
 |---|---|---|
-| **Useful** | 🟡 | Answers general questions well; cannot answer questions about the patient's own record (§4.1). Phases B + C |
-| **Contextual** | ❌ | 2 of 11 context items (§4.2). Phase B |
-| **Transparent** | ❌ | No source citation; no documented-fact vs AI-interpretation distinction (§36.5). Phases B + C |
-| **Bounded** | ✅ | Scope guardrails in the system prompt; deterministic emergency pass; entitlement and rate limits; fail-cautious degradation. The strongest criterion today |
-| **Clinically governed** | 🟡 | Escalation paths, SLAs, and `clinician_reviewed` content gating are real; the handoff loop does not close back to the patient (§36.14), and there is no post-response check (§36.2) |
-| **Auditable** | ❌ | No per-turn provenance record (§4.3). Phase A |
+| **Useful** | ✅ | **2026-08-29:** can now answer questions about the patient's own record via tools (36.4), and reach three composed surfaces (36.5/36.8/36.9) directly. Medication information (36.7) still declines by design, pending content |
+| **Contextual** | ✅ | **2026-08-29:** all 11 of §36.3's context items (§4.2, Phase B) |
+| **Transparent** | 🟡 | **2026-08-29:** retrieved source ids are now recorded per turn (audit table), and the three composed surfaces are 100% documented-fact with no generated text at all. Still missing: in-chat source *citation* to the patient (the retrieved titles inform the model's answer but aren't shown), and the chat's own free-text replies have no fact/interpretation visual split the way the composed surfaces do |
+| **Bounded** | ✅ | Scope guardrails in the system prompt (strengthened 2026-08-29 with explicit grounding/uncertainty rules); deterministic emergency pass; entitlement and rate limits; fail-cautious degradation; read-only tools only (§4.1's hard invariant). Still the strongest criterion |
+| **Clinically governed** | 🟡 | Escalation paths, SLAs, and `clinician_reviewed` content gating are real. **2026-08-29: the handoff loop now closes back to the patient for the emergency tier** (36.14) — `clinician_review` still doesn't. There is still no post-response safety check (§36.2) |
+| **Auditable** | ✅ | **2026-08-29:** `ai_assistant_turns` records model/version, retrieved sources, safety classification, escalation linkage, and status per turn (§4.3, Phase A) |
 
-**One criterion of six is met.** The honest summary is that the existing build is *well-bounded but
-under-instrumented and under-grounded* — it is safe in the ways that matter most and hollow in the
-ways patients notice most. That is a much better place to start from than the reverse, and it is why
-§7 sequences audit and grounding ahead of new surfaces.
+**Four of six criteria are now met, as of 2026-08-29** (was one of six). The two still short —
+**Transparent** and **Clinically governed** — share one open item each: source citation isn't
+surfaced to the patient yet, and the `clinician_review` tier's handoff loop still doesn't close.
+Both are incremental extensions of infrastructure this session already built (the audit table
+already records what it would cite; `care_message_threads` already supports the same linkage
+pattern the emergency path now uses), not further structural gaps.
 
 ## 10. Where to look
 

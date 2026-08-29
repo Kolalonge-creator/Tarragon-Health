@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CoachChatMessage, CoachTier, Database, Json } from "@tarragon/shared";
+import type { CoachChatMessage, CoachTier, Database } from "@tarragon/shared";
 import { buildCoachGraph, type CoachGraphDeps } from "./graph";
 import { COACH_ACCESS_DENIED_REPLY, hasCoachAccess } from "./entitlement";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
+import { logAssistantTurn } from "./audit";
+import { COACH_PROMPT_VERSION } from "./prompts";
+import { appendMessages, resolveOrCreateConversation } from "./conversation-store";
 
 export interface RunCoachTurnParams {
   supabase: SupabaseClient<Database>;
@@ -27,52 +30,27 @@ export interface RunCoachTurnResult {
  * silently dropped everything older than the window on every single turn. */
 const CONTEXT_HISTORY_LIMIT = 20;
 
-async function appendMessages(
-  supabase: SupabaseClient<Database>,
-  conversationId: string,
-  fullMessages: CoachChatMessage[],
-  newMessages: CoachChatMessage[]
-): Promise<void> {
-  await supabase
-    .from("ai_conversations")
-    .update({ messages: [...fullMessages, ...newMessages] as unknown as Json })
-    .eq("id", conversationId);
-}
-
 /** Transport-agnostic AI Coach turn — takes a profile + message, runs the
  * LangGraph flow, and returns the reply. Callable from a server action
  * today; the same function is what a future WhatsApp webhook route would
- * call too, so it doesn't assume anything about how it was invoked. */
+ * call too, so it doesn't assume anything about how it was invoked.
+ *
+ * Every return path also writes one ai_assistant_turns audit row
+ * (audit.ts) — the §36.17 provenance record docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md
+ * §4.3 identified as missing, including on the two short-circuit paths
+ * (access denied, rate limited) that never reach the graph at all. The
+ * audit write is best-effort (logAssistantTurn never throws) — a failed
+ * audit write must never be the reason a patient-facing turn breaks.
+ */
 export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoachTurnResult> {
   const { supabase, getServiceRoleSupabase, profileId, organisationId, message } = params;
 
-  let conversationId = params.conversationId;
-  let fullMessages: CoachChatMessage[] = [];
-
-  if (conversationId) {
-    const { data } = await supabase
-      .from("ai_conversations")
-      .select("id, messages")
-      .eq("id", conversationId)
-      .maybeSingle();
-    if (data) {
-      fullMessages = (data.messages as CoachChatMessage[] | null) ?? [];
-    } else {
-      conversationId = undefined;
-    }
-  }
-
-  if (!conversationId) {
-    const { data, error } = await supabase
-      .from("ai_conversations")
-      .insert({ organisation_id: organisationId, profile_id: profileId })
-      .select("id")
-      .single();
-    if (error || !data) {
-      throw new Error(error?.message ?? "Could not start a conversation");
-    }
-    conversationId = data.id;
-  }
+  const { conversationId, fullMessages } = await resolveOrCreateConversation(
+    supabase,
+    organisationId,
+    profileId,
+    params.conversationId
+  );
 
   // Defense in depth: care/page.tsx and lifestyle/page.tsx only render the
   // chat UI when hasCoachAccess() is true, but neither of them re-checks it
@@ -92,6 +70,14 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       created_at: now,
     };
     await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+    await logAssistantTurn(getServiceRoleSupabase(), {
+      organisationId,
+      patientId: profileId,
+      conversationId,
+      interactionType: "chat_turn",
+      finalAction: "declined",
+      status: "access_denied",
+    });
     return { conversationId, reply: COACH_ACCESS_DENIED_REPLY, tier: "routine" };
   }
 
@@ -112,6 +98,14 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       created_at: now,
     };
     await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+    await logAssistantTurn(getServiceRoleSupabase(), {
+      organisationId,
+      patientId: profileId,
+      conversationId,
+      interactionType: "chat_turn",
+      finalAction: "declined",
+      status: "rate_limited",
+    });
     return { conversationId, reply: COACH_LIMIT_REACHED_REPLY, tier: "routine" };
   }
 
@@ -135,6 +129,26 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     created_at: now,
   };
   await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+
+  const finalAction: "replied" | "clinician_alert_created" | "escalation_created" =
+    tier === "emergency" ? "escalation_created" : tier === "clinician_review" ? "clinician_alert_created" : "replied";
+
+  await logAssistantTurn(getServiceRoleSupabase(), {
+    organisationId,
+    patientId: profileId,
+    conversationId,
+    interactionType: "chat_turn",
+    modelId: result.modelId,
+    promptVersion: result.modelId ? COACH_PROMPT_VERSION : null,
+    safetyClassification: tier,
+    retrievedSourceIds: result.retrievedSourceIds,
+    clinicianAlertId: result.clinicianAlertId,
+    escalationId: result.escalationId,
+    finalAction,
+    status: result.degraded ? "degraded" : "completed",
+    errorMessage: result.errorMessage,
+    inputSnapshot: { ...result.inputSnapshotForAudit, careMessageThreadId: result.careMessageThreadId },
+  });
 
   return { conversationId, reply: result.reply, tier };
 }

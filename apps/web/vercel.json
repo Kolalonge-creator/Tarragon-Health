@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/ai-coach-embed-content",
+      "schedule": "20 8 * * *"
+    },
+    {
       "path": "/api/cron/generate-quarterly-reports",
       "schedule": "0 3 * * *"
     },

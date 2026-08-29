@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAiConversation, useSendCoachMessage } from "@/lib/queries/ai-coach";
+import { useAiConversation, useAiCoachQuickAction, useSendCoachMessage } from "@/lib/queries/ai-coach";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,25 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+const QUICK_ACTIONS = [
+  { kind: "explain_record" as const, label: "Explain my health record" },
+  { kind: "care_plan_summary" as const, label: "What do I need this month?" },
+  { kind: "appointment_prep" as const, label: "Help me prepare for my appointment" },
+];
+
 export function AiCoachChat({ patientId }: { patientId: string }) {
   const { data: conversation } = useAiConversation(patientId);
   const sendMessage = useSendCoachMessage(patientId);
+  const quickAction = useAiCoachQuickAction(patientId);
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
 
   const messages = conversation?.messages ?? [];
+
+  function handleQuickAction(kind: (typeof QUICK_ACTIONS)[number]["kind"]) {
+    if (quickAction.isPending || sendMessage.isPending) return;
+    quickAction.mutate({ conversationId: conversation?.conversationId, kind });
+  }
 
   function formatTimestamp(isoString: string): string {
     return new Date(isoString).toLocaleString([], {
@@ -81,7 +93,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
               </p>
             </div>
           ))}
-          {sendMessage.isPending && (
+          {(sendMessage.isPending || quickAction.isPending) && (
             <div className="max-w-[85%] rounded-lg bg-white px-3 py-2 text-sm text-charcoal-ink/60">
               Thinking…
             </div>
@@ -91,6 +103,24 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         {sendMessage.data?.success === false && (
           <p className="text-sm text-red-600">{sendMessage.data.error}</p>
         )}
+        {quickAction.data?.success === false && (
+          <p className="text-sm text-red-600">{quickAction.data.error}</p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {QUICK_ACTIONS.map((action) => (
+            <Button
+              key={action.kind}
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={quickAction.isPending || sendMessage.isPending}
+              onClick={() => handleQuickAction(action.kind)}
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
 
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
