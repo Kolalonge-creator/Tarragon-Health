@@ -1,0 +1,31 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'expo.modules.yuchengband'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.yuchengband"
+
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+    // ycbtsdk-release-4.0.11.aar declares minSdkVersion 24; the app itself
+    // is pinned to 26 via expo-build-properties (app.json) — no conflict.
+    minSdkVersion 24
+  }
+
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // Only the vendor's core SDK. See android/libs/README.md for why the
+  // other five .aar/.so files in the vendor's own demo app bundle are
+  // deliberately NOT here — inspecting ycbtsdk-release.aar's classes.jar
+  // found no bytecode references into any of them; they're dependencies of
+  // the demo app's OTA/watch-face/ECG *screens*, not of the SDK itself, and
+  // none of that is in this module's scope.
+  implementation fileTree(dir: "libs", include: ["*.aar"])
+}

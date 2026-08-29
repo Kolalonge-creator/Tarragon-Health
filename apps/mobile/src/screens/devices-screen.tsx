@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Device } from "react-native-ble-plx";
@@ -7,6 +7,7 @@ import { requestBlePermissions, scanForClinicalDevices, type SupportedDeviceType
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
+import { YuchengBandCard } from "@/screens/yucheng-band-card";
 import { colors, spacing } from "@/ui/theme";
 import {
   Card,
@@ -60,6 +61,12 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
   const [pairing, setPairing] = useState(false);
   const [found, setFound] = useState<{ device: Device; deviceType: SupportedDeviceType }[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
+
+  // smart_band devices have their own pairing/sync flow (YuchengBandCard) —
+  // shown here they'd double as a dead-end second entry point, since
+  // onOpenDevice routes to SyncScreen, which only knows the standard-GATT
+  // device types (see sync-screen.tsx's isSupported).
+  const gattDevices = useMemo(() => devices.filter((item) => item.device_type !== "smart_band"), [devices]);
 
   const loadDevices = useCallback(async () => {
     setLoading(true);
@@ -122,12 +129,18 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
 
       <AppleHealthCard />
       <AndroidHealthConnectCard />
+      <YuchengBandCard
+        patientId={patientId}
+        organisationId={organisationId}
+        devices={devices}
+        onPaired={loadDevices}
+      />
 
       <View style={{ gap: 10 }}>
         <SectionLabel>Paired devices</SectionLabel>
         {loading ? (
           <ActivityIndicator color={colors.brand} />
-        ) : devices.length === 0 ? (
+        ) : gattDevices.length === 0 ? (
           <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
             <Ionicons name="bluetooth-outline" size={28} color={colors.faint} />
             <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>No devices paired yet</Text>
@@ -137,7 +150,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           </Card>
         ) : (
           <GroupedList>
-            {devices.map((item) => (
+            {gattDevices.map((item) => (
               <GroupedListRow
                 key={item.id}
                 title={item.nickname ?? item.model ?? deviceLabel(item.device_type)}

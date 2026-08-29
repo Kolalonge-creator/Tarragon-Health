@@ -72,10 +72,22 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const { vital_type, device_id, external_reading_id, taken_at } = reading;
+  // Blood pressure/glucose/weight/temperature are only ever posted by the
+  // real standard-GATT clinical instruments (bp_cuff/glucometer/scale/
+  // thermometer) — genuinely "device" grade, always. Pulse/SpO2 are also
+  // fed by the Yucheng band, a consumer wrist-worn optical sensor that is
+  // not the same confidence level as a validated clinical instrument —
+  // reading.source (deviceSourceField in the schema, defaulting to
+  // "device") is how the two existing GATT pulse-oximeter/heart-rate call
+  // sites keep their correct label while the band's own calls mark
+  // themselves "wearable" instead of inheriting a clinical-grade label
+  // that isn't true for them.
+  const source: "device" | "wearable" =
+    vital_type === "pulse" || vital_type === "spo2" ? reading.source : "device";
   const shared = {
     patient_id: user.id,
     organisation_id: profile.organisation_id,
-    source: "device" as const,
+    source,
     device_id,
     external_reading_id,
     taken_at,
@@ -96,7 +108,9 @@ export async function POST(request: Request): Promise<NextResponse> {
           ? { ...shared, vital_type, weight_kg: reading.weight_kg }
           : vital_type === "temperature"
             ? { ...shared, vital_type, temperature_c: reading.temperature_c }
-            : { ...shared, vital_type, spo2_pct: reading.spo2_pct, pulse_bpm: reading.pulse_bpm };
+            : vital_type === "spo2"
+              ? { ...shared, vital_type, spo2_pct: reading.spo2_pct, pulse_bpm: reading.pulse_bpm }
+              : { ...shared, vital_type, pulse_bpm: reading.pulse_bpm };
 
   const { error: insertError } = await supabase.from("vitals_readings").insert(row);
   if (insertError) {
