@@ -18,6 +18,7 @@ import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
+import { ImagingOrdersSection } from "./imaging-orders-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
@@ -309,6 +310,7 @@ export default async function ClinicianPatientPage({
                     inline, so checking a value against the page is one glance. */}
                 <ResultDocumentsSection patientId={patient.id} />
                 <EcgReportDocumentsSection patientId={patient.id} />
+                <ImagingOrdersSection patientId={patient.id} canOrder={isClinicalTier(callerStaff)} />
                 <MentalHealthSummary patientId={patient.id} showScores />
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />

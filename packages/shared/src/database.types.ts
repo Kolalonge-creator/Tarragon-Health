@@ -3715,6 +3715,7 @@ export type Database = {
           duplicate_of: string | null
           escalation_level: number | null
           id: string
+          imaging_report_id: string | null
           level: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
           overridden_at: string | null
@@ -3769,6 +3770,7 @@ export type Database = {
           duplicate_of?: string | null
           escalation_level?: number | null
           id?: string
+          imaging_report_id?: string | null
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id: string
           overridden_at?: string | null
@@ -3818,6 +3820,7 @@ export type Database = {
           duplicate_of?: string | null
           escalation_level?: number | null
           id?: string
+          imaging_report_id?: string | null
           level?: Database["public"]["Enums"]["alert_level"]
           organisation_id?: string
           overridden_at?: string | null
@@ -3911,6 +3914,13 @@ export type Database = {
             columns: ["responsible_clinician_id"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_imaging_report_id_fkey"
+            columns: ["imaging_report_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_reports"
             referencedColumns: ["id"]
           },
           {
@@ -7760,6 +7770,757 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imaging_incidental_findings: {
+        Row: {
+          clinician_alert_id: string | null
+          created_at: string
+          description: string
+          follow_up_due_date: string | null
+          follow_up_task_note: string | null
+          id: string
+          imaging_report_id: string
+          is_urgent: boolean
+          organisation_id: string
+          patient_id: string
+          recall_reason: string | null
+          recalled_at: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["imaging_incidental_finding_status"]
+          updated_at: string
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          description: string
+          follow_up_due_date?: string | null
+          follow_up_task_note?: string | null
+          id?: string
+          imaging_report_id: string
+          is_urgent?: boolean
+          // NOT NULL with no column DEFAULT, but populated by
+          // private.handle_imaging_incidental_finding() (BEFORE INSERT
+          // trigger) from the referenced imaging_reports row whenever left
+          // null -- same hand-maintained deviation as
+          // imaging_safety_questionnaires above.
+          organisation_id?: string
+          patient_id?: string
+          recall_reason?: string | null
+          recalled_at?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["imaging_incidental_finding_status"]
+          updated_at?: string
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          description?: string
+          follow_up_due_date?: string | null
+          follow_up_task_note?: string | null
+          id?: string
+          imaging_report_id?: string
+          is_urgent?: boolean
+          organisation_id?: string
+          patient_id?: string
+          recall_reason?: string | null
+          recalled_at?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["imaging_incidental_finding_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imaging_incidental_findings_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_incidental_findings_imaging_report_id_fkey"
+            columns: ["imaging_report_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_incidental_findings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_incidental_findings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_incidental_findings_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imaging_orders: {
+        Row: {
+          attended_at: string | null
+          booked_at: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          clinical_information: string | null
+          contraindication_information: string | null
+          created_at: string
+          fulfilment: Database["public"]["Enums"]["imaging_order_fulfilment"]
+          id: string
+          images_generated_at: string | null
+          indication: string
+          location_id: string | null
+          ordering_clinician_id: string
+          organisation_id: string
+          patient_id: string
+          performed_at: string | null
+          preferred_time_of_day: Database["public"]["Enums"]["imaging_order_time_of_day"] | null
+          provider_id: string | null
+          reported_at: string | null
+          result_returned_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheduled_date: string | null
+          status: Database["public"]["Enums"]["imaging_order_status"]
+          study_id: string
+          total_kobo: number
+          updated_at: string
+          urgency: Database["public"]["Enums"]["imaging_order_urgency"]
+        }
+        Insert: {
+          attended_at?: string | null
+          booked_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          clinical_information?: string | null
+          contraindication_information?: string | null
+          created_at?: string
+          fulfilment?: Database["public"]["Enums"]["imaging_order_fulfilment"]
+          id?: string
+          images_generated_at?: string | null
+          indication: string
+          location_id?: string | null
+          // NOT NULL with no column DEFAULT, but populated by
+          // private.handle_imaging_order_insert() (BEFORE INSERT trigger)
+          // from the caller's own active clinical_staff record whenever left
+          // null -- optional here so a caller can omit it (falls back to the
+          // trigger's own-session lookup) or pass it explicitly. Same
+          // hand-maintained deviation as clinician_alerts.category/type_code
+          // above -- raw introspection cannot see trigger behaviour.
+          ordering_clinician_id?: string
+          organisation_id: string
+          patient_id: string
+          performed_at?: string | null
+          preferred_time_of_day?: Database["public"]["Enums"]["imaging_order_time_of_day"] | null
+          provider_id?: string | null
+          reported_at?: string | null
+          result_returned_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_date?: string | null
+          status?: Database["public"]["Enums"]["imaging_order_status"]
+          study_id: string
+          total_kobo?: number
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["imaging_order_urgency"]
+        }
+        Update: {
+          attended_at?: string | null
+          booked_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          clinical_information?: string | null
+          contraindication_information?: string | null
+          created_at?: string
+          fulfilment?: Database["public"]["Enums"]["imaging_order_fulfilment"]
+          id?: string
+          images_generated_at?: string | null
+          indication?: string
+          location_id?: string | null
+          ordering_clinician_id?: string
+          organisation_id?: string
+          patient_id?: string
+          performed_at?: string | null
+          preferred_time_of_day?: Database["public"]["Enums"]["imaging_order_time_of_day"] | null
+          provider_id?: string | null
+          reported_at?: string | null
+          result_returned_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_date?: string | null
+          status?: Database["public"]["Enums"]["imaging_order_status"]
+          study_id?: string
+          total_kobo?: number
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["imaging_order_urgency"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imaging_orders_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_provider_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_orders_ordering_clinician_id_fkey"
+            columns: ["ordering_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_orders_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_orders_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_orders_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_orders_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imaging_provider_locations: {
+        Row: {
+          address: string
+          contact_phone: string | null
+          created_at: string
+          id: string
+          imaging_provider_id: string
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          name: string
+          state: string
+        }
+        Insert: {
+          address: string
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          imaging_provider_id: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          state: string
+        }
+        Update: {
+          address?: string
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          imaging_provider_id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imaging_provider_locations_imaging_provider_id_fkey"
+            columns: ["imaging_provider_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imaging_providers: {
+        Row: {
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          name: string
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          name: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          license_expires_at?: string | null
+          license_number?: string | null
+          license_type?: string | null
+          name?: string
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imaging_providers_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imaging_report_documents: {
+        Row: {
+          clinician_alert_id: string | null
+          created_at: string
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          imaging_order_id: string | null
+          mime_type: string | null
+          note: string | null
+          organisation_id: string
+          original_filename: string | null
+          patient_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: Database["public"]["Enums"]["imaging_report_document_source"]
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          imaging_order_id?: string | null
+          mime_type?: string | null
+          note?: string | null
+          organisation_id: string
+          original_filename?: string | null
+          patient_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: Database["public"]["Enums"]["imaging_report_document_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          imaging_order_id?: string | null
+          mime_type?: string | null
+          note?: string | null
+          organisation_id?: string
+          original_filename?: string | null
+          patient_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: Database["public"]["Enums"]["imaging_report_document_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imaging_report_documents_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_report_documents_imaging_order_id_fkey"
+            columns: ["imaging_order_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_report_documents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_report_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_report_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_report_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imaging_reports: {
+        Row: {
+          ai_assisted: boolean
+          body_region: string
+          clinician_alert_id: string | null
+          created_at: string
+          dicom_accession_number: string | null
+          dicom_study_instance_uid: string | null
+          document_id: string | null
+          findings: string
+          id: string
+          imaging_order_id: string
+          impression: string
+          is_abnormal: boolean
+          modality: Database["public"]["Enums"]["imaging_modality"]
+          organisation_id: string
+          pacs_url: string | null
+          patient_id: string
+          radiologist_id: string | null
+          radiologist_name: string | null
+          report_status: Database["public"]["Enums"]["imaging_report_status"]
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: Database["public"]["Enums"]["imaging_report_source"]
+          study_date: string
+          supersedes_report_id: string | null
+          updated_at: string
+          uploaded_by: string | null
+          urgency: Database["public"]["Enums"]["imaging_finding_urgency"]
+        }
+        Insert: {
+          ai_assisted?: boolean
+          body_region: string
+          clinician_alert_id?: string | null
+          created_at?: string
+          dicom_accession_number?: string | null
+          dicom_study_instance_uid?: string | null
+          document_id?: string | null
+          findings: string
+          id?: string
+          imaging_order_id: string
+          impression: string
+          is_abnormal?: boolean
+          modality: Database["public"]["Enums"]["imaging_modality"]
+          organisation_id: string
+          pacs_url?: string | null
+          patient_id: string
+          radiologist_id?: string | null
+          radiologist_name?: string | null
+          report_status?: Database["public"]["Enums"]["imaging_report_status"]
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: Database["public"]["Enums"]["imaging_report_source"]
+          study_date: string
+          supersedes_report_id?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          urgency?: Database["public"]["Enums"]["imaging_finding_urgency"]
+        }
+        Update: {
+          ai_assisted?: boolean
+          body_region?: string
+          clinician_alert_id?: string | null
+          created_at?: string
+          dicom_accession_number?: string | null
+          dicom_study_instance_uid?: string | null
+          document_id?: string | null
+          findings?: string
+          id?: string
+          imaging_order_id?: string
+          impression?: string
+          is_abnormal?: boolean
+          modality?: Database["public"]["Enums"]["imaging_modality"]
+          organisation_id?: string
+          pacs_url?: string | null
+          patient_id?: string
+          radiologist_id?: string | null
+          radiologist_name?: string | null
+          report_status?: Database["public"]["Enums"]["imaging_report_status"]
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: Database["public"]["Enums"]["imaging_report_source"]
+          study_date?: string
+          supersedes_report_id?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          urgency?: Database["public"]["Enums"]["imaging_finding_urgency"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imaging_reports_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_reports_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_report_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_reports_imaging_order_id_fkey"
+            columns: ["imaging_order_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_reports_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_reports_supersedes_report_id_fkey"
+            columns: ["supersedes_report_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_reports_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imaging_safety_questionnaires: {
+        Row: {
+          answers: Json
+          clinician_alert_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          contraindication_notes: string | null
+          created_at: string
+          has_contraindication: boolean
+          id: string
+          imaging_order_id: string
+          organisation_id: string
+          patient_id: string
+          questions: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          clinician_alert_id?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          contraindication_notes?: string | null
+          created_at?: string
+          has_contraindication?: boolean
+          id?: string
+          imaging_order_id: string
+          // NOT NULL with no column DEFAULT, but populated by
+          // private.handle_imaging_safety_questionnaire() (BEFORE INSERT
+          // trigger) from the referenced imaging_orders row whenever left
+          // null (a mismatched, explicitly-supplied value is rejected, not
+          // silently overwritten) -- optional here for the same reason
+          // ordering_clinician_id is on imaging_orders above.
+          organisation_id?: string
+          patient_id?: string
+          questions?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          clinician_alert_id?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          contraindication_notes?: string | null
+          created_at?: string
+          has_contraindication?: boolean
+          id?: string
+          imaging_order_id?: string
+          organisation_id?: string
+          patient_id?: string
+          questions?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imaging_safety_questionnaires_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_safety_questionnaires_imaging_order_id_fkey"
+            columns: ["imaging_order_id"]
+            isOneToOne: true
+            referencedRelation: "imaging_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_safety_questionnaires_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "imaging_safety_questionnaires_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      imaging_studies: {
+        Row: {
+          code: string
+          created_at: string
+          default_safety_questionnaire_key: string | null
+          duration_minutes: number | null
+          id: string
+          indication_category: string | null
+          is_active: boolean
+          modality: Database["public"]["Enums"]["imaging_modality"]
+          name: string
+          preparation_instructions: string | null
+          price_kobo: number
+          provider_id: string
+          turnaround_hours: number | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          default_safety_questionnaire_key?: string | null
+          duration_minutes?: number | null
+          id?: string
+          indication_category?: string | null
+          is_active?: boolean
+          modality: Database["public"]["Enums"]["imaging_modality"]
+          name: string
+          preparation_instructions?: string | null
+          price_kobo?: number
+          provider_id: string
+          turnaround_hours?: number | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          default_safety_questionnaire_key?: string | null
+          duration_minutes?: number | null
+          id?: string
+          indication_category?: string | null
+          is_active?: boolean
+          modality?: Database["public"]["Enums"]["imaging_modality"]
+          name?: string
+          preparation_instructions?: string | null
+          price_kobo?: number
+          provider_id?: string
+          turnaround_hours?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "imaging_studies_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "imaging_providers"
             referencedColumns: ["id"]
           },
         ]
@@ -19950,6 +20711,54 @@ export type Database = {
       hospital_admission_source: "patient_reported" | "staff_recorded"
       identity_method: "nin" | "bvn" | "document"
       identity_verification_status: "pending" | "verified" | "failed"
+      imaging_ai_assist_type:
+        | "triage"
+        | "quality_check"
+        | "prioritisation"
+        | "reporting_assistance"
+      imaging_finding_urgency:
+        | "routine"
+        | "clinically_significant"
+        | "urgent"
+        | "critical"
+      imaging_incidental_finding_status:
+        | "open"
+        | "follow_up_scheduled"
+        | "recalled"
+        | "resolved"
+        | "dismissed"
+      imaging_modality:
+        | "xray"
+        | "ultrasound"
+        | "ct"
+        | "mri"
+        | "mammography"
+        | "echocardiography"
+        | "other"
+      imaging_order_fulfilment: "partner" | "self_arranged"
+      imaging_order_status:
+        | "ordered"
+        | "booked"
+        | "attended"
+        | "performed"
+        | "reported"
+        | "result_returned"
+        | "reviewed"
+        | "cancelled"
+      imaging_order_time_of_day: "morning" | "afternoon" | "evening"
+      imaging_order_urgency: "routine" | "urgent" | "emergency"
+      imaging_provider_staff_role: "radiologist" | "technician"
+      imaging_report_document_source:
+        | "patient"
+        | "clinician"
+        | "admin"
+        | "provider_portal"
+      imaging_report_source:
+        | "patient"
+        | "provider_portal"
+        | "clinician"
+        | "admin"
+      imaging_report_status: "preliminary" | "final" | "amended"
       insulin_type:
         | "soluble"
         | "nph"
@@ -20883,6 +21692,61 @@ export const Constants = {
       hospital_admission_source: ["patient_reported", "staff_recorded"],
       identity_method: ["nin", "bvn", "document"],
       identity_verification_status: ["pending", "verified", "failed"],
+      imaging_ai_assist_type: [
+        "triage",
+        "quality_check",
+        "prioritisation",
+        "reporting_assistance",
+      ],
+      imaging_finding_urgency: [
+        "routine",
+        "clinically_significant",
+        "urgent",
+        "critical",
+      ],
+      imaging_incidental_finding_status: [
+        "open",
+        "follow_up_scheduled",
+        "recalled",
+        "resolved",
+        "dismissed",
+      ],
+      imaging_modality: [
+        "xray",
+        "ultrasound",
+        "ct",
+        "mri",
+        "mammography",
+        "echocardiography",
+        "other",
+      ],
+      imaging_order_fulfilment: ["partner", "self_arranged"],
+      imaging_order_status: [
+        "ordered",
+        "booked",
+        "attended",
+        "performed",
+        "reported",
+        "result_returned",
+        "reviewed",
+        "cancelled",
+      ],
+      imaging_order_time_of_day: ["morning", "afternoon", "evening"],
+      imaging_order_urgency: ["routine", "urgent", "emergency"],
+      imaging_provider_staff_role: ["radiologist", "technician"],
+      imaging_report_document_source: [
+        "patient",
+        "clinician",
+        "admin",
+        "provider_portal",
+      ],
+      imaging_report_source: [
+        "patient",
+        "provider_portal",
+        "clinician",
+        "admin",
+      ],
+      imaging_report_status: ["preliminary", "final", "amended"],
       insulin_type: [
         "soluble",
         "nph",
