@@ -377,12 +377,19 @@ configurable per-org, per-document-type retention policy table with a nightly ar
 instance seeded with the platform's actual `is_org_staff`/`can_read_clinical`/
 `is_clinical_tier`/`can_act_for` definitions, not just read for syntax.
 
-Deliberately not built this pass: the storage-layer malware-scan integration itself (the
-schema/RPC contract for recording a scan verdict exists — `record_patient_document_scan` —
-but nothing yet calls a real scanner; every existing upload pipeline in this codebase has
-the same gap) and the app/web UI (upload form, document library, sharing UI, OCR review
-worklist, retention admin screen) — this pass is the data/authorization layer only, matching
-how `lab_result_documents`/`ecg_report_documents` also shipped schema-first.
+**Corrected 2026-08-29 — the app/web UI shipped the same day** (a same-day follow-up, not a
+later pass): `/patient/documents` (upload form + library list + per-document sharing panel),
+a `PatientDocumentsSection` on the clinician chart (publish/archive, OCR-mismatch review,
+discrepancy flag/resolve — every clinical-judgment control gated to `isClinicalTier`, a Care
+Coordinator sees the same section read-only), and `/admin/settings/document-retention` (policy
+CRUD, admin-only) are all real and wired into navigation. Verified with a full `pnpm typecheck`
++ `pnpm lint` across `apps/web` after integration — not yet exercised in a live browser against
+a running Supabase project (no live project available in the environment that built it).
+Still deliberately not built: the storage-layer malware-scan integration itself (the schema/RPC
+contract for recording a scan verdict exists — `record_patient_document_scan` — but nothing yet
+calls a real scanner, so every current upload auto-approves itself; every existing upload
+pipeline in this codebase has the same gap) and a proper "search your care team by name" picker
+for the sharing panel (a recipient's account id is a plain text field for now).
 
 ### §1.22 Record reconciliation on conflict — MISSING (unblocked, still not built)
 Grepping `discrepan`/`reconcil`/`conflict` across the codebase surfaces only *finance* reconciliation
@@ -399,10 +406,13 @@ built — remains a real follow-up, just no longer blocked on a missing document
 
 ### §1.23 Patient-facing health record UI — PARTIAL
 The patient dashboard already covers **My results**, **My medications**, **My care plan/referrals**,
-and **My health timeline** as real, distinct sections. **My documents has a real backing table now
-(`patient_documents`, §1.21) but still no library UI** — lab/ECG upload are the only document flows
-wired into a page today; a general document-library page (list, upload, share, search) is the
-natural next slice of the §1.21 work, not yet built. **No dedicated "My conditions" page** — condition state is scattered
+and **My health timeline** as real, distinct sections. **My documents is now a real section too**
+(`/patient/documents`, built 2026-08-29 alongside §1.21's schema) — a general library with
+upload, per-document sharing, and status; lab/ECG upload remain their own separate flows rather
+than being folded into it, which is fine (they have real structured-extraction pipelines this
+registry deliberately doesn't own — see §1.21). Full-text search (`search_patient_documents`)
+exists at the RPC level but has no UI entry point yet — a small follow-up, not a schema gap.
+**No dedicated "My conditions" page** — condition state is scattered
 across programme-specific cards (diabetes-*, foot-risk-status, complication-status) rather than one
 section, which is the patient-facing symptom of the missing §1.7 problem list. **No unified "My
 appointments"** — booking exists (`booking-requests-list.tsx`, `book-video-visit.tsx`, `annual-
