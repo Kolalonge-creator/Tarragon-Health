@@ -17387,6 +17387,106 @@ export type Database = {
           },
         ]
       }
+      wellbeing_checkin_preferences: {
+        Row: {
+          organisation_id: string
+          patient_id: string
+          reminder_frequency_days: number
+          updated_at: string
+        }
+        Insert: {
+          organisation_id: string
+          patient_id: string
+          reminder_frequency_days?: number
+          updated_at?: string
+        }
+        Update: {
+          organisation_id?: string
+          patient_id?: string
+          reminder_frequency_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wellbeing_checkin_preferences_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wellbeing_checkin_preferences_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wellbeing_checkins: {
+        Row: {
+          activity_level: number
+          checked_in_at: string
+          created_at: string
+          id: string
+          logged_by_profile_id: string | null
+          mood_score: number
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          sleep_quality: number
+          stress_score: number
+        }
+        Insert: {
+          activity_level: number
+          checked_in_at?: string
+          created_at?: string
+          id?: string
+          logged_by_profile_id?: string | null
+          mood_score: number
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          sleep_quality: number
+          stress_score: number
+        }
+        Update: {
+          activity_level?: number
+          checked_in_at?: string
+          created_at?: string
+          id?: string
+          logged_by_profile_id?: string | null
+          mood_score?: number
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          sleep_quality?: number
+          stress_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wellbeing_checkins_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wellbeing_checkins_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wellbeing_checkins_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wellness_badges: {
         Row: {
           code: string
@@ -19231,6 +19331,10 @@ export type Database = {
         Returns: Json
       }
       redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
+      refer_patient_to_specialist: {
+        Args: { p_patient_id: string; p_reason: string; p_specialist_type: string }
+        Returns: string
+      }
       region_service_available: {
         Args: { p_service: string; p_state: string }
         Returns: boolean
@@ -20246,6 +20350,8 @@ export type Database = {
         | "dietetics"
         | "podiatry"
         | "other"
+        | "psychiatry"
+        | "psychology"
       subscription_status: "trialing" | "active" | "past_due" | "cancelled"
       symptom_type:
         | "pain"
@@ -21212,6 +21318,8 @@ export const Constants = {
         "dietetics",
         "podiatry",
         "other",
+        "psychiatry",
+        "psychology",
       ],
       subscription_status: ["trialing", "active", "past_due", "cancelled"],
       symptom_type: [

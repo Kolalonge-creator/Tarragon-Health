@@ -35,6 +35,7 @@ import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
+import { ReferToSpecialistForm } from "./refer-to-specialist-form";
 import { HealthCheckReview } from "./health-check-review";
 import { CarePlanManagementSection } from "./care-plan-management-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
@@ -310,6 +311,7 @@ export default async function ClinicianPatientPage({
                 <ResultDocumentsSection patientId={patient.id} />
                 <EcgReportDocumentsSection patientId={patient.id} />
                 <MentalHealthSummary patientId={patient.id} showScores />
+                {isClinicalTier(callerStaff) && <ReferToSpecialistForm patientId={patient.id} />}
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />
                 <HealthCheckReview
