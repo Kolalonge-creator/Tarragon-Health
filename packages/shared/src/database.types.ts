@@ -145,6 +145,68 @@ export type Database = {
           },
         ]
       }
+      adolescent_confidentiality_waivers: {
+        Row: {
+          domain: string
+          grantee_user_id: string
+          granted_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          domain: string
+          grantee_user_id: string
+          granted_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          domain?: string
+          grantee_user_id?: string
+          granted_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adolescent_confidentiality_waivers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_confidentiality_waivers_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_confidentiality_waivers_grantee_user_id_fkey"
+            columns: ["grantee_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_confidentiality_waivers_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adolescent_psychosocial_screens: {
         Row: {
           abuse_neglect_exploitation_flagged: boolean
