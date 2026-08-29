@@ -2751,3 +2751,68 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+
+### 2026-08-29 — AI Governance, Safety & Model Management (Module 40) built end to end
+Full design rationale and the module-by-module map live in `docs/AI_GOVERNANCE_SPEC.md`; this entry is
+the dated record of what shipped and what it cost.
+
+- **Seven migrations, `20260829094312` … `20260829112238`**, applied to the live `koiplnmbgnqnbywhpjlf`
+  project and committed: the AI registry + vendors + per-version model metadata; guardrails, governed
+  prompts and approved knowledge sources; the clinical AI audit trail, hallucination-monitoring flags
+  and safety incidents; the evaluation/red-team environment plus bias and drift monitoring; the kill
+  switch, the 40.20 acceptance gate, the runtime-config reader and the governance dashboard; the
+  registration of the ten already-running systems; and a follow-up adding `runtime_governed` and making
+  `record_ai_interaction`'s service-role path explicit. 13 tables, 14 enums, 9 public RPCs. Every
+  migration ends in a `DO` block of assertions, several of which deliberately probe both directions
+  (a check that only ever refuses proves nothing).
+- **Three invariants are structural rather than conventional**: a high/very-high risk system may never
+  hold `autonomy_level = 'execute'`; an approved prompt version's text is frozen (changing a live prompt
+  means a new version and a Clinical Director activation, not an edit); and a version cannot be approved
+  until every required evaluation suite has a completed passing run against *that* version.
+- **The registry records reality, not an aspiration.** Ten AI capabilities were live before any of this
+  existed and none had been validated, red-teamed or bias-assessed. Each is registered as running, with
+  a v1 version row saying plainly that no validation has been done, required suites attached and **no
+  runs** — so the console opens on what is outstanding. Nothing was seeded as approved: not one
+  evaluation run, prompt approval or knowledge-source approval. The seeded guardrails are transcriptions
+  of the guard code that actually runs today, not invented for the record.
+- **Grandfathering is an INSERT-time exemption and nothing else.** The acceptance gate would refuse to
+  switch on any of the ten (none has an approved version), so the initial registration is a one-off
+  `grandfathered_at` stamp — but every *transition* into enabled after that goes through the full gate.
+  A ratchet: today's systems keep running with their gaps visible, and once one is switched off it
+  cannot come back until its criteria are met. A client cannot forge the grandfather; the INSERT path
+  refuses an enabled row from an `authenticated` caller outright.
+- **`runtime_governed` exists because the kill switch is only real where the runtime asks.** Three of
+  ten are wired (`AI-001` coach, `AI-003` result explainer, `AI-004` case briefs); the other seven are
+  registered and classified but their running code does not consult the registry yet, so switching them
+  off would not stop them. The console says so in a banner. The per-system reason for each is in the
+  spec doc's §4 table — mostly "the helper takes neither a Supabase client nor a subject id, so the seam
+  is at its call sites", plus `AI-010`, whose `ml-client.ts` lives in `packages/shared` with no database
+  access by design (it does have a real off-switch today — an unset `ML_SERVICE_URL` — just not the
+  governed one).
+- **Runtime**: `apps/web/src/lib/ai-governance/` — `decideAiGovernance()` (60s in-process cache,
+  stale-while-unavailable so a thrown kill switch survives a database blip, never throws),
+  `runGovernedAi()` (checks the switch, records every outcome including fallbacks and failures, and
+  *requires* the caller to supply the non-AI path), and audit/incident writers that never take down the
+  interaction they are recording. 14 Jest tests.
+- **Console**: `/admin/settings/ai-governance` — the 40.13 metrics, per-system registry cards with the
+  live 40.20 checklist, the kill switch (reason mandatory in both directions), governed-prompt
+  activation, and incident triage/closure. Patient- and clinician-facing "something not right about that
+  answer?" wired into the AI Coach chat, carrying the interaction id of the turn being reported.
+- **Live proof**: `packages/db/tests/ai_governance.sql`, 8 cases, 14 assertions, run against the linked
+  project in a rolled-back transaction — all pass. Case 7's control initially FAILED because the
+  platform-wide shared safety suite was also required and unrun; that was the gate working, and the test
+  was corrected rather than the gate loosened.
+- **Two pieces of collateral worth knowing about.** (1) `database.types.ts` was regenerated and turned
+  out to be badly stale — 216 table/RPC keys and 109 enums behind the live schema, not counting this
+  work. That surfaced eight exhaustive `Record<Enum, …>` label maps missing newly-added values
+  (`sample_rejected`, `closed`, `transferred`, `declined`, `referral_outcome_recorded`,
+  `missed_care_task`, `missed_appointment`, `failed_referral`, `referral_follow_up`), plus
+  `ROLE_HOME_PATH`/`ROLE_DISPLAY_LABEL` missing `payer_admin` and `provider_org_staff` — i.e.
+  `getRoleHomePath()` was returning `undefined` for two real roles. All fixed; the two homeless roles land
+  on `/account` and are deliberately kept out of the role-home *prefix* set, or `proxy.ts` would bounce
+  every other role off their own account page. (2) **Several of those live enum values have no committed
+  migration at all** (`referral_outcome_recorded`, `missed_care_task`, `payer_admin`, …) — the same
+  "live schema object with no migration record" hazard CLAUDE.md already warns about. A fresh
+  `supabase db reset` will not reproduce production. Not chased here; flagged for the founder.
+- Verified: `pnpm typecheck`, `pnpm lint` (0 errors; 6 warnings, all the pre-existing underscore-param
+  convention) and `pnpm test` (109 suites, 1132 tests) all clean.

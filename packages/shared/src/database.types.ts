@@ -17815,6 +17815,1285 @@ export type Database = {
           },
         ]
       }
+      ai_bias_assessments: {
+        Row: {
+          ai_system_id: string
+          ai_system_version_id: string | null
+          assessed_by: string | null
+          assessed_on: string
+          created_at: string
+          dimension: string
+          disparity_ratio: number | null
+          group_label: string
+          id: string
+          is_material_disparity: boolean
+          metric_name: string
+          metric_value: number
+          notes: string | null
+          organisation_id: string
+          reference_group_label: string | null
+          reference_metric_value: number | null
+          sample_size: number
+        }
+        Insert: {
+          ai_system_id: string
+          ai_system_version_id?: string | null
+          assessed_by?: string | null
+          assessed_on?: string
+          created_at?: string
+          dimension: string
+          disparity_ratio?: number | null
+          group_label: string
+          id?: string
+          is_material_disparity?: boolean
+          metric_name: string
+          metric_value: number
+          notes?: string | null
+          organisation_id: string
+          reference_group_label?: string | null
+          reference_metric_value?: number | null
+          sample_size: number
+        }
+        Update: {
+          ai_system_id?: string
+          ai_system_version_id?: string | null
+          assessed_by?: string | null
+          assessed_on?: string
+          created_at?: string
+          dimension?: string
+          disparity_ratio?: number | null
+          group_label?: string
+          id?: string
+          is_material_disparity?: boolean
+          metric_name?: string
+          metric_value?: number
+          notes?: string | null
+          organisation_id?: string
+          reference_group_label?: string | null
+          reference_metric_value?: number | null
+          sample_size?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_bias_assessments_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bias_assessments_ai_system_version_id_fkey"
+            columns: ["ai_system_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bias_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bias_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_drift_observations: {
+        Row: {
+          ai_system_id: string
+          ai_system_version_id: string | null
+          baseline_value: number | null
+          breached: boolean
+          created_at: string
+          detail: Json
+          drift_score: number | null
+          feature_or_metric: string
+          id: string
+          kind: Database["public"]["Enums"]["ai_drift_kind"]
+          observed_on: string
+          observed_value: number | null
+          organisation_id: string
+          sample_size: number | null
+          threshold: number | null
+          window_days: number
+        }
+        Insert: {
+          ai_system_id: string
+          ai_system_version_id?: string | null
+          baseline_value?: number | null
+          breached?: boolean
+          created_at?: string
+          detail?: Json
+          drift_score?: number | null
+          feature_or_metric: string
+          id?: string
+          kind: Database["public"]["Enums"]["ai_drift_kind"]
+          observed_on?: string
+          observed_value?: number | null
+          organisation_id: string
+          sample_size?: number | null
+          threshold?: number | null
+          window_days: number
+        }
+        Update: {
+          ai_system_id?: string
+          ai_system_version_id?: string | null
+          baseline_value?: number | null
+          breached?: boolean
+          created_at?: string
+          detail?: Json
+          drift_score?: number | null
+          feature_or_metric?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["ai_drift_kind"]
+          observed_on?: string
+          observed_value?: number | null
+          organisation_id?: string
+          sample_size?: number | null
+          threshold?: number | null
+          window_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_drift_observations_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drift_observations_ai_system_version_id_fkey"
+            columns: ["ai_system_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drift_observations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_evaluation_case_results: {
+        Row: {
+          actual_output: string | null
+          case_id: string
+          created_at: string
+          id: string
+          outcome: Database["public"]["Enums"]["ai_evaluation_outcome"]
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          run_id: string
+        }
+        Insert: {
+          actual_output?: string | null
+          case_id: string
+          created_at?: string
+          id?: string
+          outcome: Database["public"]["Enums"]["ai_evaluation_outcome"]
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          run_id: string
+        }
+        Update: {
+          actual_output?: string | null
+          case_id?: string
+          created_at?: string
+          id?: string
+          outcome?: Database["public"]["Enums"]["ai_evaluation_outcome"]
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_case_results_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "ai_evaluation_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_case_results_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_case_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_evaluation_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_evaluation_cases: {
+        Row: {
+          case_code: string
+          created_at: string
+          expected_behaviour: string
+          id: string
+          is_adversarial: boolean
+          notes: string | null
+          population_group: string | null
+          redteam_category:
+            | Database["public"]["Enums"]["ai_redteam_category"]
+            | null
+          scenario: string
+          suite_id: string
+          updated_at: string
+        }
+        Insert: {
+          case_code: string
+          created_at?: string
+          expected_behaviour: string
+          id?: string
+          is_adversarial?: boolean
+          notes?: string | null
+          population_group?: string | null
+          redteam_category?:
+            | Database["public"]["Enums"]["ai_redteam_category"]
+            | null
+          scenario: string
+          suite_id: string
+          updated_at?: string
+        }
+        Update: {
+          case_code?: string
+          created_at?: string
+          expected_behaviour?: string
+          id?: string
+          is_adversarial?: boolean
+          notes?: string | null
+          population_group?: string | null
+          redteam_category?:
+            | Database["public"]["Enums"]["ai_redteam_category"]
+            | null
+          scenario?: string
+          suite_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_cases_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "ai_evaluation_suites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_evaluation_runs: {
+        Row: {
+          ai_system_id: string
+          ai_system_version_id: string | null
+          completed_at: string | null
+          environment: string
+          failed_cases: number
+          id: string
+          model_identifier: string | null
+          notes: string | null
+          outcome: Database["public"]["Enums"]["ai_evaluation_outcome"] | null
+          pass_rate_pct: number | null
+          passed_cases: number
+          prompt_version_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          run_by: string | null
+          started_at: string
+          suite_id: string
+          total_cases: number
+        }
+        Insert: {
+          ai_system_id: string
+          ai_system_version_id?: string | null
+          completed_at?: string | null
+          environment?: string
+          failed_cases?: number
+          id?: string
+          model_identifier?: string | null
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["ai_evaluation_outcome"] | null
+          pass_rate_pct?: number | null
+          passed_cases?: number
+          prompt_version_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          run_by?: string | null
+          started_at?: string
+          suite_id: string
+          total_cases?: number
+        }
+        Update: {
+          ai_system_id?: string
+          ai_system_version_id?: string | null
+          completed_at?: string | null
+          environment?: string
+          failed_cases?: number
+          id?: string
+          model_identifier?: string | null
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["ai_evaluation_outcome"] | null
+          pass_rate_pct?: number | null
+          passed_cases?: number
+          prompt_version_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          run_by?: string | null
+          started_at?: string
+          suite_id?: string
+          total_cases?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_runs_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_ai_system_version_id_fkey"
+            columns: ["ai_system_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_prompt_version_id_fkey"
+            columns: ["prompt_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_run_by_fkey"
+            columns: ["run_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "ai_evaluation_suites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_evaluation_suites: {
+        Row: {
+          ai_system_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_required_for_release: boolean
+          kind: Database["public"]["Enums"]["ai_evaluation_kind"]
+          name: string
+          pass_threshold_pct: number
+          updated_at: string
+        }
+        Insert: {
+          ai_system_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_required_for_release?: boolean
+          kind: Database["public"]["Enums"]["ai_evaluation_kind"]
+          name: string
+          pass_threshold_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          ai_system_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_required_for_release?: boolean
+          kind?: Database["public"]["Enums"]["ai_evaluation_kind"]
+          name?: string
+          pass_threshold_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_suites_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_guardrails: {
+        Row: {
+          ai_system_id: string
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          description: string
+          enforcement: Database["public"]["Enums"]["ai_guardrail_enforcement"]
+          id: string
+          is_active: boolean
+          kind: Database["public"]["Enums"]["ai_guardrail_kind"]
+          rule_code: string
+          updated_at: string
+        }
+        Insert: {
+          ai_system_id: string
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          description: string
+          enforcement: Database["public"]["Enums"]["ai_guardrail_enforcement"]
+          id?: string
+          is_active?: boolean
+          kind: Database["public"]["Enums"]["ai_guardrail_kind"]
+          rule_code: string
+          updated_at?: string
+        }
+        Update: {
+          ai_system_id?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          description?: string
+          enforcement?: Database["public"]["Enums"]["ai_guardrail_enforcement"]
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["ai_guardrail_kind"]
+          rule_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_guardrails_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_guardrails_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_interaction_log: {
+        Row: {
+          actor_profile_id: string | null
+          ai_system_id: string
+          ai_system_version_id: string | null
+          created_at: string
+          error_message: string | null
+          fallback_reason: string | null
+          fallback_used: boolean
+          flagged_for_review: boolean
+          guardrails_triggered: string[]
+          human_override: boolean
+          human_override_at: string | null
+          human_override_by: string | null
+          human_override_note: string | null
+          id: string
+          input_category: string
+          input_token_count: number | null
+          latency_ms: number | null
+          model_identifier: string
+          organisation_id: string
+          output_flags: Database["public"]["Enums"]["ai_output_flag"][]
+          output_summary: string | null
+          output_token_count: number | null
+          prompt_version_id: string | null
+          resulting_action: string | null
+          resulting_entity_id: string | null
+          resulting_entity_type: string | null
+          safety_classification:
+            | Database["public"]["Enums"]["alert_level"]
+            | null
+          status: Database["public"]["Enums"]["ai_interaction_status"]
+          subject_profile_id: string | null
+        }
+        Insert: {
+          actor_profile_id?: string | null
+          ai_system_id: string
+          ai_system_version_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          fallback_reason?: string | null
+          fallback_used?: boolean
+          flagged_for_review?: boolean
+          guardrails_triggered?: string[]
+          human_override?: boolean
+          human_override_at?: string | null
+          human_override_by?: string | null
+          human_override_note?: string | null
+          id?: string
+          input_category: string
+          input_token_count?: number | null
+          latency_ms?: number | null
+          model_identifier: string
+          organisation_id: string
+          output_flags?: Database["public"]["Enums"]["ai_output_flag"][]
+          output_summary?: string | null
+          output_token_count?: number | null
+          prompt_version_id?: string | null
+          resulting_action?: string | null
+          resulting_entity_id?: string | null
+          resulting_entity_type?: string | null
+          safety_classification?:
+            | Database["public"]["Enums"]["alert_level"]
+            | null
+          status: Database["public"]["Enums"]["ai_interaction_status"]
+          subject_profile_id?: string | null
+        }
+        Update: {
+          actor_profile_id?: string | null
+          ai_system_id?: string
+          ai_system_version_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          fallback_reason?: string | null
+          fallback_used?: boolean
+          flagged_for_review?: boolean
+          guardrails_triggered?: string[]
+          human_override?: boolean
+          human_override_at?: string | null
+          human_override_by?: string | null
+          human_override_note?: string | null
+          id?: string
+          input_category?: string
+          input_token_count?: number | null
+          latency_ms?: number | null
+          model_identifier?: string
+          organisation_id?: string
+          output_flags?: Database["public"]["Enums"]["ai_output_flag"][]
+          output_summary?: string | null
+          output_token_count?: number | null
+          prompt_version_id?: string | null
+          resulting_action?: string | null
+          resulting_entity_id?: string | null
+          resulting_entity_type?: string | null
+          safety_classification?:
+            | Database["public"]["Enums"]["alert_level"]
+            | null
+          status?: Database["public"]["Enums"]["ai_interaction_status"]
+          subject_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_interaction_log_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_ai_system_version_id_fkey"
+            columns: ["ai_system_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_human_override_by_fkey"
+            columns: ["human_override_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_prompt_version_id_fkey"
+            columns: ["prompt_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_subject_profile_id_fkey"
+            columns: ["subject_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_interaction_sources: {
+        Row: {
+          interaction_id: string
+          knowledge_source_id: string
+        }
+        Insert: {
+          interaction_id: string
+          knowledge_source_id: string
+        }
+        Update: {
+          interaction_id?: string
+          knowledge_source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_interaction_sources_interaction_id_fkey"
+            columns: ["interaction_id"]
+            isOneToOne: false
+            referencedRelation: "ai_interaction_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_sources_knowledge_source_id_fkey"
+            columns: ["knowledge_source_id"]
+            isOneToOne: false
+            referencedRelation: "ai_knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_knowledge_sources: {
+        Row: {
+          ai_system_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          citation_label: string
+          created_at: string
+          external_url: string | null
+          id: string
+          is_active: boolean
+          reference_id: string | null
+          reference_table: string | null
+          review_due_on: string | null
+          source_code: string
+          source_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_system_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          citation_label: string
+          created_at?: string
+          external_url?: string | null
+          id?: string
+          is_active?: boolean
+          reference_id?: string | null
+          reference_table?: string | null
+          review_due_on?: string | null
+          source_code: string
+          source_type: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_system_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          citation_label?: string
+          created_at?: string
+          external_url?: string | null
+          id?: string
+          is_active?: boolean
+          reference_id?: string | null
+          reference_table?: string | null
+          review_due_on?: string | null
+          source_code?: string
+          source_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_knowledge_sources_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_knowledge_sources_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompt_versions: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          ai_system_id: string
+          approved_at: string | null
+          approved_by: string | null
+          change_summary: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          model_config: Json
+          output_constraints: Json
+          retired_at: string | null
+          retrieval_config: Json
+          safety_instructions: string
+          system_prompt: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          ai_system_id: string
+          approved_at?: string | null
+          approved_by?: string | null
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          model_config?: Json
+          output_constraints?: Json
+          retired_at?: string | null
+          retrieval_config?: Json
+          safety_instructions: string
+          system_prompt: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          ai_system_id?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          model_config?: Json
+          output_constraints?: Json
+          retired_at?: string | null
+          retrieval_config?: Json
+          safety_instructions?: string
+          system_prompt?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_versions_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_safety_incidents: {
+        Row: {
+          ai_system_id: string
+          category: Database["public"]["Enums"]["ai_incident_category"]
+          clinical_review_summary: string | null
+          corrective_action: string | null
+          created_at: string
+          description: string
+          harm_description: string | null
+          id: string
+          interaction_id: string | null
+          kill_switch_applied: boolean
+          organisation_id: string
+          patient_harm_occurred: boolean | null
+          reported_by: string | null
+          reporter_kind: string
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: Database["public"]["Enums"]["ai_incident_severity"]
+          status: Database["public"]["Enums"]["ai_incident_status"]
+          triaged_at: string | null
+          triaged_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_system_id: string
+          category: Database["public"]["Enums"]["ai_incident_category"]
+          clinical_review_summary?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          description: string
+          harm_description?: string | null
+          id?: string
+          interaction_id?: string | null
+          kill_switch_applied?: boolean
+          organisation_id: string
+          patient_harm_occurred?: boolean | null
+          reported_by?: string | null
+          reporter_kind: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["ai_incident_severity"]
+          status?: Database["public"]["Enums"]["ai_incident_status"]
+          triaged_at?: string | null
+          triaged_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_system_id?: string
+          category?: Database["public"]["Enums"]["ai_incident_category"]
+          clinical_review_summary?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          description?: string
+          harm_description?: string | null
+          id?: string
+          interaction_id?: string | null
+          kill_switch_applied?: boolean
+          organisation_id?: string
+          patient_harm_occurred?: boolean | null
+          reported_by?: string | null
+          reporter_kind?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["ai_incident_severity"]
+          status?: Database["public"]["Enums"]["ai_incident_status"]
+          triaged_at?: string | null
+          triaged_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_safety_incidents_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_interaction_id_fkey"
+            columns: ["interaction_id"]
+            isOneToOne: false
+            referencedRelation: "ai_interaction_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_triaged_by_fkey"
+            columns: ["triaged_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_system_versions: {
+        Row: {
+          ai_system_id: string
+          approval_actor_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          change_summary: string | null
+          created_at: string
+          created_by: string | null
+          deployed_at: string | null
+          excluded_population: string
+          id: string
+          intended_population: string
+          model_identifier: string
+          retired_at: string | null
+          review_due_on: string | null
+          training_data_description: string | null
+          updated_at: string
+          validated_by: string | null
+          validation_completed_at: string | null
+          validation_summary: string | null
+          version: string
+        }
+        Insert: {
+          ai_system_id: string
+          approval_actor_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string | null
+          deployed_at?: string | null
+          excluded_population: string
+          id?: string
+          intended_population: string
+          model_identifier: string
+          retired_at?: string | null
+          review_due_on?: string | null
+          training_data_description?: string | null
+          updated_at?: string
+          validated_by?: string | null
+          validation_completed_at?: string | null
+          validation_summary?: string | null
+          version: string
+        }
+        Update: {
+          ai_system_id?: string
+          approval_actor_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string | null
+          deployed_at?: string | null
+          excluded_population?: string
+          id?: string
+          intended_population?: string
+          model_identifier?: string
+          retired_at?: string | null
+          review_due_on?: string | null
+          training_data_description?: string | null
+          updated_at?: string
+          validated_by?: string | null
+          validation_completed_at?: string | null
+          validation_summary?: string | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_system_versions_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_system_versions_approval_actor_id_fkey"
+            columns: ["approval_actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_system_versions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_system_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_system_versions_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_systems: {
+        Row: {
+          autonomy_level: Database["public"]["Enums"]["ai_autonomy_level"]
+          clinically_meaningful: boolean
+          code_reference: string | null
+          created_at: string
+          disabled_at: string | null
+          disabled_by: string | null
+          disabled_reason: string | null
+          fallback_behaviour: string
+          grandfather_note: string | null
+          grandfathered_at: string | null
+          id: string
+          is_enabled: boolean
+          lifecycle_status: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name: string
+          next_review_due: string | null
+          notes: string | null
+          owner_profile_id: string | null
+          owner_role: string
+          purpose: string
+          review_interval_days: number | null
+          risk_class: Database["public"]["Enums"]["ai_risk_class"]
+          runtime_governed: boolean
+          system_code: string
+          updated_at: string
+          vendor_id: string | null
+        }
+        Insert: {
+          autonomy_level: Database["public"]["Enums"]["ai_autonomy_level"]
+          clinically_meaningful: boolean
+          code_reference?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          fallback_behaviour: string
+          grandfather_note?: string | null
+          grandfathered_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          lifecycle_status?: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name: string
+          next_review_due?: string | null
+          notes?: string | null
+          owner_profile_id?: string | null
+          owner_role: string
+          purpose: string
+          review_interval_days?: number | null
+          risk_class: Database["public"]["Enums"]["ai_risk_class"]
+          runtime_governed?: boolean
+          system_code: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          autonomy_level?: Database["public"]["Enums"]["ai_autonomy_level"]
+          clinically_meaningful?: boolean
+          code_reference?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          fallback_behaviour?: string
+          grandfather_note?: string | null
+          grandfathered_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          lifecycle_status?: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name?: string
+          next_review_due?: string | null
+          notes?: string | null
+          owner_profile_id?: string | null
+          owner_role?: string
+          purpose?: string
+          review_interval_days?: number | null
+          risk_class?: Database["public"]["Enums"]["ai_risk_class"]
+          runtime_governed?: boolean
+          system_code?: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_systems_disabled_by_fkey"
+            columns: ["disabled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_systems_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_systems_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "ai_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_vendor_model_observations: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          ai_system_id: string
+          expected_model_identifier: string | null
+          first_seen_at: string
+          id: string
+          is_expected: boolean
+          last_seen_at: string
+          observation_count: number
+          observed_model_identifier: string
+          vendor_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          ai_system_id: string
+          expected_model_identifier?: string | null
+          first_seen_at?: string
+          id?: string
+          is_expected: boolean
+          last_seen_at?: string
+          observation_count?: number
+          observed_model_identifier: string
+          vendor_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          ai_system_id?: string
+          expected_model_identifier?: string | null
+          first_seen_at?: string
+          id?: string
+          is_expected?: boolean
+          last_seen_at?: string
+          observation_count?: number
+          observed_model_identifier?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_vendor_model_observations_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_vendor_model_observations_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_vendor_model_observations_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "ai_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_vendors: {
+        Row: {
+          change_notification_channel: string | null
+          contractual_controls: string | null
+          created_at: string
+          data_processing_region: string | null
+          data_processing_summary: string | null
+          id: string
+          is_active: boolean
+          last_change_notice_at: string | null
+          last_change_notice_summary: string | null
+          name: string
+          security_review_summary: string | null
+          security_reviewed_at: string | null
+          service_availability_target: string | null
+          updated_at: string
+          vendor_type: string
+        }
+        Insert: {
+          change_notification_channel?: string | null
+          contractual_controls?: string | null
+          created_at?: string
+          data_processing_region?: string | null
+          data_processing_summary?: string | null
+          id?: string
+          is_active?: boolean
+          last_change_notice_at?: string | null
+          last_change_notice_summary?: string | null
+          name: string
+          security_review_summary?: string | null
+          security_reviewed_at?: string | null
+          service_availability_target?: string | null
+          updated_at?: string
+          vendor_type: string
+        }
+        Update: {
+          change_notification_channel?: string | null
+          contractual_controls?: string | null
+          created_at?: string
+          data_processing_region?: string | null
+          data_processing_summary?: string | null
+          id?: string
+          is_active?: boolean
+          last_change_notice_at?: string | null
+          last_change_notice_summary?: string | null
+          name?: string
+          security_review_summary?: string | null
+          security_reviewed_at?: string | null
+          service_availability_target?: string | null
+          updated_at?: string
+          vendor_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       diabetes_quality_metrics: {
@@ -19588,6 +20867,80 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      activate_ai_prompt_version: {
+        Args: { p_id: string; p_note?: string }
+        Returns: string
+      }
+      ai_governance_dashboard: { Args: { p_days?: number }; Returns: Json }
+      ai_runtime_config: { Args: { p_system_code: string }; Returns: Json }
+      approve_ai_system_version: {
+        Args: { p_deploy?: boolean; p_note?: string; p_version_id: string }
+        Returns: Json
+      }
+      record_ai_human_override: {
+        Args: {
+          p_interaction_id: string
+          p_note: string
+          p_resulting_action?: string
+        }
+        Returns: string
+      }
+      record_ai_interaction: {
+        Args: {
+          p_error_message?: string
+          p_fallback_reason?: string
+          p_guardrails_triggered?: string[]
+          p_input_category: string
+          p_input_token_count?: number
+          p_knowledge_source_ids?: string[]
+          p_latency_ms?: number
+          p_model_identifier: string
+          p_output_flags?: Database["public"]["Enums"]["ai_output_flag"][]
+          p_output_summary?: string
+          p_output_token_count?: number
+          p_prompt_version_id?: string
+          p_resulting_action?: string
+          p_resulting_entity_id?: string
+          p_resulting_entity_type?: string
+          p_safety_classification?: Database["public"]["Enums"]["alert_level"]
+          p_status: Database["public"]["Enums"]["ai_interaction_status"]
+          p_subject_profile_id?: string
+          p_system_code: string
+        }
+        Returns: string
+      }
+      report_ai_safety_incident: {
+        Args: {
+          p_category: Database["public"]["Enums"]["ai_incident_category"]
+          p_description: string
+          p_interaction_id?: string
+          p_system_code: string
+        }
+        Returns: string
+      }
+      resolve_ai_safety_incident: {
+        Args: {
+          p_clinical_review_summary: string
+          p_corrective_action?: string
+          p_harm_description?: string
+          p_id: string
+          p_patient_harm_occurred?: boolean
+          p_status: Database["public"]["Enums"]["ai_incident_status"]
+        }
+        Returns: string
+      }
+      set_ai_system_enabled: {
+        Args: { p_enabled: boolean; p_id: string; p_reason: string }
+        Returns: Json
+      }
+      triage_ai_safety_incident: {
+        Args: {
+          p_id: string
+          p_note?: string
+          p_severity: Database["public"]["Enums"]["ai_incident_severity"]
+        }
+        Returns: string
+      }
     }
     Enums: {
       activity_entry_type: "steps" | "workout"
@@ -20360,6 +21713,67 @@ export type Database = {
         | "no_show"
         | "cancelled"
       wellness_class_type: "virtual" | "in_person"
+      ai_autonomy_level: "inform_only" | "recommend" | "assist" | "execute"
+      ai_drift_kind: "data_drift" | "model_drift"
+      ai_evaluation_kind:
+        | "safety"
+        | "clinical"
+        | "bias"
+        | "performance"
+        | "red_team"
+      ai_evaluation_outcome: "pass" | "fail" | "needs_review"
+      ai_guardrail_enforcement: "blocking" | "escalate" | "warn"
+      ai_guardrail_kind:
+        | "prohibited_diagnosis"
+        | "prohibited_prescribing"
+        | "emergency_escalation"
+        | "population_restriction"
+        | "max_autonomy"
+        | "mandatory_human_review"
+        | "output_constraint"
+        | "prohibited_topic"
+      ai_incident_category:
+        | "incorrect_information"
+        | "unsupported_claim"
+        | "fabricated_citation"
+        | "inappropriate_recommendation"
+        | "missed_escalation"
+        | "guardrail_bypass"
+        | "privacy_concern"
+        | "availability_failure"
+        | "unexpected_model_change"
+        | "other"
+      ai_incident_severity: "low" | "moderate" | "high" | "critical"
+      ai_incident_status:
+        | "open"
+        | "triaged"
+        | "investigating"
+        | "resolved"
+        | "dismissed"
+      ai_interaction_status: "completed" | "blocked" | "fallback" | "failed"
+      ai_lifecycle_status:
+        | "draft"
+        | "in_evaluation"
+        | "approved"
+        | "live"
+        | "suspended"
+        | "retired"
+      ai_output_flag:
+        | "unsupported_claim"
+        | "incorrect_medical_information"
+        | "fabricated_citation"
+        | "inappropriate_recommendation"
+        | "out_of_scope_population"
+        | "guardrail_bypass_attempt"
+      ai_redteam_category:
+        | "emergency_symptoms"
+        | "contradictory_information"
+        | "unusual_conditions"
+        | "ambiguous_questions"
+        | "medication_interactions"
+        | "vulnerable_populations"
+        | "safety_bypass_attempt"
+      ai_risk_class: "low" | "moderate" | "high" | "very_high"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -21339,6 +22753,74 @@ export const Constants = {
         "cancelled",
       ],
       wellness_class_type: ["virtual", "in_person"],
+      ai_autonomy_level: ["inform_only", "recommend", "assist", "execute"],
+      ai_drift_kind: ["data_drift", "model_drift"],
+      ai_evaluation_kind: [
+        "safety",
+        "clinical",
+        "bias",
+        "performance",
+        "red_team",
+      ],
+      ai_evaluation_outcome: ["pass", "fail", "needs_review"],
+      ai_guardrail_enforcement: ["blocking", "escalate", "warn"],
+      ai_guardrail_kind: [
+        "prohibited_diagnosis",
+        "prohibited_prescribing",
+        "emergency_escalation",
+        "population_restriction",
+        "max_autonomy",
+        "mandatory_human_review",
+        "output_constraint",
+        "prohibited_topic",
+      ],
+      ai_incident_category: [
+        "incorrect_information",
+        "unsupported_claim",
+        "fabricated_citation",
+        "inappropriate_recommendation",
+        "missed_escalation",
+        "guardrail_bypass",
+        "privacy_concern",
+        "availability_failure",
+        "unexpected_model_change",
+        "other",
+      ],
+      ai_incident_severity: ["low", "moderate", "high", "critical"],
+      ai_incident_status: [
+        "open",
+        "triaged",
+        "investigating",
+        "resolved",
+        "dismissed",
+      ],
+      ai_interaction_status: ["completed", "blocked", "fallback", "failed"],
+      ai_lifecycle_status: [
+        "draft",
+        "in_evaluation",
+        "approved",
+        "live",
+        "suspended",
+        "retired",
+      ],
+      ai_output_flag: [
+        "unsupported_claim",
+        "incorrect_medical_information",
+        "fabricated_citation",
+        "inappropriate_recommendation",
+        "out_of_scope_population",
+        "guardrail_bypass_attempt",
+      ],
+      ai_redteam_category: [
+        "emergency_symptoms",
+        "contradictory_information",
+        "unusual_conditions",
+        "ambiguous_questions",
+        "medication_interactions",
+        "vulnerable_populations",
+        "safety_bypass_attempt",
+      ],
+      ai_risk_class: ["low", "moderate", "high", "very_high"],
     },
   },
 } as const
