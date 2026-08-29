@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import type { CoachChatMessage, Database } from "@tarragon/shared";
+import { buildCoachHandoffSummary } from "./handoff-summary";
 
 export interface AiCoachAlertParams {
   organisationId: string;
@@ -8,6 +9,37 @@ export interface AiCoachAlertParams {
   /** The patient's message that triggered the tier, for the clinician's
    * context — never the coach's own reply. */
   triggerMessage: string;
+  /** The last few turns (both roles), for the structured handoff summary —
+   * see buildCoachHandoffSummary. Empty is fine (the keyword-guardrail
+   * emergency path has no prior turns to draw on). */
+  recentMessages: CoachChatMessage[];
+  /** What the coach itself did, for the summary's "AI action" line — e.g.
+   * "Escalated immediately via safety keyword match" vs "Flagged for
+   * clinician review after classifying the message". */
+  aiAction: string;
+}
+
+/** Minimized medication/condition snapshot for the handoff summary — same
+ * "narrow, never the whole chart" discipline as every other generator's
+ * snapshot builder in this codebase. Never throws; an empty snapshot just
+ * means the summary says "none on file" rather than fabricating. */
+export async function loadHandoffSnapshot(
+  serviceRoleSupabase: SupabaseClient<Database>,
+  patientId: string
+): Promise<{ medications: string[]; conditions: string[] }> {
+  try {
+    const [{ data: medications }, { data: plans }] = await Promise.all([
+      serviceRoleSupabase.from("medications").select("drug_name").eq("patient_id", patientId).eq("is_active", true),
+      serviceRoleSupabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
+    ]);
+    return {
+      medications: (medications ?? []).map((m) => m.drug_name),
+      conditions: (plans ?? []).map((p) => p.condition),
+    };
+  } catch (error) {
+    console.error("ai-coach: loadHandoffSnapshot failed, summary will say 'none on file'", error);
+    return { medications: [], conditions: [] };
+  }
 }
 
 /**
@@ -25,8 +57,15 @@ export async function logAiCoachEscalation(
   serviceRoleSupabase: SupabaseClient<Database>,
   params: AiCoachAlertParams
 ): Promise<string> {
-  const { organisationId, patientId, conversationId, triggerMessage } = params;
-  const detail = `AI Coach conversation ${conversationId}: patient wrote "${triggerMessage}"`;
+  const { organisationId, patientId, conversationId, triggerMessage, recentMessages, aiAction } = params;
+  const snapshot = await loadHandoffSnapshot(serviceRoleSupabase, patientId);
+  const detail = await buildCoachHandoffSummary({
+    recentMessages,
+    triggerMessage,
+    aiAction,
+    medications: snapshot.medications,
+    conditions: snapshot.conditions,
+  });
 
   const { data: alert, error: alertError } = await serviceRoleSupabase
     .from("clinician_alerts")
@@ -86,7 +125,7 @@ export async function logAiCoachEscalation(
     action: "ai_coach.emergency_escalation",
     entity_type: "clinician_alerts",
     entity_id: alert.id,
-    event: { conversation_id: conversationId },
+    event: { conversation_id: conversationId, ai_action: aiAction },
   });
 
   return alert.id;
@@ -107,8 +146,15 @@ export async function logAiCoachReviewFlag(
   serviceRoleSupabase: SupabaseClient<Database>,
   params: AiCoachAlertParams
 ): Promise<string> {
-  const { organisationId, patientId, conversationId, triggerMessage } = params;
-  const detail = `AI Coach conversation ${conversationId}: patient wrote "${triggerMessage}"`;
+  const { organisationId, patientId, triggerMessage, recentMessages, aiAction } = params;
+  const snapshot = await loadHandoffSnapshot(serviceRoleSupabase, patientId);
+  const detail = await buildCoachHandoffSummary({
+    recentMessages,
+    triggerMessage,
+    aiAction,
+    medications: snapshot.medications,
+    conditions: snapshot.conditions,
+  });
 
   const { data: alert, error } = await serviceRoleSupabase
     .from("clinician_alerts")

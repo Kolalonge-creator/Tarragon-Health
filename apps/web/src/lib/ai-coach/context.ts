@@ -24,10 +24,43 @@ export interface PatientContext {
    * (not generic) reply — e.g. so the coach can say "since your diabetes
    * risk is elevated" rather than nothing. */
   elevatedConditions: string[];
+  /** Subset of elevatedConditions tiered 'high' or 'very_high' specifically
+   * (not just "above low") — §78.17 high-risk-condition safety-layer
+   * signal, kept separate from elevatedConditions so graph.ts can react
+   * with extra caution rather than lumping moderate/high/very_high/unknown
+   * together the way the plain "above low" list does. */
+  highRiskConditions: string[];
+  /** From patient_pregnancy.is_pregnant — §78.17 pregnancy safety-layer
+   * signal. False when no row exists (never assumed true from absence). */
+  isPregnant: boolean;
+  /** profiles.date_of_birth-derived, best-effort — §78.17 paediatric
+   * safety-layer signal. This platform is individual-enrolment-only (no
+   * ParentCare/family plans, no dependent-minor profiles by design — see
+   * CLAUDE.md), so a genuinely paediatric patient shouldn't normally occur
+   * here; this is a defensive check for the case a self-registered account
+   * turns out to belong to a minor, not a claim that paediatric care is a
+   * supported product surface. Null when date_of_birth isn't on file. */
+  possibleMinor: boolean | null;
   /** The patient's active/paused/etc lifestyle programme enrolments, so a
    * reply can be grounded in their real condition/phase/goals rather than
    * generic health chat — see graph.ts's contextLine composition. */
   lifestyleProgrammes: LifestyleProgrammeContext[];
+}
+
+const MINOR_AGE_CUTOFF = 18;
+
+/** `now` is injectable (same convention as ai-coach/lagos-day.ts's
+ * startOfLagosDayUtc) so age-boundary behaviour is testable without the
+ * result depending on whatever day the test happens to run. */
+export function isPossiblyMinor(dateOfBirth: string | null, now: Date = new Date()): boolean | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  let age = now.getFullYear() - dob.getFullYear();
+  const hasHadBirthdayThisYear =
+    now.getMonth() > dob.getMonth() ||
+    (now.getMonth() === dob.getMonth() && now.getDate() >= dob.getDate());
+  if (!hasHadBirthdayThisYear) age -= 1;
+  return age < MINOR_AGE_CUTOFF;
 }
 
 /** Patient-wide (not per-enrollment) — matches the same scoping
@@ -52,11 +85,15 @@ export async function loadPatientContext(
   supabase: SupabaseClient<Database>,
   profileId: string
 ): Promise<PatientContext> {
-  const { data } = await supabase
-    .from("prevention_risk_scores")
-    .select("condition, tier")
-    .eq("profile_id", profileId)
-    .neq("tier", "low");
+  const [riskScores, pregnancy, profile] = await Promise.all([
+    supabase
+      .from("prevention_risk_scores")
+      .select("condition, tier")
+      .eq("profile_id", profileId)
+      .neq("tier", "low"),
+    supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", profileId).maybeSingle(),
+    supabase.from("profiles").select("date_of_birth").eq("id", profileId).maybeSingle(),
+  ]);
 
   let lifestyleProgrammes: LifestyleProgrammeContext[] = [];
   try {
@@ -78,8 +115,14 @@ export async function loadPatientContext(
     // preserve this function's own contract regardless.
   }
 
+  const conditionRows = riskScores.data ?? [];
   return {
-    elevatedConditions: (data ?? []).map((row) => row.condition),
+    elevatedConditions: conditionRows.map((row) => row.condition),
+    highRiskConditions: conditionRows
+      .filter((row) => row.tier === "high" || row.tier === "very_high")
+      .map((row) => row.condition),
+    isPregnant: pregnancy.data?.is_pregnant ?? false,
+    possibleMinor: isPossiblyMinor(profile.data?.date_of_birth ?? null),
     lifestyleProgrammes,
   };
 }

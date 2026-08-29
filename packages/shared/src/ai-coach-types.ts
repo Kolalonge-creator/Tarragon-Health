@@ -15,5 +15,14 @@ export interface CoachChatMessage {
   role: "user" | "assistant";
   content: string;
   tier?: CoachTier;
+  /** Which model actually answered this turn -- absent for a user message,
+   * absent for an assistant reply the deterministic keyword guardrail
+   * produced without ever calling Claude (an honest "no model was used"
+   * signal, not a missing field). §78.18 auditability. */
+  model?: string;
+  /** Titles of any clinician-reviewed reference content this reply drew on
+   * (find-relevant-content.ts) -- empty/absent when none was retrieved.
+   * §78.18 auditability "knowledge source" coverage. */
+  knowledgeSourceUsed?: string[];
   created_at: string;
 }

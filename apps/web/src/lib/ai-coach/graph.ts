@@ -13,7 +13,7 @@ import {
 import { detectEmergencyKeywords } from "./keyword-guardrail";
 import { loadPatientContext } from "./context";
 import { logAiCoachEscalation, logAiCoachReviewFlag } from "./escalate";
-import { buildAnthropicModel } from "./model";
+import { buildAnthropicModel, AI_COACH_MODEL_ID } from "./model";
 import type { Embedder } from "@/lib/lifestyle/embed-content";
 import { createVoyageEmbedderFromEnv } from "@/lib/lifestyle/voyage-embedder";
 import { findRelevantLifestyleContent } from "@/lib/lifestyle/find-relevant-content";
@@ -32,6 +32,10 @@ const CoachState = Annotation.Root({
   tier: Annotation<CoachTier | null>({ reducer: (_prev, next) => next, default: () => null }),
   reply: Annotation<string>({ reducer: (_prev, next) => next, default: () => "" }),
   escalationId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  /** null when the keyword guardrail alone produced the reply (no Claude
+   * call made) -- an honest "no model was used" signal, not a bug. §78.18. */
+  modelId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  knowledgeSourceUsed: Annotation<string[]>({ reducer: (_prev, next) => next, default: () => [] }),
 });
 
 export type CoachGraphState = typeof CoachState.State;
@@ -88,6 +92,34 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
         `The patient currently has an elevated risk tier for: ${context.elevatedConditions.join(", ")}.`
       );
     }
+    // §78.17 safety-layer signals — bias toward caution, never toward false
+    // reassurance. These only ever push the classification toward
+    // clinician_review; the tier-classification instructions in the system
+    // prompt remain the real enforcement, this just gives the model the
+    // fact it needs to apply "when in doubt, pick the more cautious tier"
+    // correctly for these specific situations.
+    if (context.highRiskConditions.length > 0) {
+      contextLines.push(
+        `The patient has a HIGH or VERY HIGH risk tier (not just elevated) for: ` +
+          `${context.highRiskConditions.join(", ")}. Be more readily cautious about any symptom-adjacent ` +
+          `message from this patient -- prefer clinician_review over routine when genuinely unsure.`
+      );
+    }
+    if (context.isPregnant) {
+      contextLines.push(
+        `The patient is currently pregnant. Any symptom, medication question, or bleeding/pain report ` +
+          `should be treated more cautiously than for a non-pregnant patient -- prefer clinician_review ` +
+          `over routine when genuinely unsure, and never suggest an over-the-counter medication.`
+      );
+    }
+    if (context.possibleMinor) {
+      contextLines.push(
+        `This account's date of birth on file suggests the patient may be under 18. This platform is ` +
+          `built for adult self-enrolment, so treat this as an edge case worth extra caution rather than ` +
+          `a supported scenario -- prefer clinician_review over routine when genuinely unsure, and avoid ` +
+          `any guidance that assumes an adult's judgement or independence.`
+      );
+    }
     // Per-programme grounding. A paused/flagged programme gets a deference
     // instruction instead of goal talk — mirrors, at the prompt level, the
     // same hard rule @tarragon/lifestyle-engine's applyGuardrails() enforces
@@ -124,6 +156,10 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     const activeProgramme = context.lifestyleProgrammes.find(
       (p) => p.status !== "paused" && !p.hasOpenRedFlag
     );
+    // §78.18 "knowledge source" auditability -- which retrieved titles (if
+    // any) actually fed this reply, carried through to the persisted
+    // message regardless of which branch below returns.
+    let knowledgeSourceUsed: string[] = [];
     if (activeProgramme) {
       const embedder = deps.embedder ?? createVoyageEmbedderFromEnv();
       if (embedder) {
@@ -134,6 +170,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
           { matchCount: 2, conditionFilter: activeProgramme.condition }
         );
         if (relevant.length > 0) {
+          knowledgeSourceUsed = relevant.map((r) => r.title);
           contextLines.push(
             "Clinician-approved reference material that may be relevant to this message " +
               "(use it to inform your answer in your own words and voice, don't quote it at " +
@@ -177,9 +214,19 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       // The emergency-tier safety sentence is always the canned copy, never
       // the model's own phrasing of it — see prompts.ts.
       if (result.tier === "emergency") {
-        return { tier: "emergency" as const, reply: `${result.reply}\n\n${EMERGENCY_SAFETY_REPLY}` };
+        return {
+          tier: "emergency" as const,
+          reply: `${result.reply}\n\n${EMERGENCY_SAFETY_REPLY}`,
+          modelId: AI_COACH_MODEL_ID,
+          knowledgeSourceUsed,
+        };
       }
-      return { tier: result.tier, reply: `${result.reply}\n\n${DISCLAIMER_LINE}` };
+      return {
+        tier: result.tier,
+        reply: `${result.reply}\n\n${DISCLAIMER_LINE}`,
+        modelId: AI_COACH_MODEL_ID,
+        knowledgeSourceUsed,
+      };
     } catch (error) {
       // Degrading to the patient is correct either way, but swallowing the
       // real cause entirely makes a bad key/model/network issue undebuggable.
@@ -194,6 +241,10 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       patientId: state.profileId,
       conversationId: state.conversationId,
       triggerMessage: state.incomingMessage,
+      recentMessages: state.priorMessages,
+      aiAction: state.modelId
+        ? "Classified as an emergency by the AI Coach and escalated"
+        : "Escalated immediately via deterministic safety-keyword match, before any AI response",
     });
     return { escalationId };
   }
@@ -209,6 +260,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       patientId: state.profileId,
       conversationId: state.conversationId,
       triggerMessage: state.incomingMessage,
+      recentMessages: state.priorMessages,
+      aiAction: "Classified as worth a clinician's review, not urgent",
     });
     await deps.supabase.from("audit_log").insert({
       organisation_id: state.organisationId,
@@ -216,7 +269,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       action: "ai_coach.clinician_review_flagged",
       entity_type: "ai_conversations",
       entity_id: state.conversationId,
-      event: { message: state.incomingMessage },
+      event: { message: state.incomingMessage, model: state.modelId, knowledge_source: state.knowledgeSourceUsed },
     });
     return {};
   }

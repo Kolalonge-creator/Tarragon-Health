@@ -132,6 +132,10 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     role: "assistant",
     content: result.reply,
     tier,
+    // Absent (not a real model call) for a keyword-guardrail-only emergency
+    // reply — see CoachState's modelId doc comment. §78.18 auditability.
+    model: result.modelId ?? undefined,
+    knowledgeSourceUsed: result.knowledgeSourceUsed.length > 0 ? result.knowledgeSourceUsed : undefined,
     created_at: now,
   };
   await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);

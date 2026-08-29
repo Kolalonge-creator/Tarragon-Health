@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAiConversation, useSendCoachMessage } from "@/lib/queries/ai-coach";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
+import { requestCareTeamHandoffAction } from "@/lib/ai-coach/handoff-actions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +17,15 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   const sendMessage = useSendCoachMessage(patientId);
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [handoff, setHandoff] = useState<
+    { status: "idle" } | { status: "pending" } | { status: "done" } | { status: "error"; error: string }
+  >({ status: "idle" });
+
+  async function handleHandoff() {
+    setHandoff({ status: "pending" });
+    const result = await requestCareTeamHandoffAction(conversation?.conversationId);
+    setHandoff(result.success ? { status: "done" } : { status: "error", error: result.error });
+  }
 
   const messages = conversation?.messages ?? [];
 
@@ -44,7 +55,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   }
 
   return (
-    <Card>
+    <Card id="ai-coach">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SEMANTIC_ICON.aiCoach className="h-5 w-5 text-deep-forest" strokeWidth={2} />
@@ -108,6 +119,41 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
           General guidance, not a diagnosis. For an emergency, call emergency services or go to
           the nearest hospital.
         </p>
+
+        <div className="border-t border-charcoal-ink/10 pt-2">
+          {handoff.status === "idle" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-auto gap-1.5 px-0 text-xs text-brand-green hover:bg-transparent hover:underline"
+              onClick={() => void handleHandoff()}
+            >
+              I want to speak to someone
+            </Button>
+          )}
+          {handoff.status === "pending" && (
+            <p className="text-xs text-charcoal-ink/60">Starting a conversation with your care team…</p>
+          )}
+          {handoff.status === "done" && (
+            <p className="text-xs text-charcoal-ink">
+              Sent — your care team has what you&apos;ve talked about here.{" "}
+              <Link href="/patient/messages" className="text-brand-green underline">
+                Continue in Messages
+              </Link>
+              .
+            </p>
+          )}
+          {handoff.status === "error" && (
+            <p className="text-xs text-red-600">
+              {handoff.error} — you can also message your care team directly from{" "}
+              <Link href="/patient/messages" className="underline">
+                Messages
+              </Link>
+              .
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
