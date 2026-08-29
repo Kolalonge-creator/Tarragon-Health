@@ -14,6 +14,461 @@ export type Database = {
   }
   public: {
     Tables: {
+      antenatal_visits: {
+        Row: {
+          appointment_id: string | null
+          created_at: string
+          findings: string | null
+          gestational_week_at_visit: number | null
+          id: string
+          investigations_due: string[]
+          organisation_id: string
+          patient_id: string
+          scans_due: string[]
+          status: Database["public"]["Enums"]["antenatal_visit_status"]
+          updated_at: string
+          vaccinations_due: string[]
+          visit_number: number | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          created_at?: string
+          findings?: string | null
+          gestational_week_at_visit?: number | null
+          id?: string
+          investigations_due?: string[]
+          organisation_id: string
+          patient_id: string
+          scans_due?: string[]
+          status?: Database["public"]["Enums"]["antenatal_visit_status"]
+          updated_at?: string
+          vaccinations_due?: string[]
+          visit_number?: number | null
+        }
+        Update: {
+          appointment_id?: string | null
+          created_at?: string
+          findings?: string | null
+          gestational_week_at_visit?: number | null
+          id?: string
+          investigations_due?: string[]
+          organisation_id?: string
+          patient_id?: string
+          scans_due?: string[]
+          status?: Database["public"]["Enums"]["antenatal_visit_status"]
+          updated_at?: string
+          vaccinations_due?: string[]
+          visit_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "antenatal_visits_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "antenatal_visits_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "antenatal_visits_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      breast_symptom_reports: {
+        Row: {
+          clinician_alert_id: string | null
+          created_at: string
+          duration_note: string | null
+          id: string
+          laterality: string | null
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          symptom_types: Database["public"]["Enums"]["breast_symptom_type"][]
+          updated_at: string
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          duration_note?: string | null
+          id?: string
+          laterality?: string | null
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          symptom_types: Database["public"]["Enums"]["breast_symptom_type"][]
+          updated_at?: string
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          duration_note?: string | null
+          id?: string
+          laterality?: string | null
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          symptom_types?: Database["public"]["Enums"]["breast_symptom_type"][]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "breast_symptom_reports_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breast_symptom_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breast_symptom_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fertility_assessment_requests: {
+        Row: {
+          appointment_id: string | null
+          concern_notes: string | null
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          specialist_referral_id: string | null
+          status: string
+          trying_duration_months: number | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          concern_notes?: string | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          specialist_referral_id?: string | null
+          status?: string
+          trying_duration_months?: number | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          concern_notes?: string | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          specialist_referral_id?: string | null
+          status?: string
+          trying_duration_months?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fertility_assessment_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fertility_assessment_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fertility_assessment_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fertility_assessment_requests_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menopause_symptom_logs: {
+        Row: {
+          clinician_alert_id: string | null
+          created_at: string
+          id: string
+          logged_at: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          postmenopausal_bleeding: boolean
+          severity: number | null
+          symptom_types: Database["public"]["Enums"]["menopause_symptom_type"][]
+          updated_at: string
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          id?: string
+          logged_at?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          postmenopausal_bleeding?: boolean
+          severity?: number | null
+          symptom_types?: Database["public"]["Enums"]["menopause_symptom_type"][]
+          updated_at?: string
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          id?: string
+          logged_at?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          postmenopausal_bleeding?: boolean
+          severity?: number | null
+          symptom_types?: Database["public"]["Enums"]["menopause_symptom_type"][]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menopause_symptom_logs_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menopause_symptom_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menopause_symptom_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menstrual_cycle_logs: {
+        Row: {
+          created_at: string
+          flow_level: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id: string
+          notes: string | null
+          organisation_id: string
+          pain_level: number | null
+          patient_id: string
+          period_end_date: string | null
+          period_start_date: string
+          symptoms: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          flow_level?: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          pain_level?: number | null
+          patient_id: string
+          period_end_date?: string | null
+          period_start_date: string
+          symptoms?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          flow_level?: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          pain_level?: number | null
+          patient_id?: string
+          period_end_date?: string | null
+          period_start_date?: string
+          symptoms?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menstrual_cycle_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menstrual_cycle_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postnatal_checkins: {
+        Row: {
+          appointment_id: string | null
+          breastfeeding_status: Database["public"]["Enums"]["breastfeeding_status"] | null
+          checkin_window: string
+          completed_at: string | null
+          contraception_discussed: boolean
+          created_at: string
+          id: string
+          maternal_recovery_notes: string | null
+          mental_health_screen_id: string | null
+          organisation_id: string
+          patient_id: string
+          postnatal_profile_id: string
+          scheduled_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          breastfeeding_status?: Database["public"]["Enums"]["breastfeeding_status"] | null
+          checkin_window: string
+          completed_at?: string | null
+          contraception_discussed?: boolean
+          created_at?: string
+          id?: string
+          maternal_recovery_notes?: string | null
+          mental_health_screen_id?: string | null
+          organisation_id: string
+          patient_id: string
+          postnatal_profile_id: string
+          scheduled_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          breastfeeding_status?: Database["public"]["Enums"]["breastfeeding_status"] | null
+          checkin_window?: string
+          completed_at?: string | null
+          contraception_discussed?: boolean
+          created_at?: string
+          id?: string
+          maternal_recovery_notes?: string | null
+          mental_health_screen_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          postnatal_profile_id?: string
+          scheduled_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postnatal_checkins_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postnatal_checkins_mental_health_screen_id_fkey"
+            columns: ["mental_health_screen_id"]
+            isOneToOne: false
+            referencedRelation: "mental_health_screens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postnatal_checkins_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postnatal_checkins_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postnatal_checkins_postnatal_profile_id_fkey"
+            columns: ["postnatal_profile_id"]
+            isOneToOne: false
+            referencedRelation: "postnatal_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postnatal_profiles: {
+        Row: {
+          complications: string | null
+          created_at: string
+          delivery_date: string
+          delivery_mode: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          complications?: string | null
+          created_at?: string
+          delivery_date: string
+          delivery_mode?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          complications?: string | null
+          created_at?: string
+          delivery_date?: string
+          delivery_mode?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postnatal_profiles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postnatal_profiles_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_log_entries: {
         Row: {
           activity_name: string | null
@@ -12763,8 +13218,11 @@ export type Database = {
         Row: {
           created_at: string
           estimated_due_date: string | null
+          high_risk: boolean
+          high_risk_notes: string | null
           id: string
           is_pregnant: boolean
+          last_menstrual_period_date: string | null
           organisation_id: string
           patient_id: string
           updated_at: string
@@ -12772,8 +13230,11 @@ export type Database = {
         Insert: {
           created_at?: string
           estimated_due_date?: string | null
+          high_risk?: boolean
+          high_risk_notes?: string | null
           id?: string
           is_pregnant?: boolean
+          last_menstrual_period_date?: string | null
           organisation_id: string
           patient_id: string
           updated_at?: string
@@ -12781,8 +13242,11 @@ export type Database = {
         Update: {
           created_at?: string
           estimated_due_date?: string | null
+          high_risk?: boolean
+          high_risk_notes?: string | null
           id?: string
           is_pregnant?: boolean
+          last_menstrual_period_date?: string | null
           organisation_id?: string
           patient_id?: string
           updated_at?: string
@@ -14874,6 +15338,7 @@ export type Database = {
         Row: {
           average_cycle_length_days: number | null
           created_at: string
+          current_contraception_method: string | null
           id: string
           last_period_date: string | null
           life_stage: Database["public"]["Enums"]["reproductive_life_stage"]
@@ -14884,6 +15349,7 @@ export type Database = {
         Insert: {
           average_cycle_length_days?: number | null
           created_at?: string
+          current_contraception_method?: string | null
           id?: string
           last_period_date?: string | null
           life_stage?: Database["public"]["Enums"]["reproductive_life_stage"]
@@ -14894,6 +15360,7 @@ export type Database = {
         Update: {
           average_cycle_length_days?: number | null
           created_at?: string
+          current_contraception_method?: string | null
           id?: string
           last_period_date?: string | null
           life_stage?: Database["public"]["Enums"]["reproductive_life_stage"]
@@ -19593,6 +20060,31 @@ export type Database = {
       activity_entry_type: "steps" | "workout"
       alert_category: "clinical" | "care_management" | "medication" | "operational"
       alert_follow_up_status: "open" | "done" | "dismissed"
+      antenatal_visit_status: "scheduled" | "completed" | "missed" | "cancelled"
+      breast_symptom_type:
+        | "lump"
+        | "pain"
+        | "nipple_discharge"
+        | "skin_change"
+        | "nipple_change"
+        | "swelling"
+        | "other"
+      breastfeeding_status:
+        | "not_started"
+        | "exclusive"
+        | "mixed"
+        | "formula_only"
+        | "stopped"
+      menopause_symptom_type:
+        | "hot_flashes"
+        | "night_sweats"
+        | "sleep_disturbance"
+        | "mood_changes"
+        | "vaginal_dryness"
+        | "joint_aches"
+        | "brain_fog"
+        | "other"
+      menstrual_flow_level: "spotting" | "light" | "medium" | "heavy"
       alert_level:
         | "routine"
         | "clinician_review"
@@ -19864,6 +20356,7 @@ export type Database = {
         | "spo2_red_flag"
         | "temperature_red_flag"
         | "exposure_report"
+        | "pregnancy_symptom_checklist"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       exposure_report_status: "open" | "completed" | "withdrawn"
@@ -20490,6 +20983,34 @@ export const Constants = {
       activity_entry_type: ["steps", "workout"],
       alert_category: ["clinical", "care_management", "medication", "operational"],
       alert_follow_up_status: ["open", "done", "dismissed"],
+      antenatal_visit_status: ["scheduled", "completed", "missed", "cancelled"],
+      breast_symptom_type: [
+        "lump",
+        "pain",
+        "nipple_discharge",
+        "skin_change",
+        "nipple_change",
+        "swelling",
+        "other",
+      ],
+      breastfeeding_status: [
+        "not_started",
+        "exclusive",
+        "mixed",
+        "formula_only",
+        "stopped",
+      ],
+      menopause_symptom_type: [
+        "hot_flashes",
+        "night_sweats",
+        "sleep_disturbance",
+        "mood_changes",
+        "vaginal_dryness",
+        "joint_aches",
+        "brain_fog",
+        "other",
+      ],
+      menstrual_flow_level: ["spotting", "light", "medium", "heavy"],
       alert_level: [
         "routine",
         "clinician_review",
@@ -20787,6 +21308,7 @@ export const Constants = {
         "spo2_red_flag",
         "temperature_red_flag",
         "exposure_report",
+        "pregnancy_symptom_checklist",
       ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],

@@ -39,6 +39,7 @@ import { HealthCheckReview } from "./health-check-review";
 import { CarePlanManagementSection } from "./care-plan-management-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
+import { WomensHealthPanel } from "./womens-health-panel";
 
 export default async function ClinicianPatientPage({
   params,
@@ -342,6 +343,15 @@ export default async function ClinicianPatientPage({
               />
             ) : null,
           },
+          ...(patient.sex === "female"
+            ? [
+                {
+                  id: "womens-health",
+                  label: "Women's Health",
+                  content: <WomensHealthPanel patientId={patient.id} />,
+                },
+              ]
+            : []),
         ];
 
   return (
