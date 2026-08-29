@@ -200,11 +200,33 @@ export async function submitScreeningResult(
 export type SetFollowUpActionState = { error?: string; success?: boolean } | undefined;
 
 /**
+ * The six named next-steps Result Lifecycle §58.11 lists — action_type is
+ * the governed category, follow_up_action stays the free-text detail
+ * alongside it (e.g. "Repeat FBC in 3 months", "Start metformin 500mg").
+ */
+export const RESULT_ACTION_TYPES = [
+  "repeat_test",
+  "medication_change",
+  "appointment",
+  "specialist_referral",
+  "monitoring",
+  "no_action",
+] as const;
+export type ResultActionType = (typeof RESULT_ACTION_TYPES)[number];
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
  * Records the clinician's named next step for a result — separate from
  * submitScreeningResult because the result's abnormal/critical status isn't
  * known until the ML interpretation above has already run; this is a
  * deliberate second step taken once the clinician has seen the outcome, same
  * shape as markResultDocumentReviewed's own review-note field.
+ *
+ * Setting action_type='repeat_test' with a due date automatically schedules
+ * a result_recalls row (private.create_result_recall_on_repeat_test,
+ * 20260829122600) — never done from the app layer, so it can't be skipped
+ * by a call site that forgets to.
  *
  * Gated on an active clinical_staff record, not just is_org_staff — deciding
  * what should happen next about a result is a clinical judgement call under
@@ -219,11 +241,21 @@ export async function setScreeningResultFollowUpAction(
   formData: FormData
 ): Promise<SetFollowUpActionState> {
   const followUpAction = String(formData.get("follow_up_action") ?? "").trim();
+  const actionTypeRaw = String(formData.get("action_type") ?? "").trim();
+  const repeatDueDate = String(formData.get("action_repeat_due_date") ?? "").trim();
+
   if (!followUpAction) {
     return { error: "Enter a follow-up action" };
   }
   if (followUpAction.length > 500) {
     return { error: "Keep the follow-up action under 500 characters" };
+  }
+  if (!(RESULT_ACTION_TYPES as readonly string[]).includes(actionTypeRaw)) {
+    return { error: "Select what should happen next" };
+  }
+  const actionType = actionTypeRaw as ResultActionType;
+  if (actionType === "repeat_test" && !DATE_RE.test(repeatDueDate)) {
+    return { error: "Enter a date for when the test should be repeated" };
   }
 
   const supabase = await createClient();
@@ -244,7 +276,51 @@ export async function setScreeningResultFollowUpAction(
 
   const { error } = await supabase
     .from("screening_results")
-    .update({ follow_up_action: followUpAction })
+    .update({
+      follow_up_action: followUpAction,
+      action_type: actionType,
+      action_repeat_due_date: actionType === "repeat_test" ? repeatDueDate : null,
+    })
+    .eq("id", resultId);
+  if (error) return { error: error.message };
+
+  return { success: true };
+}
+
+export type MarkPatientInformedState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Explicit "the patient has been told about this result and its action"
+ * confirmation — distinct from the result simply being readable in the
+ * patient's own dashboard the instant it's recorded (Result Lifecycle
+ * §58.19: delivered must not be conflated with managed). Same
+ * clinical-judgement gate as setScreeningResultFollowUpAction; frozen once
+ * set (private.enforce_screening_result_action_fields).
+ */
+export async function markResultPatientInformed(
+  resultId: string,
+  _prevState: MarkPatientInformedState,
+  _formData: FormData
+): Promise<MarkPatientInformedState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("id")
+    .eq("profile_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
+  if (!staff) {
+    return { error: "Only an active Tarragon care-team doctor can confirm this." };
+  }
+
+  const { error } = await supabase
+    .from("screening_results")
+    .update({ patient_informed_at: new Date().toISOString() })
     .eq("id", resultId);
   if (error) return { error: error.message };
 

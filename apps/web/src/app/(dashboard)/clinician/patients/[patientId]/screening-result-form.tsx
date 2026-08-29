@@ -201,6 +201,7 @@ export function ScreeningResultForm({
               <Select id="procedural_status" name="procedural_status" defaultValue="normal">
                 <option value="normal">Normal</option>
                 <option value="borderline">Borderline</option>
+                <option value="indeterminate">Indeterminate — needs repeat/further assessment</option>
                 <option value="abnormal">Abnormal</option>
                 <option value="critical">Critical</option>
               </Select>
