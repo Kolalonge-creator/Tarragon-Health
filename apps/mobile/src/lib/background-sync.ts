@@ -4,6 +4,7 @@ import * as BackgroundTask from "expo-background-task";
 import { supabase } from "./supabase";
 import { configureIOSBackgroundDelivery, subscribeToIOSHealthChanges } from "./healthkit";
 import { syncAppleHealth, syncHealthConnect } from "./health-sync";
+import { flushDeviceReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
 
 /**
@@ -33,6 +34,18 @@ import { recordSyncError } from "./sync-diagnostics";
  * layer on top; see MOBILE_APP_SPEC.md/CLAUDE.md for the same caveat this
  * project applies to every other native path that has never run on real
  * hardware yet.
+ *
+ * This periodic run is also the reliable backstop for offline-queue.ts's two
+ * store-and-forward queues (spec 55.13-55.15): whatever a page/reading
+ * upload failed to send while the app wasn't running gets retried here at
+ * the next OS-scheduled run, on top of the flush every manual sync and BLE
+ * screen open already attempts. There is deliberately no NetInfo-driven
+ * "flush immediately on reconnect" listener layered on top of that —
+ * @react-native-community/netinfo is not a dependency anywhere in this app
+ * today, and adding it solely for that one trigger was judged not worth a
+ * new native dependency when this task's floor (15 minutes) plus a manual
+ * sync/BLE screen open already recovers a queued item promptly in practice.
+ * Revisit if NetInfo is ever added for another reason.
  */
 
 const TASK_NAME = "tarragon-health-background-sync";
@@ -44,6 +57,14 @@ TaskManager.defineTask(TASK_NAME, async () => {
     } = await supabase.auth.getSession();
     if (!session) return BackgroundTask.BackgroundTaskResult.Success;
 
+    // BLE device readings (BP cuff, glucometer, etc.) have no health-store
+    // sync call of their own to piggyback a queue flush on — syncAppleHealth/
+    // syncHealthConnect below already flush their own health-samples queue
+    // internally on every call, but this is the only place that retries a
+    // reading queued by sync-screen.tsx after a failed upload; see
+    // offline-queue.ts.
+    const deviceReadingsFlush = await flushDeviceReadingsQueue();
+
     const result =
       Platform.OS === "ios"
         ? await syncAppleHealth()
@@ -51,13 +72,21 @@ TaskManager.defineTask(TASK_NAME, async () => {
           ? await syncHealthConnect()
           : null;
 
-    // A HealthSyncResult of "error" is a real failure even though nothing
-    // threw — reporting it as Failed (not Success) matters beyond logging:
-    // it's the signal BGTaskScheduler/WorkManager use to back off retry
-    // timing, so treating a silent sync failure as "succeeded" would make
-    // the OS trust a run that accomplished nothing.
+    // A HealthSyncResult of "error", or a device-readings flush that made no
+    // progress despite having a backlog, is a real failure even though
+    // nothing threw — reporting it as Failed (not Success) matters beyond
+    // logging: it's the signal BGTaskScheduler/WorkManager use to back off
+    // retry timing, so treating a silent sync failure as "succeeded" would
+    // make the OS trust a run that accomplished nothing. A flush that made
+    // *some* progress (flushed > 0) before hitting a later failure is not
+    // treated as a failure here, matching how a "partial" health sync isn't
+    // either — offline_queue.ts's own flush already recorded the error.
+    const deviceReadingsStuck = deviceReadingsFlush.flushed === 0 && deviceReadingsFlush.remaining > 0;
     if (result?.status === "error") {
       recordSyncError("background_sync", `${Platform.OS}:run`, result.message);
+      return BackgroundTask.BackgroundTaskResult.Failed;
+    }
+    if (deviceReadingsStuck) {
       return BackgroundTask.BackgroundTaskResult.Failed;
     }
     return BackgroundTask.BackgroundTaskResult.Success;
