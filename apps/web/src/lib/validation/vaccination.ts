@@ -79,6 +79,29 @@ export type ReportVaccinationAdverseEventInput = z.infer<
   typeof reportVaccinationAdverseEventSchema
 >;
 
+/** One dose the reviewer accepted from a card/record extraction draft. */
+const confirmedCardRowSchema = z.object({
+  vaccination_catalog_id: z.string().uuid(),
+  dose_number: z.coerce.number().int().min(1).max(20),
+  date_administered: z
+    .string()
+    .refine((value) => !Number.isNaN(Date.parse(value)), { message: "Enter a valid date" }),
+  provider: z.string().trim().max(200).optional(),
+  batch_lot_number: z.string().trim().min(1).max(100).optional(),
+  route: z.enum(VACCINATION_ROUTES).optional(),
+  site: z.string().trim().min(1).max(200).optional(),
+  location: z.string().trim().min(1).max(200).optional(),
+});
+
+export const confirmVaccinationCardExtractionSchema = z.object({
+  extraction_id: z.string().uuid(),
+  patient_id: z.string().uuid(),
+  rows: z.array(confirmedCardRowSchema).min(1, "Select at least one dose to file"),
+});
+export type ConfirmVaccinationCardExtractionInput = z.infer<
+  typeof confirmVaccinationCardExtractionSchema
+>;
+
 /** Accepted certificate image/document types + 10 MB cap — mirrors the
  * storage bucket's own `allowed_mime_types`/`file_size_limit`. */
 export const CERTIFICATE_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,application/pdf";

@@ -85,7 +85,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if tg_op = 'update' and new.non_administration_reason is not distinct from old.non_administration_reason then
+  if tg_op = 'UPDATE' and new.non_administration_reason is not distinct from old.non_administration_reason then
     return new;
   end if;
 

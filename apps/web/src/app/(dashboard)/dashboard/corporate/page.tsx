@@ -2,6 +2,7 @@ import { InstitutionPrivacyNotice } from "@/components/institution-privacy-notic
 import { ContractStatusCard } from "@/components/contract-status-card";
 import { RosterManager } from "./roster-manager";
 import { CohortSummary } from "./cohort-summary";
+import { VaccinationCoveragePanel } from "./vaccination-coverage-panel";
 import { loadCorporateDashboardData } from "./dashboard-data";
 
 /** Only ever rendered when corporate/layout.tsx has already established the
@@ -19,6 +20,7 @@ export default async function CorporateOverviewPage() {
       <ContractStatusCard performance={data.contractPerformance} />
       <RosterManager organisationId={data.organisationId} />
       <CohortSummary analytics={data.analytics} />
+      <VaccinationCoveragePanel coverage={data.vaccinationCoverage} />
     </div>
   );
 }

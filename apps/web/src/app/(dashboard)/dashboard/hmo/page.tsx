@@ -3,6 +3,7 @@ import { InstitutionPrivacyNotice } from "@/components/institution-privacy-notic
 import { ContractStatusCard } from "@/components/contract-status-card";
 import { RosterManager } from "../corporate/roster-manager";
 import { CohortSummary } from "../corporate/cohort-summary";
+import { VaccinationCoveragePanel } from "../corporate/vaccination-coverage-panel";
 import { CareGapPanel } from "./care-gap-panel";
 import { loadHmoDashboardData } from "./dashboard-data";
 
@@ -22,6 +23,7 @@ export default async function HmoOverviewPage() {
       <RosterManager organisationId={data.organisationId} entityLabel="member" />
       <CohortSummary analytics={data.analytics} entityLabel="member" />
       <CareGapPanel summary={data.careGaps} />
+      <VaccinationCoveragePanel coverage={data.vaccinationCoverage} entityLabel="member" />
       <div className="flex justify-end">
         <Link href="/dashboard/hmo/reports" className="text-sm font-semibold text-brand-green hover:text-brand-green/80">
           Reports &amp; outcomes →

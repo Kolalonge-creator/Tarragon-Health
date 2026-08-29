@@ -11,8 +11,12 @@ export type VaccinationCatalogEntry = Tables<"vaccination_catalog">;
 export type VaccinationRecord = Tables<"vaccination_records">;
 export type VaccinationSchedule = Tables<"vaccination_schedules">;
 export type VaccinationAdverseEvent = Tables<"vaccination_adverse_events">;
+export type VaccinationCardExtractionRow = Tables<"vaccination_card_extractions">;
 
-const CERTIFICATE_BUCKET = "vaccination-certificates";
+/** The vaccination-certificates private bucket — also reused as the source
+ * for uploaded card/record images ahead of OCR extraction (spec §43.12);
+ * see lib/vaccination-cards/extraction-actions.ts. */
+export const CERTIFICATE_BUCKET = "vaccination-certificates";
 
 export function vaccinationRecordsKey(patientId: string) {
   return ["vaccination-records", patientId];
@@ -28,6 +32,10 @@ export function vaccinationNonAdministrationsKey(patientId: string) {
 
 export function vaccinationAdverseEventsKey(patientId: string) {
   return ["vaccination-adverse-events", patientId];
+}
+
+export function vaccinationCardExtractionsKey(patientId: string) {
+  return ["vaccination-card-extractions", patientId];
 }
 
 /** Global reference catalogue — same for every patient, no patientId scoping. */
@@ -254,6 +262,79 @@ export function useReportVaccinationAdverseEvent() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: vaccinationAdverseEventsKey(variables.patientId) });
+    },
+  });
+}
+
+/** A patient's (or managed dependent's) uploaded vaccination cards/records,
+ * newest first (spec §43.12). */
+export function useVaccinationCardExtractions(patientId: string) {
+  return useQuery({
+    queryKey: vaccinationCardExtractionsKey(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vaccination_card_extractions")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as VaccinationCardExtractionRow[];
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * Uploads a photo/PDF of a vaccination card or record and creates the draft
+ * row extraction runs against (spec §43.12). Writes through the caller's own
+ * RLS-scoped session, same authority as logging a dose directly — the
+ * storage path is filed under the ACTING user's own uid folder (storage
+ * RLS), exactly like useAttachVaccinationCertificate, so a caregiver
+ * uploading for a managed dependent still satisfies the bucket's
+ * own-folder-only policy even though the draft row's patient_id is the
+ * dependent's.
+ */
+export function useUploadVaccinationCard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { patientId: string; file: File }): Promise<string> => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", input.patientId)
+        .single();
+      if (profileError) throw profileError;
+      if (!profile?.organisation_id) throw new Error("This patient has no organisation on file");
+
+      const ext = input.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(CERTIFICATE_BUCKET)
+        .upload(path, input.file, { contentType: input.file.type });
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await supabase
+        .from("vaccination_card_extractions")
+        .insert({
+          organisation_id: profile.organisation_id,
+          patient_id: input.patientId,
+          source_path: path,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: vaccinationCardExtractionsKey(variables.patientId) });
     },
   });
 }
