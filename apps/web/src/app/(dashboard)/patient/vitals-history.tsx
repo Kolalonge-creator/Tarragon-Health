@@ -41,6 +41,26 @@ function Spo2LevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
   );
 }
 
+/**
+ * 53.9: "distinguish a consumer wearable estimate from a clinically
+ * validated measurement — do not treat every smartwatch reading as a
+ * diagnostic ECG." A synced-from-wearable reading gets the same clinical
+ * classification badges as any other (BpLevelBadge etc. above don't change),
+ * but this makes the provenance visible next to it rather than presenting a
+ * wrist-worn estimate with the same unqualified confidence as a fingerstick
+ * glucose test or a manual BP cuff reading. Manual and BLE clinical-device
+ * (source='device') readings get no badge — those are already the
+ * platform's two most-trusted sources and don't need a qualifier.
+ */
+function SourceBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
+  if (reading.source !== "wearable") return null;
+  return (
+    <span className="ml-2 inline-block rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-[11px] font-medium text-charcoal-ink/60">
+      Wearable estimate
+    </span>
+  );
+}
+
 const TEMPERATURE_LEVEL_STYLE: Record<Exclude<TemperatureLevel, "unknown">, string> = LEVEL_STYLE;
 
 function TemperatureLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
@@ -116,6 +136,7 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                     {reading.vital_type === "temperature" && (
                       <TemperatureLevelBadge reading={reading} />
                     )}
+                    <SourceBadge reading={reading} />
                   </p>
                   {reading.note && (
                     <p className="text-xs text-charcoal-ink/60">{reading.note}</p>

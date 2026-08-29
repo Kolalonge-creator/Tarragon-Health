@@ -9,6 +9,7 @@ import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-connect-section";
+import { SleepSummaryCard } from "@/app/(dashboard)/patient/sleep-summary-card";
 import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
 
 export default async function PatientVitalsPage() {
@@ -40,6 +41,9 @@ export default async function PatientVitalsPage() {
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}
       <DiabetesDailyLog patientId={subjectId} />
+      {/* Renders nothing until a connected wearable has synced at least one
+          night — see sleep-summary-card.tsx. */}
+      <SleepSummaryCard patientId={subjectId} />
       <WearableConnectSection patientId={subjectId} />
     </DashboardSection>
   );

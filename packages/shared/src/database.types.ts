@@ -17218,6 +17218,10 @@ export type Database = {
         Row: {
           access_token: string | null
           connected_at: string
+          consent_activity: boolean
+          consent_heart_rate: boolean
+          consent_sleep: boolean
+          consent_weight: boolean
           created_at: string
           external_id: string | null
           id: string
@@ -17234,6 +17238,10 @@ export type Database = {
         Insert: {
           access_token?: string | null
           connected_at?: string
+          consent_activity?: boolean
+          consent_heart_rate?: boolean
+          consent_sleep?: boolean
+          consent_weight?: boolean
           created_at?: string
           external_id?: string | null
           id?: string
@@ -17250,6 +17258,10 @@ export type Database = {
         Update: {
           access_token?: string | null
           connected_at?: string
+          consent_activity?: boolean
+          consent_heart_rate?: boolean
+          consent_sleep?: boolean
+          consent_weight?: boolean
           created_at?: string
           external_id?: string | null
           id?: string
@@ -18496,6 +18508,13 @@ export type Database = {
       decline_video_visit_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
+      }
+      delete_wearable_connection_data: {
+        Args: { p_connection_id: string }
+        Returns: {
+          vitals_deleted: number
+          wearable_readings_deleted: number
+        }[]
       }
       emergency_card_by_token: { Args: { p_token: string }; Returns: Json }
       enqueue_critical_notification: {
@@ -20337,7 +20356,7 @@ export type Database = {
         | "ketones"
         | "respiratory_rate"
         | "peak_flow"
-      wearable_connection_status: "active" | "disconnected" | "error"
+      wearable_connection_status: "active" | "disconnected" | "error" | "paused"
       wearable_provider:
         | "apple_health"
         | "oura"
@@ -21313,7 +21332,7 @@ export const Constants = {
         "respiratory_rate",
         "peak_flow",
       ],
-      wearable_connection_status: ["active", "disconnected", "error"],
+      wearable_connection_status: ["active", "disconnected", "error", "paused"],
       wearable_provider: [
         "apple_health",
         "oura",
