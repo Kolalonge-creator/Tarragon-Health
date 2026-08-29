@@ -17815,6 +17815,620 @@ export type Database = {
           },
         ]
       }
+      document_retention_policies: {
+        Row: {
+          active: boolean
+          basis: string
+          created_at: string
+          document_type: Database["public"]["Enums"]["patient_document_type"]
+          id: string
+          organisation_id: string
+          retention_years: number
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          basis: string
+          created_at?: string
+          document_type: Database["public"]["Enums"]["patient_document_type"]
+          id?: string
+          organisation_id: string
+          retention_years: number
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          basis?: string
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["patient_document_type"]
+          id?: string
+          organisation_id?: string
+          retention_years?: number
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_retention_policies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_retention_policies_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      patient_document_access_log: {
+        Row: {
+          accessed_by: string | null
+          accessed_by_organisation_id: string | null
+          document_id: string
+          id: string
+          metadata: Json
+          occurred_at: string
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+        }
+        Insert: {
+          accessed_by?: string | null
+          accessed_by_organisation_id?: string | null
+          document_id: string
+          id?: string
+          metadata?: Json
+          occurred_at?: string
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+        }
+        Update: {
+          accessed_by?: string | null
+          accessed_by_organisation_id?: string | null
+          document_id?: string
+          id?: string
+          metadata?: Json
+          occurred_at?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_document_access_log_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_access_log_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "patient_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_access_log_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_access_log_accessed_by_fkey"
+            columns: ["accessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_access_log_accessed_by_organisation_id_fkey"
+            columns: ["accessed_by_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      patient_document_discrepancies: {
+        Row: {
+          clinician_alert_id: string | null
+          conflicting_record_id: string | null
+          conflicting_table: string | null
+          created_at: string
+          document_id: string
+          document_value: string | null
+          existing_value: string | null
+          field_description: string
+          flagged_at: string
+          flagged_by: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["document_discrepancy_status"]
+          updated_at: string
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          conflicting_record_id?: string | null
+          conflicting_table?: string | null
+          created_at?: string
+          document_id: string
+          document_value?: string | null
+          existing_value?: string | null
+          field_description: string
+          flagged_at?: string
+          flagged_by: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["document_discrepancy_status"]
+          updated_at?: string
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          conflicting_record_id?: string | null
+          conflicting_table?: string | null
+          created_at?: string
+          document_id?: string
+          document_value?: string | null
+          existing_value?: string | null
+          field_description?: string
+          flagged_at?: string
+          flagged_by?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["document_discrepancy_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_document_discrepancies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_discrepancies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_discrepancies_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "patient_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_discrepancies_flagged_by_fkey"
+            columns: ["flagged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_discrepancies_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_discrepancies_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      patient_document_extractions: {
+        Row: {
+          classification_confidence: number | null
+          classification_status: Database["public"]["Enums"]["document_classification_status"]
+          classified_at: string | null
+          created_at: string
+          document_id: string
+          extracted_at: string | null
+          extracted_text: string | null
+          id: string
+          ocr_error: string | null
+          ocr_status: Database["public"]["Enums"]["document_ocr_status"]
+          organisation_id: string
+          patient_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          search_vector: unknown | null
+          suggested_document_type: Database["public"]["Enums"]["patient_document_type"] | null
+          updated_at: string
+        }
+        Insert: {
+          classification_confidence?: number | null
+          classification_status?: Database["public"]["Enums"]["document_classification_status"]
+          classified_at?: string | null
+          created_at?: string
+          document_id: string
+          extracted_at?: string | null
+          extracted_text?: string | null
+          id?: string
+          ocr_error?: string | null
+          ocr_status?: Database["public"]["Enums"]["document_ocr_status"]
+          organisation_id: string
+          patient_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          suggested_document_type?: Database["public"]["Enums"]["patient_document_type"] | null
+          updated_at?: string
+        }
+        Update: {
+          classification_confidence?: number | null
+          classification_status?: Database["public"]["Enums"]["document_classification_status"]
+          classified_at?: string | null
+          created_at?: string
+          document_id?: string
+          extracted_at?: string | null
+          extracted_text?: string | null
+          id?: string
+          ocr_error?: string | null
+          ocr_status?: Database["public"]["Enums"]["document_ocr_status"]
+          organisation_id?: string
+          patient_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          suggested_document_type?: Database["public"]["Enums"]["patient_document_type"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_document_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_extractions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "patient_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_extractions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      patient_document_shares: {
+        Row: {
+          created_at: string
+          document_id: string
+          expires_at: string | null
+          granted_by: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          purpose: string
+          recipient_name: string | null
+          recipient_organisation: string | null
+          recipient_profile_id: string | null
+          recipient_type: Database["public"]["Enums"]["document_share_recipient_type"]
+          revoked_at: string | null
+          revoked_by: string | null
+          shared_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          purpose: string
+          recipient_name?: string | null
+          recipient_organisation?: string | null
+          recipient_profile_id?: string | null
+          recipient_type: Database["public"]["Enums"]["document_share_recipient_type"]
+          revoked_at?: string | null
+          revoked_by?: string | null
+          shared_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          purpose?: string
+          recipient_name?: string | null
+          recipient_organisation?: string | null
+          recipient_profile_id?: string | null
+          recipient_type?: Database["public"]["Enums"]["document_share_recipient_type"]
+          revoked_at?: string | null
+          revoked_by?: string | null
+          shared_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_document_shares_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_shares_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "patient_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_shares_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_shares_recipient_profile_id_fkey"
+            columns: ["recipient_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_shares_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_document_shares_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      patient_documents: {
+        Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
+          author_name: string | null
+          author_organisation: string | null
+          author_profile_id: string | null
+          available_at: string | null
+          category: Database["public"]["Enums"]["patient_document_category"]
+          checksum_sha256: string | null
+          confidentiality: Database["public"]["Enums"]["patient_document_confidentiality"]
+          created_at: string
+          description: string | null
+          document_date: string | null
+          document_family_id: string
+          document_type: Database["public"]["Enums"]["patient_document_type"]
+          file_path: string | null
+          file_size_bytes: number | null
+          id: string
+          mime_type: string | null
+          organisation_id: string
+          original_filename: string | null
+          patient_id: string
+          rejected_reason: string | null
+          requires_structured_capture: boolean
+          retention_basis: string | null
+          retention_until: string | null
+          scan_detail: string | null
+          scan_status: Database["public"]["Enums"]["patient_document_scan_status"]
+          scanned_at: string | null
+          search_vector: unknown | null
+          source: Database["public"]["Enums"]["patient_document_source"]
+          source_id: string | null
+          source_table: string | null
+          status: Database["public"]["Enums"]["patient_document_status"]
+          structured_record_id: string | null
+          structured_record_table: string | null
+          supersede_reason: string | null
+          superseded_by_id: string | null
+          supersedes_id: string | null
+          title: string
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+          validated_at: string | null
+          validated_by: string | null
+          version: number
+        }
+        Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          author_name?: string | null
+          author_organisation?: string | null
+          author_profile_id?: string | null
+          available_at?: string | null
+          checksum_sha256?: string | null
+          confidentiality?: Database["public"]["Enums"]["patient_document_confidentiality"]
+          created_at?: string
+          description?: string | null
+          document_date?: string | null
+          document_family_id?: string
+          document_type: Database["public"]["Enums"]["patient_document_type"]
+          file_path?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          organisation_id: string
+          original_filename?: string | null
+          patient_id: string
+          rejected_reason?: string | null
+          retention_basis?: string | null
+          retention_until?: string | null
+          scan_detail?: string | null
+          scan_status?: Database["public"]["Enums"]["patient_document_scan_status"]
+          scanned_at?: string | null
+          source: Database["public"]["Enums"]["patient_document_source"]
+          source_id?: string | null
+          source_table?: string | null
+          status?: Database["public"]["Enums"]["patient_document_status"]
+          structured_record_id?: string | null
+          structured_record_table?: string | null
+          supersede_reason?: string | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
+          title: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+          version?: number
+        }
+        Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          author_name?: string | null
+          author_organisation?: string | null
+          author_profile_id?: string | null
+          available_at?: string | null
+          checksum_sha256?: string | null
+          confidentiality?: Database["public"]["Enums"]["patient_document_confidentiality"]
+          created_at?: string
+          description?: string | null
+          document_date?: string | null
+          document_family_id?: string
+          document_type?: Database["public"]["Enums"]["patient_document_type"]
+          file_path?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          organisation_id?: string
+          original_filename?: string | null
+          patient_id?: string
+          rejected_reason?: string | null
+          retention_basis?: string | null
+          retention_until?: string | null
+          scan_detail?: string | null
+          scan_status?: Database["public"]["Enums"]["patient_document_scan_status"]
+          scanned_at?: string | null
+          source?: Database["public"]["Enums"]["patient_document_source"]
+          source_id?: string | null
+          source_table?: string | null
+          status?: Database["public"]["Enums"]["patient_document_status"]
+          structured_record_id?: string | null
+          structured_record_table?: string | null
+          supersede_reason?: string | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_documents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "patient_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_documents_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "patient_documents"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       diabetes_quality_metrics: {
@@ -19588,6 +20202,63 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      archive_patient_document: {
+        Args: { p_document_id: string; p_reason: string }
+        Returns: Database["public"]["Tables"]["patient_documents"]["Row"]
+      }
+      flag_patient_document_discrepancy: {
+        Args: {
+          p_conflicting_record_id?: string
+          p_conflicting_table?: string
+          p_document_id: string
+          p_document_value?: string
+          p_existing_value?: string
+          p_field_description: string
+        }
+        Returns: Database["public"]["Tables"]["patient_document_discrepancies"]["Row"]
+      }
+      publish_patient_document: {
+        Args: { p_document_id: string }
+        Returns: Database["public"]["Tables"]["patient_documents"]["Row"]
+      }
+      record_patient_document_scan: {
+        Args: {
+          p_detail?: string
+          p_document_id: string
+          p_scan_status: Database["public"]["Enums"]["patient_document_scan_status"]
+        }
+        Returns: Database["public"]["Tables"]["patient_documents"]["Row"]
+      }
+      resolve_patient_document_discrepancy: {
+        Args: {
+          p_discrepancy_id: string
+          p_resolution_note: string
+          p_status: Database["public"]["Enums"]["document_discrepancy_status"]
+        }
+        Returns: Database["public"]["Tables"]["patient_document_discrepancies"]["Row"]
+      }
+      search_patient_documents: {
+        Args: { p_patient_id: string; p_query: string }
+        Returns: {
+          document_date: string | null
+          document_id: string
+          document_type: Database["public"]["Enums"]["patient_document_type"]
+          rank: number
+          title: string
+        }[]
+      }
+      supersede_patient_document: {
+        Args: {
+          p_checksum_sha256: string | null
+          p_file_path: string
+          p_file_size_bytes: number | null
+          p_mime_type: string
+          p_original_filename: string
+          p_previous_id: string
+          p_reason: string
+        }
+        Returns: Database["public"]["Tables"]["patient_documents"]["Row"]
+      }
     }
     Enums: {
       activity_entry_type: "steps" | "workout"
@@ -20360,6 +21031,63 @@ export type Database = {
         | "no_show"
         | "cancelled"
       wellness_class_type: "virtual" | "in_person"
+      document_classification_status: "pending" | "agrees" | "needs_review" | "reviewed"
+      document_discrepancy_status:
+        | "open"
+        | "document_confirmed_correct"
+        | "existing_confirmed_correct"
+        | "both_valid"
+        | "dismissed"
+      document_export_type:
+        | "quarterly_report"
+        | "health_passport"
+        | "health_check_report"
+        | "lab_result_single"
+        | "lab_result_combined"
+        | "vaccination_certificate"
+        | "referral_letter"
+      document_ocr_status: "pending" | "completed" | "failed"
+      document_share_recipient_type:
+        | "clinician"
+        | "specialist"
+        | "hospital"
+        | "organisation"
+      patient_document_category: "clinical" | "administrative"
+      patient_document_confidentiality:
+        | "standard"
+        | "restricted"
+        | "patient_private"
+      patient_document_scan_status: "pending" | "clean" | "rejected" | "error"
+      patient_document_source:
+        | "patient"
+        | "clinician"
+        | "care_coordinator"
+        | "admin"
+        | "lab_liaison"
+        | "partner_lab"
+        | "external_provider"
+        | "system"
+      patient_document_status:
+        | "created"
+        | "uploaded"
+        | "validated"
+        | "available"
+        | "superseded"
+        | "archived"
+        | "rejected"
+      patient_document_type:
+        | "laboratory_report"
+        | "imaging_report"
+        | "referral_letter"
+        | "consultation_note"
+        | "prescription"
+        | "discharge_summary"
+        | "consent_form"
+        | "invoice"
+        | "insurance_document"
+        | "identification_document"
+        | "clinical_photograph"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
