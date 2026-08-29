@@ -10526,11 +10526,13 @@ export type Database = {
       medications: {
         Row: {
           added_by: string | null
+          amendment_reason: string | null
           care_plan_id: string | null
           created_at: string
           dose: string | null
           drug_name: string
           duration_days: number | null
+          expires_at: string | null
           frequency: string | null
           id: string
           indication: string | null
@@ -10542,23 +10544,30 @@ export type Database = {
           patient_id: string
           prescriber_document_url: string | null
           prescriber_name: string | null
+          previous_version_id: string | null
           quantity: string | null
           refill_date: string | null
           repeats_allowed: number
           route: string | null
+          rx_number: string | null
           schedule_times: Json
           source: Database["public"]["Enums"]["medication_source"]
           stopped_at: string | null
           stopped_reason: string | null
+          superseded_at: string | null
           updated_at: string
+          verification_code: string | null
+          version: number
         }
         Insert: {
           added_by?: string | null
+          amendment_reason?: string | null
           care_plan_id?: string | null
           created_at?: string
           dose?: string | null
           drug_name: string
           duration_days?: number | null
+          expires_at?: string | null
           frequency?: string | null
           id?: string
           indication?: string | null
@@ -10570,23 +10579,30 @@ export type Database = {
           patient_id: string
           prescriber_document_url?: string | null
           prescriber_name?: string | null
+          previous_version_id?: string | null
           quantity?: string | null
           refill_date?: string | null
           repeats_allowed?: number
           route?: string | null
+          rx_number?: string | null
           schedule_times?: Json
           source?: Database["public"]["Enums"]["medication_source"]
           stopped_at?: string | null
           stopped_reason?: string | null
+          superseded_at?: string | null
           updated_at?: string
+          verification_code?: string | null
+          version?: number
         }
         Update: {
           added_by?: string | null
+          amendment_reason?: string | null
           care_plan_id?: string | null
           created_at?: string
           dose?: string | null
           drug_name?: string
           duration_days?: number | null
+          expires_at?: string | null
           frequency?: string | null
           id?: string
           indication?: string | null
@@ -10598,15 +10614,20 @@ export type Database = {
           patient_id?: string
           prescriber_document_url?: string | null
           prescriber_name?: string | null
+          previous_version_id?: string | null
           quantity?: string | null
           refill_date?: string | null
           repeats_allowed?: number
           route?: string | null
+          rx_number?: string | null
           schedule_times?: Json
           source?: Database["public"]["Enums"]["medication_source"]
           stopped_at?: string | null
           stopped_reason?: string | null
+          superseded_at?: string | null
           updated_at?: string
+          verification_code?: string | null
+          version?: number
         }
         Relationships: [
           {
@@ -10642,6 +10663,87 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medications_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_repeat_requests: {
+        Row: {
+          created_at: string
+          denial_reason: string | null
+          id: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          requested_at: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["medication_repeat_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          requested_at?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_repeat_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          requested_at?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_repeat_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_repeat_requests_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_repeat_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_repeat_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_repeat_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
         ]
@@ -18208,6 +18310,24 @@ export type Database = {
         }[]
       }
       analytics_appointment_capacity: { Args: never; Returns: Json }
+      amend_medication: {
+        Args: {
+          p_amendment_reason: string
+          p_dose?: string
+          p_drug_name?: string
+          p_duration_days?: number
+          p_frequency?: string
+          p_indication?: string
+          p_instructions?: string
+          p_medication_id: string
+          p_quantity?: string
+          p_refill_date?: string
+          p_repeats_allowed?: number
+          p_route?: string
+          p_schedule_times?: Json
+        }
+        Returns: string
+      }
       acknowledge_lab_order: {
         Args: { p_order_id: string; p_partner_reference: string }
         Returns: Json
@@ -19579,6 +19699,27 @@ export type Database = {
         Args: { p_clinical_staff_id: string }
         Returns: undefined
       }
+      verify_prescription: {
+        Args: { p_rx_number: string; p_verification_code: string }
+        Returns: {
+          dose: string
+          drug_name: string
+          duration_days: number
+          expires_at: string
+          frequency: string
+          indication: string
+          instructions: string
+          patient_name: string
+          prescriber_name: string
+          quantity: string
+          repeats_allowed: number
+          repeats_used: number
+          route: string
+          signed_at: string
+          status: string
+          version: number
+        }[]
+      }
       video_visit_acceptance_stats: { Args: never; Returns: Json }
       wellness_challenge_progress: {
         Args: { p_enrolment_id: string }
@@ -20061,6 +20202,7 @@ export type Database = {
         | "missed_doses"
         | "lab_review"
       medication_log_status: "taken" | "missed" | "skipped"
+      medication_repeat_request_status: "pending" | "approved" | "denied"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
       notification_channel:
@@ -21007,6 +21149,7 @@ export const Constants = {
         "lab_review",
       ],
       medication_log_status: ["taken", "missed", "skipped"],
+      medication_repeat_request_status: ["pending", "approved", "denied"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
       notification_channel: [

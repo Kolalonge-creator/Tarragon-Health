@@ -10,7 +10,13 @@ import {
   type MedicationCollection,
   type MedicationWithCarePlan,
 } from "@/lib/queries/medications";
+import {
+  useMedicationRepeatRequests,
+  useRequestMedicationRepeat,
+  type MedicationRepeatRequest,
+} from "@/lib/queries/medication-repeat-requests";
 import { MedicationCollectionForm } from "./medication-collection-form";
+import { AmendMedicationForm } from "@/app/(dashboard)/clinician/patients/[patientId]/amend-medication-form";
 import { usePatientNextReview } from "@/lib/queries/medication-reviews";
 import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +40,7 @@ export function MedicationsList({
   refillCoordinationEnabled,
   canConfirmRefill = false,
   canStop = false,
+  canAmend = false,
   isClinicianView = false,
 }: {
   patientId: string;
@@ -52,6 +59,11 @@ export function MedicationsList({
    * the real permission — the patient may stop their own self-/specialist-
    * sourced rows; a clinician row needs prescribing authority. */
   canStop?: boolean;
+  /** Renders the "Amend" control on the status trail (clinician view only —
+   * spec §62.14). private.has_prescribing_authority is the real gate; this
+   * only decides whether the control renders. Never true for the patient's
+   * own view — only clinical staff may amend a signed prescription. */
+  canAmend?: boolean;
   /**
    * A clinician/staff member viewing a patient's chart, not the patient's
    * own dashboard — this component is shared between both (see clinician/
@@ -68,6 +80,8 @@ export function MedicationsList({
   // Only needed for the clinician-view status trail — empty patientId keeps
   // the query disabled (see `enabled: !!patientId`) on the patient's own view.
   const { data: collections } = useMedicationCollections(isClinicianView ? patientId : "");
+  // Only needed for the patient's own "request next supply" control.
+  const { data: repeatRequests } = useMedicationRepeatRequests(!isClinicianView ? patientId : "");
 
   return (
     <Card>
@@ -155,7 +169,12 @@ export function MedicationsList({
                   )}
                   {isClinicianView ? (
                     medication.source === "clinician" && (
-                      <PrescriptionStatusTrail medication={medication} collections={collections ?? []} />
+                      <PrescriptionStatusTrail
+                        medication={medication}
+                        collections={collections ?? []}
+                        patientId={patientId}
+                        canAmend={canAmend}
+                      />
                     )
                   ) : (
                     // Buy anywhere, tell us afterwards. Ungated: knowing
@@ -163,6 +182,15 @@ export function MedicationsList({
                     // safety signal, not a paid feature.
                     <MedicationCollectionForm medication={medication} patientId={patientId} />
                   )}
+                  {!isClinicianView &&
+                    medication.source === "clinician" &&
+                    medication.repeats_allowed > 0 && (
+                      <RepeatRequestControl
+                        medication={medication}
+                        patientId={patientId}
+                        requests={repeatRequests ?? []}
+                      />
+                    )}
                   {canStop && (
                     <StopMedicationForm medication={medication} patientId={patientId} />
                   )}
@@ -257,10 +285,15 @@ function CabinetSummary({ patientId }: { patientId: string }) {
 function PrescriptionStatusTrail({
   medication,
   collections,
+  patientId,
+  canAmend,
 }: {
   medication: MedicationWithCarePlan;
   collections: MedicationCollection[];
+  patientId: string;
+  canAmend: boolean;
 }) {
+  const [amending, setAmending] = useState(false);
   const latestCollection = collections
     .filter((c) => c.medication_id === medication.id)
     .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))[0];
@@ -277,7 +310,9 @@ function PrescriptionStatusTrail({
         day: "numeric",
         month: "short",
         year: "numeric",
-      })}`,
+      })}${medication.rx_number ? ` · ${medication.rx_number}` : ""}${
+        medication.version > 1 ? ` · v${medication.version}` : ""
+      }`,
     },
     {
       label: "Patient notified",
@@ -302,22 +337,49 @@ function PrescriptionStatusTrail({
     },
   ];
 
+  const expiresAt = medication.expires_at ? new Date(medication.expires_at) : null;
+  const isExpired = !!expiresAt && expiresAt.getTime() < new Date().getTime();
+
   return (
-    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-      {steps.map((step) => (
-        <span key={step.label} className="inline-flex items-center gap-1.5">
-          <span
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-              step.done ? "bg-brand-green" : "bg-charcoal-ink/20"
-            }`}
-            aria-hidden="true"
-          />
-          <span className={step.done ? "text-charcoal-ink/70" : "text-charcoal-ink/40"}>
-            {step.label} · {step.detail}
+    <>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        {expiresAt && (
+          <span className={isExpired ? "text-red-700" : "text-charcoal-ink/50"}>
+            {isExpired ? "Expired" : "Valid until"}{" "}
+            {expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
           </span>
-        </span>
-      ))}
-    </div>
+        )}
+        {steps.map((step) => (
+          <span key={step.label} className="inline-flex items-center gap-1.5">
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                step.done ? "bg-brand-green" : "bg-charcoal-ink/20"
+              }`}
+              aria-hidden="true"
+            />
+            <span className={step.done ? "text-charcoal-ink/70" : "text-charcoal-ink/40"}>
+              {step.label} · {step.detail}
+            </span>
+          </span>
+        ))}
+        {canAmend && !amending && (
+          <button
+            type="button"
+            onClick={() => setAmending(true)}
+            className="text-charcoal-ink/50 underline hover:text-charcoal-ink"
+          >
+            Amend
+          </button>
+        )}
+      </div>
+      {canAmend && amending && (
+        <AmendMedicationForm
+          medication={medication}
+          patientId={patientId}
+          onDone={() => setAmending(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -440,6 +502,67 @@ function StopMedicationForm({
   );
 }
 
+/**
+ * "I need my next supply" (spec §62.11) — shown only for a clinician-issued
+ * prescription with repeats remaining. Every request needs clinical review
+ * (20260829011000_medication_repeat_requests.sql — no auto-approve path), so
+ * this only ever offers "Request" or shows the latest request's outcome, it
+ * never claims a repeat is ready before a clinician has said so.
+ */
+function RepeatRequestControl({
+  medication,
+  patientId,
+  requests,
+}: {
+  medication: MedicationWithCarePlan;
+  patientId: string;
+  requests: MedicationRepeatRequest[];
+}) {
+  const requestRepeat = useRequestMedicationRepeat();
+  const latest = requests
+    .filter((r) => r.medication_id === medication.id)
+    .sort((a, b) => (a.requested_at < b.requested_at ? 1 : -1))[0];
+
+  if (latest?.status === "pending") {
+    return (
+      <p className="mt-1 text-xs text-charcoal-ink/60">
+        Next supply requested {new Date(latest.requested_at).toLocaleDateString()} · awaiting review
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-1 space-y-1">
+      {latest?.status === "approved" && (
+        <p className="text-xs text-brand-green">
+          Approved {new Date(latest.reviewed_at ?? latest.requested_at).toLocaleDateString()} — you can
+          collect your next supply.
+        </p>
+      )}
+      {latest?.status === "denied" && (
+        <p className="text-xs text-red-700">
+          Request declined{latest.denial_reason ? `: ${latest.denial_reason}` : ""}
+        </p>
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs text-charcoal-ink/70"
+        disabled={requestRepeat.isPending}
+        onClick={() => requestRepeat.mutate({ medicationId: medication.id, patientId })}
+      >
+        {requestRepeat.isPending ? "Requesting…" : "Request next supply"}
+      </Button>
+      {requestRepeat.isError && (
+        <p className="text-xs text-red-600">
+          {(requestRepeat.error as Error).message || "Could not request a repeat."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Collapsible medication history — stopped/switched drugs with when + why. */
 function PastMedications({ patientId }: { patientId: string }) {
   const [open, setOpen] = useState(false);
@@ -468,11 +591,28 @@ function PastMedications({ patientId }: { patientId: string }) {
                 {medication.dose ? `, ${medication.dose}` : ""}
               </p>
               <p className="text-xs text-charcoal-ink/50">
-                Stopped
-                {medication.stopped_at
-                  ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
-                  : ""}
-                {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
+                {/* An amended prescription (spec §62.14) is superseded, not
+                    stopped — it must never read as "discontinued"/"cancelled",
+                    which would misrepresent a still-active course of
+                    treatment that only changed dose/instructions/etc. (the
+                    same "never falsely imply not supplied" spirit as §62.13).
+                    amendment_reason lives on the NEW version's row (visible
+                    in the active list above), not this superseded one, so
+                    it isn't repeated here. */}
+                {medication.superseded_at ? (
+                  <>
+                    Replaced by an updated prescription
+                    {` ${new Date(medication.superseded_at).toLocaleDateString()}`}
+                  </>
+                ) : (
+                  <>
+                    Stopped
+                    {medication.stopped_at
+                      ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
+                      : ""}
+                    {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
+                  </>
+                )}
               </p>
             </li>
           ))}
