@@ -49,13 +49,14 @@ export default async function OpsConsolePage() {
   const supabase = await createClient();
   const [summaryRes, queueRes, healthRes] = await Promise.all([
     supabase.rpc("ops_today_summary"),
-    supabase.rpc("ops_exception_queue", { p_domain: null, p_limit: 200 }),
+    supabase.rpc("ops_exception_queue", { p_domain: undefined, p_limit: 200 }),
     supabase.rpc("ops_system_health"),
   ]);
 
   const summary = (summaryRes.data ?? {}) as Partial<OpsTodaySummary>;
   const queue = (queueRes.data ?? []) as OpsExceptionRow[];
-  const health = (healthRes.data?.components ?? []) as SystemHealthComponent[];
+  const healthData = healthRes.data as { components?: SystemHealthComponent[] } | null;
+  const health = healthData?.components ?? [];
 
   const n = (v: number | undefined) => formatNumber(v ?? 0);
 

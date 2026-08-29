@@ -85,7 +85,7 @@ export function ExceptionQueue({ initialRows }: { initialRows: OpsExceptionRow[]
     startTransition(async () => {
       const supabase = createClient();
       const { data } = await supabase.rpc("ops_exception_queue", {
-        p_domain: next === "all" ? null : next,
+        p_domain: next === "all" ? undefined : next,
         p_limit: 200,
       });
       setRows((data ?? []) as OpsExceptionRow[]);

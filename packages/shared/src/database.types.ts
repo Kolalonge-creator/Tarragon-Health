@@ -6025,6 +6025,98 @@ export type Database = {
           },
         ]
       }
+      feature_flag_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effect: string
+          flag_key: string
+          id: string
+          kind: Database["public"]["Enums"]["feature_flag_rule_kind"]
+          note: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effect?: string
+          flag_key: string
+          id?: string
+          kind: Database["public"]["Enums"]["feature_flag_rule_kind"]
+          note?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effect?: string
+          flag_key?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["feature_flag_rule_kind"]
+          note?: string | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_flag_rules_flag_key_fkey"
+            columns: ["flag_key"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      feature_flags: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          key: string
+          label: string
+          rollout_percent: number
+          status: Database["public"]["Enums"]["feature_flag_status"]
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          key: string
+          label: string
+          rollout_percent?: number
+          status?: Database["public"]["Enums"]["feature_flag_status"]
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          key?: string
+          label?: string
+          rollout_percent?: number
+          status?: Database["public"]["Enums"]["feature_flag_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fhir_import_batches: {
         Row: {
           api_key_id: string
@@ -11251,6 +11343,224 @@ export type Database = {
           {
             foreignKeyName: "obesity_ed_screens_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_incident_sla_targets: {
+        Row: {
+          ack_minutes: number
+          description: string | null
+          resolve_minutes: number
+          severity: Database["public"]["Enums"]["ops_incident_severity"]
+          updated_at: string
+        }
+        Insert: {
+          ack_minutes: number
+          description?: string | null
+          resolve_minutes: number
+          severity: Database["public"]["Enums"]["ops_incident_severity"]
+          updated_at?: string
+        }
+        Update: {
+          ack_minutes?: number
+          description?: string | null
+          resolve_minutes?: number
+          severity?: Database["public"]["Enums"]["ops_incident_severity"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ops_incident_updates: {
+        Row: {
+          author_id: string | null
+          created_at: string
+          id: string
+          incident_id: string
+          note: string
+          status_from: Database["public"]["Enums"]["ops_incident_status"] | null
+          status_to: Database["public"]["Enums"]["ops_incident_status"] | null
+        }
+        Insert: {
+          author_id?: string | null
+          created_at?: string
+          id?: string
+          incident_id: string
+          note: string
+          status_from?:
+            | Database["public"]["Enums"]["ops_incident_status"]
+            | null
+          status_to?: Database["public"]["Enums"]["ops_incident_status"] | null
+        }
+        Update: {
+          author_id?: string | null
+          created_at?: string
+          id?: string
+          incident_id?: string
+          note?: string
+          status_from?:
+            | Database["public"]["Enums"]["ops_incident_status"]
+            | null
+          status_to?: Database["public"]["Enums"]["ops_incident_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_incident_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incident_updates_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "ops_incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_incidents: {
+        Row: {
+          ack_due_at: string
+          acknowledged_at: string | null
+          category: Database["public"]["Enums"]["ops_incident_category"]
+          clinical_incident_report_id: string | null
+          clinician_alert_id: string | null
+          closed_at: string | null
+          corrective_action: string | null
+          created_at: string
+          data_breach_incident_id: string | null
+          detected_at: string
+          external_reference: string | null
+          id: string
+          impact: string | null
+          mitigated_at: string | null
+          organisation_id: string | null
+          owner_id: string | null
+          patients_affected: number | null
+          preventive_action: string | null
+          reference: string
+          regulatory_body: string | null
+          regulatory_notified_at: string | null
+          reported_by: string | null
+          requires_regulatory_notification: boolean
+          resolve_due_at: string
+          resolved_at: string | null
+          root_cause: string | null
+          severity: Database["public"]["Enums"]["ops_incident_severity"]
+          status: Database["public"]["Enums"]["ops_incident_status"]
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ack_due_at: string
+          acknowledged_at?: string | null
+          category: Database["public"]["Enums"]["ops_incident_category"]
+          clinical_incident_report_id?: string | null
+          clinician_alert_id?: string | null
+          closed_at?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          data_breach_incident_id?: string | null
+          detected_at?: string
+          external_reference?: string | null
+          id?: string
+          impact?: string | null
+          mitigated_at?: string | null
+          organisation_id?: string | null
+          owner_id?: string | null
+          patients_affected?: number | null
+          preventive_action?: string | null
+          reference?: string
+          regulatory_body?: string | null
+          regulatory_notified_at?: string | null
+          reported_by?: string | null
+          requires_regulatory_notification?: boolean
+          resolve_due_at: string
+          resolved_at?: string | null
+          root_cause?: string | null
+          severity: Database["public"]["Enums"]["ops_incident_severity"]
+          status?: Database["public"]["Enums"]["ops_incident_status"]
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ack_due_at?: string
+          acknowledged_at?: string | null
+          category?: Database["public"]["Enums"]["ops_incident_category"]
+          clinical_incident_report_id?: string | null
+          clinician_alert_id?: string | null
+          closed_at?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          data_breach_incident_id?: string | null
+          detected_at?: string
+          external_reference?: string | null
+          id?: string
+          impact?: string | null
+          mitigated_at?: string | null
+          organisation_id?: string | null
+          owner_id?: string | null
+          patients_affected?: number | null
+          preventive_action?: string | null
+          reference?: string
+          regulatory_body?: string | null
+          regulatory_notified_at?: string | null
+          reported_by?: string | null
+          requires_regulatory_notification?: boolean
+          resolve_due_at?: string
+          resolved_at?: string | null
+          root_cause?: string | null
+          severity?: Database["public"]["Enums"]["ops_incident_severity"]
+          status?: Database["public"]["Enums"]["ops_incident_status"]
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_incidents_clinical_incident_report_id_fkey"
+            columns: ["clinical_incident_report_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_incident_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_data_breach_incident_id_fkey"
+            columns: ["data_breach_incident_id"]
+            isOneToOne: false
+            referencedRelation: "data_breach_incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_reported_by_fkey"
+            columns: ["reported_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -19019,6 +19329,12 @@ export type Database = {
         Returns: Json
       }
       open_health_check: { Args: never; Returns: string }
+      ops_exception_queue: {
+        Args: { p_domain?: string; p_limit?: number }
+        Returns: Json
+      }
+      ops_system_health: { Args: never; Returns: Json }
+      ops_today_summary: { Args: never; Returns: Json }
       patient_health_reset_progress: {
         Args: never
         Returns: {
@@ -19885,6 +20201,12 @@ export type Database = {
         | "paternal_grandfather"
         | "aunt_or_uncle"
         | "other"
+      feature_flag_rule_kind:
+        | "profile"
+        | "state"
+        | "account_role"
+        | "organisation"
+      feature_flag_status: "off" | "rollout" | "on" | "archived"
       fhir_import_resource_status:
         | "proposed"
         | "confirmed"
@@ -20082,6 +20404,20 @@ export type Database = {
         | "obesity_class_iii"
       obesity_clinical_status: "preclinical" | "clinical"
       obesity_waist_risk: "normal" | "raised" | "high"
+      ops_incident_category:
+        | "clinical"
+        | "technical"
+        | "privacy"
+        | "security"
+        | "financial"
+        | "operational"
+      ops_incident_severity: "sev1" | "sev2" | "sev3" | "sev4"
+      ops_incident_status:
+        | "open"
+        | "investigating"
+        | "mitigated"
+        | "resolved"
+        | "closed"
       organisation_type:
         | "clinic"
         | "hmo"
@@ -20811,6 +21147,13 @@ export const Constants = {
         "aunt_or_uncle",
         "other",
       ],
+      feature_flag_rule_kind: [
+        "profile",
+        "state",
+        "account_role",
+        "organisation",
+      ],
+      feature_flag_status: ["off", "rollout", "on", "archived"],
       fhir_import_resource_status: [
         "proposed",
         "confirmed",
@@ -21030,6 +21373,22 @@ export const Constants = {
       ],
       obesity_clinical_status: ["preclinical", "clinical"],
       obesity_waist_risk: ["normal", "raised", "high"],
+      ops_incident_category: [
+        "clinical",
+        "technical",
+        "privacy",
+        "security",
+        "financial",
+        "operational",
+      ],
+      ops_incident_severity: ["sev1", "sev2", "sev3", "sev4"],
+      ops_incident_status: [
+        "open",
+        "investigating",
+        "mitigated",
+        "resolved",
+        "closed",
+      ],
       organisation_type: [
         "clinic",
         "hmo",

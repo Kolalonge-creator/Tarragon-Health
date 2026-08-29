@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import type { TablesUpdate } from "@tarragon/shared";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,7 @@ export function IncidentDetail({
     setError(null);
     startTransition(async () => {
       const supabase = createClient();
-      const patch: Record<string, unknown> = { status: nextStatus };
+      const patch: TablesUpdate<"ops_incidents"> = { status: nextStatus };
       // resolved/closed require root_cause on file — save it in the same
       // write so the DB check constraint never rejects the transition.
       if (nextStatus === "resolved" || nextStatus === "closed") {
@@ -201,7 +202,7 @@ export function IncidentDetail({
     setError(null);
     startTransition(async () => {
       const supabase = createClient();
-      const patch: Record<string, unknown> = { requires_regulatory_notification: requires };
+      const patch: TablesUpdate<"ops_incidents"> = { requires_regulatory_notification: requires };
       if (requires) {
         if (!regBody.trim()) {
           setError("Name the regulatory body before marking this as reportable.");

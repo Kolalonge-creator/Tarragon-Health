@@ -152,6 +152,11 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: OpsIncidentRow) => vo
                     summary: summary.trim() || null,
                     reported_by: user?.id ?? null,
                     owner_id: user?.id ?? null,
+                    // private.ops_incident_set_sla (BEFORE INSERT) always
+                    // overwrites these from severity — placeholders just
+                    // satisfy the NOT NULL column type.
+                    ack_due_at: new Date().toISOString(),
+                    resolve_due_at: new Date().toISOString(),
                   })
                   .select(
                     "id, reference, category, severity, status, title, summary, detected_at, ack_due_at, resolve_due_at, acknowledged_at, resolved_at, closed_at, owner_id, requires_regulatory_notification"
