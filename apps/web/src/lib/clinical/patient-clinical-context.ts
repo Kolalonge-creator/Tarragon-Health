@@ -10,6 +10,11 @@ import {
   type SafetyReport,
 } from "@/lib/rules/drug-safety";
 import { analyseRecord, type TrendFinding } from "@/lib/rules/longitudinal";
+import {
+  medicationEffectivenessVitalType,
+  computeMedicationEffectiveness,
+  type MedicationEffectivenessSummary,
+} from "@/lib/rules/medication-effectiveness";
 
 /**
  * Assembles the two things the new clinical engines need from the record, in
@@ -276,4 +281,62 @@ export async function assessMedicationSafetyBestEffort(
     // failure of the medication add itself. The safety panel still shows
     // the finding even when this best-effort alert couldn't be raised.
   }
+}
+
+export interface MedicationEffectivenessView {
+  medicationId: string;
+  drugName: string;
+  /** medications.created_at — the platform has no dedicated start_date column; this is the same proxy PrescriptionStatusTrail already uses for "Signed". */
+  startedAt: string;
+  /** Null means not enough readings on both sides of the start date yet — see computeMedicationEffectiveness. */
+  summary: MedicationEffectivenessSummary | null;
+}
+
+/**
+ * Medication safety pathway 64.11 — a per-patient before/after view for
+ * each active BP/glucose medication (see medication-effectiveness.ts for
+ * why the scope stops there). Reads the caller's own RLS-scoped client, so
+ * this returns the same answer whether a clinician or the patient
+ * themselves is asking.
+ */
+export async function loadMedicationEffectiveness(
+  supabase: SupabaseClient<Database>,
+  patientId: string,
+): Promise<MedicationEffectivenessView[]> {
+  const { data: medications } = await supabase
+    .from("medications")
+    .select("id, drug_name, created_at")
+    .eq("patient_id", patientId)
+    .eq("is_active", true);
+
+  const relevant = (medications ?? [])
+    .map((m) => ({ ...m, vitalType: medicationEffectivenessVitalType(m.drug_name) }))
+    .filter((m): m is typeof m & { vitalType: NonNullable<typeof m.vitalType> } => m.vitalType !== null);
+
+  if (relevant.length === 0) return [];
+
+  const vitalTypes = [...new Set(relevant.map((m) => m.vitalType))];
+  const { data: readings } = await supabase
+    .from("vitals_readings")
+    .select("vital_type, systolic, diastolic, glucose_mmol_l, taken_at")
+    .eq("patient_id", patientId)
+    .in("vital_type", vitalTypes)
+    .order("taken_at", { ascending: true });
+
+  return relevant.map((m) => {
+    const readingsForType = (readings ?? [])
+      .filter((r) => r.vital_type === m.vitalType)
+      .map((r) => ({
+        takenAt: r.taken_at,
+        systolic: r.systolic,
+        diastolic: r.diastolic,
+        glucoseMmolL: r.glucose_mmol_l,
+      }));
+    return {
+      medicationId: m.id,
+      drugName: m.drug_name,
+      startedAt: m.created_at,
+      summary: computeMedicationEffectiveness(m.vitalType, m.created_at, readingsForType),
+    };
+  });
 }

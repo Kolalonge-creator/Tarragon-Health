@@ -9257,6 +9257,58 @@ export type Database = {
           },
         ]
       }
+      medication_dose_reminders: {
+        Row: {
+          id: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          scheduled_for_date: string
+          scheduled_time: string
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          scheduled_for_date: string
+          scheduled_time: string
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          scheduled_for_date?: string
+          scheduled_time?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_dose_reminders_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_dose_reminders_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_dose_reminders_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_lab_monitoring: {
         Row: {
           completed_at: string | null
@@ -9466,6 +9518,70 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_reconciliations: {
+        Row: {
+          created_at: string
+          id: string
+          medications_snapshot: Json
+          organisation_id: string
+          patient_confirmed_at: string | null
+          patient_id: string
+          patient_note: string | null
+          reconciled_at: string | null
+          reconciled_by: string | null
+          reconciliation_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          medications_snapshot?: Json
+          organisation_id: string
+          patient_confirmed_at?: string | null
+          patient_id: string
+          patient_note?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          medications_snapshot?: Json
+          organisation_id?: string
+          patient_confirmed_at?: string | null
+          patient_id?: string
+          patient_note?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_reconciliations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_reconciliations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_reconciliations_reconciled_by_fkey"
+            columns: ["reconciled_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
         ]
