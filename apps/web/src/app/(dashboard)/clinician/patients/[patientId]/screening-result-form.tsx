@@ -208,6 +208,11 @@ export function ScreeningResultForm({
             </div>
           )}
 
+          <div className="space-y-1.5">
+            <Label htmlFor="laboratory">Laboratory (optional)</Label>
+            <Input id="laboratory" name="laboratory" placeholder="e.g. Synlab Nigeria" />
+          </div>
+
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && <p className="text-sm text-brand-green">Result recorded.</p>}
           <Button type="submit" disabled={pending}>
