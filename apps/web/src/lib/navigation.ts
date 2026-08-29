@@ -223,6 +223,18 @@ export function getNavSections(
                 { label: "Incident reports", href: "/clinician/incident-reports", icon: "warning" },
               ],
             },
+            // Only reachable for a Coordinator holding a delegated
+            // ops.console.view/incidents.* grant (e.g. the "Customer support
+            // administrator" or "Provider network administrator" role
+            // presets) — the pages self-gate, so this link is always safe to
+            // show, same pattern as every other admin-area nav entry.
+            {
+              label: "Operations",
+              items: [
+                { label: "Operations console", href: "/admin/ops", icon: "operations" },
+                { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+              ],
+            },
           ]
         : [
             {
@@ -278,12 +290,23 @@ export function getNavSections(
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },
+            // Only reachable for a clinician holding a delegated
+            // ops.console.view/incidents.* grant (the "Clinical
+            // administrator" role preset) — self-gated, safe to always show.
+            {
+              label: "Operations administration",
+              items: [
+                { label: "Operations console", href: "/admin/ops", icon: "operations" },
+                { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+              ],
+            },
           ];
     case "admin":
       return [
         {
           items: [
             { label: "Dashboard", href: "/admin", icon: "dashboard", exact: true },
+            { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Analytics", href: "/analytics", icon: "analytics" },
           ],
         },
@@ -297,6 +320,8 @@ export function getNavSections(
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             { label: "Service regions", href: "/admin/settings/service-regions", icon: "region" },
             { label: "Company & legal profile", href: "/admin/settings/company-profile", icon: "corporate" },
+            { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
         {
@@ -368,6 +393,19 @@ export function getNavSections(
             icon: s.icon,
           })),
         })),
+        // Only reachable for an analyst-based account holding a delegated
+        // grant (the "Technical administrator" or "Data & analytics
+        // administrator" role presets carry ops.console.view/incidents.*;
+        // only Technical administrator carries feature_flags.manage) —
+        // self-gated, safe to always show.
+        {
+          label: "Platform operations",
+          items: [
+            { label: "Operations console", href: "/admin/ops", icon: "operations" },
+            { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
+          ],
+        },
       ];
     case "finance":
       return [
@@ -390,6 +428,15 @@ export function getNavSections(
           items: [
             { label: "Approvals", href: "/finance/approvals", icon: "approvals" },
             { label: "Audit log", href: "/finance/audit", icon: "audit" },
+          ],
+        },
+        // Only reachable for a Finance administrator holding the delegated
+        // ops.console.view/incidents.* grant — self-gated, safe to show.
+        {
+          label: "Operations",
+          items: [
+            { label: "Operations console", href: "/admin/ops", icon: "operations" },
+            { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
           ],
         },
         {
