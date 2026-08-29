@@ -90,6 +90,17 @@ export function getNavSections(
                 primary: true,
                 shortLabel: "Payments",
               },
+              // A supporter's money is not always aimed at one linked person —
+              // a diaspora hometown association funding a village screening day
+              // is the same "I pay, they receive" shape as People you support,
+              // just for a group instead of one named relative.
+              {
+                label: "Group screening days",
+                href: "/patient/screening-days",
+                icon: "booking",
+                primary: true,
+                shortLabel: "Screening",
+              },
             ],
           },
         ];
@@ -175,6 +186,7 @@ export function getNavSections(
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
           ],
         },
         {
@@ -306,6 +318,7 @@ export function getNavSections(
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
             { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
             { label: "Care vouchers", href: "/admin/settings/vouchers", icon: "payables" },
+            { label: "Group screening days", href: "/admin/settings/screening-days", icon: "booking" },
             { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
           ],
         },

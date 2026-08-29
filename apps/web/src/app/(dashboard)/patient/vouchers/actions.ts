@@ -13,10 +13,14 @@ export type VoucherActionState = { error?: string; message?: string } | undefine
  * Buys a year of a plan for yourself, or for someone who has linked you to
  * their care.
  *
- * The SKU is a subscription, not a test: tests are paid straight to the
- * laboratory now, so there is nothing for Tarragon to sell ahead of time
- * (public.purchase_care_voucher fails closed). A plan is different, because it
- * is the thing Tarragon actually provides.
+ * The SKU is a subscription. Corrected 2026-08-29: the sibling comment this
+ * one used to carry ("tests are paid straight to the laboratory, so there is
+ * nothing to sell ahead of time — purchase_care_voucher fails closed") was
+ * true only while every lab was self-arranged. Synlab has been a
+ * partner-billed lab since 20260821193144_switch_on_synlab.sql, so a
+ * self-bookable Synlab-priced bundle (screen_core and friends) is a real,
+ * biddable Tarragon product now — see buyHealthCheckVoucher below, which
+ * finally wires up purchase_care_voucher for exactly that case.
  *
  * The price is never taken from this form. purchase_subscription_voucher reads
  * it from the catalogue and freezes it on the voucher, so a tampered client
@@ -56,6 +60,55 @@ export async function buyCareVoucher(
   const result = data as { voucher_number?: string };
   return {
     message: `Reserved ${result.voucher_number ?? "your voucher"}. Pay for it whenever you're ready, in one go or bit by bit, and they can start their year whenever suits them.`,
+  };
+}
+
+/**
+ * Buys a named health check — a real, self-bookable, Synlab-priced panel
+ * (screen_core and friends) — for yourself or for someone who has linked you
+ * to their care, ahead of time. This is the diaspora "Gift a Health Check"
+ * flow: a supporter abroad reserves the check now, pays in GBP/USD or NGN, in
+ * one go or in instalments (payTowardVoucher, unchanged), and their parent
+ * redeems it later via RedeemVoucherButton on the annual health check page —
+ * no card of the supporter's ever needs to touch the recipient's account.
+ *
+ * public.purchase_care_voucher pins the price from panel_bundles server-side
+ * and refuses anything not self_bookable, so this cannot be used to route
+ * around a clinician-ordered test. See the migration this finally connects:
+ * supabase/migrations/20260731215226_care_vouchers_purchase_and_layaway.sql.
+ */
+export async function buyHealthCheckVoucher(
+  _prevState: VoucherActionState,
+  formData: FormData,
+): Promise<VoucherActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const beneficiaryProfileId = (formData.get("beneficiaryProfileId") as string) || user.id;
+  const panelBundleId = formData.get("panelBundleId") as string;
+  const giftMessage = ((formData.get("giftMessage") as string) || "").trim() || undefined;
+
+  if (!panelBundleId) return { error: "Choose which health check you'd like to buy." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("purchase_care_voucher", {
+    p_beneficiary: beneficiaryProfileId,
+    p_panel_bundle_id: panelBundleId,
+    p_gift_message: giftMessage,
+  });
+
+  if (error) {
+    return {
+      error:
+        error.code === "42501"
+          ? "You can only buy a health check for yourself or someone who has linked you to their care."
+          : error.message,
+    };
+  }
+
+  const result = data as { voucher_number?: string; sku_name?: string };
+  return {
+    message: `Reserved ${result.sku_name ?? "a health check"} (${result.voucher_number ?? "voucher"}). Pay for it whenever you're ready, in one go or bit by bit, and they can book it whenever suits them.`,
   };
 }
 

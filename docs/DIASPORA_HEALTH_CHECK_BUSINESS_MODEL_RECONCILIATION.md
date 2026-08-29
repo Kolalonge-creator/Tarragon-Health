@@ -73,21 +73,33 @@ All four building blocks are real and live:
 3. The homepage's `?channel=diaspora` hero variant (`(marketing)/_content/channel-heroes.ts`)
    currently sends its CTA to `/pricing` — a subscription price list, not a gift flow. Repoint it
    once the above exists.
-4. **A live bug surfaced while checking this, needs a founder decision before it's touched:**
-   `private.handle_screen_tier_resulted()` (the trigger that's supposed to auto-book the doctor
-   video consult when a screening panel's results come back) still hardcodes
-   `v_bundle_code in ('screen_core', 'screen_advanced', 'screen_comprehensive')` and only inserts
-   a `video_consultations` row when the code is specifically `screen_comprehensive`. The Aug 21
-   tier restructure **deactivated `screen_comprehensive`** and made `screen_core` (₦227,500) the
-   new flagship self-bookable tier — so completing today's actual top-tier annual health check no
-   longer auto-books a video consult. `screen_core`'s own live description still says "A doctor
-   reads every result with you," which is ambiguous between a live video consult and the
-   asynchronous doctor-review pipeline built the same week as clinical-intelligence-core
-   (lab-report extraction, clinician alerts on abnormal values). **This determines whether "gift a
-   SYNLAB test + video consult" is even an accurate description of what `screen_core` delivers
-   today** — worth a direct founder answer (intentional shift to async review, or a regression
-   from the restructure that should re-fire the trigger on `screen_core`) before wiring the gift
-   flow's copy or before touching the trigger function itself. Not fixed in this pass on purpose.
+4. **Resolved 2026-08-29 — vestigial dead code, not a broken promise.** `private.handle_screen_tier_resulted()`
+   still hardcodes `v_bundle_code in ('screen_core', 'screen_advanced', 'screen_comprehensive')`
+   and only inserts a `video_consultations` row when the code is specifically
+   `screen_comprehensive` — dead since the Aug 21 tier restructure deactivated that bundle. This
+   was flagged above as needing a founder call before being touched. Investigation found it
+   doesn't need one: nothing user-facing was ever depending on that insert for `screen_core`. The
+   real, complete, already-shipped mechanism behind `screen_core`'s "a doctor reads every result
+   with you" is the `annual_health_checks` async review pipeline — a clinician "Review &
+   communicate" step (`health-check-review.tsx` → `completeHealthCheckReview`) that writes a
+   `review_summary`, gated on a red-flag attestation, surfaced to the patient with reviewer
+   attribution and a downloadable PDF (`patient/health-check/page.tsx`) — plus the separate
+   abnormal-result escalation path (clinician alert + WhatsApp, unaffected by any of this). Every
+   patient-facing surface (booking copy, the results page, `pricing.ts`, `annual-health-check/`)
+   already ties "15-minute doctor video consult" only to the dormant Comprehensive tier and
+   describes Core Screen as a written, clinician-reviewed report — so the live copy already
+   matches the live behaviour; the dead trigger branch just never got removed in the same pass
+   that fixed the identical hardcoded-list pattern in two sibling trigger functions. **Left as
+   found (not deleted) since it's inert, not incorrect** — a cleanup pass can drop the dead branch
+   whenever someone is next in that function for another reason.
+   **Consequence for the gift flow (§1's build plan, in progress):** a "Gift a Health Check"
+   product should not claim a bundled video consult, because `screen_core` doesn't have one and
+   inventing one would be the exact kind of overclaim the self-arranged-fulfilment marketing sweep
+   spent an entire pass removing. The correct honest assembly is the panel voucher (async
+   clinician review, matches what's real) plus the already-real, already-standalone
+   `video_visit_requests`/`general_checkin` product offered as a separate, optional add-on — which
+   also happens to satisfy the original pitch's "test + video consult" framing without
+   misrepresenting either product.
 
 ## §2 — Group/community screening days: genuinely unbuilt
 
@@ -97,24 +109,46 @@ concept: none exists. What's there is `employer_roster_members`
 staff add phone numbers one at a time, each employee self-claims at their own signup. That is not
 "bring 30 people, get a discounted rate, we send the phlebotomist and do video consults after."
 
-This is a real net-new feature, not an assembly job, and it raises product questions worth
-answering before writing schema: who creates a screening day (a corporate/church/association
-admin, or Tarragon ops on their behalf?), how is the bulk discount rate expressed (a flat % off
-`screen_core`/`know_your_basics`, or a separate negotiated SKU?), does payment happen upfront by
-one payer for the whole cohort or per-attendee on the day, and does phlebotomist dispatch need
-new scheduling infrastructure or is it operationally manual for now (a person is told "be at X
-church on Y date," no in-app logistics). None of these are guarded by CLAUDE.md's Phase 2/3
-restrictions (those cover the specialist-matching engine, the wellness-testing catalogue, and
-Employer/HMO risk dashboards — this is closer to the already-built employer roster, just
-group-oriented instead of individual), but the shape of the feature genuinely depends on answers
-only the founder has. Not started in this pass.
+This is a real net-new feature, not an assembly job. Founder decisions on 2026-08-29 (recorded
+here rather than re-litigated in a future session):
+
+- **Who creates a screening day: both.** A self-serve request path (any authenticated user
+  submits host/date/location/headcount) AND a manual ops-created path (staff sets one up directly
+  after a phone/WhatsApp negotiation). Modelled as one RPC pair rather than two features — a
+  request row either comes in through self-serve or is inserted directly by staff, then staff
+  confirm either way.
+- **Discount: a flat percentage off an existing self-bookable panel bundle** (e.g. `screen_core`
+  or `know_your_basics`), not a separately negotiated per-event rate. Reuses the existing
+  `panel_bundles` price list rather than inventing a parallel one.
+- **Payment: one payer covers the whole cohort upfront.** Matches the pitch's own "cash upfront,
+  no procurement cycle" framing — a single bulk charge before the event, not per-attendee payment
+  on the day.
+- **Logistics: booking only.** Phlebotomist dispatch (actually getting Synlab's phlebotomist to
+  the venue) stays a manual ops task outside the app, matching how lab-order transmission to
+  Synlab already works today (`public.mark_lab_order_transmitted` records a reference; nothing
+  automated contacts the lab).
+
+**Design chosen to minimise new plumbing:** reuse `care_vouchers` for the actual per-attendee
+entitlement rather than inventing a second prepaid-service concept. A new `screening_days` header
+row holds the event/discount/bulk-payment bookkeeping (mirrors the bulk-payment side of
+`care_voucher_payments`'s AFTER-INSERT-trigger-on-`payment_transactions` pattern, so no Edge
+Function needs redeploying), and a `screening_days_slots` table pre-registers attendees by
+name/phone the same way `employer_roster_members` already does. Once an attendee has (or gets) a
+real Tarragon profile, staff issue them one ordinary `care_vouchers` row — already fully paid,
+because the group's bulk payment covers it — through the exact same non-transferable,
+single-purpose, price-frozen machinery every other voucher uses. This does not weaken the
+voucher's non-transferability guarantee: each one is still issued to one named, real beneficiary
+and immutable from that point on; it only changes where the money came from.
+
+None of this is guarded by CLAUDE.md's Phase 2/3 restrictions (those cover the specialist-matching
+engine, the wellness-testing catalogue, and Employer/HMO risk dashboards — this is closer to the
+already-built employer roster, just group-oriented instead of individual, and it charges a real
+discounted price rather than adding a new commercial concept).
 
 ## Recommended next step
 
-Given 5 of 7 items need no engineering work at all, the highest-leverage next PR is §1's assembly
-work (new server action + `/gift` page addition + CTA repoints) — it's small, reuses proven
-payment/voucher code paths, and turns "the primitives all exist" into an actual product a
-diaspora Facebook group could be pointed at. It should follow, not precede, a founder answer on
-the `screen_core` video-consult question above, since that answer determines what the new gift
-option is allowed to promise. §2 (group screening days) is a separate, larger piece of work that
-needs its own scoping conversation before any schema gets written.
+Both remaining gaps are now scoped and being built in this pass: §1's assembly work (new server
+action + `/gift` page addition + CTA repoints, honestly describing the panel-plus-optional-video-
+visit combination per the resolved finding above) and §2's `screening_days`/`screening_day_slots`
+schema plus a minimal admin confirm/issue UI and self-serve request form. See git history for what
+actually landed — this doc is the reconciliation record, not a live status board.
