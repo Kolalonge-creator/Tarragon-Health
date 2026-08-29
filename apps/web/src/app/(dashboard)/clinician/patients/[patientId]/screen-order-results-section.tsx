@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ScreenOrderChecklist, type ScreenOrderChecklistItem } from "./screen-order-checklist";
 import { SCREEN_TYPE_LABELS } from "./screening-result-form";
+import { ReviewedResultLine } from "@/components/reviewed-result-line";
 
 /**
  * A Comprehensive Screen order that only lacks a dormant code already reads
@@ -64,7 +65,9 @@ export async function ScreenOrderResultsSection({ patientId }: { patientId: stri
       .in("code", allCodes),
     supabase
       .from("screening_results")
-      .select("id, screen_type_code, lab_order_id, result_status, follow_up_action")
+      .select(
+        "id, screen_type_code, lab_order_id, result_status, follow_up_action, action_type, reviewed_by, reviewed_at, patient_informed_at"
+      )
       .eq("patient_id", patientId),
   ]);
 
@@ -98,6 +101,14 @@ export async function ScreenOrderResultsSection({ patientId }: { patientId: stri
           resultId: result?.id ?? null,
           resultStatus: result?.result_status ?? null,
           followUpAction: result?.follow_up_action ?? null,
+          actionType: result?.action_type ?? null,
+          patientInformedAt: result?.patient_informed_at ?? null,
+          reviewedNode: (
+            <ReviewedResultLine
+              reviewedBy={result?.reviewed_by ?? null}
+              reviewedAt={result?.reviewed_at ?? null}
+            />
+          ),
         };
       });
 

@@ -119,7 +119,7 @@ export const screeningResultSchema = z
     // and blood_group (recorded verbatim as normal — see screeningResultSchema's
     // GENOTYPE_SCREEN_TYPES comment and the ML-side branch this depends on).
     genotype: z.string().trim().min(1).max(32).optional(),
-    procedural_status: z.enum(["normal", "borderline", "abnormal", "critical"]).optional(),
+    procedural_status: z.enum(["normal", "borderline", "indeterminate", "abnormal", "critical"]).optional(),
   })
   .superRefine((data, ctx) => {
     const code = data.screen_type_code;
