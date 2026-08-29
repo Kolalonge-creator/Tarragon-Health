@@ -23,7 +23,13 @@ declare
   v_director_prof uuid;
   v_reporter_prof uuid;
   v_admin_count   int;
-  v_director_id   uuid;
+  -- The trigger's own recipient query is `select director profile_ids ...
+  -- union select admin ids ...` -- UNION (not UNION ALL) so a person who is
+  -- BOTH the org's Clinical Director and role='admin' (a real, observed
+  -- fixture shape, not hypothetical) is notified once, not twice. The
+  -- expected count has to be computed the same way, or this test produces a
+  -- false failure whenever that overlap exists.
+  v_expected_recipients int;
   v_incident_id   uuid;
   v_notif_count   int;
   v_payload       jsonb;
@@ -40,6 +46,15 @@ begin
 
   select count(*) into v_admin_count from public.profiles where role = 'admin';
 
+  select count(*) into v_expected_recipients
+  from (
+    select cs.profile_id as id
+    from public.clinical_staff cs
+    where cs.organisation_id = v_org and cs.active and cs.is_clinical_director and cs.profile_id is not null
+    union
+    select p.id from public.profiles p where p.role = 'admin'
+  ) recipients;
+
   if v_director_prof is null or v_reporter_prof is null or v_admin_count = 0 then
     insert into test_result values (0, 'setup', 'SKIP', 'org missing a director/staff/admin fixture');
   else
@@ -54,9 +69,9 @@ begin
       and payload->>'incident_id' = v_incident_id::text;
 
     insert into test_result values (
-      1, 'high severity notifies director + admins',
-      case when v_notif_count >= 1 + v_admin_count then 'PASS' else 'FAIL' end,
-      format('expected >= %s notifications, got %s', 1 + v_admin_count, v_notif_count)
+      1, 'high severity notifies every distinct director+admin recipient',
+      case when v_notif_count = v_expected_recipients then 'PASS' else 'FAIL' end,
+      format('expected %s notifications, got %s', v_expected_recipients, v_notif_count)
     );
 
     select payload into v_payload
@@ -82,9 +97,9 @@ begin
       and payload->>'incident_id' = v_incident_id::text;
 
     insert into test_result values (
-      2, 'critical severity notifies director + admins',
-      case when v_notif_count >= 1 + v_admin_count then 'PASS' else 'FAIL' end,
-      format('expected >= %s notifications, got %s', 1 + v_admin_count, v_notif_count)
+      2, 'critical severity notifies every distinct director+admin recipient',
+      case when v_notif_count = v_expected_recipients then 'PASS' else 'FAIL' end,
+      format('expected %s notifications, got %s', v_expected_recipients, v_notif_count)
     );
 
     -- Case 3: MEDIUM/LOW/near_miss notify nobody.
