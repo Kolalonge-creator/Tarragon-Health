@@ -3391,6 +3391,488 @@ export type Database = {
           },
         ]
       }
+      clinical_rule_action_records: {
+        Row: {
+          action_payload: Json
+          action_type: Database["public"]["Enums"]["clinical_rule_action_type"]
+          clinician_override: boolean
+          created_at: string
+          execution_id: string
+          failure_detail: string | null
+          id: string
+          organisation_id: string
+          overridden_at: string | null
+          overridden_by: string | null
+          override_reason: string | null
+          patient_id: string | null
+          produced_id: string | null
+          produced_table: string | null
+          requires_clinician_oversight: boolean
+          rule_id: string
+          rule_key: string
+          status: Database["public"]["Enums"]["clinical_rule_action_status"]
+        }
+        Insert: {
+          action_payload?: Json
+          action_type: Database["public"]["Enums"]["clinical_rule_action_type"]
+          clinician_override?: boolean
+          created_at?: string
+          execution_id: string
+          failure_detail?: string | null
+          id?: string
+          organisation_id: string
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_reason?: string | null
+          patient_id?: string | null
+          produced_id?: string | null
+          produced_table?: string | null
+          requires_clinician_oversight?: boolean
+          rule_id: string
+          rule_key: string
+          status: Database["public"]["Enums"]["clinical_rule_action_status"]
+        }
+        Update: {
+          action_payload?: Json
+          action_type?: Database["public"]["Enums"]["clinical_rule_action_type"]
+          clinician_override?: boolean
+          created_at?: string
+          execution_id?: string
+          failure_detail?: string | null
+          id?: string
+          organisation_id?: string
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_reason?: string | null
+          patient_id?: string | null
+          produced_id?: string | null
+          produced_table?: string | null
+          requires_clinician_oversight?: boolean
+          rule_id?: string
+          rule_key?: string
+          status?: Database["public"]["Enums"]["clinical_rule_action_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rule_action_records_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rule_executions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_action_records_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_action_records_overridden_by_fkey"
+            columns: ["overridden_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_action_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_action_records_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_rule_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          dedup_key: string | null
+          error_detail: string | null
+          event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          id: string
+          occurred_at: string
+          organisation_id: string
+          patient_id: string | null
+          payload: Json
+          processed_at: string | null
+          source: string
+          status: Database["public"]["Enums"]["clinical_rule_event_status"]
+          subject_id: string | null
+          subject_table: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          dedup_key?: string | null
+          error_detail?: string | null
+          event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          id?: string
+          occurred_at?: string
+          organisation_id: string
+          patient_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+          source: string
+          status?: Database["public"]["Enums"]["clinical_rule_event_status"]
+          subject_id?: string | null
+          subject_table?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          dedup_key?: string | null
+          error_detail?: string | null
+          event_type?: Database["public"]["Enums"]["clinical_rule_event_type"]
+          id?: string
+          occurred_at?: string
+          organisation_id?: string
+          patient_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["clinical_rule_event_status"]
+          subject_id?: string | null
+          subject_table?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rule_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_rule_executions: {
+        Row: {
+          error_detail: string | null
+          evaluated_at: string
+          evaluation_trace: Json
+          event_id: string
+          explanation: string
+          id: string
+          mode: Database["public"]["Enums"]["clinical_rule_execution_mode"]
+          organisation_id: string
+          outcome: Database["public"]["Enums"]["clinical_rule_execution_outcome"]
+          patient_id: string | null
+          rule_id: string
+          rule_key: string
+          rule_version: number
+          superseded_by_rule_id: string | null
+          suppressed_by: string | null
+        }
+        Insert: {
+          error_detail?: string | null
+          evaluated_at?: string
+          evaluation_trace?: Json
+          event_id: string
+          explanation: string
+          id?: string
+          mode: Database["public"]["Enums"]["clinical_rule_execution_mode"]
+          organisation_id: string
+          outcome: Database["public"]["Enums"]["clinical_rule_execution_outcome"]
+          patient_id?: string | null
+          rule_id: string
+          rule_key: string
+          rule_version: number
+          superseded_by_rule_id?: string | null
+          suppressed_by?: string | null
+        }
+        Update: {
+          error_detail?: string | null
+          evaluated_at?: string
+          evaluation_trace?: Json
+          event_id?: string
+          explanation?: string
+          id?: string
+          mode?: Database["public"]["Enums"]["clinical_rule_execution_mode"]
+          organisation_id?: string
+          outcome?: Database["public"]["Enums"]["clinical_rule_execution_outcome"]
+          patient_id?: string | null
+          rule_id?: string
+          rule_key?: string
+          rule_version?: number
+          superseded_by_rule_id?: string | null
+          suppressed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rule_executions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rule_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_executions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_executions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_executions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_executions_superseded_by_rule_id_fkey"
+            columns: ["superseded_by_rule_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_rule_suppressions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          episode_key: string | null
+          hit_count: number
+          id: string
+          mechanism: string
+          organisation_id: string
+          patient_id: string | null
+          reason: string
+          rule_key: string
+          suppressed_until: string
+          suppression_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          episode_key?: string | null
+          hit_count?: number
+          id?: string
+          mechanism: string
+          organisation_id: string
+          patient_id?: string | null
+          reason: string
+          rule_key: string
+          suppressed_until: string
+          suppression_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          episode_key?: string | null
+          hit_count?: number
+          id?: string
+          mechanism?: string
+          organisation_id?: string
+          patient_id?: string | null
+          reason?: string
+          rule_key?: string
+          suppressed_until?: string
+          suppression_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rule_suppressions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_suppressions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_suppressions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_rules: {
+        Row: {
+          actions: Json
+          activated_at: string | null
+          approved_at: string | null
+          approved_by: string | null
+          category: Database["public"]["Enums"]["clinical_rule_category"]
+          conditions: Json
+          created_at: string
+          description: string
+          domain: Database["public"]["Enums"]["clinical_rule_domain"]
+          effective_from: string
+          effective_to: string | null
+          escalation: Json
+          event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          explanation_template: string
+          id: string
+          name: string
+          notes: string | null
+          organisation_id: string | null
+          owner_clinical_staff_id: string | null
+          patient_id: string | null
+          population: Json
+          priority: number
+          protocol_version_id: string | null
+          retired_at: string | null
+          retired_reason: string | null
+          rollback_reason: string | null
+          rolled_back_at: string | null
+          rule_key: string
+          specificity: number
+          status: Database["public"]["Enums"]["clinical_rule_status"]
+          supersedes_id: string | null
+          suppression: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          actions?: Json
+          activated_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          category: Database["public"]["Enums"]["clinical_rule_category"]
+          conditions?: Json
+          created_at?: string
+          description: string
+          domain: Database["public"]["Enums"]["clinical_rule_domain"]
+          effective_from?: string
+          effective_to?: string | null
+          escalation?: Json
+          event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          explanation_template: string
+          id?: string
+          name: string
+          notes?: string | null
+          organisation_id?: string | null
+          owner_clinical_staff_id?: string | null
+          patient_id?: string | null
+          population?: Json
+          priority?: number
+          protocol_version_id?: string | null
+          retired_at?: string | null
+          retired_reason?: string | null
+          rollback_reason?: string | null
+          rolled_back_at?: string | null
+          rule_key: string
+          specificity?: number
+          status?: Database["public"]["Enums"]["clinical_rule_status"]
+          supersedes_id?: string | null
+          suppression?: Json
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          actions?: Json
+          activated_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: Database["public"]["Enums"]["clinical_rule_category"]
+          conditions?: Json
+          created_at?: string
+          description?: string
+          domain?: Database["public"]["Enums"]["clinical_rule_domain"]
+          effective_from?: string
+          effective_to?: string | null
+          escalation?: Json
+          event_type?: Database["public"]["Enums"]["clinical_rule_event_type"]
+          explanation_template?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          organisation_id?: string | null
+          owner_clinical_staff_id?: string | null
+          patient_id?: string | null
+          population?: Json
+          priority?: number
+          protocol_version_id?: string | null
+          retired_at?: string | null
+          retired_reason?: string | null
+          rollback_reason?: string | null
+          rolled_back_at?: string | null
+          rule_key?: string
+          specificity?: number
+          status?: Database["public"]["Enums"]["clinical_rule_status"]
+          supersedes_id?: string | null
+          suppression?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rules_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_owner_clinical_staff_id_fkey"
+            columns: ["owner_clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_protocol_version_id_fkey"
+            columns: ["protocol_version_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_staff: {
         Row: {
           active: boolean
@@ -17908,6 +18390,53 @@ export type Database = {
       }
     }
     Functions: {
+      analytics_clinical_rule_performance: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      clinical_rule_candidates: {
+        Args: {
+          p_at?: string
+          p_event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          p_include_shadow?: boolean
+          p_organisation_id: string
+          p_patient_id?: string
+        }
+        Returns: Json
+      }
+      clinical_rule_shadow_report: {
+        Args: { p_from?: string; p_rule_key: string; p_to?: string }
+        Returns: Json
+      }
+      override_clinical_rule_action: {
+        Args: { p_action_id: string; p_reason: string }
+        Returns: string
+      }
+      promote_clinical_rule_to_shadow: {
+        Args: { p_id: string }
+        Returns: string
+      }
+      retire_clinical_rule: {
+        Args: { p_id: string; p_reason: string }
+        Returns: string
+      }
+      rollback_clinical_rule: {
+        Args: { p_reason: string; p_rule_key: string; p_to_version: number }
+        Returns: string
+      }
+      sign_clinical_rule: {
+        Args: { p_activate?: boolean; p_id: string }
+        Returns: string
+      }
+      suppress_clinical_rule_for_patient: {
+        Args: {
+          p_patient_id: string
+          p_reason: string
+          p_rule_key: string
+          p_until: string
+        }
+        Returns: string
+      }
       accept_video_visit_request: {
         Args: { p_request_id: string }
         Returns: string
@@ -19792,7 +20321,86 @@ export type Database = {
         | "not_yet_established"
       chronic_enrolment_source: "recommended" | "staff" | "clinician"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
-      clinical_severity: "mild" | "moderate" | "severe"
+clinical_rule_action_status:
+        | "emitted"
+        | "shadow_recorded"
+        | "awaiting_oversight"
+        | "skipped"
+        | "failed"
+      clinical_rule_action_type:
+        | "notification"
+        | "task"
+        | "appointment_recommendation"
+        | "monitoring_schedule"
+        | "education_recommendation"
+        | "referral_recommendation"
+        | "escalation"
+        | "care_plan_update"
+      clinical_rule_category:
+        | "preventive"
+        | "monitoring"
+        | "diagnostic"
+        | "medication"
+        | "referral"
+        | "engagement"
+        | "operational"
+      clinical_rule_domain:
+        | "hypertension"
+        | "diabetes"
+        | "asthma"
+        | "copd"
+        | "ckd"
+        | "heart_failure"
+        | "cardiovascular"
+        | "obesity"
+        | "mental_health"
+        | "maternal_health"
+        | "preventive_screening"
+        | "medication_safety"
+        | "care_coordination"
+        | "engagement"
+        | "operational"
+        | "general"
+      clinical_rule_event_status:
+        | "pending"
+        | "processing"
+        | "processed"
+        | "failed"
+        | "skipped"
+      clinical_rule_event_type:
+        | "patient_registered"
+        | "patient_enrolled_in_programme"
+        | "vital_recorded"
+        | "lab_result_received"
+        | "screening_result_received"
+        | "medication_prescribed"
+        | "medication_dispensed"
+        | "medication_dose_missed"
+        | "appointment_completed"
+        | "appointment_missed"
+        | "referral_created"
+        | "referral_status_changed"
+        | "monitoring_overdue"
+        | "symptom_reported"
+        | "risk_score_updated"
+        | "care_plan_updated"
+        | "consultation_completed"
+      clinical_rule_execution_mode: "active" | "shadow"
+      clinical_rule_execution_outcome:
+        | "actions_emitted"
+        | "population_not_matched"
+        | "conditions_not_met"
+        | "suppressed"
+        | "superseded"
+        | "shadow_recorded"
+        | "error"
+      clinical_rule_status:
+        | "draft"
+        | "shadow"
+        | "active"
+        | "retired"
+        | "rolled_back"
+            clinical_severity: "mild" | "moderate" | "severe"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
       commission_type:
