@@ -7815,6 +7815,378 @@ export type Database = {
           },
         ]
       }
+      insurance_benefits: {
+        Row: {
+          annual_limit_kobo: number | null
+          copay_fixed_kobo: number
+          coverage_pct: number
+          created_at: string
+          id: string
+          insurer_id: string
+          notes: string | null
+          plan_name: string | null
+          preauth_threshold_kobo: number | null
+          requires_preauth: boolean
+          service_category: string
+          updated_at: string
+        }
+        Insert: {
+          annual_limit_kobo?: number | null
+          copay_fixed_kobo?: number
+          coverage_pct?: number
+          created_at?: string
+          id?: string
+          insurer_id: string
+          notes?: string | null
+          plan_name?: string | null
+          preauth_threshold_kobo?: number | null
+          requires_preauth?: boolean
+          service_category: string
+          updated_at?: string
+        }
+        Update: {
+          annual_limit_kobo?: number | null
+          copay_fixed_kobo?: number
+          coverage_pct?: number
+          created_at?: string
+          id?: string
+          insurer_id?: string
+          notes?: string | null
+          plan_name?: string | null
+          preauth_threshold_kobo?: number | null
+          requires_preauth?: boolean
+          service_category?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_benefits_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_claims: {
+        Row: {
+          adjudicated_at: string | null
+          adjudicated_by: string | null
+          billed_amount_kobo: number
+          claim_reference: string | null
+          created_at: string
+          denial_reason: string | null
+          id: string
+          insurer_covered_kobo: number | null
+          organisation_id: string
+          patient_copay_kobo: number
+          paid_at: string | null
+          policy_id: string
+          preauthorization_id: string | null
+          service_category: string
+          source_id: string
+          status: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          adjudicated_at?: string | null
+          adjudicated_by?: string | null
+          billed_amount_kobo: number
+          claim_reference?: string | null
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          insurer_covered_kobo?: number | null
+          organisation_id: string
+          patient_copay_kobo?: number
+          paid_at?: string | null
+          policy_id: string
+          preauthorization_id?: string | null
+          service_category: string
+          source_id: string
+          status?: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          adjudicated_at?: string | null
+          adjudicated_by?: string | null
+          billed_amount_kobo?: number
+          claim_reference?: string | null
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          insurer_covered_kobo?: number | null
+          organisation_id?: string
+          patient_copay_kobo?: number
+          paid_at?: string | null
+          policy_id?: string
+          preauthorization_id?: string | null
+          service_category?: string
+          source_id?: string
+          status?: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at?: string
+          submitted_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_claims_adjudicated_by_fkey"
+            columns: ["adjudicated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_preauthorization_id_fkey"
+            columns: ["preauthorization_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_preauthorizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_policies: {
+        Row: {
+          created_at: string
+          effective_from: string | null
+          effective_to: string | null
+          group_number: string | null
+          id: string
+          insurer_id: string
+          member_id: string
+          organisation_id: string
+          patient_id: string
+          plan_name: string | null
+          policy_holder_name: string | null
+          relationship: Database["public"]["Enums"]["insurance_relationship"]
+          status: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          group_number?: string | null
+          id?: string
+          insurer_id: string
+          member_id: string
+          organisation_id: string
+          patient_id: string
+          plan_name?: string | null
+          policy_holder_name?: string | null
+          relationship?: Database["public"]["Enums"]["insurance_relationship"]
+          status?: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          group_number?: string | null
+          id?: string
+          insurer_id?: string
+          member_id?: string
+          organisation_id?: string
+          patient_id?: string
+          plan_name?: string | null
+          policy_holder_name?: string | null
+          relationship?: Database["public"]["Enums"]["insurance_relationship"]
+          status?: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_policies_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_preauthorizations: {
+        Row: {
+          authorization_number: string | null
+          clinical_justification: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          denial_reason: string | null
+          estimated_amount_kobo: number
+          id: string
+          organisation_id: string
+          policy_id: string
+          requested_at: string
+          requested_by: string
+          service_category: string
+          source_id: string | null
+          status: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          authorization_number?: string | null
+          clinical_justification?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          denial_reason?: string | null
+          estimated_amount_kobo: number
+          id?: string
+          organisation_id: string
+          policy_id: string
+          requested_at?: string
+          requested_by: string
+          service_category: string
+          source_id?: string | null
+          status?: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          authorization_number?: string | null
+          clinical_justification?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          denial_reason?: string | null
+          estimated_amount_kobo?: number
+          id?: string
+          organisation_id?: string
+          policy_id?: string
+          requested_at?: string
+          requested_by?: string
+          service_category?: string
+          source_id?: string | null
+          status?: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_preauthorizations_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurers: {
+        Row: {
+          claim_submission_method: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          portal_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          claim_submission_method?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          portal_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          claim_submission_method?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          portal_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           created_at: string
@@ -18901,6 +19273,10 @@ export type Database = {
         Args: { p_beneficiary: string; p_from?: string; p_to?: string }
         Returns: Json
       }
+      check_insurance_coverage: {
+        Args: { p_amount_kobo: number; p_patient_id: string; p_service_category: string }
+        Returns: Json
+      }
       claim_employer_roster_member: {
         Args: { target_roster_id: string }
         Returns: boolean
@@ -18960,6 +19336,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      decide_preauthorization: {
+        Args: {
+          p_authorization_number?: string
+          p_decision: string
+          p_denial_reason?: string
+          p_preauthorization_id: string
+          p_valid_until?: string
+        }
+        Returns: Json
       }
       decline_health_passport_attestation: {
         Args: { p_reason: string; p_request_id: string }
@@ -19688,6 +20074,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_claim_adjudication: {
+        Args: {
+          p_claim_id: string
+          p_claim_reference?: string
+          p_denial_reason?: string
+          p_insurer_covered_kobo?: number
+          p_status: string
+        }
+        Returns: Json
+      }
       record_voucher_payment_intent: {
         Args: {
           p_amount_minor: number
@@ -19823,6 +20219,16 @@ export type Database = {
           p_detail?: string
           p_order_id: string
           p_reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+        }
+        Returns: Json
+      }
+      request_preauthorization: {
+        Args: {
+          p_clinical_justification?: string
+          p_estimated_amount_kobo: number
+          p_policy_id: string
+          p_service_category: string
+          p_source_id?: string
         }
         Returns: Json
       }
@@ -20059,6 +20465,16 @@ export type Database = {
       submit_consultation_prep: {
         Args: { p_consultation_id: string; p_notes: string }
         Returns: undefined
+      }
+      submit_insurance_claim: {
+        Args: {
+          p_billed_amount_kobo: number
+          p_policy_id: string
+          p_preauthorization_id?: string
+          p_service_category: string
+          p_source_id: string
+        }
+        Returns: Json
       }
       touch_last_active: { Args: never; Returns: undefined }
       upsert_lab_report_template: {
@@ -20452,6 +20868,16 @@ export type Database = {
         | "premixed"
         | "analogue_rapid"
         | "analogue_long"
+      insurance_claim_status:
+        | "submitted"
+        | "adjudicating"
+        | "approved"
+        | "partially_approved"
+        | "denied"
+        | "paid"
+      insurance_policy_status: "active" | "expired" | "suspended" | "cancelled"
+      insurance_preauth_status: "pending" | "approved" | "denied" | "expired"
+      insurance_relationship: "self" | "spouse" | "child" | "other"
       lab_analyte_flag:
         | "normal"
         | "low"
@@ -21408,6 +21834,17 @@ export const Constants = {
         "analogue_rapid",
         "analogue_long",
       ],
+      insurance_claim_status: [
+        "submitted",
+        "adjudicating",
+        "approved",
+        "partially_approved",
+        "denied",
+        "paid",
+      ],
+      insurance_policy_status: ["active", "expired", "suspended", "cancelled"],
+      insurance_preauth_status: ["pending", "approved", "denied", "expired"],
+      insurance_relationship: ["self", "spouse", "child", "other"],
       lab_analyte_flag: [
         "normal",
         "low",
