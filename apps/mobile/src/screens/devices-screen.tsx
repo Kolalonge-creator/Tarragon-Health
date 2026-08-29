@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Device } from "react-native-ble-plx";
 import type { Tables } from "@tarragon/shared";
 import { requestBlePermissions, scanForClinicalDevices, type SupportedDeviceType } from "@/lib/ble";
+import { postDeviceFaultReport } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
-import { colors, spacing } from "@/ui/theme";
+import { colors, radius, spacing } from "@/ui/theme";
 import {
   Card,
   ErrorText,
@@ -60,6 +61,11 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
   const [pairing, setPairing] = useState(false);
   const [found, setFound] = useState<{ device: Device; deviceType: SupportedDeviceType }[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [faultTarget, setFaultTarget] = useState<PatientDevice | null>(null);
+  const [faultDescription, setFaultDescription] = useState("");
+  const [faultSubmitting, setFaultSubmitting] = useState(false);
+  const [faultError, setFaultError] = useState<string | null>(null);
+  const [faultSuccess, setFaultSuccess] = useState(false);
 
   const loadDevices = useCallback(async () => {
     setLoading(true);
@@ -113,6 +119,29 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
     }
   }
 
+  function openFaultReport(device: PatientDevice) {
+    setFaultTarget(device);
+    setFaultDescription("");
+    setFaultError(null);
+    setFaultSuccess(false);
+  }
+
+  /** Spec §52.12 — "My BP machine isn't working": files a device_fault_reports
+   * row via /api/mobile/device-faults so staff can pick up troubleshooting/
+   * replacement; see that route for the RLS-scoped insert. */
+  async function submitFaultReport() {
+    if (!faultTarget || faultDescription.trim().length === 0) return;
+    setFaultSubmitting(true);
+    setFaultError(null);
+    const result = await postDeviceFaultReport(faultTarget.id, faultDescription.trim());
+    setFaultSubmitting(false);
+    if (result.success) {
+      setFaultSuccess(true);
+    } else {
+      setFaultError(result.error ?? "Couldn't send your report. Please try again.");
+    }
+  }
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
@@ -159,6 +188,16 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
                     <Ionicons name={deviceIcon(item.device_type)} size={18} color={colors.brand} />
                   </View>
                 }
+                trailing={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Report a problem with this device"
+                    onPress={() => openFaultReport(item)}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="alert-circle-outline" size={20} color={colors.faint} />
+                  </Pressable>
+                }
               />
             ))}
           </GroupedList>
@@ -202,6 +241,58 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
             )}
           />
           <SecondaryButton title="Cancel" onPress={() => setPairing(false)} />
+        </View>
+      </Modal>
+
+      <Modal visible={faultTarget !== null} animationType="slide" onRequestClose={() => setFaultTarget(null)}>
+        <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>
+          <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Report a problem</Text>
+          {faultTarget ? (
+            <MutedText>
+              {faultTarget.nickname ?? faultTarget.model ?? deviceLabel(faultTarget.device_type)}
+            </MutedText>
+          ) : null}
+
+          {faultSuccess ? (
+            <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
+              <Ionicons name="checkmark-circle-outline" size={28} color={colors.brand} />
+              <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>Thanks — we've got it</Text>
+              <MutedText>Your care team will follow up if this device needs troubleshooting or replacing.</MutedText>
+              <PrimaryButton title="Done" onPress={() => setFaultTarget(null)} />
+            </Card>
+          ) : (
+            <>
+              <MutedText>What's going wrong? (won't turn on, won't pair, wrong readings, etc.)</MutedText>
+              <TextInput
+                multiline
+                numberOfLines={4}
+                placeholder="Describe the problem…"
+                placeholderTextColor={colors.faint}
+                value={faultDescription}
+                onChangeText={setFaultDescription}
+                style={{
+                  minHeight: 96,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: radius.control,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  fontSize: 13.5,
+                  color: colors.ink,
+                  backgroundColor: colors.card,
+                  textAlignVertical: "top",
+                }}
+              />
+              {faultError ? <ErrorText>{faultError}</ErrorText> : null}
+              <PrimaryButton
+                title="Send report"
+                onPress={submitFaultReport}
+                disabled={faultDescription.trim().length === 0}
+                loading={faultSubmitting}
+              />
+              <SecondaryButton title="Cancel" onPress={() => setFaultTarget(null)} />
+            </>
+          )}
         </View>
       </Modal>
     </ScrollView>

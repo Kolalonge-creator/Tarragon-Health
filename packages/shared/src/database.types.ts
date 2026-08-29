@@ -4883,6 +4883,204 @@ export type Database = {
         }
         Relationships: []
       }
+      device_fault_reports: {
+        Row: {
+          created_at: string
+          description: string
+          device_unit_id: string | null
+          id: string
+          organisation_id: string
+          patient_device_id: string | null
+          patient_id: string
+          replacement_device_unit_id: string | null
+          reported_by: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["device_fault_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          device_unit_id?: string | null
+          id?: string
+          organisation_id: string
+          patient_device_id?: string | null
+          patient_id: string
+          replacement_device_unit_id?: string | null
+          reported_by: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["device_fault_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          device_unit_id?: string | null
+          id?: string
+          organisation_id?: string
+          patient_device_id?: string | null
+          patient_id?: string
+          replacement_device_unit_id?: string | null
+          reported_by?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["device_fault_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_fault_reports_device_unit_id_fkey"
+            columns: ["device_unit_id"]
+            isOneToOne: false
+            referencedRelation: "device_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_patient_device_id_fkey"
+            columns: ["patient_device_id"]
+            isOneToOne: false
+            referencedRelation: "patient_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_replacement_device_unit_id_fkey"
+            columns: ["replacement_device_unit_id"]
+            isOneToOne: false
+            referencedRelation: "device_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_units: {
+        Row: {
+          assigned_at: string | null
+          assigned_patient_id: string | null
+          calibration_interval_days: number | null
+          created_at: string
+          device_type: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version: string | null
+          id: string
+          integration_method: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          last_calibrated_at: string | null
+          lifecycle_status: Database["public"]["Enums"]["device_lifecycle_status"]
+          manufacturer: string
+          model: string
+          next_calibration_due_at: string | null
+          organisation_id: string
+          ownership: Database["public"]["Enums"]["device_ownership"]
+          owning_partner_organisation_id: string | null
+          retired_at: string | null
+          retired_reason: string | null
+          serial_number: string
+          supported_measurements: string[]
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_patient_id?: string | null
+          calibration_interval_days?: number | null
+          created_at?: string
+          device_type: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version?: string | null
+          id?: string
+          integration_method?: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          last_calibrated_at?: string | null
+          lifecycle_status?: Database["public"]["Enums"]["device_lifecycle_status"]
+          manufacturer: string
+          model: string
+          next_calibration_due_at?: string | null
+          organisation_id: string
+          ownership?: Database["public"]["Enums"]["device_ownership"]
+          owning_partner_organisation_id?: string | null
+          retired_at?: string | null
+          retired_reason?: string | null
+          serial_number: string
+          supported_measurements?: string[]
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_patient_id?: string | null
+          calibration_interval_days?: number | null
+          created_at?: string
+          device_type?: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version?: string | null
+          id?: string
+          integration_method?: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          last_calibrated_at?: string | null
+          lifecycle_status?: Database["public"]["Enums"]["device_lifecycle_status"]
+          manufacturer?: string
+          model?: string
+          next_calibration_due_at?: string | null
+          organisation_id?: string
+          ownership?: Database["public"]["Enums"]["device_ownership"]
+          owning_partner_organisation_id?: string | null
+          retired_at?: string | null
+          retired_reason?: string | null
+          serial_number?: string
+          supported_measurements?: string[]
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_units_assigned_patient_id_fkey"
+            columns: ["assigned_patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_units_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_units_owning_partner_organisation_id_fkey"
+            columns: ["owning_partner_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_units_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diabetes_complication_checks: {
         Row: {
           abnormal: boolean
@@ -12277,8 +12475,11 @@ export type Database = {
       patient_devices: {
         Row: {
           ble_device_id: string
+          connectivity_notified_at: string | null
+          connectivity_status: Database["public"]["Enums"]["device_connectivity_status"]
           created_at: string
           device_type: Database["public"]["Enums"]["patient_device_type"]
+          device_unit_id: string | null
           id: string
           last_synced_at: string | null
           manufacturer: string | null
@@ -12291,8 +12492,11 @@ export type Database = {
         }
         Insert: {
           ble_device_id: string
+          connectivity_notified_at?: string | null
+          connectivity_status?: Database["public"]["Enums"]["device_connectivity_status"]
           created_at?: string
           device_type: Database["public"]["Enums"]["patient_device_type"]
+          device_unit_id?: string | null
           id?: string
           last_synced_at?: string | null
           manufacturer?: string | null
@@ -12305,8 +12509,11 @@ export type Database = {
         }
         Update: {
           ble_device_id?: string
+          connectivity_notified_at?: string | null
+          connectivity_status?: Database["public"]["Enums"]["device_connectivity_status"]
           created_at?: string
           device_type?: Database["public"]["Enums"]["patient_device_type"]
+          device_unit_id?: string | null
           id?: string
           last_synced_at?: string | null
           manufacturer?: string | null
@@ -12318,6 +12525,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["patient_device_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "patient_devices_device_unit_id_fkey"
+            columns: ["device_unit_id"]
+            isOneToOne: false
+            referencedRelation: "device_units"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patient_devices_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -19839,6 +20053,22 @@ export type Database = {
         | "ble_vendor_sdk"
         | "health_connect_bridge"
         | "manual_only"
+      device_connectivity_status: "ok" | "no_data" | "investigating"
+      device_fault_status:
+        | "reported"
+        | "troubleshooting"
+        | "resolved"
+        | "replacement_requested"
+        | "replaced"
+      device_lifecycle_status:
+        | "registered"
+        | "validated"
+        | "available"
+        | "assigned"
+        | "active"
+        | "inactive"
+        | "retired"
+      device_ownership: "patient_owned" | "tarragon_owned" | "partner_owned"
       diabetes_type: "type_1" | "type_2" | "gestational" | "other"
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
@@ -20127,6 +20357,8 @@ export type Database = {
         | "scale"
         | "thermometer"
         | "pulse_oximeter"
+        | "ecg"
+        | "peak_flow_meter"
       payment_provider: "paystack" | "stripe" | "wallet" | "voucher"
       payment_transaction_type:
         | "charge.success"
@@ -20760,6 +20992,24 @@ export const Constants = {
         "health_connect_bridge",
         "manual_only",
       ],
+      device_connectivity_status: ["ok", "no_data", "investigating"],
+      device_fault_status: [
+        "reported",
+        "troubleshooting",
+        "resolved",
+        "replacement_requested",
+        "replaced",
+      ],
+      device_lifecycle_status: [
+        "registered",
+        "validated",
+        "available",
+        "assigned",
+        "active",
+        "inactive",
+        "retired",
+      ],
+      device_ownership: ["patient_owned", "tarragon_owned", "partner_owned"],
       diabetes_type: ["type_1", "type_2", "gestational", "other"],
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
@@ -21080,6 +21330,8 @@ export const Constants = {
         "scale",
         "thermometer",
         "pulse_oximeter",
+        "ecg",
+        "peak_flow_meter",
       ],
       payment_provider: ["paystack", "stripe", "wallet", "voucher"],
       payment_transaction_type: [
