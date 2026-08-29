@@ -9,6 +9,7 @@ import {
   businessSummarySchema,
   clinicalOutcomesSchema,
   deliverabilitySchema,
+  diseaseSurveillanceSchema,
   doctorPerformanceSchema,
   engagementSummarySchema,
   escalationQualitySchema,
@@ -24,6 +25,7 @@ import {
   patientActivitySchema,
   patientSearchSchema,
   populationSummarySchema,
+  programmeFunnelSchema,
   providerCapacitySchema,
   retentionCohortsSchema,
   riskRegisterSchema,
@@ -123,6 +125,32 @@ export function useGeoHealthAggregates() {
       const { data, error } = await createClient().rpc("get_geo_health_aggregates");
       if (error) throw error;
       return geoHealthAggregatesSchema.parse(data);
+    },
+  });
+}
+
+/** Trend-over-time surveillance (spec §12.4) — new enrollments, risk scoring, screening results. */
+export function useDiseaseSurveillance(period: GrowthPeriod = "month") {
+  return useQuery({
+    queryKey: ["analytics", "disease-surveillance", period],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_disease_surveillance", {
+        p_period: period,
+      });
+      if (error) throw error;
+      return diseaseSurveillanceSchema.parse(data);
+    },
+  });
+}
+
+/** Per-condition Enrolled -> Monitoring -> Controlled/Uncontrolled -> Lost-to-follow-up (spec §12.8/§12.10). */
+export function useProgrammeFunnel() {
+  return useQuery({
+    queryKey: ["analytics", "programme-funnel"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_programme_funnel");
+      if (error) throw error;
+      return programmeFunnelSchema.parse(data);
     },
   });
 }
