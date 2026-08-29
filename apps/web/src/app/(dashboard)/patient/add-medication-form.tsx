@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAddMedication } from "@/lib/queries/medications";
+import { checkMedicationSafetyAfterAdd } from "./actions";
 import { medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
@@ -104,6 +105,14 @@ export function AddMedicationForm({
         onSuccess: () => {
           setSuccess(true);
           resetForm();
+          // Medication safety pathway 64.16-64.18: only a clinician actually
+          // driving this form satisfies the underlying RPC's org-staff check
+          // (see checkMedicationSafetyAfterAdd) — never fired for a patient's
+          // own self-add, even one attributed to a specialist. Fire-and-forget:
+          // never awaited, never blocks or affects the success state above.
+          if (source === "clinician") {
+            void checkMedicationSafetyAfterAdd(patientId);
+          }
         },
       }
     );

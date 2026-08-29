@@ -11,6 +11,9 @@ import {
   type MedicationWithCarePlan,
 } from "@/lib/queries/medications";
 import { MedicationCollectionForm } from "./medication-collection-form";
+import { SymptomLogForm } from "./symptom-log-form";
+import { MedicationAccessBarrierForm } from "./medication-access-barrier-form";
+import { computeRefillGapSignal, REFILL_GAP_DISCLAIMER } from "@/lib/rules/adherence-signals";
 import { usePatientNextReview } from "@/lib/queries/medication-reviews";
 import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,9 +68,9 @@ export function MedicationsList({
   isClinicianView?: boolean;
 }) {
   const { data, isLoading, isError } = useMedications(patientId);
-  // Only needed for the clinician-view status trail — empty patientId keeps
-  // the query disabled (see `enabled: !!patientId`) on the patient's own view.
-  const { data: collections } = useMedicationCollections(isClinicianView ? patientId : "");
+  // Needed both for the clinician-view status trail and for the 64.6
+  // refill-gap signal shown on both views.
+  const { data: collections } = useMedicationCollections(patientId);
 
   return (
     <Card>
@@ -150,6 +153,7 @@ export function MedicationsList({
                       </span>
                     </p>
                   )}
+                  <RefillGapNote medication={medication} collections={collections ?? []} />
                   {canConfirmRefill && medication.source === "clinician" && (
                     <ConfirmRefillForm medication={medication} patientId={patientId} />
                   )}
@@ -166,6 +170,16 @@ export function MedicationsList({
                   {canStop && (
                     <StopMedicationForm medication={medication} patientId={patientId} />
                   )}
+                  {!isClinicianView && (
+                    <ReportSideEffectButton
+                      patientId={patientId}
+                      medicationId={medication.id}
+                      drugName={medication.drug_name}
+                    />
+                  )}
+                  {!isClinicianView && (
+                    <AccessBarrierButton medicationId={medication.id} drugName={medication.drug_name} />
+                  )}
                 </li>
               );
             })}
@@ -175,6 +189,35 @@ export function MedicationsList({
         <PastMedications patientId={patientId} />
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Medication safety pathway 64.6 — a non-diagnostic "potential gap" signal
+ * from the medication's own day-supply (duration_days) vs. the actual
+ * interval between its two most recent collections. Silent (renders
+ * nothing) when there's no day-supply on file or no gap worth surfacing —
+ * see computeRefillGapSignal for the exact rule and its 5-day noise floor.
+ */
+function RefillGapNote({
+  medication,
+  collections,
+}: {
+  medication: MedicationWithCarePlan;
+  collections: MedicationCollection[];
+}) {
+  const dispenseDates = collections
+    .filter((c) => c.medication_id === medication.id)
+    .map((c) => c.dispensed_on);
+  const signal = computeRefillGapSignal(medication.id, medication.duration_days, dispenseDates);
+  if (!signal) return null;
+
+  return (
+    <p className="text-xs text-amber-700">
+      Adherence signal: potential {signal.gapDays}-day gap ({signal.expectedIntervalDays}-day
+      supply, {signal.actualIntervalDays} days between the last two pickups).{" "}
+      <span className="text-charcoal-ink/50">{REFILL_GAP_DISCLAIMER}</span>
+    </p>
   );
 }
 
@@ -436,6 +479,93 @@ function StopMedicationForm({
           {(stopMedication.error as Error).message || "Could not stop this medication."}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Medication safety pathway 64.9 — "I'm experiencing a side effect": a
+ * collapsible entry point per medication into SymptomLogForm, scoped to this
+ * drug via medicationId. Severity-based triage (urgent vs. clinical review
+ * vs. nothing) is entirely SymptomLogForm/logSymptom's existing behaviour;
+ * this only supplies which medication the report is about.
+ */
+function ReportSideEffectButton({
+  patientId,
+  medicationId,
+  drugName,
+}: {
+  patientId: string;
+  medicationId: string;
+  drugName: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70"
+        onClick={() => setOpen(true)}
+      >
+        I&apos;m experiencing a side effect
+      </Button>
+    );
+  }
+
+  return (
+    <div className="mt-1">
+      <SymptomLogForm patientId={patientId} medicationId={medicationId} drugName={drugName} />
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 h-7 px-2 text-xs"
+        onClick={() => setOpen(false)}
+      >
+        Close
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Medication safety pathway 64.20/64.21 — "I cannot afford/get this
+ * medicine". Same collapsible pattern as ReportSideEffectButton; the actual
+ * pathway (never an automatic substitution) is entirely
+ * MedicationAccessBarrierForm/reportMedicationAccessBarrier's behaviour.
+ */
+function AccessBarrierButton({ medicationId, drugName }: { medicationId: string; drugName: string }) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70"
+        onClick={() => setOpen(true)}
+      >
+        I can&apos;t get or afford this medicine
+      </Button>
+    );
+  }
+
+  return (
+    <div className="mt-1">
+      <MedicationAccessBarrierForm medicationId={medicationId} drugName={drugName} />
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 h-7 px-2 text-xs"
+        onClick={() => setOpen(false)}
+      >
+        Close
+      </Button>
     </div>
   );
 }
