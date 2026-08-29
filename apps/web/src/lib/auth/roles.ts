@@ -14,6 +14,7 @@ export const ROLE_HOME_PATH: Record<UserRole, string> = {
   lab_liaison: "/lab-liaison",
   finance: "/finance",
   lab_partner: "/lab-partner",
+  agent: "/dashboard/agent",
 };
 
 export function getRoleHomePath(role: UserRole): string {
@@ -40,6 +41,7 @@ export const ROLE_DISPLAY_LABEL: Record<UserRole, string> = {
   finance: "Finance",
   lab_liaison: "Lab Liaison",
   lab_partner: "Partner Laboratory",
+  agent: "Community Agent",
 };
 
 /** True when `pathname` is the role-home (or under it) for `role`. */

@@ -306,6 +306,8 @@ export function getNavSections(
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
             { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
             { label: "Care vouchers", href: "/admin/settings/vouchers", icon: "payables" },
+            { label: "Community agents", href: "/admin/settings/agents", icon: "commission" },
+            { label: "Screening events", href: "/admin/screening-events", icon: "booking" },
             { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
           ],
         },
@@ -343,6 +345,14 @@ export function getNavSections(
         {
           items: [
             { label: "Dashboard", href: "/lab-liaison", icon: "dashboard", exact: true },
+          ],
+        },
+      ];
+    case "agent":
+      return [
+        {
+          items: [
+            { label: "My sales", href: "/dashboard/agent", icon: "dashboard", exact: true },
           ],
         },
       ];

@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import type { Database } from "@tarragon/shared";
+import type { AppDatabase } from "@tarragon/shared";
 
 /**
  * Server Supabase client — for Server Components, Server Actions, and Route
@@ -16,7 +16,7 @@ import type { Database } from "@tarragon/shared";
 export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(
+  return createServerClient<AppDatabase>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

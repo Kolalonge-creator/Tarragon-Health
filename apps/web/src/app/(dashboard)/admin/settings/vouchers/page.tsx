@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -29,6 +30,12 @@ export default async function VouchersSettingsPage() {
           account balance, it cannot be transferred, and it is never exchangeable for cash. These
           settings control how long one stays valid and how often it can be extended.
         </p>
+        <Link
+          href="/admin/settings/vouchers/assisted-redeem"
+          className="mt-2 inline-block text-sm font-medium text-tarragon-green underline"
+        >
+          Redeem a voucher by phone →
+        </Link>
       </div>
       <VoucherManager />
     </div>

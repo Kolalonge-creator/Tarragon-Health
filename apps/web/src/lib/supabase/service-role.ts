@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import type { AppDatabase } from "@tarragon/shared";
 
 /**
  * Service-role Supabase client — bypasses RLS entirely. Server-only: never
@@ -16,7 +16,7 @@ import type { Database } from "@tarragon/shared";
  * its job there.
  */
 export function createServiceRoleClient() {
-  return createSupabaseClient<Database>(
+  return createSupabaseClient<AppDatabase>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }

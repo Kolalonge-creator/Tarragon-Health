@@ -18631,6 +18631,7 @@ export type Database = {
         | "lab_liaison"
         | "finance"
         | "lab_partner"
+        | "agent"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -19513,6 +19514,7 @@ export const Constants = {
         "lab_liaison",
         "finance",
         "lab_partner",
+        "agent",
       ],
       vaccination_verification_status: [
         "self_reported",

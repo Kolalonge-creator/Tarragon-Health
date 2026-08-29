@@ -14,6 +14,10 @@ export * from "./device-readings";
 // Enums, Constants, Json. Single source of truth for the DB schema.
 export * from "./database.types";
 import type { Enums } from "./database.types";
+// Hand-written extension covering schema not yet reflected in the generated
+// file above — see database.types.extensions.ts for why and when to remove
+// this.
+export * from "./database.types.extensions";
 
 export const TIMEZONE = "Africa/Lagos" as const;
 

@@ -93,3 +93,39 @@ export async function dismissRecommendation(
   }
   return { success: true };
 }
+
+export type ChronicOfferActionResult = { error?: string; offerId?: string };
+
+/**
+ * The revenue-architecture spec's highest-conversion moment: a doctor who
+ * has just walked a patient through their own numbers offers the paid
+ * programme that gets those numbers reviewed monthly. Independent of accept/
+ * dismiss above — a recommendation can be promoted into a care plan with or
+ * without ever generating a paid offer, and Tarragon Free patients keep the
+ * full clinical recommendation regardless (see the migration's own
+ * commentary on the 2026-08-10 "doctor time is a paid-plan feature, clinical
+ * safety never is" precedent).
+ */
+export async function generateChronicOfferAction(
+  patientId: string,
+  recommendationId: string,
+  recommendedPlanCode: string,
+  message: string
+): Promise<ChronicOfferActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data, error } = await supabase.rpc("generate_chronic_programme_offer", {
+    p_patient_id: patientId,
+    p_recommendation_id: recommendationId,
+    p_recommended_plan_code: recommendedPlanCode,
+    p_message: message,
+  });
+  if (error) return { error: error.message };
+  const result = data as { ok: boolean; error?: string; offer_id?: string };
+  if (!result.ok) return { error: result.error ?? "Could not generate an offer" };
+  return { offerId: result.offer_id };
+}

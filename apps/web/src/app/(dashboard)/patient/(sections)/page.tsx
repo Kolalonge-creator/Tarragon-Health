@@ -6,6 +6,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { ChronicOfferBanner } from "@/app/(dashboard)/patient/chronic-offer-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -82,6 +83,13 @@ export default async function PatientOverviewPage() {
           presentation moved from an inline card to this banner (Tarragon
           Health Web Dashboard design, 2026-08-09). */}
       <NextBestAction patientId={subjectId} />
+
+      {/* The highest-conversion moment in the revenue-architecture spec — a
+          doctor's paid-programme offer, made right after walking the patient
+          through their own numbers. Renders nothing when there is no open
+          offer, so this is never a nag for someone who was never offered
+          anything. */}
+      <ChronicOfferBanner patientId={subjectId} />
 
       {/* The everyday jobs, one tap from the top of the page — including the
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
