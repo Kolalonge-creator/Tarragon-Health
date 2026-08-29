@@ -42,6 +42,7 @@ export const PERMISSION_KEYS = [
   "integrations.manage",
   "impact_metrics.manage",
   "vouchers.manage",
+  "agents.manage",
   "finance.view",
   "finance.gl.post",
   "finance.periods.manage",

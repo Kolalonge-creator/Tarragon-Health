@@ -36,6 +36,12 @@ export default async function VouchersSettingsPage() {
         >
           Redeem a voucher by phone →
         </Link>
+        <Link
+          href="/admin/settings/vouchers/unmatched-transfers"
+          className="mt-2 block text-sm font-medium text-tarragon-green underline"
+        >
+          Unmatched bank transfers →
+        </Link>
       </div>
       <VoucherManager />
     </div>

@@ -183,8 +183,65 @@ export interface AgentAndScreeningSchemaExtensions {
         Insert: { agent_id?: string | null };
         Update: { agent_id?: string | null };
       };
+      patient_dedicated_accounts: {
+        Row: {
+          id: string;
+          organisation_id: string;
+          profile_id: string;
+          paystack_customer_code: string;
+          paystack_dedicated_account_id: string;
+          account_number: string;
+          bank_name: string;
+          bank_slug: string;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organisation_id: string;
+          profile_id: string;
+          paystack_customer_code: string;
+          paystack_dedicated_account_id: string;
+          account_number: string;
+          bank_name: string;
+          bank_slug: string;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      unmatched_bank_transfers: {
+        Row: {
+          id: string;
+          organisation_id: string | null;
+          payment_transaction_id: string;
+          profile_id: string | null;
+          amount_kobo: number;
+          status: "unmatched" | "matched" | "ignored";
+          matched_source_type: string | null;
+          matched_source_id: string | null;
+          resolved_by: string | null;
+          resolved_at: string | null;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Functions: {
+      resolve_unmatched_bank_transfer: {
+        Args: {
+          p_transfer_id: string;
+          p_action: string;
+          p_source_id?: string | null;
+          p_note?: string | null;
+          p_booking_type?: string | null;
+        };
+        Returns: Json;
+      };
       admin_create_community_agent: {
         Args: { p_profile_id: string; p_full_name: string; p_phone: string; p_community_affiliation?: string | null };
         Returns: Json;
@@ -267,6 +324,7 @@ export interface AgentAndScreeningSchemaExtensions {
         | "other";
       screening_event_status: "proposed" | "deposit_paid" | "confirmed" | "completed" | "cancelled";
       chronic_offer_status: "offered" | "accepted" | "declined" | "expired";
+      bank_transfer_match_status: "unmatched" | "matched" | "ignored";
     };
   };
 }
@@ -284,5 +342,9 @@ export type AgentCommissionRow = AgentAndScreeningSchemaExtensions["public"]["Ta
 export type AgentPayoutBatchRow =
   AgentAndScreeningSchemaExtensions["public"]["Tables"]["agent_payout_batches"]["Row"];
 export type ScreeningEventRow = AgentAndScreeningSchemaExtensions["public"]["Tables"]["screening_events"]["Row"];
+export type PatientDedicatedAccountRow =
+  AgentAndScreeningSchemaExtensions["public"]["Tables"]["patient_dedicated_accounts"]["Row"];
+export type UnmatchedBankTransferRow =
+  AgentAndScreeningSchemaExtensions["public"]["Tables"]["unmatched_bank_transfers"]["Row"];
 export type ChronicProgrammeOfferRow =
   AgentAndScreeningSchemaExtensions["public"]["Tables"]["chronic_programme_offers"]["Row"];
