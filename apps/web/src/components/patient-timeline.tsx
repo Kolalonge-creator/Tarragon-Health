@@ -21,6 +21,7 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   escalation_raised: { dot: "bg-red-600", label: "Escalation" },
   screening_due: { dot: "bg-amber-500", label: "Screening" },
   referral_status_changed: { dot: "bg-amber-500", label: "Referral" },
+  referral_outcome_recorded: { dot: "bg-green-600", label: "Referral outcome" },
   lab_completed: { dot: "bg-green-600", label: "Lab result" },
   screening_completed: { dot: "bg-green-600", label: "Screening" },
   escalation_resolved: { dot: "bg-green-600", label: "Escalation" },

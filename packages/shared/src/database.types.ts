@@ -5528,6 +5528,688 @@ export type Database = {
           },
         ]
       }
+      employer_accounts: {
+        Row: {
+          created_at: string
+          declared_employee_count: number | null
+          id: string
+          industry: string | null
+          join_code: string | null
+          join_code_rotated_at: string | null
+          legal_name: string | null
+          onboarding_step: Database["public"]["Enums"]["employer_onboarding_step"]
+          organisation_id: string
+          primary_contact_email: string | null
+          primary_contact_name: string | null
+          primary_contact_phone: string | null
+          rc_number: string | null
+          tin: string | null
+          updated_at: string
+          verification_notes: string | null
+          verification_status: Database["public"]["Enums"]["employer_verification_status"]
+          verification_submitted_at: string | null
+          verified_at: string | null
+          verified_by: string | null
+          went_live_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          declared_employee_count?: number | null
+          id?: string
+          industry?: string | null
+          join_code?: string | null
+          join_code_rotated_at?: string | null
+          legal_name?: string | null
+          onboarding_step?: Database["public"]["Enums"]["employer_onboarding_step"]
+          organisation_id: string
+          primary_contact_email?: string | null
+          primary_contact_name?: string | null
+          primary_contact_phone?: string | null
+          rc_number?: string | null
+          tin?: string | null
+          updated_at?: string
+          verification_notes?: string | null
+          verification_status?: Database["public"]["Enums"]["employer_verification_status"]
+          verification_submitted_at?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          went_live_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          declared_employee_count?: number | null
+          id?: string
+          industry?: string | null
+          join_code?: string | null
+          join_code_rotated_at?: string | null
+          legal_name?: string | null
+          onboarding_step?: Database["public"]["Enums"]["employer_onboarding_step"]
+          organisation_id?: string
+          primary_contact_email?: string | null
+          primary_contact_name?: string | null
+          primary_contact_phone?: string | null
+          rc_number?: string | null
+          tin?: string | null
+          updated_at?: string
+          verification_notes?: string | null
+          verification_status?: Database["public"]["Enums"]["employer_verification_status"]
+          verification_submitted_at?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          went_live_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_accounts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_accounts_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_allowance_usage: {
+        Row: {
+          allowance_type: Database["public"]["Enums"]["employer_allowance_type"]
+          id: string
+          package_id: string
+          patient_id: string
+          period_end: string
+          period_start: string
+          updated_at: string
+          used_count: number
+        }
+        Insert: {
+          allowance_type: Database["public"]["Enums"]["employer_allowance_type"]
+          id?: string
+          package_id: string
+          patient_id: string
+          period_end: string
+          period_start: string
+          updated_at?: string
+          used_count?: number
+        }
+        Update: {
+          allowance_type?: Database["public"]["Enums"]["employer_allowance_type"]
+          id?: string
+          package_id?: string
+          patient_id?: string
+          period_end?: string
+          period_start?: string
+          updated_at?: string
+          used_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_allowance_usage_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_allowance_usage_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_announcements: {
+        Row: {
+          body: string
+          channels: Database["public"]["Enums"]["notification_channel"][]
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          id: string
+          location_id: string | null
+          organisation_id: string
+          recipient_count: number
+          sent_at: string | null
+          status: Database["public"]["Enums"]["broadcast_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          channels?: Database["public"]["Enums"]["notification_channel"][]
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          location_id?: string | null
+          organisation_id: string
+          recipient_count?: number
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["broadcast_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          channels?: Database["public"]["Enums"]["notification_channel"][]
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          location_id?: string | null
+          organisation_id?: string
+          recipient_count?: number
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["broadcast_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_announcements_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "employer_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_announcements_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "employer_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_announcements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_benefit_allowances: {
+        Row: {
+          allowance_type: Database["public"]["Enums"]["employer_allowance_type"]
+          annual_limit: number
+          created_at: string
+          id: string
+          package_id: string
+        }
+        Insert: {
+          allowance_type: Database["public"]["Enums"]["employer_allowance_type"]
+          annual_limit: number
+          created_at?: string
+          id?: string
+          package_id: string
+        }
+        Update: {
+          allowance_type?: Database["public"]["Enums"]["employer_allowance_type"]
+          annual_limit?: number
+          created_at?: string
+          id?: string
+          package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_benefit_allowances_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_benefit_package_add_ons: {
+        Row: {
+          add_on_id: string
+          package_id: string
+        }
+        Insert: {
+          add_on_id: string
+          package_id: string
+        }
+        Update: {
+          add_on_id?: string
+          package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_benefit_package_add_ons_add_on_id_fkey"
+            columns: ["add_on_id"]
+            isOneToOne: false
+            referencedRelation: "add_ons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_benefit_package_add_ons_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_benefit_packages: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          lab_discount_percent: number
+          name: string
+          organisation_id: string
+          subscription_plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          lab_discount_percent?: number
+          name: string
+          organisation_id: string
+          subscription_plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          lab_discount_percent?: number
+          name?: string
+          organisation_id?: string
+          subscription_plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_benefit_packages_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_benefit_packages_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_campaign_participants: {
+        Row: {
+          campaign_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          joined_at: string
+          patient_id: string
+        }
+        Insert: {
+          campaign_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          joined_at?: string
+          patient_id: string
+        }
+        Update: {
+          campaign_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          joined_at?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_campaign_participants_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "employer_campaign_summary"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "employer_campaign_participants_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "employer_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_campaign_participants_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_campaigns: {
+        Row: {
+          campaign_type: Database["public"]["Enums"]["employer_campaign_type"]
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ends_on: string | null
+          id: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status: Database["public"]["Enums"]["employer_campaign_status"]
+          updated_at: string
+        }
+        Insert: {
+          campaign_type: Database["public"]["Enums"]["employer_campaign_type"]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_on?: string | null
+          id?: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status?: Database["public"]["Enums"]["employer_campaign_status"]
+          updated_at?: string
+        }
+        Update: {
+          campaign_type?: Database["public"]["Enums"]["employer_campaign_type"]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_on?: string | null
+          id?: string
+          name?: string
+          organisation_id?: string
+          starts_on?: string
+          status?: Database["public"]["Enums"]["employer_campaign_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_campaigns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_departments: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          location_id: string | null
+          name: string
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name: string
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name?: string
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_departments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "employer_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_departments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_profile_id: string | null
+          channel: Database["public"]["Enums"]["employer_invite_channel"]
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          organisation_id: string
+          revoked_at: string | null
+          roster_member_id: string
+          sent_to: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_profile_id?: string | null
+          channel: Database["public"]["Enums"]["employer_invite_channel"]
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          organisation_id: string
+          revoked_at?: string | null
+          roster_member_id: string
+          sent_to: string
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_profile_id?: string | null
+          channel?: Database["public"]["Enums"]["employer_invite_channel"]
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          organisation_id?: string
+          revoked_at?: string | null
+          roster_member_id?: string
+          sent_to?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_invitations_accepted_profile_id_fkey"
+            columns: ["accepted_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invitations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invitations_roster_member_id_fkey"
+            columns: ["roster_member_id"]
+            isOneToOne: false
+            referencedRelation: "employer_roster_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_invoices: {
+        Row: {
+          amount_kobo: number
+          billing_model: Database["public"]["Enums"]["employer_billing_model"]
+          contract_id: string | null
+          created_at: string
+          created_by: string | null
+          due_at: string | null
+          fixed_amount_kobo: number | null
+          headcount_basis: number | null
+          id: string
+          issued_at: string | null
+          notes: string | null
+          organisation_id: string
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          rate_kobo: number | null
+          status: Database["public"]["Enums"]["employer_invoice_status"]
+          updated_at: string
+          void_reason: string | null
+        }
+        Insert: {
+          amount_kobo: number
+          billing_model: Database["public"]["Enums"]["employer_billing_model"]
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_at?: string | null
+          fixed_amount_kobo?: number | null
+          headcount_basis?: number | null
+          id?: string
+          issued_at?: string | null
+          notes?: string | null
+          organisation_id: string
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          rate_kobo?: number | null
+          status?: Database["public"]["Enums"]["employer_invoice_status"]
+          updated_at?: string
+          void_reason?: string | null
+        }
+        Update: {
+          amount_kobo?: number
+          billing_model?: Database["public"]["Enums"]["employer_billing_model"]
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_at?: string | null
+          fixed_amount_kobo?: number | null
+          headcount_basis?: number | null
+          id?: string
+          issued_at?: string | null
+          notes?: string | null
+          organisation_id?: string
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          rate_kobo?: number | null
+          status?: Database["public"]["Enums"]["employer_invoice_status"]
+          updated_at?: string
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_invoices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "corporate_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invoices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_locations: {
+        Row: {
+          city: string | null
+          country: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          organisation_id: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          organisation_id: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          organisation_id?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_locations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employer_roster_members: {
         Row: {
           added_by: string | null
@@ -17841,6 +18523,28 @@ export type Database = {
           },
         ]
       }
+      employer_campaign_summary: {
+        Row: {
+          campaign_id: string | null
+          campaign_type:
+            | Database["public"]["Enums"]["employer_campaign_type"]
+            | null
+          completed_count: number | null
+          name: string | null
+          organisation_id: string | null
+          participant_count: number | null
+          status: Database["public"]["Enums"]["employer_campaign_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_campaigns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_orders_awaiting_transmission: {
         Row: {
           hours_since_payment: number | null
@@ -18498,6 +19202,51 @@ export type Database = {
         Returns: undefined
       }
       emergency_card_by_token: { Args: { p_token: string }; Returns: Json }
+      employer_bulk_upsert_roster: {
+        Args: { p_channel?: string; p_organisation_id: string; p_rows: Json }
+        Returns: Json
+      }
+      employer_generate_invoice: {
+        Args: {
+          p_organisation_id: string
+          p_period_end: string
+          p_period_start: string
+        }
+        Returns: string
+      }
+      employer_go_live: {
+        Args: { p_organisation_id: string }
+        Returns: undefined
+      }
+      employer_invite_roster_member: {
+        Args: {
+          p_channel: string
+          p_expires_in_days?: number
+          p_roster_member_id: string
+        }
+        Returns: string
+      }
+      employer_join_with_code: { Args: { p_code: string }; Returns: string }
+      employer_mark_departed: {
+        Args: { p_reason?: string; p_roster_member_id: string }
+        Returns: undefined
+      }
+      employer_rotate_join_code: {
+        Args: { p_organisation_id: string }
+        Returns: string
+      }
+      employer_send_announcement: {
+        Args: { p_announcement_id: string }
+        Returns: number
+      }
+      employer_set_invoice_status: {
+        Args: { p_invoice_id: string; p_status: string; p_void_reason?: string }
+        Returns: undefined
+      }
+      employer_set_verification: {
+        Args: { p_notes?: string; p_organisation_id: string; p_status: string }
+        Returns: undefined
+      }
       enqueue_critical_notification: {
         Args: {
           p_alert_tier: Database["public"]["Enums"]["alert_level"]
@@ -19864,7 +20613,61 @@ export type Database = {
         | "spo2_red_flag"
         | "temperature_red_flag"
         | "exposure_report"
-      employer_roster_status: "pending" | "claimed" | "removed"
+      employer_allowance_type:
+        | "gp_consultation"
+        | "specialist_consultation"
+        | "health_assessment"
+      employer_billing_model:
+        | "per_employee"
+        | "per_active_member"
+        | "fixed_contract"
+        | "service_based"
+        | "hybrid"
+      employer_campaign_status: "draft" | "active" | "ended"
+      employer_campaign_type:
+        | "bp_screening"
+        | "diabetes_prevention"
+        | "weight_management"
+        | "vaccination"
+        | "mental_wellbeing"
+        | "exercise_challenge"
+        | "preventive_care"
+        | "health_education"
+      employer_employment_status:
+        | "full_time"
+        | "part_time"
+        | "contract"
+        | "nysc"
+        | "intern"
+      employer_invite_channel:
+        | "email"
+        | "sms"
+        | "org_code"
+        | "bulk_upload"
+        | "hr_integration"
+        | "api"
+      employer_invoice_status: "draft" | "issued" | "paid" | "void"
+      employer_onboarding_step:
+        | "registration"
+        | "business_verification"
+        | "contract"
+        | "programme_selection"
+        | "benefit_configuration"
+        | "eligibility_configuration"
+        | "billing_setup"
+        | "administrator_accounts"
+        | "live"
+      employer_roster_status:
+        | "pending"
+        | "claimed"
+        | "removed"
+        | "invited"
+        | "departed"
+      employer_verification_status:
+        | "unverified"
+        | "pending"
+        | "verified"
+        | "rejected"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       exposure_report_status: "open" | "completed" | "withdrawn"
       facility_type:
@@ -20127,7 +20930,7 @@ export type Database = {
         | "scale"
         | "thermometer"
         | "pulse_oximeter"
-      payment_provider: "paystack" | "stripe" | "wallet" | "voucher"
+      payment_provider: "paystack" | "stripe" | "wallet" | "voucher" | "employer"
       payment_transaction_type:
         | "charge.success"
         | "charge.failed"
@@ -20788,7 +21591,69 @@ export const Constants = {
         "temperature_red_flag",
         "exposure_report",
       ],
-      employer_roster_status: ["pending", "claimed", "removed"],
+      employer_allowance_type: [
+        "gp_consultation",
+        "specialist_consultation",
+        "health_assessment",
+      ],
+      employer_billing_model: [
+        "per_employee",
+        "per_active_member",
+        "fixed_contract",
+        "service_based",
+        "hybrid",
+      ],
+      employer_campaign_status: ["draft", "active", "ended"],
+      employer_campaign_type: [
+        "bp_screening",
+        "diabetes_prevention",
+        "weight_management",
+        "vaccination",
+        "mental_wellbeing",
+        "exercise_challenge",
+        "preventive_care",
+        "health_education",
+      ],
+      employer_employment_status: [
+        "full_time",
+        "part_time",
+        "contract",
+        "nysc",
+        "intern",
+      ],
+      employer_invite_channel: [
+        "email",
+        "sms",
+        "org_code",
+        "bulk_upload",
+        "hr_integration",
+        "api",
+      ],
+      employer_invoice_status: ["draft", "issued", "paid", "void"],
+      employer_onboarding_step: [
+        "registration",
+        "business_verification",
+        "contract",
+        "programme_selection",
+        "benefit_configuration",
+        "eligibility_configuration",
+        "billing_setup",
+        "administrator_accounts",
+        "live",
+      ],
+      employer_roster_status: [
+        "pending",
+        "claimed",
+        "removed",
+        "invited",
+        "departed",
+      ],
+      employer_verification_status: [
+        "unverified",
+        "pending",
+        "verified",
+        "rejected",
+      ],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       exposure_report_status: ["open", "completed", "withdrawn"],
       facility_type: [
@@ -21081,7 +21946,7 @@ export const Constants = {
         "thermometer",
         "pulse_oximeter",
       ],
-      payment_provider: ["paystack", "stripe", "wallet", "voucher"],
+      payment_provider: ["paystack", "stripe", "wallet", "voucher", "employer"],
       payment_transaction_type: [
         "charge.success",
         "charge.failed",

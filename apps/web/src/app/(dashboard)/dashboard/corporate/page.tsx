@@ -2,6 +2,7 @@ import { InstitutionPrivacyNotice } from "@/components/institution-privacy-notic
 import { ContractStatusCard } from "@/components/contract-status-card";
 import { RosterManager } from "./roster-manager";
 import { CohortSummary } from "./cohort-summary";
+import { ActivationFunnelCard, DepartmentBreakdownTable } from "./activation-funnel-card";
 import { loadCorporateDashboardData } from "./dashboard-data";
 
 /** Only ever rendered when corporate/layout.tsx has already established the
@@ -17,6 +18,8 @@ export default async function CorporateOverviewPage() {
     <div className="space-y-6">
       <InstitutionPrivacyNotice />
       <ContractStatusCard performance={data.contractPerformance} />
+      <ActivationFunnelCard funnel={data.activationFunnel} />
+      <DepartmentBreakdownTable rows={data.departmentBreakdown} />
       <RosterManager organisationId={data.organisationId} />
       <CohortSummary analytics={data.analytics} />
     </div>
