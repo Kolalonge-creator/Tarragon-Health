@@ -17895,6 +17895,72 @@ export type Database = {
           },
         ]
       }
+      workforce_risk_engagements: {
+        Row: {
+          amount_minor: number
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          employee_count: number
+          id: string
+          invoiced_at: string | null
+          organisation_id: string
+          paid_at: string | null
+          status: string
+          updated_at: string
+          window_end: string | null
+          window_start: string | null
+        }
+        Insert: {
+          amount_minor?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          employee_count: number
+          id?: string
+          invoiced_at?: string | null
+          organisation_id: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          amount_minor?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          employee_count?: number
+          id?: string
+          invoiced_at?: string | null
+          organisation_id?: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_risk_engagements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_risk_engagements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zoom_webhook_events: {
         Row: {
           created_at: string
