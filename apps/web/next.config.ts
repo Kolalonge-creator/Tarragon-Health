@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // packages are correctly included in the production output.
   outputFileTracingRoot: path.join(__dirname, "../../"),
   // Compile TypeScript sources imported from workspace packages.
-  transpilePackages: ["@tarragon/shared", "@tarragon/lifestyle-engine"],
+  transpilePackages: ["@tarragon/shared", "@tarragon/lifestyle-engine", "@tarragon/symptom-triage-engine"],
   // Dev-server-only (ignored in production builds). The Expo mobile app's
   // WebView sections (apps/mobile/src/screens/webview-screen.tsx) hit this
   // dev server over the LAN IP set in apps/mobile/.env's
