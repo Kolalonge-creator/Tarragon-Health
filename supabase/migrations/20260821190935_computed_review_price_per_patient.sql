@@ -551,6 +551,7 @@ end;
 $$;
 
 revoke all on function public.price_review_for_patient(uuid, text) from public;
+revoke all on function public.price_review_for_patient(uuid, text) from anon;
 grant execute on function public.price_review_for_patient(uuid, text) to authenticated;
 
 -- ---------------------------------------------------------------------------

@@ -68,3 +68,20 @@ jobs:
 
       - name: Pytest
         run: uv run pytest
+
+  supabase-db:
+    name: Supabase migration replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Replay all migrations + seed
+        run: supabase db reset

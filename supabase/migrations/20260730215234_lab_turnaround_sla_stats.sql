@@ -145,7 +145,9 @@ grant execute on function public.lab_partner_turnaround_stats(int) to authentica
 -- it cites): anon inherits EXECUTE via the PUBLIC pseudo-grant, so
 -- `revoke ... from anon` alone is a no-op. Revoke from PUBLIC.
 revoke execute on function public.lab_provider_turnaround_stats(int) from public;
+revoke execute on function public.lab_provider_turnaround_stats(int) from anon;
 revoke execute on function public.lab_partner_turnaround_stats(int) from public;
+revoke execute on function public.lab_partner_turnaround_stats(int) from anon;
 
 do $$
 begin

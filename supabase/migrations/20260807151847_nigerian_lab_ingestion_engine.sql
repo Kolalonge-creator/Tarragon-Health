@@ -186,6 +186,7 @@ create policy lab_extraction_corrections_select on public.lab_extraction_correct
   for select using (private.is_org_staff(organisation_id));
 
 grant select on public.lab_extraction_corrections to authenticated;
+revoke select on public.lab_extraction_corrections from anon;
 
 -- ---------------------------------------------------------------------------
 -- 5. Extraction row: which template, and how it went

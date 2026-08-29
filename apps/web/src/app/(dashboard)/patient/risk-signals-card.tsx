@@ -23,6 +23,10 @@ const RISK_LEVEL_COPY: Record<Enums<"risk_level">, string | null> = {
   moderate: "being watched a little more closely than usual",
   high: "getting extra attention from your care team",
   very_high: "a current focus for your care team",
+  // patient_risk_scores (the table this card reads) never writes 'unknown'
+  // today — only prevention_risk_scores does — but risk_level is a shared
+  // DB enum, so this Record must stay exhaustive.
+  unknown: null,
 };
 
 /**

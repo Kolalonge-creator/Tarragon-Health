@@ -30,6 +30,12 @@ export function ProtocolVersionsManager() {
   const [title, setTitle] = useState("");
   const [changeSummary, setChangeSummary] = useState("");
   const [contentText, setContentText] = useState("");
+  const [specialty, setSpecialty] = useState("");
+  const [evidenceBasis, setEvidenceBasis] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState("");
+  const [reviewDate, setReviewDate] = useState("");
+  const [retirementDate, setRetirementDate] = useState("");
+  const [applicablePopulation, setApplicablePopulation] = useState("");
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
   if (isError || !versions) {
@@ -95,6 +101,69 @@ export function ProtocolVersionsManager() {
               onChange={(e) => setContentText(e.target.value)}
             />
           </div>
+          <div className="space-y-3 rounded-lg border border-charcoal-ink/10 bg-warm-ivory/40 p-3">
+            <p className="text-xs font-medium text-charcoal-ink/70">
+              Registry fields (spec §31.4) — all optional
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="specialty">Specialty</Label>
+                <Input
+                  id="specialty"
+                  placeholder="e.g. Cardiology (leave blank if it spans several)"
+                  value={specialty}
+                  onChange={(e) => setSpecialty(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="applicable-population">Applicable population</Label>
+                <Input
+                  id="applicable-population"
+                  placeholder="e.g. Adults with confirmed hypertension"
+                  value={applicablePopulation}
+                  onChange={(e) => setApplicablePopulation(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="evidence-basis">Evidence basis</Label>
+              <Input
+                id="evidence-basis"
+                placeholder="The guideline/evidence this version follows"
+                value={evidenceBasis}
+                onChange={(e) => setEvidenceBasis(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="effective-date">Effective date</Label>
+                <Input
+                  id="effective-date"
+                  type="date"
+                  value={effectiveDate}
+                  onChange={(e) => setEffectiveDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="review-date">Review date</Label>
+                <Input
+                  id="review-date"
+                  type="date"
+                  value={reviewDate}
+                  onChange={(e) => setReviewDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="retirement-date">Retirement date</Label>
+                <Input
+                  id="retirement-date"
+                  type="date"
+                  value={retirementDate}
+                  onChange={(e) => setRetirementDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
           {create.isError && (
             <p className="text-sm text-red-600">{(create.error as Error).message}</p>
           )}
@@ -102,13 +171,32 @@ export function ProtocolVersionsManager() {
             disabled={!canSubmit || create.isPending}
             onClick={() => {
               create.mutate(
-                { protocolId: protocolId.trim(), title: title.trim(), changeSummary: changeSummary.trim(), content: { text: contentText.trim() } },
+                {
+                  protocolId: protocolId.trim(),
+                  title: title.trim(),
+                  changeSummary: changeSummary.trim(),
+                  content: { text: contentText.trim() },
+                  registry: {
+                    specialty: specialty.trim() || undefined,
+                    evidenceBasis: evidenceBasis.trim() || undefined,
+                    effectiveDate: effectiveDate || undefined,
+                    reviewDate: reviewDate || undefined,
+                    retirementDate: retirementDate || undefined,
+                    applicablePopulation: applicablePopulation.trim() || undefined,
+                  },
+                },
                 {
                   onSuccess: () => {
                     setProtocolId("");
                     setTitle("");
                     setChangeSummary("");
                     setContentText("");
+                    setSpecialty("");
+                    setEvidenceBasis("");
+                    setEffectiveDate("");
+                    setReviewDate("");
+                    setRetirementDate("");
+                    setApplicablePopulation("");
                   },
                 }
               );
@@ -143,6 +231,51 @@ export function ProtocolVersionsManager() {
                       ` · ${v.approved_by_staff.credential_type} ${v.approved_by_staff.credential_number}`}
                   </p>
                   <p className="text-sm text-charcoal-ink/80">{v.change_summary}</p>
+                  {(v.specialty ||
+                    v.applicable_population ||
+                    v.evidence_basis ||
+                    v.effective_date ||
+                    v.review_date ||
+                    v.retirement_date) && (
+                    <dl className="grid gap-x-4 gap-y-0.5 text-xs text-charcoal-ink/60 sm:grid-cols-2">
+                      {v.specialty && (
+                        <div className="flex gap-1">
+                          <dt className="font-medium">Specialty:</dt>
+                          <dd>{v.specialty}</dd>
+                        </div>
+                      )}
+                      {v.applicable_population && (
+                        <div className="flex gap-1">
+                          <dt className="font-medium">Population:</dt>
+                          <dd>{v.applicable_population}</dd>
+                        </div>
+                      )}
+                      {v.evidence_basis && (
+                        <div className="flex gap-1 sm:col-span-2">
+                          <dt className="font-medium">Evidence basis:</dt>
+                          <dd>{v.evidence_basis}</dd>
+                        </div>
+                      )}
+                      {v.effective_date && (
+                        <div className="flex gap-1">
+                          <dt className="font-medium">Effective:</dt>
+                          <dd>{v.effective_date}</dd>
+                        </div>
+                      )}
+                      {v.review_date && (
+                        <div className="flex gap-1">
+                          <dt className="font-medium">Review due:</dt>
+                          <dd>{v.review_date}</dd>
+                        </div>
+                      )}
+                      {v.retirement_date && (
+                        <div className="flex gap-1">
+                          <dt className="font-medium">Retired:</dt>
+                          <dd>{v.retirement_date}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
                 </li>
               ))}
             </ul>

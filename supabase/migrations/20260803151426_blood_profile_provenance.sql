@@ -155,22 +155,43 @@ create trigger blood_profile_enforce_provenance
 
 grant select, insert, update on public.patient_blood_profile to authenticated;
 
+-- The assertion below needs a real patient profile to reference. A from-
+-- scratch replay has none (seed.sql only inserts reference/lookup data, no
+-- organisations/profiles/auth.users), which previously made the `where ...
+-- limit 1` silently match zero rows and fall straight through to the "was
+-- accepted" exception without ever exercising the constraint. Creates and
+-- tears down its own minimal patient fixture instead.
 do $$
+declare
+  v_test_user uuid := gen_random_uuid();
+  v_org uuid;
 begin
   if not has_table_privilege('authenticated', 'public.patient_blood_profile', 'SELECT') then
     raise exception 'patient_blood_profile: authenticated grant did not take';
+  end if;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_test_user, 'blood-profile-provenance-check@example.invalid', 'x', now(), '{}', '{}');
+
+  select organisation_id into v_org from public.profiles where id = v_test_user;
+  if v_org is null then
+    select id into v_org from public.organisations limit 1;
+    update public.profiles set organisation_id = v_org where id = v_test_user;
   end if;
 
   -- The unsourced case must be structurally impossible, not merely discouraged.
   begin
     insert into public.patient_blood_profile
       (patient_id, organisation_id, genotype, provenance)
-    select id, organisation_id, 'AA'::public.haemoglobin_genotype, 'lab_document'
-    from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+    values (v_test_user, v_org, 'AA'::public.haemoglobin_genotype, 'lab_document');
     raise exception 'patient_blood_profile: a lab_document row was accepted with no document';
   exception
     when check_violation then null;  -- expected
     when others then
       if sqlstate = 'P0001' then raise; end if;
   end;
+
+  -- Cascades to the auto-created profiles row and any patient_blood_profile
+  -- row that (should not, but might) have been inserted above.
+  delete from auth.users where id = v_test_user;
 end $$;

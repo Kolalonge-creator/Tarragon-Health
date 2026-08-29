@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { CommissionRateEditor } from "@/components/admin/commission-rate-editor";
 import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
 import {
@@ -15,6 +16,10 @@ import {
   useUpdatePharmacyPartnerLicense,
   useAllPharmacyMedications,
   useUpdatePharmacyMedicationCommission,
+  useLinkPharmacist,
+  useSetPartnerAdmin,
+  type PharmacyPartner,
+  type PharmacistLoginRow,
 } from "@/lib/queries/partner-catalogues";
 import { koboToNaira } from "@tarragon/shared";
 
@@ -81,7 +86,99 @@ function PharmacyCommissionRates() {
   );
 }
 
-export function PharmaciesManager() {
+/** Mirrors labs-manager.tsx's PartnerLoginLinker — link a pharmacist login, and designate a partner admin who can invite further staff for the same pharmacy. */
+function PartnerLoginLinker({
+  pharmacy,
+  logins,
+}: {
+  pharmacy: PharmacyPartner;
+  logins: PharmacistLoginRow[];
+}) {
+  const link = useLinkPharmacist();
+  const setPartnerAdmin = useSetPartnerAdmin();
+  const [selected, setSelected] = useState("");
+  const linkedToThisPharmacy = logins.filter((l) => l.pharmacy_partner_id === pharmacy.id);
+  const unlinked = logins.filter((l) => l.pharmacy_partner_id === null);
+
+  return (
+    <div className="space-y-2 rounded-md bg-charcoal-ink/5 p-3">
+      <p className="text-xs font-medium text-charcoal-ink/80">Partner logins for this pharmacy</p>
+      {linkedToThisPharmacy.length === 0 ? (
+        <p className="text-xs text-charcoal-ink/50">No partner login linked yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {linkedToThisPharmacy.map((l) => (
+            <li key={l.id} className="flex items-center justify-between gap-2 text-xs">
+              <span className="flex items-center gap-1.5">
+                {l.full_name ?? "Unnamed"} {l.email ? `· ${l.email}` : ""}
+                {l.is_partner_admin && <Badge variant="blue">Partner admin</Badge>}
+              </span>
+              <span className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  disabled={setPartnerAdmin.isPending}
+                  title="Lets this login invite further staff for this pharmacy"
+                  onClick={() =>
+                    setPartnerAdmin.mutate({ profileId: l.id, isPartnerAdmin: !l.is_partner_admin })
+                  }
+                >
+                  {l.is_partner_admin ? "Revoke admin" : "Make partner admin"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  disabled={link.isPending}
+                  onClick={() => link.mutate({ profileId: l.id, pharmacyPartnerId: null })}
+                >
+                  Unlink
+                </Button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {link.error && <p className="text-xs text-red-600">{(link.error as Error).message}</p>}
+      {setPartnerAdmin.error && (
+        <p className="text-xs text-red-600">{(setPartnerAdmin.error as Error).message}</p>
+      )}
+      {unlinked.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Select className="h-8 w-auto text-xs" value={selected} onChange={(e) => setSelected(e.target.value)}>
+            <option value="">Link an existing pharmacist login…</option>
+            {unlinked.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.full_name ?? "Unnamed"} {l.email ? `(${l.email})` : ""}
+              </option>
+            ))}
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!selected || link.isPending}
+            onClick={() => {
+              link.mutate(
+                { profileId: selected, pharmacyPartnerId: pharmacy.id },
+                { onSuccess: () => setSelected("") }
+              );
+            }}
+          >
+            Link
+          </Button>
+        </div>
+      ) : (
+        <p className="text-xs text-charcoal-ink/50">
+          No unlinked pharmacist logins available — provision one at{" "}
+          <span className="font-medium">Admin → Members</span> (role: Pharmacist) first.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: PharmacistLoginRow[] }) {
   const { data: pharmacies, isLoading } = useAllPharmacyPartners();
   const create = useCreatePharmacyPartner();
   const toggle = useSetPharmacyPartnerActive();
@@ -221,6 +318,7 @@ export function PharmaciesManager() {
                   saving={updateLicense.isPending}
                   onSave={(next) => updateLicense.mutate({ id: ph.id, ...next })}
                 />
+                <PartnerLoginLinker pharmacy={ph} logins={pharmacistLogins} />
               </div>
             ))
           )}

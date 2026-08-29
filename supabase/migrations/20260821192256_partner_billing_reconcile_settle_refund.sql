@@ -342,6 +342,7 @@ end;
 $$;
 
 revoke all on function public.match_partner_statement(uuid) from public;
+revoke all on function public.match_partner_statement(uuid) from anon;
 grant execute on function public.match_partner_statement(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -469,6 +470,7 @@ end;
 $$;
 
 revoke all on function public.approve_partner_statement(uuid, text) from public;
+revoke all on function public.approve_partner_statement(uuid, text) from anon;
 grant execute on function public.approve_partner_statement(uuid, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -653,6 +655,7 @@ end;
 $$;
 
 revoke all on function public.request_lab_order_refund(uuid, public.lab_refund_reason, bigint, text) from public;
+revoke all on function public.request_lab_order_refund(uuid, public.lab_refund_reason, bigint, text) from anon;
 grant execute on function public.request_lab_order_refund(uuid, public.lab_refund_reason, bigint, text) to authenticated;
 
 create or replace function public.approve_lab_order_refund(p_refund_id uuid)
@@ -708,6 +711,7 @@ end;
 $$;
 
 revoke all on function public.approve_lab_order_refund(uuid) from public;
+revoke all on function public.approve_lab_order_refund(uuid) from anon;
 grant execute on function public.approve_lab_order_refund(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------

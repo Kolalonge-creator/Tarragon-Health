@@ -22,6 +22,7 @@ import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
+import { HandOverCareSection } from "./hand-over-care-section";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
@@ -35,6 +36,8 @@ import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
+import { CarePlanManagementSection } from "./care-plan-management-section";
+import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
 export default async function ClinicianPatientPage({
@@ -50,7 +53,7 @@ export default async function ClinicianPatientPage({
   // lookup in this app.
   const { data: patient } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, organisation_id, sex")
+    .select("id, full_name, phone, organisation_id, sex, date_of_birth")
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
@@ -170,7 +173,11 @@ export default async function ClinicianPatientPage({
             label: "Overview",
             content: (
               <>
-                <PreVisitSummary patientId={patient.id} />
+                <PreVisitSummary
+                  patientId={patient.id}
+                  sex={patient.sex}
+                  dateOfBirth={patient.date_of_birth}
+                />
                 {/* Two facts with outsized weight in a Nigerian emergency, and
                     the platform had nowhere to keep them until now. */}
                 <BloodProfileForm
@@ -203,6 +210,7 @@ export default async function ClinicianPatientPage({
                 {patient.organisation_id && (
                   <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}
+                <HandOverCareSection patientId={patient.id} />
               </>
             ),
           },
@@ -223,6 +231,7 @@ export default async function ClinicianPatientPage({
                   patientId={patient.id}
                   refillCoordinationEnabled
                   canConfirmRefill={canConfirmRefill}
+                  isClinicianView
                 />
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
                     continues existing prescriptions but has no new-prescribing
@@ -248,6 +257,15 @@ export default async function ClinicianPatientPage({
                 )}
                 <TreatmentLadder />
               </>
+            ),
+          },
+          {
+            id: "care-plan",
+            label: "Care plan",
+            content: patient.organisation_id ? (
+              <CarePlanManagementSection patientId={patient.id} organisationId={patient.organisation_id} />
+            ) : (
+              <p className="text-sm text-charcoal-ink/60">This patient has no organisation on file.</p>
             ),
           },
           {
@@ -311,6 +329,18 @@ export default async function ClinicianPatientPage({
                 <ObesityEdScreenForm patientId={patient.id} />
               </>
             ),
+          },
+          {
+            id: "clinical-notes",
+            label: "Clinical notes",
+            content: patient.organisation_id ? (
+              <ClinicalEncounterNotesSection
+                patientId={patient.id}
+                organisationId={patient.organisation_id}
+                canWrite={isClinicalTier(callerStaff)}
+                canActionFollowUps={Boolean(callerStaff)}
+              />
+            ) : null,
           },
         ];
 

@@ -79,5 +79,7 @@ export async function assessHeartRateBestEffort(
     status: "open",
     title: HEART_RATE_ALERT_TITLE,
     detail: `${outOfRangePercent}% of this patient's heart rate readings over the last ${HEART_RATE_WINDOW_DAYS} days were outside the typical 60-100 bpm resting range. This is a pattern-based triage flag, not a diagnosis — a single reading, exercise, or stress can all cause this on their own; worth a closer look if it persists.`,
+    category: "clinical",
+    type_code: "abnormal_monitoring",
   });
 }

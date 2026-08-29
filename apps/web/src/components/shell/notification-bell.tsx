@@ -48,6 +48,31 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: supporter ? "/patient/supporting" : "/patient/messages",
     };
   }
+  if (n.template === "clinician_new_care_message") {
+    // Provider-facing counterpart to new_care_message — a patient or their
+    // sponsor posted and the assigned clinician hadn't been told (see
+    // 20260827203614_provider_notifications.sql).
+    const who = String(payload.author_display ?? "").trim();
+    const from = payload.author_role === "sponsor" ? who || "a supporter" : who || "the patient";
+    return {
+      text: `New message from ${from}`,
+      href: `/clinician/patients/${String(payload.patient_id ?? "")}`,
+    };
+  }
+  if (n.template === "clinician_new_referral") {
+    const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
+    return {
+      text: `New referral to triage: ${specialist}`,
+      href: "/clinician/referrals",
+    };
+  }
+  if (n.template === "clinician_care_plan_task") {
+    const reason = String(payload.reason ?? "a care plan needs review");
+    return {
+      text: `Care plan task: ${reason}`,
+      href: "/clinician/care-plan-review",
+    };
+  }
   if (n.template === "health_reset_complete") {
     return {
       text: "Your 90-Day Health Reset is complete: claim your free trial",
@@ -303,6 +328,18 @@ function describe(n: InAppNotification): { text: string; href: string } {
   if (n.template === "wellness_challenge_ending") {
     const title = String(payload.challenge_title ?? "Your challenge");
     return { text: `${title} ends soon, keep going`, href: "/patient/wellness" };
+  }
+  if (n.template === "serious_clinical_incident_filed") {
+    // From private.notify_serious_clinical_incident() (spec §31.9). Payload
+    // deliberately carries only category/severity/incident_id, never the
+    // free-text description — same "that it happened, never what was found"
+    // posture as sponsor_care_reviewed. The full report is one tap away.
+    const severity = String(payload.severity ?? "serious");
+    const category = String(payload.category ?? "incident").replace(/_/g, " ");
+    return {
+      text: `A ${severity} incident was reported: ${category}`,
+      href: "/clinician/incidents",
+    };
   }
   if (n.template === "second_condition_needs_upgrade") {
     // From private.ensure_medication_review() — the patient's second

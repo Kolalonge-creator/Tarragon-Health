@@ -7,6 +7,12 @@ import type { FaqItem } from "../_components/marketing-faq-accordion";
  * to Supabase"). The in-app Shop (patient/(sections)/devices) is the
  * DB-driven counterpart; keep this list in sync with it by hand when a
  * curated device changes. Per the Device Pairing & Integration Spec v2 §9.1.
+ *
+ * 2026-08-26: no purchase link — Jumia/Konga have no workable affiliate
+ * programme for these categories, and a direct-manufacturer/international
+ * link exposes a Nigerian patient to import duty at checkout. This is a
+ * plain clinical recommendation; the patient buys from any retailer they
+ * already trust.
  */
 export type MarketingDeviceCategory = "blood_pressure" | "weight" | "blood_glucose";
 
@@ -16,8 +22,6 @@ export type MarketingDeviceCard = {
   deviceName: string;
   vendorName: string;
   whyWeRecommend: string;
-  buyHref: string;
-  alternative?: { label: string; href: string };
 };
 
 export const MARKETING_DEVICES: readonly MarketingDeviceCard[] = [
@@ -28,8 +32,6 @@ export const MARKETING_DEVICES: readonly MarketingDeviceCard[] = [
     vendorName: "Omron",
     whyWeRecommend:
       "The most clinically trusted consumer BP brand globally, with confirmed Bluetooth connectivity that syncs straight into your Tarragon record.",
-    buyHref:
-      "https://www.jumia.com.ng/omron-10-series-wireless-upper-arm-blood-pressure-monitor-bp7450-418251415.html",
   },
   {
     category: "weight",
@@ -38,7 +40,6 @@ export const MARKETING_DEVICES: readonly MarketingDeviceCard[] = [
     vendorName: "Xiaomi",
     whyWeRecommend:
       "Bluetooth Low Energy, affordable and widely available in Nigeria, syncing through the Mi Fit app.",
-    buyHref: "https://www.mi.com/ng/product/mi-body-composition-scale-2/",
   },
   {
     category: "blood_glucose",
@@ -47,23 +48,18 @@ export const MARKETING_DEVICES: readonly MarketingDeviceCard[] = [
     vendorName: "Roche",
     whyWeRecommend:
       "A globally trusted glucose-monitoring brand, Bluetooth-enabled and already stocked locally, so there's no import wait.",
-    buyHref: "https://www.jumia.com.ng/blood-glucose-monitors/accu-chek/",
-    alternative: {
-      label: "Alternative option: HealthPlus Nigeria",
-      href: "https://healthplusnigeria.com/products/accuchek-instant-blood-glucose-monitor",
-    },
   },
 ] as const;
 
 export const DEVICES_FAQ: readonly FaqItem[] = [
   {
-    question: "Do I have to buy from here?",
+    question: "Do I have to buy one of these?",
     answer:
       "No. Any Bluetooth device with Health Connect or Apple Health support will work — these are simply the ones we've tested and clinically vetted.",
   },
   {
-    question: "Does Tarragon make money from this?",
+    question: "Does Tarragon sell these or make money if I buy one?",
     answer:
-      "Yes, a small commission at no extra cost to you. It never affects which devices we recommend, which is based on clinical accuracy and confirmed compatibility only.",
+      "No. Tarragon doesn't sell, ship, or earn a commission on any of these devices — buy from whichever retailer you trust. We recommend them purely based on clinical accuracy and confirmed compatibility.",
   },
 ] as const;

@@ -170,6 +170,7 @@ export function getNavSections(
               shortLabel: "Messages",
             },
             { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
+            { label: "Appointments", href: "/patient/appointments", icon: "booking" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
@@ -219,6 +220,11 @@ export function getNavSections(
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                // Filing an incident or near miss needs no clinical
+                // authority — a coordinator spotting one and reporting it is
+                // the safety culture the log exists for. Reviewing and
+                // closing does, and self-gates inside the page.
+                { label: "Incidents & near misses", href: "/clinician/incidents", icon: "warning" },
               ],
             },
           ]
@@ -232,6 +238,7 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
               ],
@@ -266,10 +273,21 @@ export function getNavSections(
               ],
             },
             {
+              // Clinical Governance & Patient Safety: the reporting end
+              // (anyone may file) and the leadership view over it.
+              label: "Safety & governance",
+              items: [
+                { label: "Clinical safety", href: "/clinician/safety", icon: "governance" },
+                { label: "Incidents & near misses", href: "/clinician/incidents", icon: "warning" },
+              ],
+            },
+            {
               label: "My work",
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },
           ];
@@ -311,6 +329,12 @@ export function getNavSections(
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
+            // §31.13 escalation policy per alert type (owner/backup/senior
+            // tier, response time, channel sequence) — shipped with the rest
+            // of the Alert System taxonomy but never reachable from the UI.
+            { label: "Alert rules", href: "/admin/settings/alert-rules", icon: "bell" },
+            // §31.3/§31.18 — who is accountable for each governance domain.
+            { label: "Governance domains", href: "/admin/settings/governance", icon: "governance" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
           ],
         },

@@ -1,0 +1,117 @@
+name: Mobile OTA Publish
+
+# apps/mobile has never had a CI step that reaches the actual running app: EAS Update (OTA) only
+# ships when someone manually runs `eas update`. That gap let a day's worth of JS-only mobile UI
+# work (the BMW-inspired UI kit extended across Vitals/Medications/Labs/Health Passport/Supporting
+# in 790e344, the Overview/Settings redesign in b924a2d, and the nav-drawer/Devices wiring in
+# 088c2cb — all landed 2026-08-26) sit merged in main-dev with nobody's installed build ever
+# receiving it, because the one manual `eas update` publish (PR #260, 2026-08-25) predated all
+# three commits. Same "code shipped, running artifact never updated" failure mode
+# release-integrity.yml already catches for Vercel/Supabase — this is the mobile equivalent.
+#
+# Auto-publishes JS-only pushes to the `preview` channel (internal testing) so whoever is testing
+# the app always has the latest bundle with no manual step. It deliberately does NOT auto-publish
+# to `production` — shipping OTA straight to a channel that could reach real patient devices isn't
+# something to do unattended on every push — and it deliberately skips publishing at all when the
+# push touches anything that changes native code (package.json, app.json, eas.json, ios/, plugins/)
+# rather than guessing: per 88a3674's commit message, runtimeVersion here is a manually-pinned
+# literal, not an auto-computed policy, so a native-code change needs a matching runtimeVersion bump
+# and a fresh `eas build` — publishing JS-only against an unbumped runtimeVersion could serve a
+# bundle a currently-installed build's native side was never compiled to run.
+#
+# Required repo secret (Settings -> Secrets and variables -> Actions):
+#   EXPO_TOKEN   Access token for the Expo/EAS account that owns this project (expo.dev, project id
+#                70441d73-567d-445b-8d29-691afdb72d72) — generate one at
+#                expo.dev/accounts/[account]/settings/access-tokens. Until it's added, this workflow
+#                fails closed with a clear "token not set" message rather than silently skipping —
+#                same convention as release-integrity.yml.
+#
+# To publish to `production` or `development`, or to force a `preview` republish, run this workflow
+# manually via workflow_dispatch and pick the channel — or run `eas update --branch <channel>`
+# locally from apps/mobile. A native-code change still needs `eas build` (locally or via the EAS
+# dashboard) before any update publish will reach it.
+
+on:
+  push:
+    branches: [main-dev]
+    paths:
+      - "apps/mobile/**"
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "EAS Update channel to publish to"
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+          - development
+
+concurrency:
+  group: mobile-ota-publish-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish EAS Update (OTA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require EXPO_TOKEN
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::error::EXPO_TOKEN repo secret is not set — see this workflow's header comment for how to generate one."
+            exit 1
+          fi
+
+      - name: Decide whether this push is JS-only
+        id: gate
+        if: github.event_name == 'push'
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No usable diff base (new branch or force-push) — treating as native-affecting to be safe."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "$BEFORE" "$AFTER" -- apps/mobile)
+          echo "Changed files under apps/mobile:"
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -Eq '^apps/mobile/(package\.json|app\.json|eas\.json|ios/|plugins/)'; then
+            echo "Native-affecting file changed — this needs a fresh 'eas build', not just an OTA update. Skipping auto-publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install pnpm
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.publish == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.publish == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.publish == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Publish EAS Update
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.publish == 'true'
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          CHANNEL="${{ github.event.inputs.channel }}"
+          if [ -z "$CHANNEL" ]; then CHANNEL="preview"; fi
+          SUBJECT=$(git log -1 --format=%s "${{ github.sha }}")
+          npx eas-cli@latest update --branch "$CHANNEL" --non-interactive \
+            --message "$SUBJECT (${GITHUB_SHA::7})"

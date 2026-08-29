@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useOpenConsultSlots,
@@ -8,13 +9,16 @@ import {
   useMyVideoVisitRequests,
   useVideoVisitPrice,
   useVideoVisitAcceptanceStats,
+  useRecentUnratedVideoVisits,
   consultSlotKeys,
 } from "@/lib/queries/consult-slots";
 import {
   requestVideoVisit,
   selectVideoVisitAlternateSlot,
+  submitConsultationFeedback,
   type RequestVideoVisitState,
   type SelectAlternateSlotState,
+  type SubmitFeedbackState,
 } from "./video-visit-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +79,67 @@ const REQUEST_STATUS: Record<
   refunded: { label: "Refunded", tone: "grey" },
 };
 
+const RATING_LABELS = [1, 2, 3, 4, 5];
+
+/** Consultation System §9.20 — prompts for a rating on a recently completed, unrated visit. */
+function VideoVisitFeedbackPrompt({ consultationId }: { consultationId: string }) {
+  const queryClient = useQueryClient();
+  const [overall, setOverall] = useState<number>(0);
+  const [state, formAction, isPending] = useActionState<SubmitFeedbackState, FormData>(
+    submitConsultationFeedback,
+    undefined
+  );
+
+  useEffect(() => {
+    if (state?.message) {
+      queryClient.invalidateQueries({ queryKey: ["video-consultations", "recent-completed"] });
+    }
+  }, [state, queryClient]);
+
+  if (state?.message) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-sm text-charcoal-ink/70">{state.message}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">How was your video visit?</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <form action={formAction} className="space-y-3">
+          <input type="hidden" name="consultation_id" value={consultationId} />
+          <input type="hidden" name="overall_rating" value={overall || ""} />
+          <div className="flex gap-1">
+            {RATING_LABELS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setOverall(n)}
+                className={`h-9 w-9 rounded-full text-sm font-medium ${
+                  overall >= n ? "bg-brand-green text-white" : "bg-charcoal-ink/10 text-charcoal-ink/60"
+                }`}
+                aria-label={`${n} star${n === 1 ? "" : "s"}`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <Button type="submit" size="sm" disabled={overall === 0 || isPending}>
+            {isPending ? "Sending…" : "Send feedback"}
+          </Button>
+          {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 /**
  * One form, one submit button per offered time — the button that was
  * actually clicked contributes its own name/value pair to the FormData
@@ -128,6 +193,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
   const { data: requests } = useMyVideoVisitRequests(patientId);
   const { data: price } = useVideoVisitPrice();
   const { data: acceptanceStats } = useVideoVisitAcceptanceStats();
+  const { data: unrated } = useRecentUnratedVideoVisits(patientId);
   const queryClient = useQueryClient();
   const [selectedSlot, setSelectedSlot] = useState<string>("");
   const [state, formAction, isPending] = useActionState<RequestVideoVisitState, FormData>(
@@ -142,9 +208,14 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
   const hasSlots = (slots ?? []).length > 0 && !!price;
   const hasUpcoming = (upcoming ?? []).length > 0;
   const hasRequests = (requests ?? []).length > 0;
-  if (!hasSlots && !hasUpcoming && !hasRequests) return null;
+  const hasUnrated = (unrated ?? []).length > 0;
+  if (!hasSlots && !hasUpcoming && !hasRequests && !hasUnrated) return null;
 
   return (
+    <div className="space-y-4">
+    {hasUnrated &&
+      (unrated ?? []).map((visit) => <VideoVisitFeedbackPrompt key={visit.id} consultationId={visit.id} />)}
+    {(hasSlots || hasUpcoming || hasRequests) && (
     <Card>
       <CardHeader>
         <CardTitle>15-minute online consultation with a doctor</CardTitle>
@@ -188,6 +259,11 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                     </a>
                   </>
                 )}
+                {" "}
+                ·{" "}
+                <Link href={`/patient/video-visit/${visit.id}`} className="text-brand-green hover:underline">
+                  Prepare / manage
+                </Link>
               </p>
             ))}
           </div>
@@ -262,5 +338,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
         )}
       </CardContent>
     </Card>
+    )}
+    </div>
   );
 }

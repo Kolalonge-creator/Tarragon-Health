@@ -26,11 +26,11 @@ configured; the only prerequisites are the accounts.
 ## First build (after the accounts exist)
 
 ```bash
-npm install -g eas-cli
 cd apps/mobile
-eas login                 # the Expo account from step 1
-eas init                  # links the project, writes extra.eas.projectId into app.json
-eas update:configure      # wires OTA updates (uses the runtimeVersion policy already set)
+pnpm install               # installs eas-cli locally — no global/sudo install needed
+pnpm exec eas login        # the Expo account from step 1
+pnpm exec eas init         # links the project, writes extra.eas.projectId into app.json
+pnpm exec eas update:configure  # wires OTA updates (uses the runtimeVersion policy already set)
 
 # Android — no Google account needed, installs directly on any phone:
 pnpm build:preview:android    # produces an .apk you download & install
@@ -39,6 +39,17 @@ pnpm build:preview:android    # produces an .apk you download & install
 # certificates automatically:
 pnpm build:dev:ios            # internal build, install via the QR/link EAS prints
 ```
+
+`eas-cli` is a devDependency of this workspace (not a global install), so `pnpm build:*`
+scripts and `pnpm exec eas ...` always resolve the version pinned in `package.json` — no
+`npm install -g eas-cli` needed. Running that global-install form yourself can fail with an
+`EACCES: permission denied` error on a stock macOS/Homebrew Node setup, because npm's default
+global prefix (often `/usr/local/lib/node_modules`) isn't writable by your user; `sudo npm
+install -g` "fixes" it but then mixes root- and user-owned global installs, which is how the
+`Cannot find module 'fast-glob'` / stale-eas-cli-link error shows up on a later build. If you
+ever do need a one-off `eas` command outside this workspace, use `pnpm dlx eas-cli@latest
+<command>` instead of a global npm install — it always runs a clean, current copy without
+touching global state.
 
 Commit the `app.json` changes `eas init` makes.
 

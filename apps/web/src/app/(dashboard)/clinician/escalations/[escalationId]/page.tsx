@@ -198,7 +198,7 @@ export default async function EscalationDetailPage({
             resolving an escalation is not a medication-management moment.
           */}
           <VitalsTrendChart patientId={escalation.patient.id} />
-          <MedicationsList patientId={escalation.patient.id} refillCoordinationEnabled />
+          <MedicationsList patientId={escalation.patient.id} refillCoordinationEnabled isClinicianView />
           <PatientTimeline patientId={escalation.patient.id} limit={10} />
         </div>
       )}

@@ -85,6 +85,27 @@ export const revenueByPlanSchema = z
 export type RevenueByPlan = z.infer<typeof revenueByPlanSchema>;
 
 // ---- Population health -----------------------------------------------------
+
+/**
+ * get_geo_health_aggregates() returns one row per state; a null count means
+ * suppressed (spec §2.17) — never coerce it to 0, which would misrepresent
+ * a hidden figure as a real zero.
+ */
+export const geoHealthAggregatesSchema = z
+  .array(
+    z.object({
+      state: z.string(),
+      patient_count: z.number().nullable(),
+      hypertension_high_count: z.number().nullable(),
+      diabetes_high_count: z.number().nullable(),
+      cvd_high_count: z.number().nullable(),
+      overdue_screening_count: z.number().nullable(),
+      suppressed: z.boolean(),
+    })
+  )
+  .default([]);
+export type GeoHealthAggregates = z.infer<typeof geoHealthAggregatesSchema>;
+
 export const populationSummarySchema = z.object({
   total_patients: z.number().default(0),
   condition_prevalence: z
@@ -344,6 +365,47 @@ export const doctorPerformanceSchema = z.object({
     .default([]),
 });
 export type DoctorPerformance = z.infer<typeof doctorPerformanceSchema>;
+
+// ---- Provider capacity (docs/CLINICAL_NETWORK_SPEC.md §4.17) --------------
+export const providerCapacitySchema = z.object({
+  by_specialty: z
+    .array(
+      z.object({
+        specialist_type: z.string(),
+        active_providers: z.number(),
+        total_providers: z.number(),
+        waitlisted_referrals: z.number(),
+        avg_current_wait_hours: z.number().nullable(),
+      })
+    )
+    .default([]),
+  by_specialty_state: z
+    .array(
+      z.object({
+        specialist_type: z.string(),
+        state: z.string(),
+        active_providers: z.number(),
+      })
+    )
+    .default([]),
+  zero_active_provider_specialties: z.array(z.string()).default([]),
+  recent_booking_turnaround: z
+    .object({
+      window_days: z.number(),
+      booked_referrals: z.number(),
+      avg_hours_to_booking: z.number().nullable(),
+    })
+    .nullable()
+    .default(null),
+  video_slot_utilisation_next_7_days: z
+    .object({
+      total_slots: z.number(),
+      booked_slots: z.number(),
+    })
+    .nullable()
+    .default(null),
+});
+export type ProviderCapacity = z.infer<typeof providerCapacitySchema>;
 
 // ---- Staff (Tarragon team) activity ---------------------------------------
 export const staffActivitySchema = z.object({

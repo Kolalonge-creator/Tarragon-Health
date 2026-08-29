@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, SafeAreaView, StatusBar, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, SafeAreaView, StatusBar, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
+import logoMarkWhite from "./assets/logo-mark-white.png";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
 import { LoginScreen } from "@/screens/login-screen";
@@ -56,8 +57,14 @@ export default function App() {
 
   if (session === undefined || (session && identity === undefined)) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand }}>
+        <StatusBar barStyle="light-content" />
+        <Image
+          source={logoMarkWhite}
+          style={{ width: 96, height: 133, marginBottom: 32 }}
+          resizeMode="contain"
+        />
+        <ActivityIndicator color="#FFFFFF" />
       </SafeAreaView>
     );
   }

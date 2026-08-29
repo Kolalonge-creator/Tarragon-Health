@@ -36,6 +36,17 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
 - **Never hand-type a round-number migration timestamp.** Six real migrations once collided on the
   same `20260720120000` version number from parallel sessions doing exactly that —
   `supabase_migrations.version` is the primary key, so only the first of each group ever recorded.
+- **A live schema object can exist with no migration record at all — not even an uncommitted one.**
+  Found 2026-08-27: 7 migrations from a same-day audit pass were live but never committed (at least
+  present in `supabase_migrations.schema_migrations`, so comparing `list_migrations` against local
+  files caught them); 3 more had drifted filenames. Worse, `private.guard_profiles_self_update()` —
+  the trigger blocking a user from self-editing privileged `profiles` columns (`role`,
+  `organisation_id`, `lab_provider_id`, …) — existed live with **no migration record anywhere,
+  including in `schema_migrations`**, meaning it was applied by some means entirely outside the
+  migration system and a plain `list_migrations`-vs-local-files diff can't find it. Before assuming
+  a security-relevant trigger/function/policy doesn't exist (or extending one), check its live
+  definition directly (`pg_get_functiondef`/`pg_get_triggerdef` via `execute_sql`), not just
+  whether a migration file for it exists.
 - **A freshly created table needs its own `grant ... to authenticated`.** RLS restricts rows; it
   does not grant table-level access. Supabase auto-provisions that grant at project creation but not
   for a table added later by a plain migration. This silently broke access at least three times
@@ -83,7 +94,7 @@ exact date — is preserved losslessly in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md
 
 ## Platform Operating Rules
 
-> Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. Competitive-intelligence feature roadmap: `docs/FULL_SPECIFICATION_V4.md`. Master operating plan (business model, **5-tier doctor ladder**, phased Phase 1/2/3 roadmap): `docs/Tarragon_Health_Master_Operating_Plan_v4.md` — authoritative on the clinical staffing model, supersedes the flat clinician/escalation-doctor language elsewhere. Clinician attribution & trust model: `docs/CLINICAL_TRUST_MODEL_SPEC.md` — still authoritative for per-touchpoint attribution UI rules (e.g. `ReviewedByDoctor`) not covered by the tier ladder. **This file is the operating contract, kept lean on purpose** — the sections below (Business, Architecture, Rules, Clinical Tier Ladder, Code Rules, Brand) change rarely and should stay short. Anything dated or historical belongs in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, never appended here — that discipline is what keeps this file readable (it grew past 2,600 lines once already by not following it; see the cleanup note above).
+> Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. Competitive-intelligence feature roadmap: `docs/FULL_SPECIFICATION_V4.md`. Master operating plan (business model, **5-tier doctor ladder**, phased Phase 1/2/3 roadmap): `docs/Tarragon_Health_Master_Operating_Plan_v4.md` — authoritative on the clinical staffing model, supersedes the flat clinician/escalation-doctor language elsewhere. Clinician attribution & trust model: `docs/CLINICAL_TRUST_MODEL_SPEC.md` — still authoritative for per-touchpoint attribution UI rules (e.g. `ReviewedByDoctor`) not covered by the tier ladder. Clinical Network design/gap-analysis (provider directory, verification, availability, discovery, referral integration, org accounts): `docs/CLINICAL_NETWORK_SPEC.md` — a design doc, not a build order; defers to this file's guardrail on the specialist-matching/ranking engine. **This file is the operating contract, kept lean on purpose** — the sections below (Business, Architecture, Rules, Clinical Tier Ladder, Code Rules, Brand) change rarely and should stay short. Anything dated or historical belongs in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, never appended here — that discipline is what keeps this file readable (it grew past 2,600 lines once already by not following it; see the cleanup note above).
 
 ## The Business
 Nigeria's digital-first chronic disease, preventive health, and family care coordination OS — the trusted coordination layer between patients, families, doctors, labs, pharmacies, HMOs, and employers. App/web-first, doctor-led (Tarragon directly employs its day-to-day care-team doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`), escalation-driven, AI-automated, partner-network based, with WhatsApp/SMS as a follow-up and notification layer only (see Non-Negotiable Business Rules). **No owned clinics.** Five categories, all architecturally represented from Sprint 1 — they are commercially linked, each feeds the others:
@@ -226,6 +237,17 @@ taken on faith:**
   meantime.
 - A production-quality Nigerian-language voice/TTS vendor was deliberately never built — the
   platform is English-only by founder decision (2026-08-03). Revisit only on an explicit ask.
+- **2026-08-26 — mobile OTA publishing is now automated, but needs one secret added before it runs.**
+  `apps/mobile` had no CI path to the actual running app — EAS Update only shipped via a manual
+  `eas update`, and a day's worth of merged JS-only UI work (BMW-kit rework, nav-drawer/Devices
+  wiring) sat unpublished because nobody re-ran it after the one verified publish in PR #260. Added
+  `.github/workflows/mobile-ota-publish.yml`: auto-publishes JS-only pushes to `main-dev` (that
+  touch `apps/mobile`) to the `preview` channel, skips publishing (rather than guessing) when a push
+  touches anything native-affecting — that still needs a manual `eas build` — and never auto-publishes
+  to `production`. **It will fail closed until an `EXPO_TOKEN` repo secret is added** (Settings ->
+  Secrets and variables -> Actions; generate at expo.dev/accounts/[account]/settings/access-tokens)
+  — no agent in this sandbox has EAS/Expo credentials to add it. Confirm the secret has actually been
+  added before assuming this workflow is doing anything.
 
 ### 2026-08-04 — Second occurrence: a push to `main` built on Vercel but was never promoted to production
 Founder reported the live site still showed retired partner-lab/booking copy (prices for lab tests and
@@ -277,7 +299,9 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - Logo assets → `/brand/Tarragon_Health_Logo_Mark.png`, `/brand/Tarragon_Health_Logo_Lockup.png` (marketing deploy copies → `apps/web/public/brand/`)
 - Competitive-intelligence feature roadmap (Health Score, wearables, symptom tracking, fee-at-risk contracts, phased Now/Phase 2/Phase 3) → `docs/FULL_SPECIFICATION_V4.md` — additive feature layer only; per its own §11 guardrail it informs the roadmap and never overrides this file's operating rules or `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`
 - Clinician/doctor role architecture, per-touchpoint attribution rules, escalation→doctor review flow, `clinical_staff`/`care_team_assignment`/`protocol_versions` schema, MDCN/NMCN compliance → `docs/CLINICAL_TRUST_MODEL_SPEC.md` — authoritative on conflicts touching clinician attribution or escalation branding; its Stage/§ cross-references map to the original `docs/source/` planning docs, not `FEATURE_SPEC.md`'s Sprint numbers — see the reconciliation note at the top of the file
+- Patient Health Record — section-by-section gap analysis against the platform's actual schema/code (identity, problem list, allergies, family/social history, observations, labs, imaging, medication lifecycle, encounters, timeline, versioning, search, permissions, external records, export, security), plus open founder decisions where the record spec collides with a real shipped decision (e.g. the collapsed medication dispensed/received event) → `docs/PATIENT_HEALTH_RECORD_ARCHITECTURE.md`
 - 5-tier doctor ladder, Care Coordinator role, doctor-tier staffing/indemnity rules, phased Phase 1/2/3 roadmap (specialist-matching engine, wellness testing, Employer/HMO dashboards, home sample collection, medication delivery) → `docs/Tarragon_Health_Master_Operating_Plan_v4.md` — authoritative on the clinical staffing model where it conflicts with `CLINICAL_TRUST_MODEL_SPEC.md`'s older flat-role language
+- Clinical Network — provider directory/verification/availability/discovery/referral-integration/org-account gap analysis against current code, phased Phase 1 (safe now) vs Phase 2/3 (needs explicit ask) recommendations → `docs/CLINICAL_NETWORK_SPEC.md` — a design/reconciliation doc; where it disagrees with the Master Operating Plan's Phase labels, that's a sign the Master Plan is stale relative to shipped work (e.g. the referral-status pipeline/waitlist), not license to build past this file's matching-engine guardrail (see its §3) without asking first
 - Sprint-by-sprint build history — every migration, bug, and founder decision, dated, 2026-07-09 through 2026-08-03 → `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md` — a historical record; verify any specific fact against the live code/DB before trusting it, see "Where things actually stand" above
 - Diabetes/Hypertension clinical pathway source docs + outstanding-gap tracking → `guideline/` — the `.docx` files are the signed pathway source-of-truth; `Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md` and `Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md` track exactly what the platform still owes each pathway (mostly governance sign-off + localisation facts, not code) — read these directly, they are not otherwise summarised in this file
 - Shipped-feature build-plan docs, superseded by the running code and by `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, kept for historical design rationale only → `docs/archive/`

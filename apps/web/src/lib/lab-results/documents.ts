@@ -23,6 +23,12 @@ export interface ResultDocumentView {
   nextSteps: string | null;
   /** Set once, alongside patientInterpretation — gates patient visibility. */
   interpretationSentAt: string | null;
+  /** Care Team / Provider Workspace §5.7 — New/Opened/Reviewed/Action
+   * required/Action completed. See 20260827204355_result_acknowledgement_status.sql
+   * for how each state is reached; enforce_lab_result_document_update is the
+   * only place that may actually move it. */
+  acknowledgementStatus: Database["public"]["Enums"]["result_document_acknowledgement_status"];
+  actionCompletedAt: string | null;
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
   isPdf: boolean;
@@ -54,7 +60,7 @@ export async function loadResultDocuments(
   const { data: rows } = await supabase
     .from("lab_result_documents")
     .select(
-      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at",
+      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -75,6 +81,8 @@ export async function loadResultDocuments(
       patientInterpretation: row.patient_interpretation,
       nextSteps: row.next_steps,
       interpretationSentAt: row.interpretation_sent_at,
+      acknowledgementStatus: row.acknowledgement_status,
+      actionCompletedAt: row.action_completed_at,
       signedUrl: await signResultDocumentPath(row.file_path),
       isPdf: row.mime_type === "application/pdf",
     })),

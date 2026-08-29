@@ -91,6 +91,7 @@ end;
 $$;
 
 revoke all on function public.sponsor_book_care(uuid, text, uuid) from public;
+revoke all on function public.sponsor_book_care(uuid, text, uuid) from anon;
 grant execute on function public.sponsor_book_care(uuid, text, uuid) to authenticated;
 
 
@@ -152,6 +153,7 @@ end;
 $$;
 
 revoke all on function public.sponsor_set_dependent_basics(uuid, date, text, text, text) from public;
+revoke all on function public.sponsor_set_dependent_basics(uuid, date, text, text, text) from anon;
 grant execute on function public.sponsor_set_dependent_basics(uuid, date, text, text, text) to authenticated;
 
 do $$

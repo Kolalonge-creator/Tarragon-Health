@@ -16,6 +16,7 @@ import { RiskSignalsCard } from "@/app/(dashboard)/patient/risk-signals-card";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
+import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-completion-card";
 import { YourCareTeam } from "@/components/your-care-team";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -171,6 +172,13 @@ export default async function PatientOverviewPage() {
           already-computed "you're on track" reassurance — nothing new to
           fabricate here. */}
       <HealthScoreCard patientId={subjectId} />
+
+      {/* Deliberately separate from the Health Score above, not a second way
+          to show the same number — this is a completion checklist by area
+          (spec: "avoid presenting a misleading single health score ... a
+          prevention completion dashboard is safer and more actionable"),
+          answering "what's outstanding" rather than "how am I doing overall". */}
+      <PreventionCompletionCard patientId={subjectId} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <VitalsTrendChart patientId={subjectId} />

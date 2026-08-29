@@ -16,6 +16,7 @@ import {
   featureAdoptionSchema,
   financeInputsSchema,
   financialSummarySchema,
+  geoHealthAggregatesSchema,
   governanceSummarySchema,
   growthTimeseriesSchema,
   investorSummarySchema,
@@ -23,6 +24,7 @@ import {
   patientActivitySchema,
   patientSearchSchema,
   populationSummarySchema,
+  providerCapacitySchema,
   retentionCohortsSchema,
   riskRegisterSchema,
   staffActivitySchema,
@@ -109,6 +111,18 @@ export function usePopulationSummary() {
       const { data, error } = await createClient().rpc("analytics_population_summary");
       if (error) throw error;
       return populationSummarySchema.parse(data);
+    },
+  });
+}
+
+/** State-level risk/screening-gap concentration (spec §2.17) — see get_geo_health_aggregates(). */
+export function useGeoHealthAggregates() {
+  return useQuery({
+    queryKey: ["analytics", "geo-health-aggregates"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("get_geo_health_aggregates");
+      if (error) throw error;
+      return geoHealthAggregatesSchema.parse(data);
     },
   });
 }
@@ -358,6 +372,18 @@ export function useDoctorPerformance() {
       const { data, error } = await createClient().rpc("analytics_doctor_performance", {});
       if (error) throw error;
       return doctorPerformanceSchema.parse(data);
+    },
+  });
+}
+
+// ---- Provider capacity (docs/CLINICAL_NETWORK_SPEC.md §4.17) --------------
+export function useProviderCapacity() {
+  return useQuery({
+    queryKey: ["analytics", "provider-capacity"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_provider_capacity");
+      if (error) throw error;
+      return providerCapacitySchema.parse(data);
     },
   });
 }
