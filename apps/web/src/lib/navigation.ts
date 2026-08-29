@@ -220,6 +220,7 @@ export function getNavSections(
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                { label: "Incident reports", href: "/clinician/incident-reports", icon: "warning" },
               ],
             },
           ]
@@ -265,6 +266,7 @@ export function getNavSections(
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
+                { label: "Incident reports", href: "/clinician/incident-reports", icon: "warning" },
               ],
             },
             {
