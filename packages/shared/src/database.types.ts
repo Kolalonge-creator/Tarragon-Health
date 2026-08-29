@@ -20090,6 +20090,7 @@ export type Database = {
         Args: {
           p_body: string
           p_care_plan_id?: string
+          p_confidential?: boolean
           p_escalation_id?: string
           p_patient_id?: string
           p_subject: string
