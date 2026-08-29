@@ -192,6 +192,13 @@ begin
 end;
 $$;
 
+-- Revoke the default PUBLIC execute before granting to authenticated —
+-- otherwise anon inherits execute through the PUBLIC pseudo-role (the
+-- gotcha this codebase has hit repeatedly; see the migration-replay CI
+-- job note in 20260812041044_service_role_write_actor_attribution.sql).
+-- The function itself rejects a null auth.uid() with an exception, but
+-- the grant should not admit an unauthenticated caller in the first place.
+revoke all on function public.patient_receipts() from public;
 grant execute on function public.patient_receipts() to authenticated;
 
 do $$
@@ -206,5 +213,9 @@ begin
     raise exception 'FAIL: authenticated cannot execute patient_receipts';
   end if;
 
-  raise notice 'PASS: patient_receipts created and executable by authenticated';
+  if has_function_privilege('anon', 'public.patient_receipts()', 'EXECUTE') then
+    raise exception 'FAIL: anon can execute patient_receipts';
+  end if;
+
+  raise notice 'PASS: patient_receipts created, executable by authenticated, denied to anon';
 end $$;
