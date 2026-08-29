@@ -299,6 +299,13 @@ export default async function AdminPage() {
           visible: can("integrations.manage"),
         },
         {
+          href: "/admin/settings/feature-flags",
+          label: "Feature flags",
+          blurb: "Roll a feature out to staff, a percentage, or a named cohort",
+          icon: NAV_ICON.settings,
+          visible: can("feature_flags.manage"),
+        },
+        {
           href: "/admin/settings/protocol-api",
           label: "Protocol API",
           blurb: "License escalation/risk/protocol machinery to partners",
