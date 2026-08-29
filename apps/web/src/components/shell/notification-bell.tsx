@@ -358,6 +358,90 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/subscription",
     };
   }
+  if (n.template === "care_access_revoked") {
+    // From private.revoke_care_access() (care_graph_unification.sql).
+    // by_owner tells the RECIPIENT who acted: true when the owner revoked
+    // someone else's access (recipient is the grantee who lost it), false
+    // when the grantee gave up their own access (recipient is the owner).
+    const byOwner = payload.by_owner === true;
+    const ownerName = String(payload.owner_name ?? "Someone");
+    const granteeName = String(payload.grantee_name ?? "Someone");
+    return {
+      text: byOwner ? `${ownerName} revoked your care access` : `${granteeName} gave up their care access`,
+      href: "/patient/family",
+    };
+  }
+  if (n.template === "clinical_staff_indemnity_lapse" || n.template === "clinical_staff_license_lapse") {
+    // From clinical_staff_indemnity_lapse_notify.sql /
+    // clinical_staff_license_expiry_tracking.sql. payload.message is
+    // already the fully-resolved admin-facing sentence -- same
+    // "no branching to reproduce" shape as clinician_alert_ack_timeout_*.
+    return { text: String(payload.message ?? "A clinician's credentials need review"), href: "/admin" };
+  }
+  if (n.template === "clinician_alert_sla_breach") {
+    // From clinician_alert_sla_breach_escalation.sql. Same pre-resolved
+    // payload.message shape.
+    return {
+      text: String(payload.message ?? "An open clinician alert breached its resolution SLA"),
+      href: "/clinician/escalations",
+    };
+  }
+  if (n.template === "data_breach_deadline") {
+    // From data_breach_incidents.sql. Same pre-resolved payload.message shape.
+    return { text: String(payload.message ?? "An NDPC breach-notification deadline needs attention"), href: "/admin" };
+  }
+  if (n.template === "partner_license_expiry") {
+    // From partner_regulatory_license_tracking.sql. Same pre-resolved
+    // payload.message shape.
+    return { text: String(payload.message ?? "A partner facility's license needs review"), href: "/admin" };
+  }
+  if (n.template === "health_passport_attestation_declined") {
+    const reason = String(payload.reason ?? "").trim();
+    return {
+      text: reason ? `Your passport attestation request was declined: ${reason}` : "Your passport attestation request was declined",
+      href: "/patient/health-passport",
+    };
+  }
+  if (n.template === "health_passport_attested") {
+    return { text: "Your health passport attestation is complete", href: "/patient/health-passport" };
+  }
+  if (n.template === "health_passport_revoked") {
+    const serial = String(payload.serial ?? "");
+    const reason = String(payload.reason ?? "").trim();
+    return {
+      text: reason
+        ? `Your health passport credential${serial ? ` (${serial})` : ""} was revoked: ${reason}`
+        : `Your health passport credential${serial ? ` (${serial})` : ""} was revoked`,
+      href: "/patient/health-passport",
+    };
+  }
+  if (n.template === "health_passport_verified") {
+    const serial = String(payload.serial ?? "");
+    return {
+      text: serial ? `Your vaccination certificate is verified (passport ${serial})` : "Your vaccination certificate is verified",
+      href: "/patient/health-passport",
+    };
+  }
+  if (n.template === "screening_upcoming" || n.template === "screening_overdue" || n.template === "screening_escalated") {
+    // From escalating_preventive_reminders.sql -- the overdue/escalated
+    // siblings of screening_due above, same payload shape.
+    const screen = String(payload.screen_type_name ?? "A screening");
+    const label =
+      n.template === "screening_upcoming" ? "is coming up soon"
+      : n.template === "screening_overdue" ? "is overdue"
+      : "is overdue: your care team may follow up";
+    return { text: `${screen} ${label}`, href: "/patient/prevention" };
+  }
+  if (n.template === "vaccination_upcoming" || n.template === "vaccination_overdue" || n.template === "vaccination_escalated") {
+    // From escalating_preventive_reminders.sql -- the overdue/escalated
+    // siblings of vaccination_due above, same payload shape.
+    const vaccine = String(payload.vaccine_name ?? "A vaccination");
+    const label =
+      n.template === "vaccination_upcoming" ? "is coming up soon"
+      : n.template === "vaccination_overdue" ? "is overdue"
+      : "is overdue: your care team may follow up";
+    return { text: `${vaccine} ${label}`, href: "/patient/prevention" };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 
