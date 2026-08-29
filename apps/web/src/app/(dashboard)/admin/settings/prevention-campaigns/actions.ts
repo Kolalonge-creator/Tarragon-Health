@@ -23,6 +23,8 @@ export async function createPreventionCampaignAction(
     return { error: "Not authorised" };
   }
 
+  const populationId = formData.get("population_id");
+
   const supabase = await createClient();
   const { error } = await supabase.from("prevention_campaigns").insert({
     organisation_id: profile.organisation_id,
@@ -35,6 +37,7 @@ export async function createPreventionCampaignAction(
     actions: JSON.parse(parsed.data.actions_json) as Json,
     status: "draft",
     created_by: profile.id,
+    population_id: typeof populationId === "string" && populationId ? populationId : null,
   });
   if (error) return { error: error.message };
 

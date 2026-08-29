@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { setCampaignStatusAction, type SetCampaignStatusState } from "./actions";
+import { campaignEffectivenessSchema } from "@/lib/populations/schemas";
 
 export type PreventionCampaignRow = {
   id: string;
@@ -15,7 +16,22 @@ export type PreventionCampaignRow = {
   ends_on: string | null;
   status: "draft" | "active" | "ended";
   actions: unknown;
+  population_id: string | null;
 };
+
+/** Spec §41.13 — the campaign's own enrolment funnel IS the before/after measurement. */
+function EffectivenessRow({ raw }: { raw: unknown }) {
+  const parsed = campaignEffectivenessSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const e = parsed.data;
+  return (
+    <p className="text-xs text-charcoal-ink/60">
+      {e.population_size != null && <>Population: {e.population_size} · </>}
+      Invited {e.invited} · Joined {e.joined} · Completed {e.completed}
+      {e.completion_rate != null && <> ({e.completion_rate}% completion)</>} · Declined {e.declined}
+    </p>
+  );
+}
 
 const STATUS_BADGE = {
   draft: "grey",
@@ -38,7 +54,13 @@ function StatusButton({ campaignId, status }: { campaignId: string; status: "act
   );
 }
 
-export function CampaignManager({ campaigns }: { campaigns: PreventionCampaignRow[] }) {
+export function CampaignManager({
+  campaigns,
+  effectivenessByCampaign = {},
+}: {
+  campaigns: PreventionCampaignRow[];
+  effectivenessByCampaign?: Record<string, unknown>;
+}) {
   if (campaigns.length === 0) {
     return <p className="text-sm text-charcoal-ink/60">No campaigns yet.</p>;
   }
@@ -69,6 +91,7 @@ export function CampaignManager({ campaigns }: { campaigns: PreventionCampaignRo
                   ))}
                 </ul>
               )}
+              {c.population_id && <EffectivenessRow raw={effectivenessByCampaign[c.id]} />}
               {c.status === "draft" && <StatusButton campaignId={c.id} status="active" />}
               {c.status === "active" && <StatusButton campaignId={c.id} status="ended" />}
             </CardContent>

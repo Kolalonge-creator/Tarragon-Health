@@ -18,9 +18,27 @@ export default async function PreventionCampaignsSettingsPage() {
   const supabase = await createClient();
   const { data: campaigns } = await supabase
     .from("prevention_campaigns")
-    .select("id, code, name, description, starts_on, ends_on, status, actions")
+    .select("id, code, name, description, starts_on, ends_on, status, actions, population_id")
     .eq("organisation_id", profile.organisation_id ?? "")
     .order("created_at", { ascending: false });
+
+  const { data: populations } = await supabase
+    .from("population_definitions")
+    .select("id, name")
+    .eq("organisation_id", profile.organisation_id ?? "")
+    .eq("status", "active")
+    .order("name");
+
+  const rows = (campaigns as PreventionCampaignRow[] | null) ?? [];
+  const effectivenessByCampaign: Record<string, unknown> = {};
+  await Promise.all(
+    rows
+      .filter((c) => c.population_id)
+      .map(async (c) => {
+        const { data } = await supabase.rpc("get_campaign_effectiveness", { p_campaign_id: c.id });
+        effectivenessByCampaign[c.id] = data;
+      })
+  );
 
   return (
     <div className="space-y-6">
@@ -32,8 +50,8 @@ export default async function PreventionCampaignsSettingsPage() {
           based on their own risk profile.
         </p>
       </div>
-      <CampaignForm />
-      <CampaignManager campaigns={(campaigns as PreventionCampaignRow[] | null) ?? []} />
+      <CampaignForm populations={populations ?? []} />
+      <CampaignManager campaigns={rows} effectivenessByCampaign={effectivenessByCampaign} />
     </div>
   );
 }

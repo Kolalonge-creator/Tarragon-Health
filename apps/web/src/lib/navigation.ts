@@ -264,6 +264,7 @@ export function getNavSections(
                 { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
+                { label: "Population health", href: "/clinician/populations", icon: "population" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
               ],
             },

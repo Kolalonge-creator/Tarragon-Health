@@ -13956,6 +13956,63 @@ export type Database = {
           },
         ]
       }
+      population_definitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          filters: Json
+          id: string
+          is_system: boolean
+          kind: Database["public"]["Enums"]["population_kind"]
+          name: string
+          organisation_id: string
+          status: Database["public"]["Enums"]["population_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          is_system?: boolean
+          kind?: Database["public"]["Enums"]["population_kind"]
+          name: string
+          organisation_id: string
+          status?: Database["public"]["Enums"]["population_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          is_system?: boolean
+          kind?: Database["public"]["Enums"]["population_kind"]
+          name?: string
+          organisation_id?: string
+          status?: Database["public"]["Enums"]["population_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "population_definitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "population_definitions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prevention_campaigns: {
         Row: {
           actions: Json
@@ -13968,6 +14025,7 @@ export type Database = {
           id: string
           name: string
           organisation_id: string
+          population_id: string | null
           starts_on: string
           status: Database["public"]["Enums"]["prevention_campaign_status"]
           updated_at: string
@@ -13983,6 +14041,7 @@ export type Database = {
           id?: string
           name: string
           organisation_id: string
+          population_id?: string | null
           starts_on: string
           status?: Database["public"]["Enums"]["prevention_campaign_status"]
           updated_at?: string
@@ -13998,6 +14057,7 @@ export type Database = {
           id?: string
           name?: string
           organisation_id?: string
+          population_id?: string | null
           starts_on?: string
           status?: Database["public"]["Enums"]["prevention_campaign_status"]
           updated_at?: string
@@ -14015,6 +14075,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_population_id_fkey"
+            columns: ["population_id"]
+            isOneToOne: false
+            referencedRelation: "population_definitions"
             referencedColumns: ["id"]
           },
         ]
@@ -18810,6 +18877,26 @@ export type Database = {
         }[]
       }
       get_or_create_my_referral_code: { Args: never; Returns: string }
+      get_population_members: {
+        Args: { p_population_id: string }
+        Returns: {
+          patient_id: string
+          full_name: string
+          age_years: number | null
+          sex: Database["public"]["Enums"]["sex"] | null
+          state: string | null
+          matched_conditions: Database["public"]["Enums"]["care_plan_condition"][]
+          risk_tier: Database["public"]["Enums"]["risk_level"] | null
+          control_status: string
+          open_care_gap_types: string[]
+          engagement_band: string
+          last_engagement_at: string | null
+        }[]
+      }
+      get_population_outcomes: { Args: { p_population_id: string }; Returns: Json }
+      get_population_summary: { Args: { p_population_id: string }; Returns: Json }
+      get_campaign_effectiveness: { Args: { p_campaign_id: string }; Returns: Json }
+      trigger_population_outreach: { Args: { p_population_id: string }; Returns: number }
       hand_over_care: {
         Args: { p_new_profile_id: string; p_note?: string; p_patient_id: string; p_role: string }
         Returns: undefined
@@ -20165,6 +20252,8 @@ export type Database = {
         | "ckd"
         | "asthma_copd"
         | "mental_wellbeing"
+      population_kind: "registry" | "custom"
+      population_status: "active" | "archived"
       prevention_campaign_action_type:
         | "education"
         | "screening_invite"
@@ -21122,6 +21211,8 @@ export const Constants = {
         "asthma_copd",
         "mental_wellbeing",
       ],
+      population_kind: ["registry", "custom"],
+      population_status: ["active", "archived"],
       prevention_campaign_action_type: [
         "education",
         "screening_invite",
