@@ -171,6 +171,13 @@ export type SupportedPersonHealth = {
   latestResult: { status: string; recordedAt: string } | null;
   /** Escalations still open or under review: "someone is on it", not what it is. */
   openFollowUps: number;
+  /**
+   * The next booked/confirmed appointment, if any. Reachable only once
+   * appointments_select's view_appointments clause admits this caller — a
+   * grant that withholds that specific capability sees this as null, the
+   * same silent-RLS-filter shape as every other field here, not an error.
+   */
+  nextAppointment: { id: string; scheduledFor: string; appointmentType: string } | null;
 };
 
 /**
@@ -263,7 +270,7 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
       const supabase = createClient();
       const today = new Date().toISOString().slice(0, 10);
 
-      const [bp, latest, plans, meds, screenings, risk, results, followUps] = await Promise.all([
+      const [bp, latest, plans, meds, screenings, risk, results, followUps, appointments] = await Promise.all([
         supabase
           .from("vitals_readings")
           .select("systolic, diastolic, taken_at")
@@ -313,6 +320,14 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
           .select("id")
           .eq("patient_id", profileId)
           .in("status", ["open", "under_review"]),
+        supabase
+          .from("appointments")
+          .select("id, scheduled_for, appointment_type")
+          .eq("patient_id", profileId)
+          .in("status", ["held", "booked", "confirmed"])
+          .gte("scheduled_for", new Date().toISOString())
+          .order("scheduled_for", { ascending: true })
+          .limit(1),
       ]);
 
       const firstBp = bp.data?.[0] ?? null;
@@ -368,6 +383,13 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
             }
           : null,
         openFollowUps: (followUps.data ?? []).length,
+        nextAppointment: appointments.data?.[0]
+          ? {
+              id: appointments.data[0].id,
+              scheduledFor: appointments.data[0].scheduled_for,
+              appointmentType: appointments.data[0].appointment_type,
+            }
+          : null,
       };
     },
   });

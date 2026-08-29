@@ -69,6 +69,7 @@ export function BookAppointment({
         scheduledFor: slot.slot_start,
         endsAt: slot.slot_end,
         location: slot.location ?? undefined,
+        patientId,
       });
       await confirm.mutateAsync(held.id);
       setMessage({ tone: "success", text: `Booked for ${formatSlot(slot.slot_start)}.` });

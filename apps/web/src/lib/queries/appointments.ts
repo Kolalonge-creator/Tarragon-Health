@@ -123,6 +123,13 @@ export function useHoldAppointmentSlot() {
       location?: string;
       specialistReferralId?: string;
       carePlanId?: string;
+      /**
+       * Who this appointment is for, when that isn't the caller — a
+       * caregiver booking for someone they support. Omit for a patient
+       * booking their own appointment; hold_appointment_slot defaults
+       * p_patient_id to the caller when this is left out.
+       */
+      patientId?: string;
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("hold_appointment_slot", {
@@ -137,6 +144,7 @@ export function useHoldAppointmentSlot() {
         p_location: input.location,
         p_specialist_referral_id: input.specialistReferralId,
         p_care_plan_id: input.carePlanId,
+        p_patient_id: input.patientId,
       });
       if (error) throw error;
       return data as Appointment;
