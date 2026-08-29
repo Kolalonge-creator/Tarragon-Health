@@ -10738,6 +10738,141 @@ export type Database = {
           },
         ]
       }
+      navigation_requests: {
+        Row: {
+          acknowledged_at: string | null
+          assigned_to: string | null
+          care_message_thread_id: string | null
+          category: Database["public"]["Enums"]["navigation_request_category"]
+          classification: Database["public"]["Enums"]["navigation_request_classification"]
+          classification_overridden_at: string | null
+          classification_overridden_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          is_complaint: boolean
+          is_urgent: boolean
+          organisation_id: string
+          patient_id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          specialist_referral_id: string | null
+          status: Database["public"]["Enums"]["navigation_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          assigned_to?: string | null
+          care_message_thread_id?: string | null
+          category: Database["public"]["Enums"]["navigation_request_category"]
+          classification?: Database["public"]["Enums"]["navigation_request_classification"]
+          classification_overridden_at?: string | null
+          classification_overridden_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          is_complaint?: boolean
+          is_urgent?: boolean
+          organisation_id: string
+          patient_id: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          satisfaction_comment?: string | null
+          satisfaction_rating?: number | null
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["navigation_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          assigned_to?: string | null
+          care_message_thread_id?: string | null
+          category?: Database["public"]["Enums"]["navigation_request_category"]
+          classification?: Database["public"]["Enums"]["navigation_request_classification"]
+          classification_overridden_at?: string | null
+          classification_overridden_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_complaint?: boolean
+          is_urgent?: boolean
+          organisation_id?: string
+          patient_id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          satisfaction_comment?: string | null
+          satisfaction_rating?: number | null
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["navigation_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "navigation_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_care_message_thread_id_fkey"
+            columns: ["care_message_thread_id"]
+            isOneToOne: false
+            referencedRelation: "care_message_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_classification_overridden_by_fkey"
+            columns: ["classification_overridden_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       note_templates: {
         Row: {
           body: string
@@ -18459,6 +18594,15 @@ export type Database = {
         Returns: Json
       }
       create_emergency_card: { Args: never; Returns: string }
+      create_navigation_request: {
+        Args: {
+          p_category: Database["public"]["Enums"]["navigation_request_category"]
+          p_description: string
+          p_is_complaint?: boolean
+          p_patient_id?: string
+        }
+        Returns: string
+      }
       create_personalised_lifestyle_goal: {
         Args: {
           p_enrollment_id: string
@@ -19564,6 +19708,10 @@ export type Database = {
         Args: { p_consultation_id: string; p_notes: string }
         Returns: undefined
       }
+      submit_navigation_request_feedback: {
+        Args: { p_comment?: string; p_rating: number; p_request_id: string }
+        Returns: undefined
+      }
       touch_last_active: { Args: never; Returns: undefined }
       upsert_lab_report_template: {
         Args: {
@@ -20063,6 +20211,21 @@ export type Database = {
       medication_log_status: "taken" | "missed" | "skipped"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
+      navigation_request_category:
+        | "appointment"
+        | "pharmacy"
+        | "laboratory"
+        | "insurance"
+        | "referral"
+        | "payment"
+        | "technical"
+        | "other"
+      navigation_request_classification: "non_clinical" | "clinical"
+      navigation_request_status:
+        | "open"
+        | "waiting_on_provider"
+        | "waiting_on_patient"
+        | "resolved"
       notification_channel:
         | "email"
         | "sms"
@@ -21009,6 +21172,23 @@ export const Constants = {
       medication_log_status: ["taken", "missed", "skipped"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
+      navigation_request_category: [
+        "appointment",
+        "pharmacy",
+        "laboratory",
+        "insurance",
+        "referral",
+        "payment",
+        "technical",
+        "other",
+      ],
+      navigation_request_classification: ["non_clinical", "clinical"],
+      navigation_request_status: [
+        "open",
+        "waiting_on_provider",
+        "waiting_on_patient",
+        "resolved",
+      ],
       notification_channel: [
         "email",
         "sms",

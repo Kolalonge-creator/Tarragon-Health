@@ -14,6 +14,7 @@ import { PatientEscalations } from "@/components/patient-escalations";
 import { HospitalAdmissionsCard } from "@/app/(dashboard)/patient/hospital-admissions-card";
 import { LifestyleProgressSummary } from "@/app/(dashboard)/patient/lifestyle-progress-summary";
 import { YourReferrals } from "@/components/your-referrals";
+import { NavigationRequests } from "@/app/(dashboard)/patient/navigation-requests";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
@@ -69,6 +70,7 @@ export default async function PatientCarePage() {
           {coachAccess && <AiCoachChat patientId={subjectId} />}
           <CareCircleCard />
           <YourReferrals patientId={subjectId} />
+          <NavigationRequests patientId={subjectId} />
         </div>
       </div>
 
