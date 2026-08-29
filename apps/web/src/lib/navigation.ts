@@ -175,6 +175,11 @@ export function getNavSections(
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            // Patient Support & Service Centre (spec §24) — a clear route to
+            // get help distinct from "Care & support" above (clinical
+            // record/reviews): app/login/appointment/lab/pharmacy/payment
+            // issues, ticket status, complaints, and the FAQ.
+            { label: "Help & support", href: "/patient/support", icon: "helpCenter" },
           ],
         },
         {
@@ -220,6 +225,8 @@ export function getNavSections(
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
+                { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
               ],
             },
           ]
@@ -235,6 +242,8 @@ export function getNavSections(
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
                 { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
+                { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
               ],
             },

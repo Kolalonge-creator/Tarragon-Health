@@ -77,6 +77,7 @@ import {
   Thermometer,
   Wind,
   Heart,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -178,6 +179,9 @@ export const NAV_ICON = {
   chevronRight: ChevronRight,
   security: KeyRound,
   devices: Bluetooth,
+  // Patient Support & Service Centre (spec §24) — the patient-facing "get
+  // help" entry point and the staff support-ticket queue/complaints pages.
+  helpCenter: LifeBuoy,
   // Platform Analytics console category icons — the `analyst` role's sidebar
   // (apps/web/src/lib/analytics/sections.ts is the single source of truth for
   // which category gets which of these).

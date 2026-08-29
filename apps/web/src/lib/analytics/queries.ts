@@ -8,6 +8,7 @@ import {
   auditSummarySchema,
   businessSummarySchema,
   clinicalOutcomesSchema,
+  complaintsSummarySchema,
   deliverabilitySchema,
   doctorPerformanceSchema,
   engagementSummarySchema,
@@ -28,6 +29,7 @@ import {
   retentionCohortsSchema,
   riskRegisterSchema,
   staffActivitySchema,
+  supportTicketSummarySchema,
   userSegmentsSchema,
   revenueByPlanSchema,
   revenueTimeseriesSchema,
@@ -295,6 +297,29 @@ export function useDeliverability() {
       const { data, error } = await createClient().rpc("analytics_deliverability", {});
       if (error) throw error;
       return deliverabilitySchema.parse(data);
+    },
+  });
+}
+
+// ---- Patient Support & Service Centre (spec §24) --------------------------
+export function useSupportTicketSummary() {
+  return useQuery({
+    queryKey: ["analytics", "support-ticket-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_support_ticket_summary", {});
+      if (error) throw error;
+      return supportTicketSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useComplaintsSummary() {
+  return useQuery({
+    queryKey: ["analytics", "complaints-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_complaints_summary", {});
+      if (error) throw error;
+      return complaintsSummarySchema.parse(data);
     },
   });
 }
