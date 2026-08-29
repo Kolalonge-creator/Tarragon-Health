@@ -1521,6 +1521,41 @@ const TEMPLATE_MAP: Record<
       smsText: message,
     };
   },
+  // Same gap as the three ack-timeout keys above, found in the same pass:
+  // no TEMPLATE_MAP entry existed anywhere for this key even though
+  // lab_result_documents.sql (see enqueue_lab_result_document_notifications,
+  // most recently redefined in guarantee_in_app_notification_companions.sql)
+  // enqueues it on whatsapp+email+in_app whenever a lab liaison/clinician/
+  // admin uploads a result document on the patient's behalf. Confirmed via
+  // production query: zero notifications rows have ever used this template,
+  // so unlike the ack-timeout fix this is a latent gap, not an active
+  // failure -- fixed now anyway rather than left to fail the first time the
+  // path is actually exercised. payload only carries `source` (who
+  // uploaded it); the in-app rendering in notification-bell.tsx already
+  // ignores it too, so this stays a plain static message rather than
+  // inventing branching the original design never called for.
+  result_document_available: () => {
+    const smsText =
+      "Hi, a new result document has been added to your record. Open the Tarragon Health app to review it. Tarragon Health";
+    return {
+      metaTemplateName: "result_document_available",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText,
+      pushUrl: "/patient/labs",
+      email: {
+        subject: "A new result document is available",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>A new result document has been added to your record.</p>` +
+          `<p>Open the Tarragon Health app to review it and see what it means for your care.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
 };
 
 interface SendResult {
