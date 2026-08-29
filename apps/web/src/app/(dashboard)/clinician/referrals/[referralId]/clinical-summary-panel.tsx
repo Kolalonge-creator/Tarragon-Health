@@ -197,7 +197,12 @@ export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferra
         </CardContent>
       </Card>
 
-      {referral.status === "completed" && (
+      {/* Was previously gated on status === "completed" — but closing a
+          referral now REQUIRES a plan on file first (spec §70.12,
+          enforce_referral_closure), so that gate made this unreachable: a
+          clinician could never record the plan that closing depends on.
+          Visible any time the referral isn't cancelled. */}
+      {referral.status !== "declined" && (
         <Card>
           <CardHeader>
             <CardTitle>Treatment plan &amp; shared care</CardTitle>

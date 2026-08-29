@@ -24,6 +24,8 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   awaiting_result: "Self-arranged test not yet uploaded",
   repeated_no_show: "Repeated no-show",
   consultation_follow_up: "Consultation follow-up needed",
+  specialist_action_pending: "Specialist recommendation to action",
+  referral_stalled: "Referral has gone quiet",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {
@@ -36,7 +38,14 @@ export function triggerContext(task: OutreachTaskWithPatient): string | null {
   }
   const condition =
     typeof detail.condition_or_type === "string" ? detail.condition_or_type : null;
-  return condition;
+  if (condition) return condition;
+  // specialist_action_pending/referral_stalled items don't route through
+  // queue_care_outreach's condition_or_type merge (they're inserted directly
+  // by private.route_specialist_referral_action_item / the referral_stalled
+  // care gap) — fall back to whichever descriptive field they do carry.
+  if (typeof detail.description === "string") return detail.description;
+  if (typeof detail.reason === "string") return detail.reason;
+  return null;
 }
 
 interface TaskRowCopy {

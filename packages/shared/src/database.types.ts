@@ -15902,6 +15902,315 @@ export type Database = {
           },
         ]
       }
+      specialist_consultation_documents: {
+        Row: {
+          clinician_alert_id: string | null
+          created_at: string
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          mime_type: string | null
+          note: string | null
+          organisation_id: string
+          original_filename: string | null
+          patient_id: string
+          referral_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: Database["public"]["Enums"]["specialist_consultation_document_source"]
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          note?: string | null
+          organisation_id: string
+          original_filename?: string | null
+          patient_id: string
+          referral_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: Database["public"]["Enums"]["specialist_consultation_document_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          created_at?: string
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          note?: string | null
+          organisation_id?: string
+          original_filename?: string | null
+          patient_id?: string
+          referral_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: Database["public"]["Enums"]["specialist_consultation_document_source"]
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_consultation_documents_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_documents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_documents_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialist_consultation_extractions: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_recommendation_indexes: Json
+          created_at: string
+          diagnosis: string | null
+          document_id: string
+          error_message: string | null
+          facility_name_on_report: string | null
+          follow_up_interval_days: number | null
+          id: string
+          investigations_mentioned: Json
+          medications_mentioned: Json
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          patient_name_on_report: string | null
+          recommendations: Json
+          referral_id: string
+          report_date: string | null
+          specialist_name_on_report: string | null
+          status: string
+          unreadable_reason: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_recommendation_indexes?: Json
+          created_at?: string
+          diagnosis?: string | null
+          document_id: string
+          error_message?: string | null
+          facility_name_on_report?: string | null
+          follow_up_interval_days?: number | null
+          id?: string
+          investigations_mentioned?: Json
+          medications_mentioned?: Json
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          patient_name_on_report?: string | null
+          recommendations?: Json
+          referral_id: string
+          report_date?: string | null
+          specialist_name_on_report?: string | null
+          status: string
+          unreadable_reason?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_recommendation_indexes?: Json
+          created_at?: string
+          diagnosis?: string | null
+          document_id?: string
+          error_message?: string | null
+          facility_name_on_report?: string | null
+          follow_up_interval_days?: number | null
+          id?: string
+          investigations_mentioned?: Json
+          medications_mentioned?: Json
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          patient_name_on_report?: string | null
+          recommendations?: Json
+          referral_id?: string
+          report_date?: string | null
+          specialist_name_on_report?: string | null
+          status?: string
+          unreadable_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_consultation_extractions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "specialist_consultation_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_extractions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_consultation_extractions_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialist_referral_action_items: {
+        Row: {
+          action_type: Database["public"]["Enums"]["specialist_referral_action_item_type"]
+          created_at: string
+          created_by_staff: string | null
+          description: string
+          due_at: string | null
+          extraction_id: string | null
+          id: string
+          linked_care_plan_review_prompt_id: string | null
+          linked_outreach_task_id: string | null
+          organisation_id: string
+          patient_id: string
+          referral_id: string
+        }
+        Insert: {
+          action_type: Database["public"]["Enums"]["specialist_referral_action_item_type"]
+          created_at?: string
+          created_by_staff?: string | null
+          description: string
+          due_at?: string | null
+          extraction_id?: string | null
+          id?: string
+          linked_care_plan_review_prompt_id?: string | null
+          linked_outreach_task_id?: string | null
+          organisation_id: string
+          patient_id: string
+          referral_id: string
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["specialist_referral_action_item_type"]
+          created_at?: string
+          created_by_staff?: string | null
+          description?: string
+          due_at?: string | null
+          extraction_id?: string | null
+          id?: string
+          linked_care_plan_review_prompt_id?: string | null
+          linked_outreach_task_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          referral_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_referral_action_items_created_by_staff_fkey"
+            columns: ["created_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referral_action_items_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_consultation_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referral_action_items_linked_care_plan_review_p_fkey"
+            columns: ["linked_care_plan_review_prompt_id"]
+            isOneToOne: false
+            referencedRelation: "care_plan_review_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referral_action_items_linked_outreach_task_id_fkey"
+            columns: ["linked_outreach_task_id"]
+            isOneToOne: false
+            referencedRelation: "care_outreach_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referral_action_items_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referral_action_items_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referral_action_items_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       specialist_referrals: {
         Row: {
           applied_voucher_id: string | null
@@ -15936,6 +16245,8 @@ export type Database = {
           urgency: Database["public"]["Enums"]["referral_urgency"] | null
           voucher_covered_kobo: number
           waitlisted_at: string | null
+          plan_acknowledged_at: string | null
+          plan_acknowledged_by: string | null
         }
         Insert: {
           applied_voucher_id?: string | null
@@ -15955,6 +16266,8 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          plan_acknowledged_at?: string | null
+          plan_acknowledged_by?: string | null
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
@@ -15989,6 +16302,8 @@ export type Database = {
             | null
           payment_provider_ref?: string | null
           pending_payment_provider_ref?: string | null
+          plan_acknowledged_at?: string | null
+          plan_acknowledged_by?: string | null
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
@@ -16016,6 +16331,13 @@ export type Database = {
           {
             foreignKeyName: "specialist_referrals_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_referrals_plan_acknowledged_by_fkey"
+            columns: ["plan_acknowledged_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -18454,6 +18776,16 @@ export type Database = {
         }
         Returns: number
       }
+      confirm_specialist_consultation_extraction: {
+        Args: {
+          p_accepted_recommendations: Json
+          p_diagnosis: string
+          p_extraction_id: string
+          p_follow_up_interval_days?: number
+          p_report_date?: string
+        }
+        Returns: Json
+      }
       consultation_prep_bundle: {
         Args: { p_consultation_id: string }
         Returns: Json
@@ -19750,6 +20082,7 @@ export type Database = {
         | "new_diagnosis"
         | "risk_tier_change"
         | "hospital_discharge"
+        | "specialist_recommendation"
       care_plan_goal_status: "open" | "achieved" | "abandoned"
       care_plan_intervention_status: "active" | "removed"
       care_plan_status: "draft" | "active" | "completed" | "cancelled" | "paused" | "discharged"
@@ -20106,6 +20439,8 @@ export type Database = {
         | "awaiting_result"
         | "repeated_no_show"
         | "consultation_follow_up"
+        | "specialist_action_pending"
+        | "referral_stalled"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -20235,6 +20570,14 @@ export type Database = {
         | "overdue"
         | "cancelled"
       sex: "male" | "female"
+      specialist_consultation_document_source: "patient" | "care_coordinator" | "clinician" | "admin"
+      specialist_referral_action_item_type:
+        | "repeat_test"
+        | "investigation"
+        | "follow_up_appointment"
+        | "medication_review"
+        | "care_plan_review"
+        | "other"
       specialist_type:
         | "urologist"
         | "oncologist"
@@ -20658,6 +21001,7 @@ export const Constants = {
         "new_diagnosis",
         "risk_tier_change",
         "hospital_discharge",
+        "specialist_recommendation",
       ],
       care_plan_goal_status: ["open", "achieved", "abandoned"],
       care_plan_intervention_status: ["active", "removed"],
@@ -21056,6 +21400,8 @@ export const Constants = {
         "awaiting_result",
         "repeated_no_show",
         "consultation_follow_up",
+        "specialist_action_pending",
+        "referral_stalled",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [
@@ -21201,6 +21547,15 @@ export const Constants = {
         "cancelled",
       ],
       sex: ["male", "female"],
+      specialist_consultation_document_source: ["patient", "care_coordinator", "clinician", "admin"],
+      specialist_referral_action_item_type: [
+        "repeat_test",
+        "investigation",
+        "follow_up_appointment",
+        "medication_review",
+        "care_plan_review",
+        "other",
+      ],
       specialist_type: [
         "urologist",
         "oncologist",

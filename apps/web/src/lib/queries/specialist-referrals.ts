@@ -206,15 +206,30 @@ export function useSetReferralUrgency() {
  * transcribed by org staff, since specialists have no platform login and
  * nothing they send arrives through the app directly. Powers the
  * "Treatment plan received" pipeline stage.
+ *
+ * Also stamps plan_acknowledged_at/by — a manually transcribed note is
+ * itself the clinical read, same as confirming an AI-drafted extraction
+ * does (confirm_specialist_consultation_extraction). Referral closure
+ * (spec §70.12, enforce_referral_closure) requires both.
  */
 export function useRecordTreatmentPlanReceived() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ referralId, note }: { referralId: string; note: string }) => {
       const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
       const { error } = await supabase
         .from("specialist_referrals")
-        .update({ treatment_plan_received_at: new Date().toISOString(), treatment_plan_note: note })
+        .update({
+          treatment_plan_received_at: new Date().toISOString(),
+          treatment_plan_note: note,
+          plan_acknowledged_at: new Date().toISOString(),
+          plan_acknowledged_by: user.id,
+        })
         .eq("id", referralId);
       if (error) throw error;
     },

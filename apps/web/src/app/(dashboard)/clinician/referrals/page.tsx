@@ -19,6 +19,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { koboToNaira, type ReferralStatus } from "@tarragon/shared";
+import { useSpecialistActionCounts } from "@/lib/queries/specialist-consultation";
 
 const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending: { variant: "amber", label: "Needs specialist assigned" },
@@ -179,24 +180,71 @@ function AppointmentForm({ referral }: { referral: SpecialistReferralWithDetails
 function CloseActions({ referral }: { referral: SpecialistReferralWithDetails }) {
   const close = useCloseReferral();
   return (
-    <div className="flex gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={close.isPending}
-        onClick={() => close.mutate({ referralId: referral.id, status: "completed" })}
-      >
-        Mark completed
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={close.isPending}
-        onClick={() => close.mutate({ referralId: referral.id, status: "declined" })}
-      >
-        Cancel
-      </Button>
+    <div className="space-y-1">
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={close.isPending}
+          onClick={() => close.mutate({ referralId: referral.id, status: "completed" })}
+        >
+          Mark completed
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={close.isPending}
+          onClick={() => close.mutate({ referralId: referral.id, status: "declined" })}
+        >
+          Cancel
+        </Button>
+      </div>
+      {/* Closure is DB-gated (spec §70.12: report received + plan
+          acknowledged + every action item resolved) — see
+          enforce_referral_closure. The referral detail page is where those
+          are actually filed/resolved, so the error just points there. */}
+      {close.isError && (
+        <p className="text-xs text-red-600">
+          {(close.error as Error).message || "Could not close this referral."}
+        </p>
+      )}
     </div>
+  );
+}
+
+/**
+ * Spec §70.11 — "SPECIALIST ACTIONS" counts: repeat test / medication
+ * review / follow-up appointments / pending reports, org-wide, unresolved
+ * only. A live count, not a static mockup — see useSpecialistActionCounts.
+ */
+function SpecialistActionsSummary() {
+  const { data: counts, isLoading } = useSpecialistActionCounts();
+  if (isLoading || !counts) return null;
+
+  const tiles: { label: string; value: number }[] = [
+    { label: "Repeat test", value: counts.repeat_test + counts.investigation },
+    { label: "Medication review", value: counts.medication_review },
+    { label: "Follow-up appointments", value: counts.follow_up_appointment },
+    { label: "Pending reports", value: counts.pending_reports },
+  ];
+  if (counts.care_plan_review + counts.other > 0) {
+    tiles.push({ label: "Other", value: counts.care_plan_review + counts.other });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Specialist actions</CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="rounded-lg border border-charcoal-ink/10 p-3 text-center">
+            <p className="text-2xl font-semibold text-charcoal-ink">{tile.value}</p>
+            <p className="text-xs text-charcoal-ink/60">{tile.label}</p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -211,6 +259,7 @@ export default function ClinicianReferralsPage() {
           Specialist referrals you have sent or need to action.
         </p>
       </div>
+      <SpecialistActionsSummary />
       <Card>
       <CardHeader className="flex items-center justify-between">
         <CardTitle>Specialist referrals</CardTitle>
