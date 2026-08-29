@@ -5,6 +5,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/lab-turnaround-check",
+      "schedule": "0 */4 * * *"
+    },
+    {
       "path": "/api/cron/lifestyle-coaching",
       "schedule": "0 7 * * *"
     },

@@ -88,6 +88,14 @@ export type CreatePartnerLabOrderState = { error?: string } | undefined;
  * failure) is left with a real pending_payment lab_orders row rather than a
  * lost one — PayForLabOrderButton, wired into the order's own card, picks
  * that back up without creating a duplicate order.
+ *
+ * providerId is optional and, when set, names which active laboratory to
+ * book (from the §56.7 location-picker step — see useLabTestLocations).
+ * Omitted, this falls back to whatever private.resolve_lab_order_provider's
+ * single-active-laboratory fallback resolves to — unchanged behaviour for
+ * the common case today (exactly one contracted lab), and no assumption
+ * here about how many are active generally; the DB refuses to price the
+ * order at all if the fallback is ambiguous, same as it always has.
  */
 export async function createAndPayForPartnerLabOrder(
   _prevState: CreatePartnerLabOrderState,
@@ -97,6 +105,8 @@ export async function createAndPayForPartnerLabOrder(
   if (typeof panelBundleId !== "string" || !panelBundleId) {
     return { error: "Pick a review first" };
   }
+  const providerIdRaw = formData.get("providerId");
+  const providerId = typeof providerIdRaw === "string" && providerIdRaw ? providerIdRaw : null;
 
   const supabase = await createClient();
   const {
@@ -124,6 +134,7 @@ export async function createAndPayForPartnerLabOrder(
       panel_bundle_id: panelBundleId,
       fulfilment: "partner",
       status: "pending_payment",
+      ...(providerId ? { provider_id: providerId } : {}),
     })
     .select("id, payable_kobo, total_kobo, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name)")
     .single();

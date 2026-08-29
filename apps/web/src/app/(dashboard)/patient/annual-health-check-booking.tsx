@@ -18,6 +18,9 @@ import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReviewPrice } from "./review-price";
 import { cn } from "@/lib/utils";
+import { LabLocationPicker } from "@/components/lab-location-picker";
+import { LabSpecimenTracker } from "@/components/lab-specimen-tracker";
+import { useScreenTypeDetails } from "@/lib/queries/lab-orders";
 
 /** An order still waiting on the patient going to a lab and uploading. */
 const OPEN_STATUSES = ["payment_confirmed", "ordered", "sample_collected", "processing"];
@@ -133,6 +136,12 @@ export function AnnualHealthCheckBooking({
     selfBookable[0] ??
     null;
 
+  // §56.4/§56.6: prep/specimen detail for the first test in the selected
+  // bundle — a multi-test panel can mix specimen types, so this is
+  // orientation ("mostly a blood draw, fasting required"), not a
+  // guarantee every line item shares it.
+  const { data: selectedTestDetails } = useScreenTypeDetails(selected?.test_codes[0] ?? null);
+
   if (selfBookable.length === 0 || !organisationId) return null;
 
   const bundleRow = (bundle: PanelBundle) => {
@@ -236,12 +245,15 @@ export function AnnualHealthCheckBooking({
                 <p className="text-sm text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Health check"}
                 </p>
-                <a
-                  href={`/api/patient/lab-order/${order.id}/request`}
-                  className="inline-block text-xs font-medium text-brand-green hover:underline"
-                >
-                  Download the request to take with you
-                </a>
+                {order.fulfilment === "self_arranged" && (
+                  <a
+                    href={`/api/patient/lab-order/${order.id}/request`}
+                    className="inline-block text-xs font-medium text-brand-green hover:underline"
+                  >
+                    Download the request to take with you
+                  </a>
+                )}
+                <LabSpecimenTracker labOrderId={order.id} />
                 <PatientResultUpload labOrderId={order.id} />
               </div>
             ))}
@@ -286,12 +298,22 @@ export function AnnualHealthCheckBooking({
             {selected && !openBundleIds.has(selected.id) && (
               <div className="space-y-2 pt-1">
                 {partnerBillingAvailable ? (
-                  <form action={payAction}>
+                  <form action={payAction} className="space-y-3">
                     <input type="hidden" name="panelBundleId" value={selected.id} />
+                    {selectedTestDetails?.specimen_type && (
+                      <p className="text-xs text-charcoal-ink/60">
+                        <span className="font-medium text-charcoal-ink">Sample needed: </span>
+                        {selectedTestDetails.specimen_type}
+                        {selectedTestDetails.preparation_instructions
+                          ? ` — ${selectedTestDetails.preparation_instructions}`
+                          : ""}
+                      </p>
+                    )}
+                    <LabLocationPicker testCode={selected.test_codes[0] ?? null} state={state} />
                     <Button type="submit" size="sm" disabled={payPending}>
                       {payPending ? "Taking you to payment…" : `Book & pay for ${selected.name}`}
                     </Button>
-                    <p className="mt-2 text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60">
                       We book it with our lab partner and send you the result — no separate lab
                       visit to arrange.
                     </p>

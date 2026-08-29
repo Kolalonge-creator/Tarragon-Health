@@ -89,6 +89,34 @@ feature-availability claim in this file's archive as current** — check the liv
 actual running code. The archive is a record of decisions and reasoning, not a source of current
 facts.
 
+**Laboratory fulfilment model — reversed again 2026-08-29 (Laboratory Network & Diagnostic Services
+Platform build).** Three corrections in five weeks, each a real founder decision, none of them
+obvious from reading only this file's older text — read this bullet in full before touching anything
+lab-related. (1) 2026-08-03: self-arranged became the default (`lab_orders.fulfilment`), because
+Tarragon had no contracted lab at the time — patients took a request to any lab and paid it directly.
+(2) 2026-08-21–25: Synlab Nigeria was contracted and switched on as **one narrow, explicit exception**
+— `is_active=true`, real partner-billing/liability/settlement machinery, one active laboratory only,
+enforced by `private.resolve_lab_order_provider`'s single-active fallback. **This reactivation was
+never logged here or in the archive** — a real documentation gap, found and corrected in this same
+pass; if you ever find another shipped decision missing from both, treat it as a standing risk, not a
+one-off. (3) 2026-08-29: the founder decided to build the full network model back out — routing/
+billing/coverage for any laboratory Tarragon actually contracts, not just Synlab, per a "Laboratory
+Network & Diagnostic Services Platform" spec (§56.1-§56.15: org profiles, branches, standardised test
+catalogue, clinically-governed panels, test search, a real booking flow with location selection,
+home-sample-collection/phlebotomist assignment, unique-ID specimen tracking, rejection + automatic
+recollection, turnaround-delay alerting, a lab staff dashboard, and version-controlled multi-payer
+pricing). What actually changed in the database: `private.resolve_lab_order_provider` and
+`region_service_available` already supported more than one active laboratory (built that way from the
+start, confirmed by reading their live definitions before writing anything) — the real gap was that no
+patient-facing flow ever let someone choose a provider/location, always relying on the single-active
+fallback. That gap is closed (`list_lab_test_locations`, the booking flow's location picker). **What
+did NOT change and must not be relaxed on a future pass:** the `lab_providers_active_needs_real_contacts`
+guard (no laboratory goes live carrying a placeholder contact — it would leak patient PHI to a
+stranger), the never-sell-below-partner-cost triggers, and the fact that Cerba Lancet/Healthtracka/
+Afriglobal Medicare remain genuinely inactive placeholders — no contract was fabricated for any of
+them in this pass. **Check `is_active` on `lab_providers` directly before assuming more than one real
+lab is live** — the mechanism is general, the roster today may still be exactly one.
+
 Full day-by-day detail — every migration, every bug found and fixed, every founder decision and its
 exact date — is preserved losslessly in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.
 
