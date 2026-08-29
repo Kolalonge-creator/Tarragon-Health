@@ -3914,6 +3914,100 @@ export type Database = {
           },
         ]
       }
+      data_deletion_requests: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          processed_at: string | null
+          processed_by: string | null
+          reason: string | null
+          rejection_reason: string | null
+          requested_at: string
+          scope: Database["public"]["Enums"]["data_deletion_scope"]
+          status: Database["public"]["Enums"]["data_deletion_status"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          processed_at?: string | null
+          processed_by?: string | null
+          reason?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          scope: Database["public"]["Enums"]["data_deletion_scope"]
+          status?: Database["public"]["Enums"]["data_deletion_status"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          reason?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          scope?: Database["public"]["Enums"]["data_deletion_scope"]
+          status?: Database["public"]["Enums"]["data_deletion_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_deletion_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_deletion_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_deletion_requests_processed_by_fkey"
+            columns: ["processed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_retention_policies: {
+        Row: {
+          created_at: string
+          data_category: string
+          deletion_mechanism: string
+          effective_at: string
+          id: string
+          is_current: boolean
+          retention_period: string
+        }
+        Insert: {
+          created_at?: string
+          data_category: string
+          deletion_mechanism: string
+          effective_at?: string
+          id?: string
+          is_current?: boolean
+          retention_period: string
+        }
+        Update: {
+          created_at?: string
+          data_category?: string
+          deletion_mechanism?: string
+          effective_at?: string
+          id?: string
+          is_current?: boolean
+          retention_period?: string
+        }
+        Relationships: []
+      }
       device_catalog: {
         Row: {
           active: boolean
@@ -6902,6 +6996,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      integration_health_status: {
+        Row: {
+          component: Database["public"]["Enums"]["integration_component"]
+          consecutive_failures: number
+          id: string
+          last_checked_at: string
+          last_error: string | null
+          last_success_at: string | null
+          state: Database["public"]["Enums"]["integration_health_state"]
+          updated_at: string
+        }
+        Insert: {
+          component: Database["public"]["Enums"]["integration_component"]
+          consecutive_failures?: number
+          id?: string
+          last_checked_at?: string
+          last_error?: string | null
+          last_success_at?: string | null
+          state?: Database["public"]["Enums"]["integration_health_state"]
+          updated_at?: string
+        }
+        Update: {
+          component?: Database["public"]["Enums"]["integration_component"]
+          consecutive_failures?: number
+          id?: string
+          last_checked_at?: string
+          last_error?: string | null
+          last_success_at?: string | null
+          state?: Database["public"]["Enums"]["integration_health_state"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      integration_incidents: {
+        Row: {
+          clinical_ops_notified_at: string | null
+          component: Database["public"]["Enums"]["integration_component"]
+          created_at: string
+          detail: string | null
+          id: string
+          resolved_at: string | null
+          started_at: string
+          state: Database["public"]["Enums"]["integration_health_state"]
+        }
+        Insert: {
+          clinical_ops_notified_at?: string | null
+          component: Database["public"]["Enums"]["integration_component"]
+          created_at?: string
+          detail?: string | null
+          id?: string
+          resolved_at?: string | null
+          started_at?: string
+          state: Database["public"]["Enums"]["integration_health_state"]
+        }
+        Update: {
+          clinical_ops_notified_at?: string | null
+          component?: Database["public"]["Enums"]["integration_component"]
+          created_at?: string
+          detail?: string | null
+          id?: string
+          resolved_at?: string | null
+          started_at?: string
+          state?: Database["public"]["Enums"]["integration_health_state"]
+        }
+        Relationships: []
       }
       lab_analyte_readings: {
         Row: {
@@ -11288,7 +11448,10 @@ export type Database = {
           ble_device_id: string
           created_at: string
           device_type: Database["public"]["Enums"]["patient_device_type"]
+          duplicate_readings_count: number
           id: string
+          implausible_readings_count: number
+          last_sync_error: string | null
           last_synced_at: string | null
           manufacturer: string | null
           model: string | null
@@ -11297,12 +11460,18 @@ export type Database = {
           paired_at: string
           patient_id: string
           status: Database["public"]["Enums"]["patient_device_status"]
+          unpaired_at: string | null
+          unpaired_by: string | null
+          unpaired_reason: string | null
         }
         Insert: {
           ble_device_id: string
           created_at?: string
           device_type: Database["public"]["Enums"]["patient_device_type"]
+          duplicate_readings_count?: number
           id?: string
+          implausible_readings_count?: number
+          last_sync_error?: string | null
           last_synced_at?: string | null
           manufacturer?: string | null
           model?: string | null
@@ -11311,12 +11480,18 @@ export type Database = {
           paired_at?: string
           patient_id: string
           status?: Database["public"]["Enums"]["patient_device_status"]
+          unpaired_at?: string | null
+          unpaired_by?: string | null
+          unpaired_reason?: string | null
         }
         Update: {
           ble_device_id?: string
           created_at?: string
           device_type?: Database["public"]["Enums"]["patient_device_type"]
+          duplicate_readings_count?: number
           id?: string
+          implausible_readings_count?: number
+          last_sync_error?: string | null
           last_synced_at?: string | null
           manufacturer?: string | null
           model?: string | null
@@ -11325,6 +11500,9 @@ export type Database = {
           paired_at?: string
           patient_id?: string
           status?: Database["public"]["Enums"]["patient_device_status"]
+          unpaired_at?: string | null
+          unpaired_by?: string | null
+          unpaired_reason?: string | null
         }
         Relationships: [
           {
@@ -11337,6 +11515,13 @@ export type Database = {
           {
             foreignKeyName: "patient_devices_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_devices_unpaired_by_fkey"
+            columns: ["unpaired_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -15984,14 +16169,19 @@ export type Database = {
           access_token: string | null
           connected_at: string
           created_at: string
+          duplicate_readings_count: number
           external_id: string | null
           id: string
+          implausible_readings_count: number
           last_sync_error: string | null
           last_synced_at: string | null
           organisation_id: string
           patient_id: string
           provider: Database["public"]["Enums"]["wearable_provider"]
           refresh_token: string | null
+          revocation_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
           status: Database["public"]["Enums"]["wearable_connection_status"]
           sync_cursor: string | null
           token_expires_at: string | null
@@ -16000,14 +16190,19 @@ export type Database = {
           access_token?: string | null
           connected_at?: string
           created_at?: string
+          duplicate_readings_count?: number
           external_id?: string | null
           id?: string
+          implausible_readings_count?: number
           last_sync_error?: string | null
           last_synced_at?: string | null
           organisation_id: string
           patient_id: string
           provider: Database["public"]["Enums"]["wearable_provider"]
           refresh_token?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           status?: Database["public"]["Enums"]["wearable_connection_status"]
           sync_cursor?: string | null
           token_expires_at?: string | null
@@ -16016,14 +16211,19 @@ export type Database = {
           access_token?: string | null
           connected_at?: string
           created_at?: string
+          duplicate_readings_count?: number
           external_id?: string | null
           id?: string
+          implausible_readings_count?: number
           last_sync_error?: string | null
           last_synced_at?: string | null
           organisation_id?: string
           patient_id?: string
           provider?: Database["public"]["Enums"]["wearable_provider"]
           refresh_token?: string | null
+          revocation_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           status?: Database["public"]["Enums"]["wearable_connection_status"]
           sync_cursor?: string | null
           token_expires_at?: string | null
@@ -16039,6 +16239,13 @@ export type Database = {
           {
             foreignKeyName: "wearable_connections_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wearable_connections_revoked_by_fkey"
+            columns: ["revoked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -16880,6 +17087,24 @@ export type Database = {
         Returns: string
       }
       bp_secondary_flags: { Args: { p_patient: string }; Returns: Json }
+      bump_patient_device_ingestion_counters: {
+        Args: {
+          p_device_id: string
+          p_duplicates?: number
+          p_implausible?: number
+          p_last_error?: string
+        }
+        Returns: undefined
+      }
+      bump_wearable_connection_ingestion_counters: {
+        Args: {
+          p_connection_id: string
+          p_duplicates?: number
+          p_implausible?: number
+          p_last_error?: string
+        }
+        Returns: undefined
+      }
       can_act_for: { Args: { p_beneficiary: string }; Returns: boolean }
       cancel_care_voucher: {
         Args: { p_reason: string; p_voucher: string }
@@ -16953,6 +17178,22 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      device_connection_data_quality: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          avg_latency_seconds: number
+          connection_id: string
+          connection_kind: string
+          duplicate_readings_count: number
+          implausible_readings_count: number
+          is_missing_data: boolean
+          last_error: string
+          last_synced_at: string
+          patient_id: string
+          provider_or_device_type: string
+          status: string
+        }[]
+      }
       emergency_card_by_token: { Args: { p_token: string }; Returns: Json }
       enqueue_critical_notification: {
         Args: {
@@ -16970,6 +17211,10 @@ export type Database = {
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }
         Returns: string
+      }
+      execute_wearable_data_deletion: {
+        Args: { p_request_id: string }
+        Returns: undefined
       }
       extend_care_voucher: {
         Args: { p_reason?: string; p_voucher: string }
@@ -17812,6 +18057,14 @@ export type Database = {
         Args: { p_issuance_id: string; p_reason?: string }
         Returns: undefined
       }
+      revoke_wearable_connection: {
+        Args: { p_connection_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      rpm_sla_metrics: {
+        Args: { p_organisation_id: string; p_since?: string }
+        Returns: Json
+      }
       seal_health_passport: {
         Args: {
           p_content_digest: string
@@ -18038,6 +18291,7 @@ export type Database = {
         | "provider_unavailable"
         | "appointment_failure"
         | "laboratory_failure"
+        | "monitoring_pipeline_down"
       allergy_severity: "mild" | "moderate" | "severe"
       allergy_source: "patient" | "clinician" | "fhir_import"
       annual_check_status: "pending" | "in_progress" | "completed"
@@ -18178,7 +18432,11 @@ export type Database = {
         | "uncontrolled"
         | "resolved"
         | "historical"
-      consent_type: "data_processing" | "telehealth" | "terms_of_service"
+      consent_type:
+        | "data_processing"
+        | "telehealth"
+        | "terms_of_service"
+        | "wearable_device_data"
       contract_status:
         | "draft"
         | "submitted"
@@ -18187,6 +18445,11 @@ export type Database = {
         | "paid"
         | "active"
       currency: "NGN" | "GBP" | "USD"
+      data_deletion_scope:
+        | "wearable_readings"
+        | "device_connections"
+        | "all_device_data"
+      data_deletion_status: "requested" | "in_progress" | "completed" | "rejected"
       device_catalog_category:
         | "blood_pressure"
         | "weight"
@@ -18315,6 +18578,21 @@ export type Database = {
         | "premixed"
         | "analogue_rapid"
         | "analogue_long"
+      integration_component:
+        | "ble_bp_cuff"
+        | "ble_glucometer"
+        | "ble_scale"
+        | "ble_thermometer"
+        | "ble_pulse_oximeter"
+        | "wearable_oura"
+        | "wearable_whoop"
+        | "wearable_garmin"
+        | "wearable_fitbit"
+        | "wearable_dexcom"
+        | "apple_health_bridge"
+        | "android_health_connect_bridge"
+        | "mobile_ingestion_api"
+      integration_health_state: "operational" | "degraded" | "delayed" | "down"
       lab_analyte_flag:
         | "normal"
         | "low"
@@ -18852,6 +19130,7 @@ export const Constants = {
         "provider_unavailable",
         "appointment_failure",
         "laboratory_failure",
+        "monitoring_pipeline_down",
       ],
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician", "fhir_import"],
@@ -19011,7 +19290,12 @@ export const Constants = {
         "resolved",
         "historical",
       ],
-      consent_type: ["data_processing", "telehealth", "terms_of_service"],
+      consent_type: [
+        "data_processing",
+        "telehealth",
+        "terms_of_service",
+        "wearable_device_data",
+      ],
       contract_status: [
         "draft",
         "submitted",
@@ -19021,6 +19305,12 @@ export const Constants = {
         "active",
       ],
       currency: ["NGN", "GBP", "USD"],
+      data_deletion_scope: [
+        "wearable_readings",
+        "device_connections",
+        "all_device_data",
+      ],
+      data_deletion_status: ["requested", "in_progress", "completed", "rejected"],
       device_catalog_category: [
         "blood_pressure",
         "weight",
@@ -19164,6 +19454,22 @@ export const Constants = {
         "analogue_rapid",
         "analogue_long",
       ],
+      integration_component: [
+        "ble_bp_cuff",
+        "ble_glucometer",
+        "ble_scale",
+        "ble_thermometer",
+        "ble_pulse_oximeter",
+        "wearable_oura",
+        "wearable_whoop",
+        "wearable_garmin",
+        "wearable_fitbit",
+        "wearable_dexcom",
+        "apple_health_bridge",
+        "android_health_connect_bridge",
+        "mobile_ingestion_api",
+      ],
+      integration_health_state: ["operational", "degraded", "delayed", "down"],
       lab_analyte_flag: [
         "normal",
         "low",

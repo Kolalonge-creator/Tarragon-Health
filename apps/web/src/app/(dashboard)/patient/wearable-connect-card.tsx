@@ -73,7 +73,19 @@ export function WearableConnectCard({
                 <span className="text-sm font-medium text-charcoal-ink">
                   {PROVIDER_LABEL[provider]}
                 </span>
-                {connection ? (
+                {connection?.status === "error" ? (
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="red">Not syncing</Badge>
+                      <Button size="sm" asChild>
+                        <a href={`/api/wearables/connect/${provider}`}>Reconnect</a>
+                      </Button>
+                    </div>
+                    {connection.last_sync_error ? (
+                      <p className="text-xs text-charcoal-ink/50">{connection.last_sync_error}</p>
+                    ) : null}
+                  </div>
+                ) : connection ? (
                   <div className="flex items-center gap-2">
                     <Badge variant="green">Connected</Badge>
                     <Button
