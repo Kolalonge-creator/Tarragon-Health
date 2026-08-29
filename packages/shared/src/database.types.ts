@@ -10700,6 +10700,233 @@ export type Database = {
           },
         ]
       }
+      monitoring_episodes: {
+        Row: {
+          cancelled_at: string | null
+          care_plan_id: string | null
+          completed_at: string | null
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          purpose: string
+          review_date: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["monitoring_episode_status"]
+          tracks_symptoms: boolean
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          care_plan_id?: string | null
+          completed_at?: string | null
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          purpose: string
+          review_date?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["monitoring_episode_status"]
+          tracks_symptoms?: boolean
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          care_plan_id?: string | null
+          completed_at?: string | null
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          purpose?: string
+          review_date?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["monitoring_episode_status"]
+          tracks_symptoms?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitoring_episodes_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_episodes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_episodes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_episodes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitoring_missed_reasons: {
+        Row: {
+          created_at: string
+          episode_id: string
+          id: string
+          note: string | null
+          occurred_on: string
+          organisation_id: string
+          patient_id: string
+          reason: Database["public"]["Enums"]["monitoring_missed_reason"]
+          schedule_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          id?: string
+          note?: string | null
+          occurred_on?: string
+          organisation_id: string
+          patient_id: string
+          reason: Database["public"]["Enums"]["monitoring_missed_reason"]
+          schedule_item_id: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          id?: string
+          note?: string | null
+          occurred_on?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: Database["public"]["Enums"]["monitoring_missed_reason"]
+          schedule_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitoring_missed_reasons_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "monitoring_episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_missed_reasons_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_missed_reasons_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_missed_reasons_schedule_item_id_fkey"
+            columns: ["schedule_item_id"]
+            isOneToOne: false
+            referencedRelation: "monitoring_schedule_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitoring_schedule_items: {
+        Row: {
+          acceptable_range: Json
+          consecutive_misses: number
+          created_at: string
+          episode_id: string
+          escalated_at: string | null
+          escalation_missed_threshold: number
+          frequency_days: number
+          id: string
+          last_miss_evaluated_on: string | null
+          last_reading_at: string | null
+          organisation_id: string
+          patient_id: string
+          times_per_day: number
+          updated_at: string
+          vital_type: Database["public"]["Enums"]["vital_type"]
+        }
+        Insert: {
+          acceptable_range?: Json
+          consecutive_misses?: number
+          created_at?: string
+          episode_id: string
+          escalated_at?: string | null
+          escalation_missed_threshold?: number
+          frequency_days?: number
+          id?: string
+          last_miss_evaluated_on?: string | null
+          last_reading_at?: string | null
+          organisation_id: string
+          patient_id: string
+          times_per_day?: number
+          updated_at?: string
+          vital_type: Database["public"]["Enums"]["vital_type"]
+        }
+        Update: {
+          acceptable_range?: Json
+          consecutive_misses?: number
+          created_at?: string
+          episode_id?: string
+          escalated_at?: string | null
+          escalation_missed_threshold?: number
+          frequency_days?: number
+          id?: string
+          last_miss_evaluated_on?: string | null
+          last_reading_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+          times_per_day?: number
+          updated_at?: string
+          vital_type?: Database["public"]["Enums"]["vital_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monitoring_schedule_items_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "monitoring_episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_schedule_items_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monitoring_schedule_items_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mrr_snapshots: {
         Row: {
           created_at: string
@@ -17003,6 +17230,7 @@ export type Database = {
           device_id: string | null
           diastolic: number | null
           external_reading_id: string | null
+          feeling: Database["public"]["Enums"]["reading_feeling"] | null
           glucose_context: Database["public"]["Enums"]["glucose_context"] | null
           glucose_mmol_l: number | null
           id: string
@@ -17031,6 +17259,7 @@ export type Database = {
           device_id?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
+          feeling?: Database["public"]["Enums"]["reading_feeling"] | null
           glucose_context?:
             | Database["public"]["Enums"]["glucose_context"]
             | null
@@ -17061,6 +17290,7 @@ export type Database = {
           device_id?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
+          feeling?: Database["public"]["Enums"]["reading_feeling"] | null
           glucose_context?:
             | Database["public"]["Enums"]["glucose_context"]
             | null
@@ -17894,6 +18124,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      monitoring_schedule_adherence: {
+        Row: {
+          adherence_pct: number | null
+          consecutive_misses: number | null
+          episode_id: string | null
+          episode_status:
+            | Database["public"]["Enums"]["monitoring_episode_status"]
+            | null
+          escalation_missed_threshold: number | null
+          expected_readings: number | null
+          frequency_days: number | null
+          last_reading_at: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          purpose: string | null
+          received_readings: number | null
+          schedule_item_id: string | null
+          started_at: string | null
+          times_per_day: number | null
+          vital_type: Database["public"]["Enums"]["vital_type"] | null
+          window_end: string | null
+        }
+        Relationships: []
       }
       patient_care_gaps: {
         Row: {
@@ -19750,6 +20004,7 @@ export type Database = {
         | "new_diagnosis"
         | "risk_tier_change"
         | "hospital_discharge"
+        | "monitoring_episode_review_due"
       care_plan_goal_status: "open" | "achieved" | "abandoned"
       care_plan_intervention_status: "active" | "removed"
       care_plan_status: "draft" | "active" | "completed" | "cancelled" | "paused" | "discharged"
@@ -20063,6 +20318,14 @@ export type Database = {
       medication_log_status: "taken" | "missed" | "skipped"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
+      monitoring_episode_status: "active" | "completed" | "cancelled"
+      monitoring_missed_reason:
+        | "forgot"
+        | "travelling"
+        | "device_problem"
+        | "unwell"
+        | "no_supplies"
+        | "other"
       notification_channel:
         | "email"
         | "sms"
@@ -20176,6 +20439,7 @@ export type Database = {
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
+      reading_feeling: "well" | "slightly_unwell" | "unwell" | "severe_symptoms"
       reassessment_reason:
         | "new_diagnosis"
         | "abnormal_result"
@@ -20658,6 +20922,7 @@ export const Constants = {
         "new_diagnosis",
         "risk_tier_change",
         "hospital_discharge",
+        "monitoring_episode_review_due",
       ],
       care_plan_goal_status: ["open", "achieved", "abandoned"],
       care_plan_intervention_status: ["active", "removed"],
@@ -21009,6 +21274,15 @@ export const Constants = {
       medication_log_status: ["taken", "missed", "skipped"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
+      monitoring_episode_status: ["active", "completed", "cancelled"],
+      monitoring_missed_reason: [
+        "forgot",
+        "travelling",
+        "device_problem",
+        "unwell",
+        "no_supplies",
+        "other",
+      ],
       notification_channel: [
         "email",
         "sms",
@@ -21134,6 +21408,7 @@ export const Constants = {
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
+      reading_feeling: ["well", "slightly_unwell", "unwell", "severe_symptoms"],
       reassessment_reason: [
         "new_diagnosis",
         "abnormal_result",

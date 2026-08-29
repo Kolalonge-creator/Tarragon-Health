@@ -37,6 +37,7 @@ import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
 import { CarePlanManagementSection } from "./care-plan-management-section";
+import { MonitoringEpisodesSection } from "./monitoring-episodes-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
@@ -273,6 +274,10 @@ export default async function ClinicianPatientPage({
             label: "Vitals & chronic care",
             content: (
               <>
+                <MonitoringEpisodesSection
+                  patientId={patient.id}
+                  canStartEpisode={isClinicalTier(callerStaff)}
+                />
                 <BpLadderPanel patientId={patient.id} />
                 <HealthTrendsCard patientId={patient.id} audience="clinician" />
                 <VitalsTrendChart patientId={patient.id} />

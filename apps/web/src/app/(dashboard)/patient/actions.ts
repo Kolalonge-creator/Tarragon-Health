@@ -101,6 +101,7 @@ export async function logVital(
       ketones_mmol_l: reading.ketones_mmol_l,
       ketone_urine: reading.ketone_urine,
       note: reading.note,
+      feeling: reading.feeling,
     };
   } else {
     row = reading;

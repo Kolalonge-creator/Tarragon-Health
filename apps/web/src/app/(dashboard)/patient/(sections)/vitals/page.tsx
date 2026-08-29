@@ -6,6 +6,7 @@ import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
 import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
 import { VitalsHistory } from "@/app/(dashboard)/patient/vitals-history";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { HomeMonitoringSummaryCard } from "@/app/(dashboard)/patient/home-monitoring-summary-card";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-connect-section";
@@ -21,6 +22,8 @@ export default async function PatientVitalsPage() {
       description="Log readings and symptoms, and see how they trend over time."
       icon={SEMANTIC_ICON.bp}
     >
+      <HomeMonitoringSummaryCard patientId={subjectId} />
+
       <VitalsTrendChart patientId={subjectId} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

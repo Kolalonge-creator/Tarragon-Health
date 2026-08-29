@@ -281,6 +281,17 @@ export function VitalsForm({
             <Input id="note" name="note" type="text" maxLength={500} />
           </div>
 
+          <div className="space-y-1.5">
+            <Label htmlFor="feeling">How are you feeling? (optional)</Label>
+            <Select id="feeling" name="feeling" defaultValue="">
+              <option value="">Prefer not to say</option>
+              <option value="well">Well</option>
+              <option value="slightly_unwell">Slightly unwell</option>
+              <option value="unwell">Unwell</option>
+              <option value="severe_symptoms">Severe symptoms</option>
+            </Select>
+          </div>
+
           {crosscheck && (
             <div
               role="alert"

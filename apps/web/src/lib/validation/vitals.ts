@@ -2,6 +2,17 @@ import { z } from "zod";
 
 const noteField = z.string().trim().max(500).optional();
 
+/**
+ * Spec §51.9 — "how are you feeling?" captured alongside the reading. The
+ * form's own "Prefer not to say" option submits an empty string, which
+ * z.enum would otherwise reject outright (.optional() only allows a missing
+ * key, not an empty string) — preprocess maps "" to undefined first.
+ */
+const feelingField = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.enum(["well", "slightly_unwell", "unwell", "severe_symptoms"]).optional()
+);
+
 /** Raw string from a datetime-local input; converted to an ISO string in the Server Action. */
 const takenAtField = z
   .string()
@@ -30,6 +41,7 @@ export const bloodPressureSchema = z
       .max(160, "Please re-check — diastolic above 160 mmHg is outside the measurable range"),
     note: noteField,
     taken_at: takenAtField,
+    feeling: feelingField,
   })
   .refine((data) => data.systolic > data.diastolic, {
     path: ["systolic"],
@@ -69,6 +81,7 @@ export const glucoseSchema = z.object({
   glucose_context: z.enum(GLUCOSE_CONTEXTS),
   note: noteField,
   taken_at: takenAtField,
+  feeling: feelingField,
 });
 
 /**
@@ -86,6 +99,7 @@ export const ketonesSchema = z.object({
   ketone_urine: z.enum(KETONE_URINE_BANDS).optional(),
   note: noteField,
   taken_at: takenAtField,
+  feeling: feelingField,
 });
 
 export const weightSchema = z.object({
@@ -96,6 +110,7 @@ export const weightSchema = z.object({
     .max(300, "Weight must be at most 300 kg"),
   note: noteField,
   taken_at: takenAtField,
+  feeling: feelingField,
 });
 
 export const pulseSchema = z.object({
@@ -107,6 +122,7 @@ export const pulseSchema = z.object({
     .max(200, "Pulse must be at most 200 bpm"),
   note: noteField,
   taken_at: takenAtField,
+  feeling: feelingField,
 });
 
 export const temperatureSchema = z.object({
@@ -117,6 +133,7 @@ export const temperatureSchema = z.object({
     .max(42, "Temperature must be at most 42°C"),
   note: noteField,
   taken_at: takenAtField,
+  feeling: feelingField,
 });
 
 export const spo2Schema = z.object({
@@ -128,6 +145,7 @@ export const spo2Schema = z.object({
     .max(100, "SpO2 must be at most 100%"),
   note: noteField,
   taken_at: takenAtField,
+  feeling: feelingField,
 });
 
 export const waistCircumferenceSchema = z.object({
@@ -138,6 +156,7 @@ export const waistCircumferenceSchema = z.object({
     .max(200, "Waist must be at most 200 cm"),
   note: noteField,
   taken_at: takenAtField,
+  feeling: feelingField,
 });
 
 export const vitalsReadingSchema = z
