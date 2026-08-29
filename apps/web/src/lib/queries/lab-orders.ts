@@ -56,10 +56,15 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
   // uploader alongside (not instead of — a bundle can mix ecg_resting with
   // blood tests) the generic PatientResultUpload, since an ECG is a separate
   // physical document from a lab panel's combined PDF.
-  panel_bundle: { name: string; test_codes: string[] } | null;
+  panel_bundle: { name: string; test_codes: string[]; preparation_instructions: string | null } | null;
   provider: { name: string; regions: string[] } | null;
   home_visit_provider: { name: string } | null;
   facility: { name: string } | null;
+  // Null-gated "ordered by" attribution (module 57.10) — present only for a
+  // clinician-generated order; the patient self-service due-screening path
+  // never sets ordered_by, so this stays null there by construction, not by
+  // omission from the query.
+  ordered_by_staff: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
 };
 
 /**
@@ -73,7 +78,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
  * patient-facing availability hint.
  */
 const LAB_ORDER_SELECT =
-  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name)";
+  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name, credential_type, credential_number)";
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
 export function usePatientLabOrders(patientId: string) {
@@ -188,10 +193,15 @@ export function useOrderLabTest() {
       organisationId,
       patientId,
       panelBundleId,
+      clinicalIndication,
+      urgency,
     }: {
       organisationId: string;
       patientId: string;
       panelBundleId: string;
+      /** Required — private.enforce_lab_order_origin rejects a clinician-generated order with none. */
+      clinicalIndication: string;
+      urgency?: Database["public"]["Enums"]["lab_order_urgency"];
     }) => {
       const supabase = createClient();
       const {
@@ -222,6 +232,8 @@ export function useOrderLabTest() {
         status: "ordered",
         origin: "clinically_triggered",
         ordered_by: staff.id,
+        clinical_indication: clinicalIndication,
+        urgency: urgency ?? "routine",
       });
       if (error) throw error;
     },

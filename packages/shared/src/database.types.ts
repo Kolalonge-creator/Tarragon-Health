@@ -8067,6 +8067,7 @@ export type Database = {
       lab_orders: {
         Row: {
           applied_voucher_id: string | null
+          clinical_indication: string | null
           courier_reference: string | null
           created_at: string
           excluded_test_codes: Json
@@ -8109,10 +8110,12 @@ export type Database = {
           transmission_note: string | null
           transmitted_at: string | null
           updated_at: string
+          urgency: Database["public"]["Enums"]["lab_order_urgency"]
           voucher_covered_kobo: number
         }
         Insert: {
           applied_voucher_id?: string | null
+          clinical_indication?: string | null
           courier_reference?: string | null
           created_at?: string
           excluded_test_codes?: Json
@@ -8155,10 +8158,12 @@ export type Database = {
           transmission_note?: string | null
           transmitted_at?: string | null
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["lab_order_urgency"]
           voucher_covered_kobo?: number
         }
         Update: {
           applied_voucher_id?: string | null
+          clinical_indication?: string | null
           courier_reference?: string | null
           created_at?: string
           excluded_test_codes?: Json
@@ -8201,6 +8206,7 @@ export type Database = {
           transmission_note?: string | null
           transmitted_at?: string | null
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["lab_order_urgency"]
           voucher_covered_kobo?: number
         }
         Relationships: [
@@ -8573,6 +8579,9 @@ export type Database = {
           reviewed_by: string | null
           screening_completion_id: string | null
           source: Database["public"]["Enums"]["lab_result_document_source"]
+          superseded_at: string | null
+          superseded_by_document_id: string | null
+          supersedes_document_id: string | null
           updated_at: string
           uploaded_by: string | null
         }
@@ -8599,6 +8608,9 @@ export type Database = {
           reviewed_by?: string | null
           screening_completion_id?: string | null
           source: Database["public"]["Enums"]["lab_result_document_source"]
+          superseded_at?: string | null
+          superseded_by_document_id?: string | null
+          supersedes_document_id?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -8625,6 +8637,9 @@ export type Database = {
           reviewed_by?: string | null
           screening_completion_id?: string | null
           source?: Database["public"]["Enums"]["lab_result_document_source"]
+          superseded_at?: string | null
+          superseded_by_document_id?: string | null
+          supersedes_document_id?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -8683,6 +8698,20 @@ export type Database = {
             columns: ["screening_completion_id"]
             isOneToOne: false
             referencedRelation: "screening_completions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_superseded_by_document_id_fkey"
+            columns: ["superseded_by_document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_supersedes_document_id_fkey"
+            columns: ["supersedes_document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
             referencedColumns: ["id"]
           },
           {
@@ -11388,6 +11417,7 @@ export type Database = {
           is_active: boolean
           is_screen_tier: boolean
           name: string
+          preparation_instructions: string | null
           price_kobo: number
           review_discount_bp: number
           self_bookable: boolean
@@ -11404,6 +11434,7 @@ export type Database = {
           is_active?: boolean
           is_screen_tier?: boolean
           name: string
+          preparation_instructions?: string | null
           price_kobo?: number
           review_discount_bp?: number
           self_bookable?: boolean
@@ -11420,6 +11451,7 @@ export type Database = {
           is_active?: boolean
           is_screen_tier?: boolean
           name?: string
+          preparation_instructions?: string | null
           price_kobo?: number
           review_discount_bp?: number
           self_bookable?: boolean
@@ -19979,6 +20011,7 @@ export type Database = {
         | "sent"
         | "acknowledged"
         | "failed"
+      lab_order_urgency: "routine" | "urgent"
       lab_refund_reason:
         | "patient_cancelled"
         | "never_attended"
@@ -20916,6 +20949,7 @@ export const Constants = {
         "acknowledged",
         "failed",
       ],
+      lab_order_urgency: ["routine", "urgent"],
       lab_refund_reason: [
         "patient_cancelled",
         "never_attended",
