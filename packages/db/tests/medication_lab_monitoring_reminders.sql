@@ -64,27 +64,36 @@ begin
 end $$;
 
 -- ==========================================================================
--- 1. Due within 7 days: reminder_sent_at stamped + notification queued.
+-- 1. Due within 7 days: reminder_sent_at stamped + BOTH a whatsapp and an
+--    in_app notification queued (20260829190140 — the in_app companion is
+--    not optional: it's the only channel that needs no external provider
+--    approval, and Meta/Termii approval is still pending platform-wide).
 -- ==========================================================================
 do $$
 declare
   v_id uuid := (select v from mlmr_fixture where k = 'due_soon');
   v_patient uuid := (select v from mlmr_fixture where k = 'patient');
   v_reminder_sent timestamptz;
-  v_notif_count bigint;
+  v_whatsapp_count bigint;
+  v_in_app_count bigint;
 begin
   select reminder_sent_at into v_reminder_sent from public.medication_lab_monitoring where id = v_id;
-  select count(*) into v_notif_count from public.notifications
-  where recipient_id = v_patient and template = 'medication_lab_monitoring_due'
+  select count(*) into v_whatsapp_count from public.notifications
+  where recipient_id = v_patient and template = 'medication_lab_monitoring_due' and channel = 'whatsapp'
+    and payload->>'monitoring_label' = 'INR monitoring (due soon)';
+  select count(*) into v_in_app_count from public.notifications
+  where recipient_id = v_patient and template = 'medication_lab_monitoring_due' and channel = 'in_app'
     and payload->>'monitoring_label' = 'INR monitoring (due soon)';
 
   insert into mlmr_result values
-    ('a monitoring row due in 3 days gets a stamped reminder + queued notification', 'system',
-     format('stamped=%s/notif=%s', case when v_reminder_sent is not null then 'yes' else 'no' end, v_notif_count),
-     'stamped=yes/notif=1',
-     case when v_reminder_sent is not null and v_notif_count = 1 then 'PASS' else 'FAIL' end);
-  if v_reminder_sent is null or v_notif_count <> 1 then
-    raise exception 'BROKEN: a due-soon medication_lab_monitoring row did not get reminded';
+    ('a monitoring row due in 3 days gets a stamped reminder + whatsapp + in_app notifications', 'system',
+     format('stamped=%s/whatsapp=%s/in_app=%s',
+       case when v_reminder_sent is not null then 'yes' else 'no' end, v_whatsapp_count, v_in_app_count),
+     'stamped=yes/whatsapp=1/in_app=1',
+     case when v_reminder_sent is not null and v_whatsapp_count = 1 and v_in_app_count = 1
+          then 'PASS' else 'FAIL' end);
+  if v_reminder_sent is null or v_whatsapp_count <> 1 or v_in_app_count <> 1 then
+    raise exception 'BROKEN: a due-soon medication_lab_monitoring row did not get reminded on both channels';
   end if;
 end $$;
 
