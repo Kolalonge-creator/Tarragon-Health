@@ -11,6 +11,7 @@ import {
   type MedicationWithCarePlan,
 } from "@/lib/queries/medications";
 import { MedicationCollectionForm } from "./medication-collection-form";
+import { MedicationIssueReportForm } from "./medication-issue-report-form";
 import { usePatientNextReview } from "@/lib/queries/medication-reviews";
 import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -161,7 +162,10 @@ export function MedicationsList({
                     // Buy anywhere, tell us afterwards. Ungated: knowing
                     // whether a patient actually has their medicine is a
                     // safety signal, not a paid feature.
-                    <MedicationCollectionForm medication={medication} patientId={patientId} />
+                    <>
+                      <MedicationCollectionForm medication={medication} patientId={patientId} />
+                      <MedicationIssueReportForm medication={medication} patientId={patientId} />
+                    </>
                   )}
                   {canStop && (
                     <StopMedicationForm medication={medication} patientId={patientId} />
