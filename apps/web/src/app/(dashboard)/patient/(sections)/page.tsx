@@ -22,6 +22,7 @@ import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
+import { HealthStatusBanner } from "@/components/health-status-banner";
 
 // Clinical dashboard status colours (a separate system from brand colour, per
 // the brand guide) — same convention as vitals-history.tsx's LEVEL_STYLE,
@@ -76,6 +77,7 @@ export default async function PatientOverviewPage() {
           name DashboardPlaceholder's "Hi, {name}" already gave a moment ago
           (2026-08-17 patient-experience pass). */}
       <p className="text-sm text-charcoal-ink/60">{weekSummaryLine}</p>
+      <HealthStatusBanner patientId={subjectId} />
 
       {/* Hero — the one thing the page leads with. Its copy and link are the
           same real, priority-ordered "next best step" as before; only the
@@ -187,7 +189,7 @@ export default async function PatientOverviewPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CareScheduleCard patientId={subjectId} />
-        <PatientTimeline patientId={subjectId} limit={6} />
+        <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" />
       </div>
 
       {/* Conditional clinical cards — each self-hides when the patient has no

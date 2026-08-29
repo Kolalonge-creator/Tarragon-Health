@@ -13,7 +13,7 @@ import type { Tables } from "@tarragon/shared";
  */
 export type InAppNotification = Pick<
   Tables<"notifications">,
-  "id" | "status" | "template" | "payload" | "created_at"
+  "id" | "status" | "template" | "payload" | "created_at" | "priority"
 >;
 
 export const inAppNotificationsKey = ["notifications", "in-app"] as const;
@@ -38,7 +38,7 @@ export function useInAppNotifications() {
       // but wrong for a personal notification bell.
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, status, template, payload, created_at")
+        .select("id, status, template, payload, created_at, priority")
         .eq("recipient_id", user.id)
         .eq("channel", "in_app")
         .order("created_at", { ascending: false })

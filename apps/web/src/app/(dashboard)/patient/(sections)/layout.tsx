@@ -35,7 +35,6 @@ export default async function PatientSectionsLayout({
           : `Hi${profile.full_name ? `, ${profile.full_name}` : ""}`
       }
       roleLabel={acting ? "Acting for them" : "Patient"}
-      comingUp={[]}
     >
       {/* Whose account this is must never be in doubt. It sits above the
           safety surfaces because mistaking one person's record for another is

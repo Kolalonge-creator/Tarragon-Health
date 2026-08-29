@@ -125,11 +125,22 @@ export function getNavSections(
               primary: true,
               shortLabel: "Home",
             },
+            // Spec §76.5 ("action centre") — every outstanding task in one
+            // urgency-bucketed place, not scattered across Overview's
+            // individual cards. First-class nav entry, not just a link off
+            // Overview, since it's meant to be reachable directly.
+            { label: "My actions", href: "/patient/actions", icon: "approvals" },
           ],
         },
         {
           label: "Your health",
           items: [
+            // Spec §76.3 ("personal health summary") — conditions,
+            // allergies, medications, measurements, investigations, care
+            // programmes, appointments, referrals and preventive tasks in
+            // one place, composed from the record the sections below already
+            // hold rather than a second copy of it.
+            { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
             {
               label: "Vitals & symptoms",
               href: "/patient/vitals",
@@ -182,6 +193,11 @@ export function getNavSections(
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
+            {
+              label: "Notification settings",
+              href: "/patient/notification-settings",
+              icon: "bell",
+            },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
             {
               label: "Emergency card",

@@ -6,6 +6,7 @@ import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
+import { registerPushToken } from "@/lib/push-registration";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
 import { LoginScreen } from "@/screens/login-screen";
 import { HomeShell } from "@/screens/home-shell";
@@ -52,6 +53,10 @@ export default function App() {
       // for every patient signing in under Expo Go (no Nitro native module).
       // Nothing the patient does depends on this resolving.
       registerBackgroundHealthSync().catch(() => {});
+      // Same fire-and-forget contract — a patient who denies the permission
+      // prompt, or a dev build with no EAS project id, still gets a fully
+      // working app; this only ever adds a remote-push capability on top.
+      registerPushToken(session.user.id, identity.organisationId).catch(() => {});
     }
   }, [session, identity]);
 

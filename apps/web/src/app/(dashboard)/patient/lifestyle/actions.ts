@@ -246,7 +246,7 @@ export async function logReadingAction(
 const emptyToUndefined = (v: unknown) =>
   typeof v === "string" && v.trim() === "" ? undefined : v;
 
-const GOAL_MODULES = ["diet", "activity", "behaviour", "sleep", "stress"] as const;
+const GOAL_MODULES = ["diet", "activity", "behaviour", "sleep", "stress", "smoking"] as const;
 
 const createGoalSchema = z.object({
   enrollmentId: z.string().uuid(),
@@ -272,7 +272,13 @@ export async function createGoalAction(
 
   const { error } = await ctx.supabase.rpc("create_personalised_lifestyle_goal", {
     p_enrollment_id: enrollmentId,
-    p_module: module,
+    // Cast: 20260829222454_lpe_module_smoking.sql adds 'smoking' to the DB
+    // enum, but database.types.ts hasn't been regenerated against it yet —
+    // the generated public.lpe_module type here is still the 5 pre-existing
+    // values. `module` (validated above by GOAL_MODULES, which does include
+    // "smoking") is the real, correct value; only this compile-time type is
+    // stale. Safe to delete once types are regenerated.
+    p_module: module as "diet" | "activity" | "behaviour" | "sleep" | "stress",
     p_title: title,
     p_target_value: targetValue ?? undefined,
     p_target_unit: targetUnit ?? undefined,
@@ -300,11 +306,30 @@ export async function resolveGoalAction(
   const ctx = await currentPatient();
   if (ctx.error) return { error: ctx.error };
 
-  const { error } = await ctx.supabase.rpc("resolve_personalised_lifestyle_goal", {
+  const { data: goal, error } = await ctx.supabase.rpc("resolve_personalised_lifestyle_goal", {
     p_goal_id: parsed.data.goalId,
     p_status: parsed.data.status,
   });
   if (error) return { error: error.message || "Could not update this goal" };
+
+  // Closing the loop spec §76.8 asks for: a completed stop-smoking goal
+  // updates the same smoking_status question lib/cv-risk/assess.ts and the
+  // health score's smoking component read (risk_assessment_responses,
+  // question_key='smoking_status'), same shape as the questionnaire's own
+  // insert in patient/actions.ts. Full response history is kept there by
+  // design (a retake keeps prior answers), so this is a fresh row, not an
+  // update — the latest one (order by created_at desc) is what's read.
+  // Cast: same generated-types lag as createGoalAction's p_module above —
+  // goal.module's generated type doesn't include "smoking" yet either.
+  if (parsed.data.status === "achieved" && (goal?.module as string | undefined) === "smoking") {
+    await ctx.supabase.from("risk_assessment_responses").insert({
+      organisation_id: ctx.orgId!,
+      profile_id: ctx.userId!,
+      category: "lifestyle",
+      question_key: "smoking_status",
+      response: "former",
+    });
+  }
 
   revalidatePath("/patient/lifestyle");
   revalidatePath("/patient/weight-management");
