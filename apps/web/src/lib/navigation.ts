@@ -278,6 +278,14 @@ export function getNavSections(
             },
           ];
     case "admin":
+      // Every settings-shaped page (members, partners, protocols, billing,
+      // compliance, ...) used to be its own sidebar link across these
+      // groups — ~15 of them, plus another ~13 reachable only from the
+      // /admin home page's tile grid. They now live behind the single
+      // "Settings" entry below, whose top tab bar
+      // (admin/settings/layout.tsx) groups all ~28 into 7 sections. Only
+      // genuinely operational pages (live data to work, not configuration)
+      // stay as direct sidebar links.
       return [
         {
           items: [
@@ -288,35 +296,14 @@ export function getNavSections(
         {
           label: "Operations",
           items: [
-            { label: "Members & access", href: "/admin/settings/members", icon: "members" },
-            { label: "Clinical staff", href: "/admin/settings/clinical-staff", icon: "clinicianFollowUp" },
-            { label: "Partners", href: "/admin/settings/partners", icon: "corporate" },
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
-            { label: "Service regions", href: "/admin/settings/service-regions", icon: "region" },
-            { label: "Company & legal profile", href: "/admin/settings/company-profile", icon: "corporate" },
-          ],
-        },
-        {
-          label: "Commercial",
-          items: [
-            { label: "Subscriptions", href: "/admin/settings/subscriptions", icon: "billing" },
-            { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
-            { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
-            { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
-            { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
-            { label: "Care vouchers", href: "/admin/settings/vouchers", icon: "payables" },
-            { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
-          ],
-        },
-        {
-          label: "Clinical",
-          items: [
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
-            { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
-            { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
-            { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
           ],
+        },
+        {
+          label: "Configuration",
+          items: [{ label: "Settings", href: "/admin/settings", icon: "settings" }],
         },
       ];
     case "pharmacist":
