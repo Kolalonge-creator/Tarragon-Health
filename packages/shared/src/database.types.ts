@@ -15405,6 +15405,7 @@ export type Database = {
           lab_order_id: string | null
           organisation_id: string
           patient_id: string
+          recall_months: number | null
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary: string | null
           schedule_id: string | null
@@ -15418,6 +15419,7 @@ export type Database = {
           lab_order_id?: string | null
           organisation_id: string
           patient_id: string
+          recall_months?: number | null
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
           schedule_id?: string | null
@@ -15431,6 +15433,7 @@ export type Database = {
           lab_order_id?: string | null
           organisation_id?: string
           patient_id?: string
+          recall_months?: number | null
           result_status?: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
           schedule_id?: string | null
@@ -15484,11 +15487,15 @@ export type Database = {
       screening_schedules: {
         Row: {
           created_at: string
+          declined_at: string | null
+          declined_reason: string | null
           due_date: string
           id: string
+          is_recall: boolean
           next_due_date: string | null
           organisation_id: string
           patient_id: string
+          recall_reason: string | null
           reminder_sent_at: string | null
           reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
@@ -15497,11 +15504,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          declined_at?: string | null
+          declined_reason?: string | null
           due_date: string
           id?: string
+          is_recall?: boolean
           next_due_date?: string | null
           organisation_id: string
           patient_id: string
+          recall_reason?: string | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
@@ -15510,11 +15521,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          declined_at?: string | null
+          declined_reason?: string | null
           due_date?: string
           id?: string
+          is_recall?: boolean
           next_due_date?: string | null
           organisation_id?: string
           patient_id?: string
+          recall_reason?: string | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id?: string
@@ -20234,6 +20249,7 @@ export type Database = {
         | "completed"
         | "overdue"
         | "cancelled"
+        | "declined"
       sex: "male" | "female"
       specialist_type:
         | "urologist"
@@ -21199,6 +21215,7 @@ export const Constants = {
         "completed",
         "overdue",
         "cancelled",
+        "declined",
       ],
       sex: ["male", "female"],
       specialist_type: [
