@@ -1,9 +1,15 @@
 # Paystack "Pay with Transfer" — Implementation Spec
 
-> Status: **proposed, not yet built**. Nothing in this document is live. Written 2026-08-29 against
-> the Paystack integration as it actually exists in `apps/web`/`supabase` today — every file, table,
-> and function named below is real and current as of this date; verify against live code before
-> relying on any of it later, same discipline as everywhere else in this repo's docs.
+> Status: **§5's code is built for the `lab` booking order type; everything else in this document is
+> still proposed.** Written 2026-08-29 against the Paystack integration as it actually exists in
+> `apps/web`/`supabase`; §5's `initializeBankTransferCharge()`, `initiateBookingTransferCharge()`,
+> `payForLabOrderByTransfer()`, and `PayForLabOrderByTransferButton` landed the same day, wired into
+> the annual-health-check lab order card only — pharmacy/referral/video-visit UI wiring (trivial,
+> same library functions, just not done) and voucher/sponsor checkout (§5.3) are still open. **None
+> of this has been exercised against real Paystack** — §3 (business verification) status is unknown,
+> and §5.1's response-shape assumptions are unverified against a live test-mode call. Verify against
+> live code before relying on any claim below, same discipline as everywhere else in this repo's
+> docs.
 
 ## 0. Terminology correction
 
@@ -308,12 +314,33 @@ functions):
 
 ## 13. Rollout checklist / open questions for the founder
 
-- [ ] Confirm §3 (business verification + BVN-via-iGree) status — this blocks everything else.
-- [ ] Confirm whether Path A (hosted-checkout default Transfer) already satisfies the ask before
-      building any of Path B's in-app code (§4).
-- [ ] Decide whether Tier 1 ships for `booking` only, or also `voucher_payment` /
-      `sponsored_subscription` (§5.3) in the same pass.
+- [x] §5.1/§5.2 built: `initializeBankTransferCharge()` (`apps/web/src/lib/paystack/transactions.ts`),
+      `initiateBookingTransferCharge()` (`apps/web/src/lib/billing/booking-checkout.ts`), a `lab`-order
+      server action (`payForLabOrderByTransfer`, `apps/web/src/app/(dashboard)/patient/lab-tests/actions.ts`),
+      and the in-app UI (`PayForLabOrderByTransferButton`, wired alongside the existing card button on
+      the annual-health-check lab order card). Unit tests for `initializeBankTransferCharge()` in
+      `transactions.test.ts`; `typecheck`/`lint`/`test` all pass. `initiateBookingTransferCharge()`
+      itself has no unit test, matching its untested sibling `initiateBookingCheckout()` and this
+      repo's own jest.config.mjs boundary (pure lib logic only — Server Actions/DB writes are
+      exercised via the running app).
+- [ ] Confirm §3 (business verification + BVN-via-iGree) status — this blocks everything else. **Not
+      confirmed** — no live Paystack credentials were available while writing the code above, so
+      none of it has been round-tripped against a real (even test-mode) charge.
+- [ ] Confirm whether Path A (hosted-checkout default Transfer) already satisfies the ask — asked
+      before §5's code was written; no answer received, so Path B was built. Worth revisiting if
+      Path A turns out to already cover this more simply.
+- [ ] Extend the same UI wiring to `pharmacy_orders`/`specialist_referrals`/`video_visit_requests` —
+      `initiateBookingTransferCharge()` is already generic across all four `BookingOrderType`s, so this
+      is new server actions + a button per surface, not new library code. Only `lab` is wired today.
+- [ ] Decide whether Tier 1 also extends to `voucher_payment` / `sponsored_subscription` (§5.3) — not
+      done in this pass, scoped to `booking`/`lab` only.
 - [ ] Resolve §6's open question (does `charge.failed` need a real case, or is `default` sufficient)
-      against an actual test-mode expiry before writing that branch.
+      against an actual test-mode expiry — **left unhandled in this pass**, per the spec's own
+      instruction not to add a speculative case without confirming Paystack's real payload first. A
+      transfer that expires or fails currently just leaves the order in `pending_payment` with a
+      stale `pending_payment_provider_ref`, which the existing UI already handles correctly (the
+      countdown expires client-side and offers "generate a new account number," which overwrites the
+      stale reference) — but this hasn't been confirmed against a real Paystack `charge.failed`
+      payload.
 - [ ] Tier 2 (DVA) stays unscheduled until an explicit founder ask, per §1 — don't let "Pay with
       Transfer" scope quietly grow into it.

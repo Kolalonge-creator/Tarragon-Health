@@ -116,6 +116,74 @@ export async function initializeOneOffTransaction(args: {
   };
 }
 
+interface BankTransferChargeData {
+  reference: string;
+  status: string;
+  bank_transfer?: {
+    bank?: { name?: string } | null;
+    account_number?: string;
+    account_expires_at?: string;
+  } | null;
+}
+
+/**
+ * Pay with Transfer: requests a temporary, single-transaction NGN account
+ * number from Paystack's generic /charge endpoint (bank_transfer channel)
+ * — not a Dedicated Virtual Account, so no customer BVN/Customer
+ * Identification is involved (see docs/PAYSTACK_PAY_WITH_TRANSFER_SPEC.md
+ * §1 for why the two must not be confused). The account details come back
+ * directly in this response, unlike initializeOneOffTransaction()'s
+ * authorization_url — no webhook wait is needed to show them to the
+ * patient. paystack-webhook's existing charge.success handling (keyed on
+ * `reference`, channel-agnostic) is what actually confirms the payment;
+ * this function only starts the charge.
+ *
+ * Flagged for the real test-mode round trip: the exact response shape for
+ * bank_transfer is asserted defensively below rather than trusted, since
+ * this has never been exercised against live Paystack.
+ */
+export async function initializeBankTransferCharge(args: {
+  email: string;
+  amountMinor: number; // NGN only — Transfer is a Nigerian-rails-only channel
+  expiresInMinutes: number; // Paystack clamps to 15–480; stay inside that range
+  metadata: CheckoutMetadata;
+}): Promise<
+  PaystackResult<{ reference: string; bankName: string; accountNumber: string; expiresAt: string }>
+> {
+  const accountExpiresAt = new Date(Date.now() + args.expiresInMinutes * 60_000).toISOString();
+  const result = await paystackFetch<BankTransferChargeData>("/charge", {
+    method: "POST",
+    body: {
+      email: args.email,
+      amount: args.amountMinor,
+      currency: "NGN",
+      bank_transfer: { account_expires_at: accountExpiresAt },
+      metadata: args.metadata,
+    },
+  });
+  if (!result.ok) return result;
+
+  const bankName = result.data.bank_transfer?.bank?.name;
+  const accountNumber = result.data.bank_transfer?.account_number;
+  if (!bankName || !accountNumber) {
+    return {
+      ok: false,
+      error:
+        "Paystack did not return transfer account details — Pay with Transfer may not be enabled on this account yet.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      reference: result.data.reference,
+      bankName,
+      accountNumber,
+      expiresAt: result.data.bank_transfer?.account_expires_at ?? accountExpiresAt,
+    },
+  };
+}
+
 interface VerifyTransactionData {
   status: string;
   reference: string;

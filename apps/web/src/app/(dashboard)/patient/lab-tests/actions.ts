@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwnedBookingOrder } from "@/lib/billing/booking-ownership";
-import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
+import { initiateBookingCheckout, initiateBookingTransferCharge } from "@/lib/billing/booking-checkout";
 
 export type PayForLabOrderState = { error?: string } | undefined;
 
@@ -60,6 +60,63 @@ export async function payForLabOrder(
     return { error: result.error };
   }
   redirect(result.checkoutUrl);
+}
+
+export type PayForLabOrderByTransferState =
+  | { error: string }
+  | { reference: string; bankName: string; accountNumber: string; expiresAt: string }
+  | undefined;
+
+/**
+ * Pay with Transfer variant of payForLabOrder() — same ownership/status/
+ * email checks and the same payable_kobo pricing, but returns account
+ * details for PayForLabOrderByTransferButton to render in-app instead of
+ * redirecting to Paystack's hosted checkout. See
+ * docs/PAYSTACK_PAY_WITH_TRANSFER_SPEC.md.
+ */
+export async function payForLabOrderByTransfer(
+  _prevState: PayForLabOrderByTransferState,
+  formData: FormData,
+): Promise<PayForLabOrderByTransferState> {
+  const orderId = formData.get("orderId");
+  if (typeof orderId !== "string" || !orderId) {
+    return { error: "Missing order" };
+  }
+
+  const { supabase, user, order } = await requireOwnedBookingOrder("lab", orderId);
+  if (order.status !== "pending_payment") {
+    return { error: "This order isn't ready for payment." };
+  }
+  if (!user.email) {
+    return { error: "Your account needs an email on file to check out." };
+  }
+
+  const { data: labOrder } = await supabase
+    .from("lab_orders")
+    .select("payable_kobo, total_kobo")
+    .eq("id", orderId)
+    .single();
+  if (!labOrder) {
+    return { error: "This order could not be found." };
+  }
+
+  const result = await initiateBookingTransferCharge({
+    orderType: "lab",
+    orderId,
+    patientId: order.patient_id,
+    amountKobo: labOrder.payable_kobo ?? labOrder.total_kobo,
+    email: user.email,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  return {
+    reference: result.reference,
+    bankName: result.bankName,
+    accountNumber: result.accountNumber,
+    expiresAt: result.expiresAt,
+  };
 }
 
 export type CreatePartnerLabOrderState = { error?: string } | undefined;

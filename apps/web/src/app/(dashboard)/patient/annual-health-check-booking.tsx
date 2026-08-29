@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
+import { PayForLabOrderByTransferButton } from "@/components/pay-for-lab-order-by-transfer-button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReviewPrice } from "./review-price";
 import { cn } from "@/lib/utils";
@@ -216,7 +217,13 @@ export function AnnualHealthCheckBooking({
                 <p className="text-sm text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Health check"}
                 </p>
-                <PayForLabOrderButton orderId={order.id} amountKobo={order.payable_kobo ?? order.total_kobo} />
+                <div className="flex flex-wrap items-start gap-2">
+                  <PayForLabOrderButton orderId={order.id} amountKobo={order.payable_kobo ?? order.total_kobo} />
+                  <PayForLabOrderByTransferButton
+                    orderId={order.id}
+                    amountKobo={order.payable_kobo ?? order.total_kobo}
+                  />
+                </div>
               </div>
             ))}
           </div>

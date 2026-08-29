@@ -1,6 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
-import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
+import { initializeOneOffTransaction, initializeBankTransferCharge } from "@/lib/paystack/transactions";
 import { isStripeConfigured } from "@/lib/stripe/client";
 import { createOneOffCheckoutSession } from "@/lib/stripe/checkout";
 import { resolveProvider } from "@/lib/billing/provider";
@@ -10,6 +10,10 @@ import type { Currency } from "@tarragon/shared";
 
 export type BookingCheckoutResult =
   | { ok: true; checkoutUrl: string }
+  | { ok: false; error: string };
+
+export type BookingTransferChargeResult =
+  | { ok: true; reference: string; bankName: string; accountNumber: string; expiresAt: string }
   | { ok: false; error: string };
 
 /**
@@ -100,4 +104,59 @@ export async function initiateBookingCheckout(args: {
   if (error) return { ok: false, error: error.message };
 
   return { ok: true, checkoutUrl: result.data.checkoutUrl };
+}
+
+/**
+ * Pay with Transfer variant of initiateBookingCheckout() — same ownership
+ * assumption (caller must have already run requireOwnedBookingOrder()) and
+ * the same pending_payment/pending_payment_provider_ref write, but returns
+ * account details to render in-app instead of a redirect URL. Paystack/NGN
+ * only — a transfer charge produces no reusable card authorization, so this
+ * must never be offered for a recurring subscription/add_on checkout (see
+ * docs/PAYSTACK_PAY_WITH_TRANSFER_SPEC.md §1 for why kind='booking' plus
+ * the other one-off kinds are the only valid uses of this function's
+ * underlying Paystack call).
+ *
+ * Calling this again for the same orderId (the "generate a new account
+ * number" retry after a transfer window expires) simply overwrites
+ * pending_payment_provider_ref with the fresh reference — the stale
+ * reference's payment_transactions row stays in place for audit, same as
+ * any other superseded checkout attempt.
+ */
+export async function initiateBookingTransferCharge(args: {
+  orderType: BookingOrderType;
+  orderId: string;
+  patientId: string;
+  amountKobo: number;
+  email: string;
+}): Promise<BookingTransferChargeResult> {
+  if (!isPaystackConfigured()) {
+    return { ok: false, error: "Bank transfer isn't set up yet" };
+  }
+
+  const table = bookingTableFor(args.orderType);
+  const serviceRole = createServiceRoleClient();
+  const metadata: CheckoutMetadata = {
+    kind: "booking",
+    profile_id: args.patientId,
+    item_code: args.orderType,
+    booking_order_id: args.orderId,
+    booking_order_type: args.orderType,
+  };
+
+  const result = await initializeBankTransferCharge({
+    email: args.email,
+    amountMinor: args.amountKobo,
+    expiresInMinutes: 30,
+    metadata,
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  const { error } = await serviceRole
+    .from(table)
+    .update({ status: "pending_payment", pending_payment_provider_ref: result.data.reference })
+    .eq("id", args.orderId);
+  if (error) return { ok: false, error: error.message };
+
+  return { ok: true, ...result.data };
 }
