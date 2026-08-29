@@ -14,6 +14,434 @@ export type Database = {
   }
   public: {
     Tables: {
+      ageing_assessments: {
+        Row: {
+          assessment_type: Database["public"]["Enums"]["ageing_assessment_type"]
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          logged_by_profile_id: string | null
+          next_review_due_at: string | null
+          organisation_id: string
+          patient_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["ageing_assessment_status"]
+          updated_at: string
+        }
+        Insert: {
+          assessment_type?: Database["public"]["Enums"]["ageing_assessment_type"]
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          logged_by_profile_id?: string | null
+          next_review_due_at?: string | null
+          organisation_id: string
+          patient_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["ageing_assessment_status"]
+          updated_at?: string
+        }
+        Update: {
+          assessment_type?: Database["public"]["Enums"]["ageing_assessment_type"]
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          logged_by_profile_id?: string | null
+          next_review_due_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["ageing_assessment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ageing_assessments_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ageing_assessments_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ageing_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ageing_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ageing_assessment_domain_results: {
+        Row: {
+          assessment_id: string
+          clinician_reviewed_at: string | null
+          clinician_reviewed_by: string | null
+          created_at: string
+          domain: Database["public"]["Enums"]["ageing_assessment_domain"]
+          id: string
+          notes: string | null
+          outcome: Database["public"]["Enums"]["ageing_assessment_outcome"]
+          responses: Json
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          clinician_reviewed_at?: string | null
+          clinician_reviewed_by?: string | null
+          created_at?: string
+          domain: Database["public"]["Enums"]["ageing_assessment_domain"]
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["ageing_assessment_outcome"]
+          responses?: Json
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          clinician_reviewed_at?: string | null
+          clinician_reviewed_by?: string | null
+          created_at?: string
+          domain?: Database["public"]["Enums"]["ageing_assessment_domain"]
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["ageing_assessment_outcome"]
+          responses?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ageing_assessment_domain_results_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "ageing_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ageing_assessment_domain_results_clinician_reviewed_by_fkey"
+            columns: ["clinician_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      falls_risk_assessments: {
+        Row: {
+          ageing_assessment_id: string | null
+          assessed_at: string | null
+          assessed_by: string | null
+          balance_concern: boolean
+          created_at: string
+          environmental_hazards: boolean
+          follow_up_completed_at: string | null
+          follow_up_due_at: string | null
+          high_risk_medications: boolean
+          id: string
+          identified_at: string
+          intervention_notes: string | null
+          intervention_started_at: string | null
+          logged_by_profile_id: string | null
+          mobility_impairment: boolean
+          organisation_id: string
+          pathway_stage: Database["public"]["Enums"]["falls_risk_pathway_stage"]
+          patient_id: string
+          previous_falls_12mo: boolean
+          resolved_at: string | null
+          risk_level: Database["public"]["Enums"]["falls_risk_level"] | null
+          updated_at: string
+        }
+        Insert: {
+          ageing_assessment_id?: string | null
+          assessed_at?: string | null
+          assessed_by?: string | null
+          balance_concern?: boolean
+          created_at?: string
+          environmental_hazards?: boolean
+          follow_up_completed_at?: string | null
+          follow_up_due_at?: string | null
+          high_risk_medications?: boolean
+          id?: string
+          identified_at?: string
+          intervention_notes?: string | null
+          intervention_started_at?: string | null
+          logged_by_profile_id?: string | null
+          mobility_impairment?: boolean
+          organisation_id: string
+          pathway_stage?: Database["public"]["Enums"]["falls_risk_pathway_stage"]
+          patient_id: string
+          previous_falls_12mo?: boolean
+          resolved_at?: string | null
+          risk_level?: Database["public"]["Enums"]["falls_risk_level"] | null
+          updated_at?: string
+        }
+        Update: {
+          ageing_assessment_id?: string | null
+          assessed_at?: string | null
+          assessed_by?: string | null
+          balance_concern?: boolean
+          created_at?: string
+          environmental_hazards?: boolean
+          follow_up_completed_at?: string | null
+          follow_up_due_at?: string | null
+          high_risk_medications?: boolean
+          id?: string
+          identified_at?: string
+          intervention_notes?: string | null
+          intervention_started_at?: string | null
+          logged_by_profile_id?: string | null
+          mobility_impairment?: boolean
+          organisation_id?: string
+          pathway_stage?: Database["public"]["Enums"]["falls_risk_pathway_stage"]
+          patient_id?: string
+          previous_falls_12mo?: boolean
+          resolved_at?: string | null
+          risk_level?: Database["public"]["Enums"]["falls_risk_level"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "falls_risk_assessments_ageing_assessment_id_fkey"
+            columns: ["ageing_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "ageing_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "falls_risk_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "falls_risk_assessments_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "falls_risk_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "falls_risk_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_determinant_screenings: {
+        Row: {
+          ageing_assessment_id: string | null
+          caregiver_limitation: boolean
+          coordinator_notes: string | null
+          created_at: string
+          financial_barrier: boolean
+          follow_up_status: Database["public"]["Enums"]["social_navigation_follow_up_status"]
+          followed_up_at: string | null
+          followed_up_by: string | null
+          healthcare_access_difficulty: boolean
+          id: string
+          living_alone: boolean
+          logged_by_profile_id: string | null
+          needs_navigation_support: boolean | null
+          organisation_id: string
+          patient_id: string
+          screened_at: string
+          transport_difficulty: boolean
+          updated_at: string
+        }
+        Insert: {
+          ageing_assessment_id?: string | null
+          caregiver_limitation?: boolean
+          coordinator_notes?: string | null
+          created_at?: string
+          financial_barrier?: boolean
+          follow_up_status?: Database["public"]["Enums"]["social_navigation_follow_up_status"]
+          followed_up_at?: string | null
+          followed_up_by?: string | null
+          healthcare_access_difficulty?: boolean
+          id?: string
+          living_alone?: boolean
+          logged_by_profile_id?: string | null
+          needs_navigation_support?: boolean | null
+          organisation_id: string
+          patient_id: string
+          screened_at?: string
+          transport_difficulty?: boolean
+          updated_at?: string
+        }
+        Update: {
+          ageing_assessment_id?: string | null
+          caregiver_limitation?: boolean
+          coordinator_notes?: string | null
+          created_at?: string
+          financial_barrier?: boolean
+          follow_up_status?: Database["public"]["Enums"]["social_navigation_follow_up_status"]
+          followed_up_at?: string | null
+          followed_up_by?: string | null
+          healthcare_access_difficulty?: boolean
+          id?: string
+          living_alone?: boolean
+          logged_by_profile_id?: string | null
+          needs_navigation_support?: boolean | null
+          organisation_id?: string
+          patient_id?: string
+          screened_at?: string
+          transport_difficulty?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_determinant_screenings_ageing_assessment_id_fkey"
+            columns: ["ageing_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "ageing_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_determinant_screenings_followed_up_by_fkey"
+            columns: ["followed_up_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_determinant_screenings_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_determinant_screenings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_determinant_screenings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      home_care_requests: {
+        Row: {
+          assigned_clinician_id: string | null
+          created_at: string
+          eligibility_checked_at: string | null
+          eligibility_checked_by: string | null
+          eligibility_notes: string | null
+          id: string
+          logged_by_profile_id: string | null
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["home_care_request_status"]
+          updated_at: string
+          visit_completed_at: string | null
+          visit_notes: string | null
+        }
+        Insert: {
+          assigned_clinician_id?: string | null
+          created_at?: string
+          eligibility_checked_at?: string | null
+          eligibility_checked_by?: string | null
+          eligibility_notes?: string | null
+          id?: string
+          logged_by_profile_id?: string | null
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["home_care_request_status"]
+          updated_at?: string
+          visit_completed_at?: string | null
+          visit_notes?: string | null
+        }
+        Update: {
+          assigned_clinician_id?: string | null
+          created_at?: string
+          eligibility_checked_at?: string | null
+          eligibility_checked_by?: string | null
+          eligibility_notes?: string | null
+          id?: string
+          logged_by_profile_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["home_care_request_status"]
+          updated_at?: string
+          visit_completed_at?: string | null
+          visit_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "home_care_requests_assigned_clinician_id_fkey"
+            columns: ["assigned_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_requests_eligibility_checked_by_fkey"
+            columns: ["eligibility_checked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_requests_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_log_entries: {
         Row: {
           activity_name: string | null
@@ -19590,6 +20018,34 @@ export type Database = {
       }
     }
     Enums: {
+      ageing_assessment_domain:
+        | "mobility"
+        | "falls"
+        | "cognition"
+        | "nutrition"
+        | "vision"
+        | "hearing"
+        | "social_support"
+        | "functional_independence"
+        | "frailty"
+      ageing_assessment_outcome: "no_concern" | "monitor" | "further_assessment_suggested"
+      ageing_assessment_status: "in_progress" | "completed"
+      ageing_assessment_type: "self_report" | "clinician"
+      falls_risk_level: "low" | "moderate" | "high"
+      falls_risk_pathway_stage:
+        | "risk_identified"
+        | "clinical_assessment"
+        | "intervention"
+        | "follow_up"
+        | "resolved"
+      home_care_request_status:
+        | "eligibility_pending"
+        | "eligible"
+        | "ineligible"
+        | "scheduled"
+        | "visit_completed"
+        | "declined"
+      social_navigation_follow_up_status: "none_needed" | "pending" | "contacted" | "resolved"
       activity_entry_type: "steps" | "workout"
       alert_category: "clinical" | "care_management" | "medication" | "operational"
       alert_follow_up_status: "open" | "done" | "dismissed"
@@ -20487,6 +20943,37 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ageing_assessment_domain: [
+        "mobility",
+        "falls",
+        "cognition",
+        "nutrition",
+        "vision",
+        "hearing",
+        "social_support",
+        "functional_independence",
+        "frailty",
+      ],
+      ageing_assessment_outcome: ["no_concern", "monitor", "further_assessment_suggested"],
+      ageing_assessment_status: ["in_progress", "completed"],
+      ageing_assessment_type: ["self_report", "clinician"],
+      falls_risk_level: ["low", "moderate", "high"],
+      falls_risk_pathway_stage: [
+        "risk_identified",
+        "clinical_assessment",
+        "intervention",
+        "follow_up",
+        "resolved",
+      ],
+      home_care_request_status: [
+        "eligibility_pending",
+        "eligible",
+        "ineligible",
+        "scheduled",
+        "visit_completed",
+        "declined",
+      ],
+      social_navigation_follow_up_status: ["none_needed", "pending", "contacted", "resolved"],
       activity_entry_type: ["steps", "workout"],
       alert_category: ["clinical", "care_management", "medication", "operational"],
       alert_follow_up_status: ["open", "done", "dismissed"],

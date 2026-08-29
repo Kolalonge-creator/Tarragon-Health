@@ -77,6 +77,7 @@ import {
   Thermometer,
   Wind,
   Heart,
+  HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
 
@@ -178,6 +179,7 @@ export const NAV_ICON = {
   chevronRight: ChevronRight,
   security: KeyRound,
   devices: Bluetooth,
+  healthyAgeing: HeartHandshake,
   // Platform Analytics console category icons — the `analyst` role's sidebar
   // (apps/web/src/lib/analytics/sections.ts is the single source of truth for
   // which category gets which of these).
