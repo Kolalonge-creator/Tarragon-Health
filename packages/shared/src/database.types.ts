@@ -19883,6 +19883,7 @@ export type Database = {
         | "spo2_red_flag"
         | "temperature_red_flag"
         | "exposure_report"
+        | "pulse_red_flag"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       exposure_report_status: "open" | "completed" | "withdrawn"
@@ -20806,6 +20807,7 @@ export const Constants = {
         "spo2_red_flag",
         "temperature_red_flag",
         "exposure_report",
+        "pulse_red_flag",
       ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
