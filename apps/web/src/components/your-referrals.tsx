@@ -8,6 +8,7 @@ import type { ReferralStatus } from "@tarragon/shared";
 // (REFERRAL_STATUS_BADGE in clinician/referrals/page.tsx), per CLAUDE.md's
 // brand voice rule: no clinical jargon, no fear-based urgency.
 const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
+  draft: "Your care team is preparing this",
   pending: "Your care team is arranging this",
   pending_payment: "Ready to book — payment needed",
   payment_confirmed: "Payment received — booking your appointment",

@@ -1,7 +1,14 @@
 import type { UserRole } from "@tarragon/shared";
 import { isMarketingPath } from "@/lib/marketing/routes";
 
-/** Where each profiles.role lands after login (FEATURE_SPEC.md §6 dashboards). */
+/** Where each profiles.role lands after login (FEATURE_SPEC.md §6 dashboards).
+ *
+ * payer_admin/provider_org_staff: found live in the user_role enum with no
+ * migration record anywhere in this repo and zero profiles using either
+ * (confirmed live, 2026-08-29) — the same "schema exists with no committed
+ * migration" drift CLAUDE.md has flagged before. No dashboard has been built
+ * for either, so both fall back to /admin rather than a route that doesn't
+ * exist; fix this properly once real functionality lands for them. */
 export const ROLE_HOME_PATH: Record<UserRole, string> = {
   patient: "/patient",
   clinician: "/clinician",
@@ -14,6 +21,8 @@ export const ROLE_HOME_PATH: Record<UserRole, string> = {
   lab_liaison: "/lab-liaison",
   finance: "/finance",
   lab_partner: "/lab-partner",
+  payer_admin: "/admin",
+  provider_org_staff: "/admin",
 };
 
 export function getRoleHomePath(role: UserRole): string {
@@ -40,6 +49,8 @@ export const ROLE_DISPLAY_LABEL: Record<UserRole, string> = {
   finance: "Finance",
   lab_liaison: "Lab Liaison",
   lab_partner: "Partner Laboratory",
+  payer_admin: "Payer Admin",
+  provider_org_staff: "Provider Organisation Staff",
 };
 
 /** True when `pathname` is the role-home (or under it) for `role`. */
