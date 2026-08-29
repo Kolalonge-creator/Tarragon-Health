@@ -3,6 +3,7 @@ import {
   nutritionConfirmSchema,
   nutritionReferralRequestSchema,
   budgetAlternativeQuerySchema,
+  mealPlanRequestSchema,
 } from "./nutrition";
 
 describe("nutritionLogSchema", () => {
@@ -73,5 +74,27 @@ describe("budgetAlternativeQuerySchema", () => {
   it("accepts a normal query", () => {
     const parsed = budgetAlternativeQuerySchema.safeParse({ food_query: "I cannot afford salmon" });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe("mealPlanRequestSchema", () => {
+  it("accepts an empty request — both fields are optional", () => {
+    expect(mealPlanRequestSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("accepts a valid budget tier and preferences note", () => {
+    const parsed = mealPlanRequestSchema.safeParse({
+      budget_tier: "budget",
+      preferences_note: "no seafood please",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects an unknown budget tier", () => {
+    expect(mealPlanRequestSchema.safeParse({ budget_tier: "luxury" }).success).toBe(false);
+  });
+
+  it("rejects a preferences note over 300 characters", () => {
+    expect(mealPlanRequestSchema.safeParse({ preferences_note: "x".repeat(301) }).success).toBe(false);
   });
 });

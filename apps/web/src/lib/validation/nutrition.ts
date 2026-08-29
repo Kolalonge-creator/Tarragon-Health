@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Enums } from "@tarragon/shared";
+import { FOOD_COST_TIERS } from "@/lib/nutrition/food-catalogue";
 
 /** Meal types — mirror the DB enum public.meal_type. */
 export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"] as const;
@@ -50,3 +51,11 @@ export const budgetAlternativeQuerySchema = z.object({
   food_query: z.string().trim().min(1).max(200),
 });
 export type BudgetAlternativeQueryInput = z.infer<typeof budgetAlternativeQuerySchema>;
+
+/** Generate/regenerate a 7-day meal plan (spec 19.8). Both fields optional —
+ * a patient can generate a plan with no stated budget or preference at all. */
+export const mealPlanRequestSchema = z.object({
+  budget_tier: z.enum(FOOD_COST_TIERS).nullish(),
+  preferences_note: z.string().trim().max(300).nullish(),
+});
+export type MealPlanRequestInput = z.infer<typeof mealPlanRequestSchema>;

@@ -11157,6 +11157,66 @@ export type Database = {
           },
         ]
       }
+      nutrition_meal_plans: {
+        Row: {
+          ai_status: string
+          budget_tier: Database["public"]["Enums"]["food_cost_tier"] | null
+          conditions: Json
+          created_at: string
+          error_message: string | null
+          generated_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          plan: Json | null
+          preferences_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_status?: string
+          budget_tier?: Database["public"]["Enums"]["food_cost_tier"] | null
+          conditions?: Json
+          created_at?: string
+          error_message?: string | null
+          generated_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          plan?: Json | null
+          preferences_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_status?: string
+          budget_tier?: Database["public"]["Enums"]["food_cost_tier"] | null
+          conditions?: Json
+          created_at?: string
+          error_message?: string | null
+          generated_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          plan?: Json | null
+          preferences_note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_meal_plans_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_meal_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nutrition_referrals: {
         Row: {
           created_at: string

@@ -7,6 +7,7 @@ import {
   nutritionConfirmSchema,
   nutritionReferralRequestSchema,
   budgetAlternativeQuerySchema,
+  mealPlanRequestSchema,
 } from "@/lib/validation/nutrition";
 import { analyzeMealPhoto, isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { fetchFoodCatalogue } from "@/lib/nutrition/food-catalogue-fetch";
@@ -14,6 +15,7 @@ import { parseFoodText } from "@/lib/nutrition/food-parser";
 import { analyseNutrition, type NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis";
 import { detectNutritionRisk, RISK_REASON_LABELS } from "@/lib/nutrition/referral-risk";
 import { suggestBudgetAlternative } from "@/lib/nutrition/substitutions";
+import { generateMealPlan } from "@/lib/nutrition/meal-plan-generate";
 
 const MEAL_PHOTO_BUCKET = "meal-photos";
 
@@ -266,4 +268,93 @@ export async function getBudgetAlternativeAction(foodQuery: string): Promise<Bud
   const suggestion = suggestBudgetAlternative(parsed.data.food_query, catalogue);
   if (!suggestion) return { notFound: true };
   return suggestion;
+}
+
+export type MealPlanActionState =
+  | { status: "error"; error: string }
+  | { status: "ckd_not_offered" }
+  | { status: "generated" }
+  | undefined;
+
+/**
+ * Generate (or regenerate) a 7-day meal plan (spec 19.8). Each call inserts
+ * a new, immutable nutrition_meal_plans row — regenerating never edits an
+ * old one. Conditions are read fresh from care_plans every time, never
+ * trusted from the client, and CKD is refused before any AI call is even
+ * attempted (see meal-plan-generate.ts's own defence-in-depth check too).
+ */
+export async function generateMealPlanAction(
+  _prev: MealPlanActionState,
+  formData: FormData,
+): Promise<MealPlanActionState> {
+  const raw = Object.fromEntries(formData.entries());
+  const cleaned = Object.fromEntries(
+    Object.entries(raw).map(([k, v]) => [k, v === "" ? undefined : v]),
+  );
+  const parsed = mealPlanRequestSchema.safeParse(cleaned);
+  if (!parsed.success) {
+    return { status: "error", error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { status: "error", error: ctx.error };
+
+  const { data: carePlans } = await ctx.supabase
+    .from("care_plans")
+    .select("condition")
+    .eq("patient_id", ctx.userId)
+    .eq("status", "active");
+  const conditions = Array.from(new Set((carePlans ?? []).map((c) => c.condition)));
+
+  if (conditions.includes("ckd")) {
+    return { status: "ckd_not_offered" };
+  }
+
+  const catalogue = await fetchFoodCatalogue(ctx.supabase);
+  if (catalogue.length === 0) {
+    return { status: "error", error: "Couldn't load the food list right now — try again shortly." };
+  }
+
+  const result = await generateMealPlan({
+    catalogue,
+    conditions,
+    budgetTier: parsed.data.budget_tier ?? null,
+    preferencesNote: parsed.data.preferences_note ?? null,
+  });
+
+  const basePlanRow = {
+    organisation_id: ctx.organisationId,
+    patient_id: ctx.userId,
+    conditions: conditions as unknown as Json,
+    budget_tier: parsed.data.budget_tier ?? null,
+    preferences_note: parsed.data.preferences_note ?? null,
+  };
+
+  if (!result.ok) {
+    // ckd_not_offered never reaches here (returned above), so this is only
+    // ever 'unavailable' (no API key) or 'error' (timeout/malformed output).
+    if (result.reason !== "unavailable") {
+      await ctx.supabase.from("nutrition_meal_plans").insert({
+        ...basePlanRow,
+        plan: null,
+        ai_status: "failed",
+        error_message: "Generation failed or timed out.",
+      });
+    }
+    return {
+      status: "error",
+      error:
+        result.reason === "unavailable"
+          ? "Meal plan generation isn't switched on yet."
+          : "Couldn't generate a plan right now — please try again.",
+    };
+  }
+
+  const { error } = await ctx.supabase.from("nutrition_meal_plans").insert({
+    ...basePlanRow,
+    plan: result.plan as unknown as Json,
+    ai_status: "generated",
+  });
+  if (error) return { status: "error", error: error.message };
+  return { status: "generated" };
 }

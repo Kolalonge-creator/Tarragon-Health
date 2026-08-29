@@ -5,6 +5,7 @@ import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
+import { isMealPlanGenerationConfigured } from "@/lib/nutrition/meal-plan-generate";
 import { NutritionFlow } from "../nutrition-flow";
 import { WellnessPointsCard } from "./points-card";
 import { BadgesGrid } from "./badges-grid";
@@ -68,6 +69,7 @@ export default async function WellnessHubPage() {
             patientId={profile.id}
             visionConfigured={isMealVisionConfigured()}
             activeConditions={activeConditions}
+            mealPlanGenerationConfigured={isMealPlanGenerationConfigured()}
           />
         </div>
       </RequiresEntitlement>

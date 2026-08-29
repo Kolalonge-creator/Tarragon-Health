@@ -1,12 +1,14 @@
 -- Nigerian Nutrition Intelligence — RLS verification.
 --
--- Two things to prove:
+-- Three things to prove:
 --   1. nigerian_foods / nigerian_food_portions: a global reference catalogue
 --      readable by any authenticated session, writable only by an admin
 --      (same shape as condition_protocols).
 --   2. nutrition_referrals: a patient can self-request nutrition support and
 --      see their own request, but never another patient's; only org staff
 --      can change a referral's status.
+--   3. nutrition_meal_plans: a patient can insert/read their own generated
+--      7-day plan, org staff can view it, and nobody sees another patient's.
 --
 -- Every negative is paired with a positive control so a blocked-everything
 -- policy can't score full marks.
@@ -26,6 +28,7 @@ declare
   v_staff_profile uuid := gen_random_uuid();
   v_food_id       uuid;
   v_referral_id   uuid;
+  v_meal_plan_id  uuid;
   v_count         integer;
   v_status        public.nutrition_referral_status;
   v_failed        boolean;
@@ -187,6 +190,58 @@ begin
     raise exception 'FAIL 2e: org staff could not update the referral status';
   end if;
   raise notice 'PASS 2e: org staff can view and update a patient''s nutrition referral';
+
+  reset role;
+
+  -- ======================================================================
+  -- 3) nutrition_meal_plans: patient owns/reads own generated plans,
+  --    org staff can view, nobody can see another patient's plan.
+  -- ======================================================================
+
+  -- 3a. POSITIVE: a patient can insert their own generated plan.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient_a, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  insert into public.nutrition_meal_plans (organisation_id, patient_id, plan, ai_status)
+  values (v_org, v_patient_a, '{"days":[],"summary":"test","notes":null,"droppedItems":[]}'::jsonb, 'generated')
+  returning id into v_meal_plan_id;
+  if v_meal_plan_id is null then
+    raise exception 'FAIL 3a: a patient could not insert their own generated meal plan';
+  end if;
+  raise notice 'PASS 3a: a patient can insert their own generated meal plan';
+
+  -- 3b. NEGATIVE: a patient cannot insert a plan for someone else.
+  v_failed := false;
+  begin
+    insert into public.nutrition_meal_plans (organisation_id, patient_id, plan, ai_status)
+    values (v_org, v_patient_b, '{}'::jsonb, 'generated');
+  exception when others then v_failed := true;
+  end;
+  if not v_failed then
+    raise exception 'FAIL 3b: a patient inserted a meal plan for a different patient';
+  end if;
+  raise notice 'PASS 3b: a patient cannot insert a meal plan for someone else';
+
+  reset role;
+
+  -- 3c. NEGATIVE: a different patient cannot see patient A's meal plan.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient_b, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_count from public.nutrition_meal_plans where id = v_meal_plan_id;
+  if v_count <> 0 then
+    raise exception 'FAIL 3c: patient B could see patient A''s meal plan';
+  end if;
+  raise notice 'PASS 3c: a patient cannot see another patient''s meal plan';
+
+  reset role;
+
+  -- 3d. POSITIVE: org staff can see the patient's meal plan.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_staff_profile, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_count from public.nutrition_meal_plans where id = v_meal_plan_id;
+  if v_count <> 1 then
+    raise exception 'FAIL 3d: org staff could not see the patient''s meal plan';
+  end if;
+  raise notice 'PASS 3d: org staff can view a patient''s meal plan';
 
   reset role;
   raise notice 'ALL NIGERIAN NUTRITION INTELLIGENCE RLS CHECKS PASSED';

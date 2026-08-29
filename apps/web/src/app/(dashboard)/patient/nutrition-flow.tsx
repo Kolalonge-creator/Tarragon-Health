@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { logMealAction, confirmMealAction, getBudgetAlternativeAction } from "./nutrition-actions";
 import type { BudgetAlternativeState } from "./nutrition-actions";
 import { NutritionSupportCard } from "./nutrition-support-card";
+import { MealPlanSection } from "./meal-plan-section";
 import { useNutritionEntries, type NutritionEntry } from "@/lib/queries/nutrition";
 import { useFoodCatalogue } from "@/lib/queries/food-catalogue";
 import { MEAL_TYPES, MEAL_TYPE_LABELS } from "@/lib/validation/nutrition";
@@ -47,16 +48,23 @@ export function NutritionFlow({
   patientId,
   visionConfigured,
   activeConditions,
+  mealPlanGenerationConfigured,
 }: {
   patientId: string;
   visionConfigured: boolean;
   activeConditions: CarePlanCondition[];
+  mealPlanGenerationConfigured: boolean;
 }) {
   return (
     <div className="space-y-6">
       <LogMealSection patientId={patientId} visionConfigured={visionConfigured} />
       <MealHistorySection patientId={patientId} activeConditions={activeConditions} />
       <NutritionSupportCard patientId={patientId} activeConditions={activeConditions} />
+      <MealPlanSection
+        patientId={patientId}
+        activeConditions={activeConditions}
+        generationConfigured={mealPlanGenerationConfigured}
+      />
       <BudgetHelperSection />
     </div>
   );
