@@ -14,7 +14,7 @@ export type SponsoredSubscriptionCheckoutResult =
 /**
  * Puts someone you support on a paid plan and bills you.
  *
- * "Put my mother on Complete Care and bill my card monthly" is the most common
+ * "Put my mother on Care Pass and bill my card" is the most common
  * thing a diaspora buyer actually wants, and before this there was no path to
  * it at any price — a sponsor could buy single vouchers and nothing else, so
  * the recurring monitoring that makes the product worth having was the one

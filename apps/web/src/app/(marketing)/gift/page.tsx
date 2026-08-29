@@ -28,16 +28,16 @@ const WAYS_TO_GIVE = [
   },
 ];
 
+// Superseded 2026-08-29: Complete Care and Tarragon Prevent are retired,
+// replaced by Care Pass — one plan now, not two tiers to choose between.
+// Only the 12-month term is giftable through this flow
+// (purchase_subscription_voucher requires interval='yearly'; care_pass_6mo
+// is interval='monthly' and would be rejected).
 const GIFT_IDEAS = [
   {
-    title: "A year of Complete Care",
+    title: "A year of Care Pass",
     price: "Bought once, theirs to start",
     body: "Doctor review of their readings, their whole screening schedule worked out for them, and someone reading every result that comes back. You pay for the plan; they pay their own laboratory when they go, at that lab's price. Results go to them and their doctor, never to you.",
-  },
-  {
-    title: "A year of Tarragon Prevent",
-    price: "The lighter option",
-    body: "Their screening calendar worked out for them, reminders when something is due, and a doctor reading whatever they upload. Tests themselves are paid at the laboratory, so it is worth sending them what a check costs too.",
   },
 ];
 

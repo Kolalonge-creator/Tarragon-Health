@@ -65,20 +65,22 @@ export function formatPrice(minor: number, currency: "NGN" | "USD"): string {
  * Which subscription_plans rows back each pricing-page tier.
  *
  * The marketing tier ids and the plan codes were named independently and do
- * not line up (`diaspora-complete` is backed by `complete_usd`), so the mapping
- * is written out rather than derived. A tier missing from here simply keeps its
- * static price.
+ * not line up, so the mapping is written out rather than derived. A tier
+ * missing from here simply keeps its static price.
+ *
+ * Superseded 2026-08-29: Prevent/Essential/Complete (+ their _usd derived
+ * rows) are retired — removed from here, not left as dead entries, since
+ * `public_price_list()` only returns on-sale rows anyway and their marketing
+ * tier ids ('prevent'/'essential'/'complete') no longer exist in NGN_TIERS/
+ * USD_TIERS. Replaced by care_pass_12mo (handled separately below, not
+ * through this monthly/yearly-shaped map — Care Pass's two rows are two
+ * one-off terms on ONE card, not a recurring monthly/yearly pair) and
+ * family_watch/family_watch_plus, which DO fit this shape.
  */
 const TIER_PLAN_CODES: Record<string, { monthly?: string; yearly?: string; currency: "NGN" | "USD" }> = {
-  // Naira
   free: { monthly: "free", currency: "NGN" },
-  prevent: { monthly: "prevent", yearly: "prevent_yearly", currency: "NGN" },
-  essential: { monthly: "essential", yearly: "essential_yearly", currency: "NGN" },
-  complete: { monthly: "complete", yearly: "complete_yearly", currency: "NGN" },
-  // Dollars — every one of these is its naira row above, converted.
-  "diaspora-prevent": { monthly: "prevent_usd", yearly: "prevent_yearly_usd", currency: "USD" },
-  "diaspora-essential": { monthly: "essential_usd", yearly: "essential_yearly_usd", currency: "USD" },
-  "diaspora-complete": { monthly: "complete_usd", yearly: "complete_yearly_usd", currency: "USD" },
+  family_watch: { monthly: "family_watch", yearly: "family_watch_yearly", currency: "USD" },
+  family_watch_plus: { monthly: "family_watch_plus", yearly: "family_watch_plus_yearly", currency: "USD" },
 };
 
 export type TierPriceOverride = { priceMain?: string; priceSecondary?: string; priceNote?: string };
@@ -103,6 +105,20 @@ export async function fetchTierPriceOverrides(): Promise<Record<string, TierPric
   if (prices.size === 0) return {};
 
   const out: Record<string, TierPriceOverride> = {};
+
+  // Care Pass: one card, two one-off terms — not a monthly/yearly pair, so
+  // it doesn't fit the generic loop below (which assumes recurring
+  // monthly/yearly and writes "/month"/"/year" suffixes accordingly).
+  const twelveMo = prices.get("care_pass_12mo");
+  const sixMo = prices.get("care_pass_6mo");
+  if (twelveMo !== undefined) {
+    const override: TierPriceOverride = { priceMain: formatPrice(twelveMo, "NGN") };
+    if (sixMo !== undefined) {
+      override.priceSecondary = `or ${formatPrice(sixMo, "NGN")} for 6 months`;
+    }
+    out.care_pass_12mo = override;
+  }
+
   for (const [tierId, spec] of Object.entries(TIER_PLAN_CODES)) {
     const monthly = spec.monthly ? prices.get(spec.monthly) : undefined;
     const yearly = spec.yearly ? prices.get(spec.yearly) : undefined;

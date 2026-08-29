@@ -29,7 +29,7 @@ export function usePatientHealthResetProgress(patientId: string) {
 }
 
 /**
- * Claims the milestone 30-day Complete Care trial once the reset is
+ * Claims the milestone 30-day Care Pass trial once the reset is
  * complete. Server-side gated (completion + not-already-claimed +
  * not-already-on-a-paid-plan) — this is a thin wrapper, all the real
  * enforcement is in claim_health_reset_trial().

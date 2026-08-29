@@ -12,7 +12,8 @@ import { NGN_TIERS } from "../_content/pricing";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
-const ESSENTIAL_CARE_TIER = NGN_TIERS.find((tier) => tier.id === "essential")!;
+// Superseded 2026-08-29: Essential/Complete Care are retired, replaced by Care Pass.
+const CARE_PASS_TIER = NGN_TIERS.find((tier) => tier.id === "care_pass_12mo")!;
 
 export const metadata: Metadata = pageMetadata({
   title: "For you",
@@ -237,9 +238,9 @@ export default function ForYouPage() {
           <p>
             Tarragon Free lets you track your own numbers forever, at no cost; it never expires and
             never converts to a paid plan on its own. When you want a doctor actually reviewing your
-            readings, Essential Care starts at {ESSENTIAL_CARE_TIER.priceMain}/month for one
-            condition, and Complete Care covers hypertension, diabetes, and weight together on one
-            scheduled care plan.
+            readings, Care Pass is {CARE_PASS_TIER.priceMain} {CARE_PASS_TIER.pricePeriod}, one
+            payment covering hypertension, diabetes, and weight together on one scheduled care plan —
+            no card stored, no auto-renewal.
           </p>
           <p>
             Not sure which fits? The three-question plan finder on the{" "}

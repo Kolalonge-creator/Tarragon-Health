@@ -230,7 +230,7 @@ export const NGN_TIERS: PricingTier[] = [
     priceMain: "₦0",
     pricePeriod: "forever",
     description:
-      "A self-tracking tool to help you understand your own numbers and build a habit. Your readings are still checked against care protocols on this plan too, and a dangerous one still gets you clear guidance and a specific next step immediately; what this plan doesn't include is a doctor on the other end of that guidance, a doctor-set care plan, or a scheduled review of any result you upload. Those start on Tarragon Prevent. Free still gets you real tools: logging, reminders, and the full education library, at no cost, forever.",
+      "A self-tracking tool to help you understand your own numbers and build a habit. Your readings are still checked against care protocols on this plan too, and a dangerous one still gets you clear guidance and a specific next step immediately; what this plan doesn't include is a doctor on the other end of that guidance, a doctor-set care plan, or a scheduled review of any result you upload. Those start on Care Pass. Free still gets you real tools: logging, reminders, and the full education library, at no cost, forever.",
     items: [
       { feature: "Log your BP, blood sugar, and weight", label: "INCLUDED" },
       { feature: "Medication reminders", label: "INCLUDED" },
@@ -457,7 +457,7 @@ export const ADD_ONS: PricingAddOn[] = [
     label: "ADD-ON",
     description:
       "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, at no extra charge. Two deeper tiers are available: Advanced Screen adds age-triggered cancer screening and an ECG, and Comprehensive Screen adds imaging and a 15-minute doctor video consult to walk through your whole result set. You pay the laboratory directly for the tests; we take nothing on them. See the full breakdown on the Annual Health Check page.",
-    availability: "The Screen tiers come with a paid plan, from Tarragon Prevent upward. That same paid-plan review covers a result you already have, too: uploading it and having a doctor read it is included from Prevent up. On Tarragon Free, the one-off Results Interpretation add-on below buys the same review for a single result.",
+    availability: "The Screen tiers come with Care Pass. That same paid-plan review covers a result you already have, too: uploading it and having a doctor read it is included on Care Pass. On Tarragon Free, the one-off Results Interpretation add-on below buys the same review for a single result.",
   },
   {
     id: "prevention-screening",
@@ -474,7 +474,7 @@ export const ADD_ONS: PricingAddOn[] = [
       { feature: "The actual test itself, every time it's due", label: "YOU PAY THE LAB" },
     ],
     availability:
-      "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Tarragon Prevent and above; this add-on brings the same calendar and reminders to Tarragon Free without upgrading the whole plan.",
+      "In plain terms: this add-on means we tell you when to go. It does not mean we pay for you to go. Already included at no extra charge on Care Pass; this add-on brings the same calendar and reminders to Tarragon Free without upgrading to the full plan.",
   },
   // 'care-coordinator' (Dedicated Care Coordinator, +₦30,000/month) removed
   // 2026-07-31, matching the same-date withdrawal in seed.sql and the
@@ -530,7 +530,7 @@ export const ADD_ONS: PricingAddOn[] = [
     label: "ADD-ON",
     description:
       "A guided programme for diet, activity, and weight: a personal assessment, goals you set with support, structured diet and exercise tracks, and in-app check-ins, with a progress review every three months. It's also the engine behind Tarragon's weight programme.",
-    availability: "Included on Complete Care and above. Available as an add-on on Essential Care or Tarragon Free.",
+    availability: "Included on Care Pass. Available as an add-on on Tarragon Free.",
   },
   // 'annual-review' (Annual Doctor Review, ₦70,000/year) retired 2026-08-02 —
   // folded into Comprehensive Screen (see 'screen-core' above), which now
@@ -558,13 +558,13 @@ export const ADD_ONS: PricingAddOn[] = [
     label: "ADD-ON",
     description:
       "Bring us any lab result, from any provider. A doctor reads it and writes a plain-language interpretation, sent to you in the app — no subscription needed. Pay once, then upload the result the normal way; the review is applied automatically to your next upload.",
-    availability: "Available on any plan, including Tarragon Free — priced per result rather than as a subscription. Already included at no extra charge on Tarragon Prevent and above.",
+    availability: "Available on any plan, including Tarragon Free — priced per result rather than as a subscription. Already included at no extra charge on Care Pass.",
   },
   // 'hpv-catchup' (Catch-Up HPV Vaccine) removed as a standalone pricing card
   // 2026-08-05 — Tarragon doesn't set, quote, or collect a price for it (same
   // "we take no cut" model as every other test/vaccine), so it never needed
-  // its own priced-looking card. Folded into Tarragon Prevent's vaccination
-  // line item above, where the rest of vaccination tracking already lives.
+  // its own priced-looking card. Folded into Care Pass's vaccination line
+  // item above, where the rest of vaccination tracking already lives.
   // The genuinely-free version (ages 9-14, government programme) still gets
   // its own ALWAYS_FREE entry below — that one really is a distinct, no-cost
   // claim worth calling out on its own.
@@ -634,23 +634,23 @@ export const ALWAYS_FREE: PricingLineItem & { description: string } = {
 export const ALWAYS_FREE_NOTE =
   "The education library, Health Passport, and 90-Day Health Reset are free on every plan, including Tarragon Free, for as long as you use Tarragon, with no expiry date.";
 
-/** "Try Before You Commit" section: free trials of Complete Care from Tarragon Free. */
+/** "Try Before You Commit" section: free trials of Care Pass from Tarragon Free. */
 export const FREE_TRIAL_INTRO =
-  "Tarragon Free stays free forever: it never expires and never turns into a paid plan on its own. But if you want to feel what it's like to have a doctor-set care plan and a real care team behind your numbers, we offer two ways to try a paid plan at no cost.";
+  "Tarragon Free stays free forever: it never expires and never turns into a paid plan on its own. But if you want to feel what it's like to have a doctor-set care plan and a real care team behind your numbers, we offer two ways to try Care Pass at no cost.";
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
     title: "Milestone trial: after your 90-Day Health Reset",
-    body: "Once you've completed the 90-Day Health Reset on Tarragon Free, we'll offer you 30 days of Complete Care at no charge, no card required to start. A real doctor sets your care plan and your care team is there for a month, so you can decide, with full information, whether it's worth paying for.",
+    body: "Once you've completed the 90-Day Health Reset on Tarragon Free, we'll offer you 30 days of Care Pass at no charge, no card required to start. A real doctor sets your care plan and your care team is there for a month, so you can decide, with full information, whether it's worth paying for.",
   },
   {
     title: "Risk-triggered trial: when your own numbers ask for it",
-    body: "If your logged readings show a pattern a doctor would want to look at (for example, several elevated blood pressure or glucose readings within 30 days), we'll proactively offer a free 30-day trial of Complete Care, so a doctor can review you before anything becomes urgent, not after.",
+    body: "If your logged readings show a pattern a doctor would want to look at (for example, several elevated blood pressure or glucose readings within 30 days), we'll proactively offer a free 30-day trial of Care Pass, so a doctor can review you before anything becomes urgent, not after.",
   },
 ];
 
 export const FREE_TRIAL_TERMS: string[] = [
-  "Both trials are limited to one per person and apply to Complete Care.",
+  "Both trials are limited to one per person and apply to Care Pass.",
   "No card is required to start a trial, and you will always see the price and confirm before you're ever charged: the trial does not roll into a paid subscription automatically.",
   "At the end of the trial, you simply return to Tarragon Free unless you choose to continue on a paid plan.",
 ];
@@ -691,7 +691,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Which conditions does Tarragon manage, and where does weight management fit?",
     answer:
-      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and weight management. Weight management is a full condition on any plan, not an extra: if that's the only one you need, Essential Care (₦10,000/month) covers it, including doctor review of your weight trend, a structured lifestyle plan, and follow-up. Managing your weight alongside blood pressure or diabetes is exactly what Complete Care (₦20,000/month) is for, and Lifestyle Coaching is already included there at no extra charge. Preventive screening now comes with both Essential Care and Complete Care as well as Tarragon Prevent, so it's covered whichever of these three plans you're on.",
+      "Tarragon currently runs chronic care programmes for three conditions: hypertension, diabetes, and weight management. Weight management is a full condition, not an extra: whether it's the only one you need or you're managing it alongside blood pressure or diabetes, Care Pass covers all of it on one care plan — doctor review of your weight trend, a structured lifestyle plan and follow-up, Lifestyle Coaching, and preventive screening, all included at no extra charge.",
   },
   {
     question: "Will my card ever be charged automatically for a test I didn't ask for?",
@@ -716,15 +716,15 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "I'm healthy, why would I join a health platform?",
     answer:
-      "Because staying healthy is exactly what most of Tarragon does. Hypertension, diabetes, and many cancers are far cheaper and easier to deal with when they're caught early, or prevented outright. Tarragon Prevent builds your personal screening and vaccination calendar, tells you which checks are worth doing at your age, and teaches you what your numbers mean. Most members will simply get yearly confirmation that all is well; for the few where something shows up, a doctor follows up the same day and it's caught years earlier than it would have been.",
+      "Because staying healthy is exactly what most of Tarragon does. Hypertension, diabetes, and many cancers are far cheaper and easier to deal with when they're caught early, or prevented outright. Care Pass builds your personal screening and vaccination calendar, tells you which checks are worth doing at your age, and teaches you what your numbers mean. Most members will simply get yearly confirmation that all is well; for the few where something shows up, a doctor follows up the same day and it's caught years earlier than it would have been.",
   },
   {
-    question: "What's the difference between Tarragon Free and Tarragon Prevent?",
+    question: "What's the difference between Tarragon Free and Care Pass?",
     answer:
-      "Free is self-tracking: you log your own numbers and nobody books anything for you. Prevent (₦5,000/month) adds the active prevention layer: a screening and vaccination calendar built for you, bookable when checks come due, reminders, results tracking, personalised health education, and doctor follow-up on any abnormal result.",
+      "Free is self-tracking: you log your own numbers and nobody books anything for you. Care Pass adds the active layer: a screening and vaccination calendar built for you, bookable when checks come due, reminders, results tracking, personalised health education, a doctor-set care plan with scheduled reviews, and doctor follow-up on any abnormal result — one payment for 12 or 6 months, no auto-renewal.",
   },
   {
-    question: "How do the free trials of Complete Care work?",
+    question: "How do the free trials of Care Pass work?",
     answer:
       "You'll be offered a 30-day free trial either after completing the 90-Day Health Reset, or if your logged readings suggest a doctor should take a closer look. No card is required to start, and at the end of the trial you simply return to Tarragon Free unless you choose to continue on a paid plan.",
   },
@@ -785,7 +785,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Can I speak to a doctor directly, not just wait for my scheduled review?",
     answer:
-      "Yes, two ways. Send a written question through the app and get a doctor's reply within 72 hours, included free on Complete Care. Or book a 15-minute online consultation with a doctor for ₦10,000 on any plan: payment is only taken once a doctor accepts your slot, with a full refund if none can.",
+      "Yes, two ways. Send a written question through the app and get a doctor's reply within 72 hours, included free on Care Pass. Or book a 15-minute online consultation with a doctor for ₦10,000 on any plan: payment is only taken once a doctor accepts your slot, with a full refund if none can.",
   },
 ];
 

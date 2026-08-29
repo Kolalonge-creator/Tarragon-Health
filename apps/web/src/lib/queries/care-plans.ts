@@ -5,7 +5,7 @@ import type { Tables } from "@tarragon/shared";
 export type CarePlan = Tables<"care_plans"> & {
   assigned_clinician: { full_name: string | null } | null;
   /** False only when this condition's scheduled-review cadence is gated
-   * behind Complete Care (multi_condition_review) — see
+   * behind Care Pass's multi_condition_review feature — see
    * private.ensure_medication_review(). A plan that has simply never had a
    * review row can't otherwise happen: the scheduling trigger runs
    * synchronously in the same transaction that activates the care plan. */

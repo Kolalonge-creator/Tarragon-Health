@@ -81,8 +81,8 @@ export default function HealthEducationPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Personalised to your own conditions and risk on every paid plan, Tarragon Prevent and
-            above. Tarragon Free still gets the full general education library at no cost, forever.
+            Personalised to your own conditions and risk on Care Pass. Tarragon Free still gets the
+            full general education library at no cost, forever.
           </p>
         </div>
       </Section>
@@ -142,7 +142,7 @@ export default function HealthEducationPage() {
             that turns a reading into an understanding: why a target matters, what a trend means,
             what to watch for. Healthy and using{" "}
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
-              Tarragon Prevent
+              Care Pass
             </Link>
             ? You&apos;ll see what your screenings and vaccinations are actually for, so a clear
             result means something and not just a form filled in.

@@ -175,7 +175,7 @@ Use the four-label system already established for customer-facing pricing — **
 
 Nothing implied, nothing ambiguous — this is a Nigerian-trust-first design constraint, not a style preference.
 
-**Consumer tiers to display:** Tarragon Free · Essential Care · Complete Care · Family Plan — plus diaspora GBP pricing shown as a toggle or adjacent column (Stripe billing, not Paystack).
+**Consumer tiers to display (corrected 2026-08-29 — this line had drifted behind two separate live decisions):** Tarragon Free · Care Pass — plus diaspora USD pricing (not GBP — GBP is structurally retired) shown as a toggle or adjacent column (Stripe billing, not Paystack). Family Plan does not exist (individual enrolment only, since 2026-07-29); Essential Care/Complete Care are retired, replaced by the single Care Pass tier (2026-08-29). Tarragon Family Watch (diaspora, USD, funds a relative's care from abroad) is a separate product, shown on its own diaspora-facing surface, not as a consumer self-serve tier here.
 
 **Do not display** corporate Bronze/Silver/Gold or HMO capitation tiers on this page — those live on the Corporate and HMO pages as "request a quote," not self-serve pricing.
 

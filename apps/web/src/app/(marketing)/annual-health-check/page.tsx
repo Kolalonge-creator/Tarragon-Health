@@ -278,7 +278,7 @@ export default function AnnualHealthCheckPage() {
             arrange it.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Looking for the year-round version? <Link href={MARKETING_ROUTES.pricing} className="text-brand-green hover:underline">Tarragon Prevent</Link> keeps
+            Looking for the year-round version? <Link href={MARKETING_ROUTES.pricing} className="text-brand-green hover:underline">Care Pass</Link> keeps
             your full screening and vaccination calendar running all year. Comprehensive Screen
             already includes the doctor video consult reviewing your whole result set, so
             there&apos;s no separate review to buy.

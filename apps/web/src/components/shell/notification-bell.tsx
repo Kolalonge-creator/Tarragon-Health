@@ -336,7 +336,7 @@ function describe(n: InAppNotification): { text: string; href: string } {
     // never gated — only its own scheduled review cadence is.
     const condition = String(payload.condition ?? "a condition").replace(/_/g, " ");
     return {
-      text: `We're now tracking ${condition} for you too. Complete Care adds a scheduled review for it`,
+      text: `We're now tracking ${condition} for you too. Care Pass adds a scheduled review for it`,
       href: "/patient/subscription",
     };
   }

@@ -91,7 +91,7 @@ export const PROOF_STATS = [
 export const PREVENTION_CALLOUT = {
   title: "Healthy? Tarragon is built for you too",
   body:
-    "You don't need a diagnosis to belong here. Tarragon Prevent builds you and your children a personal screening and vaccination calendar and a yearly Health Check: most years, that's simply confirmation you're doing fine, and if something's ever found, a doctor follows up the same day.",
+    "You don't need a diagnosis to belong here. Care Pass builds you and your children a personal screening and vaccination calendar and a yearly Health Check: most years, that's simply confirmation you're doing fine, and if something's ever found, a doctor follows up the same day.",
 } as const;
 
 /** Everything the shared record actually watches (services page capability
@@ -173,7 +173,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "healthy",
     tabLabel: "For staying healthy",
     title: "You don't need a diagnosis to belong here.",
-    body: "Tarragon Prevent builds a personal screening and vaccination calendar matched to your age, sex, and history, books the checks when they're due, and explains what your results mean. Most years, that's simply confirmation you're doing fine.",
+    body: "Care Pass builds a personal screening and vaccination calendar matched to your age, sex, and history, books the checks when they're due, and explains what your results mean. Most years, that's simply confirmation you're doing fine.",
     points: [
       "Screening and vaccination calendar, built for you",
       "Yearly Health Check, booked in minutes",
@@ -185,7 +185,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Last Health Check", value: "All clear" },
       { label: "Education completed", value: "3 of 5 topics" },
     ],
-    cta: { label: "Explore Tarragon Prevent", href: MARKETING_ROUTES.prevention },
+    cta: { label: "Explore preventive care", href: MARKETING_ROUTES.prevention },
   },
   {
     key: "family",

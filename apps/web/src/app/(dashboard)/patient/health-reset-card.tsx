@@ -55,7 +55,7 @@ export function HealthResetCard({ patientId }: { patientId: string }) {
           <div className="space-y-2 rounded-md bg-brand-green/[0.06] p-3">
             <p className="text-sm text-charcoal-ink">
               You&apos;ve completed your 90-Day Health Reset. As promised, you can claim 30 days of
-              Complete Care at no charge, no card required, so a doctor reviews your numbers
+              Care Pass at no charge, no card required, so a doctor reviews your numbers
               for a month before you decide.
             </p>
             <Button size="sm" disabled={claim.isPending} onClick={() => claim.mutate()}>
@@ -71,7 +71,7 @@ export function HealthResetCard({ patientId }: { patientId: string }) {
 
         {progress.trial_claimed_at && (
           <p className="text-sm text-charcoal-ink/70">
-            Your free trial is active: enjoy the full Complete Care experience. It quietly
+            Your free trial is active: enjoy the full Care Pass experience. It quietly
             returns you to Tarragon Free at the end unless you choose to continue.
           </p>
         )}

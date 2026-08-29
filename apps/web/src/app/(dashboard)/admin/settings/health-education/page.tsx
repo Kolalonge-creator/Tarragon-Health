@@ -18,10 +18,10 @@ export default async function HealthEducationSettingsPage() {
           Health education library
         </h1>
         <p className="text-charcoal-ink/60">
-          The clinician-reviewed learning catalogue surfaced to patients on Complete Care and
-          above (and Essential Care with the add-on). Content is personalised to each patient&apos;s
-          active conditions and risk. Toggle an item live or hidden here; authoring the body and
-          knowledge check is done via seed/migration for now.
+          The clinician-reviewed learning catalogue surfaced to patients on Care Pass (feature flag
+          `health_education`). Content is personalised to each patient&apos;s active conditions and
+          risk. Toggle an item live or hidden here; authoring the body and knowledge check is done
+          via seed/migration for now.
         </p>
       </div>
       <HealthEducationManager />
