@@ -161,21 +161,28 @@ class YuchengBandModule : Module() {
             promise.reject("YUCHENG_DEVICE_INFO_FAILED", "getDeviceInfo failed (code=$code)", null)
             return
           }
-          // resultMap's exact key names for battery/firmware weren't fully
-          // captured from the vendor doc excerpt this module was written
-          // against (only the nested BandBaseInfoModel.deviceBatteryValue /
-          // deviceVersion field names were, from the demo app's model
-          // class — see BandBaseInfo.java in the vendor's demo). JSONObject
-          // is used here (rather than a typed Gson model, as the doc's own
-          // samples do for healthHistoryData) specifically so a wrong key
-          // guess degrades to a null field instead of a crash — confirm the
-          // real keys against Android Studio's autocomplete on first build
-          // and tighten this to a typed model at that point.
+          // Key names CONFIRMED against the shipped ycbtsdk-release-4.0.11.aar
+          // rather than the vendor doc: com.yucheng.ycbtsdk.core.DataUnpack is
+          // the class that populates this resultMap, and its constant pool
+          // carries "deviceBatteryValue" and "deviceVersion" (alongside
+          // deviceMainVersion/deviceSubVersion/deviceBatteryState/deviceId/
+          // deviceType/devicetBindState). So the two keys read below are the
+          // real ones, not guesses.
+          //
+          // The former "firmwareVersion" fallback was removed: that string
+          // appears nowhere in the SDK's bytecode, so it was unreachable.
+          // The "battery" fallback is kept — that key does exist in DataUnpack,
+          // just on other message types, and costs nothing here.
+          //
+          // JSONObject (rather than a typed Gson model) is still deliberate:
+          // optString/optInt degrade an unexpected shape to a null/-1 field
+          // instead of crashing mid-sync. optString also coerces a numeric
+          // value to its string form, so deviceBatteryValue parses whether the
+          // SDK boxes it as an Int or a String.
           val json = JSONObject(resultMap as Map<*, *>)
           val battery = json.optString("deviceBatteryValue", "").toIntOrNull()
             ?: json.optInt("battery", -1).takeIf { it >= 0 }
           val firmware = json.optString("deviceVersion", null)
-            ?: json.optString("firmwareVersion", null)
 
           promise.resolve(Bundle().apply {
             putInt("batteryPercent", battery ?: -1)

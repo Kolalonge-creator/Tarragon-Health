@@ -114,9 +114,19 @@ public class YuchengBandModule: Module {
           promise.reject("YUCHENG_DEVICE_INFO_FAILED", "queryDeviceBasicInfo failed (state=\(state))")
           return
         }
+        // mcuFirmware is the band's main MCU firmware — the one a patient or
+        // support agent means by "firmware version". YCDeviceBasicInfo also
+        // carries innerProtocol/bloodPressureFirmware/touchPanelFirmware/
+        // bloodGlucoseFirmware, all the same YCDeviceVersionInfo type; those
+        // are per-subsystem versions, not the device's headline one, so they
+        // are deliberately not surfaced through this module's single
+        // firmwareVersion field. Field names confirmed against the shipped
+        // YCProductSDK.framework .swiftinterface: YCDeviceBasicInfo
+        // .mcuFirmware: YCDeviceVersionInfo, which exposes `version: String`
+        // (alongside majorVersion/subVersion UInt8s).
         promise.resolve([
           "batteryPercent": Int(info.batteryPower),
-          "firmwareVersion": nil, // YCDeviceVersionInfo's own field names weren't captured from the doc excerpt this module was written against — left null rather than guessed; see YCDeviceBasicInfo.versionInfo in the SDK doc §5 to fill this in.
+          "firmwareVersion": info.mcuFirmware.version,
         ])
       }
     }
