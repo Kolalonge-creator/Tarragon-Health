@@ -14918,6 +14918,124 @@ export type Database = {
           },
         ]
       }
+      results_interpretation_prices: {
+        Row: {
+          amount_minor: number
+          currency: string
+          id: string
+          is_enabled: boolean
+          organisation_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_minor: number
+          currency?: string
+          id?: string
+          is_enabled?: boolean
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_minor?: number
+          currency?: string
+          id?: string
+          is_enabled?: boolean
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "results_interpretation_prices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "results_interpretation_prices_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      results_interpretation_requests: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          currency: string
+          fulfilled_at: string | null
+          id: string
+          lab_result_document_id: string | null
+          organisation_id: string
+          origin: string
+          patient_id: string
+          payment_provider: string | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          status: Database["public"]["Enums"]["results_interpretation_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount_minor?: number
+          created_at?: string
+          currency?: string
+          fulfilled_at?: string | null
+          id?: string
+          lab_result_document_id?: string | null
+          organisation_id: string
+          origin?: string
+          patient_id: string
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          status?: Database["public"]["Enums"]["results_interpretation_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          currency?: string
+          fulfilled_at?: string | null
+          id?: string
+          lab_result_document_id?: string | null
+          organisation_id?: string
+          origin?: string
+          patient_id?: string
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          status?: Database["public"]["Enums"]["results_interpretation_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "results_interpretation_requests_lab_result_document_id_fkey"
+            columns: ["lab_result_document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "results_interpretation_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "results_interpretation_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_recognition_schedules: {
         Row: {
           created_at: string
@@ -20213,6 +20331,12 @@ export type Database = {
         | "action_required"
         | "action_completed"
       result_status: "normal" | "borderline" | "abnormal" | "critical"
+      results_interpretation_request_status:
+        | "requested"
+        | "pending_payment"
+        | "payment_confirmed"
+        | "fulfilled"
+        | "cancelled"
       risk_assessment_category:
         | "lifestyle"
         | "family_history"
@@ -21176,6 +21300,13 @@ export const Constants = {
         "action_completed",
       ],
       result_status: ["normal", "borderline", "abnormal", "critical"],
+      results_interpretation_request_status: [
+        "requested",
+        "pending_payment",
+        "payment_confirmed",
+        "fulfilled",
+        "cancelled",
+      ],
       risk_assessment_category: [
         "lifestyle",
         "family_history",

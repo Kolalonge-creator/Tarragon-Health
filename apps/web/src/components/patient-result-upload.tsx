@@ -21,8 +21,12 @@ import { Label } from "@/components/ui/label";
  * standalone (no labOrderId) for a result the patient already had from before
  * they joined.
  *
- * Never gated by plan. A result a patient is holding must always be readable by
- * a doctor, whatever they pay.
+ * The upload itself is never gated by plan — it always saves. Whether it
+ * queues a doctor to interpret it is a separate, later decision: paid-plan
+ * patients get that included (20260804232022_gate_result_document_review_to_paid_plans.sql),
+ * a Free-tier patient needs the one-off Results Interpretation purchase
+ * (buy-results-interpretation.tsx) or a plan upgrade — see
+ * private.handle_lab_result_document().
  */
 export function PatientResultUpload({
   labOrderId,

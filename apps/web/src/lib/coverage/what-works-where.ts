@@ -74,6 +74,14 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
     gatedBy: null,
   },
   {
+    key: "results_interpretation",
+    label: "A doctor's plain-language reading of a lab result",
+    detail:
+      "Upload a result from any lab in Nigeria and get a written interpretation back in the app. Included on paid plans, or ₦7,500 as a one-off on Tarragon Free.",
+    locality: "anywhere",
+    gatedBy: null,
+  },
+  {
     key: "risk",
     label: "Cardiovascular and metabolic risk review",
     detail:

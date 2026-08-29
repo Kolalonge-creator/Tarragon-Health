@@ -349,13 +349,19 @@ update public.specialist_providers set state = 'Lagos', city = 'Ikeja' where sta
 -- 20260723010040, ai_coach 20260810131959) are INLINED in these arrays: on
 -- `supabase db reset` those migrations' UPDATEs run before this seed file, so
 -- the inserts here must carry the full live-DB feature set themselves
--- (2026-07-23 reconciliation). Note: as of 20260729130000_restore_subscription_
--- price_book.sql, these specific complete*/complete_yearly* rows are actually
--- migration-created (that migration's own `insert ... on conflict do update`
--- wins over whatever this seed file tries afterward), so inlining here is
--- belt-and-suspenders documentation, not load-bearing, for this block —
--- still worth keeping accurate so a reader grepping this file for a feature
--- code sees the true live set.
+-- (2026-07-23 reconciliation). This whole block is actually migration-created
+-- for every code it lists — 20260729130000_restore_subscription_price_book.sql
+-- inserts every one of these rows (on conflict do update), and
+-- 20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_plans.sql
+-- reprices essential/complete and folds in 'prevention_coordination' — so
+-- this `insert ... on conflict (code) do nothing` never actually fires
+-- against a fresh `supabase db reset` (the rows already exist by the time
+-- this file runs). Corrected 2026-08-29: these values had drifted to the
+-- pre-2026-08-05 prices/features and gone unnoticed for weeks precisely
+-- because the drift is inert, not because it was harmless to leave wrong —
+-- a reader grepping this file for "what does Essential Care cost" got a
+-- stale, silently-never-applied answer. Kept accurate belt-and-suspenders
+-- documentation, still not load-bearing for these six rows.
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features)
 values
@@ -364,20 +370,20 @@ values
      0, 'NGN', 'monthly', array['tracking', 'reminders', 'education']),
   ('essential', 'Essential Care',
      'One condition: monthly doctor review, monthly doctor check-in, care team messaging in the app.',
-     800000, 'NGN', 'monthly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills']),
+     1000000, 'NGN', 'monthly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'prevention_coordination']),
   ('essential_yearly', 'Essential Care (yearly)',
      'Essential Care billed annually — 2 months free.',
-     8000000, 'NGN', 'yearly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills']),
+     10000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'prevention_coordination']),
   ('complete', 'Complete Care',
      'Multiple conditions or higher risk: weekly doctor review, priority doctor escalation.',
-     1500000, 'NGN', 'monthly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'ai_coach', 'health_education', 'async_doctor_visit']),
+     2000000, 'NGN', 'monthly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'ai_coach', 'health_education', 'async_doctor_visit', 'prevention_coordination']),
   ('complete_yearly', 'Complete Care (yearly)',
      'Complete Care billed annually — 2 months free.',
-     15000000, 'NGN', 'yearly',
-     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'ai_coach', 'health_education', 'async_doctor_visit'])
+     20000000, 'NGN', 'yearly',
+     array['chronic', 'clinician_review', 'doctor_checkin', 'lab_coordination', 'medication_refills', 'priority_escalation', 'annual_review', 'lifestyle_coaching', 'ai_coach', 'health_education', 'async_doctor_visit', 'prevention_coordination'])
 on conflict (code) do nothing;
 
 
@@ -387,18 +393,22 @@ on conflict (code) do nothing;
 -- prevention_coordination (screening-calendar booking rights) +
 -- health_education on top of the Free basics; no chronic/clinician_review —
 -- doctor involvement on this tier is the abnormal-result escalation pipeline,
--- which is plan-independent. PRICING IS PLACEHOLDER (founder to confirm);
--- is_active=false until synced to Paystack/Stripe, per convention.
+-- which is plan-independent. Repriced ₦3,500→₦5,000/mo by
+-- 20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_plans.sql
+-- (2026-08-05) — still not live-purchasable (is_active=false until synced to
+-- Paystack/Stripe, per convention), so treat this number the same way every
+-- price in this file is meant to be treated: check the live DB before citing
+-- it as current, don't trust a comment.
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features, is_active)
 values
   ('prevent', 'Tarragon Prevent',
      'The stay-healthy plan: personal screening calendar with booking, vaccination tracking, and personalised health education. A doctor steps in the moment a result needs one.',
-     350000, 'NGN', 'monthly',
+     500000, 'NGN', 'monthly',
      array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
   ('prevent_yearly', 'Tarragon Prevent (yearly)',
      'Tarragon Prevent billed annually — 2 months free.',
-     3500000, 'NGN', 'yearly',
+     5000000, 'NGN', 'yearly',
      array['tracking', 'reminders', 'education', 'prevention_coordination', 'health_education'], false),
   ('prevent_usd', 'Tarragon Prevent',
      'The stay-healthy plan: personal screening calendar with booking, vaccination tracking, and personalised health education. A doctor steps in the moment a result needs one.',

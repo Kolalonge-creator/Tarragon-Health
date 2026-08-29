@@ -37,7 +37,7 @@ export type CheckoutKind =
   | "voucher_payment"
   | "sponsored_subscription";
 
-export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit";
+export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "results_interpretation";
 
 export interface CheckoutMetadata {
   kind: CheckoutKind;
@@ -46,7 +46,7 @@ export interface CheckoutMetadata {
   item_code: string;
   /** Only set for kind='add_on' — the base subscriptions.id it attaches to. */
   subscription_id?: string;
-  /** Only set for kind='booking' — the lab_orders/pharmacy_orders/specialist_referrals/video_visit_requests id being paid for. */
+  /** Only set for kind='booking' — the lab_orders/pharmacy_orders/specialist_referrals/video_visit_requests/results_interpretation_requests id being paid for. */
   booking_order_id?: string;
   /** Only set for kind='booking' — which table booking_order_id belongs to. */
   booking_order_type?: BookingOrderType;

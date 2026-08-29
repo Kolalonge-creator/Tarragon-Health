@@ -87,7 +87,9 @@ at least four times after 2026-07-29 before diaspora subscriptions were replaced
 sponsor + Care Voucher model (2026-07-31). **Do not treat any specific price, rate, plan name, or
 feature-availability claim in this file's archive as current** — check the live database or the
 actual running code. The archive is a record of decisions and reasoning, not a source of current
-facts.
+facts. **A diaspora-first revenue-sequencing proposal (27 Aug 2026, `docs/REVENUE_ARCHITECTURE_AND_EARNINGS_PLAN.md`)
+is under founder review** — treat every price in it the same way, it explicitly self-describes as
+proposals, not live prices; only its E3 (Results Interpretation, ₦7,500 one-off) has actually shipped.
 
 Full day-by-day detail — every migration, every bug found and fixed, every founder decision and its
 exact date — is preserved losslessly in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.
@@ -304,4 +306,5 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - Clinical Network — provider directory/verification/availability/discovery/referral-integration/org-account gap analysis against current code, phased Phase 1 (safe now) vs Phase 2/3 (needs explicit ask) recommendations → `docs/CLINICAL_NETWORK_SPEC.md` — a design/reconciliation doc; where it disagrees with the Master Operating Plan's Phase labels, that's a sign the Master Plan is stale relative to shipped work (e.g. the referral-status pipeline/waitlist), not license to build past this file's matching-engine guardrail (see its §3) without asking first
 - Sprint-by-sprint build history — every migration, bug, and founder decision, dated, 2026-07-09 through 2026-08-03 → `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md` — a historical record; verify any specific fact against the live code/DB before trusting it, see "Where things actually stand" above
 - Diabetes/Hypertension clinical pathway source docs + outstanding-gap tracking → `guideline/` — the `.docx` files are the signed pathway source-of-truth; `Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md` and `Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md` track exactly what the platform still owes each pathway (mostly governance sign-off + localisation facts, not code) — read these directly, they are not otherwise summarised in this file
+- Proposed diaspora-first revenue sequencing (Family Watch, Results Interpretation, Care Pass, Workforce Health Risk Report, per-covered-life Control), scored against a codebase audit, with corrections to claims that don't match live code → `docs/REVENUE_ARCHITECTURE_AND_EARNINGS_PLAN.md` — a proposal under founder review, not a decided model; only E3 (Results Interpretation, a ₦7,500 one-off) has shipped as of 2026-08-29, everything else needs a founder decision before building (see its §5)
 - Shipped-feature build-plan docs, superseded by the running code and by `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, kept for historical design rationale only → `docs/archive/`

@@ -480,7 +480,7 @@ export const ADD_ONS: PricingAddOn[] = [
     label: "ADD-ON",
     description:
       "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, at no extra charge. Two deeper tiers are available: Advanced Screen adds age-triggered cancer screening and an ECG, and Comprehensive Screen adds imaging and a 15-minute doctor video consult to walk through your whole result set. You pay the laboratory directly for the tests; we take nothing on them. See the full breakdown on the Annual Health Check page.",
-    availability: "The Screen tiers come with a paid plan, from Tarragon Prevent upward. That same paid-plan review covers a result you already have, too: uploading it and having a doctor read it is included from Prevent up, not on Tarragon Free.",
+    availability: "The Screen tiers come with a paid plan, from Tarragon Prevent upward. That same paid-plan review covers a result you already have, too: uploading it and having a doctor read it is included from Prevent up. On Tarragon Free, the one-off Results Interpretation add-on below buys the same review for a single result.",
   },
   {
     id: "prevention-screening",
@@ -567,6 +567,21 @@ export const ADD_ONS: PricingAddOn[] = [
     description:
       "A 15-minute online consultation with a doctor, over video. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed: a doctor accepts your slot or offers a different one that works, within 48 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
     availability: "Available on any plan, priced per visit rather than as a subscription.",
+  },
+  // Results Interpretation added 2026-08-29 (Revenue Architecture and
+  // Earnings Plan, engine E3) — same "any plan, pay-per-use" shape as
+  // video-visit above, real checkout via results_interpretation_requests +
+  // results_interpretation_prices. ₦7,500 is the plan's proposed price, same
+  // placeholder status video-visit's own price book started at; founder to
+  // confirm/adjust via the price book before this is promoted anywhere.
+  {
+    id: "results-interpretation",
+    name: "Results Interpretation",
+    price: "₦7,500, one-off",
+    label: "ADD-ON",
+    description:
+      "Bring us any lab result, from any provider. A doctor reads it and writes a plain-language interpretation, sent to you in the app — no subscription needed. Pay once, then upload the result the normal way; the review is applied automatically to your next upload.",
+    availability: "Available on any plan, including Tarragon Free — priced per result rather than as a subscription. Already included at no extra charge on Tarragon Prevent and above.",
   },
   // 'hpv-catchup' (Catch-Up HPV Vaccine) removed as a standalone pricing card
   // 2026-08-05 — Tarragon doesn't set, quote, or collect a price for it (same

@@ -2,9 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
+import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { UploadResultForm } from "./upload-result-form";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
+import { BuyResultsInterpretation } from "./buy-results-interpretation";
 
 function sourceLabel(source: string): string {
   return source === "patient" ? "You uploaded this" : "Uploaded by your care team";
@@ -112,6 +114,13 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
             }))}
           />
         )}
+        {/* Tarragon Free (or a lapsed plan) has no included review — offer the
+            E3 one-off purchase instead of just letting the upload sit
+            unreviewed. private.patient_has_feature_access is what actually
+            decides this server-side on upload; this is only the upsell. */}
+        <RequiresEntitlement feature="result_document_review" fallback={<BuyResultsInterpretation />}>
+          {null}
+        </RequiresEntitlement>
         <UploadResultForm />
       </CardContent>
     </Card>

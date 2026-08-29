@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
               profile_id?: string;
               item_code?: string;
               booking_order_id?: string;
-              booking_order_type?: "lab" | "pharmacy" | "referral" | "video_visit";
+              booking_order_type?: "lab" | "pharmacy" | "referral" | "video_visit" | "results_interpretation";
             }
           | null;
 
@@ -195,14 +195,20 @@ Deno.serve(async (req) => {
             await markFailed("booking checkout.session.completed missing metadata.booking_order_type");
             break;
           }
-          const bookingTable =
-            bookingOrderType === "lab"
-              ? "lab_orders"
-              : bookingOrderType === "pharmacy"
-                ? "pharmacy_orders"
-                : bookingOrderType === "video_visit"
-                  ? "video_visit_requests"
-                  : "specialist_referrals";
+          // Explicit map, not a ternary chain that falls through to a
+          // default table on an unrecognised value — that would silently
+          // misfile a payment confirmation into the wrong booking table.
+          const BOOKING_TABLE_BY_TYPE: Record<
+            NonNullable<typeof bookingOrderType>,
+            "lab_orders" | "pharmacy_orders" | "specialist_referrals" | "video_visit_requests" | "results_interpretation_requests"
+          > = {
+            lab: "lab_orders",
+            pharmacy: "pharmacy_orders",
+            referral: "specialist_referrals",
+            video_visit: "video_visit_requests",
+            results_interpretation: "results_interpretation_requests",
+          };
+          const bookingTable = BOOKING_TABLE_BY_TYPE[bookingOrderType];
 
           const { data: bookingRow } = await supabase
             .from(bookingTable)

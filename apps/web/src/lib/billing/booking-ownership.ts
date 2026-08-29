@@ -4,12 +4,22 @@ import type { BookingOrderType } from "@/lib/billing/checkout-metadata";
 
 const BOOKING_TABLE: Record<
   BookingOrderType,
-  "lab_orders" | "pharmacy_orders" | "specialist_referrals" | "video_visit_requests"
+  | "lab_orders"
+  | "pharmacy_orders"
+  | "specialist_referrals"
+  | "video_visit_requests"
+  | "results_interpretation_requests"
 > = {
   lab: "lab_orders",
   pharmacy: "pharmacy_orders",
   referral: "specialist_referrals",
   video_visit: "video_visit_requests",
+  // E3 Results Interpretation (Revenue Architecture and Earnings Plan,
+  // 27 Aug 2026) — a ₦7,500 one-off purchase, no accept/decline step. The
+  // credit is spent automatically by private.handle_lab_result_document()
+  // the next time the patient uploads a result, not by anything reading this
+  // table directly.
+  results_interpretation: "results_interpretation_requests",
 };
 
 export function bookingTableFor(orderType: BookingOrderType) {

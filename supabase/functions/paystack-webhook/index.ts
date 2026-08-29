@@ -40,7 +40,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 type CheckoutKind = "subscription" | "add_on" | "booking";
-type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit";
+type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "results_interpretation";
 
 interface CheckoutMetadata {
   kind?: CheckoutKind;
@@ -53,7 +53,11 @@ interface CheckoutMetadata {
 
 const BOOKING_TABLE: Record<
   BookingOrderType,
-  "lab_orders" | "pharmacy_orders" | "specialist_referrals" | "video_visit_requests"
+  | "lab_orders"
+  | "pharmacy_orders"
+  | "specialist_referrals"
+  | "video_visit_requests"
+  | "results_interpretation_requests"
 > = {
   lab: "lab_orders",
   pharmacy: "pharmacy_orders",
@@ -62,6 +66,11 @@ const BOOKING_TABLE: Record<
   // the visit only books when a doctor accepts (accept_video_visit_request);
   // decline/expiry refunds it. Same column contract as the order tables.
   video_visit: "video_visit_requests",
+  // 'payment_confirmed' on a results_interpretation_request is spent
+  // automatically by private.handle_lab_result_document() on the patient's
+  // next result upload — nothing here needs to know that, same generic
+  // status-flip as every other booking type.
+  results_interpretation: "results_interpretation_requests",
 };
 
 interface PaystackEvent {
