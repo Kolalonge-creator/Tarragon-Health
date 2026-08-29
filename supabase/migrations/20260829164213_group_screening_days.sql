@@ -551,8 +551,9 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Grants. anon gets nothing — same anon-inherits-via-PUBLIC gotcha this
--- codebase has re-broken before, so revoke from public, not anon, and assert
+-- Grants. anon gets nothing. Revoked from both public and anon explicitly —
+-- see the comment just below the from-public revokes for why "anon only
+-- inherits via PUBLIC" turned out not to be the whole story here, and assert
 -- rather than assume (see feedback_supabase_anon_execute_gotcha memory).
 -- ---------------------------------------------------------------------------
 
@@ -561,6 +562,19 @@ revoke all on function public.confirm_screening_day(uuid, integer, numeric, uuid
 revoke all on function public.record_screening_day_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) from public;
 revoke all on function public.add_screening_day_slot(uuid, text, text) from public;
 revoke all on function public.issue_screening_day_voucher(uuid, uuid) from public;
+
+-- Belt and braces alongside the from-public revokes above: anon is expected
+-- to hold no direct grant and only ever inherit via the PUBLIC pseudo-role,
+-- making this a no-op in theory — but this exact codebase has found that
+-- assumption false before (see feedback_supabase_anon_execute_gotcha), and a
+-- fresh migration replay on this PR proved it false again for a brand-new
+-- function: anon held direct EXECUTE despite the revoke-from-public above.
+-- Revoke from both explicitly rather than trust the theory.
+revoke all on function public.request_screening_day(text, text, text, date, uuid, integer, text) from anon;
+revoke all on function public.confirm_screening_day(uuid, integer, numeric, uuid) from anon;
+revoke all on function public.record_screening_day_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) from anon;
+revoke all on function public.add_screening_day_slot(uuid, text, text) from anon;
+revoke all on function public.issue_screening_day_voucher(uuid, uuid) from anon;
 
 grant execute on function public.request_screening_day(text, text, text, date, uuid, integer, text) to authenticated;
 grant execute on function public.confirm_screening_day(uuid, integer, numeric, uuid) to authenticated;
