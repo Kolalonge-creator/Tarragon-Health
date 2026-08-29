@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.110.0",
     "@tanstack/react-query": "^5.101.2",
     "@tarragon/lifestyle-engine": "workspace:*",
+    "@tarragon/symptom-triage-engine": "workspace:*",
     "@tarragon/shared": "workspace:*",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
