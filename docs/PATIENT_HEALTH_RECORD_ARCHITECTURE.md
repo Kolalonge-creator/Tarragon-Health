@@ -346,29 +346,63 @@ iteratively hardened after finding real over-broad access more than once (docume
 migrations themselves). This is the platform's strongest section against the whole spec — no action
 needed.
 
-### §1.21 External records — PARTIAL, no generic path
-Two purpose-built pipelines exist (`lab_result_documents`, `ecg_report_documents`), each following
-"AI drafts, marked unverified, never patient-readable until a clinician confirms." **No generic
-`patient_documents` table exists for discharge summaries, prescriptions, or medical letters** — only
-lab results and ECGs are upload-supported document types today, and `patient_hospital_admissions`
-captures only self-reported *text*, not an attached discharge-summary file. This is additive and
-low-risk to build (same pattern, one more document-type table) — recommended follow-up, not built
-this pass given the volume of other findings in this review.
+### §1.21 External records — BUILT 2026-08-29 (generic document registry)
+Closed by a dedicated Document & Clinical Record Management pass (`patient_documents` +
+4 companion migrations, `20260829093304`–`20260829100104`), built against a separate,
+more detailed "Module 35" document-management spec than this file's own §1.21 ask, but
+covering the exact gap named here. `lab_result_documents` and `ecg_report_documents` are
+untouched — they keep their own structured-extraction pipelines — `patient_documents` is
+a REGISTRY that everything else, including future document-type pipelines, can register
+into via `source_table`/`source_id` (the same read-time-link pattern `patient_timeline`
+already uses), not a replacement for either.
 
-### §1.22 Record reconciliation on conflict — MISSING
+Covers: 12 document types (`patient_document_type`) split into clinical/administrative by
+a generated `category` column, three confidentiality levels including a patient-only
+`patient_private` tier; a real lifecycle (`created → uploaded → validated → available →
+superseded → archived`, plus `rejected`) enforced by CHECK constraints and SECURITY
+DEFINER RPCs (`record_patient_document_scan`, `publish_patient_document`,
+`archive_patient_document`) rather than a free-form status column; versioning
+(`supersede_patient_document` — both versions stay independently readable, never edited in
+place); patient-authorised sharing (`patient_document_shares`, purpose + optional
+expiry + revocation, extending RLS read access to a named internal recipient without
+widening administrative/clinical audiences); an append-only access-audit table
+(`patient_document_access_log`, written only by `private.record_patient_document_access`)
+closing part of the §1.25 read-audit gap for documents specifically; OCR/classification
+scaffolding (`patient_document_extractions`) that flags a declared/detected document-type
+mismatch for human review above a confidence threshold without ever overwriting the
+declared type (which is immutable after insert); full-text search
+(`search_patient_documents`, weighted title/type/description/author plus OCR text); and a
+configurable per-org, per-document-type retention policy table with a nightly archive
+(never delete) sweep. All RLS/lifecycle claims were verified against a real local Postgres
+instance seeded with the platform's actual `is_org_staff`/`can_read_clinical`/
+`is_clinical_tier`/`can_act_for` definitions, not just read for syntax.
+
+Deliberately not built this pass: the storage-layer malware-scan integration itself (the
+schema/RPC contract for recording a scan verdict exists — `record_patient_document_scan` —
+but nothing yet calls a real scanner; every existing upload pipeline in this codebase has
+the same gap) and the app/web UI (upload form, document library, sharing UI, OCR review
+worklist, retention admin screen) — this pass is the data/authorization layer only, matching
+how `lab_result_documents`/`ecg_report_documents` also shipped schema-first.
+
+### §1.22 Record reconciliation on conflict — MISSING (unblocked, still not built)
 Grepping `discrepan`/`reconcil`/`conflict` across the codebase surfaces only *finance* reconciliation
 (Paystack/Stripe) — unrelated. The one clinical near-miss, a medication-pack-photo check
 (`lib/medications/pack-actions.ts`), is explicitly stateless: no discrepancy row is ever persisted,
 the patient is just pointed at in-app messaging. **No allergy/condition/medication table has a
 conflict-flag or reconciliation-queue mechanism**, and an uploaded external document that contradicts
 existing structured data raises only a generic "review needed" alert, not a conflict-aware one.
-Genuinely missing; needs §1.21's generic document table to exist first (a discrepancy needs two
-things to compare) — sequenced as follow-up after §1.21, not attempted standalone.
+§1.21's prerequisite is now real (`patient_documents` — see above), and its OCR-mismatch flag
+(`patient_document_extractions.classification_status = 'needs_review'`) is a narrow instance of
+exactly this problem (a document disagreeing with a declared fact), but a genuine cross-table
+discrepancy/reconciliation-queue mechanism for allergies/conditions/medications is still not
+built — remains a real follow-up, just no longer blocked on a missing document table.
 
 ### §1.23 Patient-facing health record UI — PARTIAL
 The patient dashboard already covers **My results**, **My medications**, **My care plan/referrals**,
-and **My health timeline** as real, distinct sections. **My documents** exists only as lab/ECG
-upload, not a general library. **No dedicated "My conditions" page** — condition state is scattered
+and **My health timeline** as real, distinct sections. **My documents has a real backing table now
+(`patient_documents`, §1.21) but still no library UI** — lab/ECG upload are the only document flows
+wired into a page today; a general document-library page (list, upload, share, search) is the
+natural next slice of the §1.21 work, not yet built. **No dedicated "My conditions" page** — condition state is scattered
 across programme-specific cards (diabetes-*, foot-risk-status, complication-status) rather than one
 section, which is the patient-facing symptom of the missing §1.7 problem list. **No unified "My
 appointments"** — booking exists (`booking-requests-list.tsx`, `book-video-visit.tsx`, `annual-
@@ -382,7 +416,11 @@ results (single and combined), vaccination certificates, and referral letters. *
 JSON/FHIR/CCD export anywhere** (PDF-only). **No export audit trail** — the existing `audit_log`/
 `pgaudit` machinery logs clinician *reads* and table *writes*, but nothing logs "patient X downloaded
 PDF Y at time Z." This is a small, additive fix (a shared helper writing one `audit_log`-style row
-from each of the ~6 export routes) — recommended follow-up, not built this pass.
+from each of the ~6 export routes) — recommended follow-up, not built this pass. §1.21's new
+`patient_document_access_log` + `private.record_patient_document_access` (2026-08-29) is exactly
+that shared-helper shape, but scoped to `patient_documents` reads only — it does not cover these
+~6 pre-existing export routes, none of which read through `patient_documents`; replicating the
+same pattern for them is still the recommended follow-up here.
 
 ### §1.25 Record security — PARTIAL
 MFA (TOTP, AAL2 step-up) is real but **opt-in for everyone, not role-mandated** — no code path forces
@@ -402,10 +440,12 @@ storage) that needs its own dedicated review, not a byproduct of a record-archit
 Smaller, genuinely low-risk items **not** built this round simply because of volume, not difficulty,
 are worth a short follow-up PR each: the timeline category filter (§1.17, no schema change, just
 wire the existing `event_type` enum into `patient-timeline.tsx` and `usePatientTimeline`), a generic
-`patient_documents` table (§1.21, mirrors `lab_result_documents` exactly), export audit logging
+`patient_documents` table (§1.21, mirrors `lab_result_documents` exactly — **built 2026-08-29, see
+§1.21 above**), export audit logging
 (§1.24, one shared helper called from ~6 existing routes), lab result trend display (§1.13, a
 query over existing rows, no schema change), record reconciliation/discrepancy flagging (§1.22,
-sequenced after `patient_documents` since a discrepancy needs two things to compare), a generalized
+sequenced after `patient_documents` since a discrepancy needs two things to compare — unblocked but
+still not built, see §1.22 above), a generalized
 imaging model (§1.14, mirrors the lab/ECG document pattern), a proper clinical-encounter/consultation-
 note model (§1.16, larger — needs its own design pass, not a column tweak), and wiring the new
 `app.change_reason` GUC (§1.18) into the highest-stakes call sites so corrections start carrying a
