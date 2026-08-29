@@ -1481,6 +1481,46 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Health Communication Engine follow-up (2026-08-29): these three hops of
+  // the clinician-alert ack-timeout escalation ladder (see
+  // clinician_alert_ack_timeout_escalation_ladder.sql /
+  // private.notify_clinician_alert) had NO entry here and NO
+  // notification_template_locales row either — every non-in_app send
+  // (whatsapp/push/sms) was failing with "unknown template" in production
+  // (confirmed live: dozens of failed rows, oldest well before this fix).
+  // The in_app leg was unaffected (private.notify_clinician_alert always
+  // writes that one directly with the real clinical message; it's outside
+  // this Edge Function's query entirely). payload.message is always a
+  // fully-resolved, pre-built string from the enqueuing PL/pgSQL — never
+  // branched here, matching the same shape as every other "payload already
+  // did the logic" template in this map.
+  clinician_alert_ack_timeout_backup: (payload) => {
+    const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_backup",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+    };
+  },
+  clinician_alert_ack_timeout_senior: (payload) => {
+    const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_senior",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+    };
+  },
+  clinician_alert_ack_timeout_admin: (payload) => {
+    const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_admin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+    };
+  },
 };
 
 interface SendResult {
