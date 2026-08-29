@@ -10538,6 +10538,7 @@ export type Database = {
           is_active: boolean
           last_confirmed_at: string | null
           last_confirmed_by: string | null
+          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           prescriber_document_url: string | null
@@ -10566,6 +10567,7 @@ export type Database = {
           is_active?: boolean
           last_confirmed_at?: string | null
           last_confirmed_by?: string | null
+          logged_by_profile_id?: string | null
           organisation_id: string
           patient_id: string
           prescriber_document_url?: string | null
@@ -10594,6 +10596,7 @@ export type Database = {
           is_active?: boolean
           last_confirmed_at?: string | null
           last_confirmed_by?: string | null
+          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           prescriber_document_url?: string | null
@@ -10641,6 +10644,279 @@ export type Database = {
             foreignKeyName: "medications_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_growth_measurements: {
+        Row: {
+          age_days_at_measurement: number
+          bmi: number | null
+          bmi_for_age_z: number | null
+          created_at: string
+          head_circumference_cm: number | null
+          head_circumference_for_age_z: number | null
+          height_cm: number | null
+          height_for_age_z: number | null
+          id: string
+          logged_by_profile_id: string | null
+          measured_at: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          weight_for_age_z: number | null
+          weight_kg: number | null
+        }
+        Insert: {
+          age_days_at_measurement?: number
+          bmi?: number | null
+          bmi_for_age_z?: number | null
+          created_at?: string
+          head_circumference_cm?: number | null
+          head_circumference_for_age_z?: number | null
+          height_cm?: number | null
+          height_for_age_z?: number | null
+          id?: string
+          logged_by_profile_id?: string | null
+          measured_at?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          weight_for_age_z?: number | null
+          weight_kg?: number | null
+        }
+        Update: {
+          age_days_at_measurement?: number
+          bmi?: number | null
+          bmi_for_age_z?: number | null
+          created_at?: string
+          head_circumference_cm?: number | null
+          head_circumference_for_age_z?: number | null
+          height_cm?: number | null
+          height_for_age_z?: number | null
+          id?: string
+          logged_by_profile_id?: string | null
+          measured_at?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          weight_for_age_z?: number | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_growth_measurements_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "child_growth_measurements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "child_growth_measurements_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      growth_reference_lms: {
+        Row: {
+          age_months: number
+          created_at: string
+          id: string
+          l_value: number
+          m_value: number
+          measurement_type: Database["public"]["Enums"]["growth_measurement_type"]
+          s_value: number
+          sex: Database["public"]["Enums"]["sex"]
+          source: string
+        }
+        Insert: {
+          age_months: number
+          created_at?: string
+          id?: string
+          l_value: number
+          m_value: number
+          measurement_type: Database["public"]["Enums"]["growth_measurement_type"]
+          s_value: number
+          sex: Database["public"]["Enums"]["sex"]
+          source?: string
+        }
+        Update: {
+          age_months?: number
+          created_at?: string
+          id?: string
+          l_value?: number
+          m_value?: number
+          measurement_type?: Database["public"]["Enums"]["growth_measurement_type"]
+          s_value?: number
+          sex?: Database["public"]["Enums"]["sex"]
+          source?: string
+        }
+        Relationships: []
+      }
+      developmental_questionnaire_items: {
+        Row: {
+          age_band_months_max: number
+          age_band_months_min: number
+          created_at: string
+          display_order: number
+          domain: Database["public"]["Enums"]["developmental_domain"]
+          id: string
+          is_active: boolean
+          prompt: string
+        }
+        Insert: {
+          age_band_months_max: number
+          age_band_months_min: number
+          created_at?: string
+          display_order?: number
+          domain: Database["public"]["Enums"]["developmental_domain"]
+          id?: string
+          is_active?: boolean
+          prompt: string
+        }
+        Update: {
+          age_band_months_max?: number
+          age_band_months_min?: number
+          created_at?: string
+          display_order?: number
+          domain?: Database["public"]["Enums"]["developmental_domain"]
+          id?: string
+          is_active?: boolean
+          prompt?: string
+        }
+        Relationships: []
+      }
+      developmental_screenings: {
+        Row: {
+          age_band_months_max: number
+          age_band_months_min: number
+          age_months_at_screening: number
+          created_at: string
+          flagged_domains: Database["public"]["Enums"]["developmental_domain"][]
+          id: string
+          logged_by_profile_id: string | null
+          organisation_id: string
+          overall_flag: boolean
+          patient_id: string
+          responses: Json
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          domain_scores: Json
+          screening_date: string
+          updated_at: string
+        }
+        Insert: {
+          age_band_months_max?: number
+          age_band_months_min?: number
+          age_months_at_screening?: number
+          created_at?: string
+          flagged_domains?: Database["public"]["Enums"]["developmental_domain"][]
+          id?: string
+          logged_by_profile_id?: string | null
+          organisation_id: string
+          overall_flag?: boolean
+          patient_id: string
+          responses?: Json
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          domain_scores?: Json
+          screening_date?: string
+          updated_at?: string
+        }
+        Update: {
+          age_band_months_max?: number
+          age_band_months_min?: number
+          age_months_at_screening?: number
+          created_at?: string
+          flagged_domains?: Database["public"]["Enums"]["developmental_domain"][]
+          id?: string
+          logged_by_profile_id?: string | null
+          organisation_id?: string
+          overall_flag?: boolean
+          patient_id?: string
+          responses?: Json
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          domain_scores?: Json
+          screening_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "developmental_screenings_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "developmental_screenings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "developmental_screenings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "developmental_screenings_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dependent_transition_status: {
+        Row: {
+          computed_at: string
+          organisation_id: string | null
+          patient_id: string
+          transition_state: Database["public"]["Enums"]["dependent_transition_state"]
+        }
+        Insert: {
+          computed_at?: string
+          organisation_id?: string | null
+          patient_id: string
+          transition_state: Database["public"]["Enums"]["dependent_transition_state"]
+        }
+        Update: {
+          computed_at?: string
+          organisation_id?: string | null
+          patient_id?: string
+          transition_state?: Database["public"]["Enums"]["dependent_transition_state"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dependent_transition_status_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dependent_transition_status_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -20260,6 +20536,18 @@ export type Database = {
         | "severe_headache"
         | "visual_disturbance"
         | "confusion"
+        | "poor_feeding"
+        | "lethargy"
+        | "grunting_or_retractions"
+        | "dehydration_signs"
+      growth_measurement_type:
+        | "weight_for_age"
+        | "height_for_age"
+        | "bmi_for_age"
+        | "head_circumference_for_age"
+      developmental_domain: "motor" | "language" | "social" | "cognitive" | "behavioural"
+      developmental_item_answer: "yes" | "sometimes" | "not_yet"
+      dependent_transition_state: "child" | "adolescent" | "transition_prep" | "independent"
       timeline_event_type:
         | "lab_completed"
         | "lab_abnormal"
@@ -21227,7 +21515,20 @@ export const Constants = {
         "severe_headache",
         "visual_disturbance",
         "confusion",
+        "poor_feeding",
+        "lethargy",
+        "grunting_or_retractions",
+        "dehydration_signs",
       ],
+      growth_measurement_type: [
+        "weight_for_age",
+        "height_for_age",
+        "bmi_for_age",
+        "head_circumference_for_age",
+      ],
+      developmental_domain: ["motor", "language", "social", "cognitive", "behavioural"],
+      developmental_item_answer: ["yes", "sometimes", "not_yet"],
+      dependent_transition_state: ["child", "adolescent", "transition_prep", "independent"],
       timeline_event_type: [
         "lab_completed",
         "lab_abnormal",

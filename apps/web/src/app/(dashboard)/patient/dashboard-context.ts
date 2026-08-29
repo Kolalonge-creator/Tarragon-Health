@@ -55,18 +55,21 @@ export async function getPatientDashboardContext() {
   // The emergency safety net must show the SUBJECT's state, not the caller's —
   // a supporter in Lagos acting for a parent in Kano needs Kano's (or the
   // national default's) emergency number, not their own. ActingFor only
-  // carries id/name, so fetch state separately in the rare acting case; when
-  // not acting, the caller's own already-loaded profile.state is correct.
+  // carries id/name, so fetch state (and, for the paediatric surfaces below,
+  // date_of_birth) separately in the rare acting case; when not acting, the
+  // caller's own already-loaded profile fields are correct.
   let subjectState = profile.state ?? null;
+  let subjectDateOfBirth: string | null = profile.date_of_birth ?? null;
   if (acting) {
     const supabase = await createClient();
     const { data: subjectProfile } = await supabase
       .from("profiles")
-      .select("state")
+      .select("state, date_of_birth")
       .eq("id", subjectId)
       .maybeSingle();
     subjectState = subjectProfile?.state ?? null;
+    subjectDateOfBirth = subjectProfile?.date_of_birth ?? null;
   }
 
-  return { profile, acting, subjectId, subjectState };
+  return { profile, acting, subjectId, subjectState, subjectDateOfBirth };
 }
