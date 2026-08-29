@@ -16,7 +16,6 @@ const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
   completed: "Visit complete",
   declined: "Cancelled",
   waitlisted: "Your care team is finding the right specialist for you",
-  closed: "This referral is closed",
 };
 
 function formatDate(value: string): string {

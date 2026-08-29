@@ -4585,6 +4585,16 @@ export type Database = {
       }
       corporate_contracts: {
         Row: {
+          billing_contact_email: string | null
+          billing_fixed_amount_kobo: number | null
+          billing_interval:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          billing_model:
+            | Database["public"]["Enums"]["employer_billing_model"]
+            | null
+          billing_rate_kobo: number | null
+          contract_reference: string | null
           created_at: string
           effective_from: string | null
           effective_to: string | null
@@ -4593,10 +4603,22 @@ export type Database = {
           name: string
           organisation_id: string
           per_employee_per_year_kobo: number
+          signed_at: string | null
+          signed_by: string | null
           status: Database["public"]["Enums"]["contract_status"]
           updated_at: string
         }
         Insert: {
+          billing_contact_email?: string | null
+          billing_fixed_amount_kobo?: number | null
+          billing_interval?:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          billing_model?:
+            | Database["public"]["Enums"]["employer_billing_model"]
+            | null
+          billing_rate_kobo?: number | null
+          contract_reference?: string | null
           created_at?: string
           effective_from?: string | null
           effective_to?: string | null
@@ -4605,10 +4627,22 @@ export type Database = {
           name: string
           organisation_id: string
           per_employee_per_year_kobo?: number
+          signed_at?: string | null
+          signed_by?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           updated_at?: string
         }
         Update: {
+          billing_contact_email?: string | null
+          billing_fixed_amount_kobo?: number | null
+          billing_interval?:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          billing_model?:
+            | Database["public"]["Enums"]["employer_billing_model"]
+            | null
+          billing_rate_kobo?: number | null
+          contract_reference?: string | null
           created_at?: string
           effective_from?: string | null
           effective_to?: string | null
@@ -4617,6 +4651,8 @@ export type Database = {
           name?: string
           organisation_id?: string
           per_employee_per_year_kobo?: number
+          signed_at?: string | null
+          signed_by?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           updated_at?: string
         }
@@ -4626,6 +4662,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corporate_contracts_signed_by_fkey"
+            columns: ["signed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -6213,36 +6256,93 @@ export type Database = {
       employer_roster_members: {
         Row: {
           added_by: string | null
+          benefit_package_id: string | null
           claimed_at: string | null
           claimed_profile_id: string | null
           created_at: string
+          departed_at: string | null
+          department_id: string | null
+          departure_reason: string | null
+          eligible_from: string | null
+          eligible_until: string | null
+          email: string | null
+          employee_reference: string | null
+          employment_status:
+            | Database["public"]["Enums"]["employer_employment_status"]
+            | null
           full_name: string | null
+          granted_subscription_id: string | null
           id: string
+          invite_channel:
+            | Database["public"]["Enums"]["employer_invite_channel"]
+            | null
+          invited_at: string | null
+          job_category: string | null
+          location_id: string | null
           organisation_id: string
-          phone: string
+          phone: string | null
           status: Database["public"]["Enums"]["employer_roster_status"]
+          updated_at: string
         }
         Insert: {
           added_by?: string | null
+          benefit_package_id?: string | null
           claimed_at?: string | null
           claimed_profile_id?: string | null
           created_at?: string
+          departed_at?: string | null
+          department_id?: string | null
+          departure_reason?: string | null
+          eligible_from?: string | null
+          eligible_until?: string | null
+          email?: string | null
+          employee_reference?: string | null
+          employment_status?:
+            | Database["public"]["Enums"]["employer_employment_status"]
+            | null
           full_name?: string | null
+          granted_subscription_id?: string | null
           id?: string
+          invite_channel?:
+            | Database["public"]["Enums"]["employer_invite_channel"]
+            | null
+          invited_at?: string | null
+          job_category?: string | null
+          location_id?: string | null
           organisation_id: string
-          phone: string
+          phone?: string | null
           status?: Database["public"]["Enums"]["employer_roster_status"]
+          updated_at?: string
         }
         Update: {
           added_by?: string | null
+          benefit_package_id?: string | null
           claimed_at?: string | null
           claimed_profile_id?: string | null
           created_at?: string
+          departed_at?: string | null
+          department_id?: string | null
+          departure_reason?: string | null
+          eligible_from?: string | null
+          eligible_until?: string | null
+          email?: string | null
+          employee_reference?: string | null
+          employment_status?:
+            | Database["public"]["Enums"]["employer_employment_status"]
+            | null
           full_name?: string | null
+          granted_subscription_id?: string | null
           id?: string
+          invite_channel?:
+            | Database["public"]["Enums"]["employer_invite_channel"]
+            | null
+          invited_at?: string | null
+          job_category?: string | null
+          location_id?: string | null
           organisation_id?: string
-          phone?: string
+          phone?: string | null
           status?: Database["public"]["Enums"]["employer_roster_status"]
+          updated_at?: string
         }
         Relationships: [
           {
@@ -6253,10 +6353,38 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "employer_roster_members_benefit_package_id_fkey"
+            columns: ["benefit_package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "employer_roster_members_claimed_profile_id_fkey"
             columns: ["claimed_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_roster_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "employer_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_roster_members_granted_subscription_id_fkey"
+            columns: ["granted_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_roster_members_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "employer_locations"
             referencedColumns: ["id"]
           },
           {

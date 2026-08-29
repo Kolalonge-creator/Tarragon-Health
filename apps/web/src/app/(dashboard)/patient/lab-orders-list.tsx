@@ -16,7 +16,6 @@ const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["vari
   payment_confirmed: { variant: "blue", label: "Ready to take to a lab" },
   ordered: { variant: "blue", label: "Ready to take to a lab" },
   sample_collected: { variant: "blue", label: "Sample collected" },
-  sample_rejected: { variant: "red", label: "Sample rejected" },
   processing: { variant: "blue", label: "In progress" },
   resulted: { variant: "green", label: "Results ready" },
   cancelled: { variant: "grey", label: "Cancelled" },
