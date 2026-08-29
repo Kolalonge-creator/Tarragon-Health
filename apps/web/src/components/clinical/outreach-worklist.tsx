@@ -26,8 +26,8 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   consultation_follow_up: "Consultation follow-up needed",
   missed_care_task: "Missed care task",
   missed_appointment: "Missed appointment",
-  failed_referral: "Referral could not be completed",
-  referral_follow_up: "Referral follow-up needed",
+  failed_referral: "Failed referral",
+  referral_follow_up: "Referral follow-up",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {

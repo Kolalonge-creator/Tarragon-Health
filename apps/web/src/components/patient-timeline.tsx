@@ -38,6 +38,7 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   encounter_documented: { dot: "bg-clinical-navy", label: "Clinical note" },
   condition_recorded: { dot: "bg-clinical-navy", label: "Condition" },
   condition_status_changed: { dot: "bg-amber-500", label: "Condition" },
+  referral_outcome_recorded: { dot: "bg-clinical-navy", label: "Referral" },
 };
 
 // Belt-and-braces only — private.record_timeline_event() now strips

@@ -230,6 +230,11 @@ export function getNavSections(
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
               ],
@@ -245,6 +250,11 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                },
                 { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },

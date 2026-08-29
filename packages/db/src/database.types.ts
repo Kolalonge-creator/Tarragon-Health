@@ -145,6 +145,223 @@ export type Database = {
           },
         ]
       }
+      ageing_assessment_domain_results: {
+        Row: {
+          assessment_id: string
+          clinician_reviewed_at: string | null
+          clinician_reviewed_by: string | null
+          created_at: string
+          domain: Database["public"]["Enums"]["ageing_assessment_domain"]
+          id: string
+          notes: string | null
+          outcome: Database["public"]["Enums"]["ageing_assessment_outcome"]
+          responses: Json
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          clinician_reviewed_at?: string | null
+          clinician_reviewed_by?: string | null
+          created_at?: string
+          domain: Database["public"]["Enums"]["ageing_assessment_domain"]
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["ageing_assessment_outcome"]
+          responses?: Json
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          clinician_reviewed_at?: string | null
+          clinician_reviewed_by?: string | null
+          created_at?: string
+          domain?: Database["public"]["Enums"]["ageing_assessment_domain"]
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["ageing_assessment_outcome"]
+          responses?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ageing_assessment_domain_results_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "ageing_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ageing_assessment_domain_results_clinician_reviewed_by_fkey"
+            columns: ["clinician_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ageing_assessments: {
+        Row: {
+          assessment_type: Database["public"]["Enums"]["ageing_assessment_type"]
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          logged_by_profile_id: string | null
+          next_review_due_at: string | null
+          organisation_id: string
+          patient_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["ageing_assessment_status"]
+          updated_at: string
+        }
+        Insert: {
+          assessment_type?: Database["public"]["Enums"]["ageing_assessment_type"]
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          logged_by_profile_id?: string | null
+          next_review_due_at?: string | null
+          organisation_id: string
+          patient_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["ageing_assessment_status"]
+          updated_at?: string
+        }
+        Update: {
+          assessment_type?: Database["public"]["Enums"]["ageing_assessment_type"]
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          logged_by_profile_id?: string | null
+          next_review_due_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["ageing_assessment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ageing_assessments_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ageing_assessments_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ageing_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ageing_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_bias_assessments: {
+        Row: {
+          ai_system_id: string
+          ai_system_version_id: string | null
+          assessed_by: string | null
+          assessed_on: string
+          created_at: string
+          dimension: string
+          disparity_ratio: number | null
+          group_label: string
+          id: string
+          is_material_disparity: boolean
+          metric_name: string
+          metric_value: number
+          notes: string | null
+          organisation_id: string
+          reference_group_label: string | null
+          reference_metric_value: number | null
+          sample_size: number
+        }
+        Insert: {
+          ai_system_id: string
+          ai_system_version_id?: string | null
+          assessed_by?: string | null
+          assessed_on?: string
+          created_at?: string
+          dimension: string
+          disparity_ratio?: number | null
+          group_label: string
+          id?: string
+          is_material_disparity?: boolean
+          metric_name: string
+          metric_value: number
+          notes?: string | null
+          organisation_id: string
+          reference_group_label?: string | null
+          reference_metric_value?: number | null
+          sample_size: number
+        }
+        Update: {
+          ai_system_id?: string
+          ai_system_version_id?: string | null
+          assessed_by?: string | null
+          assessed_on?: string
+          created_at?: string
+          dimension?: string
+          disparity_ratio?: number | null
+          group_label?: string
+          id?: string
+          is_material_disparity?: boolean
+          metric_name?: string
+          metric_value?: number
+          notes?: string | null
+          organisation_id?: string
+          reference_group_label?: string | null
+          reference_metric_value?: number | null
+          sample_size?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_bias_assessments_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bias_assessments_ai_system_version_id_fkey"
+            columns: ["ai_system_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bias_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_bias_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_coach_access_rules: {
         Row: {
           created_at: string
@@ -231,6 +448,1196 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_drift_observations: {
+        Row: {
+          ai_system_id: string
+          ai_system_version_id: string | null
+          baseline_value: number | null
+          breached: boolean
+          created_at: string
+          detail: Json
+          drift_score: number | null
+          feature_or_metric: string
+          id: string
+          kind: Database["public"]["Enums"]["ai_drift_kind"]
+          observed_on: string
+          observed_value: number | null
+          organisation_id: string
+          sample_size: number | null
+          threshold: number | null
+          window_days: number
+        }
+        Insert: {
+          ai_system_id: string
+          ai_system_version_id?: string | null
+          baseline_value?: number | null
+          breached?: boolean
+          created_at?: string
+          detail?: Json
+          drift_score?: number | null
+          feature_or_metric: string
+          id?: string
+          kind: Database["public"]["Enums"]["ai_drift_kind"]
+          observed_on?: string
+          observed_value?: number | null
+          organisation_id: string
+          sample_size?: number | null
+          threshold?: number | null
+          window_days: number
+        }
+        Update: {
+          ai_system_id?: string
+          ai_system_version_id?: string | null
+          baseline_value?: number | null
+          breached?: boolean
+          created_at?: string
+          detail?: Json
+          drift_score?: number | null
+          feature_or_metric?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["ai_drift_kind"]
+          observed_on?: string
+          observed_value?: number | null
+          organisation_id?: string
+          sample_size?: number | null
+          threshold?: number | null
+          window_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_drift_observations_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drift_observations_ai_system_version_id_fkey"
+            columns: ["ai_system_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drift_observations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_evaluation_case_results: {
+        Row: {
+          actual_output: string | null
+          case_id: string
+          created_at: string
+          id: string
+          outcome: Database["public"]["Enums"]["ai_evaluation_outcome"]
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          run_id: string
+        }
+        Insert: {
+          actual_output?: string | null
+          case_id: string
+          created_at?: string
+          id?: string
+          outcome: Database["public"]["Enums"]["ai_evaluation_outcome"]
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          run_id: string
+        }
+        Update: {
+          actual_output?: string | null
+          case_id?: string
+          created_at?: string
+          id?: string
+          outcome?: Database["public"]["Enums"]["ai_evaluation_outcome"]
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_case_results_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "ai_evaluation_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_case_results_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_case_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_evaluation_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_evaluation_cases: {
+        Row: {
+          case_code: string
+          created_at: string
+          expected_behaviour: string
+          id: string
+          is_adversarial: boolean
+          notes: string | null
+          population_group: string | null
+          redteam_category:
+            | Database["public"]["Enums"]["ai_redteam_category"]
+            | null
+          scenario: string
+          suite_id: string
+          updated_at: string
+        }
+        Insert: {
+          case_code: string
+          created_at?: string
+          expected_behaviour: string
+          id?: string
+          is_adversarial?: boolean
+          notes?: string | null
+          population_group?: string | null
+          redteam_category?:
+            | Database["public"]["Enums"]["ai_redteam_category"]
+            | null
+          scenario: string
+          suite_id: string
+          updated_at?: string
+        }
+        Update: {
+          case_code?: string
+          created_at?: string
+          expected_behaviour?: string
+          id?: string
+          is_adversarial?: boolean
+          notes?: string | null
+          population_group?: string | null
+          redteam_category?:
+            | Database["public"]["Enums"]["ai_redteam_category"]
+            | null
+          scenario?: string
+          suite_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_cases_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "ai_evaluation_suites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_evaluation_runs: {
+        Row: {
+          ai_system_id: string
+          ai_system_version_id: string | null
+          completed_at: string | null
+          environment: string
+          failed_cases: number
+          id: string
+          model_identifier: string | null
+          notes: string | null
+          outcome: Database["public"]["Enums"]["ai_evaluation_outcome"] | null
+          pass_rate_pct: number | null
+          passed_cases: number
+          prompt_version_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          run_by: string | null
+          started_at: string
+          suite_id: string
+          total_cases: number
+        }
+        Insert: {
+          ai_system_id: string
+          ai_system_version_id?: string | null
+          completed_at?: string | null
+          environment?: string
+          failed_cases?: number
+          id?: string
+          model_identifier?: string | null
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["ai_evaluation_outcome"] | null
+          pass_rate_pct?: number | null
+          passed_cases?: number
+          prompt_version_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          run_by?: string | null
+          started_at?: string
+          suite_id: string
+          total_cases?: number
+        }
+        Update: {
+          ai_system_id?: string
+          ai_system_version_id?: string | null
+          completed_at?: string | null
+          environment?: string
+          failed_cases?: number
+          id?: string
+          model_identifier?: string | null
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["ai_evaluation_outcome"] | null
+          pass_rate_pct?: number | null
+          passed_cases?: number
+          prompt_version_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          run_by?: string | null
+          started_at?: string
+          suite_id?: string
+          total_cases?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_runs_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_ai_system_version_id_fkey"
+            columns: ["ai_system_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_prompt_version_id_fkey"
+            columns: ["prompt_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_run_by_fkey"
+            columns: ["run_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evaluation_runs_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "ai_evaluation_suites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_evaluation_suites: {
+        Row: {
+          ai_system_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_required_for_release: boolean
+          kind: Database["public"]["Enums"]["ai_evaluation_kind"]
+          name: string
+          pass_threshold_pct: number
+          updated_at: string
+        }
+        Insert: {
+          ai_system_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_required_for_release?: boolean
+          kind: Database["public"]["Enums"]["ai_evaluation_kind"]
+          name: string
+          pass_threshold_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          ai_system_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_required_for_release?: boolean
+          kind?: Database["public"]["Enums"]["ai_evaluation_kind"]
+          name?: string
+          pass_threshold_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_suites_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_guardrails: {
+        Row: {
+          ai_system_id: string
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          description: string
+          enforcement: Database["public"]["Enums"]["ai_guardrail_enforcement"]
+          id: string
+          is_active: boolean
+          kind: Database["public"]["Enums"]["ai_guardrail_kind"]
+          rule_code: string
+          updated_at: string
+        }
+        Insert: {
+          ai_system_id: string
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          description: string
+          enforcement: Database["public"]["Enums"]["ai_guardrail_enforcement"]
+          id?: string
+          is_active?: boolean
+          kind: Database["public"]["Enums"]["ai_guardrail_kind"]
+          rule_code: string
+          updated_at?: string
+        }
+        Update: {
+          ai_system_id?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          description?: string
+          enforcement?: Database["public"]["Enums"]["ai_guardrail_enforcement"]
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["ai_guardrail_kind"]
+          rule_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_guardrails_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_guardrails_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_interaction_log: {
+        Row: {
+          actor_profile_id: string | null
+          ai_system_id: string
+          ai_system_version_id: string | null
+          created_at: string
+          error_message: string | null
+          fallback_reason: string | null
+          fallback_used: boolean
+          flagged_for_review: boolean
+          guardrails_triggered: string[]
+          human_override: boolean
+          human_override_at: string | null
+          human_override_by: string | null
+          human_override_note: string | null
+          id: string
+          input_category: string
+          input_token_count: number | null
+          latency_ms: number | null
+          model_identifier: string
+          organisation_id: string
+          output_flags: Database["public"]["Enums"]["ai_output_flag"][]
+          output_summary: string | null
+          output_token_count: number | null
+          prompt_version_id: string | null
+          resulting_action: string | null
+          resulting_entity_id: string | null
+          resulting_entity_type: string | null
+          safety_classification:
+            | Database["public"]["Enums"]["alert_level"]
+            | null
+          status: Database["public"]["Enums"]["ai_interaction_status"]
+          subject_profile_id: string | null
+        }
+        Insert: {
+          actor_profile_id?: string | null
+          ai_system_id: string
+          ai_system_version_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          fallback_reason?: string | null
+          fallback_used?: boolean
+          flagged_for_review?: boolean
+          guardrails_triggered?: string[]
+          human_override?: boolean
+          human_override_at?: string | null
+          human_override_by?: string | null
+          human_override_note?: string | null
+          id?: string
+          input_category: string
+          input_token_count?: number | null
+          latency_ms?: number | null
+          model_identifier: string
+          organisation_id: string
+          output_flags?: Database["public"]["Enums"]["ai_output_flag"][]
+          output_summary?: string | null
+          output_token_count?: number | null
+          prompt_version_id?: string | null
+          resulting_action?: string | null
+          resulting_entity_id?: string | null
+          resulting_entity_type?: string | null
+          safety_classification?:
+            | Database["public"]["Enums"]["alert_level"]
+            | null
+          status: Database["public"]["Enums"]["ai_interaction_status"]
+          subject_profile_id?: string | null
+        }
+        Update: {
+          actor_profile_id?: string | null
+          ai_system_id?: string
+          ai_system_version_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          fallback_reason?: string | null
+          fallback_used?: boolean
+          flagged_for_review?: boolean
+          guardrails_triggered?: string[]
+          human_override?: boolean
+          human_override_at?: string | null
+          human_override_by?: string | null
+          human_override_note?: string | null
+          id?: string
+          input_category?: string
+          input_token_count?: number | null
+          latency_ms?: number | null
+          model_identifier?: string
+          organisation_id?: string
+          output_flags?: Database["public"]["Enums"]["ai_output_flag"][]
+          output_summary?: string | null
+          output_token_count?: number | null
+          prompt_version_id?: string | null
+          resulting_action?: string | null
+          resulting_entity_id?: string | null
+          resulting_entity_type?: string | null
+          safety_classification?:
+            | Database["public"]["Enums"]["alert_level"]
+            | null
+          status?: Database["public"]["Enums"]["ai_interaction_status"]
+          subject_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_interaction_log_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_ai_system_version_id_fkey"
+            columns: ["ai_system_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_system_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_human_override_by_fkey"
+            columns: ["human_override_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_prompt_version_id_fkey"
+            columns: ["prompt_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_prompt_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_log_subject_profile_id_fkey"
+            columns: ["subject_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_interaction_sources: {
+        Row: {
+          interaction_id: string
+          knowledge_source_id: string
+        }
+        Insert: {
+          interaction_id: string
+          knowledge_source_id: string
+        }
+        Update: {
+          interaction_id?: string
+          knowledge_source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_interaction_sources_interaction_id_fkey"
+            columns: ["interaction_id"]
+            isOneToOne: false
+            referencedRelation: "ai_interaction_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_interaction_sources_knowledge_source_id_fkey"
+            columns: ["knowledge_source_id"]
+            isOneToOne: false
+            referencedRelation: "ai_knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_knowledge_sources: {
+        Row: {
+          ai_system_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          citation_label: string
+          created_at: string
+          external_url: string | null
+          id: string
+          is_active: boolean
+          reference_id: string | null
+          reference_table: string | null
+          review_due_on: string | null
+          source_code: string
+          source_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_system_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          citation_label: string
+          created_at?: string
+          external_url?: string | null
+          id?: string
+          is_active?: boolean
+          reference_id?: string | null
+          reference_table?: string | null
+          review_due_on?: string | null
+          source_code: string
+          source_type: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_system_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          citation_label?: string
+          created_at?: string
+          external_url?: string | null
+          id?: string
+          is_active?: boolean
+          reference_id?: string | null
+          reference_table?: string | null
+          review_due_on?: string | null
+          source_code?: string
+          source_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_knowledge_sources_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_knowledge_sources_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_prompt_versions: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          ai_system_id: string
+          approved_at: string | null
+          approved_by: string | null
+          change_summary: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          model_config: Json
+          output_constraints: Json
+          retired_at: string | null
+          retrieval_config: Json
+          safety_instructions: string
+          system_prompt: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          ai_system_id: string
+          approved_at?: string | null
+          approved_by?: string | null
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          model_config?: Json
+          output_constraints?: Json
+          retired_at?: string | null
+          retrieval_config?: Json
+          safety_instructions: string
+          system_prompt: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          ai_system_id?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          model_config?: Json
+          output_constraints?: Json
+          retired_at?: string | null
+          retrieval_config?: Json
+          safety_instructions?: string
+          system_prompt?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompt_versions_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_prompt_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_safety_incidents: {
+        Row: {
+          ai_system_id: string
+          category: Database["public"]["Enums"]["ai_incident_category"]
+          clinical_review_summary: string | null
+          corrective_action: string | null
+          created_at: string
+          description: string
+          harm_description: string | null
+          id: string
+          interaction_id: string | null
+          kill_switch_applied: boolean
+          organisation_id: string
+          patient_harm_occurred: boolean | null
+          reported_by: string | null
+          reporter_kind: string
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: Database["public"]["Enums"]["ai_incident_severity"]
+          status: Database["public"]["Enums"]["ai_incident_status"]
+          triaged_at: string | null
+          triaged_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_system_id: string
+          category: Database["public"]["Enums"]["ai_incident_category"]
+          clinical_review_summary?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          description: string
+          harm_description?: string | null
+          id?: string
+          interaction_id?: string | null
+          kill_switch_applied?: boolean
+          organisation_id: string
+          patient_harm_occurred?: boolean | null
+          reported_by?: string | null
+          reporter_kind: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["ai_incident_severity"]
+          status?: Database["public"]["Enums"]["ai_incident_status"]
+          triaged_at?: string | null
+          triaged_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_system_id?: string
+          category?: Database["public"]["Enums"]["ai_incident_category"]
+          clinical_review_summary?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          description?: string
+          harm_description?: string | null
+          id?: string
+          interaction_id?: string | null
+          kill_switch_applied?: boolean
+          organisation_id?: string
+          patient_harm_occurred?: boolean | null
+          reported_by?: string | null
+          reporter_kind?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["ai_incident_severity"]
+          status?: Database["public"]["Enums"]["ai_incident_status"]
+          triaged_at?: string | null
+          triaged_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_safety_incidents_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_interaction_id_fkey"
+            columns: ["interaction_id"]
+            isOneToOne: false
+            referencedRelation: "ai_interaction_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_safety_incidents_triaged_by_fkey"
+            columns: ["triaged_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_system_versions: {
+        Row: {
+          ai_system_id: string
+          approval_actor_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          change_summary: string | null
+          created_at: string
+          created_by: string | null
+          deployed_at: string | null
+          excluded_population: string
+          id: string
+          intended_population: string
+          model_identifier: string
+          retired_at: string | null
+          review_due_on: string | null
+          training_data_description: string | null
+          updated_at: string
+          validated_by: string | null
+          validation_completed_at: string | null
+          validation_summary: string | null
+          version: string
+        }
+        Insert: {
+          ai_system_id: string
+          approval_actor_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string | null
+          deployed_at?: string | null
+          excluded_population: string
+          id?: string
+          intended_population: string
+          model_identifier: string
+          retired_at?: string | null
+          review_due_on?: string | null
+          training_data_description?: string | null
+          updated_at?: string
+          validated_by?: string | null
+          validation_completed_at?: string | null
+          validation_summary?: string | null
+          version: string
+        }
+        Update: {
+          ai_system_id?: string
+          approval_actor_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string | null
+          deployed_at?: string | null
+          excluded_population?: string
+          id?: string
+          intended_population?: string
+          model_identifier?: string
+          retired_at?: string | null
+          review_due_on?: string | null
+          training_data_description?: string | null
+          updated_at?: string
+          validated_by?: string | null
+          validation_completed_at?: string | null
+          validation_summary?: string | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_system_versions_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_system_versions_approval_actor_id_fkey"
+            columns: ["approval_actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_system_versions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_system_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_system_versions_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_systems: {
+        Row: {
+          autonomy_level: Database["public"]["Enums"]["ai_autonomy_level"]
+          clinically_meaningful: boolean
+          code_reference: string | null
+          created_at: string
+          disabled_at: string | null
+          disabled_by: string | null
+          disabled_reason: string | null
+          fallback_behaviour: string
+          grandfather_note: string | null
+          grandfathered_at: string | null
+          id: string
+          is_enabled: boolean
+          lifecycle_status: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name: string
+          next_review_due: string | null
+          notes: string | null
+          owner_profile_id: string | null
+          owner_role: string
+          purpose: string
+          review_interval_days: number | null
+          risk_class: Database["public"]["Enums"]["ai_risk_class"]
+          runtime_governed: boolean
+          system_code: string
+          updated_at: string
+          vendor_id: string | null
+        }
+        Insert: {
+          autonomy_level: Database["public"]["Enums"]["ai_autonomy_level"]
+          clinically_meaningful: boolean
+          code_reference?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          fallback_behaviour: string
+          grandfather_note?: string | null
+          grandfathered_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          lifecycle_status?: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name: string
+          next_review_due?: string | null
+          notes?: string | null
+          owner_profile_id?: string | null
+          owner_role: string
+          purpose: string
+          review_interval_days?: number | null
+          risk_class: Database["public"]["Enums"]["ai_risk_class"]
+          runtime_governed?: boolean
+          system_code: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          autonomy_level?: Database["public"]["Enums"]["ai_autonomy_level"]
+          clinically_meaningful?: boolean
+          code_reference?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          fallback_behaviour?: string
+          grandfather_note?: string | null
+          grandfathered_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          lifecycle_status?: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name?: string
+          next_review_due?: string | null
+          notes?: string | null
+          owner_profile_id?: string | null
+          owner_role?: string
+          purpose?: string
+          review_interval_days?: number | null
+          risk_class?: Database["public"]["Enums"]["ai_risk_class"]
+          runtime_governed?: boolean
+          system_code?: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_systems_disabled_by_fkey"
+            columns: ["disabled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_systems_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_systems_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "ai_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_vendor_model_observations: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          ai_system_id: string
+          expected_model_identifier: string | null
+          first_seen_at: string
+          id: string
+          is_expected: boolean
+          last_seen_at: string
+          observation_count: number
+          observed_model_identifier: string
+          vendor_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          ai_system_id: string
+          expected_model_identifier?: string | null
+          first_seen_at?: string
+          id?: string
+          is_expected: boolean
+          last_seen_at?: string
+          observation_count?: number
+          observed_model_identifier: string
+          vendor_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          ai_system_id?: string
+          expected_model_identifier?: string | null
+          first_seen_at?: string
+          id?: string
+          is_expected?: boolean
+          last_seen_at?: string
+          observation_count?: number
+          observed_model_identifier?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_vendor_model_observations_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_vendor_model_observations_ai_system_id_fkey"
+            columns: ["ai_system_id"]
+            isOneToOne: false
+            referencedRelation: "ai_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_vendor_model_observations_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "ai_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_vendors: {
+        Row: {
+          change_notification_channel: string | null
+          contractual_controls: string | null
+          created_at: string
+          data_processing_region: string | null
+          data_processing_summary: string | null
+          id: string
+          is_active: boolean
+          last_change_notice_at: string | null
+          last_change_notice_summary: string | null
+          name: string
+          security_review_summary: string | null
+          security_reviewed_at: string | null
+          service_availability_target: string | null
+          updated_at: string
+          vendor_type: string
+        }
+        Insert: {
+          change_notification_channel?: string | null
+          contractual_controls?: string | null
+          created_at?: string
+          data_processing_region?: string | null
+          data_processing_summary?: string | null
+          id?: string
+          is_active?: boolean
+          last_change_notice_at?: string | null
+          last_change_notice_summary?: string | null
+          name: string
+          security_review_summary?: string | null
+          security_reviewed_at?: string | null
+          service_availability_target?: string | null
+          updated_at?: string
+          vendor_type: string
+        }
+        Update: {
+          change_notification_channel?: string | null
+          contractual_controls?: string | null
+          created_at?: string
+          data_processing_region?: string | null
+          data_processing_summary?: string | null
+          id?: string
+          is_active?: boolean
+          last_change_notice_at?: string | null
+          last_change_notice_summary?: string | null
+          name?: string
+          security_review_summary?: string | null
+          security_reviewed_at?: string | null
+          service_availability_target?: string | null
+          updated_at?: string
+          vendor_type?: string
+        }
+        Relationships: []
       }
       alert_deliveries: {
         Row: {
@@ -715,40 +2122,106 @@ export type Database = {
           },
         ]
       }
+      api_idempotency_records: {
+        Row: {
+          api_key_id: string
+          created_at: string
+          endpoint: string
+          expires_at: string
+          id: string
+          idempotency_key: string
+          organisation_id: string
+          request_fingerprint: string
+          response_body: Json
+          response_status: number
+        }
+        Insert: {
+          api_key_id: string
+          created_at?: string
+          endpoint: string
+          expires_at?: string
+          id?: string
+          idempotency_key: string
+          organisation_id: string
+          request_fingerprint: string
+          response_body: Json
+          response_status: number
+        }
+        Update: {
+          api_key_id?: string
+          created_at?: string
+          endpoint?: string
+          expires_at?: string
+          id?: string
+          idempotency_key?: string
+          organisation_id?: string
+          request_fingerprint?: string
+          response_body?: Json
+          response_status?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_idempotency_records_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_idempotency_records_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_keys: {
         Row: {
           created_at: string
           created_by: string | null
+          environment: Database["public"]["Enums"]["api_environment"]
+          expires_at: string | null
           id: string
           key_hash: string
           key_prefix: string
           last_used_at: string | null
           name: string
           organisation_id: string
+          partner_integration_id: string | null
+          rate_limit_per_minute: number
           revoked_at: string | null
           scopes: string[]
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          expires_at?: string | null
           id?: string
           key_hash: string
           key_prefix: string
           last_used_at?: string | null
           name: string
           organisation_id: string
+          partner_integration_id?: string | null
+          rate_limit_per_minute?: number
           revoked_at?: string | null
           scopes?: string[]
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          expires_at?: string | null
           id?: string
           key_hash?: string
           key_prefix?: string
           last_used_at?: string | null
           name?: string
           organisation_id?: string
+          partner_integration_id?: string | null
+          rate_limit_per_minute?: number
           revoked_at?: string | null
           scopes?: string[]
         }
@@ -762,6 +2235,88 @@ export type Database = {
           },
           {
             foreignKeyName: "api_keys_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_partner_integration_id_fkey"
+            columns: ["partner_integration_id"]
+            isOneToOne: false
+            referencedRelation: "partner_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_requests: {
+        Row: {
+          api_key_id: string | null
+          api_version: string
+          called_at: string
+          client_ip: string | null
+          duration_ms: number
+          endpoint: string
+          environment: Database["public"]["Enums"]["api_environment"]
+          error_code: string | null
+          id: string
+          idempotency_key: string | null
+          idempotent_replay: boolean
+          key_prefix: string | null
+          method: string
+          organisation_id: string | null
+          outcome: Database["public"]["Enums"]["api_request_outcome"]
+          request_id: string
+          status_code: number
+        }
+        Insert: {
+          api_key_id?: string | null
+          api_version: string
+          called_at?: string
+          client_ip?: string | null
+          duration_ms: number
+          endpoint: string
+          environment?: Database["public"]["Enums"]["api_environment"]
+          error_code?: string | null
+          id?: string
+          idempotency_key?: string | null
+          idempotent_replay?: boolean
+          key_prefix?: string | null
+          method: string
+          organisation_id?: string | null
+          outcome: Database["public"]["Enums"]["api_request_outcome"]
+          request_id: string
+          status_code: number
+        }
+        Update: {
+          api_key_id?: string | null
+          api_version?: string
+          called_at?: string
+          client_ip?: string | null
+          duration_ms?: number
+          endpoint?: string
+          environment?: Database["public"]["Enums"]["api_environment"]
+          error_code?: string | null
+          id?: string
+          idempotency_key?: string | null
+          idempotent_replay?: boolean
+          key_prefix?: string | null
+          method?: string
+          organisation_id?: string | null
+          outcome?: Database["public"]["Enums"]["api_request_outcome"]
+          request_id?: string
+          status_code?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_requests_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_requests_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -1565,6 +3120,73 @@ export type Database = {
             columns: ["responded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_message_draft_replies: {
+        Row: {
+          draft_text: string | null
+          error_message: string | null
+          generated_at: string
+          id: string
+          input_snapshot: Json
+          model_id: string
+          needs_clinical_review: boolean
+          organisation_id: string
+          patient_id: string
+          review_reason: string | null
+          status: Database["public"]["Enums"]["care_message_draft_reply_status"]
+          thread_id: string
+        }
+        Insert: {
+          draft_text?: string | null
+          error_message?: string | null
+          generated_at?: string
+          id?: string
+          input_snapshot: Json
+          model_id: string
+          needs_clinical_review?: boolean
+          organisation_id: string
+          patient_id: string
+          review_reason?: string | null
+          status: Database["public"]["Enums"]["care_message_draft_reply_status"]
+          thread_id: string
+        }
+        Update: {
+          draft_text?: string | null
+          error_message?: string | null
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          model_id?: string
+          needs_clinical_review?: boolean
+          organisation_id?: string
+          patient_id?: string
+          review_reason?: string | null
+          status?: Database["public"]["Enums"]["care_message_draft_reply_status"]
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_message_draft_replies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_message_draft_replies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_message_draft_replies_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: true
+            referencedRelation: "care_message_threads"
             referencedColumns: ["id"]
           },
         ]
@@ -3529,6 +5151,61 @@ export type Database = {
           },
         ]
       }
+      clinical_governance_domain_owners: {
+        Row: {
+          accountable_staff: string | null
+          assigned_by: string | null
+          created_at: string
+          domain: Database["public"]["Enums"]["clinical_governance_domain"]
+          id: string
+          notes: string | null
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          accountable_staff?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          domain: Database["public"]["Enums"]["clinical_governance_domain"]
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          accountable_staff?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          domain?: Database["public"]["Enums"]["clinical_governance_domain"]
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_governance_domain_owners_accountable_staff_fkey"
+            columns: ["accountable_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_governance_domain_owners_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_governance_domain_owners_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_incident_reports: {
         Row: {
           category: string
@@ -3675,6 +5352,488 @@ export type Database = {
           },
         ]
       }
+      clinical_rule_action_records: {
+        Row: {
+          action_payload: Json
+          action_type: Database["public"]["Enums"]["clinical_rule_action_type"]
+          clinician_override: boolean
+          created_at: string
+          execution_id: string
+          failure_detail: string | null
+          id: string
+          organisation_id: string
+          overridden_at: string | null
+          overridden_by: string | null
+          override_reason: string | null
+          patient_id: string | null
+          produced_id: string | null
+          produced_table: string | null
+          requires_clinician_oversight: boolean
+          rule_id: string
+          rule_key: string
+          status: Database["public"]["Enums"]["clinical_rule_action_status"]
+        }
+        Insert: {
+          action_payload?: Json
+          action_type: Database["public"]["Enums"]["clinical_rule_action_type"]
+          clinician_override?: boolean
+          created_at?: string
+          execution_id: string
+          failure_detail?: string | null
+          id?: string
+          organisation_id: string
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_reason?: string | null
+          patient_id?: string | null
+          produced_id?: string | null
+          produced_table?: string | null
+          requires_clinician_oversight?: boolean
+          rule_id: string
+          rule_key: string
+          status: Database["public"]["Enums"]["clinical_rule_action_status"]
+        }
+        Update: {
+          action_payload?: Json
+          action_type?: Database["public"]["Enums"]["clinical_rule_action_type"]
+          clinician_override?: boolean
+          created_at?: string
+          execution_id?: string
+          failure_detail?: string | null
+          id?: string
+          organisation_id?: string
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_reason?: string | null
+          patient_id?: string | null
+          produced_id?: string | null
+          produced_table?: string | null
+          requires_clinician_oversight?: boolean
+          rule_id?: string
+          rule_key?: string
+          status?: Database["public"]["Enums"]["clinical_rule_action_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rule_action_records_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rule_executions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_action_records_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_action_records_overridden_by_fkey"
+            columns: ["overridden_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_action_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_action_records_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_rule_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          dedup_key: string | null
+          error_detail: string | null
+          event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          id: string
+          occurred_at: string
+          organisation_id: string
+          patient_id: string | null
+          payload: Json
+          processed_at: string | null
+          source: string
+          status: Database["public"]["Enums"]["clinical_rule_event_status"]
+          subject_id: string | null
+          subject_table: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          dedup_key?: string | null
+          error_detail?: string | null
+          event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          id?: string
+          occurred_at?: string
+          organisation_id: string
+          patient_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+          source: string
+          status?: Database["public"]["Enums"]["clinical_rule_event_status"]
+          subject_id?: string | null
+          subject_table?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          dedup_key?: string | null
+          error_detail?: string | null
+          event_type?: Database["public"]["Enums"]["clinical_rule_event_type"]
+          id?: string
+          occurred_at?: string
+          organisation_id?: string
+          patient_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+          source?: string
+          status?: Database["public"]["Enums"]["clinical_rule_event_status"]
+          subject_id?: string | null
+          subject_table?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rule_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_rule_executions: {
+        Row: {
+          error_detail: string | null
+          evaluated_at: string
+          evaluation_trace: Json
+          event_id: string
+          explanation: string
+          id: string
+          mode: Database["public"]["Enums"]["clinical_rule_execution_mode"]
+          organisation_id: string
+          outcome: Database["public"]["Enums"]["clinical_rule_execution_outcome"]
+          patient_id: string | null
+          rule_id: string
+          rule_key: string
+          rule_version: number
+          superseded_by_rule_id: string | null
+          suppressed_by: string | null
+        }
+        Insert: {
+          error_detail?: string | null
+          evaluated_at?: string
+          evaluation_trace?: Json
+          event_id: string
+          explanation: string
+          id?: string
+          mode: Database["public"]["Enums"]["clinical_rule_execution_mode"]
+          organisation_id: string
+          outcome: Database["public"]["Enums"]["clinical_rule_execution_outcome"]
+          patient_id?: string | null
+          rule_id: string
+          rule_key: string
+          rule_version: number
+          superseded_by_rule_id?: string | null
+          suppressed_by?: string | null
+        }
+        Update: {
+          error_detail?: string | null
+          evaluated_at?: string
+          evaluation_trace?: Json
+          event_id?: string
+          explanation?: string
+          id?: string
+          mode?: Database["public"]["Enums"]["clinical_rule_execution_mode"]
+          organisation_id?: string
+          outcome?: Database["public"]["Enums"]["clinical_rule_execution_outcome"]
+          patient_id?: string | null
+          rule_id?: string
+          rule_key?: string
+          rule_version?: number
+          superseded_by_rule_id?: string | null
+          suppressed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rule_executions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rule_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_executions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_executions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_executions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_executions_superseded_by_rule_id_fkey"
+            columns: ["superseded_by_rule_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_rule_suppressions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          episode_key: string | null
+          hit_count: number
+          id: string
+          mechanism: string
+          organisation_id: string
+          patient_id: string | null
+          reason: string
+          rule_key: string
+          suppressed_until: string
+          suppression_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          episode_key?: string | null
+          hit_count?: number
+          id?: string
+          mechanism: string
+          organisation_id: string
+          patient_id?: string | null
+          reason: string
+          rule_key: string
+          suppressed_until: string
+          suppression_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          episode_key?: string | null
+          hit_count?: number
+          id?: string
+          mechanism?: string
+          organisation_id?: string
+          patient_id?: string | null
+          reason?: string
+          rule_key?: string
+          suppressed_until?: string
+          suppression_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rule_suppressions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_suppressions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rule_suppressions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_rules: {
+        Row: {
+          actions: Json
+          activated_at: string | null
+          approved_at: string | null
+          approved_by: string | null
+          category: Database["public"]["Enums"]["clinical_rule_category"]
+          conditions: Json
+          created_at: string
+          description: string
+          domain: Database["public"]["Enums"]["clinical_rule_domain"]
+          effective_from: string
+          effective_to: string | null
+          escalation: Json
+          event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          explanation_template: string
+          id: string
+          name: string
+          notes: string | null
+          organisation_id: string | null
+          owner_clinical_staff_id: string | null
+          patient_id: string | null
+          population: Json
+          priority: number
+          protocol_version_id: string | null
+          retired_at: string | null
+          retired_reason: string | null
+          rollback_reason: string | null
+          rolled_back_at: string | null
+          rule_key: string
+          specificity: number
+          status: Database["public"]["Enums"]["clinical_rule_status"]
+          supersedes_id: string | null
+          suppression: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          actions?: Json
+          activated_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          category: Database["public"]["Enums"]["clinical_rule_category"]
+          conditions?: Json
+          created_at?: string
+          description: string
+          domain: Database["public"]["Enums"]["clinical_rule_domain"]
+          effective_from?: string
+          effective_to?: string | null
+          escalation?: Json
+          event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          explanation_template: string
+          id?: string
+          name: string
+          notes?: string | null
+          organisation_id?: string | null
+          owner_clinical_staff_id?: string | null
+          patient_id?: string | null
+          population?: Json
+          priority?: number
+          protocol_version_id?: string | null
+          retired_at?: string | null
+          retired_reason?: string | null
+          rollback_reason?: string | null
+          rolled_back_at?: string | null
+          rule_key: string
+          specificity?: number
+          status?: Database["public"]["Enums"]["clinical_rule_status"]
+          supersedes_id?: string | null
+          suppression?: Json
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          actions?: Json
+          activated_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: Database["public"]["Enums"]["clinical_rule_category"]
+          conditions?: Json
+          created_at?: string
+          description?: string
+          domain?: Database["public"]["Enums"]["clinical_rule_domain"]
+          effective_from?: string
+          effective_to?: string | null
+          escalation?: Json
+          event_type?: Database["public"]["Enums"]["clinical_rule_event_type"]
+          explanation_template?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          organisation_id?: string | null
+          owner_clinical_staff_id?: string | null
+          patient_id?: string | null
+          population?: Json
+          priority?: number
+          protocol_version_id?: string | null
+          retired_at?: string | null
+          retired_reason?: string | null
+          rollback_reason?: string | null
+          rolled_back_at?: string | null
+          rule_key?: string
+          specificity?: number
+          status?: Database["public"]["Enums"]["clinical_rule_status"]
+          supersedes_id?: string | null
+          suppression?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_rules_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_owner_clinical_staff_id_fkey"
+            columns: ["owner_clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_protocol_version_id_fkey"
+            columns: ["protocol_version_id"]
+            isOneToOne: false
+            referencedRelation: "protocol_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_rules_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_staff: {
         Row: {
           active: boolean
@@ -3695,6 +5854,7 @@ export type Database = {
           is_clinical_director: boolean
           license_expires_at: string | null
           license_verified_at: string | null
+          offers_therapy_sessions: boolean
           organisation_id: string
           photo_url: string | null
           profile_id: string | null
@@ -3723,6 +5883,7 @@ export type Database = {
           is_clinical_director?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
+          offers_therapy_sessions?: boolean
           organisation_id: string
           photo_url?: string | null
           profile_id?: string | null
@@ -3751,6 +5912,7 @@ export type Database = {
           is_clinical_director?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
+          offers_therapy_sessions?: boolean
           organisation_id?: string
           photo_url?: string | null
           profile_id?: string | null
@@ -4692,6 +6854,8 @@ export type Database = {
       }
       consultation_feedback: {
         Row: {
+          appointment_id: string | null
+          clinician_id: string | null
           comment: string | null
           communication_rating: number | null
           created_at: string
@@ -4699,11 +6863,14 @@ export type Database = {
           organisation_id: string
           overall_rating: number
           patient_id: string
+          professionalism_rating: number | null
           punctuality_rating: number | null
           technical_experience_rating: number | null
-          video_consultation_id: string
+          video_consultation_id: string | null
         }
         Insert: {
+          appointment_id?: string | null
+          clinician_id?: string | null
           comment?: string | null
           communication_rating?: number | null
           created_at?: string
@@ -4711,11 +6878,14 @@ export type Database = {
           organisation_id: string
           overall_rating: number
           patient_id: string
+          professionalism_rating?: number | null
           punctuality_rating?: number | null
           technical_experience_rating?: number | null
-          video_consultation_id: string
+          video_consultation_id?: string | null
         }
         Update: {
+          appointment_id?: string | null
+          clinician_id?: string | null
           comment?: string | null
           communication_rating?: number | null
           created_at?: string
@@ -4723,11 +6893,26 @@ export type Database = {
           organisation_id?: string
           overall_rating?: number
           patient_id?: string
+          professionalism_rating?: number | null
           punctuality_rating?: number | null
           technical_experience_rating?: number | null
-          video_consultation_id?: string
+          video_consultation_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "consultation_feedback_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_feedback_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "consultation_feedback_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -4873,6 +7058,16 @@ export type Database = {
       }
       corporate_contracts: {
         Row: {
+          billing_contact_email: string | null
+          billing_fixed_amount_kobo: number | null
+          billing_interval:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          billing_model:
+            | Database["public"]["Enums"]["employer_billing_model"]
+            | null
+          billing_rate_kobo: number | null
+          contract_reference: string | null
           created_at: string
           effective_from: string | null
           effective_to: string | null
@@ -4881,10 +7076,22 @@ export type Database = {
           name: string
           organisation_id: string
           per_employee_per_year_kobo: number
+          signed_at: string | null
+          signed_by: string | null
           status: Database["public"]["Enums"]["contract_status"]
           updated_at: string
         }
         Insert: {
+          billing_contact_email?: string | null
+          billing_fixed_amount_kobo?: number | null
+          billing_interval?:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          billing_model?:
+            | Database["public"]["Enums"]["employer_billing_model"]
+            | null
+          billing_rate_kobo?: number | null
+          contract_reference?: string | null
           created_at?: string
           effective_from?: string | null
           effective_to?: string | null
@@ -4893,10 +7100,22 @@ export type Database = {
           name: string
           organisation_id: string
           per_employee_per_year_kobo?: number
+          signed_at?: string | null
+          signed_by?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           updated_at?: string
         }
         Update: {
+          billing_contact_email?: string | null
+          billing_fixed_amount_kobo?: number | null
+          billing_interval?:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          billing_model?:
+            | Database["public"]["Enums"]["employer_billing_model"]
+            | null
+          billing_rate_kobo?: number | null
+          contract_reference?: string | null
           created_at?: string
           effective_from?: string | null
           effective_to?: string | null
@@ -4905,6 +7124,8 @@ export type Database = {
           name?: string
           organisation_id?: string
           per_employee_per_year_kobo?: number
+          signed_at?: string | null
+          signed_by?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           updated_at?: string
         }
@@ -4914,6 +7135,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corporate_contracts_signed_by_fkey"
+            columns: ["signed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5108,6 +7336,135 @@ export type Database = {
           {
             foreignKeyName: "data_breach_incidents_reported_by_fkey"
             columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_quality_findings: {
+        Row: {
+          category: Database["public"]["Enums"]["data_quality_category"]
+          check_code: string
+          created_at: string
+          description: string
+          detail: Json
+          detected_at: string
+          entity_id: string
+          entity_table: string
+          id: string
+          organisation_id: string | null
+          patient_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: Database["public"]["Enums"]["data_quality_severity"]
+          status: Database["public"]["Enums"]["data_quality_finding_status"]
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["data_quality_category"]
+          check_code: string
+          created_at?: string
+          description: string
+          detail?: Json
+          detected_at?: string
+          entity_id: string
+          entity_table: string
+          id?: string
+          organisation_id?: string | null
+          patient_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["data_quality_severity"]
+          status?: Database["public"]["Enums"]["data_quality_finding_status"]
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["data_quality_category"]
+          check_code?: string
+          created_at?: string
+          description?: string
+          detail?: Json
+          detected_at?: string
+          entity_id?: string
+          entity_table?: string
+          id?: string
+          organisation_id?: string | null
+          patient_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: Database["public"]["Enums"]["data_quality_severity"]
+          status?: Database["public"]["Enums"]["data_quality_finding_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_quality_findings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_quality_findings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_quality_findings_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_retention_policies: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          governing_tables: string[]
+          id: string
+          is_active: boolean
+          legal_basis: string
+          retention_period_months: number | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          governing_tables?: string[]
+          id?: string
+          is_active?: boolean
+          legal_basis: string
+          retention_period_months?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          governing_tables?: string[]
+          id?: string
+          is_active?: boolean
+          legal_basis?: string
+          retention_period_months?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_retention_policies_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -6171,39 +8528,778 @@ export type Database = {
           },
         ]
       }
+      employer_accounts: {
+        Row: {
+          created_at: string
+          declared_employee_count: number | null
+          id: string
+          industry: string | null
+          join_code: string | null
+          join_code_rotated_at: string | null
+          legal_name: string | null
+          onboarding_step: Database["public"]["Enums"]["employer_onboarding_step"]
+          organisation_id: string
+          primary_contact_email: string | null
+          primary_contact_name: string | null
+          primary_contact_phone: string | null
+          rc_number: string | null
+          tin: string | null
+          updated_at: string
+          verification_notes: string | null
+          verification_status: Database["public"]["Enums"]["employer_verification_status"]
+          verification_submitted_at: string | null
+          verified_at: string | null
+          verified_by: string | null
+          went_live_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          declared_employee_count?: number | null
+          id?: string
+          industry?: string | null
+          join_code?: string | null
+          join_code_rotated_at?: string | null
+          legal_name?: string | null
+          onboarding_step?: Database["public"]["Enums"]["employer_onboarding_step"]
+          organisation_id: string
+          primary_contact_email?: string | null
+          primary_contact_name?: string | null
+          primary_contact_phone?: string | null
+          rc_number?: string | null
+          tin?: string | null
+          updated_at?: string
+          verification_notes?: string | null
+          verification_status?: Database["public"]["Enums"]["employer_verification_status"]
+          verification_submitted_at?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          went_live_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          declared_employee_count?: number | null
+          id?: string
+          industry?: string | null
+          join_code?: string | null
+          join_code_rotated_at?: string | null
+          legal_name?: string | null
+          onboarding_step?: Database["public"]["Enums"]["employer_onboarding_step"]
+          organisation_id?: string
+          primary_contact_email?: string | null
+          primary_contact_name?: string | null
+          primary_contact_phone?: string | null
+          rc_number?: string | null
+          tin?: string | null
+          updated_at?: string
+          verification_notes?: string | null
+          verification_status?: Database["public"]["Enums"]["employer_verification_status"]
+          verification_submitted_at?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          went_live_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_accounts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_accounts_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_allowance_usage: {
+        Row: {
+          allowance_type: Database["public"]["Enums"]["employer_allowance_type"]
+          id: string
+          package_id: string
+          patient_id: string
+          period_end: string
+          period_start: string
+          updated_at: string
+          used_count: number
+        }
+        Insert: {
+          allowance_type: Database["public"]["Enums"]["employer_allowance_type"]
+          id?: string
+          package_id: string
+          patient_id: string
+          period_end: string
+          period_start: string
+          updated_at?: string
+          used_count?: number
+        }
+        Update: {
+          allowance_type?: Database["public"]["Enums"]["employer_allowance_type"]
+          id?: string
+          package_id?: string
+          patient_id?: string
+          period_end?: string
+          period_start?: string
+          updated_at?: string
+          used_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_allowance_usage_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_allowance_usage_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_announcements: {
+        Row: {
+          body: string
+          channels: Database["public"]["Enums"]["notification_channel"][]
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          id: string
+          location_id: string | null
+          organisation_id: string
+          recipient_count: number
+          sent_at: string | null
+          status: Database["public"]["Enums"]["broadcast_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          channels?: Database["public"]["Enums"]["notification_channel"][]
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          location_id?: string | null
+          organisation_id: string
+          recipient_count?: number
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["broadcast_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          channels?: Database["public"]["Enums"]["notification_channel"][]
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          id?: string
+          location_id?: string | null
+          organisation_id?: string
+          recipient_count?: number
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["broadcast_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_announcements_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "employer_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_announcements_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "employer_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_announcements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_benefit_allowances: {
+        Row: {
+          allowance_type: Database["public"]["Enums"]["employer_allowance_type"]
+          annual_limit: number
+          created_at: string
+          id: string
+          package_id: string
+        }
+        Insert: {
+          allowance_type: Database["public"]["Enums"]["employer_allowance_type"]
+          annual_limit: number
+          created_at?: string
+          id?: string
+          package_id: string
+        }
+        Update: {
+          allowance_type?: Database["public"]["Enums"]["employer_allowance_type"]
+          annual_limit?: number
+          created_at?: string
+          id?: string
+          package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_benefit_allowances_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_benefit_package_add_ons: {
+        Row: {
+          add_on_id: string
+          package_id: string
+        }
+        Insert: {
+          add_on_id: string
+          package_id: string
+        }
+        Update: {
+          add_on_id?: string
+          package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_benefit_package_add_ons_add_on_id_fkey"
+            columns: ["add_on_id"]
+            isOneToOne: false
+            referencedRelation: "add_ons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_benefit_package_add_ons_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_benefit_packages: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          lab_discount_percent: number
+          name: string
+          organisation_id: string
+          subscription_plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          lab_discount_percent?: number
+          name: string
+          organisation_id: string
+          subscription_plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          lab_discount_percent?: number
+          name?: string
+          organisation_id?: string
+          subscription_plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_benefit_packages_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_benefit_packages_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_campaign_participants: {
+        Row: {
+          campaign_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          joined_at: string
+          patient_id: string
+        }
+        Insert: {
+          campaign_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          joined_at?: string
+          patient_id: string
+        }
+        Update: {
+          campaign_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          joined_at?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_campaign_participants_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "employer_campaign_summary"
+            referencedColumns: ["campaign_id"]
+          },
+          {
+            foreignKeyName: "employer_campaign_participants_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "employer_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_campaign_participants_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_campaigns: {
+        Row: {
+          campaign_type: Database["public"]["Enums"]["employer_campaign_type"]
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ends_on: string | null
+          id: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status: Database["public"]["Enums"]["employer_campaign_status"]
+          updated_at: string
+        }
+        Insert: {
+          campaign_type: Database["public"]["Enums"]["employer_campaign_type"]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_on?: string | null
+          id?: string
+          name: string
+          organisation_id: string
+          starts_on: string
+          status?: Database["public"]["Enums"]["employer_campaign_status"]
+          updated_at?: string
+        }
+        Update: {
+          campaign_type?: Database["public"]["Enums"]["employer_campaign_type"]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_on?: string | null
+          id?: string
+          name?: string
+          organisation_id?: string
+          starts_on?: string
+          status?: Database["public"]["Enums"]["employer_campaign_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_campaigns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_departments: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          location_id: string | null
+          name: string
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name: string
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name?: string
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_departments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "employer_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_departments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_profile_id: string | null
+          channel: Database["public"]["Enums"]["employer_invite_channel"]
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          organisation_id: string
+          revoked_at: string | null
+          roster_member_id: string
+          sent_to: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_profile_id?: string | null
+          channel: Database["public"]["Enums"]["employer_invite_channel"]
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          organisation_id: string
+          revoked_at?: string | null
+          roster_member_id: string
+          sent_to: string
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_profile_id?: string | null
+          channel?: Database["public"]["Enums"]["employer_invite_channel"]
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          organisation_id?: string
+          revoked_at?: string | null
+          roster_member_id?: string
+          sent_to?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_invitations_accepted_profile_id_fkey"
+            columns: ["accepted_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invitations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invitations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invitations_roster_member_id_fkey"
+            columns: ["roster_member_id"]
+            isOneToOne: false
+            referencedRelation: "employer_roster_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_invoices: {
+        Row: {
+          amount_kobo: number
+          billing_model: Database["public"]["Enums"]["employer_billing_model"]
+          contract_id: string | null
+          created_at: string
+          created_by: string | null
+          due_at: string | null
+          fixed_amount_kobo: number | null
+          headcount_basis: number | null
+          id: string
+          issued_at: string | null
+          notes: string | null
+          organisation_id: string
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          rate_kobo: number | null
+          status: Database["public"]["Enums"]["employer_invoice_status"]
+          updated_at: string
+          void_reason: string | null
+        }
+        Insert: {
+          amount_kobo: number
+          billing_model: Database["public"]["Enums"]["employer_billing_model"]
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_at?: string | null
+          fixed_amount_kobo?: number | null
+          headcount_basis?: number | null
+          id?: string
+          issued_at?: string | null
+          notes?: string | null
+          organisation_id: string
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          rate_kobo?: number | null
+          status?: Database["public"]["Enums"]["employer_invoice_status"]
+          updated_at?: string
+          void_reason?: string | null
+        }
+        Update: {
+          amount_kobo?: number
+          billing_model?: Database["public"]["Enums"]["employer_billing_model"]
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_at?: string | null
+          fixed_amount_kobo?: number | null
+          headcount_basis?: number | null
+          id?: string
+          issued_at?: string | null
+          notes?: string | null
+          organisation_id?: string
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          rate_kobo?: number | null
+          status?: Database["public"]["Enums"]["employer_invoice_status"]
+          updated_at?: string
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_invoices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "corporate_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_invoices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employer_locations: {
+        Row: {
+          city: string | null
+          country: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          organisation_id: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          organisation_id: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          organisation_id?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_locations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employer_roster_members: {
         Row: {
           added_by: string | null
+          benefit_package_id: string | null
           claimed_at: string | null
           claimed_profile_id: string | null
           created_at: string
+          departed_at: string | null
+          department_id: string | null
+          departure_reason: string | null
+          eligible_from: string | null
+          eligible_until: string | null
+          email: string | null
+          employee_reference: string | null
+          employment_status:
+            | Database["public"]["Enums"]["employer_employment_status"]
+            | null
           full_name: string | null
+          granted_subscription_id: string | null
           id: string
+          invite_channel:
+            | Database["public"]["Enums"]["employer_invite_channel"]
+            | null
+          invited_at: string | null
+          job_category: string | null
+          location_id: string | null
           organisation_id: string
-          phone: string
+          phone: string | null
           status: Database["public"]["Enums"]["employer_roster_status"]
+          updated_at: string
         }
         Insert: {
           added_by?: string | null
+          benefit_package_id?: string | null
           claimed_at?: string | null
           claimed_profile_id?: string | null
           created_at?: string
+          departed_at?: string | null
+          department_id?: string | null
+          departure_reason?: string | null
+          eligible_from?: string | null
+          eligible_until?: string | null
+          email?: string | null
+          employee_reference?: string | null
+          employment_status?:
+            | Database["public"]["Enums"]["employer_employment_status"]
+            | null
           full_name?: string | null
+          granted_subscription_id?: string | null
           id?: string
+          invite_channel?:
+            | Database["public"]["Enums"]["employer_invite_channel"]
+            | null
+          invited_at?: string | null
+          job_category?: string | null
+          location_id?: string | null
           organisation_id: string
-          phone: string
+          phone?: string | null
           status?: Database["public"]["Enums"]["employer_roster_status"]
+          updated_at?: string
         }
         Update: {
           added_by?: string | null
+          benefit_package_id?: string | null
           claimed_at?: string | null
           claimed_profile_id?: string | null
           created_at?: string
+          departed_at?: string | null
+          department_id?: string | null
+          departure_reason?: string | null
+          eligible_from?: string | null
+          eligible_until?: string | null
+          email?: string | null
+          employee_reference?: string | null
+          employment_status?:
+            | Database["public"]["Enums"]["employer_employment_status"]
+            | null
           full_name?: string | null
+          granted_subscription_id?: string | null
           id?: string
+          invite_channel?:
+            | Database["public"]["Enums"]["employer_invite_channel"]
+            | null
+          invited_at?: string | null
+          job_category?: string | null
+          location_id?: string | null
           organisation_id?: string
-          phone?: string
+          phone?: string | null
           status?: Database["public"]["Enums"]["employer_roster_status"]
+          updated_at?: string
         }
         Relationships: [
           {
@@ -6214,10 +9310,38 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "employer_roster_members_benefit_package_id_fkey"
+            columns: ["benefit_package_id"]
+            isOneToOne: false
+            referencedRelation: "employer_benefit_packages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "employer_roster_members_claimed_profile_id_fkey"
             columns: ["claimed_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_roster_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "employer_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_roster_members_granted_subscription_id_fkey"
+            columns: ["granted_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_roster_members_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "employer_locations"
             referencedColumns: ["id"]
           },
           {
@@ -6485,6 +9609,57 @@ export type Database = {
         }
         Relationships: []
       }
+      external_identifier_map: {
+        Row: {
+          created_at: string
+          entity_type: Database["public"]["Enums"]["external_entity_type"]
+          external_id: string
+          external_system: string | null
+          id: string
+          organisation_id: string
+          partner_integration_id: string
+          tarragon_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_type: Database["public"]["Enums"]["external_entity_type"]
+          external_id: string
+          external_system?: string | null
+          id?: string
+          organisation_id: string
+          partner_integration_id: string
+          tarragon_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_type?: Database["public"]["Enums"]["external_entity_type"]
+          external_id?: string
+          external_system?: string | null
+          id?: string
+          organisation_id?: string
+          partner_integration_id?: string
+          tarragon_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_identifier_map_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_identifier_map_partner_integration_id_fkey"
+            columns: ["partner_integration_id"]
+            isOneToOne: false
+            referencedRelation: "partner_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facilities: {
         Row: {
           address: string | null
@@ -6500,6 +9675,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           name: string
+          organisation_id: string | null
           pharmacy_partner_id: string | null
           state: string
           type: Database["public"]["Enums"]["facility_type"]
@@ -6519,6 +9695,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           name: string
+          organisation_id?: string | null
           pharmacy_partner_id?: string | null
           state: string
           type: Database["public"]["Enums"]["facility_type"]
@@ -6538,6 +9715,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           name?: string
+          organisation_id?: string | null
           pharmacy_partner_id?: string | null
           state?: string
           type?: Database["public"]["Enums"]["facility_type"]
@@ -6549,6 +9727,13 @@ export type Database = {
             columns: ["lab_provider_id"]
             isOneToOne: false
             referencedRelation: "lab_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facilities_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
           {
@@ -6594,6 +9779,117 @@ export type Database = {
             columns: ["facility_id"]
             isOneToOne: false
             referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      falls_risk_assessments: {
+        Row: {
+          ageing_assessment_id: string | null
+          assessed_at: string | null
+          assessed_by: string | null
+          balance_concern: boolean
+          created_at: string
+          environmental_hazards: boolean
+          follow_up_completed_at: string | null
+          follow_up_due_at: string | null
+          high_risk_medications: boolean
+          id: string
+          identified_at: string
+          intervention_notes: string | null
+          intervention_started_at: string | null
+          logged_by_profile_id: string | null
+          mobility_impairment: boolean
+          organisation_id: string
+          pathway_stage: Database["public"]["Enums"]["falls_risk_pathway_stage"]
+          patient_id: string
+          previous_falls_12mo: boolean
+          resolved_at: string | null
+          risk_level: Database["public"]["Enums"]["falls_risk_level"] | null
+          updated_at: string
+        }
+        Insert: {
+          ageing_assessment_id?: string | null
+          assessed_at?: string | null
+          assessed_by?: string | null
+          balance_concern?: boolean
+          created_at?: string
+          environmental_hazards?: boolean
+          follow_up_completed_at?: string | null
+          follow_up_due_at?: string | null
+          high_risk_medications?: boolean
+          id?: string
+          identified_at?: string
+          intervention_notes?: string | null
+          intervention_started_at?: string | null
+          logged_by_profile_id?: string | null
+          mobility_impairment?: boolean
+          organisation_id: string
+          pathway_stage?: Database["public"]["Enums"]["falls_risk_pathway_stage"]
+          patient_id: string
+          previous_falls_12mo?: boolean
+          resolved_at?: string | null
+          risk_level?: Database["public"]["Enums"]["falls_risk_level"] | null
+          updated_at?: string
+        }
+        Update: {
+          ageing_assessment_id?: string | null
+          assessed_at?: string | null
+          assessed_by?: string | null
+          balance_concern?: boolean
+          created_at?: string
+          environmental_hazards?: boolean
+          follow_up_completed_at?: string | null
+          follow_up_due_at?: string | null
+          high_risk_medications?: boolean
+          id?: string
+          identified_at?: string
+          intervention_notes?: string | null
+          intervention_started_at?: string | null
+          logged_by_profile_id?: string | null
+          mobility_impairment?: boolean
+          organisation_id?: string
+          pathway_stage?: Database["public"]["Enums"]["falls_risk_pathway_stage"]
+          patient_id?: string
+          previous_falls_12mo?: boolean
+          resolved_at?: string | null
+          risk_level?: Database["public"]["Enums"]["falls_risk_level"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "falls_risk_assessments_ageing_assessment_id_fkey"
+            columns: ["ageing_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "ageing_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "falls_risk_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "falls_risk_assessments_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "falls_risk_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "falls_risk_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -6662,6 +9958,98 @@ export type Database = {
           {
             foreignKeyName: "family_history_recorded_by_fkey"
             columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_flag_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effect: string
+          flag_key: string
+          id: string
+          kind: Database["public"]["Enums"]["feature_flag_rule_kind"]
+          note: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effect?: string
+          flag_key: string
+          id?: string
+          kind: Database["public"]["Enums"]["feature_flag_rule_kind"]
+          note?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effect?: string
+          flag_key?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["feature_flag_rule_kind"]
+          note?: string | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_flag_rules_flag_key_fkey"
+            columns: ["flag_key"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      feature_flags: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          key: string
+          label: string
+          rollout_percent: number
+          status: Database["public"]["Enums"]["feature_flag_status"]
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          key: string
+          label: string
+          rollout_percent?: number
+          status?: Database["public"]["Enums"]["feature_flag_status"]
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          key?: string
+          label?: string
+          rollout_percent?: number
+          status?: Database["public"]["Enums"]["feature_flag_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flags_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -8563,6 +11951,96 @@ export type Database = {
           },
         ]
       }
+      home_care_requests: {
+        Row: {
+          assigned_clinician_id: string | null
+          created_at: string
+          eligibility_checked_at: string | null
+          eligibility_checked_by: string | null
+          eligibility_notes: string | null
+          id: string
+          logged_by_profile_id: string | null
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["home_care_request_status"]
+          updated_at: string
+          visit_completed_at: string | null
+          visit_notes: string | null
+        }
+        Insert: {
+          assigned_clinician_id?: string | null
+          created_at?: string
+          eligibility_checked_at?: string | null
+          eligibility_checked_by?: string | null
+          eligibility_notes?: string | null
+          id?: string
+          logged_by_profile_id?: string | null
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["home_care_request_status"]
+          updated_at?: string
+          visit_completed_at?: string | null
+          visit_notes?: string | null
+        }
+        Update: {
+          assigned_clinician_id?: string | null
+          created_at?: string
+          eligibility_checked_at?: string | null
+          eligibility_checked_by?: string | null
+          eligibility_notes?: string | null
+          id?: string
+          logged_by_profile_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["home_care_request_status"]
+          updated_at?: string
+          visit_completed_at?: string | null
+          visit_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "home_care_requests_assigned_clinician_id_fkey"
+            columns: ["assigned_clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_requests_eligibility_checked_by_fkey"
+            columns: ["eligibility_checked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_requests_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       home_visit_providers: {
         Row: {
           address: string | null
@@ -8736,9 +12214,639 @@ export type Database = {
           },
         ]
       }
+      insurance_benefits: {
+        Row: {
+          annual_limit_kobo: number | null
+          copay_fixed_kobo: number
+          coverage_pct: number
+          created_at: string
+          id: string
+          insurer_id: string
+          notes: string | null
+          payer_plan_id: string | null
+          plan_name: string | null
+          preauth_threshold_kobo: number | null
+          requires_preauth: boolean
+          service_category: string
+          updated_at: string
+        }
+        Insert: {
+          annual_limit_kobo?: number | null
+          copay_fixed_kobo?: number
+          coverage_pct?: number
+          created_at?: string
+          id?: string
+          insurer_id: string
+          notes?: string | null
+          payer_plan_id?: string | null
+          plan_name?: string | null
+          preauth_threshold_kobo?: number | null
+          requires_preauth?: boolean
+          service_category: string
+          updated_at?: string
+        }
+        Update: {
+          annual_limit_kobo?: number | null
+          copay_fixed_kobo?: number
+          coverage_pct?: number
+          created_at?: string
+          id?: string
+          insurer_id?: string
+          notes?: string | null
+          payer_plan_id?: string | null
+          plan_name?: string | null
+          preauth_threshold_kobo?: number | null
+          requires_preauth?: boolean
+          service_category?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_benefits_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_benefits_payer_plan_id_fkey"
+            columns: ["payer_plan_id"]
+            isOneToOne: false
+            referencedRelation: "payer_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_claims: {
+        Row: {
+          adjudicated_at: string | null
+          adjudicated_by: string | null
+          billed_amount_kobo: number
+          claim_reference: string | null
+          created_at: string
+          denial_reason: string | null
+          id: string
+          insurer_covered_kobo: number | null
+          organisation_id: string
+          paid_at: string | null
+          patient_copay_kobo: number
+          policy_id: string
+          preauthorization_id: string | null
+          service_category: string
+          source_id: string
+          status: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          adjudicated_at?: string | null
+          adjudicated_by?: string | null
+          billed_amount_kobo: number
+          claim_reference?: string | null
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          insurer_covered_kobo?: number | null
+          organisation_id: string
+          paid_at?: string | null
+          patient_copay_kobo: number
+          policy_id: string
+          preauthorization_id?: string | null
+          service_category: string
+          source_id: string
+          status?: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          adjudicated_at?: string | null
+          adjudicated_by?: string | null
+          billed_amount_kobo?: number
+          claim_reference?: string | null
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          insurer_covered_kobo?: number | null
+          organisation_id?: string
+          paid_at?: string | null
+          patient_copay_kobo?: number
+          policy_id?: string
+          preauthorization_id?: string | null
+          service_category?: string
+          source_id?: string
+          status?: Database["public"]["Enums"]["insurance_claim_status"]
+          submitted_at?: string
+          submitted_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_claims_adjudicated_by_fkey"
+            columns: ["adjudicated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_preauthorization_id_fkey"
+            columns: ["preauthorization_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_preauthorizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_policies: {
+        Row: {
+          created_at: string
+          effective_from: string | null
+          effective_to: string | null
+          group_number: string | null
+          id: string
+          insurer_id: string
+          member_id: string
+          organisation_id: string
+          patient_id: string
+          payer_plan_id: string | null
+          plan_name: string | null
+          policy_holder_name: string | null
+          relationship: Database["public"]["Enums"]["insurance_relationship"]
+          status: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          group_number?: string | null
+          id?: string
+          insurer_id: string
+          member_id: string
+          organisation_id: string
+          patient_id: string
+          payer_plan_id?: string | null
+          plan_name?: string | null
+          policy_holder_name?: string | null
+          relationship?: Database["public"]["Enums"]["insurance_relationship"]
+          status?: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          group_number?: string | null
+          id?: string
+          insurer_id?: string
+          member_id?: string
+          organisation_id?: string
+          patient_id?: string
+          payer_plan_id?: string | null
+          plan_name?: string | null
+          policy_holder_name?: string | null
+          relationship?: Database["public"]["Enums"]["insurance_relationship"]
+          status?: Database["public"]["Enums"]["insurance_policy_status"]
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_policies_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_payer_plan_id_fkey"
+            columns: ["payer_plan_id"]
+            isOneToOne: false
+            referencedRelation: "payer_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_preauthorizations: {
+        Row: {
+          authorization_number: string | null
+          clinical_justification: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          denial_reason: string | null
+          estimated_amount_kobo: number
+          id: string
+          organisation_id: string
+          policy_id: string
+          requested_at: string
+          requested_by: string
+          service_category: string
+          source_id: string | null
+          status: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          authorization_number?: string | null
+          clinical_justification?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          denial_reason?: string | null
+          estimated_amount_kobo: number
+          id?: string
+          organisation_id: string
+          policy_id: string
+          requested_at?: string
+          requested_by: string
+          service_category: string
+          source_id?: string | null
+          status?: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          authorization_number?: string | null
+          clinical_justification?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          denial_reason?: string | null
+          estimated_amount_kobo?: number
+          id?: string
+          organisation_id?: string
+          policy_id?: string
+          requested_at?: string
+          requested_by?: string
+          service_category?: string
+          source_id?: string | null
+          status?: Database["public"]["Enums"]["insurance_preauth_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_preauthorizations_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_preauthorizations_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurers: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          claim_submission_method: string
+          code: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          member_id_format: string | null
+          min_cohort_size: number
+          name: string
+          notes: string | null
+          onboarding_status: Database["public"]["Enums"]["payer_onboarding_status"]
+          organisation_id: string | null
+          portal_url: string | null
+          settlement_terms_days: number | null
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          claim_submission_method?: string
+          code?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          member_id_format?: string | null
+          min_cohort_size?: number
+          name: string
+          notes?: string | null
+          onboarding_status?: Database["public"]["Enums"]["payer_onboarding_status"]
+          organisation_id?: string | null
+          portal_url?: string | null
+          settlement_terms_days?: number | null
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          claim_submission_method?: string
+          code?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          member_id_format?: string | null
+          min_cohort_size?: number
+          name?: string
+          notes?: string | null
+          onboarding_status?: Database["public"]["Enums"]["payer_onboarding_status"]
+          organisation_id?: string | null
+          portal_url?: string | null
+          settlement_terms_days?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurers_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_delivery_attempts: {
+        Row: {
+          attempt_no: number
+          attempted_at: string
+          duration_ms: number
+          error: string | null
+          id: string
+          ok: boolean
+          outbound_event_id: string
+          status_code: number | null
+        }
+        Insert: {
+          attempt_no: number
+          attempted_at?: string
+          duration_ms: number
+          error?: string | null
+          id?: string
+          ok: boolean
+          outbound_event_id: string
+          status_code?: number | null
+        }
+        Update: {
+          attempt_no?: number
+          attempted_at?: string
+          duration_ms?: number
+          error?: string | null
+          id?: string
+          ok?: boolean
+          outbound_event_id?: string
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_delivery_attempts_outbound_event_id_fkey"
+            columns: ["outbound_event_id"]
+            isOneToOne: false
+            referencedRelation: "integration_outbound_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_outbound_events: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          dedupe_key: string
+          delivered_at: string | null
+          environment: Database["public"]["Enums"]["api_environment"]
+          event_id: string
+          event_type: Database["public"]["Enums"]["integration_event_type"]
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          last_status_code: number | null
+          max_attempts: number
+          next_attempt_at: string
+          organisation_id: string
+          partner_integration_id: string
+          payload: Json
+          status: Database["public"]["Enums"]["integration_delivery_status"]
+          webhook_endpoint_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          dedupe_key: string
+          delivered_at?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          event_id: string
+          event_type: Database["public"]["Enums"]["integration_event_type"]
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_status_code?: number | null
+          max_attempts?: number
+          next_attempt_at?: string
+          organisation_id: string
+          partner_integration_id: string
+          payload: Json
+          status?: Database["public"]["Enums"]["integration_delivery_status"]
+          webhook_endpoint_id: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          dedupe_key?: string
+          delivered_at?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          event_id?: string
+          event_type?: Database["public"]["Enums"]["integration_event_type"]
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_status_code?: number | null
+          max_attempts?: number
+          next_attempt_at?: string
+          organisation_id?: string
+          partner_integration_id?: string
+          payload?: Json
+          status?: Database["public"]["Enums"]["integration_delivery_status"]
+          webhook_endpoint_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_outbound_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_outbound_events_partner_integration_id_fkey"
+            columns: ["partner_integration_id"]
+            isOneToOne: false
+            referencedRelation: "partner_integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_outbound_events_webhook_endpoint_id_fkey"
+            columns: ["webhook_endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "partner_webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          invoice_number: string
+          issued_at: string
+          organisation_id: string
+          patient_id: string
+          reference: string
+          service_label: string
+          service_type: string
+          source_id: string
+          subtotal_minor: number
+          total_minor: number
+          vat_minor: number
+          vat_rate_pct: number | null
+          vat_treatment: string
+        }
+        Insert: {
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency"]
+          id?: string
+          invoice_number: string
+          issued_at?: string
+          organisation_id: string
+          patient_id: string
+          reference: string
+          service_label: string
+          service_type: string
+          source_id: string
+          subtotal_minor: number
+          total_minor: number
+          vat_minor?: number
+          vat_rate_pct?: number | null
+          vat_treatment?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          invoice_number?: string
+          issued_at?: string
+          organisation_id?: string
+          patient_id?: string
+          reference?: string
+          service_label?: string
+          service_type?: string
+          source_id?: string
+          subtotal_minor?: number
+          total_minor?: number
+          vat_minor?: number
+          vat_rate_pct?: number | null
+          vat_treatment?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_analyte_readings: {
         Row: {
           abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
+          analyte_concept_id: string | null
           code: string
           created_at: string
           id: string
@@ -8755,6 +12863,7 @@ export type Database = {
         }
         Insert: {
           abnormal_flag?: Database["public"]["Enums"]["lab_analyte_flag"] | null
+          analyte_concept_id?: string | null
           code: string
           created_at?: string
           id?: string
@@ -8771,6 +12880,7 @@ export type Database = {
         }
         Update: {
           abnormal_flag?: Database["public"]["Enums"]["lab_analyte_flag"] | null
+          analyte_concept_id?: string | null
           code?: string
           created_at?: string
           id?: string
@@ -8786,6 +12896,13 @@ export type Database = {
           value_text?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lab_analyte_readings_analyte_concept_id_fkey"
+            columns: ["analyte_concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lab_analyte_readings_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -8988,6 +13105,7 @@ export type Database = {
       lab_orders: {
         Row: {
           applied_voucher_id: string | null
+          clinical_indication: string | null
           courier_reference: string | null
           created_at: string
           excluded_test_codes: Json
@@ -9034,10 +13152,12 @@ export type Database = {
           transmission_note: string | null
           transmitted_at: string | null
           updated_at: string
+          urgency: Database["public"]["Enums"]["lab_order_urgency"]
           voucher_covered_kobo: number
         }
         Insert: {
           applied_voucher_id?: string | null
+          clinical_indication?: string | null
           courier_reference?: string | null
           created_at?: string
           excluded_test_codes?: Json
@@ -9084,10 +13204,12 @@ export type Database = {
           transmission_note?: string | null
           transmitted_at?: string | null
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["lab_order_urgency"]
           voucher_covered_kobo?: number
         }
         Update: {
           applied_voucher_id?: string | null
+          clinical_indication?: string | null
           courier_reference?: string | null
           created_at?: string
           excluded_test_codes?: Json
@@ -9134,6 +13256,7 @@ export type Database = {
           transmission_note?: string | null
           transmitted_at?: string | null
           updated_at?: string
+          urgency?: Database["public"]["Enums"]["lab_order_urgency"]
           voucher_covered_kobo?: number
         }
         Relationships: [
@@ -9270,6 +13393,7 @@ export type Database = {
           license_verified_at: string | null
           license_verified_by: string | null
           name: string
+          organisation_id: string | null
           regions: string[]
         }
         Insert: {
@@ -9285,6 +13409,7 @@ export type Database = {
           license_verified_at?: string | null
           license_verified_by?: string | null
           name: string
+          organisation_id?: string | null
           regions?: string[]
         }
         Update: {
@@ -9300,6 +13425,7 @@ export type Database = {
           license_verified_at?: string | null
           license_verified_by?: string | null
           name?: string
+          organisation_id?: string | null
           regions?: string[]
         }
         Relationships: [
@@ -9308,6 +13434,13 @@ export type Database = {
             columns: ["license_verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_providers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
         ]
@@ -9513,6 +13646,9 @@ export type Database = {
           reviewed_by: string | null
           screening_completion_id: string | null
           source: Database["public"]["Enums"]["lab_result_document_source"]
+          superseded_at: string | null
+          superseded_by_document_id: string | null
+          supersedes_document_id: string | null
           updated_at: string
           uploaded_by: string | null
         }
@@ -9539,6 +13675,9 @@ export type Database = {
           reviewed_by?: string | null
           screening_completion_id?: string | null
           source: Database["public"]["Enums"]["lab_result_document_source"]
+          superseded_at?: string | null
+          superseded_by_document_id?: string | null
+          supersedes_document_id?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -9565,6 +13704,9 @@ export type Database = {
           reviewed_by?: string | null
           screening_completion_id?: string | null
           source?: Database["public"]["Enums"]["lab_result_document_source"]
+          superseded_at?: string | null
+          superseded_by_document_id?: string | null
+          supersedes_document_id?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -9623,6 +13765,20 @@ export type Database = {
             columns: ["screening_completion_id"]
             isOneToOne: false
             referencedRelation: "screening_completions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_superseded_by_document_id_fkey"
+            columns: ["superseded_by_document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_documents_supersedes_document_id_fkey"
+            columns: ["supersedes_document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
             referencedColumns: ["id"]
           },
           {
@@ -11653,6 +15809,7 @@ export type Database = {
           care_plan_id: string | null
           created_at: string
           dose: string | null
+          drug_concept_id: string | null
           drug_name: string
           duration_days: number | null
           frequency: string | null
@@ -11681,6 +15838,7 @@ export type Database = {
           care_plan_id?: string | null
           created_at?: string
           dose?: string | null
+          drug_concept_id?: string | null
           drug_name: string
           duration_days?: number | null
           frequency?: string | null
@@ -11709,6 +15867,7 @@ export type Database = {
           care_plan_id?: string | null
           created_at?: string
           dose?: string | null
+          drug_concept_id?: string | null
           drug_name?: string
           duration_days?: number | null
           frequency?: string | null
@@ -11748,6 +15907,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "medications_drug_concept_id_fkey"
+            columns: ["drug_concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "medications_last_confirmed_by_fkey"
             columns: ["last_confirmed_by"]
             isOneToOne: false
@@ -11763,6 +15929,92 @@ export type Database = {
           },
           {
             foreignKeyName: "medications_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mental_health_screening_cadences: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mental_health_screening_cadences_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mental_health_screening_schedules: {
+        Row: {
+          created_at: string
+          due_date: string
+          id: string
+          instrument: string
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          id?: string
+          instrument: string
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          id?: string
+          instrument?: string
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mental_health_screening_schedules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mental_health_screening_schedules_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -11985,6 +16237,141 @@ export type Database = {
             columns: ["subscriber_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      navigation_requests: {
+        Row: {
+          acknowledged_at: string | null
+          assigned_to: string | null
+          care_message_thread_id: string | null
+          category: Database["public"]["Enums"]["navigation_request_category"]
+          classification: Database["public"]["Enums"]["navigation_request_classification"]
+          classification_overridden_at: string | null
+          classification_overridden_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          is_complaint: boolean
+          is_urgent: boolean
+          organisation_id: string
+          patient_id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          satisfaction_comment: string | null
+          satisfaction_rating: number | null
+          specialist_referral_id: string | null
+          status: Database["public"]["Enums"]["navigation_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          assigned_to?: string | null
+          care_message_thread_id?: string | null
+          category: Database["public"]["Enums"]["navigation_request_category"]
+          classification?: Database["public"]["Enums"]["navigation_request_classification"]
+          classification_overridden_at?: string | null
+          classification_overridden_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          is_complaint?: boolean
+          is_urgent?: boolean
+          organisation_id: string
+          patient_id: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          satisfaction_comment?: string | null
+          satisfaction_rating?: number | null
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["navigation_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          assigned_to?: string | null
+          care_message_thread_id?: string | null
+          category?: Database["public"]["Enums"]["navigation_request_category"]
+          classification?: Database["public"]["Enums"]["navigation_request_classification"]
+          classification_overridden_at?: string | null
+          classification_overridden_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_complaint?: boolean
+          is_urgent?: boolean
+          organisation_id?: string
+          patient_id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          satisfaction_comment?: string | null
+          satisfaction_rating?: number | null
+          specialist_referral_id?: string | null
+          status?: Database["public"]["Enums"]["navigation_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "navigation_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_care_message_thread_id_fkey"
+            columns: ["care_message_thread_id"]
+            isOneToOne: false
+            referencedRelation: "care_message_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_classification_overridden_by_fkey"
+            columns: ["classification_overridden_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "navigation_requests_specialist_referral_id_fkey"
+            columns: ["specialist_referral_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_referrals"
             referencedColumns: ["id"]
           },
         ]
@@ -12508,6 +16895,224 @@ export type Database = {
           },
         ]
       }
+      ops_incident_sla_targets: {
+        Row: {
+          ack_minutes: number
+          description: string | null
+          resolve_minutes: number
+          severity: Database["public"]["Enums"]["ops_incident_severity"]
+          updated_at: string
+        }
+        Insert: {
+          ack_minutes: number
+          description?: string | null
+          resolve_minutes: number
+          severity: Database["public"]["Enums"]["ops_incident_severity"]
+          updated_at?: string
+        }
+        Update: {
+          ack_minutes?: number
+          description?: string | null
+          resolve_minutes?: number
+          severity?: Database["public"]["Enums"]["ops_incident_severity"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ops_incident_updates: {
+        Row: {
+          author_id: string | null
+          created_at: string
+          id: string
+          incident_id: string
+          note: string
+          status_from: Database["public"]["Enums"]["ops_incident_status"] | null
+          status_to: Database["public"]["Enums"]["ops_incident_status"] | null
+        }
+        Insert: {
+          author_id?: string | null
+          created_at?: string
+          id?: string
+          incident_id: string
+          note: string
+          status_from?:
+            | Database["public"]["Enums"]["ops_incident_status"]
+            | null
+          status_to?: Database["public"]["Enums"]["ops_incident_status"] | null
+        }
+        Update: {
+          author_id?: string | null
+          created_at?: string
+          id?: string
+          incident_id?: string
+          note?: string
+          status_from?:
+            | Database["public"]["Enums"]["ops_incident_status"]
+            | null
+          status_to?: Database["public"]["Enums"]["ops_incident_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_incident_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incident_updates_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "ops_incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_incidents: {
+        Row: {
+          ack_due_at: string
+          acknowledged_at: string | null
+          category: Database["public"]["Enums"]["ops_incident_category"]
+          clinical_incident_report_id: string | null
+          clinician_alert_id: string | null
+          closed_at: string | null
+          corrective_action: string | null
+          created_at: string
+          data_breach_incident_id: string | null
+          detected_at: string
+          external_reference: string | null
+          id: string
+          impact: string | null
+          mitigated_at: string | null
+          organisation_id: string | null
+          owner_id: string | null
+          patients_affected: number | null
+          preventive_action: string | null
+          reference: string
+          regulatory_body: string | null
+          regulatory_notified_at: string | null
+          reported_by: string | null
+          requires_regulatory_notification: boolean
+          resolve_due_at: string
+          resolved_at: string | null
+          root_cause: string | null
+          severity: Database["public"]["Enums"]["ops_incident_severity"]
+          status: Database["public"]["Enums"]["ops_incident_status"]
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ack_due_at: string
+          acknowledged_at?: string | null
+          category: Database["public"]["Enums"]["ops_incident_category"]
+          clinical_incident_report_id?: string | null
+          clinician_alert_id?: string | null
+          closed_at?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          data_breach_incident_id?: string | null
+          detected_at?: string
+          external_reference?: string | null
+          id?: string
+          impact?: string | null
+          mitigated_at?: string | null
+          organisation_id?: string | null
+          owner_id?: string | null
+          patients_affected?: number | null
+          preventive_action?: string | null
+          reference?: string
+          regulatory_body?: string | null
+          regulatory_notified_at?: string | null
+          reported_by?: string | null
+          requires_regulatory_notification?: boolean
+          resolve_due_at: string
+          resolved_at?: string | null
+          root_cause?: string | null
+          severity: Database["public"]["Enums"]["ops_incident_severity"]
+          status?: Database["public"]["Enums"]["ops_incident_status"]
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ack_due_at?: string
+          acknowledged_at?: string | null
+          category?: Database["public"]["Enums"]["ops_incident_category"]
+          clinical_incident_report_id?: string | null
+          clinician_alert_id?: string | null
+          closed_at?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          data_breach_incident_id?: string | null
+          detected_at?: string
+          external_reference?: string | null
+          id?: string
+          impact?: string | null
+          mitigated_at?: string | null
+          organisation_id?: string | null
+          owner_id?: string | null
+          patients_affected?: number | null
+          preventive_action?: string | null
+          reference?: string
+          regulatory_body?: string | null
+          regulatory_notified_at?: string | null
+          reported_by?: string | null
+          requires_regulatory_notification?: boolean
+          resolve_due_at?: string
+          resolved_at?: string | null
+          root_cause?: string | null
+          severity?: Database["public"]["Enums"]["ops_incident_severity"]
+          status?: Database["public"]["Enums"]["ops_incident_status"]
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_incidents_clinical_incident_report_id_fkey"
+            columns: ["clinical_incident_report_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_incident_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_data_breach_incident_id_fkey"
+            columns: ["data_breach_incident_id"]
+            isOneToOne: false
+            referencedRelation: "data_breach_incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organisations: {
         Row: {
           created_at: string
@@ -12639,6 +17244,7 @@ export type Database = {
           is_active: boolean
           is_screen_tier: boolean
           name: string
+          preparation_instructions: string | null
           price_kobo: number
           review_discount_bp: number
           self_bookable: boolean
@@ -12655,6 +17261,7 @@ export type Database = {
           is_active?: boolean
           is_screen_tier?: boolean
           name: string
+          preparation_instructions?: string | null
           price_kobo?: number
           review_discount_bp?: number
           self_bookable?: boolean
@@ -12671,6 +17278,7 @@ export type Database = {
           is_active?: boolean
           is_screen_tier?: boolean
           name?: string
+          preparation_instructions?: string | null
           price_kobo?: number
           review_discount_bp?: number
           self_bookable?: boolean
@@ -12931,6 +17539,75 @@ export type Database = {
           },
         ]
       }
+      partner_webhook_endpoints: {
+        Row: {
+          consecutive_failures: number
+          created_at: string
+          description: string | null
+          environment: Database["public"]["Enums"]["api_environment"]
+          event_types: Database["public"]["Enums"]["integration_event_type"][]
+          id: string
+          is_active: boolean
+          last_failure_at: string | null
+          last_success_at: string | null
+          name: string
+          organisation_id: string
+          partner_integration_id: string
+          secret: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          created_at?: string
+          description?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          event_types: Database["public"]["Enums"]["integration_event_type"][]
+          id?: string
+          is_active?: boolean
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          name: string
+          organisation_id: string
+          partner_integration_id: string
+          secret: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          consecutive_failures?: number
+          created_at?: string
+          description?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          event_types?: Database["public"]["Enums"]["integration_event_type"][]
+          id?: string
+          is_active?: boolean
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          name?: string
+          organisation_id?: string
+          partner_integration_id?: string
+          secret?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_webhook_endpoints_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_webhook_endpoints_partner_integration_id_fkey"
+            columns: ["partner_integration_id"]
+            isOneToOne: false
+            referencedRelation: "partner_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       passport_signing_keys: {
         Row: {
           activated_at: string | null
@@ -13051,6 +17728,7 @@ export type Database = {
       patient_allergies: {
         Row: {
           allergen: string
+          allergen_concept_id: string | null
           created_at: string
           id: string
           noted_at: string
@@ -13061,9 +17739,13 @@ export type Database = {
           severity: Database["public"]["Enums"]["allergy_severity"] | null
           source: Database["public"]["Enums"]["allergy_source"]
           updated_at: string
+          verification_status: Database["public"]["Enums"]["allergy_verification_status"]
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           allergen: string
+          allergen_concept_id?: string | null
           created_at?: string
           id?: string
           noted_at?: string
@@ -13074,9 +17756,13 @@ export type Database = {
           severity?: Database["public"]["Enums"]["allergy_severity"] | null
           source?: Database["public"]["Enums"]["allergy_source"]
           updated_at?: string
+          verification_status?: Database["public"]["Enums"]["allergy_verification_status"]
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           allergen?: string
+          allergen_concept_id?: string | null
           created_at?: string
           id?: string
           noted_at?: string
@@ -13087,8 +17773,18 @@ export type Database = {
           severity?: Database["public"]["Enums"]["allergy_severity"] | null
           source?: Database["public"]["Enums"]["allergy_source"]
           updated_at?: string
+          verification_status?: Database["public"]["Enums"]["allergy_verification_status"]
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "patient_allergies_allergen_concept_id_fkey"
+            columns: ["allergen_concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patient_allergies_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -13106,6 +17802,13 @@ export type Database = {
           {
             foreignKeyName: "patient_allergies_recorded_by_fkey"
             columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergies_verified_by_fkey"
+            columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -13386,6 +18089,7 @@ export type Database = {
       }
       patient_conditions: {
         Row: {
+          condition_concept_id: string | null
           condition_name: string
           created_at: string
           current_treatment: string | null
@@ -13404,6 +18108,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          condition_concept_id?: string | null
           condition_name: string
           created_at?: string
           current_treatment?: string | null
@@ -13422,6 +18127,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          condition_concept_id?: string | null
           condition_name?: string
           created_at?: string
           current_treatment?: string | null
@@ -13440,6 +18146,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "patient_conditions_condition_concept_id_fkey"
+            columns: ["condition_concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patient_conditions_diagnosing_clinician_id_fkey"
             columns: ["diagnosing_clinician_id"]
@@ -13473,6 +18186,7 @@ export type Database = {
       patient_consents: {
         Row: {
           accepted_at: string
+          action: string
           consent_type: Database["public"]["Enums"]["consent_type"]
           consent_version_id: string
           created_at: string
@@ -13483,6 +18197,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string
+          action?: string
           consent_type: Database["public"]["Enums"]["consent_type"]
           consent_version_id: string
           created_at?: string
@@ -13493,6 +18208,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string
+          action?: string
           consent_type?: Database["public"]["Enums"]["consent_type"]
           consent_version_id?: string
           created_at?: string
@@ -14015,6 +18731,70 @@ export type Database = {
             columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_match_candidates: {
+        Row: {
+          created_at: string
+          id: string
+          matched_fields: string[]
+          patient_a_id: string
+          patient_b_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          score: number
+          status: Database["public"]["Enums"]["patient_match_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          matched_fields: string[]
+          patient_a_id: string
+          patient_b_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          score: number
+          status?: Database["public"]["Enums"]["patient_match_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          matched_fields?: string[]
+          patient_a_id?: string
+          patient_b_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          score?: number
+          status?: Database["public"]["Enums"]["patient_match_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_match_candidates_patient_a_id_fkey"
+            columns: ["patient_a_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_match_candidates_patient_b_id_fkey"
+            columns: ["patient_b_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_match_candidates_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -14675,6 +19455,230 @@ export type Database = {
           },
         ]
       }
+      payer_administrators: {
+        Row: {
+          created_at: string
+          id: string
+          insurer_id: string
+          invited_by: string | null
+          is_active: boolean
+          job_title: string | null
+          payer_role: Database["public"]["Enums"]["payer_admin_role"]
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          insurer_id: string
+          invited_by?: string | null
+          is_active?: boolean
+          job_title?: string | null
+          payer_role?: Database["public"]["Enums"]["payer_admin_role"]
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          insurer_id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          job_title?: string | null
+          payer_role?: Database["public"]["Enums"]["payer_admin_role"]
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_administrators_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_administrators_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_administrators_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payer_network_providers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_id: string
+          notes: string | null
+          provider_id: string
+          provider_type: Database["public"]["Enums"]["payer_network_provider_type"]
+          service_category: string | null
+          status: Database["public"]["Enums"]["payer_network_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id: string
+          notes?: string | null
+          provider_id: string
+          provider_type: Database["public"]["Enums"]["payer_network_provider_type"]
+          service_category?: string | null
+          status?: Database["public"]["Enums"]["payer_network_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id?: string
+          notes?: string | null
+          provider_id?: string
+          provider_type?: Database["public"]["Enums"]["payer_network_provider_type"]
+          service_category?: string | null
+          status?: Database["public"]["Enums"]["payer_network_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_network_providers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_network_providers_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payer_plans: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          insurer_id: string
+          name: string
+          plan_year: number | null
+          status: Database["public"]["Enums"]["payer_plan_status"]
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          insurer_id: string
+          name: string
+          plan_year?: number | null
+          status?: Database["public"]["Enums"]["payer_plan_status"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          insurer_id?: string
+          name?: string
+          plan_year?: number | null
+          status?: Database["public"]["Enums"]["payer_plan_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_plans_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payer_programme_directives: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          insurer_id: string
+          is_active: boolean
+          programme_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id: string
+          is_active?: boolean
+          programme_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          insurer_id?: string
+          is_active?: boolean
+          programme_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_programme_directives_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_programme_directives_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_programme_directives_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_condition_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_fraud_signals: {
         Row: {
           amount_minor: number | null
@@ -15116,6 +20120,106 @@ export type Database = {
           },
         ]
       }
+      pharmacy_order_refunds: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          journal_entry_id: string | null
+          margin_portion_kobo: number
+          organisation_id: string
+          paid_at: string | null
+          partner_portion_kobo: number
+          pharmacy_order_id: string
+          reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refund_total_kobo: number
+          requested_at: string
+          requested_by: string | null
+          status: Database["public"]["Enums"]["pharmacy_refund_status"]
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          margin_portion_kobo?: number
+          organisation_id: string
+          paid_at?: string | null
+          partner_portion_kobo?: number
+          pharmacy_order_id: string
+          reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refund_total_kobo: number
+          requested_at?: string
+          requested_by?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_refund_status"]
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          margin_portion_kobo?: number
+          organisation_id?: string
+          paid_at?: string | null
+          partner_portion_kobo?: number
+          pharmacy_order_id?: string
+          reason?: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refund_total_kobo?: number
+          requested_at?: string
+          requested_by?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_refund_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_refunds_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_pharmacy_order_id_fkey"
+            columns: ["pharmacy_order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_reason_fkey"
+            columns: ["reason"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_refund_policies"
+            referencedColumns: ["reason"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pharmacy_orders: {
         Row: {
           accepted_at: string | null
@@ -15141,6 +20245,9 @@ export type Database = {
           ordered_by: string | null
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
+          partner_cost_breakdown: Json | null
+          partner_cost_kobo: number | null
+          partner_cost_provider_id: string | null
           patient_id: string
           payable_kobo: number | null
           payment_provider:
@@ -15182,6 +20289,9 @@ export type Database = {
           ordered_by?: string | null
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          partner_cost_breakdown?: Json | null
+          partner_cost_kobo?: number | null
+          partner_cost_provider_id?: string | null
           patient_id: string
           payable_kobo?: number | null
           payment_provider?:
@@ -15223,6 +20333,9 @@ export type Database = {
           ordered_by?: string | null
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          partner_cost_breakdown?: Json | null
+          partner_cost_kobo?: number | null
+          partner_cost_provider_id?: string | null
           patient_id?: string
           payable_kobo?: number | null
           payment_provider?:
@@ -15274,6 +20387,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_orders_partner_cost_provider_id_fkey"
+            columns: ["partner_cost_provider_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_partners"
             referencedColumns: ["id"]
           },
           {
@@ -15352,6 +20472,175 @@ export type Database = {
           },
         ]
       }
+      pharmacy_partner_statement_lines: {
+        Row: {
+          created_at: string
+          expected_kobo: number | null
+          id: string
+          invoiced_kobo: number
+          medication_id: string | null
+          partner_reference: string | null
+          pharmacy_order_id: string | null
+          resolution: Database["public"]["Enums"]["pharmacy_partner_statement_line_resolution"]
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          statement_id: string
+        }
+        Insert: {
+          created_at?: string
+          expected_kobo?: number | null
+          id?: string
+          invoiced_kobo: number
+          medication_id?: string | null
+          partner_reference?: string | null
+          pharmacy_order_id?: string | null
+          resolution?: Database["public"]["Enums"]["pharmacy_partner_statement_line_resolution"]
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          statement_id: string
+        }
+        Update: {
+          created_at?: string
+          expected_kobo?: number | null
+          id?: string
+          invoiced_kobo?: number
+          medication_id?: string | null
+          partner_reference?: string | null
+          pharmacy_order_id?: string | null
+          resolution?: Database["public"]["Enums"]["pharmacy_partner_statement_line_resolution"]
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          statement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_partner_statement_lines_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statement_lines_pharmacy_order_id_fkey"
+            columns: ["pharmacy_order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statement_lines_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_partner_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacy_partner_statements: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          bill_id: string | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          expected_total_kobo: number | null
+          id: string
+          invoiced_total_kobo: number
+          matched_at: string | null
+          note: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          pharmacy_partner_id: string
+          received_at: string
+          reference: string
+          settled_at: string | null
+          status: Database["public"]["Enums"]["pharmacy_partner_statement_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bill_id?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          expected_total_kobo?: number | null
+          id?: string
+          invoiced_total_kobo: number
+          matched_at?: string | null
+          note?: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          pharmacy_partner_id: string
+          received_at?: string
+          reference: string
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_partner_statement_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bill_id?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          expected_total_kobo?: number | null
+          id?: string
+          invoiced_total_kobo?: number
+          matched_at?: string | null
+          note?: string | null
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          pharmacy_partner_id?: string
+          received_at?: string
+          reference?: string
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_partner_statement_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_partner_statements_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statements_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "finance_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statements_pharmacy_partner_id_fkey"
+            columns: ["pharmacy_partner_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pharmacy_partners: {
         Row: {
           address: string | null
@@ -15380,6 +20669,7 @@ export type Database = {
           longitude: number | null
           name: string
           onboarding_status: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
+          organisation_id: string | null
           regions: string[]
           rejected_at: string | null
           rejected_by: string | null
@@ -15416,6 +20706,7 @@ export type Database = {
           longitude?: number | null
           name: string
           onboarding_status?: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
+          organisation_id?: string | null
           regions?: string[]
           rejected_at?: string | null
           rejected_by?: string | null
@@ -15452,6 +20743,7 @@ export type Database = {
           longitude?: number | null
           name?: string
           onboarding_status?: Database["public"]["Enums"]["pharmacy_partner_onboarding_status"]
+          organisation_id?: string | null
           regions?: string[]
           rejected_at?: string | null
           rejected_by?: string | null
@@ -15491,6 +20783,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pharmacy_partners_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pharmacy_partners_rejected_by_fkey"
             columns: ["rejected_by"]
             isOneToOne: false
@@ -15505,6 +20804,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pharmacy_refund_policies: {
+        Row: {
+          note: string
+          partner_still_owed: boolean
+          reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refunds_in_full: boolean
+        }
+        Insert: {
+          note: string
+          partner_still_owed: boolean
+          reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refunds_in_full: boolean
+        }
+        Update: {
+          note?: string
+          partner_still_owed?: boolean
+          reason?: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refunds_in_full?: boolean
+        }
+        Relationships: []
+      }
+      platform_consultation_duration_defaults: {
+        Row: {
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          default_minutes: number
+          duration_type: Database["public"]["Enums"]["consultation_duration_type"]
+          updated_at: string
+        }
+        Insert: {
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          default_minutes: number
+          duration_type: Database["public"]["Enums"]["consultation_duration_type"]
+          updated_at?: string
+        }
+        Update: {
+          consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
+          default_minutes?: number
+          duration_type?: Database["public"]["Enums"]["consultation_duration_type"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       platform_currency_settings: {
         Row: {
@@ -15588,6 +20929,107 @@ export type Database = {
           },
         ]
       }
+      platform_modules: {
+        Row: {
+          activation_note: string | null
+          created_at: string
+          description: string
+          enabled_at: string | null
+          enabled_by: string | null
+          is_enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          activation_note?: string | null
+          created_at?: string
+          description: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          is_enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          activation_note?: string | null
+          created_at?: string
+          description?: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          is_enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_modules_enabled_by_fkey"
+            columns: ["enabled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      population_definitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          filters: Json
+          id: string
+          is_system: boolean
+          kind: Database["public"]["Enums"]["population_kind"]
+          name: string
+          organisation_id: string
+          status: Database["public"]["Enums"]["population_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          is_system?: boolean
+          kind?: Database["public"]["Enums"]["population_kind"]
+          name: string
+          organisation_id: string
+          status?: Database["public"]["Enums"]["population_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          filters?: Json
+          id?: string
+          is_system?: boolean
+          kind?: Database["public"]["Enums"]["population_kind"]
+          name?: string
+          organisation_id?: string
+          status?: Database["public"]["Enums"]["population_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "population_definitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "population_definitions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prevention_campaign_enrolments: {
         Row: {
           campaign_id: string
@@ -15652,6 +21094,7 @@ export type Database = {
           id: string
           name: string
           organisation_id: string
+          population_id: string | null
           starts_on: string
           status: Database["public"]["Enums"]["prevention_campaign_status"]
           updated_at: string
@@ -15667,6 +21110,7 @@ export type Database = {
           id?: string
           name: string
           organisation_id: string
+          population_id?: string | null
           starts_on: string
           status?: Database["public"]["Enums"]["prevention_campaign_status"]
           updated_at?: string
@@ -15682,6 +21126,7 @@ export type Database = {
           id?: string
           name?: string
           organisation_id?: string
+          population_id?: string | null
           starts_on?: string
           status?: Database["public"]["Enums"]["prevention_campaign_status"]
           updated_at?: string
@@ -15699,6 +21144,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_population_id_fkey"
+            columns: ["population_id"]
+            isOneToOne: false
+            referencedRelation: "population_definitions"
             referencedColumns: ["id"]
           },
         ]
@@ -16188,38 +21640,56 @@ export type Database = {
       }
       protocol_versions: {
         Row: {
+          applicable_population: string | null
           approved_at: string
           approved_by: string
           change_summary: string
           content: Json
           created_at: string
+          effective_date: string | null
+          evidence_basis: string | null
           id: string
           organisation_id: string
           protocol_id: string
+          retirement_date: string | null
+          review_date: string | null
+          specialty: string | null
           title: string
           version_number: number
         }
         Insert: {
+          applicable_population?: string | null
           approved_at?: string
           approved_by: string
           change_summary: string
           content?: Json
           created_at?: string
+          effective_date?: string | null
+          evidence_basis?: string | null
           id?: string
           organisation_id: string
           protocol_id: string
+          retirement_date?: string | null
+          review_date?: string | null
+          specialty?: string | null
           title: string
           version_number: number
         }
         Update: {
+          applicable_population?: string | null
           approved_at?: string
           approved_by?: string
           change_summary?: string
           content?: Json
           created_at?: string
+          effective_date?: string | null
+          evidence_basis?: string | null
           id?: string
           organisation_id?: string
           protocol_id?: string
+          retirement_date?: string | null
+          review_date?: string | null
+          specialty?: string | null
           title?: string
           version_number?: number
         }
@@ -16305,6 +21775,1081 @@ export type Database = {
           },
           {
             foreignKeyName: "provider_availability_rules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_complaint_events: {
+        Row: {
+          actor_id: string | null
+          complaint_id: string
+          created_at: string
+          detail: Json
+          from_stage:
+            | Database["public"]["Enums"]["provider_complaint_stage"]
+            | null
+          id: string
+          to_stage: Database["public"]["Enums"]["provider_complaint_stage"]
+        }
+        Insert: {
+          actor_id?: string | null
+          complaint_id: string
+          created_at?: string
+          detail?: Json
+          from_stage?:
+            | Database["public"]["Enums"]["provider_complaint_stage"]
+            | null
+          id?: string
+          to_stage: Database["public"]["Enums"]["provider_complaint_stage"]
+        }
+        Update: {
+          actor_id?: string | null
+          complaint_id?: string
+          created_at?: string
+          detail?: Json
+          from_stage?:
+            | Database["public"]["Enums"]["provider_complaint_stage"]
+            | null
+          id?: string
+          to_stage?: Database["public"]["Enums"]["provider_complaint_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_complaint_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaint_events_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_complaint_investigation_notes: {
+        Row: {
+          author_id: string
+          complaint_id: string
+          created_at: string
+          id: string
+          note: string
+        }
+        Insert: {
+          author_id: string
+          complaint_id: string
+          created_at?: string
+          id?: string
+          note: string
+        }
+        Update: {
+          author_id?: string
+          complaint_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_complaint_investigation_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaint_investigation_notes_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_complaints: {
+        Row: {
+          category: Database["public"]["Enums"]["provider_complaint_category"]
+          closed_at: string | null
+          created_at: string
+          governance_notes: string | null
+          governance_reviewed_at: string | null
+          governance_reviewed_by: string | null
+          id: string
+          investigation_opened_at: string | null
+          investigation_opened_by: string | null
+          organisation_id: string
+          outcome:
+            | Database["public"]["Enums"]["provider_complaint_outcome"]
+            | null
+          patient_id: string | null
+          provider_responded_at: string | null
+          provider_response: string | null
+          raised_by: string | null
+          reference: string
+          resolution_summary: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          response_requested_at: string | null
+          severity:
+            | Database["public"]["Enums"]["provider_complaint_severity"]
+            | null
+          stage: Database["public"]["Enums"]["provider_complaint_stage"]
+          subject_staff_id: string
+          summary: string
+          triaged_at: string | null
+          triaged_by: string | null
+          updated_at: string
+          withdrawn_at: string | null
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["provider_complaint_category"]
+          closed_at?: string | null
+          created_at?: string
+          governance_notes?: string | null
+          governance_reviewed_at?: string | null
+          governance_reviewed_by?: string | null
+          id?: string
+          investigation_opened_at?: string | null
+          investigation_opened_by?: string | null
+          organisation_id: string
+          outcome?:
+            | Database["public"]["Enums"]["provider_complaint_outcome"]
+            | null
+          patient_id?: string | null
+          provider_responded_at?: string | null
+          provider_response?: string | null
+          raised_by?: string | null
+          reference: string
+          resolution_summary?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_requested_at?: string | null
+          severity?:
+            | Database["public"]["Enums"]["provider_complaint_severity"]
+            | null
+          stage?: Database["public"]["Enums"]["provider_complaint_stage"]
+          subject_staff_id: string
+          summary: string
+          triaged_at?: string | null
+          triaged_by?: string | null
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["provider_complaint_category"]
+          closed_at?: string | null
+          created_at?: string
+          governance_notes?: string | null
+          governance_reviewed_at?: string | null
+          governance_reviewed_by?: string | null
+          id?: string
+          investigation_opened_at?: string | null
+          investigation_opened_by?: string | null
+          organisation_id?: string
+          outcome?:
+            | Database["public"]["Enums"]["provider_complaint_outcome"]
+            | null
+          patient_id?: string | null
+          provider_responded_at?: string | null
+          provider_response?: string | null
+          raised_by?: string | null
+          reference?: string
+          resolution_summary?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_requested_at?: string | null
+          severity?:
+            | Database["public"]["Enums"]["provider_complaint_severity"]
+            | null
+          stage?: Database["public"]["Enums"]["provider_complaint_stage"]
+          subject_staff_id?: string
+          summary?: string
+          triaged_at?: string | null
+          triaged_by?: string | null
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_complaints_governance_reviewed_by_fkey"
+            columns: ["governance_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_investigation_opened_by_fkey"
+            columns: ["investigation_opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_subject_staff_id_fkey"
+            columns: ["subject_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_triaged_by_fkey"
+            columns: ["triaged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_interventions: {
+        Row: {
+          agreed_actions: string | null
+          clinical_staff_id: string
+          closed_at: string | null
+          closed_by: string | null
+          complaint_id: string | null
+          created_at: string
+          due_at: string | null
+          id: string
+          intervention_type: Database["public"]["Enums"]["provider_intervention_type"]
+          opened_at: string
+          opened_by: string
+          organisation_id: string
+          outcome_summary: string | null
+          owner_id: string | null
+          period_end: string | null
+          period_start: string | null
+          provider_acknowledged_at: string | null
+          rationale: string
+          restriction_id: string | null
+          status: Database["public"]["Enums"]["provider_intervention_status"]
+          trigger_source: Database["public"]["Enums"]["provider_intervention_trigger"]
+          triggering_metric:
+            | Database["public"]["Enums"]["provider_quality_metric"]
+            | null
+          triggering_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          agreed_actions?: string | null
+          clinical_staff_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          complaint_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          intervention_type: Database["public"]["Enums"]["provider_intervention_type"]
+          opened_at?: string
+          opened_by: string
+          organisation_id: string
+          outcome_summary?: string | null
+          owner_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          provider_acknowledged_at?: string | null
+          rationale: string
+          restriction_id?: string | null
+          status?: Database["public"]["Enums"]["provider_intervention_status"]
+          trigger_source: Database["public"]["Enums"]["provider_intervention_trigger"]
+          triggering_metric?:
+            | Database["public"]["Enums"]["provider_quality_metric"]
+            | null
+          triggering_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agreed_actions?: string | null
+          clinical_staff_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          complaint_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          intervention_type?: Database["public"]["Enums"]["provider_intervention_type"]
+          opened_at?: string
+          opened_by?: string
+          organisation_id?: string
+          outcome_summary?: string | null
+          owner_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          provider_acknowledged_at?: string | null
+          rationale?: string
+          restriction_id?: string | null
+          status?: Database["public"]["Enums"]["provider_intervention_status"]
+          trigger_source?: Database["public"]["Enums"]["provider_intervention_trigger"]
+          triggering_metric?:
+            | Database["public"]["Enums"]["provider_quality_metric"]
+            | null
+          triggering_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_interventions_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_restriction_id_fkey"
+            columns: ["restriction_id"]
+            isOneToOne: false
+            referencedRelation: "provider_restrictions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_departments: {
+        Row: {
+          created_at: string
+          department_type: string | null
+          id: string
+          is_active: boolean
+          location_id: string | null
+          name: string
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_type?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name: string
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_type?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name?: string
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_departments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_departments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_headquarters: boolean
+          name: string
+          organisation_id: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_headquarters?: boolean
+          name: string
+          organisation_id: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_headquarters?: boolean
+          name?: string
+          organisation_id?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_locations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_members: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          id: string
+          invited_by: string | null
+          is_active: boolean
+          job_title: string | null
+          location_id: string | null
+          org_role: Database["public"]["Enums"]["provider_org_role"]
+          organisation_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          job_title?: string | null
+          location_id?: string | null
+          org_role?: Database["public"]["Enums"]["provider_org_role"]
+          organisation_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          job_title?: string | null
+          location_id?: string | null
+          org_role?: Database["public"]["Enums"]["provider_org_role"]
+          organisation_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_members_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_members_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_members_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_operating_hours: {
+        Row: {
+          closes_at: string
+          created_at: string
+          day_of_week: number
+          id: string
+          location_id: string | null
+          opens_at: string
+          organisation_id: string
+          resource_id: string | null
+        }
+        Insert: {
+          closes_at: string
+          created_at?: string
+          day_of_week: number
+          id?: string
+          location_id?: string | null
+          opens_at: string
+          organisation_id: string
+          resource_id?: string | null
+        }
+        Update: {
+          closes_at?: string
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          location_id?: string | null
+          opens_at?: string
+          organisation_id?: string
+          resource_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_operating_hours_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_operating_hours_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_operating_hours_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_resources: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          location_id: string | null
+          name: string
+          organisation_id: string
+          resource_type: Database["public"]["Enums"]["provider_org_resource_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name: string
+          organisation_id: string
+          resource_type: Database["public"]["Enums"]["provider_org_resource_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name?: string
+          organisation_id?: string
+          resource_type?: Database["public"]["Enums"]["provider_org_resource_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_resources_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_resources_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_resources_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_services: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_active: boolean
+          location_id: string | null
+          name: string
+          organisation_id: string
+          price_kobo: number | null
+          provider_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name: string
+          organisation_id: string
+          price_kobo?: number | null
+          provider_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          name?: string
+          organisation_id?: string
+          price_kobo?: number | null
+          provider_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_services_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_services_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_settlement_lines: {
+        Row: {
+          amount_kobo: number
+          created_at: string
+          description: string
+          id: string
+          reference_id: string | null
+          reference_type: string | null
+          settlement_id: string
+        }
+        Insert: {
+          amount_kobo: number
+          created_at?: string
+          description: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          settlement_id: string
+        }
+        Update: {
+          amount_kobo?: number
+          created_at?: string
+          description?: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          settlement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_settlement_lines_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "provider_org_settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_org_settlements: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_total_kobo: number | null
+          bill_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          invoiced_total_kobo: number
+          note: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          reference: string | null
+          settled_at: string | null
+          status: Database["public"]["Enums"]["provider_org_settlement_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_total_kobo?: number | null
+          bill_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          invoiced_total_kobo?: number
+          note?: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          reference?: string | null
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["provider_org_settlement_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_total_kobo?: number | null
+          bill_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          invoiced_total_kobo?: number
+          note?: string | null
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          reference?: string | null
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["provider_org_settlement_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_org_settlements_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_settlements_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "finance_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_settlements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_org_settlements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_organisations: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          id: string
+          is_operational: boolean
+          legal_name: string
+          min_cohort_size: number
+          onboarding_status: Database["public"]["Enums"]["provider_org_onboarding_status"]
+          org_type: Database["public"]["Enums"]["provider_org_type"]
+          organisation_id: string
+          registration_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          id?: string
+          is_operational?: boolean
+          legal_name: string
+          min_cohort_size?: number
+          onboarding_status?: Database["public"]["Enums"]["provider_org_onboarding_status"]
+          org_type: Database["public"]["Enums"]["provider_org_type"]
+          organisation_id: string
+          registration_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          id?: string
+          is_operational?: boolean
+          legal_name?: string
+          min_cohort_size?: number
+          onboarding_status?: Database["public"]["Enums"]["provider_org_onboarding_status"]
+          org_type?: Database["public"]["Enums"]["provider_org_type"]
+          organisation_id?: string
+          registration_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_organisations_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_organisations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_organisations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_quality_policy: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_quality_policy_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_restrictions: {
+        Row: {
+          clinical_staff_id: string
+          complaint_id: string | null
+          created_at: string
+          credential_expires_at: string | null
+          detail: string | null
+          id: string
+          imposed_at: string
+          imposed_by: string | null
+          lift_reason: string | null
+          lifted_at: string | null
+          lifted_by: string | null
+          organisation_id: string
+          reason: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Insert: {
+          clinical_staff_id: string
+          complaint_id?: string | null
+          created_at?: string
+          credential_expires_at?: string | null
+          detail?: string | null
+          id?: string
+          imposed_at?: string
+          imposed_by?: string | null
+          lift_reason?: string | null
+          lifted_at?: string | null
+          lifted_by?: string | null
+          organisation_id: string
+          reason: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Update: {
+          clinical_staff_id?: string
+          complaint_id?: string | null
+          created_at?: string
+          credential_expires_at?: string | null
+          detail?: string | null
+          id?: string
+          imposed_at?: string
+          imposed_by?: string | null
+          lift_reason?: string | null
+          lifted_at?: string | null
+          lifted_by?: string | null
+          organisation_id?: string
+          reason?: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage?: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_restrictions_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_imposed_by_fkey"
+            columns: ["imposed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_lifted_by_fkey"
+            columns: ["lifted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -16526,6 +23071,182 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reference_code_systems: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_licensed: boolean
+          licence_note: string | null
+          name: string
+          updated_at: string
+          uri: string
+          version: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_licensed?: boolean
+          licence_note?: string | null
+          name: string
+          updated_at?: string
+          uri: string
+          version?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_licensed?: boolean
+          licence_note?: string | null
+          name?: string
+          updated_at?: string
+          uri?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
+      reference_concept_maps: {
+        Row: {
+          created_at: string
+          equivalence: Database["public"]["Enums"]["concept_map_equivalence"]
+          id: string
+          note: string | null
+          source_concept_id: string
+          target_concept_id: string
+        }
+        Insert: {
+          created_at?: string
+          equivalence: Database["public"]["Enums"]["concept_map_equivalence"]
+          id?: string
+          note?: string | null
+          source_concept_id: string
+          target_concept_id: string
+        }
+        Update: {
+          created_at?: string
+          equivalence?: Database["public"]["Enums"]["concept_map_equivalence"]
+          id?: string
+          note?: string | null
+          source_concept_id?: string
+          target_concept_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reference_concept_maps_source_concept_id_fkey"
+            columns: ["source_concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reference_concept_maps_target_concept_id_fkey"
+            columns: ["target_concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reference_concept_synonyms: {
+        Row: {
+          concept_id: string
+          created_at: string
+          id: string
+          language: string
+          term: string
+        }
+        Insert: {
+          concept_id: string
+          created_at?: string
+          id?: string
+          language?: string
+          term: string
+        }
+        Update: {
+          concept_id?: string
+          created_at?: string
+          id?: string
+          language?: string
+          term?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reference_concept_synonyms_concept_id_fkey"
+            columns: ["concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reference_concepts: {
+        Row: {
+          attributes: Json
+          code: string
+          code_system_id: string
+          created_at: string
+          definition: string | null
+          display: string
+          domain: Database["public"]["Enums"]["reference_concept_domain"]
+          id: string
+          parent_id: string | null
+          status: Database["public"]["Enums"]["reference_concept_status"]
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          attributes?: Json
+          code: string
+          code_system_id: string
+          created_at?: string
+          definition?: string | null
+          display: string
+          domain: Database["public"]["Enums"]["reference_concept_domain"]
+          id?: string
+          parent_id?: string | null
+          status?: Database["public"]["Enums"]["reference_concept_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          attributes?: Json
+          code?: string
+          code_system_id?: string
+          created_at?: string
+          definition?: string | null
+          display?: string
+          domain?: Database["public"]["Enums"]["reference_concept_domain"]
+          id?: string
+          parent_id?: string | null
+          status?: Database["public"]["Enums"]["reference_concept_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reference_concepts_code_system_id_fkey"
+            columns: ["code_system_id"]
+            isOneToOne: false
+            referencedRelation: "reference_code_systems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reference_concepts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
             referencedColumns: ["id"]
           },
         ]
@@ -17478,6 +24199,7 @@ export type Database = {
           lab_order_id: string | null
           organisation_id: string
           patient_id: string
+          recall_months: number | null
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary: string | null
           schedule_id: string | null
@@ -17493,6 +24215,7 @@ export type Database = {
           lab_order_id?: string | null
           organisation_id: string
           patient_id: string
+          recall_months?: number | null
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
           schedule_id?: string | null
@@ -17508,6 +24231,7 @@ export type Database = {
           lab_order_id?: string | null
           organisation_id?: string
           patient_id?: string
+          recall_months?: number | null
           result_status?: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
           schedule_id?: string | null
@@ -17568,11 +24292,15 @@ export type Database = {
       screening_schedules: {
         Row: {
           created_at: string
+          declined_at: string | null
+          declined_reason: string | null
           due_date: string
           id: string
+          is_recall: boolean
           next_due_date: string | null
           organisation_id: string
           patient_id: string
+          recall_reason: string | null
           reminder_sent_at: string | null
           reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
@@ -17581,11 +24309,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          declined_at?: string | null
+          declined_reason?: string | null
           due_date: string
           id?: string
+          is_recall?: boolean
           next_due_date?: string | null
           organisation_id: string
           patient_id: string
+          recall_reason?: string | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id: string
@@ -17594,11 +24326,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          declined_at?: string | null
+          declined_reason?: string | null
           due_date?: string
           id?: string
+          is_recall?: boolean
           next_due_date?: string | null
           organisation_id?: string
           patient_id?: string
+          recall_reason?: string | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           screen_type_id?: string
@@ -17830,6 +24566,105 @@ export type Database = {
           },
         ]
       }
+      social_determinant_screenings: {
+        Row: {
+          ageing_assessment_id: string | null
+          caregiver_limitation: boolean
+          coordinator_notes: string | null
+          created_at: string
+          financial_barrier: boolean
+          follow_up_status: Database["public"]["Enums"]["social_navigation_follow_up_status"]
+          followed_up_at: string | null
+          followed_up_by: string | null
+          healthcare_access_difficulty: boolean
+          id: string
+          living_alone: boolean
+          logged_by_profile_id: string | null
+          needs_navigation_support: boolean | null
+          organisation_id: string
+          patient_id: string
+          screened_at: string
+          transport_difficulty: boolean
+          updated_at: string
+        }
+        Insert: {
+          ageing_assessment_id?: string | null
+          caregiver_limitation?: boolean
+          coordinator_notes?: string | null
+          created_at?: string
+          financial_barrier?: boolean
+          follow_up_status?: Database["public"]["Enums"]["social_navigation_follow_up_status"]
+          followed_up_at?: string | null
+          followed_up_by?: string | null
+          healthcare_access_difficulty?: boolean
+          id?: string
+          living_alone?: boolean
+          logged_by_profile_id?: string | null
+          needs_navigation_support?: boolean | null
+          organisation_id: string
+          patient_id: string
+          screened_at?: string
+          transport_difficulty?: boolean
+          updated_at?: string
+        }
+        Update: {
+          ageing_assessment_id?: string | null
+          caregiver_limitation?: boolean
+          coordinator_notes?: string | null
+          created_at?: string
+          financial_barrier?: boolean
+          follow_up_status?: Database["public"]["Enums"]["social_navigation_follow_up_status"]
+          followed_up_at?: string | null
+          followed_up_by?: string | null
+          healthcare_access_difficulty?: boolean
+          id?: string
+          living_alone?: boolean
+          logged_by_profile_id?: string | null
+          needs_navigation_support?: boolean | null
+          organisation_id?: string
+          patient_id?: string
+          screened_at?: string
+          transport_difficulty?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_determinant_screenings_ageing_assessment_id_fkey"
+            columns: ["ageing_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "ageing_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_determinant_screenings_followed_up_by_fkey"
+            columns: ["followed_up_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_determinant_screenings_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_determinant_screenings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_determinant_screenings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_history: {
         Row: {
           created_at: string
@@ -17897,11 +24732,273 @@ export type Database = {
           },
         ]
       }
+      source_precedence_rules: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          note: string | null
+          rank: number
+          source_value: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          id?: string
+          note?: string | null
+          rank: number
+          source_value: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          note?: string | null
+          rank?: number
+          source_value?: string
+        }
+        Relationships: []
+      }
+      specialist_provider_availability_rules: {
+        Row: {
+          buffer_minutes: number
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          created_at: string
+          created_by: string | null
+          day_of_week: number
+          duration_type: Database["public"]["Enums"]["consultation_duration_type"]
+          effective_from: string
+          effective_until: string | null
+          end_time: string
+          id: string
+          is_active: boolean
+          slot_duration_minutes: number
+          specialist_provider_id: string
+          specialist_provider_location_id: string | null
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          buffer_minutes?: number
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          created_at?: string
+          created_by?: string | null
+          day_of_week: number
+          duration_type?: Database["public"]["Enums"]["consultation_duration_type"]
+          effective_from?: string
+          effective_until?: string | null
+          end_time: string
+          id?: string
+          is_active?: boolean
+          slot_duration_minutes: number
+          specialist_provider_id: string
+          specialist_provider_location_id?: string | null
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          buffer_minutes?: number
+          consultation_method?: Database["public"]["Enums"]["appointment_consultation_method"]
+          created_at?: string
+          created_by?: string | null
+          day_of_week?: number
+          duration_type?: Database["public"]["Enums"]["consultation_duration_type"]
+          effective_from?: string
+          effective_until?: string | null
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          slot_duration_minutes?: number
+          specialist_provider_id?: string
+          specialist_provider_location_id?: string | null
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_provider_availabil_specialist_provider_location_fkey"
+            columns: ["specialist_provider_location_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_provider_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_provider_availability_ru_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_provider_availability_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialist_provider_locations: {
+        Row: {
+          address: string
+          city: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          name: string
+          specialist_provider_id: string
+          state: string
+          supports_in_person: boolean
+          supports_telemedicine: boolean
+        }
+        Insert: {
+          address: string
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          specialist_provider_id: string
+          state: string
+          supports_in_person?: boolean
+          supports_telemedicine?: boolean
+        }
+        Update: {
+          address?: string
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          specialist_provider_id?: string
+          state?: string
+          supports_in_person?: boolean
+          supports_telemedicine?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_provider_locations_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialist_provider_time_off: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          id: string
+          kind: string
+          reason: string | null
+          specialist_provider_id: string
+          starts_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          id?: string
+          kind: string
+          reason?: string | null
+          specialist_provider_id: string
+          starts_at: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          id?: string
+          kind?: string
+          reason?: string | null
+          specialist_provider_id?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_provider_time_off_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_provider_time_off_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialist_provider_verification_events: {
+        Row: {
+          created_at: string
+          from_stage:
+            | Database["public"]["Enums"]["specialist_verification_stage"]
+            | null
+          id: string
+          note: string | null
+          performed_by: string
+          specialist_provider_id: string
+          to_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+        }
+        Insert: {
+          created_at?: string
+          from_stage?:
+            | Database["public"]["Enums"]["specialist_verification_stage"]
+            | null
+          id?: string
+          note?: string | null
+          performed_by: string
+          specialist_provider_id: string
+          to_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+        }
+        Update: {
+          created_at?: string
+          from_stage?:
+            | Database["public"]["Enums"]["specialist_verification_stage"]
+            | null
+          id?: string
+          note?: string | null
+          performed_by?: string
+          specialist_provider_id?: string
+          to_stage?: Database["public"]["Enums"]["specialist_verification_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialist_provider_verification_ev_specialist_provider_id_fkey"
+            columns: ["specialist_provider_id"]
+            isOneToOne: false
+            referencedRelation: "specialist_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "specialist_provider_verification_events_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       specialist_providers: {
         Row: {
           accepted_hmos: string[]
           area: string | null
           city: string | null
+          clinical_interests: string[]
           commission_flat_kobo: number | null
           commission_rate: number | null
           commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
@@ -17919,15 +25016,24 @@ export type Database = {
           license_verified_by: string | null
           location: string | null
           name: string
+          organisation_id: string | null
+          provider_tier:
+            | Database["public"]["Enums"]["specialist_provider_tier"]
+            | null
+          qualifications: string[]
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           state: string | null
+          subspecialty: string | null
           supports_in_person: boolean
           supports_telemedicine: boolean
+          verification_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+          years_of_experience: number | null
         }
         Insert: {
           accepted_hmos?: string[]
           area?: string | null
           city?: string | null
+          clinical_interests?: string[]
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
@@ -17945,15 +25051,24 @@ export type Database = {
           license_verified_by?: string | null
           location?: string | null
           name: string
+          organisation_id?: string | null
+          provider_tier?:
+            | Database["public"]["Enums"]["specialist_provider_tier"]
+            | null
+          qualifications?: string[]
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           state?: string | null
+          subspecialty?: string | null
           supports_in_person?: boolean
           supports_telemedicine?: boolean
+          verification_stage?: Database["public"]["Enums"]["specialist_verification_stage"]
+          years_of_experience?: number | null
         }
         Update: {
           accepted_hmos?: string[]
           area?: string | null
           city?: string | null
+          clinical_interests?: string[]
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
@@ -17971,10 +25086,18 @@ export type Database = {
           license_verified_by?: string | null
           location?: string | null
           name?: string
+          organisation_id?: string | null
+          provider_tier?:
+            | Database["public"]["Enums"]["specialist_provider_tier"]
+            | null
+          qualifications?: string[]
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           state?: string | null
+          subspecialty?: string | null
           supports_in_person?: boolean
           supports_telemedicine?: boolean
+          verification_stage?: Database["public"]["Enums"]["specialist_verification_stage"]
+          years_of_experience?: number | null
         }
         Relationships: [
           {
@@ -17984,18 +25107,27 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "specialist_providers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       specialist_referrals: {
         Row: {
           applied_voucher_id: string | null
           appointment_date: string | null
+          appropriateness_flags: Json
           booking_confirmed_at: string | null
           care_plan_update_note: string | null
           clinical_summary: Json | null
           closed_at: string | null
           closed_by: string | null
           created_at: string
+          declined_reason: string | null
           fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
@@ -18017,13 +25149,16 @@ export type Database = {
           referral_fee_kobo: number
           referral_number: string | null
           referral_reason: string | null
+          referral_source: Database["public"]["Enums"]["referral_source"]
           referred_by: string | null
+          requested_service: string | null
           screening_upgrade_id: string | null
           set_by: string | null
           shared_care_handback_at: string | null
           specialist_provider_id: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status: Database["public"]["Enums"]["referral_status"]
+          submitted_at: string | null
           treatment_plan_note: string | null
           treatment_plan_received_at: string | null
           updated_at: string
@@ -18034,12 +25169,14 @@ export type Database = {
         Insert: {
           applied_voucher_id?: string | null
           appointment_date?: string | null
+          appropriateness_flags?: Json
           booking_confirmed_at?: string | null
           care_plan_update_note?: string | null
           clinical_summary?: Json | null
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
+          declined_reason?: string | null
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
@@ -18061,13 +25198,16 @@ export type Database = {
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referral_source?: Database["public"]["Enums"]["referral_source"]
           referred_by?: string | null
+          requested_service?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          submitted_at?: string | null
           treatment_plan_note?: string | null
           treatment_plan_received_at?: string | null
           updated_at?: string
@@ -18078,12 +25218,14 @@ export type Database = {
         Update: {
           applied_voucher_id?: string | null
           appointment_date?: string | null
+          appropriateness_flags?: Json
           booking_confirmed_at?: string | null
           care_plan_update_note?: string | null
           clinical_summary?: Json | null
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
+          declined_reason?: string | null
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
@@ -18105,13 +25247,16 @@ export type Database = {
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referral_source?: Database["public"]["Enums"]["referral_source"]
           referred_by?: string | null
+          requested_service?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          submitted_at?: string | null
           treatment_plan_note?: string | null
           treatment_plan_received_at?: string | null
           updated_at?: string
@@ -18424,6 +25569,73 @@ export type Database = {
           {
             foreignKeyName: "subscriptions_subscriber_id_fkey"
             columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      superseded_source_values: {
+        Row: {
+          attempted_by: string | null
+          attempted_source: string
+          attempted_value: Json
+          created_at: string
+          domain: string
+          entity_id: string
+          entity_table: string
+          existing_source: string
+          existing_value: Json
+          id: string
+          organisation_id: string | null
+          patient_id: string | null
+        }
+        Insert: {
+          attempted_by?: string | null
+          attempted_source: string
+          attempted_value: Json
+          created_at?: string
+          domain: string
+          entity_id: string
+          entity_table: string
+          existing_source: string
+          existing_value: Json
+          id?: string
+          organisation_id?: string | null
+          patient_id?: string | null
+        }
+        Update: {
+          attempted_by?: string | null
+          attempted_source?: string
+          attempted_value?: Json
+          created_at?: string
+          domain?: string
+          entity_id?: string
+          entity_table?: string
+          existing_source?: string
+          existing_value?: Json
+          id?: string
+          organisation_id?: string | null
+          patient_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "superseded_source_values_attempted_by_fkey"
+            columns: ["attempted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "superseded_source_values_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "superseded_source_values_patient_id_fkey"
+            columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -18750,6 +25962,175 @@ export type Database = {
           },
         ]
       }
+      symptom_triage_assessments: {
+        Row: {
+          category: Database["public"]["Enums"]["triage_category"]
+          clinician_alert_id: string | null
+          clinician_flagged_false_reassurance: boolean
+          clinician_flagged_inappropriate_escalation: boolean
+          clinician_flagged_missed_red_flag: boolean
+          clinician_review_alert_id: string | null
+          clinician_review_required: boolean
+          created_at: string
+          emergency_event_id: string | null
+          entry_point: Database["public"]["Enums"]["triage_entry_point"]
+          id: string
+          initial_capture: Json
+          logged_by_profile_id: string | null
+          organisation_id: string
+          outcome_action: string | null
+          outcome_recorded_at: string | null
+          outcome_recorded_by: string | null
+          overridden_at: string | null
+          overridden_by: string | null
+          override_category:
+            | Database["public"]["Enums"]["triage_category"]
+            | null
+          override_reason: string | null
+          patient_id: string
+          presenting_complaint_key: string
+          protocol_version: number
+          questions_asked: Json
+          rationale: string
+          red_flag_screen: Json
+          safety_flag_notes: string | null
+          safety_net_message_key: string
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["triage_category"]
+          clinician_alert_id?: string | null
+          clinician_flagged_false_reassurance?: boolean
+          clinician_flagged_inappropriate_escalation?: boolean
+          clinician_flagged_missed_red_flag?: boolean
+          clinician_review_alert_id?: string | null
+          clinician_review_required?: boolean
+          created_at?: string
+          emergency_event_id?: string | null
+          entry_point?: Database["public"]["Enums"]["triage_entry_point"]
+          id?: string
+          initial_capture: Json
+          logged_by_profile_id?: string | null
+          organisation_id: string
+          outcome_action?: string | null
+          outcome_recorded_at?: string | null
+          outcome_recorded_by?: string | null
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_category?:
+            | Database["public"]["Enums"]["triage_category"]
+            | null
+          override_reason?: string | null
+          patient_id: string
+          presenting_complaint_key: string
+          protocol_version: number
+          questions_asked?: Json
+          rationale: string
+          red_flag_screen?: Json
+          safety_flag_notes?: string | null
+          safety_net_message_key: string
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["triage_category"]
+          clinician_alert_id?: string | null
+          clinician_flagged_false_reassurance?: boolean
+          clinician_flagged_inappropriate_escalation?: boolean
+          clinician_flagged_missed_red_flag?: boolean
+          clinician_review_alert_id?: string | null
+          clinician_review_required?: boolean
+          created_at?: string
+          emergency_event_id?: string | null
+          entry_point?: Database["public"]["Enums"]["triage_entry_point"]
+          id?: string
+          initial_capture?: Json
+          logged_by_profile_id?: string | null
+          organisation_id?: string
+          outcome_action?: string | null
+          outcome_recorded_at?: string | null
+          outcome_recorded_by?: string | null
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_category?:
+            | Database["public"]["Enums"]["triage_category"]
+            | null
+          override_reason?: string | null
+          patient_id?: string
+          presenting_complaint_key?: string
+          protocol_version?: number
+          questions_asked?: Json
+          rationale?: string
+          red_flag_screen?: Json
+          safety_flag_notes?: string | null
+          safety_net_message_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "symptom_triage_assessments_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_clinician_review_alert_id_fkey"
+            columns: ["clinician_review_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_emergency_event_id_fkey"
+            columns: ["emergency_event_id"]
+            isOneToOne: false
+            referencedRelation: "emergency_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_outcome_recorded_by_fkey"
+            columns: ["outcome_recorded_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_overridden_by_fkey"
+            columns: ["overridden_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_protocol_version_fkey"
+            columns: ["protocol_version"]
+            isOneToOne: false
+            referencedRelation: "triage_protocols"
+            referencedColumns: ["version"]
+          },
+        ]
+      }
       symptoms: {
         Row: {
           created_at: string
@@ -18810,6 +26191,116 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      triage_protocols: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "triage_protocols_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unit_conversions: {
+        Row: {
+          created_at: string
+          factor: number
+          from_unit_id: string
+          id: string
+          offset_amount: number
+          to_unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          factor: number
+          from_unit_id: string
+          id?: string
+          offset_amount?: number
+          to_unit_id: string
+        }
+        Update: {
+          created_at?: string
+          factor?: number
+          from_unit_id?: string
+          id?: string
+          offset_amount?: number
+          to_unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_conversions_from_unit_id_fkey"
+            columns: ["from_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_conversions_to_unit_id_fkey"
+            columns: ["to_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units_of_measure"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      units_of_measure: {
+        Row: {
+          code: string
+          created_at: string
+          dimension: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          dimension: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          dimension?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
       }
       user_permission_grants: {
         Row: {
@@ -19801,6 +27292,106 @@ export type Database = {
           },
         ]
       }
+      wellbeing_checkin_preferences: {
+        Row: {
+          organisation_id: string
+          patient_id: string
+          reminder_frequency_days: number
+          updated_at: string
+        }
+        Insert: {
+          organisation_id: string
+          patient_id: string
+          reminder_frequency_days?: number
+          updated_at?: string
+        }
+        Update: {
+          organisation_id?: string
+          patient_id?: string
+          reminder_frequency_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wellbeing_checkin_preferences_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wellbeing_checkin_preferences_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wellbeing_checkins: {
+        Row: {
+          activity_level: number
+          checked_in_at: string
+          created_at: string
+          id: string
+          logged_by_profile_id: string | null
+          mood_score: number
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          sleep_quality: number
+          stress_score: number
+        }
+        Insert: {
+          activity_level: number
+          checked_in_at?: string
+          created_at?: string
+          id?: string
+          logged_by_profile_id?: string | null
+          mood_score: number
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          sleep_quality: number
+          stress_score: number
+        }
+        Update: {
+          activity_level?: number
+          checked_in_at?: string
+          created_at?: string
+          id?: string
+          logged_by_profile_id?: string | null
+          mood_score?: number
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          sleep_quality?: number
+          stress_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wellbeing_checkins_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wellbeing_checkins_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wellbeing_checkins_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wellness_badges: {
         Row: {
           code: string
@@ -20255,6 +27846,28 @@ export type Database = {
           },
         ]
       }
+      employer_campaign_summary: {
+        Row: {
+          campaign_id: string | null
+          campaign_type:
+            | Database["public"]["Enums"]["employer_campaign_type"]
+            | null
+          completed_count: number | null
+          name: string | null
+          organisation_id: string | null
+          participant_count: number | null
+          status: Database["public"]["Enums"]["employer_campaign_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_campaigns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_orders_awaiting_transmission: {
         Row: {
           hours_since_payment: number | null
@@ -20309,6 +27922,15 @@ export type Database = {
           },
         ]
       }
+      master_data_registry: {
+        Row: {
+          code_system: string | null
+          dictionary: string | null
+          governing_table: string | null
+          kind: string | null
+        }
+        Relationships: []
+      }
       patient_care_gaps: {
         Row: {
           condition_or_type: string | null
@@ -20319,6 +27941,37 @@ export type Database = {
           patient_id: string | null
         }
         Relationships: []
+      }
+      triage_safety_monitoring: {
+        Row: {
+          any_escalation_rate: number | null
+          clinician_override_count: number | null
+          clinician_override_rate: number | null
+          clinician_review_required_count: number | null
+          clinician_review_required_rate: number | null
+          earliest_assessment_at: string | null
+          emergency_count: number | null
+          emergency_escalation_rate: number | null
+          flagged_false_reassurance_count: number | null
+          flagged_inappropriate_escalation_count: number | null
+          flagged_missed_red_flag_count: number | null
+          latest_assessment_at: string | null
+          organisation_id: string | null
+          override_changed_category_count: number | null
+          routine_count: number | null
+          self_management_count: number | null
+          total_assessments: number | null
+          urgent_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "symptom_triage_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -20376,6 +28029,43 @@ export type Database = {
         Args: { p_order_id: string; p_partner_reference: string }
         Returns: Json
       }
+      acknowledge_provider_intervention: {
+        Args: { p_intervention_id: string }
+        Returns: {
+          agreed_actions: string | null
+          clinical_staff_id: string
+          closed_at: string | null
+          closed_by: string | null
+          complaint_id: string | null
+          created_at: string
+          due_at: string | null
+          id: string
+          intervention_type: Database["public"]["Enums"]["provider_intervention_type"]
+          opened_at: string
+          opened_by: string
+          organisation_id: string
+          outcome_summary: string | null
+          owner_id: string | null
+          period_end: string | null
+          period_start: string | null
+          provider_acknowledged_at: string | null
+          rationale: string
+          restriction_id: string | null
+          status: Database["public"]["Enums"]["provider_intervention_status"]
+          trigger_source: Database["public"]["Enums"]["provider_intervention_trigger"]
+          triggering_metric:
+            | Database["public"]["Enums"]["provider_quality_metric"]
+            | null
+          triggering_value: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "provider_interventions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       action_consultation_follow_up: {
         Args: {
           p_followup_id: string
@@ -20384,6 +28074,10 @@ export type Database = {
           p_referral_specialist_type?: string
         }
         Returns: Json
+      }
+      activate_ai_prompt_version: {
+        Args: { p_id: string; p_note?: string }
+        Returns: string
       }
       add_screening_day_slot: {
         Args: {
@@ -20569,6 +28263,54 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      advance_specialist_verification_stage: {
+        Args: {
+          p_note?: string
+          p_specialist_provider_id: string
+          p_to_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+        }
+        Returns: {
+          accepted_hmos: string[]
+          area: string | null
+          city: string | null
+          clinical_interests: string[]
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
+          consultation_fee_kobo: number
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          languages: string[]
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          license_verified_by: string | null
+          location: string | null
+          name: string
+          organisation_id: string | null
+          provider_tier:
+            | Database["public"]["Enums"]["specialist_provider_tier"]
+            | null
+          qualifications: string[]
+          specialist_type: Database["public"]["Enums"]["specialist_type"]
+          state: string | null
+          subspecialty: string | null
+          supports_in_person: boolean
+          supports_telemedicine: boolean
+          verification_stage: Database["public"]["Enums"]["specialist_verification_stage"]
+          years_of_experience: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "specialist_providers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       advance_support_ticket_status: {
         Args: {
           p_note?: string
@@ -20608,6 +28350,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ai_governance_dashboard: { Args: { p_days?: number }; Returns: Json }
+      ai_runtime_config: { Args: { p_system_code: string }; Returns: Json }
       analytics_accounting_summary: { Args: never; Returns: Json }
       analytics_acquisition_funnel: {
         Args: { p_from?: string; p_to?: string }
@@ -20641,6 +28385,10 @@ export type Database = {
       }
       analytics_business_summary: { Args: never; Returns: Json }
       analytics_clinical_outcomes: { Args: never; Returns: Json }
+      analytics_clinical_rule_performance: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       analytics_complaints_summary: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -20691,6 +28439,14 @@ export type Database = {
         Returns: Json
       }
       analytics_risk_register: { Args: never; Returns: Json }
+      analytics_specialist_provider_performance: {
+        Args: { p_specialist_provider_id: string }
+        Returns: Json
+      }
+      analytics_specialist_provider_workload: {
+        Args: { p_specialist_provider_id: string }
+        Returns: Json
+      }
       analytics_staff_activity: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -20734,8 +28490,24 @@ export type Database = {
         Returns: string
       }
       analytics_user_segments: { Args: never; Returns: Json }
+      apply_payer_programme_directive: {
+        Args: { p_directive_id: string }
+        Returns: Json
+      }
+      approve_ai_system_version: {
+        Args: { p_deploy?: boolean; p_note?: string; p_version_id: string }
+        Returns: Json
+      }
       approve_lab_order_refund: { Args: { p_refund_id: string }; Returns: Json }
       approve_partner_statement: {
+        Args: { p_force_note?: string; p_statement_id: string }
+        Returns: Json
+      }
+      approve_pharmacy_order_refund: {
+        Args: { p_refund_id: string }
+        Returns: Json
+      }
+      approve_pharmacy_partner_statement: {
         Args: { p_force_note?: string; p_statement_id: string }
         Returns: Json
       }
@@ -20861,6 +28633,10 @@ export type Database = {
         Args: { p_reason: string; p_voucher: string }
         Returns: Json
       }
+      cancel_integration_event: {
+        Args: { p_outbound_event_id: string }
+        Returns: undefined
+      }
       cancel_waiting_list_entry: {
         Args: { p_waiting_list_id: string }
         Returns: undefined
@@ -20870,14 +28646,50 @@ export type Database = {
         Args: { p_beneficiary: string; p_from?: string; p_to?: string }
         Returns: Json
       }
+      check_insurance_coverage: {
+        Args: {
+          p_amount_kobo: number
+          p_patient_id: string
+          p_service_category: string
+        }
+        Returns: Json
+      }
       claim_employer_roster_member: {
         Args: { target_roster_id: string }
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
+      claim_integration_outbound_batch: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempt_count: number
+          endpoint_name: string
+          event_id: string
+          event_type: Database["public"]["Enums"]["integration_event_type"]
+          id: string
+          max_attempts: number
+          payload: Json
+          secret: string
+          url: string
+        }[]
+      }
       clear_vitals_validation_flag: {
         Args: { p_reading_id: string }
         Returns: undefined
+      }
+      clinical_rule_candidates: {
+        Args: {
+          p_at?: string
+          p_event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          p_include_shadow?: boolean
+          p_organisation_id: string
+          p_patient_id?: string
+        }
+        Returns: Json
+      }
+      clinical_rule_shadow_report: {
+        Args: { p_from?: string; p_rule_key: string; p_to?: string }
+        Returns: Json
       }
       close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
@@ -20991,7 +28803,20 @@ export type Database = {
         Args: { p_consultation_id: string }
         Returns: Json
       }
+      convert_unit: {
+        Args: { p_from_code: string; p_to_code: string; p_value: number }
+        Returns: number
+      }
       create_emergency_card: { Args: never; Returns: string }
+      create_navigation_request: {
+        Args: {
+          p_category: Database["public"]["Enums"]["navigation_request_category"]
+          p_description: string
+          p_is_complaint?: boolean
+          p_patient_id?: string
+        }
+        Returns: string
+      }
       create_personalised_lifestyle_goal: {
         Args: {
           p_enrollment_id: string
@@ -21022,6 +28847,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      data_retention_policy_summary: {
+        Args: never
+        Returns: {
+          category: string
+          governing_tables: string[]
+          legal_basis: string
+          retention_period_months: number
+          status: string
+        }[]
+      }
+      decide_preauthorization: {
+        Args: {
+          p_authorization_number?: string
+          p_decision: string
+          p_denial_reason?: string
+          p_preauthorization_id: string
+          p_valid_until?: string
+        }
+        Returns: Json
+      }
       decline_health_passport_attestation: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
@@ -21031,6 +28876,60 @@ export type Database = {
         Returns: undefined
       }
       emergency_card_by_token: { Args: { p_token: string }; Returns: Json }
+      employer_accept_invitation: { Args: { p_token: string }; Returns: string }
+      employer_allowance_remaining: {
+        Args: { p_allowance_type: string; p_patient_id: string }
+        Returns: number
+      }
+      employer_bulk_upsert_roster: {
+        Args: { p_channel?: string; p_organisation_id: string; p_rows: Json }
+        Returns: Json
+      }
+      employer_consume_allowance: {
+        Args: { p_allowance_type: string; p_patient_id: string }
+        Returns: number
+      }
+      employer_generate_invoice: {
+        Args: {
+          p_organisation_id: string
+          p_period_end: string
+          p_period_start: string
+        }
+        Returns: string
+      }
+      employer_go_live: {
+        Args: { p_organisation_id: string }
+        Returns: undefined
+      }
+      employer_invite_roster_member: {
+        Args: {
+          p_channel: string
+          p_expires_in_days?: number
+          p_roster_member_id: string
+        }
+        Returns: string
+      }
+      employer_join_with_code: { Args: { p_code: string }; Returns: string }
+      employer_mark_departed: {
+        Args: { p_reason?: string; p_roster_member_id: string }
+        Returns: undefined
+      }
+      employer_rotate_join_code: {
+        Args: { p_organisation_id: string }
+        Returns: string
+      }
+      employer_send_announcement: {
+        Args: { p_announcement_id: string }
+        Returns: number
+      }
+      employer_set_invoice_status: {
+        Args: { p_invoice_id: string; p_status: string; p_void_reason?: string }
+        Returns: undefined
+      }
+      employer_set_verification: {
+        Args: { p_notes?: string; p_organisation_id: string; p_status: string }
+        Returns: undefined
+      }
       enqueue_critical_notification: {
         Args: {
           p_alert_tier: Database["public"]["Enums"]["alert_level"]
@@ -21043,6 +28942,16 @@ export type Database = {
           p_template: string
         }
         Returns: string
+      }
+      enqueue_integration_event: {
+        Args: {
+          p_dedupe_key: string
+          p_environment?: Database["public"]["Enums"]["api_environment"]
+          p_event_type: Database["public"]["Enums"]["integration_event_type"]
+          p_organisation_id: string
+          p_payload: Json
+        }
+        Returns: number
       }
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }
@@ -21130,6 +29039,7 @@ export type Database = {
         Args: { p_reason?: string; p_voucher: string }
         Returns: Json
       }
+      feature_enabled: { Args: { p_flag: string }; Returns: boolean }
       finance_accounts_list: { Args: never; Returns: Json }
       finance_ap_aging: { Args: never; Returns: Json }
       finance_approval_history: { Args: { p_limit?: number }; Returns: Json }
@@ -21431,6 +29341,24 @@ export type Database = {
           slot_start: string
         }[]
       }
+      get_available_specialist_slots: {
+        Args: {
+          p_from?: string
+          p_specialist_provider_id: string
+          p_to?: string
+        }
+        Returns: {
+          consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          duration_type: Database["public"]["Enums"]["consultation_duration_type"]
+          location_id: string
+          slot_end: string
+          slot_start: string
+        }[]
+      }
+      get_campaign_effectiveness: {
+        Args: { p_campaign_id: string }
+        Returns: Json
+      }
       get_geo_health_aggregates: {
         Args: never
         Returns: {
@@ -21443,7 +29371,35 @@ export type Database = {
           suppressed: boolean
         }[]
       }
+      get_or_create_invoice: {
+        Args: { p_service_type: string; p_source_id: string }
+        Returns: Json
+      }
       get_or_create_my_referral_code: { Args: never; Returns: string }
+      get_population_members: {
+        Args: { p_population_id: string }
+        Returns: {
+          age_years: number
+          control_status: string
+          engagement_band: string
+          full_name: string
+          last_engagement_at: string
+          matched_conditions: Database["public"]["Enums"]["care_plan_condition"][]
+          open_care_gap_types: string[]
+          patient_id: string
+          risk_tier: Database["public"]["Enums"]["risk_level"]
+          sex: Database["public"]["Enums"]["sex"]
+          state: string
+        }[]
+      }
+      get_population_outcomes: {
+        Args: { p_population_id: string }
+        Returns: Json
+      }
+      get_population_summary: {
+        Args: { p_population_id: string }
+        Returns: Json
+      }
       hand_over_care: {
         Args: {
           p_new_profile_id: string
@@ -21657,6 +29613,48 @@ export type Database = {
         }
         Returns: string
       }
+      integration_catalogue: {
+        Args: never
+        Returns: {
+          base_url: string
+          has_inbound_key: boolean
+          inbound_active_key_count: number
+          inbound_key_last_used_at: string
+          is_active: boolean
+          last_activity_at: string
+          name: string
+          outbound_last_check_ok: boolean
+          outbound_last_checked_at: string
+          partner_integration_id: string
+          status: string
+          webhook_active_endpoint_count: number
+          webhook_endpoint_count: number
+          webhook_last_failure_at: string
+          webhook_last_success_at: string
+          webhook_max_consecutive_failures: number
+        }[]
+      }
+      integration_health_metrics: {
+        Args: { p_window_hours?: number }
+        Returns: {
+          authentication_failures: number
+          avg_latency_ms: number
+          data_mismatches: number
+          failed_requests: number
+          ok_requests: number
+          outbound_dead_letter: number
+          outbound_delayed_deliveries: number
+          outbound_delivered: number
+          outbound_failed_retrying: number
+          outbound_overdue: number
+          outbound_pending: number
+          p95_latency_ms: number
+          rate_limited_requests: number
+          total_requests: number
+          window_hours: number
+        }[]
+      }
+      invoice_letterhead_details: { Args: never; Returns: Json }
       issue_screening_day_voucher: {
         Args: { p_beneficiary_profile_id: string; p_slot_id: string }
         Returns: Json
@@ -21715,6 +29713,31 @@ export type Database = {
           suppressed: boolean
         }[]
       }
+      lift_provider_restriction: {
+        Args: { p_reason: string; p_restriction_id: string }
+        Returns: {
+          clinical_staff_id: string
+          complaint_id: string | null
+          created_at: string
+          credential_expires_at: string | null
+          detail: string | null
+          id: string
+          imposed_at: string
+          imposed_by: string | null
+          lift_reason: string | null
+          lifted_at: string | null
+          lifted_by: string | null
+          organisation_id: string
+          reason: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "provider_restrictions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       log_patient_record_view: {
         Args: { p_patient_id: string }
         Returns: undefined
@@ -21722,6 +29745,24 @@ export type Database = {
       log_result_document_viewed: {
         Args: { p_document_id: string }
         Returns: undefined
+      }
+      lookup_concept: {
+        Args: {
+          p_domain: Database["public"]["Enums"]["reference_concept_domain"]
+          p_limit?: number
+          p_min_score?: number
+          p_text: string
+        }
+        Returns: {
+          code: string
+          code_system: string
+          code_system_uri: string
+          concept_id: string
+          display: string
+          matched_on: string
+          score: number
+          status: Database["public"]["Enums"]["reference_concept_status"]
+        }[]
       }
       mark_consultation_follow_up_not_needed: {
         Args: { p_followup_id: string; p_reason: string }
@@ -21772,6 +29813,10 @@ export type Database = {
         Args: { p_statement_id: string }
         Returns: Json
       }
+      match_pharmacy_partner_statement: {
+        Args: { p_statement_id: string }
+        Returns: Json
+      }
       mint_health_passport: {
         Args: { p_attestation_request_id?: string }
         Returns: Json
@@ -21784,11 +29829,23 @@ export type Database = {
           clinician_full_name: string
         }[]
       }
+      my_feature_flags: { Args: never; Returns: Json }
       my_provider_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
       open_health_check: { Args: never; Returns: string }
+      ops_exception_counts: { Args: never; Returns: Json }
+      ops_exception_queue: {
+        Args: { p_domain?: string; p_limit?: number }
+        Returns: Json
+      }
+      ops_system_health: { Args: never; Returns: Json }
+      ops_today_summary: { Args: never; Returns: Json }
+      override_clinical_rule_action: {
+        Args: { p_action_id: string; p_reason: string }
+        Returns: string
+      }
       patient_health_reset_progress: {
         Args: never
         Returns: {
@@ -21841,6 +29898,30 @@ export type Database = {
           schedule_item_id: string
           vital_type: Database["public"]["Enums"]["vital_type"]
         }[]
+      }
+      payer_adjudicate_claim: {
+        Args: {
+          p_claim_id: string
+          p_claim_reference?: string
+          p_denial_reason?: string
+          p_insurer_covered_kobo?: number
+          p_status: string
+        }
+        Returns: Json
+      }
+      payer_dashboard_analytics: {
+        Args: { p_insurer_id: string }
+        Returns: Json
+      }
+      payer_decide_preauthorization: {
+        Args: {
+          p_authorization_number?: string
+          p_decision: string
+          p_denial_reason?: string
+          p_preauthorization_id: string
+          p_valid_until?: string
+        }
+        Returns: Json
       }
       pharmacist_accept_order: {
         Args: {
@@ -21952,9 +30033,71 @@ export type Database = {
         Args: { p_bundle_code: string; p_patient_id: string }
         Returns: Json
       }
+      promote_clinical_rule_to_shadow: {
+        Args: { p_id: string }
+        Returns: string
+      }
       propose_video_visit_alternate_slots: {
         Args: { p_request_id: string; p_slot_ids: string[] }
         Returns: undefined
+      }
+      provider_credential_monitor: { Args: never; Returns: Json }
+      provider_org_analytics: {
+        Args: { p_organisation_id: string }
+        Returns: Json
+      }
+      provider_org_lab_order_queue: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          order_id: string
+          order_number: string
+          ordered_at: string
+          panel_name: string
+          patient_name: string
+          patient_number: string
+          resulted_at: string
+          status: string
+        }[]
+      }
+      provider_org_pharmacy_order_queue: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          delivered_at: string
+          order_id: string
+          order_number: string
+          patient_name: string
+          patient_number: string
+          requested_at: string
+          status: string
+          total_kobo: number
+        }[]
+      }
+      provider_org_referral_queue: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          appointment_date: string
+          created_at: string
+          patient_name: string
+          patient_number: string
+          referral_id: string
+          referral_number: string
+          referral_reason: string
+          specialist_type: string
+          status: string
+          urgency: string
+        }[]
+      }
+      provider_org_referral_queue_summary: {
+        Args: { p_organisation_id: string }
+        Returns: Json
+      }
+      provider_quality_network_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      provider_scorecard: {
+        Args: { p_clinical_staff_id?: string; p_from?: string; p_to?: string }
+        Returns: Json
       }
       provision_dependent_profile_basics: {
         Args: {
@@ -21964,6 +30107,10 @@ export type Database = {
           p_sex: Database["public"]["Enums"]["sex"]
         }
         Returns: undefined
+      }
+      prune_integration_logs: {
+        Args: { p_request_log_days?: number }
+        Returns: Json
       }
       public_partner_locations: {
         Args: never
@@ -22011,6 +30158,58 @@ export type Database = {
           p_reason: string
         }
         Returns: boolean
+      }
+      record_ai_human_override: {
+        Args: {
+          p_interaction_id: string
+          p_note: string
+          p_resulting_action?: string
+        }
+        Returns: string
+      }
+      record_ai_interaction: {
+        Args: {
+          p_error_message?: string
+          p_fallback_reason?: string
+          p_guardrails_triggered?: string[]
+          p_input_category: string
+          p_input_token_count?: number
+          p_knowledge_source_ids?: string[]
+          p_latency_ms?: number
+          p_model_identifier: string
+          p_output_flags?: Database["public"]["Enums"]["ai_output_flag"][]
+          p_output_summary?: string
+          p_output_token_count?: number
+          p_prompt_version_id?: string
+          p_resulting_action?: string
+          p_resulting_entity_id?: string
+          p_resulting_entity_type?: string
+          p_safety_classification?: Database["public"]["Enums"]["alert_level"]
+          p_status: Database["public"]["Enums"]["ai_interaction_status"]
+          p_subject_profile_id?: string
+          p_system_code: string
+        }
+        Returns: string
+      }
+      record_claim_adjudication: {
+        Args: {
+          p_claim_id: string
+          p_claim_reference?: string
+          p_denial_reason?: string
+          p_insurer_covered_kobo?: number
+          p_status: string
+        }
+        Returns: Json
+      }
+      record_integration_delivery_result: {
+        Args: {
+          p_duration_ms: number
+          p_error: string
+          p_ok: boolean
+          p_outbound_event_id: string
+          p_status_code: number
+        }
+        Returns: Database["public"]["Enums"]["integration_delivery_status"]
       }
       record_result_correction: {
         Args: {
@@ -22063,6 +30262,14 @@ export type Database = {
         Returns: Json
       }
       redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
+      refer_patient_to_specialist: {
+        Args: {
+          p_patient_id: string
+          p_reason: string
+          p_specialist_type: string
+        }
+        Returns: string
+      }
       region_service_available: {
         Args: { p_service: string; p_state: string }
         Returns: boolean
@@ -22070,6 +30277,15 @@ export type Database = {
       register_passport_signing_key: {
         Args: { p_activate?: boolean; p_kid: string; p_public_key_spki: string }
         Returns: undefined
+      }
+      report_ai_safety_incident: {
+        Args: {
+          p_category: Database["public"]["Enums"]["ai_incident_category"]
+          p_description: string
+          p_interaction_id?: string
+          p_system_code: string
+        }
+        Returns: string
       }
       report_exposure: {
         Args: {
@@ -22093,6 +30309,7 @@ export type Database = {
         }
         Returns: {
           applied_voucher_id: string | null
+          clinical_indication: string | null
           courier_reference: string | null
           created_at: string
           excluded_test_codes: Json
@@ -22139,6 +30356,7 @@ export type Database = {
           transmission_note: string | null
           transmitted_at: string | null
           updated_at: string
+          urgency: Database["public"]["Enums"]["lab_order_urgency"]
           voucher_covered_kobo: number
         }
         SetofOptions: {
@@ -22166,6 +30384,25 @@ export type Database = {
         }
         Returns: string
       }
+      request_pharmacy_order_refund: {
+        Args: {
+          p_amount_kobo?: number
+          p_detail?: string
+          p_order_id: string
+          p_reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+        }
+        Returns: Json
+      }
+      request_preauthorization: {
+        Args: {
+          p_clinical_justification?: string
+          p_estimated_amount_kobo: number
+          p_policy_id: string
+          p_service_category: string
+          p_source_id?: string
+        }
+        Returns: Json
+      }
       request_screening_day: {
         Args: {
           p_contact_phone: string
@@ -22177,6 +30414,10 @@ export type Database = {
           p_slots_requested: number
         }
         Returns: Json
+      }
+      requeue_integration_event: {
+        Args: { p_outbound_event_id: string }
+        Returns: undefined
       }
       reschedule_appointment: {
         Args: {
@@ -22224,6 +30465,52 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      resolve_ai_safety_incident: {
+        Args: {
+          p_clinical_review_summary: string
+          p_corrective_action?: string
+          p_harm_description?: string
+          p_id: string
+          p_patient_harm_occurred?: boolean
+          p_status: Database["public"]["Enums"]["ai_incident_status"]
+        }
+        Returns: string
+      }
+      resolve_analyte_concept: {
+        Args: { p_tarragon_code: string }
+        Returns: string
+      }
+      resolve_data_quality_finding: {
+        Args: {
+          p_finding_id: string
+          p_note?: string
+          p_status: Database["public"]["Enums"]["data_quality_finding_status"]
+        }
+        Returns: {
+          category: Database["public"]["Enums"]["data_quality_category"]
+          check_code: string
+          created_at: string
+          description: string
+          detail: Json
+          detected_at: string
+          entity_id: string
+          entity_table: string
+          id: string
+          organisation_id: string | null
+          patient_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: Database["public"]["Enums"]["data_quality_severity"]
+          status: Database["public"]["Enums"]["data_quality_finding_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "data_quality_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       resolve_personalised_lifestyle_goal: {
         Args: {
           p_goal_id: string
@@ -22250,6 +30537,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      resolve_source_precedence: {
+        Args: { p_domain: string; p_source_a: string; p_source_b: string }
+        Returns: string
+      }
       respond_to_care_access_request: {
         Args: { p_accept: boolean; p_request_id: string }
         Returns: {
@@ -22272,9 +30563,39 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      retire_clinical_rule: {
+        Args: { p_id: string; p_reason: string }
+        Returns: string
+      }
       retire_passport_signing_key: {
         Args: { p_kid: string }
         Returns: undefined
+      }
+      review_patient_match_candidate: {
+        Args: {
+          p_candidate_id: string
+          p_note?: string
+          p_status: Database["public"]["Enums"]["patient_match_status"]
+        }
+        Returns: {
+          created_at: string
+          id: string
+          matched_fields: string[]
+          patient_a_id: string
+          patient_b_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          score: number
+          status: Database["public"]["Enums"]["patient_match_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "patient_match_candidates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       revoke_care_access: { Args: { p_grant_id: string }; Returns: Json }
       revoke_clinical_staff_credential_verification: {
@@ -22286,6 +30607,12 @@ export type Database = {
         Args: { p_issuance_id: string; p_reason?: string }
         Returns: undefined
       }
+      rollback_clinical_rule: {
+        Args: { p_reason: string; p_rule_key: string; p_to_version: number }
+        Returns: string
+      }
+      run_data_quality_scan: { Args: never; Returns: number }
+      run_patient_duplicate_detection: { Args: never; Returns: number }
       seal_health_passport: {
         Args: {
           p_content_digest: string
@@ -22300,6 +30627,10 @@ export type Database = {
       select_video_visit_alternate_slot: {
         Args: { p_request_id: string; p_slot_id: string }
         Returns: string
+      }
+      set_ai_system_enabled: {
+        Args: { p_enabled: boolean; p_id: string; p_reason: string }
+        Returns: Json
       }
       set_diagnostic_request_booking_preference: {
         Args: {
@@ -22357,6 +30688,7 @@ export type Database = {
         Args: { p_facility_id: string; p_order_id: string }
         Returns: {
           applied_voucher_id: string | null
+          clinical_indication: string | null
           courier_reference: string | null
           created_at: string
           excluded_test_codes: Json
@@ -22403,6 +30735,7 @@ export type Database = {
           transmission_note: string | null
           transmitted_at: string | null
           updated_at: string
+          urgency: Database["public"]["Enums"]["lab_order_urgency"]
           voucher_covered_kobo: number
         }
         SetofOptions: {
@@ -22424,17 +30757,23 @@ export type Database = {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
       }
+      set_platform_module: {
+        Args: { p_enabled: boolean; p_key: string; p_note?: string }
+        Returns: Json
+      }
       set_referral_specialist_provider: {
         Args: { p_referral_id: string; p_specialist_provider_id: string }
         Returns: {
           applied_voucher_id: string | null
           appointment_date: string | null
+          appropriateness_flags: Json
           booking_confirmed_at: string | null
           care_plan_update_note: string | null
           clinical_summary: Json | null
           closed_at: string | null
           closed_by: string | null
           created_at: string
+          declined_reason: string | null
           fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
@@ -22456,13 +30795,16 @@ export type Database = {
           referral_fee_kobo: number
           referral_number: string | null
           referral_reason: string | null
+          referral_source: Database["public"]["Enums"]["referral_source"]
           referred_by: string | null
+          requested_service: string | null
           screening_upgrade_id: string | null
           set_by: string | null
           shared_care_handback_at: string | null
           specialist_provider_id: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status: Database["public"]["Enums"]["referral_status"]
+          submitted_at: string | null
           treatment_plan_note: string | null
           treatment_plan_received_at: string | null
           updated_at: string
@@ -22480,12 +30822,40 @@ export type Database = {
       set_usd_processing_fee: { Args: { p_fee_pct: number }; Returns: Json }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_alert_rules: { Args: { p_id: string }; Returns: string }
+      sign_clinical_rule: {
+        Args: { p_activate?: boolean; p_id: string }
+        Returns: string
+      }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
+      sign_mental_health_screening_cadences: {
+        Args: { p_id: string }
+        Returns: string
+      }
+      sign_provider_quality_policy: {
+        Args: { p_policy_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "provider_quality_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       sign_risk_questionnaire_config: {
         Args: { p_config_id: string }
         Returns: string
       }
+      sign_triage_protocols: { Args: { p_id: string }; Returns: string }
       sign_vaccination_schedule: {
         Args: { p_signoff_id: string }
         Returns: string
@@ -22528,7 +30898,53 @@ export type Database = {
         Args: { p_consultation_id: string; p_notes: string }
         Returns: undefined
       }
+      submit_insurance_claim: {
+        Args: {
+          p_billed_amount_kobo: number
+          p_policy_id: string
+          p_preauthorization_id?: string
+          p_service_category: string
+          p_source_id: string
+        }
+        Returns: Json
+      }
+      submit_navigation_request_feedback: {
+        Args: { p_comment?: string; p_rating: number; p_request_id: string }
+        Returns: undefined
+      }
+      suppress_clinical_rule_for_patient: {
+        Args: {
+          p_patient_id: string
+          p_reason: string
+          p_rule_key: string
+          p_until: string
+        }
+        Returns: string
+      }
       touch_last_active: { Args: never; Returns: undefined }
+      translate_concept: {
+        Args: { p_concept_id: string; p_target_system: string }
+        Returns: {
+          code: string
+          code_system: string
+          code_system_uri: string
+          concept_id: string
+          display: string
+          equivalence: Database["public"]["Enums"]["concept_map_equivalence"]
+        }[]
+      }
+      triage_ai_safety_incident: {
+        Args: {
+          p_id: string
+          p_note?: string
+          p_severity: Database["public"]["Enums"]["ai_incident_severity"]
+        }
+        Returns: string
+      }
+      trigger_population_outreach: {
+        Args: { p_population_id: string }
+        Returns: number
+      }
       upsert_lab_report_template: {
         Args: {
           p_hints?: Json
@@ -22555,6 +30971,83 @@ export type Database = {
     }
     Enums: {
       activity_entry_type: "steps" | "workout"
+      ageing_assessment_domain:
+        | "mobility"
+        | "falls"
+        | "cognition"
+        | "nutrition"
+        | "vision"
+        | "hearing"
+        | "social_support"
+        | "functional_independence"
+        | "frailty"
+      ageing_assessment_outcome:
+        | "no_concern"
+        | "monitor"
+        | "further_assessment_suggested"
+      ageing_assessment_status: "in_progress" | "completed"
+      ageing_assessment_type: "self_report" | "clinician"
+      ai_autonomy_level: "inform_only" | "recommend" | "assist" | "execute"
+      ai_drift_kind: "data_drift" | "model_drift"
+      ai_evaluation_kind:
+        | "safety"
+        | "clinical"
+        | "bias"
+        | "performance"
+        | "red_team"
+      ai_evaluation_outcome: "pass" | "fail" | "needs_review"
+      ai_guardrail_enforcement: "blocking" | "escalate" | "warn"
+      ai_guardrail_kind:
+        | "prohibited_diagnosis"
+        | "prohibited_prescribing"
+        | "emergency_escalation"
+        | "population_restriction"
+        | "max_autonomy"
+        | "mandatory_human_review"
+        | "output_constraint"
+        | "prohibited_topic"
+      ai_incident_category:
+        | "incorrect_information"
+        | "unsupported_claim"
+        | "fabricated_citation"
+        | "inappropriate_recommendation"
+        | "missed_escalation"
+        | "guardrail_bypass"
+        | "privacy_concern"
+        | "availability_failure"
+        | "unexpected_model_change"
+        | "other"
+      ai_incident_severity: "low" | "moderate" | "high" | "critical"
+      ai_incident_status:
+        | "open"
+        | "triaged"
+        | "investigating"
+        | "resolved"
+        | "dismissed"
+      ai_interaction_status: "completed" | "blocked" | "fallback" | "failed"
+      ai_lifecycle_status:
+        | "draft"
+        | "in_evaluation"
+        | "approved"
+        | "live"
+        | "suspended"
+        | "retired"
+      ai_output_flag:
+        | "unsupported_claim"
+        | "incorrect_medical_information"
+        | "fabricated_citation"
+        | "inappropriate_recommendation"
+        | "out_of_scope_population"
+        | "guardrail_bypass_attempt"
+      ai_redteam_category:
+        | "emergency_symptoms"
+        | "contradictory_information"
+        | "unusual_conditions"
+        | "ambiguous_questions"
+        | "medication_interactions"
+        | "vulnerable_populations"
+        | "safety_bypass_attempt"
+      ai_risk_class: "low" | "moderate" | "high" | "very_high"
       alert_category:
         | "clinical"
         | "care_management"
@@ -22592,6 +31085,7 @@ export type Database = {
         | "support_ticket_escalation"
       allergy_severity: "mild" | "moderate" | "severe"
       allergy_source: "patient" | "clinician" | "fhir_import"
+      allergy_verification_status: "unverified" | "confirmed" | "refuted"
       annual_check_status: "pending" | "in_progress" | "completed"
       annual_review_stage:
         | "due"
@@ -22612,6 +31106,17 @@ export type Database = {
         | "ordered"
         | "completed"
         | "not_applicable"
+      api_environment: "sandbox" | "live"
+      api_request_outcome:
+        | "ok"
+        | "bad_request"
+        | "unauthenticated"
+        | "forbidden"
+        | "not_found"
+        | "conflict"
+        | "rate_limited"
+        | "unprocessable"
+        | "server_error"
       appetite_level: "normal" | "reduced" | "none"
       appointment_consultation_method: "telemedicine" | "in_person"
       appointment_payment_status:
@@ -22649,6 +31154,7 @@ export type Database = {
         | "telemedicine"
         | "follow_up"
         | "procedure"
+        | "therapy"
       appointment_waiting_list_status:
         | "waiting"
         | "offered"
@@ -22694,6 +31200,7 @@ export type Database = {
         | "declined"
         | "cancelled"
       care_message_author: "patient" | "care_team" | "sponsor"
+      care_message_draft_reply_status: "generated" | "failed"
       care_message_thread_status: "open" | "closed"
       care_plan_condition:
         | "hypertension"
@@ -22784,9 +31291,103 @@ export type Database = {
         | "at_target"
         | "above_target"
         | "not_yet_established"
-      chronic_enrolment_source: "recommended" | "staff" | "clinician"
+      chronic_enrolment_source:
+        | "recommended"
+        | "staff"
+        | "clinician"
+        | "payer_directive"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
+      clinical_governance_domain:
+        | "clinical_standards"
+        | "patient_safety"
+        | "protocol_approval"
+        | "clinical_content"
+        | "escalation_policies"
+        | "incident_review"
+        | "quality_improvement"
+        | "ai_clinical_governance"
+        | "medication_safety"
+        | "referral_pathways"
       clinical_resource_type: "room" | "equipment"
+      clinical_rule_action_status:
+        | "emitted"
+        | "shadow_recorded"
+        | "awaiting_oversight"
+        | "skipped"
+        | "failed"
+      clinical_rule_action_type:
+        | "notification"
+        | "task"
+        | "appointment_recommendation"
+        | "monitoring_schedule"
+        | "education_recommendation"
+        | "referral_recommendation"
+        | "escalation"
+        | "care_plan_update"
+      clinical_rule_category:
+        | "preventive"
+        | "monitoring"
+        | "diagnostic"
+        | "medication"
+        | "referral"
+        | "engagement"
+        | "operational"
+      clinical_rule_domain:
+        | "hypertension"
+        | "diabetes"
+        | "asthma"
+        | "copd"
+        | "ckd"
+        | "heart_failure"
+        | "cardiovascular"
+        | "obesity"
+        | "mental_health"
+        | "maternal_health"
+        | "preventive_screening"
+        | "medication_safety"
+        | "care_coordination"
+        | "engagement"
+        | "operational"
+        | "general"
+      clinical_rule_event_status:
+        | "pending"
+        | "processing"
+        | "processed"
+        | "failed"
+        | "skipped"
+      clinical_rule_event_type:
+        | "patient_registered"
+        | "patient_enrolled_in_programme"
+        | "vital_recorded"
+        | "lab_result_received"
+        | "screening_result_received"
+        | "medication_prescribed"
+        | "medication_dispensed"
+        | "medication_dose_missed"
+        | "appointment_completed"
+        | "appointment_missed"
+        | "referral_created"
+        | "referral_status_changed"
+        | "monitoring_overdue"
+        | "symptom_reported"
+        | "risk_score_updated"
+        | "care_plan_updated"
+        | "consultation_completed"
+      clinical_rule_execution_mode: "active" | "shadow"
+      clinical_rule_execution_outcome:
+        | "actions_emitted"
+        | "population_not_matched"
+        | "conditions_not_met"
+        | "suppressed"
+        | "superseded"
+        | "shadow_recorded"
+        | "error"
+      clinical_rule_status:
+        | "draft"
+        | "shadow"
+        | "active"
+        | "retired"
+        | "rolled_back"
       clinical_severity: "mild" | "moderate" | "severe"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
@@ -22805,6 +31406,12 @@ export type Database = {
         | "resolved"
         | "governance_review"
       complication_check_type: "retinal" | "renal"
+      concept_map_equivalence:
+        | "equivalent"
+        | "wider"
+        | "narrower"
+        | "inexact"
+        | "unmatched"
       condition_clinical_status:
         | "suspected"
         | "under_investigation"
@@ -22814,6 +31421,7 @@ export type Database = {
         | "resolved"
         | "historical"
       consent_type: "data_processing" | "telehealth" | "terms_of_service"
+      consultation_duration_type: "standard" | "extended" | "follow_up"
       consultation_outcome:
         | "reassurance"
         | "continue_monitoring"
@@ -22831,6 +31439,15 @@ export type Database = {
         | "paid"
         | "active"
       currency: "NGN" | "GBP" | "USD"
+      data_quality_category:
+        | "missing_field"
+        | "invalid_value"
+        | "duplicate"
+        | "conflicting_data"
+        | "stale_record"
+        | "impossible_measurement"
+      data_quality_finding_status: "open" | "resolved" | "dismissed"
+      data_quality_severity: "info" | "warning" | "critical"
       device_catalog_category:
         | "blood_pressure"
         | "weight"
@@ -22891,9 +31508,78 @@ export type Database = {
         | "temperature_red_flag"
         | "exposure_report"
         | "support_ticket_intake"
-      employer_roster_status: "pending" | "claimed" | "removed"
+        | "symptom_triage"
+      employer_allowance_type:
+        | "gp_consultation"
+        | "specialist_consultation"
+        | "health_assessment"
+      employer_billing_model:
+        | "per_employee"
+        | "per_active_member"
+        | "fixed_contract"
+        | "service_based"
+        | "hybrid"
+      employer_campaign_status: "draft" | "active" | "ended"
+      employer_campaign_type:
+        | "bp_screening"
+        | "diabetes_prevention"
+        | "weight_management"
+        | "vaccination"
+        | "mental_wellbeing"
+        | "exercise_challenge"
+        | "preventive_care"
+        | "health_education"
+      employer_employment_status:
+        | "full_time"
+        | "part_time"
+        | "contract"
+        | "nysc"
+        | "intern"
+      employer_invite_channel:
+        | "email"
+        | "sms"
+        | "org_code"
+        | "bulk_upload"
+        | "hr_integration"
+        | "api"
+      employer_invoice_status: "draft" | "issued" | "paid" | "void"
+      employer_onboarding_step:
+        | "registration"
+        | "business_verification"
+        | "contract"
+        | "programme_selection"
+        | "benefit_configuration"
+        | "eligibility_configuration"
+        | "billing_setup"
+        | "administrator_accounts"
+        | "live"
+      employer_roster_status:
+        | "pending"
+        | "claimed"
+        | "removed"
+        | "invited"
+        | "departed"
+      employer_verification_status:
+        | "unverified"
+        | "pending"
+        | "verified"
+        | "rejected"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       exposure_report_status: "open" | "completed" | "withdrawn"
+      external_entity_type:
+        | "patient"
+        | "practitioner"
+        | "organisation"
+        | "encounter"
+        | "appointment"
+        | "lab_order"
+        | "lab_result"
+        | "prescription"
+        | "dispense"
+        | "invoice"
+        | "payment"
+        | "claim"
+        | "service"
       facility_type:
         | "hospital"
         | "lab"
@@ -22901,6 +31587,13 @@ export type Database = {
         | "radiology"
         | "optician"
         | "vaccination_centre"
+      falls_risk_level: "low" | "moderate" | "high"
+      falls_risk_pathway_stage:
+        | "risk_identified"
+        | "clinical_assessment"
+        | "intervention"
+        | "follow_up"
+        | "resolved"
       family_relationship:
         | "mother"
         | "father"
@@ -22912,6 +31605,12 @@ export type Database = {
         | "paternal_grandfather"
         | "aunt_or_uncle"
         | "other"
+      feature_flag_rule_kind:
+        | "profile"
+        | "state"
+        | "account_role"
+        | "organisation"
+      feature_flag_status: "off" | "rollout" | "on" | "archived"
       fhir_import_resource_status:
         | "proposed"
         | "confirmed"
@@ -22989,6 +31688,13 @@ export type Database = {
         | "withdrawn"
       health_passport_status: "unsigned" | "valid" | "superseded" | "revoked"
       hiv_status: "unknown" | "hiv_negative" | "hiv_positive"
+      home_care_request_status:
+        | "eligibility_pending"
+        | "eligible"
+        | "ineligible"
+        | "scheduled"
+        | "visit_completed"
+        | "declined"
       hospital_admission_source: "patient_reported" | "staff_recorded"
       identity_method: "nin" | "bvn" | "document"
       identity_verification_status: "pending" | "verified" | "failed"
@@ -22998,6 +31704,39 @@ export type Database = {
         | "premixed"
         | "analogue_rapid"
         | "analogue_long"
+      insurance_claim_status:
+        | "submitted"
+        | "adjudicating"
+        | "approved"
+        | "partially_approved"
+        | "denied"
+        | "paid"
+      insurance_policy_status: "active" | "expired" | "suspended" | "cancelled"
+      insurance_preauth_status: "pending" | "approved" | "denied" | "expired"
+      insurance_relationship: "self" | "spouse" | "child" | "other"
+      integration_delivery_status:
+        | "pending"
+        | "delivering"
+        | "delivered"
+        | "failed"
+        | "dead_letter"
+        | "cancelled"
+      integration_event_type:
+        | "result.available"
+        | "result.amended"
+        | "lab_order.created"
+        | "lab_order.cancelled"
+        | "appointment.booked"
+        | "appointment.cancelled"
+        | "appointment.rescheduled"
+        | "prescription.created"
+        | "prescription.cancelled"
+        | "dispense.completed"
+        | "patient.registered"
+        | "patient.consent_changed"
+        | "payment.settled"
+        | "payment.refunded"
+        | "claim.status_changed"
       lab_analyte_flag:
         | "normal"
         | "low"
@@ -23022,6 +31761,7 @@ export type Database = {
         | "sent"
         | "acknowledged"
         | "failed"
+      lab_order_urgency: "routine" | "urgent"
       lab_refund_reason:
         | "patient_cancelled"
         | "never_attended"
@@ -23117,6 +31857,21 @@ export type Database = {
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
       monitoring_baseline_source: "first_reading" | "clinician_set"
       monitoring_item_status: "active" | "paused" | "completed"
+      navigation_request_category:
+        | "appointment"
+        | "pharmacy"
+        | "laboratory"
+        | "insurance"
+        | "referral"
+        | "payment"
+        | "technical"
+        | "other"
+      navigation_request_classification: "non_clinical" | "clinical"
+      navigation_request_status:
+        | "open"
+        | "waiting_on_provider"
+        | "waiting_on_patient"
+        | "resolved"
       notification_channel:
         | "email"
         | "sms"
@@ -23136,6 +31891,20 @@ export type Database = {
         | "obesity_class_iii"
       obesity_clinical_status: "preclinical" | "clinical"
       obesity_waist_risk: "normal" | "raised" | "high"
+      ops_incident_category:
+        | "clinical"
+        | "technical"
+        | "privacy"
+        | "security"
+        | "financial"
+        | "operational"
+      ops_incident_severity: "sev1" | "sev2" | "sev3" | "sev4"
+      ops_incident_status:
+        | "open"
+        | "investigating"
+        | "mitigated"
+        | "resolved"
+        | "closed"
       organisation_type:
         | "clinic"
         | "hmo"
@@ -23144,6 +31913,7 @@ export type Database = {
         | "pharmacy"
         | "direct_consumer"
         | "protocol_partner"
+        | "provider_org"
       outcomes_contract_type: "fee_at_risk" | "flat"
       outreach_contact_channel: "call" | "whatsapp"
       outreach_task_status:
@@ -23185,7 +31955,38 @@ export type Database = {
         | "scale"
         | "thermometer"
         | "pulse_oximeter"
-      payment_provider: "paystack" | "stripe" | "wallet" | "voucher"
+        | "smart_band"
+      patient_match_status:
+        | "pending"
+        | "confirmed_duplicate"
+        | "confirmed_different"
+        | "merged"
+      payer_admin_role:
+        | "owner"
+        | "benefits_manager"
+        | "authorisation_officer"
+        | "claims_officer"
+        | "analyst"
+      payer_network_provider_type:
+        | "facility"
+        | "lab_provider"
+        | "pharmacy_partner"
+        | "specialist_provider"
+      payer_network_status: "in_network" | "out_of_network" | "restricted"
+      payer_onboarding_status:
+        | "prospect"
+        | "contracting"
+        | "configuring"
+        | "live"
+        | "suspended"
+        | "terminated"
+      payer_plan_status: "draft" | "active" | "closed"
+      payment_provider:
+        | "paystack"
+        | "stripe"
+        | "wallet"
+        | "voucher"
+        | "employer"
       payment_transaction_type:
         | "charge.success"
         | "charge.failed"
@@ -23222,6 +32023,30 @@ export type Database = {
         | "approved"
         | "activated"
         | "rejected"
+      pharmacy_partner_statement_line_resolution:
+        | "unmatched"
+        | "agreed"
+        | "overcharged"
+        | "undercharged"
+        | "not_ordered"
+        | "not_delivered"
+      pharmacy_partner_statement_status:
+        | "draft"
+        | "matched"
+        | "disputed"
+        | "approved"
+        | "settled"
+      pharmacy_refund_reason:
+        | "patient_cancelled"
+        | "out_of_stock"
+        | "wrong_item_dispensed"
+        | "partially_fulfilled"
+        | "delivery_failed"
+        | "duplicate_order"
+        | "clinically_withdrawn"
+      pharmacy_refund_status: "requested" | "approved" | "rejected" | "paid"
+      population_kind: "registry" | "custom"
+      population_status: "active" | "archived"
       prevention_campaign_action_type:
         | "education"
         | "screening_invite"
@@ -23249,13 +32074,141 @@ export type Database = {
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
+      provider_complaint_category:
+        | "clinical"
+        | "conduct"
+        | "communication"
+        | "punctuality"
+        | "access"
+        | "administrative"
+        | "other"
+      provider_complaint_outcome:
+        | "upheld"
+        | "partially_upheld"
+        | "not_upheld"
+        | "no_further_action"
+      provider_complaint_severity: "low" | "moderate" | "serious" | "critical"
+      provider_complaint_stage:
+        | "received"
+        | "triage"
+        | "investigation"
+        | "provider_response"
+        | "resolution"
+        | "governance_review"
+        | "closed"
+        | "withdrawn"
+      provider_intervention_status:
+        | "open"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+      provider_intervention_trigger:
+        | "metric_shortfall"
+        | "complaint_outcome"
+        | "credential_lapse"
+        | "peer_review"
+        | "patient_feedback"
+        | "governance_directive"
+      provider_intervention_type:
+        | "feedback"
+        | "training"
+        | "supervision"
+        | "restricted_access"
+        | "formal_investigation"
+      provider_org_onboarding_status:
+        | "application"
+        | "verification"
+        | "credentialing"
+        | "configuring"
+        | "active"
+        | "suspended"
+        | "terminated"
+      provider_org_resource_type: "room" | "equipment"
+      provider_org_role:
+        | "owner"
+        | "clinical_lead"
+        | "operations_manager"
+        | "finance_manager"
+        | "hr_admin"
+        | "clinician"
+        | "receptionist"
+      provider_org_settlement_status:
+        | "draft"
+        | "issued"
+        | "disputed"
+        | "approved"
+        | "settled"
+      provider_org_type:
+        | "hospital"
+        | "clinic"
+        | "diagnostic_centre"
+        | "pharmacy"
+        | "specialist_practice"
+      provider_quality_direction: "higher_is_better" | "lower_is_better"
+      provider_quality_domain:
+        | "operational"
+        | "documentation"
+        | "patient_experience"
+        | "clinical_quality"
+      provider_quality_metric:
+        | "appointment_completion_rate"
+        | "provider_cancellation_rate"
+        | "patient_no_show_rate"
+        | "appointment_punctuality_rate"
+        | "alert_response_minutes"
+        | "escalation_resolution_hours"
+        | "alert_sla_met_rate"
+        | "encounter_note_completion_rate"
+        | "referral_documentation_rate"
+        | "result_acknowledgement_rate"
+        | "experience_punctuality"
+        | "experience_communication"
+        | "experience_professionalism"
+        | "experience_overall"
+        | "abnormal_result_response_hours"
+        | "follow_up_completion_rate"
+        | "care_gap_resolution_rate"
+        | "guideline_adherence_rate"
+      provider_restriction_reason:
+        | "license_expiry"
+        | "indemnity_expiry"
+        | "attestation_lapse"
+        | "complaint_outcome"
+        | "performance"
+        | "governance_directive"
+      provider_restriction_stage:
+        | "warning"
+        | "grace_period"
+        | "service_restriction"
+        | "suspension"
       reassessment_reason:
         | "new_diagnosis"
         | "abnormal_result"
         | "hospital_discharge"
         | "pregnancy_life_stage"
         | "major_weight_change"
+      reference_concept_domain:
+        | "condition"
+        | "medication"
+        | "lab_test"
+        | "lab_analyte"
+        | "procedure"
+        | "allergen"
+        | "vaccine"
+        | "unit"
+        | "country"
+        | "language"
+      reference_concept_status: "active" | "deprecated" | "retired"
       referral_reward_status: "pending" | "earned" | "paid"
+      referral_source:
+        | "clinician_initiated"
+        | "abnormal_lab_result"
+        | "abnormal_imaging_result"
+        | "chronic_care_programme"
+        | "emergency_assessment"
+        | "specialist_recommendation"
+        | "hospital_discharge"
+        | "clinical_rule"
       referral_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -23266,11 +32219,12 @@ export type Database = {
         | "completed"
         | "closed"
         | "declined"
+        | "draft"
       referral_type:
         | "patient_refers_patient"
         | "doctor_refers_patient"
         | "corporate_champion"
-      referral_urgency: "routine" | "priority" | "urgent"
+      referral_urgency: "routine" | "priority" | "urgent" | "emergency"
       reminder_stage: "upcoming" | "due" | "overdue" | "escalated"
       reproductive_life_stage:
         | "menstruating"
@@ -23314,7 +32268,18 @@ export type Database = {
         | "completed"
         | "overdue"
         | "cancelled"
+        | "declined"
       sex: "male" | "female"
+      social_navigation_follow_up_status:
+        | "none_needed"
+        | "pending"
+        | "contacted"
+        | "resolved"
+      specialist_provider_tier:
+        | "primary_care"
+        | "specialist"
+        | "subspecialist"
+        | "allied_professional"
       specialist_type:
         | "urologist"
         | "oncologist"
@@ -23326,6 +32291,18 @@ export type Database = {
         | "dietetics"
         | "podiatry"
         | "other"
+        | "psychiatry"
+        | "psychology"
+      specialist_verification_stage:
+        | "application"
+        | "identity_verification"
+        | "registration_verification"
+        | "qualification_verification"
+        | "specialty_verification"
+        | "contract"
+        | "onboarding"
+        | "clinical_approval"
+        | "active"
       subscription_status: "trialing" | "active" | "past_due" | "cancelled"
       support_ticket_category:
         | "technical"
@@ -23386,6 +32363,14 @@ export type Database = {
         | "condition_recorded"
         | "condition_status_changed"
         | "medication_received"
+      triage_category: "emergency" | "urgent" | "routine" | "self_management"
+      triage_entry_point:
+        | "patient_app"
+        | "ai_assistant"
+        | "clinician"
+        | "nurse"
+        | "caregiver"
+        | "monitoring_system"
       upgrade_condition:
         | "hypertension"
         | "diabetes"
@@ -23403,6 +32388,8 @@ export type Database = {
         | "lab_liaison"
         | "finance"
         | "lab_partner"
+        | "payer_admin"
+        | "provider_org_staff"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -23593,6 +32580,92 @@ export const Constants = {
   public: {
     Enums: {
       activity_entry_type: ["steps", "workout"],
+      ageing_assessment_domain: [
+        "mobility",
+        "falls",
+        "cognition",
+        "nutrition",
+        "vision",
+        "hearing",
+        "social_support",
+        "functional_independence",
+        "frailty",
+      ],
+      ageing_assessment_outcome: [
+        "no_concern",
+        "monitor",
+        "further_assessment_suggested",
+      ],
+      ageing_assessment_status: ["in_progress", "completed"],
+      ageing_assessment_type: ["self_report", "clinician"],
+      ai_autonomy_level: ["inform_only", "recommend", "assist", "execute"],
+      ai_drift_kind: ["data_drift", "model_drift"],
+      ai_evaluation_kind: [
+        "safety",
+        "clinical",
+        "bias",
+        "performance",
+        "red_team",
+      ],
+      ai_evaluation_outcome: ["pass", "fail", "needs_review"],
+      ai_guardrail_enforcement: ["blocking", "escalate", "warn"],
+      ai_guardrail_kind: [
+        "prohibited_diagnosis",
+        "prohibited_prescribing",
+        "emergency_escalation",
+        "population_restriction",
+        "max_autonomy",
+        "mandatory_human_review",
+        "output_constraint",
+        "prohibited_topic",
+      ],
+      ai_incident_category: [
+        "incorrect_information",
+        "unsupported_claim",
+        "fabricated_citation",
+        "inappropriate_recommendation",
+        "missed_escalation",
+        "guardrail_bypass",
+        "privacy_concern",
+        "availability_failure",
+        "unexpected_model_change",
+        "other",
+      ],
+      ai_incident_severity: ["low", "moderate", "high", "critical"],
+      ai_incident_status: [
+        "open",
+        "triaged",
+        "investigating",
+        "resolved",
+        "dismissed",
+      ],
+      ai_interaction_status: ["completed", "blocked", "fallback", "failed"],
+      ai_lifecycle_status: [
+        "draft",
+        "in_evaluation",
+        "approved",
+        "live",
+        "suspended",
+        "retired",
+      ],
+      ai_output_flag: [
+        "unsupported_claim",
+        "incorrect_medical_information",
+        "fabricated_citation",
+        "inappropriate_recommendation",
+        "out_of_scope_population",
+        "guardrail_bypass_attempt",
+      ],
+      ai_redteam_category: [
+        "emergency_symptoms",
+        "contradictory_information",
+        "unusual_conditions",
+        "ambiguous_questions",
+        "medication_interactions",
+        "vulnerable_populations",
+        "safety_bypass_attempt",
+      ],
+      ai_risk_class: ["low", "moderate", "high", "very_high"],
       alert_category: [
         "clinical",
         "care_management",
@@ -23634,6 +32707,7 @@ export const Constants = {
       ],
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician", "fhir_import"],
+      allergy_verification_status: ["unverified", "confirmed", "refuted"],
       annual_check_status: ["pending", "in_progress", "completed"],
       annual_review_stage: [
         "due",
@@ -23656,6 +32730,18 @@ export const Constants = {
         "ordered",
         "completed",
         "not_applicable",
+      ],
+      api_environment: ["sandbox", "live"],
+      api_request_outcome: [
+        "ok",
+        "bad_request",
+        "unauthenticated",
+        "forbidden",
+        "not_found",
+        "conflict",
+        "rate_limited",
+        "unprocessable",
+        "server_error",
       ],
       appetite_level: ["normal", "reduced", "none"],
       appointment_consultation_method: ["telemedicine", "in_person"],
@@ -23696,6 +32782,7 @@ export const Constants = {
         "telemedicine",
         "follow_up",
         "procedure",
+        "therapy",
       ],
       appointment_waiting_list_status: [
         "waiting",
@@ -23748,6 +32835,7 @@ export const Constants = {
         "cancelled",
       ],
       care_message_author: ["patient", "care_team", "sponsor"],
+      care_message_draft_reply_status: ["generated", "failed"],
       care_message_thread_status: ["open", "closed"],
       care_plan_condition: [
         "hypertension",
@@ -23850,9 +32938,113 @@ export const Constants = {
         "above_target",
         "not_yet_established",
       ],
-      chronic_enrolment_source: ["recommended", "staff", "clinician"],
+      chronic_enrolment_source: [
+        "recommended",
+        "staff",
+        "clinician",
+        "payer_directive",
+      ],
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
+      clinical_governance_domain: [
+        "clinical_standards",
+        "patient_safety",
+        "protocol_approval",
+        "clinical_content",
+        "escalation_policies",
+        "incident_review",
+        "quality_improvement",
+        "ai_clinical_governance",
+        "medication_safety",
+        "referral_pathways",
+      ],
       clinical_resource_type: ["room", "equipment"],
+      clinical_rule_action_status: [
+        "emitted",
+        "shadow_recorded",
+        "awaiting_oversight",
+        "skipped",
+        "failed",
+      ],
+      clinical_rule_action_type: [
+        "notification",
+        "task",
+        "appointment_recommendation",
+        "monitoring_schedule",
+        "education_recommendation",
+        "referral_recommendation",
+        "escalation",
+        "care_plan_update",
+      ],
+      clinical_rule_category: [
+        "preventive",
+        "monitoring",
+        "diagnostic",
+        "medication",
+        "referral",
+        "engagement",
+        "operational",
+      ],
+      clinical_rule_domain: [
+        "hypertension",
+        "diabetes",
+        "asthma",
+        "copd",
+        "ckd",
+        "heart_failure",
+        "cardiovascular",
+        "obesity",
+        "mental_health",
+        "maternal_health",
+        "preventive_screening",
+        "medication_safety",
+        "care_coordination",
+        "engagement",
+        "operational",
+        "general",
+      ],
+      clinical_rule_event_status: [
+        "pending",
+        "processing",
+        "processed",
+        "failed",
+        "skipped",
+      ],
+      clinical_rule_event_type: [
+        "patient_registered",
+        "patient_enrolled_in_programme",
+        "vital_recorded",
+        "lab_result_received",
+        "screening_result_received",
+        "medication_prescribed",
+        "medication_dispensed",
+        "medication_dose_missed",
+        "appointment_completed",
+        "appointment_missed",
+        "referral_created",
+        "referral_status_changed",
+        "monitoring_overdue",
+        "symptom_reported",
+        "risk_score_updated",
+        "care_plan_updated",
+        "consultation_completed",
+      ],
+      clinical_rule_execution_mode: ["active", "shadow"],
+      clinical_rule_execution_outcome: [
+        "actions_emitted",
+        "population_not_matched",
+        "conditions_not_met",
+        "suppressed",
+        "superseded",
+        "shadow_recorded",
+        "error",
+      ],
+      clinical_rule_status: [
+        "draft",
+        "shadow",
+        "active",
+        "retired",
+        "rolled_back",
+      ],
       clinical_severity: ["mild", "moderate", "severe"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
@@ -23873,6 +33065,13 @@ export const Constants = {
         "governance_review",
       ],
       complication_check_type: ["retinal", "renal"],
+      concept_map_equivalence: [
+        "equivalent",
+        "wider",
+        "narrower",
+        "inexact",
+        "unmatched",
+      ],
       condition_clinical_status: [
         "suspected",
         "under_investigation",
@@ -23883,6 +33082,7 @@ export const Constants = {
         "historical",
       ],
       consent_type: ["data_processing", "telehealth", "terms_of_service"],
+      consultation_duration_type: ["standard", "extended", "follow_up"],
       consultation_outcome: [
         "reassurance",
         "continue_monitoring",
@@ -23902,6 +33102,16 @@ export const Constants = {
         "active",
       ],
       currency: ["NGN", "GBP", "USD"],
+      data_quality_category: [
+        "missing_field",
+        "invalid_value",
+        "duplicate",
+        "conflicting_data",
+        "stale_record",
+        "impossible_measurement",
+      ],
+      data_quality_finding_status: ["open", "resolved", "dismissed"],
+      data_quality_severity: ["info", "warning", "critical"],
       device_catalog_category: [
         "blood_pressure",
         "weight",
@@ -23969,10 +33179,88 @@ export const Constants = {
         "temperature_red_flag",
         "exposure_report",
         "support_ticket_intake",
+        "symptom_triage",
       ],
-      employer_roster_status: ["pending", "claimed", "removed"],
+      employer_allowance_type: [
+        "gp_consultation",
+        "specialist_consultation",
+        "health_assessment",
+      ],
+      employer_billing_model: [
+        "per_employee",
+        "per_active_member",
+        "fixed_contract",
+        "service_based",
+        "hybrid",
+      ],
+      employer_campaign_status: ["draft", "active", "ended"],
+      employer_campaign_type: [
+        "bp_screening",
+        "diabetes_prevention",
+        "weight_management",
+        "vaccination",
+        "mental_wellbeing",
+        "exercise_challenge",
+        "preventive_care",
+        "health_education",
+      ],
+      employer_employment_status: [
+        "full_time",
+        "part_time",
+        "contract",
+        "nysc",
+        "intern",
+      ],
+      employer_invite_channel: [
+        "email",
+        "sms",
+        "org_code",
+        "bulk_upload",
+        "hr_integration",
+        "api",
+      ],
+      employer_invoice_status: ["draft", "issued", "paid", "void"],
+      employer_onboarding_step: [
+        "registration",
+        "business_verification",
+        "contract",
+        "programme_selection",
+        "benefit_configuration",
+        "eligibility_configuration",
+        "billing_setup",
+        "administrator_accounts",
+        "live",
+      ],
+      employer_roster_status: [
+        "pending",
+        "claimed",
+        "removed",
+        "invited",
+        "departed",
+      ],
+      employer_verification_status: [
+        "unverified",
+        "pending",
+        "verified",
+        "rejected",
+      ],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       exposure_report_status: ["open", "completed", "withdrawn"],
+      external_entity_type: [
+        "patient",
+        "practitioner",
+        "organisation",
+        "encounter",
+        "appointment",
+        "lab_order",
+        "lab_result",
+        "prescription",
+        "dispense",
+        "invoice",
+        "payment",
+        "claim",
+        "service",
+      ],
       facility_type: [
         "hospital",
         "lab",
@@ -23980,6 +33268,14 @@ export const Constants = {
         "radiology",
         "optician",
         "vaccination_centre",
+      ],
+      falls_risk_level: ["low", "moderate", "high"],
+      falls_risk_pathway_stage: [
+        "risk_identified",
+        "clinical_assessment",
+        "intervention",
+        "follow_up",
+        "resolved",
       ],
       family_relationship: [
         "mother",
@@ -23993,6 +33289,13 @@ export const Constants = {
         "aunt_or_uncle",
         "other",
       ],
+      feature_flag_rule_kind: [
+        "profile",
+        "state",
+        "account_role",
+        "organisation",
+      ],
+      feature_flag_status: ["off", "rollout", "on", "archived"],
       fhir_import_resource_status: [
         "proposed",
         "confirmed",
@@ -24079,6 +33382,14 @@ export const Constants = {
       ],
       health_passport_status: ["unsigned", "valid", "superseded", "revoked"],
       hiv_status: ["unknown", "hiv_negative", "hiv_positive"],
+      home_care_request_status: [
+        "eligibility_pending",
+        "eligible",
+        "ineligible",
+        "scheduled",
+        "visit_completed",
+        "declined",
+      ],
       hospital_admission_source: ["patient_reported", "staff_recorded"],
       identity_method: ["nin", "bvn", "document"],
       identity_verification_status: ["pending", "verified", "failed"],
@@ -24088,6 +33399,42 @@ export const Constants = {
         "premixed",
         "analogue_rapid",
         "analogue_long",
+      ],
+      insurance_claim_status: [
+        "submitted",
+        "adjudicating",
+        "approved",
+        "partially_approved",
+        "denied",
+        "paid",
+      ],
+      insurance_policy_status: ["active", "expired", "suspended", "cancelled"],
+      insurance_preauth_status: ["pending", "approved", "denied", "expired"],
+      insurance_relationship: ["self", "spouse", "child", "other"],
+      integration_delivery_status: [
+        "pending",
+        "delivering",
+        "delivered",
+        "failed",
+        "dead_letter",
+        "cancelled",
+      ],
+      integration_event_type: [
+        "result.available",
+        "result.amended",
+        "lab_order.created",
+        "lab_order.cancelled",
+        "appointment.booked",
+        "appointment.cancelled",
+        "appointment.rescheduled",
+        "prescription.created",
+        "prescription.cancelled",
+        "dispense.completed",
+        "patient.registered",
+        "patient.consent_changed",
+        "payment.settled",
+        "payment.refunded",
+        "claim.status_changed",
       ],
       lab_analyte_flag: [
         "normal",
@@ -24116,6 +33463,7 @@ export const Constants = {
         "acknowledged",
         "failed",
       ],
+      lab_order_urgency: ["routine", "urgent"],
       lab_refund_reason: [
         "patient_cancelled",
         "never_attended",
@@ -24221,6 +33569,23 @@ export const Constants = {
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
       monitoring_baseline_source: ["first_reading", "clinician_set"],
       monitoring_item_status: ["active", "paused", "completed"],
+      navigation_request_category: [
+        "appointment",
+        "pharmacy",
+        "laboratory",
+        "insurance",
+        "referral",
+        "payment",
+        "technical",
+        "other",
+      ],
+      navigation_request_classification: ["non_clinical", "clinical"],
+      navigation_request_status: [
+        "open",
+        "waiting_on_provider",
+        "waiting_on_patient",
+        "resolved",
+      ],
       notification_channel: [
         "email",
         "sms",
@@ -24242,6 +33607,22 @@ export const Constants = {
       ],
       obesity_clinical_status: ["preclinical", "clinical"],
       obesity_waist_risk: ["normal", "raised", "high"],
+      ops_incident_category: [
+        "clinical",
+        "technical",
+        "privacy",
+        "security",
+        "financial",
+        "operational",
+      ],
+      ops_incident_severity: ["sev1", "sev2", "sev3", "sev4"],
+      ops_incident_status: [
+        "open",
+        "investigating",
+        "mitigated",
+        "resolved",
+        "closed",
+      ],
       organisation_type: [
         "clinic",
         "hmo",
@@ -24250,6 +33631,7 @@ export const Constants = {
         "pharmacy",
         "direct_consumer",
         "protocol_partner",
+        "provider_org",
       ],
       outcomes_contract_type: ["fee_at_risk", "flat"],
       outreach_contact_channel: ["call", "whatsapp"],
@@ -24296,8 +33678,38 @@ export const Constants = {
         "scale",
         "thermometer",
         "pulse_oximeter",
+        "smart_band",
       ],
-      payment_provider: ["paystack", "stripe", "wallet", "voucher"],
+      patient_match_status: [
+        "pending",
+        "confirmed_duplicate",
+        "confirmed_different",
+        "merged",
+      ],
+      payer_admin_role: [
+        "owner",
+        "benefits_manager",
+        "authorisation_officer",
+        "claims_officer",
+        "analyst",
+      ],
+      payer_network_provider_type: [
+        "facility",
+        "lab_provider",
+        "pharmacy_partner",
+        "specialist_provider",
+      ],
+      payer_network_status: ["in_network", "out_of_network", "restricted"],
+      payer_onboarding_status: [
+        "prospect",
+        "contracting",
+        "configuring",
+        "live",
+        "suspended",
+        "terminated",
+      ],
+      payer_plan_status: ["draft", "active", "closed"],
+      payment_provider: ["paystack", "stripe", "wallet", "voucher", "employer"],
       payment_transaction_type: [
         "charge.success",
         "charge.failed",
@@ -24341,6 +33753,33 @@ export const Constants = {
         "activated",
         "rejected",
       ],
+      pharmacy_partner_statement_line_resolution: [
+        "unmatched",
+        "agreed",
+        "overcharged",
+        "undercharged",
+        "not_ordered",
+        "not_delivered",
+      ],
+      pharmacy_partner_statement_status: [
+        "draft",
+        "matched",
+        "disputed",
+        "approved",
+        "settled",
+      ],
+      pharmacy_refund_reason: [
+        "patient_cancelled",
+        "out_of_stock",
+        "wrong_item_dispensed",
+        "partially_fulfilled",
+        "delivery_failed",
+        "duplicate_order",
+        "clinically_withdrawn",
+      ],
+      pharmacy_refund_status: ["requested", "approved", "rejected", "paid"],
+      population_kind: ["registry", "custom"],
+      population_status: ["active", "archived"],
       prevention_campaign_action_type: [
         "education",
         "screening_invite",
@@ -24371,6 +33810,127 @@ export const Constants = {
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
+      provider_complaint_category: [
+        "clinical",
+        "conduct",
+        "communication",
+        "punctuality",
+        "access",
+        "administrative",
+        "other",
+      ],
+      provider_complaint_outcome: [
+        "upheld",
+        "partially_upheld",
+        "not_upheld",
+        "no_further_action",
+      ],
+      provider_complaint_severity: ["low", "moderate", "serious", "critical"],
+      provider_complaint_stage: [
+        "received",
+        "triage",
+        "investigation",
+        "provider_response",
+        "resolution",
+        "governance_review",
+        "closed",
+        "withdrawn",
+      ],
+      provider_intervention_status: [
+        "open",
+        "in_progress",
+        "completed",
+        "cancelled",
+      ],
+      provider_intervention_trigger: [
+        "metric_shortfall",
+        "complaint_outcome",
+        "credential_lapse",
+        "peer_review",
+        "patient_feedback",
+        "governance_directive",
+      ],
+      provider_intervention_type: [
+        "feedback",
+        "training",
+        "supervision",
+        "restricted_access",
+        "formal_investigation",
+      ],
+      provider_org_onboarding_status: [
+        "application",
+        "verification",
+        "credentialing",
+        "configuring",
+        "active",
+        "suspended",
+        "terminated",
+      ],
+      provider_org_resource_type: ["room", "equipment"],
+      provider_org_role: [
+        "owner",
+        "clinical_lead",
+        "operations_manager",
+        "finance_manager",
+        "hr_admin",
+        "clinician",
+        "receptionist",
+      ],
+      provider_org_settlement_status: [
+        "draft",
+        "issued",
+        "disputed",
+        "approved",
+        "settled",
+      ],
+      provider_org_type: [
+        "hospital",
+        "clinic",
+        "diagnostic_centre",
+        "pharmacy",
+        "specialist_practice",
+      ],
+      provider_quality_direction: ["higher_is_better", "lower_is_better"],
+      provider_quality_domain: [
+        "operational",
+        "documentation",
+        "patient_experience",
+        "clinical_quality",
+      ],
+      provider_quality_metric: [
+        "appointment_completion_rate",
+        "provider_cancellation_rate",
+        "patient_no_show_rate",
+        "appointment_punctuality_rate",
+        "alert_response_minutes",
+        "escalation_resolution_hours",
+        "alert_sla_met_rate",
+        "encounter_note_completion_rate",
+        "referral_documentation_rate",
+        "result_acknowledgement_rate",
+        "experience_punctuality",
+        "experience_communication",
+        "experience_professionalism",
+        "experience_overall",
+        "abnormal_result_response_hours",
+        "follow_up_completion_rate",
+        "care_gap_resolution_rate",
+        "guideline_adherence_rate",
+      ],
+      provider_restriction_reason: [
+        "license_expiry",
+        "indemnity_expiry",
+        "attestation_lapse",
+        "complaint_outcome",
+        "performance",
+        "governance_directive",
+      ],
+      provider_restriction_stage: [
+        "warning",
+        "grace_period",
+        "service_restriction",
+        "suspension",
+      ],
       reassessment_reason: [
         "new_diagnosis",
         "abnormal_result",
@@ -24378,7 +33938,30 @@ export const Constants = {
         "pregnancy_life_stage",
         "major_weight_change",
       ],
+      reference_concept_domain: [
+        "condition",
+        "medication",
+        "lab_test",
+        "lab_analyte",
+        "procedure",
+        "allergen",
+        "vaccine",
+        "unit",
+        "country",
+        "language",
+      ],
+      reference_concept_status: ["active", "deprecated", "retired"],
       referral_reward_status: ["pending", "earned", "paid"],
+      referral_source: [
+        "clinician_initiated",
+        "abnormal_lab_result",
+        "abnormal_imaging_result",
+        "chronic_care_programme",
+        "emergency_assessment",
+        "specialist_recommendation",
+        "hospital_discharge",
+        "clinical_rule",
+      ],
       referral_status: [
         "pending_payment",
         "payment_confirmed",
@@ -24389,13 +33972,14 @@ export const Constants = {
         "completed",
         "closed",
         "declined",
+        "draft",
       ],
       referral_type: [
         "patient_refers_patient",
         "doctor_refers_patient",
         "corporate_champion",
       ],
-      referral_urgency: ["routine", "priority", "urgent"],
+      referral_urgency: ["routine", "priority", "urgent", "emergency"],
       reminder_stage: ["upcoming", "due", "overdue", "escalated"],
       reproductive_life_stage: [
         "menstruating",
@@ -24444,8 +34028,21 @@ export const Constants = {
         "completed",
         "overdue",
         "cancelled",
+        "declined",
       ],
       sex: ["male", "female"],
+      social_navigation_follow_up_status: [
+        "none_needed",
+        "pending",
+        "contacted",
+        "resolved",
+      ],
+      specialist_provider_tier: [
+        "primary_care",
+        "specialist",
+        "subspecialist",
+        "allied_professional",
+      ],
       specialist_type: [
         "urologist",
         "oncologist",
@@ -24457,6 +34054,19 @@ export const Constants = {
         "dietetics",
         "podiatry",
         "other",
+        "psychiatry",
+        "psychology",
+      ],
+      specialist_verification_stage: [
+        "application",
+        "identity_verification",
+        "registration_verification",
+        "qualification_verification",
+        "specialty_verification",
+        "contract",
+        "onboarding",
+        "clinical_approval",
+        "active",
       ],
       subscription_status: ["trialing", "active", "past_due", "cancelled"],
       support_ticket_category: [
@@ -24523,6 +34133,15 @@ export const Constants = {
         "condition_status_changed",
         "medication_received",
       ],
+      triage_category: ["emergency", "urgent", "routine", "self_management"],
+      triage_entry_point: [
+        "patient_app",
+        "ai_assistant",
+        "clinician",
+        "nurse",
+        "caregiver",
+        "monitoring_system",
+      ],
       upgrade_condition: [
         "hypertension",
         "diabetes",
@@ -24541,6 +34160,8 @@ export const Constants = {
         "lab_liaison",
         "finance",
         "lab_partner",
+        "payer_admin",
+        "provider_org_staff",
       ],
       vaccination_verification_status: [
         "self_reported",
