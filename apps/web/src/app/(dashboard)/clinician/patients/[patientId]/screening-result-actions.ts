@@ -204,11 +204,32 @@ export async function submitScreeningResult(
 export type SetFollowUpActionState = { error?: string; success?: boolean } | undefined;
 
 /**
+ * The six named next-steps Result Lifecycle §58.11 lists — action_type is
+ * the governed category, follow_up_action stays the free-text detail
+ * alongside it (e.g. "Repeat FBC in 3 months", "Start metformin 500mg").
+ */
+export const RESULT_ACTION_TYPES = [
+  "repeat_test",
+  "medication_change",
+  "appointment",
+  "specialist_referral",
+  "monitoring",
+  "no_action",
+] as const;
+export type ResultActionType = (typeof RESULT_ACTION_TYPES)[number];
+
+/**
  * Records the clinician's named next step for a result — separate from
  * submitScreeningResult because the result's abnormal/critical status isn't
  * known until the ML interpretation above has already run; this is a
  * deliberate second step taken once the clinician has seen the outcome, same
  * shape as markResultDocumentReviewed's own review-note field.
+ *
+ * Setting action_type='repeat_test' alongside recall_months fires
+ * private.apply_screening_result_recall (20260829121900), which tightens or
+ * creates the patient's next screening_schedules row for this screen type —
+ * action_type is purely a categorisation label here, recall_months is what
+ * actually drives the schedule.
  *
  * Gated on an active clinical_staff record, not just is_org_staff — deciding
  * what should happen next about a result is a clinical judgement call under
@@ -223,12 +244,18 @@ export async function setScreeningResultFollowUpAction(
   formData: FormData
 ): Promise<SetFollowUpActionState> {
   const followUpAction = String(formData.get("follow_up_action") ?? "").trim();
+  const actionTypeRaw = String(formData.get("action_type") ?? "").trim();
+
   if (!followUpAction) {
     return { error: "Enter a follow-up action" };
   }
   if (followUpAction.length > 500) {
     return { error: "Keep the follow-up action under 500 characters" };
   }
+  if (!(RESULT_ACTION_TYPES as readonly string[]).includes(actionTypeRaw)) {
+    return { error: "Select what should happen next" };
+  }
+  const actionType = actionTypeRaw as ResultActionType;
 
   // Optional: this result needs an earlier repeat than the screen type's
   // routine cadence (spec's screening "recall" — a borderline/inconclusive
@@ -244,6 +271,9 @@ export async function setScreeningResultFollowUpAction(
       return { error: "Recall interval must be a whole number of months, 1-60" };
     }
     recallMonths = parsed;
+  }
+  if (actionType === "repeat_test" && recallMonths === null) {
+    return { error: "Enter how many months until the test should be repeated" };
   }
 
   const supabase = await createClient();
@@ -266,8 +296,49 @@ export async function setScreeningResultFollowUpAction(
     .from("screening_results")
     .update({
       follow_up_action: followUpAction,
+      action_type: actionType,
       ...(recallMonths !== null ? { recall_months: recallMonths } : {}),
     })
+    .eq("id", resultId);
+  if (error) return { error: error.message };
+
+  return { success: true };
+}
+
+export type MarkPatientInformedState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Explicit "the patient has been told about this result and its action"
+ * confirmation — distinct from the result simply being readable in the
+ * patient's own dashboard the instant it's recorded (Result Lifecycle
+ * §58.19: delivered must not be conflated with managed). Same
+ * clinical-judgement gate as setScreeningResultFollowUpAction; frozen once
+ * set (private.enforce_screening_result_action_fields).
+ */
+export async function markResultPatientInformed(
+  resultId: string,
+  _prevState: MarkPatientInformedState,
+  _formData: FormData
+): Promise<MarkPatientInformedState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("id")
+    .eq("profile_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
+  if (!staff) {
+    return { error: "Only an active Tarragon care-team doctor can confirm this." };
+  }
+
+  const { error } = await supabase
+    .from("screening_results")
+    .update({ patient_informed_at: new Date().toISOString() })
     .eq("id", resultId);
   if (error) return { error: error.message };
 

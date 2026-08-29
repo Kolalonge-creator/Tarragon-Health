@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { StatTile } from "@/components/ui/stat-tile";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { LEVEL_BADGE } from "@/lib/worklist/level-badge";
 import { MatchResultToOrder, type CandidateOrder } from "./match-result-to-order";
 import type { Database, EscalationLevel } from "@tarragon/shared";
@@ -71,19 +73,61 @@ type OpenOrderRow = {
  * anything else here would be fabricated, not "protocol-derived."
  * "Previous" shows the patient's next-most-recent document, if any — not a
  * numeric trend, since most uploads carry no structured values to trend.
+ *
+ * Also carries the Result Lifecycle §58.17 safety dashboard (four counts,
+ * composed from the same clinician_alerts/screening_results filters the
+ * worklist and main dashboard already use) — genuinely part of the same
+ * "results still need something from you" surface, not a separate page
+ * nobody would find. Screening-result recalls (§58.16) show on the patient's
+ * own preventive-screening calendar via screening_schedules.is_recall
+ * instead of a separate clinician-facing list — see
+ * private.apply_screening_result_recall.
  */
 export default async function ResultsInboxPage() {
   const supabase = await createClient();
+  const nowIso = new Date().toISOString();
 
-  const { data } = await supabase
-    .from("lab_result_documents")
-    .select(
-      "id, patient_id, original_filename, note, created_at, acknowledgement_status, next_steps, patient_interpretation, supersedes_document_id, superseded_by_document_id, patient:profiles!lab_result_documents_patient_id_fkey(full_name), clinician_alert:clinician_alerts!lab_result_documents_clinician_alert_id_fkey(level)",
-    )
-    .neq("acknowledgement_status", "action_completed")
-    .order("created_at", { ascending: true })
-    .limit(200)
-    .returns<InboxRow[]>();
+  const [
+    { data },
+    { count: criticalResults },
+    { count: awaitingAcknowledgement },
+    { count: abnormalResults },
+    { count: overdueReview },
+  ] = await Promise.all([
+    supabase
+      .from("lab_result_documents")
+      .select(
+        "id, patient_id, original_filename, note, created_at, acknowledgement_status, next_steps, patient_interpretation, supersedes_document_id, superseded_by_document_id, patient:profiles!lab_result_documents_patient_id_fkey(full_name), clinician_alert:clinician_alerts!lab_result_documents_clinician_alert_id_fkey(level)",
+      )
+      .neq("acknowledgement_status", "action_completed")
+      .order("created_at", { ascending: true })
+      .limit(200)
+      .returns<InboxRow[]>(),
+    // Result Lifecycle §58.17 safety dashboard — composed from the same
+    // clinician_alerts/screening_results filters the worklist and dashboard
+    // already use, not a new definition of "open"/"overdue".
+    supabase
+      .from("clinician_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("level", "emergency")
+      .not("status", "in", "(resolved,closed)")
+      .not("screening_result_id", "is", null),
+    supabase
+      .from("clinician_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "open")
+      .gte("severity", 2),
+    supabase
+      .from("screening_results")
+      .select("id", { count: "exact", head: true })
+      .eq("result_status", "abnormal")
+      .is("follow_up_action", null),
+    supabase
+      .from("clinician_alerts")
+      .select("id", { count: "exact", head: true })
+      .not("status", "in", "(resolved,closed)")
+      .lt("sla_due_at", nowIso),
+  ]);
 
   const rows = data ?? [];
 
@@ -145,6 +189,35 @@ export default async function ResultsInboxPage() {
           uploads a signed URL has never been generated for; Opened means someone has looked but not
           yet recorded a finding.
         </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          icon={SEMANTIC_ICON.escalation}
+          tintClassName={(criticalResults ?? 0) > 0 ? "bg-red-100" : undefined}
+          iconClassName={(criticalResults ?? 0) > 0 ? "text-red-700" : undefined}
+          label="Critical results"
+          value={String(criticalResults ?? 0)}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.carePlan}
+          tintClassName={(awaitingAcknowledgement ?? 0) > 0 ? "bg-amber-100" : undefined}
+          iconClassName={(awaitingAcknowledgement ?? 0) > 0 ? "text-amber-700" : undefined}
+          label="Awaiting acknowledgement"
+          value={String(awaitingAcknowledgement ?? 0)}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.labs}
+          label="Abnormal results"
+          value={String(abnormalResults ?? 0)}
+        />
+        <StatTile
+          icon={SEMANTIC_ICON.escalation}
+          tintClassName={(overdueReview ?? 0) > 0 ? "bg-red-100" : undefined}
+          iconClassName={(overdueReview ?? 0) > 0 ? "text-red-700" : undefined}
+          label="Overdue review"
+          value={String(overdueReview ?? 0)}
+        />
       </div>
 
       <Card>

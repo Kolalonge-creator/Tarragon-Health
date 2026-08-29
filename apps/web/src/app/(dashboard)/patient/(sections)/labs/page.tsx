@@ -7,6 +7,7 @@ import { LabCatalogue } from "@/app/(dashboard)/patient/lab-catalogue";
 import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { LabResults } from "@/app/(dashboard)/patient/lab-results";
+import { UpcomingRepeatTests } from "@/app/(dashboard)/patient/upcoming-repeat-tests";
 import { ResultDocuments } from "@/app/(dashboard)/patient/result-documents";
 import { BookingRequestsList } from "@/app/(dashboard)/patient/booking-requests-list";
 
@@ -38,6 +39,7 @@ export default async function PatientLabsPage() {
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
           <div className="space-y-4">
             <LabResults patientId={subjectId} />
+            <UpcomingRepeatTests patientId={subjectId} />
             <ResultDocuments patientId={subjectId} />
             <ResultsTrendsCard patientId={subjectId} />
           </div>
