@@ -18390,53 +18390,6 @@ export type Database = {
       }
     }
     Functions: {
-      analytics_clinical_rule_performance: {
-        Args: { p_from?: string; p_to?: string }
-        Returns: Json
-      }
-      clinical_rule_candidates: {
-        Args: {
-          p_at?: string
-          p_event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
-          p_include_shadow?: boolean
-          p_organisation_id: string
-          p_patient_id?: string
-        }
-        Returns: Json
-      }
-      clinical_rule_shadow_report: {
-        Args: { p_from?: string; p_rule_key: string; p_to?: string }
-        Returns: Json
-      }
-      override_clinical_rule_action: {
-        Args: { p_action_id: string; p_reason: string }
-        Returns: string
-      }
-      promote_clinical_rule_to_shadow: {
-        Args: { p_id: string }
-        Returns: string
-      }
-      retire_clinical_rule: {
-        Args: { p_id: string; p_reason: string }
-        Returns: string
-      }
-      rollback_clinical_rule: {
-        Args: { p_reason: string; p_rule_key: string; p_to_version: number }
-        Returns: string
-      }
-      sign_clinical_rule: {
-        Args: { p_activate?: boolean; p_id: string }
-        Returns: string
-      }
-      suppress_clinical_rule_for_patient: {
-        Args: {
-          p_patient_id: string
-          p_reason: string
-          p_rule_key: string
-          p_until: string
-        }
-        Returns: string
-      }
       accept_video_visit_request: {
         Args: { p_request_id: string }
         Returns: string
@@ -18858,6 +18811,10 @@ export type Database = {
       }
       analytics_business_summary: { Args: never; Returns: Json }
       analytics_clinical_outcomes: { Args: never; Returns: Json }
+      analytics_clinical_rule_performance: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       analytics_deliverability: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -18963,6 +18920,20 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
+      clinical_rule_candidates: {
+        Args: {
+          p_at?: string
+          p_event_type: Database["public"]["Enums"]["clinical_rule_event_type"]
+          p_include_shadow?: boolean
+          p_organisation_id: string
+          p_patient_id?: string
+        }
+        Returns: Json
+      }
+      clinical_rule_shadow_report: {
+        Args: { p_from?: string; p_rule_key: string; p_to?: string }
+        Returns: Json
+      }
       close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
@@ -19548,6 +19519,10 @@ export type Database = {
         Returns: Json
       }
       open_health_check: { Args: never; Returns: string }
+      override_clinical_rule_action: {
+        Args: { p_action_id: string; p_reason: string }
+        Returns: string
+      }
       patient_health_reset_progress: {
         Args: never
         Returns: {
@@ -19669,6 +19644,10 @@ export type Database = {
       price_review_for_patient: {
         Args: { p_bundle_code: string; p_patient_id: string }
         Returns: Json
+      }
+      promote_clinical_rule_to_shadow: {
+        Args: { p_id: string }
+        Returns: string
       }
       propose_video_visit_alternate_slots: {
         Args: { p_request_id: string; p_slot_ids: string[] }
@@ -19907,6 +19886,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      retire_clinical_rule: {
+        Args: { p_id: string; p_reason: string }
+        Returns: string
+      }
       retire_passport_signing_key: {
         Args: { p_kid: string }
         Returns: undefined
@@ -19920,6 +19903,10 @@ export type Database = {
       revoke_health_passport: {
         Args: { p_issuance_id: string; p_reason?: string }
         Returns: undefined
+      }
+      rollback_clinical_rule: {
+        Args: { p_reason: string; p_rule_key: string; p_to_version: number }
+        Returns: string
       }
       seal_health_passport: {
         Args: {
@@ -20045,6 +20032,10 @@ export type Database = {
       set_usd_processing_fee: { Args: { p_fee_pct: number }; Returns: Json }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
       sign_alert_rules: { Args: { p_id: string }; Returns: string }
+      sign_clinical_rule: {
+        Args: { p_activate?: boolean; p_id: string }
+        Returns: string
+      }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
       sign_risk_questionnaire_config: {
@@ -20092,6 +20083,15 @@ export type Database = {
       submit_consultation_prep: {
         Args: { p_consultation_id: string; p_notes: string }
         Returns: undefined
+      }
+      suppress_clinical_rule_for_patient: {
+        Args: {
+          p_patient_id: string
+          p_reason: string
+          p_rule_key: string
+          p_until: string
+        }
+        Returns: string
       }
       touch_last_active: { Args: never; Returns: undefined }
       upsert_lab_report_template: {
@@ -20321,7 +20321,7 @@ export type Database = {
         | "not_yet_established"
       chronic_enrolment_source: "recommended" | "staff" | "clinician"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
-clinical_rule_action_status:
+      clinical_rule_action_status:
         | "emitted"
         | "shadow_recorded"
         | "awaiting_oversight"
@@ -20400,7 +20400,7 @@ clinical_rule_action_status:
         | "active"
         | "retired"
         | "rolled_back"
-            clinical_severity: "mild" | "moderate" | "severe"
+      clinical_severity: "mild" | "moderate" | "severe"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
       commission_type:
@@ -21315,6 +21315,93 @@ export const Constants = {
       ],
       chronic_enrolment_source: ["recommended", "staff", "clinician"],
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
+      clinical_rule_action_status: [
+        "emitted",
+        "shadow_recorded",
+        "awaiting_oversight",
+        "skipped",
+        "failed",
+      ],
+      clinical_rule_action_type: [
+        "notification",
+        "task",
+        "appointment_recommendation",
+        "monitoring_schedule",
+        "education_recommendation",
+        "referral_recommendation",
+        "escalation",
+        "care_plan_update",
+      ],
+      clinical_rule_category: [
+        "preventive",
+        "monitoring",
+        "diagnostic",
+        "medication",
+        "referral",
+        "engagement",
+        "operational",
+      ],
+      clinical_rule_domain: [
+        "hypertension",
+        "diabetes",
+        "asthma",
+        "copd",
+        "ckd",
+        "heart_failure",
+        "cardiovascular",
+        "obesity",
+        "mental_health",
+        "maternal_health",
+        "preventive_screening",
+        "medication_safety",
+        "care_coordination",
+        "engagement",
+        "operational",
+        "general",
+      ],
+      clinical_rule_event_status: [
+        "pending",
+        "processing",
+        "processed",
+        "failed",
+        "skipped",
+      ],
+      clinical_rule_event_type: [
+        "patient_registered",
+        "patient_enrolled_in_programme",
+        "vital_recorded",
+        "lab_result_received",
+        "screening_result_received",
+        "medication_prescribed",
+        "medication_dispensed",
+        "medication_dose_missed",
+        "appointment_completed",
+        "appointment_missed",
+        "referral_created",
+        "referral_status_changed",
+        "monitoring_overdue",
+        "symptom_reported",
+        "risk_score_updated",
+        "care_plan_updated",
+        "consultation_completed",
+      ],
+      clinical_rule_execution_mode: ["active", "shadow"],
+      clinical_rule_execution_outcome: [
+        "actions_emitted",
+        "population_not_matched",
+        "conditions_not_met",
+        "suppressed",
+        "superseded",
+        "shadow_recorded",
+        "error",
+      ],
+      clinical_rule_status: [
+        "draft",
+        "shadow",
+        "active",
+        "retired",
+        "rolled_back",
+      ],
       clinical_severity: ["mild", "moderate", "severe"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
