@@ -11,6 +11,7 @@ import { PreventiveScreeningCalendar } from "@/app/(dashboard)/patient/preventiv
 import { PreventiveProgrammes } from "@/app/(dashboard)/patient/preventive-programmes";
 import { CareProgrammeRecommendations } from "@/app/(dashboard)/patient/care-programme-recommendations";
 import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-health-card";
+import { MensHealthCard } from "@/app/(dashboard)/patient/mens-health-card";
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
 import { RiskAssessmentDisplay } from "@/app/(dashboard)/patient/risk-assessment-display";
 import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
@@ -138,6 +139,7 @@ export default async function PreventionHubPage() {
           {profile.sex === "female" && profile.organisation_id && (
             <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
           )}
+          {profile.sex === "male" && <MensHealthCard patientId={subjectId} />}
         </div>
       ),
     },

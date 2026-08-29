@@ -12,6 +12,8 @@ export const SYMPTOM_TYPES = [
   "severe_headache",
   "visual_disturbance",
   "confusion",
+  "testicular_pain",
+  "testicular_lump",
   "other",
 ] as const;
 
