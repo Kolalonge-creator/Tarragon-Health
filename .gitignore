@@ -74,3 +74,7 @@ supabase/.temp/
 # root-level duplicates of the specs already tracked under docs/
 /tarragon-build-spec-v3.md
 /tarragon-build-spec-v3-phase2.md
+
+# Claude Code session-local scratch state — isolated git worktrees spun up
+# for background subagents, never project source.
+/.claude/worktrees/
