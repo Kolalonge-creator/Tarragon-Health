@@ -48,8 +48,32 @@ a parent manage a child's clinical record at all" — already solved:
 | 48.5 | Developmental monitoring | `developmental_questionnaire_items` (60-item original starter bank, 6 age bands × 5 domains × 2 items) + `developmental_screenings` + scoring trigger — `20260829122052_pediatric_developmental_screening.sql`. UI: `developmental-screening-card.tsx`, wired into a new "Child health" Prevention tab (shown only for a subject under 18). |
 | 48.8/48.9 | Paediatric symptom triage / emergency red flags | Age-aware `private.handle_symptom_red_flag()` (4 new symptom types, lower escalation bar under 5) + a WHO IMCI-based paediatric fever trigger on `vitals_readings` — `20260829122452_pediatric_symptom_and_vitals_red_flags.sql`. UI: `symptom-log-form.tsx` offers the paediatric options when acting for a dependent under 5; `danger-symptom-check.tsx` swaps to a parallel paediatric danger-sign checklist (`lib/validation/pediatric-emergency.ts`) for the same subject. Pure-logic mirror + tests: `lib/rules/pediatric-symptom-triage.ts`. |
 | 48.10 | Medication safety | `apps/web/src/lib/rules/pediatric-drug-safety.ts` — weight-based mg/kg dosing check, a small 3-drug starter formulary, advisory only (never a block), composable with the existing `assessMedicationSafety`. DB gap-close: a parent can now self-report a medication for a child they manage (`medications.logged_by_profile_id` + RLS extension — `20260829122852_pediatric_medication_attribution.sql`); this was a confirmed pre-existing gap (vitals/symptoms had it since 2026-08-01, medications never did). |
+| 48.12 | School-related health | Resolved as a **printable export**, not a school account — see below. |
 | 48.13 | Chronic paediatric conditions | RLS gap-close only: `chronic_programme_enrolments` now honours `private.can_read_clinical` so a parent can see a child's enrolment — `20260829123252_pediatric_chronic_programme_access.sql`. The programme content itself (asthma) predates this pass and is still dormant pending sign-off; see "What already existed" above. |
 | 48.14 | Transition to adult care | `dependent_transition_status` (materialised, daily-cron-refreshed, `child`/`adolescent`/`transition_prep`/`independent` by age) + automatic `manage` → `view` step-down on turning 18 (history kept, nothing deleted) + a `patient_timeline` record of the change + `activate_dependent_account_basics` RPC for the deliberate, separate "claim a real login" step — `20260829123652_dependent_transition_to_adult_care.sql`. |
+
+### 48.12, resolved: a printable export, not a school account
+
+Originally deferred (see below) because "vaccination evidence / health certificates / health
+assessments... without giving schools unrestricted medical-record access" reads like it needs a new
+institutional account type — exactly the kind of design decision this codebase's guardrails (I9:
+institutions get aggregate-only access, ever) say not to default without asking. The actual resolution
+is much smaller: **the school never touches the platform at all.** A parent generates a PDF from their
+own account and hands it over themselves, the same way they'd hand over a paper vaccination card
+today. No school login, no new RLS surface, no institutional-access question to resolve.
+
+Shipped: `lib/school-health/school-health-summary-document.tsx` (a `@react-pdf/renderer` document,
+same library/pattern as the existing referral-letter and Health Passport PDFs) +
+`/api/patient/school-health-summary/[patientId]/route.ts` (cookie-session auth, RLS-scoped — a
+patientId the caller has no `profile_access` grant for simply 404s) + a "Download school health
+summary" link in `vaccination-for-family.tsx`'s existing "whose vaccinations?" subject picker.
+
+Deliberately **vaccination status only** — not a Health Passport-style full clinical export, and not
+a developmental-screening export either: a screening flag is a routing signal for a doctor, not
+something to hand a school over an unvalidated, non-normed starter questionnaire (risk of
+stigmatising a child on a false-positive routing signal). "Health certificates" (a doctor's
+fitness-to-attend attestation) and formal "health assessments" are still not covered — those need a
+real clinician sign-off workflow and remain deferred, not silently bundled into this document.
 
 Full test coverage for every new pure-logic module: `lib/growth/zscore-to-percentile.test.ts`,
 `lib/rules/pediatric-symptom-triage.test.ts`, `lib/rules/pediatric-drug-safety.test.ts`,
@@ -62,12 +86,6 @@ Each of these was excluded on purpose, not overlooked — matching this codebase
 ask before building" discipline for large product surfaces (see CLAUDE.md's Clinical Tier Ladder
 guardrails):
 
-- **§48.12 School-related health** (vaccination evidence / health certificates / assessments
-  for schools). The spec's own "without giving schools unrestricted medical-record access" is
-  exactly the kind of new external-account-type / institutional-access design CLAUDE.md's I9
-  guardrail (institutions get aggregate-only access, only superadmin drills into an individual)
-  already treats as high-stakes — this needs a real product decision (what a school account even is,
-  what narrow export it can pull) before any schema is written, not a default shape guessed here.
 - **A licensed/validated developmental screening instrument** (ASQ-3 or similar). What shipped is an
   original, unlicensed, non-normed 60-item starter bank explicitly stated as not equivalent to a
   validated tool — see the header of
