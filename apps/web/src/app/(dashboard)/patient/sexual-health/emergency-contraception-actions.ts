@@ -24,8 +24,15 @@ const ecRequestSchema = z.object({
  * could spoof. Intentionally reassuring, never alarming: there is almost
  * always still something that can help, and "not sure" always routes to a
  * clinician rather than a dead end.
+ *
+ * Deliberately NOT exported: every top-level export of a "use server" file
+ * is treated as a Server Action, and Next.js requires every one of those to
+ * be async — a plain synchronous helper like this one fails the production
+ * build the moment any page actually imports this module (see
+ * requestEmergencyContraception below, its only caller). Kept in this file
+ * rather than moved out since it exists purely to serve that one action.
  */
-export function computeEcGuidance(hoursSinceIntercourse: number | null): string {
+function computeEcGuidance(hoursSinceIntercourse: number | null): string {
   if (hoursSinceIntercourse == null) {
     return "No exact time needed — a clinician will review with you directly and help you find the right option quickly.";
   }

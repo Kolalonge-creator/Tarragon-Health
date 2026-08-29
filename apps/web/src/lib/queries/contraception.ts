@@ -52,3 +52,36 @@ export function useContraceptionPlans(patientId: string) {
     enabled: !!patientId,
   });
 }
+
+/** A requested plan plus the (null-gated) patient identity — clinician
+ * worklist row shape. */
+export type ContraceptionPlanWithPatient = ContraceptionPlan & {
+  patient: { full_name: string | null; patient_number: string | null } | null;
+};
+
+const PLAN_WITH_PATIENT_SELECT =
+  "*, patient:profiles!contraception_plans_patient_id_fkey(full_name, patient_number)";
+
+export const orgRequestedContraceptionPlansKey = ["contraception-plans", "org", "requested"];
+
+/**
+ * Every contraception plan still awaiting clinical review (status =
+ * 'requested') across the caller's org — oldest first, so the
+ * longest-waiting request surfaces first. RLS (is_org_staff) does the org
+ * scoping.
+ */
+export function useOrgRequestedContraceptionPlans() {
+  return useQuery({
+    queryKey: orgRequestedContraceptionPlansKey,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("contraception_plans")
+        .select(PLAN_WITH_PATIENT_SELECT)
+        .eq("status", "requested")
+        .order("requested_at", { ascending: true });
+      if (error) throw error;
+      return data as unknown as ContraceptionPlanWithPatient[];
+    },
+  });
+}
