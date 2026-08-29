@@ -277,6 +277,13 @@ export function getNavSections(
               label: "Quality & Growth",
               items: [
                 { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
+                { label: "Hypertension quality", href: "/clinician/hypertension-quality", icon: "bp" },
+                { label: "Obesity quality", href: "/clinician/obesity-quality", icon: "weight" },
+                {
+                  label: "Quality improvement",
+                  href: "/clinician/quality-improvement",
+                  icon: "review",
+                },
                 { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
