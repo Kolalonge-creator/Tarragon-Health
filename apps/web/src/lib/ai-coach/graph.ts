@@ -45,6 +45,15 @@ export interface CoachGraphDeps {
   getServiceRoleSupabase: () => SupabaseClient<Database>;
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic;
+  /**
+   * The governed system prompt for AI-001, when a Clinical Director has
+   * activated one (Module 40.6). Undefined means no governed version is
+   * active, and the in-repo COACH_SYSTEM_PROMPT constant is used — which is
+   * the normal state, and must stay a working state: a governance table that
+   * could take the coach down by being empty would make governance itself
+   * the single point of failure 40.18 exists to prevent.
+   */
+  systemPrompt?: string;
   /** Injectable for tests; defaults to a real Voyage AI client built from
    * VOYAGE_API_KEY (voyage-embedder.ts). `null` (the default when unset)
    * means "no embedder configured" — content retrieval is skipped
@@ -155,8 +164,9 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       // ANTHROPIC_API_KEY must degrade this turn, not throw before we can catch it.
       const model = deps.model ?? buildAnthropicModel({ maxTokens: 500 });
       const structuredModel = model.withStructuredOutput(structuredReplySchema);
+      const basePrompt = deps.systemPrompt ?? COACH_SYSTEM_PROMPT;
       const result = await structuredModel.invoke([
-        new SystemMessage(contextLine ? `${COACH_SYSTEM_PROMPT}\n\n${contextLine}` : COACH_SYSTEM_PROMPT),
+        new SystemMessage(contextLine ? `${basePrompt}\n\n${contextLine}` : basePrompt),
         ...history,
         new HumanMessage(state.incomingMessage),
       ]);

@@ -24,6 +24,8 @@ const STATUS_BADGE: Record<CarePlanRow["status"], { label: string; variant: Badg
   paused: { label: "Paused", variant: "blue" },
   completed: { label: "Completed", variant: "grey" },
   discharged: { label: "Discharged", variant: "grey" },
+  transferred: { label: "Transferred", variant: "grey" },
+  declined: { label: "Declined", variant: "grey" },
   cancelled: { label: "Cancelled", variant: "grey" },
 };
 

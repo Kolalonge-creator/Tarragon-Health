@@ -7,7 +7,16 @@ import { runCoachTurn } from "@/lib/ai-coach";
 import type { CoachTier } from "@tarragon/shared";
 
 export type SendCoachMessageResult =
-  | { success: true; conversationId: string; reply: string; tier: CoachTier }
+  | {
+      success: true;
+      conversationId: string;
+      reply: string;
+      tier: CoachTier;
+      /** The ai_interaction_log row for this turn (40.11), so the chat can
+       * attach a "this was wrong" report (40.12) to the exact answer the
+       * patient means. Null when the audit write itself failed. */
+      aiInteractionId: string | null;
+    }
   | { success: false; error: string };
 
 export async function sendCoachMessage(input: CoachMessageInput): Promise<SendCoachMessageResult> {

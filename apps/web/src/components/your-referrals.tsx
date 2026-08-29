@@ -15,6 +15,7 @@ const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
   confirmed: "Confirmed",
   completed: "Visit complete",
   declined: "Cancelled",
+  closed: "Closed",
   waitlisted: "Your care team is finding the right specialist for you",
 };
 
