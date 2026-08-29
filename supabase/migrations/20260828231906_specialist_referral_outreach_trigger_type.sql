@@ -1,0 +1,1 @@
+alter type public.outreach_trigger_type add value if not exists 'referral_follow_up';
