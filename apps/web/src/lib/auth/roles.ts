@@ -14,6 +14,14 @@ export const ROLE_HOME_PATH: Record<UserRole, string> = {
   lab_liaison: "/lab-liaison",
   finance: "/finance",
   lab_partner: "/lab-partner",
+  // payer_admin / provider_org_staff: DB roles from a separate, concurrently
+  // developed platform module (payer/provider-org account roles — see
+  // migrations 20260829092305 onward) with no dashboard on this branch yet.
+  // Routed to the one role-agnostic destination every account can reach
+  // rather than guessing at that module's intended UI — update these once
+  // its own dashboard route lands.
+  payer_admin: "/account",
+  provider_org_staff: "/account",
 };
 
 export function getRoleHomePath(role: UserRole): string {
@@ -40,6 +48,8 @@ export const ROLE_DISPLAY_LABEL: Record<UserRole, string> = {
   finance: "Finance",
   lab_liaison: "Lab Liaison",
   lab_partner: "Partner Laboratory",
+  payer_admin: "Payer Admin",
+  provider_org_staff: "Provider Organisation Staff",
 };
 
 /** True when `pathname` is the role-home (or under it) for `role`. */
