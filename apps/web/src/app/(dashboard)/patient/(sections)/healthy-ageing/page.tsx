@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
-import { SEMANTIC_ICON } from "@/lib/icons";
+import { NAV_ICON } from "@/lib/icons";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { HealthyAgeingSnapshotTile } from "@/app/(dashboard)/patient/healthy-ageing-snapshot-tile";
 import { CoordinatedCareSummaryCard } from "@/app/(dashboard)/patient/coordinated-care-summary-card";
@@ -31,7 +31,7 @@ export default async function HealthyAgeingPage() {
           ? "Independence, prevention, and coordinated care — not just a list of conditions."
           : "Built with older adults and the people who care for them in mind — still useful for anyone tracking mobility, falls risk, or support at home."
       }
-      icon={SEMANTIC_ICON.healthyAgeing}
+      icon={NAV_ICON.healthyAgeing}
     >
       <HealthyAgeingSnapshotTile patientId={subjectId} />
       <CoordinatedCareSummaryCard patientId={subjectId} />
