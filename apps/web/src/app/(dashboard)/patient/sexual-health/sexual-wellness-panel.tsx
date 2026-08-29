@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { submitSexualHealthScreen } from "./sexual-wellness-actions";
 import {
   SEXUAL_HEALTH_INSTRUMENTS,
@@ -80,9 +80,15 @@ export function SexualWellnessPanel() {
   const [instrument, setInstrument] = useState<SexualHealthInstrument | null>(null);
   const [state, formAction, pending] = useActionState(submitSexualHealthScreen, undefined);
 
-  useEffect(() => {
+  // Adjust state during render (React's endorsed pattern for "react once a
+  // new value arrives") rather than in an effect, so a fresh successful
+  // submission can't cascade an extra render — see risk-assessment-form.tsx's
+  // identical prefill pattern and https://react.dev/learn/you-might-not-need-an-effect.
+  const [lastHandledState, setLastHandledState] = useState(state);
+  if (state !== lastHandledState) {
+    setLastHandledState(state);
     if (state?.success) setView("result");
-  }, [state]);
+  }
 
   function pickConcern(next: SexualHealthInstrument) {
     setInstrument(next);
