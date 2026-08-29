@@ -248,6 +248,7 @@ export type Database = {
           tests_completed: Json
           total_cost_kobo: number
           updated_at: string
+          video_consultation_id: string | null
           year: number
         }
         Insert: {
@@ -265,6 +266,7 @@ export type Database = {
           tests_completed?: Json
           total_cost_kobo?: number
           updated_at?: string
+          video_consultation_id?: string | null
           year: number
         }
         Update: {
@@ -282,6 +284,7 @@ export type Database = {
           tests_completed?: Json
           total_cost_kobo?: number
           updated_at?: string
+          video_consultation_id?: string | null
           year?: number
         }
         Relationships: [
@@ -318,6 +321,13 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "annual_health_checks_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
             referencedColumns: ["id"]
           },
         ]
@@ -16905,6 +16915,10 @@ export type Database = {
           p_report_date: string
         }
         Returns: number
+      }
+      confirm_health_check_video_slot: {
+        Args: { p_consultation_id: string; p_slot: string }
+        Returns: undefined
       }
       confirm_lab_report_extraction: {
         Args: {

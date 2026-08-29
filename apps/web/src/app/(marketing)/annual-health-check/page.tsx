@@ -79,8 +79,8 @@ const WHATS_INCLUDED = [
     body: "Measured properly and recorded to your Tarragon record, so next year has something real to compare against.",
   },
   {
-    title: "A doctor reads every result",
-    body: "Checked against your history, and explained plainly: what's fine, what to watch, and what, if anything, to do next.",
+    title: "A doctor walks you through it",
+    body: "A 15-minute video consult with a doctor, checked against your history and explained plainly: what's fine, what to watch, and what, if anything, to do next. Included on every tier.",
   },
   {
     title: "One record, year after year",
@@ -101,8 +101,8 @@ const HOW_IT_WORKS = [
   },
   {
     step: 3,
-    title: "Doctor reviews your results",
-    body: "Every result is read by a doctor. Most people get the best news there is: all clear, see you next year.",
+    title: "A video consult with your doctor",
+    body: "Every result is read by a doctor, then you get a 15-minute video call to walk through it together. Most people get the best news there is: all clear, see you next year.",
   },
   {
     step: 4,
@@ -161,8 +161,9 @@ export default function AnnualHealthCheckPage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Chosen because they catch the conditions that quietly account for most avoidable
               illness in Nigeria: diabetes, heart disease, and late-found cancers. Blood sugar,
-              cholesterol, BP &amp; BMI, and a doctor&apos;s read are on every tier below, starting
-              with Core Screen; cancer screening is added on Advanced Screen.
+              cholesterol, BP &amp; BMI, and a doctor video consult to walk through it all are on
+              every tier below, starting with Core Screen; cancer screening is added on Advanced
+              Screen.
             </p>
           </div>
           <MarketingMediaFrame
@@ -209,7 +210,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Core Screen",
               price: "With a paid plan",
-              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
+              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once), and a 15-minute doctor video consult to walk through your results.",
               highlight: true,
             },
             {
@@ -220,7 +221,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Comprehensive Screen",
               price: "With a paid plan",
-              body: "Everything in Advanced Screen, plus imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set.",
+              body: "Everything in Advanced Screen, plus imaging and a syphilis screen.",
             },
           ].map((tier) => (
             <div

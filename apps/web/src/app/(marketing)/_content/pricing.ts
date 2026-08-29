@@ -479,7 +479,7 @@ export const ADD_ONS: PricingAddOn[] = [
     price: "Included with your plan",
     label: "ADD-ON",
     description:
-      "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a clinician-reviewed report. If anything comes back abnormal, your doctor follows up directly, at no extra charge. Two deeper tiers are available: Advanced Screen adds age-triggered cancer screening and an ECG, and Comprehensive Screen adds imaging and a 15-minute doctor video consult to walk through your whole result set. You pay the laboratory directly for the tests; we take nothing on them. See the full breakdown on the Annual Health Check page.",
+      "Cardiometabolic, organ-baseline and blood-borne-virus screen: HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis, HIV, Hepatitis B, Hepatitis C, genotype and blood group (once), plus a 15-minute doctor video consult to walk through your results. If anything comes back abnormal, your doctor follows up directly, at no extra charge. Two deeper tiers are available: Advanced Screen adds age-triggered cancer screening and an ECG, and Comprehensive Screen adds imaging. Every tier ends with the same doctor video consult. You pay the laboratory directly for the tests; we take nothing on them. See the full breakdown on the Annual Health Check page.",
     availability: "The Screen tiers come with a paid plan, from Tarragon Prevent upward. That same paid-plan review covers a result you already have, too: uploading it and having a doctor read it is included from Prevent up, not on Tarragon Free.",
   },
   {
@@ -764,7 +764,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What's the difference between Core, Advanced, and Comprehensive Screen?",
     answer:
-      "They're one cumulative ladder, so each tier includes everything in the one below it. Core Screen is a full cardiometabolic and organ-baseline workup, plus HIV/Hepatitis B/Hepatitis C. Advanced Screen adds age-triggered cancer screening and an ECG, with a personalised screening calendar. Comprehensive Screen adds imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set, which is the same doctor review that used to be a separate Annual Doctor Review product. All three come with a paid plan. What you pay for is the tests themselves, straight to whichever laboratory you use, so the cost depends on the lab rather than on us.",
+      "They're one cumulative ladder, so each tier includes everything in the one below it. Every tier, including Core, ends with a 15-minute doctor video consult to walk through your results — the same doctor review that used to be a separate Annual Doctor Review product. Core Screen is a full cardiometabolic and organ-baseline workup, plus HIV/Hepatitis B/Hepatitis C. Advanced Screen adds age-triggered cancer screening and an ECG, with a personalised screening calendar. Comprehensive Screen adds imaging and a syphilis screen. All three come with a paid plan. What you pay for is the tests themselves, straight to whichever laboratory you use, so the cost depends on the lab rather than on us.",
   },
   {
     question: "What if I need a test that isn't listed here?",
