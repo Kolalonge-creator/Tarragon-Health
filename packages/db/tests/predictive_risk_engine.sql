@@ -270,7 +270,7 @@ begin
     values
       (v_org, 'chronic_deterioration', 'prt_draft_model', 999001, 'draft', 'Draft test model', 90,
        jsonb_build_object('moderate', 0.3, 'high', 0.6, 'very_high', 0.9),
-       jsonb_build_object('low', 'x', 'moderate', 'placeholder placeholder', 'high', 'placeholder placeholder', 'very_high', 'placeholder placeholder'))
+       jsonb_build_object('low', 'placeholder placeholder', 'moderate', 'placeholder placeholder', 'high', 'placeholder placeholder', 'very_high', 'placeholder placeholder'))
     returning id into v_draft_model;
 
     begin
