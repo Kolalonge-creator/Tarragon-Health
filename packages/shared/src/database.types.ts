@@ -843,6 +843,526 @@ export type Database = {
           },
         ]
       }
+      provider_complaint_events: {
+        Row: {
+          actor_id: string | null
+          complaint_id: string
+          created_at: string
+          detail: Json
+          from_stage:
+            | Database["public"]["Enums"]["provider_complaint_stage"]
+            | null
+          id: string
+          to_stage: Database["public"]["Enums"]["provider_complaint_stage"]
+        }
+        Insert: {
+          actor_id?: string | null
+          complaint_id: string
+          created_at?: string
+          detail?: Json
+          from_stage?:
+            | Database["public"]["Enums"]["provider_complaint_stage"]
+            | null
+          id?: string
+          to_stage: Database["public"]["Enums"]["provider_complaint_stage"]
+        }
+        Update: {
+          actor_id?: string | null
+          complaint_id?: string
+          created_at?: string
+          detail?: Json
+          from_stage?:
+            | Database["public"]["Enums"]["provider_complaint_stage"]
+            | null
+          id?: string
+          to_stage?: Database["public"]["Enums"]["provider_complaint_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_complaint_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaint_events_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_complaint_investigation_notes: {
+        Row: {
+          author_id: string
+          complaint_id: string
+          created_at: string
+          id: string
+          note: string
+        }
+        Insert: {
+          author_id: string
+          complaint_id: string
+          created_at?: string
+          id?: string
+          note: string
+        }
+        Update: {
+          author_id?: string
+          complaint_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_complaint_investigation_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaint_investigation_notes_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_complaints: {
+        Row: {
+          category: Database["public"]["Enums"]["provider_complaint_category"]
+          closed_at: string | null
+          created_at: string
+          governance_notes: string | null
+          governance_reviewed_at: string | null
+          governance_reviewed_by: string | null
+          id: string
+          investigation_opened_at: string | null
+          investigation_opened_by: string | null
+          organisation_id: string
+          outcome:
+            | Database["public"]["Enums"]["provider_complaint_outcome"]
+            | null
+          patient_id: string | null
+          provider_responded_at: string | null
+          provider_response: string | null
+          raised_by: string | null
+          reference: string
+          resolution_summary: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          response_requested_at: string | null
+          severity:
+            | Database["public"]["Enums"]["provider_complaint_severity"]
+            | null
+          stage: Database["public"]["Enums"]["provider_complaint_stage"]
+          subject_staff_id: string
+          summary: string
+          triaged_at: string | null
+          triaged_by: string | null
+          updated_at: string
+          withdrawn_at: string | null
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["provider_complaint_category"]
+          closed_at?: string | null
+          created_at?: string
+          governance_notes?: string | null
+          governance_reviewed_at?: string | null
+          governance_reviewed_by?: string | null
+          id?: string
+          investigation_opened_at?: string | null
+          investigation_opened_by?: string | null
+          organisation_id: string
+          outcome?:
+            | Database["public"]["Enums"]["provider_complaint_outcome"]
+            | null
+          patient_id?: string | null
+          provider_responded_at?: string | null
+          provider_response?: string | null
+          raised_by?: string | null
+          reference: string
+          resolution_summary?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_requested_at?: string | null
+          severity?:
+            | Database["public"]["Enums"]["provider_complaint_severity"]
+            | null
+          stage?: Database["public"]["Enums"]["provider_complaint_stage"]
+          subject_staff_id: string
+          summary: string
+          triaged_at?: string | null
+          triaged_by?: string | null
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["provider_complaint_category"]
+          closed_at?: string | null
+          created_at?: string
+          governance_notes?: string | null
+          governance_reviewed_at?: string | null
+          governance_reviewed_by?: string | null
+          id?: string
+          investigation_opened_at?: string | null
+          investigation_opened_by?: string | null
+          organisation_id?: string
+          outcome?:
+            | Database["public"]["Enums"]["provider_complaint_outcome"]
+            | null
+          patient_id?: string | null
+          provider_responded_at?: string | null
+          provider_response?: string | null
+          raised_by?: string | null
+          reference?: string
+          resolution_summary?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_requested_at?: string | null
+          severity?:
+            | Database["public"]["Enums"]["provider_complaint_severity"]
+            | null
+          stage?: Database["public"]["Enums"]["provider_complaint_stage"]
+          subject_staff_id?: string
+          summary?: string
+          triaged_at?: string | null
+          triaged_by?: string | null
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_complaints_governance_reviewed_by_fkey"
+            columns: ["governance_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_investigation_opened_by_fkey"
+            columns: ["investigation_opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_subject_staff_id_fkey"
+            columns: ["subject_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_complaints_triaged_by_fkey"
+            columns: ["triaged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_interventions: {
+        Row: {
+          agreed_actions: string | null
+          clinical_staff_id: string
+          closed_at: string | null
+          closed_by: string | null
+          complaint_id: string | null
+          created_at: string
+          due_at: string | null
+          id: string
+          intervention_type: Database["public"]["Enums"]["provider_intervention_type"]
+          opened_at: string
+          opened_by: string
+          organisation_id: string
+          outcome_summary: string | null
+          owner_id: string | null
+          period_end: string | null
+          period_start: string | null
+          provider_acknowledged_at: string | null
+          rationale: string
+          restriction_id: string | null
+          status: Database["public"]["Enums"]["provider_intervention_status"]
+          trigger_source: Database["public"]["Enums"]["provider_intervention_trigger"]
+          triggering_metric:
+            | Database["public"]["Enums"]["provider_quality_metric"]
+            | null
+          triggering_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          agreed_actions?: string | null
+          clinical_staff_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          complaint_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          intervention_type: Database["public"]["Enums"]["provider_intervention_type"]
+          opened_at?: string
+          opened_by: string
+          organisation_id: string
+          outcome_summary?: string | null
+          owner_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          provider_acknowledged_at?: string | null
+          rationale: string
+          restriction_id?: string | null
+          status?: Database["public"]["Enums"]["provider_intervention_status"]
+          trigger_source: Database["public"]["Enums"]["provider_intervention_trigger"]
+          triggering_metric?:
+            | Database["public"]["Enums"]["provider_quality_metric"]
+            | null
+          triggering_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agreed_actions?: string | null
+          clinical_staff_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          complaint_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          intervention_type?: Database["public"]["Enums"]["provider_intervention_type"]
+          opened_at?: string
+          opened_by?: string
+          organisation_id?: string
+          outcome_summary?: string | null
+          owner_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          provider_acknowledged_at?: string | null
+          rationale?: string
+          restriction_id?: string | null
+          status?: Database["public"]["Enums"]["provider_intervention_status"]
+          trigger_source?: Database["public"]["Enums"]["provider_intervention_trigger"]
+          triggering_metric?:
+            | Database["public"]["Enums"]["provider_quality_metric"]
+            | null
+          triggering_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_interventions_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_interventions_restriction_id_fkey"
+            columns: ["restriction_id"]
+            isOneToOne: false
+            referencedRelation: "provider_restrictions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_quality_policy: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_quality_policy_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_restrictions: {
+        Row: {
+          clinical_staff_id: string
+          complaint_id: string | null
+          created_at: string
+          credential_expires_at: string | null
+          detail: string | null
+          id: string
+          imposed_at: string
+          imposed_by: string | null
+          lift_reason: string | null
+          lifted_at: string | null
+          lifted_by: string | null
+          organisation_id: string
+          reason: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Insert: {
+          clinical_staff_id: string
+          complaint_id?: string | null
+          created_at?: string
+          credential_expires_at?: string | null
+          detail?: string | null
+          id?: string
+          imposed_at?: string
+          imposed_by?: string | null
+          lift_reason?: string | null
+          lifted_at?: string | null
+          lifted_by?: string | null
+          organisation_id: string
+          reason: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Update: {
+          clinical_staff_id?: string
+          complaint_id?: string | null
+          created_at?: string
+          credential_expires_at?: string | null
+          detail?: string | null
+          id?: string
+          imposed_at?: string
+          imposed_by?: string | null
+          lift_reason?: string | null
+          lifted_at?: string | null
+          lifted_by?: string | null
+          organisation_id?: string
+          reason?: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage?: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_restrictions_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_imposed_by_fkey"
+            columns: ["imposed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_lifted_by_fkey"
+            columns: ["lifted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provider_time_off: {
         Row: {
           clinician_id: string
@@ -4404,6 +4924,8 @@ export type Database = {
       }
       consultation_feedback: {
         Row: {
+          appointment_id: string | null
+          clinician_id: string | null
           comment: string | null
           communication_rating: number | null
           created_at: string
@@ -4411,11 +4933,14 @@ export type Database = {
           organisation_id: string
           overall_rating: number
           patient_id: string
+          professionalism_rating: number | null
           punctuality_rating: number | null
           technical_experience_rating: number | null
-          video_consultation_id: string
+          video_consultation_id: string | null
         }
         Insert: {
+          appointment_id?: string | null
+          clinician_id?: string | null
           comment?: string | null
           communication_rating?: number | null
           created_at?: string
@@ -4423,11 +4948,14 @@ export type Database = {
           organisation_id: string
           overall_rating: number
           patient_id: string
+          professionalism_rating?: number | null
           punctuality_rating?: number | null
           technical_experience_rating?: number | null
-          video_consultation_id: string
+          video_consultation_id?: string | null
         }
         Update: {
+          appointment_id?: string | null
+          clinician_id?: string | null
           comment?: string | null
           communication_rating?: number | null
           created_at?: string
@@ -4435,11 +4963,26 @@ export type Database = {
           organisation_id?: string
           overall_rating?: number
           patient_id?: string
+          professionalism_rating?: number | null
           punctuality_rating?: number | null
           technical_experience_rating?: number | null
-          video_consultation_id?: string
+          video_consultation_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "consultation_feedback_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_feedback_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "consultation_feedback_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -17912,6 +18455,43 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: string
       }
+      acknowledge_provider_intervention: {
+        Args: { p_intervention_id: string }
+        Returns: {
+          agreed_actions: string | null
+          clinical_staff_id: string
+          closed_at: string | null
+          closed_by: string | null
+          complaint_id: string | null
+          created_at: string
+          due_at: string | null
+          id: string
+          intervention_type: Database["public"]["Enums"]["provider_intervention_type"]
+          opened_at: string
+          opened_by: string
+          organisation_id: string
+          outcome_summary: string | null
+          owner_id: string | null
+          period_end: string | null
+          period_start: string | null
+          provider_acknowledged_at: string | null
+          rationale: string
+          restriction_id: string | null
+          status: Database["public"]["Enums"]["provider_intervention_status"]
+          trigger_source: Database["public"]["Enums"]["provider_intervention_trigger"]
+          triggering_metric:
+            | Database["public"]["Enums"]["provider_quality_metric"]
+            | null
+          triggering_value: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "provider_interventions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       hold_appointment_slot: {
         Args: {
           p_appointment_type: Database["public"]["Enums"]["appointment_type"]
@@ -18096,6 +18676,40 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      lift_provider_restriction: {
+        Args: { p_reason: string; p_restriction_id: string }
+        Returns: {
+          clinical_staff_id: string
+          complaint_id: string | null
+          created_at: string
+          credential_expires_at: string | null
+          detail: string | null
+          id: string
+          imposed_at: string
+          imposed_by: string | null
+          lift_reason: string | null
+          lifted_at: string | null
+          lifted_by: string | null
+          organisation_id: string
+          reason: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "provider_restrictions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      provider_credential_monitor: { Args: never; Returns: Json }
+      provider_quality_network_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      provider_scorecard: {
+        Args: { p_clinical_staff_id?: string; p_from?: string; p_to?: string }
+        Returns: Json
       }
       reschedule_appointment: {
         Args: {
@@ -19518,6 +20132,25 @@ export type Database = {
       sign_alert_rules: { Args: { p_id: string }; Returns: string }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
+      sign_provider_quality_policy: {
+        Args: { p_policy_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "provider_quality_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       sign_risk_questionnaire_config: {
         Args: { p_config_id: string }
         Returns: string
@@ -20176,6 +20809,84 @@ export type Database = {
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
+      provider_complaint_category:
+        | "clinical"
+        | "conduct"
+        | "communication"
+        | "punctuality"
+        | "access"
+        | "administrative"
+        | "other"
+      provider_complaint_outcome:
+        | "upheld"
+        | "partially_upheld"
+        | "not_upheld"
+        | "no_further_action"
+      provider_complaint_severity: "low" | "moderate" | "serious" | "critical"
+      provider_complaint_stage:
+        | "received"
+        | "triage"
+        | "investigation"
+        | "provider_response"
+        | "resolution"
+        | "governance_review"
+        | "closed"
+        | "withdrawn"
+      provider_intervention_status:
+        | "open"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+      provider_intervention_trigger:
+        | "metric_shortfall"
+        | "complaint_outcome"
+        | "credential_lapse"
+        | "peer_review"
+        | "patient_feedback"
+        | "governance_directive"
+      provider_intervention_type:
+        | "feedback"
+        | "training"
+        | "supervision"
+        | "restricted_access"
+        | "formal_investigation"
+      provider_quality_direction: "higher_is_better" | "lower_is_better"
+      provider_quality_domain:
+        | "operational"
+        | "documentation"
+        | "patient_experience"
+        | "clinical_quality"
+      provider_quality_metric:
+        | "appointment_completion_rate"
+        | "provider_cancellation_rate"
+        | "patient_no_show_rate"
+        | "appointment_punctuality_rate"
+        | "alert_response_minutes"
+        | "escalation_resolution_hours"
+        | "alert_sla_met_rate"
+        | "encounter_note_completion_rate"
+        | "referral_documentation_rate"
+        | "result_acknowledgement_rate"
+        | "experience_punctuality"
+        | "experience_communication"
+        | "experience_professionalism"
+        | "experience_overall"
+        | "abnormal_result_response_hours"
+        | "follow_up_completion_rate"
+        | "care_gap_resolution_rate"
+        | "guideline_adherence_rate"
+      provider_restriction_reason:
+        | "license_expiry"
+        | "indemnity_expiry"
+        | "attestation_lapse"
+        | "complaint_outcome"
+        | "performance"
+        | "governance_directive"
+      provider_restriction_stage:
+        | "warning"
+        | "grace_period"
+        | "service_restriction"
+        | "suspension"
       reassessment_reason:
         | "new_diagnosis"
         | "abnormal_result"
@@ -21134,6 +21845,94 @@ export const Constants = {
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
+      provider_complaint_category: [
+        "clinical",
+        "conduct",
+        "communication",
+        "punctuality",
+        "access",
+        "administrative",
+        "other",
+      ],
+      provider_complaint_outcome: [
+        "upheld",
+        "partially_upheld",
+        "not_upheld",
+        "no_further_action",
+      ],
+      provider_complaint_severity: ["low", "moderate", "serious", "critical"],
+      provider_complaint_stage: [
+        "received",
+        "triage",
+        "investigation",
+        "provider_response",
+        "resolution",
+        "governance_review",
+        "closed",
+        "withdrawn",
+      ],
+      provider_intervention_status: [
+        "open",
+        "in_progress",
+        "completed",
+        "cancelled",
+      ],
+      provider_intervention_trigger: [
+        "metric_shortfall",
+        "complaint_outcome",
+        "credential_lapse",
+        "peer_review",
+        "patient_feedback",
+        "governance_directive",
+      ],
+      provider_intervention_type: [
+        "feedback",
+        "training",
+        "supervision",
+        "restricted_access",
+        "formal_investigation",
+      ],
+      provider_quality_direction: ["higher_is_better", "lower_is_better"],
+      provider_quality_domain: [
+        "operational",
+        "documentation",
+        "patient_experience",
+        "clinical_quality",
+      ],
+      provider_quality_metric: [
+        "appointment_completion_rate",
+        "provider_cancellation_rate",
+        "patient_no_show_rate",
+        "appointment_punctuality_rate",
+        "alert_response_minutes",
+        "escalation_resolution_hours",
+        "alert_sla_met_rate",
+        "encounter_note_completion_rate",
+        "referral_documentation_rate",
+        "result_acknowledgement_rate",
+        "experience_punctuality",
+        "experience_communication",
+        "experience_professionalism",
+        "experience_overall",
+        "abnormal_result_response_hours",
+        "follow_up_completion_rate",
+        "care_gap_resolution_rate",
+        "guideline_adherence_rate",
+      ],
+      provider_restriction_reason: [
+        "license_expiry",
+        "indemnity_expiry",
+        "attestation_lapse",
+        "complaint_outcome",
+        "performance",
+        "governance_directive",
+      ],
+      provider_restriction_stage: [
+        "warning",
+        "grace_period",
+        "service_restriction",
+        "suspension",
+      ],
       reassessment_reason: [
         "new_diagnosis",
         "abnormal_result",
