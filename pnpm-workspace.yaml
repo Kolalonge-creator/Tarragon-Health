@@ -42,3 +42,60 @@ overrides:
   # delimiter. Neither has a direct entry in any package.json to bump instead.
   sharp: ">=0.35.0"
   fast-uri: ">=3.1.5"
+  # 2026-08-29 security audit (pnpm audit --prod: 24 findings, 17 high/7
+  # moderate, 0 critical). Each entry fixes one or more real advisories;
+  # see docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md-adjacent PR for the full
+  # before/after audit output. postcss stays in the same situation as sharp
+  # above: next.js/@sentry/nextjs both hard-pin an exact "8.4.31" (not a
+  # range) internally, so this override forces past next's own pin the same
+  # way the sharp override already does — verified via a full `next build`.
+  postcss: ">=8.5.23" # GHSA-qx2v-qp2m-jg93, GHSA-6g55-p6wh-862q, GHSA-fxqj-rqcc-2cmp, GHSA-r28c-9q8g-f849 (CSS-stringify XSS + arbitrary .map/file read via sourceMappingURL)
+  # langsmith arrives transitively via @langchain/core (apps/web's real AI
+  # workflow stack — LangGraph.js/Claude API — not build tooling).
+  # @langchain/core@0.3.80 (the latest 0.3.x; langchain never shipped a
+  # 0.4-0.9 line, only jumped straight to a 1.x major that would need its
+  # own migration pass, out of scope here) only ever declared langsmith
+  # "^0.3.67". Pinned to the exact minimum patched version, not an open
+  # floor, because langsmith ships a breaking major between nearly every one
+  # of these advisories and we want a version we've actually verified
+  # (full build + jest), not whatever is newest on a given day.
+  langsmith: "0.6.0" # GHSA-v34v-rq6j-cj6p, GHSA-fw9q-39r9-c252, GHSA-rr7j-v2q5-chgv, GHSA-3644-q5cj-c5c7
+  # uuid: pinned exact for the same reason as langsmith (frequent majors).
+  # The handful of exports every consumer here actually uses (v1/v4,
+  # parse/stringify/validate) have been stable across all of these majors.
+  uuid: "11.1.1" # GHSA-w5hq-g745-h8pq (missing buffer bounds check in v3/v5/v6 when a buffer is provided)
+  # nanoid: patch-level bump, stays inside the 3.x line postcss itself
+  # requires (^3.3.7) — nanoid 4+ dropped CJS for ESM-only exports, which
+  # would break postcss's plain `require('nanoid')`, so this must NOT be an
+  # open floor.
+  nanoid: "3.3.18" # GHSA-28wg-ghj8-5hjv, GHSA-2v37-7h3g-55p8 (non-secure/custom generators loop indefinitely on negative or zero size)
+  # js-yaml: two apps/mobile build-tool consumers each pin a different major
+  # (cosmiconfig wants ^3.13.1, @expo/xcpretty wants ^4.1.0) — scoped
+  # per-range so each stays on the major it was actually shipped against,
+  # patched at the point release the advisory calls out.
+  "js-yaml@^3.13.1": "3.15.1" # GHSA-5p4m-2wfm-xmqj (quadratic CPU via !!omap resolution)
+  "js-yaml@^4.1.0": "4.3.1" # GHSA-5p4m-2wfm-xmqj (quadratic CPU via !!omap resolution)
+  # brace-expansion: four different minimatch majors in apps/mobile's build
+  # tooling (metro/@expo/cli/react-native codegen/eas-cli) each pin their own
+  # brace-expansion major — selector after the @ is minimatch's own declared
+  # range for it. Scoped per-range for the same reason as js-yaml above.
+  "brace-expansion@^1.1.7": "1.1.18" # GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
+  "brace-expansion@^2.0.1": "2.1.4" # GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
+  "brace-expansion@^2.0.2": "2.1.4" # GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
+  "brace-expansion@^5.0.5": "5.0.9" # GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
+  # fast-xml-parser: only patched at >=5.7.0, a real major bump past
+  # @react-native-community/cli-platform-apple/android's own tested
+  # "^4.0.12" (no 4.x backport exists). Reachability is low — this only runs
+  # inside the RN community CLI's native "doctor"/native-build commands,
+  # which this project doesn't use day to day (EAS managed builds, not local
+  # `react-native run-ios/android`) — but flagging the major-bump risk since
+  # it can't be exercised without a real native build, which is out of scope
+  # for this pass (see PR notes).
+  "fast-xml-parser@^4.0.12": "5.7.0" # GHSA-gh4j-gqv2-49f6 (XMLBuilder comment/CDATA injection via unescaped delimiters)
+  # image-size (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq — ICNS/JXL/HEIF
+  # parser infinite loops, via apps/mobile's metro bundler) deliberately has
+  # NO override: the advisories claim a fix at ">=2.0.3", but 2.0.3 does not
+  # exist on the npm registry or in the image-size GitHub repo's tags as of
+  # 2026-08-29 — 2.0.2 (already vulnerable per the advisory's own "<=2.0.2"
+  # range) is the latest real release. Forcing a version that doesn't exist
+  # would just fail to resolve. Re-check when a real 2.0.3 (or later) ships.
