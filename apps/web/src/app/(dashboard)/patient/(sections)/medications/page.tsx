@@ -8,6 +8,7 @@ import { AdherenceCheckins } from "@/app/(dashboard)/patient/adherence-checkins"
 import { CheckMyPack } from "@/app/(dashboard)/patient/check-my-pack";
 import { LabMonitoringCard } from "@/app/(dashboard)/patient/lab-monitoring-card";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
+import { MedicationReminderPreferences } from "@/app/(dashboard)/patient/medication-reminder-preferences";
 
 export default async function PatientMedicationsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -16,6 +17,11 @@ export default async function PatientMedicationsPage() {
   const { data: refillCoordinationEnabled } = await supabase.rpc("has_feature_access", {
     feature: "medication_refills",
   });
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", subjectId)
+    .single();
 
   return (
     <DashboardSection
@@ -42,6 +48,12 @@ export default async function PatientMedicationsPage() {
               at NAFDAC for the authenticity question we cannot answer. */}
           <CheckMyPack />
           <LabMonitoringCard patientId={subjectId} />
+          {profile?.organisation_id && (
+            <MedicationReminderPreferences
+              patientId={subjectId}
+              organisationId={profile.organisation_id}
+            />
+          )}
         </div>
       </div>
       {/* Pharmacy ORDERING is dormant while no pharmacy partner is
