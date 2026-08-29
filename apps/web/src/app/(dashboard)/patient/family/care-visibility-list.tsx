@@ -1,10 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useMyCareFollowers, useSetClinicalAccess } from "@/lib/queries/care-access";
+import {
+  useMyCareFollowers,
+  useSetClinicalAccess,
+  type ClinicalAccessLevel,
+} from "@/lib/queries/care-access";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+const LEVEL_LABEL: Record<ClinicalAccessLevel, string> = {
+  none: "Cannot see your health information",
+  summary: "Can see your day-to-day care",
+  full: "Can see everything, including lab results",
+};
 
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
@@ -42,10 +52,10 @@ export function CareVisibilityList() {
     return null;
   }
 
-  const decide = (grantId: string, allow: boolean) => {
+  const decide = (grantId: string, level: ClinicalAccessLevel) => {
     setError(null);
     setAccess.mutate(
-      { grantId, allow },
+      { grantId, level },
       {
         onSuccess: () => setOpenId(null),
         onError: (cause) =>
@@ -83,9 +93,7 @@ export function CareVisibilityList() {
                       {follower.permissionLevel === "manage" ? "Can act for you" : "Next of kin"}
                     </Badge>
                     <Badge variant={follower.clinicalAccess ? "green" : "grey"}>
-                      {follower.clinicalAccess
-                        ? "Can see your health information"
-                        : "Cannot see your health information"}
+                      {LEVEL_LABEL[follower.clinicalAccessLevel]}
                     </Badge>
                   </span>
                 </button>
@@ -93,9 +101,7 @@ export function CareVisibilityList() {
                 {open && (
                   <div className="mt-3 space-y-3 rounded-lg bg-charcoal-ink/5 p-4">
                     <p className="text-sm text-charcoal-ink/70">
-                      Should {name} be able to see your readings, your medications, your care plan
-                      and what is due next, and take part in your conversations with your care
-                      team?
+                      How much of your health information should {name} be able to see?
                     </p>
                     <p className="text-sm text-charcoal-ink/60">
                       They will never be able to change anything on your record, or end a
@@ -105,19 +111,29 @@ export function CareVisibilityList() {
                       <Button
                         type="button"
                         size="sm"
-                        disabled={setAccess.isPending || follower.clinicalAccess}
-                        onClick={() => decide(follower.grantId, true)}
+                        variant={follower.clinicalAccessLevel === "none" ? "default" : "outline"}
+                        disabled={setAccess.isPending || follower.clinicalAccessLevel === "none"}
+                        onClick={() => decide(follower.grantId, "none")}
                       >
-                        Yes, they can
+                        Nothing
                       </Button>
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
-                        disabled={setAccess.isPending || !follower.clinicalAccess}
-                        onClick={() => decide(follower.grantId, false)}
+                        variant={follower.clinicalAccessLevel === "summary" ? "default" : "outline"}
+                        disabled={setAccess.isPending || follower.clinicalAccessLevel === "summary"}
+                        onClick={() => decide(follower.grantId, "summary")}
                       >
-                        No, they cannot
+                        Day-to-day care
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={follower.clinicalAccessLevel === "full" ? "default" : "outline"}
+                        disabled={setAccess.isPending || follower.clinicalAccessLevel === "full"}
+                        onClick={() => decide(follower.grantId, "full")}
+                      >
+                        Everything, including lab results
                       </Button>
                     </div>
                     <p className="text-xs text-charcoal-ink/50">

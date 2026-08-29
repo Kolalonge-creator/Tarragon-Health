@@ -10,6 +10,28 @@
 > spec's central primitive (a shared "Family Group" account with an administrator) is structurally
 > the thing that migration deleted. This doc does not reopen that decision; §5 flags exactly what
 > would require a new, explicit founder call versus what fits inside it today.
+>
+> **2026-08-29 — the five real gaps in §3 are closed.** All extend the existing consent-graph model
+> per §5, none reopen §4: (1) `profiles.dependent_kind` (`minor_child`/`elder_proxy`) +
+> `private.sweep_dependent_majority_review` notify a manage grantee once a minor_child dependent
+> turns 18, with `claimDependentAccountAction` converting them to a self-owned login
+> (`20260829082711_dependent_kind_and_majority_review.sql`); (2) `addElderProxyDependentAction`
+> provisions a login-less record for a consenting adult who cannot self-onboard, refusing if the
+> phone already resolves to a real account
+> (`20260829082917_elder_proxy_dependent_provisioning.sql`); (3) `appointments` SELECT plus
+> `cancel_appointment`/`reschedule_appointment` now admit a `manage`-level grantee, and
+> `private.queue_appointment_reminders` sends them an `in_app` reminder alongside the patient's own
+> (`20260829083319_appointment_grantee_access_and_reminders.sql`); (4)
+> `profile_access.clinical_access_level` (`none`/`summary`/`full`) replaces the boolean toggle —
+> `clinical_access` is now a generated column so the ~20 existing `can_read_clinical` call sites are
+> untouched, with `lab_analyte_readings`/`patient_blood_profile` narrowed to `full` via the new
+> `private.can_read_clinical_full`
+> (`20260829083614_graded_clinical_access_levels.sql`); (5) `HouseholdOverview` (family page) rolls
+> up every person in the caller's consent graph — conditions, screenings/follow-ups due, vaccinations
+> due — by composing the existing `useSupportedPersonHealth`/`useVaccinationSchedules` hooks per
+> person, no new tables. §3's items 6–7 (a shared relationship vocabulary; confirming
+> reschedule/cancel parity, now built as part of item 3 above) were out of this pass's explicit scope
+> and remain open.
 
 ## 0. What this document is
 

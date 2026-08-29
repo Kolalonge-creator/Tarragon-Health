@@ -13135,6 +13135,7 @@ export type Database = {
       profile_access: {
         Row: {
           clinical_access: boolean
+          clinical_access_level: Database["public"]["Enums"]["clinical_access_level"]
           clinical_access_updated_at: string | null
           created_at: string
           granted_by: string
@@ -13145,7 +13146,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          clinical_access?: boolean
+          clinical_access_level?: Database["public"]["Enums"]["clinical_access_level"]
           clinical_access_updated_at?: string | null
           created_at?: string
           granted_by: string
@@ -13156,7 +13157,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          clinical_access?: boolean
+          clinical_access_level?: Database["public"]["Enums"]["clinical_access_level"]
           clinical_access_updated_at?: string | null
           created_at?: string
           granted_by?: string
@@ -13200,6 +13201,7 @@ export type Database = {
           created_at: string
           custom_role_id: string | null
           date_of_birth: string | null
+          dependent_kind: Database["public"]["Enums"]["dependent_kind"] | null
           emergency_contact_consent: boolean
           emergency_contact_consent_at: string | null
           emergency_contact_name: string | null
@@ -13217,6 +13219,7 @@ export type Database = {
           is_pregnant: boolean
           lab_provider_id: string | null
           language: string
+          majority_review_at: string | null
           metadata: Json
           next_of_kin_name: string | null
           next_of_kin_phone: string | null
@@ -13242,6 +13245,7 @@ export type Database = {
           created_at?: string
           custom_role_id?: string | null
           date_of_birth?: string | null
+          dependent_kind?: Database["public"]["Enums"]["dependent_kind"] | null
           emergency_contact_consent?: boolean
           emergency_contact_consent_at?: string | null
           emergency_contact_name?: string | null
@@ -13259,6 +13263,7 @@ export type Database = {
           is_pregnant?: boolean
           lab_provider_id?: string | null
           language?: string
+          majority_review_at?: string | null
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
@@ -13284,6 +13289,7 @@ export type Database = {
           created_at?: string
           custom_role_id?: string | null
           date_of_birth?: string | null
+          dependent_kind?: Database["public"]["Enums"]["dependent_kind"] | null
           emergency_contact_consent?: boolean
           emergency_contact_consent_at?: string | null
           emergency_contact_name?: string | null
@@ -13301,6 +13307,7 @@ export type Database = {
           is_pregnant?: boolean
           lab_provider_id?: string | null
           language?: string
+          majority_review_at?: string | null
           metadata?: Json
           next_of_kin_name?: string | null
           next_of_kin_phone?: string | null
@@ -18160,6 +18167,7 @@ export type Database = {
         | "not_yet_established"
       chronic_enrolment_source: "recommended" | "staff" | "clinician"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
+      clinical_access_level: "none" | "summary" | "full"
       clinical_severity: "mild" | "moderate" | "severe"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
@@ -18199,6 +18207,7 @@ export type Database = {
         | "health_connect_bridge"
         | "manual_only"
       diabetes_type: "type_1" | "type_2" | "gestational" | "other"
+      dependent_kind: "minor_child" | "elder_proxy"
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
@@ -18991,6 +19000,7 @@ export const Constants = {
       ],
       chronic_enrolment_source: ["recommended", "staff", "clinician"],
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
+      clinical_access_level: ["none", "summary", "full"],
       clinical_severity: ["mild", "moderate", "severe"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
@@ -19035,6 +19045,7 @@ export const Constants = {
         "manual_only",
       ],
       diabetes_type: ["type_1", "type_2", "gestational", "other"],
+      dependent_kind: ["minor_child", "elder_proxy"],
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
