@@ -16,9 +16,9 @@ that needs a founder call, not an engineering guess.
 
 | # | Pitch item | Status |
 |---|---|---|
-| 1 | Diaspora-funded "Gift a Health Check" | **Partial** — every primitive exists, nothing is assembled into one product. See §1. |
+| 1 | Diaspora-funded "Gift a Health Check" | **Built and verified 2026-08-29.** Every primitive existed, but the key one (`purchase_care_voucher`) turned out to be deliberately disabled, not just unwired — see §1 and the status note at the end of this doc. |
 | 2 | Unbundle video consult as standalone low-ticket product | **Shipped.** `video_visit_requests` (`20260723120000`), `general_checkin` context, its own price book, Paystack refund-on-decline cron. UI: `patient/video-visit/`. Nothing to add. |
-| 3 | Group/community screening days | **Gap — not built.** See §2. |
+| 3 | Group/community screening days | **Built and verified 2026-08-29.** Genuinely net-new — see §2 and the status note at the end of this doc. |
 | 4 | Instalment/thrift-style payment for the annual check | **Shipped**, and more general than proposed. `care_voucher_payments` layaway ("pay small small") lets a payer fund a voucher in any number of instalments of any size (above a configurable floor), not a fixed weekly plan. Native Paystack recurring subscriptions also exist separately for actual subscription plans. Nothing to add. |
 | 5 | Convert screening results into chronic care | **Shipped as infrastructure**, conversion funnel itself is a GTM/comms question, not code. The Category 2→1 escalation pipeline (abnormal result → clinician alert, 4-hour SLA) is the platform's own highest-priority event per CLAUDE.md and already exists; `patient_risk_scores` and the screening ladder's subscriber discount already give a paid-plan incentive at the moment a result comes back. What's not built: a deliberate "you're pre-diabetic, here's Control tier" upsell touchpoint at the result-reveal moment. Small, worth a follow-up ask if wanted — not attempted here. |
 | 6 | Referral commissions | **Shipped.** Generic `commissions` table, `commission_type`/`rate_type` (flat or %), admin dashboard at `admin/settings/commissions/`. Already correctly excludes partner-billed orders (e.g. Synlab) from double-counting commission against revenue (`20260821193144_switch_on_synlab.sql`). Nothing to add. |
@@ -37,42 +37,58 @@ All four building blocks are real and live:
   for my parent's checkup" with no friction. **No marketing page links to it** — every gift/CTA
   on the site points at generic `/login` or `/signup`.
 - **A voucher mechanism that already supports gifting a lab-panel-plus-consult package, not
-  just a subscription year.** `public.purchase_care_voucher(p_beneficiary, p_panel_bundle_id,
-  p_gift_message)` (`20260731215226_care_vouchers_purchase_and_layaway.sql`) reserves a
+  just a subscription year — corrected 2026-08-29, this was more broken than first thought.**
+  `public.purchase_care_voucher(p_beneficiary, p_panel_bundle_id, p_gift_message)`
+  (`20260731215226_care_vouchers_purchase_and_layaway.sql`) was designed to reserve a
   non-transferable, single-purpose, price-frozen voucher against any `self_bookable` panel
-  bundle. **It has never been wired to a server action or any UI.** The only voucher-purchase
-  action that exists, `buyCareVoucher` in `patient/vouchers/actions.ts`, calls the sibling RPC
-  `purchase_subscription_voucher` and its own comment says plainly: *"tests are paid straight to
-  the laboratory now, so there is nothing for Tarragon to sell ahead of time
-  (`public.purchase_care_voucher` fails closed)."* **That comment is stale.** It was accurate
-  under the 2026-08-03 self-arranged-fulfilment model, but `20260821193144_switch_on_synlab.sql`
-  (Aug 21) reversed that for Synlab specifically: Synlab is now a partner-billed lab, Tarragon
-  collects the full price and keeps the margin, and `purchase_care_voucher` does **not**
-  fail closed for a self-bookable Synlab panel — it was simply never reconnected to the UI after
-  the reversal. Confirmed live: `panel_bundles` currently has 12 active, self-bookable,
-  Synlab-priced rows, from `screen_core` (₦227,500, the flagship annual tier) down to single
-  tests (HIV, hepatitis, thyroid, etc.) — any of them is a valid `p_panel_bundle_id` today.
+  bundle. **This reconciliation originally said it "has never been wired to a server action or
+  any UI," reading only the 2026-07-31 migration file.** The live function definition told a
+  different story: `20260803134416_self_arranged_consistency_sweep.sql` had **replaced its entire
+  body with an unconditional `raise exception`**, permanently during the self-arranged-fulfilment
+  sweep, with an explicit `⚠️ FOUNDER` comment flagging that the prepaid-voucher SKU was being
+  removed on purpose (a voucher bought then meant an order that was ₦0 and could never reach
+  `pending_payment` — genuinely unredeemable). Wiring a UI onto it, as this reconciliation
+  originally planned, would have shipped a purchase button that failed every time. Caught only
+  when the first real end-to-end test (a rolled-back transaction against production, not a UI
+  click) hit the live exception. `20260821193144_switch_on_synlab.sql` (Aug 21) removed the
+  premise for a self-bookable, partner-billed bundle specifically — Synlab is a real, priced,
+  active partner now, and booking one produces exactly the payable `pending_payment` order the
+  Aug 3 stub said couldn't exist — but nobody revisited the stub for eight days. **Re-enabled** in
+  `20260829201533_reenable_purchase_care_voucher_for_partner_billed_bundles.sql`: same body as the
+  original 2026-07-31 function, plus two guards mirrored from the real order-creation path
+  (`private.set_lab_order_computed_price`, `private.enforce_lab_order_region`) so nothing can be
+  sold as a voucher the beneficiary couldn't actually redeem — a region check (refuses a state
+  with no active lab coverage, exactly like a real order would) and a priceable check (refuses a
+  bundle where every test is already excluded for that specific beneficiary — sex, on file, an
+  unmet gate — which would price the real order at nothing). Verified end-to-end via a
+  rolled-back SQL transaction against production (see the verification note at the end of this
+  section) rather than trusted on inspection alone, given how wrong the first read of this
+  function turned out to be. Confirmed live: `panel_bundles` currently has 12 active,
+  self-bookable, Synlab-priced rows, from `screen_core` (₦227,500, the flagship annual tier) down
+  to single tests (HIV, hepatitis, thyroid, etc.) — any of them is a valid `p_panel_bundle_id`
+  today, in a region Synlab covers, for a beneficiary who still needs at least one test in it.
 - **A checkout path already wired for GBP/USD.** `care_voucher_payments` accepts `NGN`, `GBP`,
   `USD`; Stripe handles GBP/USD sponsor-funded checkout, Paystack handles NGN.
 - **A redemption path already wired to lab orders.** The redemption RPC in
   `20260731215326_care_vouchers_redemption.sql` redeems a `prepaid_service` voucher against a
   `lab_orders` row for the exact bundle it was bought for.
 
-**What's actually missing** is assembly, not invention:
+**What was actually missing**, and what landed for each:
 
-1. No server action calls `purchase_care_voucher`. Add one alongside `buyCareVoucher` in
-   `patient/vouchers/actions.ts` (or a sponsor-side equivalent in `patient/supporting/actions.ts`,
-   since a diaspora purchaser is a supporter, not a patient) that lets a supporter pick a
-   self-bookable panel bundle for their linked person and reserve a voucher against it. Reuse the
-   existing `payTowardVoucher` instalment action unchanged — it is already generic over any
-   `voucher_id`.
-2. The `/gift` marketing page (`apps/web/src/app/(marketing)/gift/`) only pitches gifting a
-   subscription year ("Complete Care" / "Prevent"), never a one-off screening package. Add the
-   screening-bundle option alongside it, and repoint its CTAs at `/signup?intent=support` instead
-   of generic `/signup`/`/login` so a diaspora payer lands in the frictionless supporter flow.
-3. The homepage's `?channel=diaspora` hero variant (`(marketing)/_content/channel-heroes.ts`)
-   currently sends its CTA to `/pricing` — a subscription price list, not a gift flow. Repoint it
-   once the above exists.
+1. No server action called `purchase_care_voucher` — and the RPC itself was disabled (see the
+   correction above). Added `buyHealthCheckVoucher` in `patient/vouchers/actions.ts`, wired into a
+   "Buy a health check" option on `care-vouchers-card.tsx` alongside the existing plan-gifting
+   form, reusing the existing `payTowardVoucher` instalment action unchanged. Also wired
+   `RedeemVoucherButton` into `annual-health-check-booking.tsx`'s pending-payment card — it already
+   existed (built for pharmacy orders) and already supported `orderType: 'lab'`, but was never
+   rendered next to a lab order's pay button, so a voucher would have had no way to be spent even
+   once purchase worked.
+2. The `/gift` marketing page (`apps/web/src/app/(marketing)/gift/`) only pitched gifting a
+   subscription year ("Complete Care" / "Prevent"), never a one-off screening package. Added the
+   screening-bundle option alongside it, and repointed its CTAs (hero, personalizer, closing band)
+   at `/signup?intent=support` instead of generic `/signup`/`/login`.
+3. The homepage's `?channel=diaspora` hero variant (`(marketing)/_content/channel-heroes.ts`) sent
+   its CTA to `/pricing` — a subscription price list, not a gift flow. Repointed at `/gift`.
 4. **Resolved 2026-08-29 — vestigial dead code, not a broken promise.** `private.handle_screen_tier_resulted()`
    still hardcodes `v_bundle_code in ('screen_core', 'screen_advanced', 'screen_comprehensive')`
    and only inserts a `video_consultations` row when the code is specifically
@@ -145,10 +161,55 @@ engine, the wellness-testing catalogue, and Employer/HMO risk dashboards — thi
 already-built employer roster, just group-oriented instead of individual, and it charges a real
 discounted price rather than adding a new commercial concept).
 
-## Recommended next step
+## Status: both gaps built and verified end-to-end (2026-08-29)
 
-Both remaining gaps are now scoped and being built in this pass: §1's assembly work (new server
-action + `/gift` page addition + CTA repoints, honestly describing the panel-plus-optional-video-
-visit combination per the resolved finding above) and §2's `screening_days`/`screening_day_slots`
-schema plus a minimal admin confirm/issue UI and self-serve request form. See git history for what
-actually landed — this doc is the reconciliation record, not a live status board.
+Both landed in this pass. Given how wrong the first read of `purchase_care_voucher` turned out to
+be from a migration file alone, both flows were proven against the live schema before being called
+done — not just typechecked/linted/built, which only proves the TypeScript compiles, never that
+the RPCs it calls behave as assumed.
+
+**Verification method:** a Supabase branch would have been the clean way to do this (a full,
+disposable copy of the schema) but branching isn't available on this project's plan. Instead, each
+flow was run as a single SQL transaction against production, simulating each real caller's
+`auth.uid()` via `request.jwt.claims`, then rolled back — nothing persists, no row survives, no
+notification-worthy state change (checked first: no `pg_net`/webhook trigger sits on any table or
+status transition either flow touches). This is the same discipline this codebase's own history
+describes for RLS changes ("prove any RLS change with a simulated session... in a rolled-back
+transaction"), extended here to full RPC call sequences.
+
+**Diaspora Gift-a-Health-Check, proven end-to-end:** a supporter account buys a `screen_core`
+voucher for a linked patient (`purchase_care_voucher`) → pays in full, simulating the Paystack
+webhook's own insert into `payment_transactions` → voucher activates → a real partner-billed
+`pending_payment` lab order is created for the patient → the patient redeems the voucher against it
+(`redeem_care_voucher`) → the order flips to `payment_confirmed`, the voucher to `redeemed`. Negative
+paths also verified: a caller with no `profile_access` grant is refused the purchase; a beneficiary
+in a state with no active lab coverage is refused (the new region guard); a bundle with nothing left
+to deliver for that specific beneficiary — tested with a male patient against the cervical-smear
+bundle — is refused (the new priceable guard).
+
+**Group screening days, proven end-to-end:** a patient self-serve requests one
+(`request_screening_day`) → a non-staff confirm attempt is correctly refused → an admin confirms it
+with a 10% discount (`confirm_screening_day`), and the frozen price/total/default-payer all compute
+correctly → the payer pays in full, simulating the same webhook insert → an attendee slot is
+registered (`add_screening_day_slot`) → the admin issues that attendee their own prepaid voucher
+(`issue_screening_day_voucher`), already fully paid via the group's bulk payment. Negative paths
+verified: confirming an already-confirmed day is refused; registering a slot beyond
+`slots_confirmed` is refused; issuing a voucher for an already-issued slot is refused.
+
+**Browser-verified:** the public half of this (`/gift`, and the `?channel=diaspora` homepage hero)
+was loaded in a real headless-Chromium session against the live project — both render cleanly with
+zero console errors, the personalizer's dynamic copy updates correctly, and every CTA that should
+now point at `/signup?intent=support` does. The authenticated dashboard pages
+(`/patient/screening-days`, `/admin/settings/screening-days`, the care-vouchers-card additions)
+were not click-tested in a browser — no test account exists on production and creating one there
+was judged not worth the data-hygiene risk given the SQL-level proof above already exercises every
+code path those pages call, including the auth checks. Said explicitly rather than silently
+skipped, per this repo's own standard for UI verification.
+
+**What would still make this more robust, not attempted here:** a Jest suite for the new
+`actions.ts`/`screening-day-checkout.ts` files was deliberately skipped — this codebase's own
+convention (checked: zero `actions.ts` files anywhere in the patient/admin dashboards have test
+files) is to unit-test pure `lib/` logic, not thin RPC-wrapping server actions, and the real
+business logic here lives in SQL, which the rolled-back-transaction proof above already covers more
+rigorously than a mocked-Supabase-client Jest test would. A live click-through with a real
+diaspora/admin test account, once one exists, is the one thing this pass could not substitute for.
