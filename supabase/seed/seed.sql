@@ -362,6 +362,15 @@ update public.specialist_providers set state = 'Lagos', city = 'Ikeja' where sta
 -- a reader grepping this file for "what does Essential Care cost" got a
 -- stale, silently-never-applied answer. Kept accurate belt-and-suspenders
 -- documentation, still not load-bearing for these six rows.
+--
+-- Retired 2026-08-29: essential/complete (+ prevent, seeded separately
+-- below) are permanently withdrawn — is_active=false, replaced by
+-- care_pass_12mo/care_pass_6mo — by
+-- 20260829011710_retire_tiers_and_care_pass.sql, which (like every other
+-- migration in this block) runs before this seed file on a fresh reset, so
+-- that is_active state already holds by the time this insert's on-conflict-
+-- do-nothing no-ops. Prices/features are still kept accurate above rather
+-- than deleted, same reasoning as the note directly above this one.
 -- ---------------------------------------------------------------------------
 insert into public.subscription_plans (code, name, description, price_minor, currency, interval, features)
 values

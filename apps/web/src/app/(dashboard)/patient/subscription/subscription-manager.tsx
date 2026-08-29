@@ -77,8 +77,17 @@ export function SubscriptionManager() {
   const status = STATUS_BADGE[subscription.status] ?? { label: subscription.status, variant: "grey" as const };
   const currentPlanCode = subscription.plan?.code ?? null;
   const currency = currencyOverride ?? ((subscription.plan?.currency as Currency | undefined) ?? "NGN");
+  // Care Pass is a one-off, non-renewing purchase (buy-care-pass.tsx handles
+  // it) — it deliberately carries no paystack_plan_code/stripe_price_id, so
+  // routing it through this generic recurring-subscription switcher would
+  // either dead-end on "card payments aren't set up" or, worse, start
+  // billing it recurringly if it's ever swept into a bulk Paystack sync.
   const switchablePlans = (plans ?? []).filter(
-    (p) => p.code !== currentPlanCode && (p.code === "free" || p.currency === currency),
+    (p) =>
+      p.code !== currentPlanCode &&
+      (p.code === "free" || p.currency === currency) &&
+      p.code !== "care_pass_12mo" &&
+      p.code !== "care_pass_6mo",
   );
   /**
    * Dollars lead with the yearly row, naira keeps its natural order.

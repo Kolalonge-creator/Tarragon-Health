@@ -1,66 +1,66 @@
 import { recommendPlan } from "./plan-finder";
-import { NGN_TIERS, USD_TIERS } from "../_content/pricing";
+import { NGN_TIERS } from "../_content/pricing";
 
-const ngnPrevent = NGN_TIERS.find((t) => t.id === "prevent")!;
-const usdPrevent = USD_TIERS.find((t) => t.id === "diaspora-prevent")!;
+const carePass = NGN_TIERS.find((t) => t.id === "care_pass_12mo")!;
 
 /**
  * The PlanFinder mapping is a pure function and a real conversion surface;
- * these tests pin the deliberate routing decisions:
+ * these tests pin the deliberate routing decisions.
  *
- * - a healthy visitor must land on Tarragon Prevent (the stay-healthy plan),
- *   never dead-end at Free (the pre-2026-07-23 behaviour);
- * - since removal 4, no answer may route to a household plan, because none
- *   exists to sell. "Someone I look after" gets that person's own individual
- *   plan plus an explanation of how paying for it works.
+ * Superseded 2026-08-29: Prevent/Essential/Complete are retired, replaced by
+ * Care Pass — one product now, regardless of health condition count, so
+ * "health" no longer changes which plan comes back in Nigeria, only its
+ * "why" text. Diaspora ("abroad") has no live product yet (Family Watch
+ * isn't built), so it must say so honestly rather than naming a plan that
+ * doesn't exist.
  */
 describe("recommendPlan", () => {
-  it("routes a healthy person in Nigeria to Tarragon Prevent", () => {
+  it("routes anyone in Nigeria to Care Pass, whatever their health situation", () => {
+    for (const health of ["none", "one", "multiple"] as const) {
+      const rec = recommendPlan("me", health, "nigeria");
+      expect(rec.plan).toBe("Care Pass");
+      // Pulled live from _content/pricing.ts so this can't silently go stale
+      // against the pricing table again (see 2026-08-12 marketing-site audit).
+      expect(rec.price).toContain(carePass.priceMain);
+    }
+  });
+
+  it("varies the why-text by health situation even though the plan is the same", () => {
+    const none = recommendPlan("me", "none", "nigeria");
+    const multiple = recommendPlan("me", "multiple", "nigeria");
+    expect(none.why).not.toBe(multiple.why);
+  });
+
+  it("keeps Tarragon Free reachable as the explicit self-tracking alternative", () => {
     const rec = recommendPlan("me", "none", "nigeria");
-    expect(rec.plan).toBe("Tarragon Prevent");
-    // Pulled live from _content/pricing.ts so this can't silently go stale
-    // against the pricing table again (see 2026-08-12 marketing-site audit).
-    expect(rec.price).toContain(ngnPrevent.priceMain);
-    // Free stays reachable as the explicit self-tracking alternative.
     expect(rec.secondary).toContain("Tarragon Free");
-    expect(rec.secondary).toContain("Annual Health Check");
   });
 
-  it("routes a healthy person abroad to the diaspora Prevent plan", () => {
+  it("is honest that diaspora funding isn't live yet, rather than naming a plan that doesn't exist", () => {
     const rec = recommendPlan("me", "none", "abroad");
-    expect(rec.plan).toBe("Tarragon Prevent (Diaspora)");
-    expect(rec.price).toContain(usdPrevent.priceSecondary!.replace(/^or\s+/, "").replace("/month", ""));
-  });
-
-  it("still routes one condition to Essential Care", () => {
-    expect(recommendPlan("me", "one", "nigeria").plan).toBe("Essential Care");
-    expect(recommendPlan("me", "one", "abroad").plan).toBe("Essential Care (Diaspora)");
-  });
-
-  it("still routes multiple conditions to Complete Care", () => {
-    expect(recommendPlan("me", "multiple", "nigeria").plan).toBe("Complete Care");
-    expect(recommendPlan("me", "multiple", "abroad").plan).toBe("Complete Care (Diaspora)");
+    expect(rec.price).toBe("coming soon");
+    expect(rec.plan).not.toBe("Care Pass");
   });
 
   it("recommends the cared-for person's own plan, not a household one", () => {
     for (const health of ["none", "one", "multiple"] as const) {
-      for (const from of ["nigeria", "abroad"] as const) {
-        const mine = recommendPlan("me", health, from);
-        const theirs = recommendPlan("someone-else", health, from);
-        expect(theirs.plan).toBe(mine.plan);
-        expect(theirs.price).toBe(mine.price);
-      }
+      const mine = recommendPlan("me", health, "nigeria");
+      const theirs = recommendPlan("someone-else", health, "nigeria");
+      expect(theirs.plan).toBe(mine.plan);
+      expect(theirs.price).toBe(mine.price);
     }
   });
 
-  it("explains individual enrolment when caring for someone else", () => {
-    const rec = recommendPlan("someone-else", "one", "abroad");
-    expect(rec.secondary).toContain("their own Tarragon account");
-    expect(rec.secondary).toContain("fund their plan");
+  it("explains individual enrolment when caring for someone else, in Nigeria or abroad", () => {
+    for (const from of ["nigeria", "abroad"] as const) {
+      const rec = recommendPlan("someone-else", "one", from);
+      expect(rec.secondary).toContain("their own Tarragon account");
+      expect(rec.secondary).toContain("fund their plan");
+    }
   });
 
   it("never recommends a plan that no longer exists", () => {
-    const retired = ["Family", "ParentCare", "Premium Care"];
+    const retired = ["Family", "ParentCare", "Premium Care", "Tarragon Prevent", "Essential Care", "Complete Care"];
     for (const who of ["me", "someone-else"] as const) {
       for (const health of ["none", "one", "multiple"] as const) {
         for (const from of ["nigeria", "abroad"] as const) {

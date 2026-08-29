@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { SubscriptionManager } from "./subscription-manager";
+import { BuyCarePass } from "../buy-care-pass";
 
 export default async function PatientSubscriptionPage() {
   const profile = await getCurrentProfile();
@@ -22,6 +23,7 @@ export default async function PatientSubscriptionPage() {
           Manage your plan and add-on services. You can change or cancel any time.
         </p>
       </div>
+      <BuyCarePass />
       <SubscriptionManager />
     </div>
   );

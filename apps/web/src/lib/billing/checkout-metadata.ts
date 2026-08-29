@@ -30,19 +30,30 @@
  * recognise it and cosmetically no-op, so this ships without redeploying
  * either Edge Function — a redeploy this codebase has been bitten by twice.
  */
+/**
+ * 'care_pass_purchase' is read the same way, by
+ * private.activate_care_pass_purchase (an AFTER INSERT trigger on
+ * payment_transactions, see
+ * supabase/migrations/20260829011710_retire_tiers_and_care_pass.sql). A
+ * one-off, self-purchase-only NGN charge that activates a non-renewing
+ * subscriptions row (cancel_at_period_end=true, amount_minor=0) — no
+ * beneficiary/sponsor split, profile_id IS the subscriber. Same deploy-free
+ * reasoning as the two kinds above.
+ */
 export type CheckoutKind =
   | "subscription"
   | "add_on"
   | "booking"
   | "voucher_payment"
-  | "sponsored_subscription";
+  | "sponsored_subscription"
+  | "care_pass_purchase";
 
 export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "results_interpretation";
 
 export interface CheckoutMetadata {
   kind: CheckoutKind;
   profile_id: string;
-  /** subscription_plans.code (kind='subscription'/'sponsored_subscription') or add_ons.code (kind='add_on'). Unused for kind='booking'/'voucher_payment'. */
+  /** subscription_plans.code (kind='subscription'/'sponsored_subscription') or add_ons.code (kind='add_on') or care_pass_12mo/care_pass_6mo (kind='care_pass_purchase'). Unused for kind='booking'/'voucher_payment'. */
   item_code: string;
   /** Only set for kind='add_on' — the base subscriptions.id it attaches to. */
   subscription_id?: string;

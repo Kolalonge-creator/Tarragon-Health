@@ -141,6 +141,13 @@ export async function changePlan(
   if (typeof currentSubscriptionId !== "string" || typeof newPlanCode !== "string" || !newPlanCode) {
     return { error: "Choose a plan first" };
   }
+  // Care Pass is a one-off, non-renewing purchase (buy-care-pass.tsx +
+  // initiateCarePassCheckout) — it carries no paystack_plan_code/
+  // stripe_price_id on purpose, and must never be entered through the
+  // ordinary recurring-subscription path below.
+  if (newPlanCode === "care_pass_12mo" || newPlanCode === "care_pass_6mo") {
+    return { error: "Buy Care Pass from the Care Pass card, not here — it's a one-off purchase, not a plan switch." };
+  }
 
   const { supabase, user, subscription } = await requireOwnedSubscription(currentSubscriptionId);
 

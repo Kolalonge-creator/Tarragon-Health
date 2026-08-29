@@ -33,67 +33,67 @@ function monthlyPrice(tier: PricingTier): string {
 }
 
 /**
- * Maps the three answers to a single recommended plan. Pure and exhaustive so
- * the mapping is testable and every combination has a deliberate answer.
- * Prices and plan names are read live from _content/pricing.ts's NGN_TIERS/
+ * Maps the answers to a single recommended plan. Pure and exhaustive so the
+ * mapping is testable and every combination has a deliberate answer. Prices
+ * and plan names are read live from _content/pricing.ts's NGN_TIERS/
  * USD_TIERS (the pricing page's own source of truth) rather than duplicated
  * here, so this can never drift out of sync with the pricing table shown
  * right below it on the same page (that drift happened once already, see
  * 2026-08-12 marketing-site audit).
  *
+ * Superseded 2026-08-29: Prevent/Essential/Complete are retired, replaced by
+ * Care Pass, ONE product covering every condition count — so `health` no
+ * longer changes WHICH plan is recommended in Nigeria, only the "why" copy.
+ * It's kept as a question because it's still the one people arrive with, and
+ * a plan-your-visit-shaped answer is more useful than a generic one.
+ *
+ * `from === "abroad"` has no live product yet: Family Watch (E1, diaspora)
+ * is being built next (docs/REVENUE_ARCHITECTURE_AND_EARNINGS_PLAN.md §5) —
+ * until it ships this is an honest "not yet" rather than a fabricated plan
+ * name, which is worse than admitting the gap.
+ *
  * Since removal 4 (2026-07-29) there is no household plan to route to, so
- * "who" no longer changes which plan is recommended; it changes whose plan it
- * is. Everyone enrols individually, so the answer for someone looking after a
- * parent is the plan that suits that parent, on that parent's own account,
- * funded by whoever is paying for it. Their lab tests stay paid straight to
- * the laboratory, never through Tarragon, even for a next-of-kin relationship.
- * The question is kept because it is the one people arrive with, and
- * answering it plainly is more useful than hiding it.
+ * "who" doesn't change which Nigeria plan is recommended; it changes whose
+ * plan it is. Everyone enrols individually, so the answer for someone
+ * looking after a parent is the plan that suits that parent, on that
+ * parent's own account, funded by whoever is paying for it. Their lab tests
+ * stay paid straight to the laboratory, never through Tarragon, even for a
+ * next-of-kin relationship.
  */
 export function recommendPlan(who: Who, health: Health, from: From): Recommendation {
   const forSomeoneElse =
     "They hold their own Tarragon account and their own subscription. Name each other as next of kin and you can follow their care and fund their plan; their lab tests are still paid straight to the laboratory.";
 
-  const rec: Recommendation =
-    health === "none"
-      ? from === "abroad"
-        ? {
-            plan: tierById(USD_TIERS, "diaspora-prevent").name,
-            price: monthlyPrice(tierById(USD_TIERS, "diaspora-prevent")),
-            why: "The stay-healthy plan: a screening and vaccination calendar built around them, with reminders when checks come due, plus personalised health education, so small things get caught before they become conditions.",
-            secondary:
-              "Just want to self-track for now? Tarragon Free is ₦0 forever, and the Annual Health Check comes with any paid plan: we say which tests are worth doing, you use any lab in Nigeria, and a doctor reads the result.",
-          }
-        : {
-            plan: tierById(NGN_TIERS, "prevent").name,
-            price: monthlyPrice(tierById(NGN_TIERS, "prevent")),
-            why: "The stay-healthy plan: a screening and vaccination calendar built around them, with reminders when checks come due, plus personalised health education, so small things get caught before they become conditions.",
-            secondary:
-              "Just want to self-track for now? Tarragon Free is ₦0 forever, and the Annual Health Check comes with any paid plan: we say which tests are worth doing and a doctor reads whatever you upload.",
-          }
-      : health === "one"
-        ? from === "abroad"
-          ? {
-              plan: tierById(USD_TIERS, "diaspora-essential").name,
-              price: monthlyPrice(tierById(USD_TIERS, "diaspora-essential")),
-              why: "The same Essential Care monitoring, billed in dollars. The dollar price is the naira price converted, not a diaspora premium.",
-            }
-          : {
-              plan: tierById(NGN_TIERS, "essential").name,
-              price: monthlyPrice(tierById(NGN_TIERS, "essential")),
-              why: "Real clinical monitoring for one condition, hypertension, diabetes, or weight management: a doctor sets your care plan, reviews your readings on a scheduled basis, and follows up on medication.",
-            }
-        : from === "abroad"
-          ? {
-              plan: tierById(USD_TIERS, "diaspora-complete").name,
-              price: monthlyPrice(tierById(USD_TIERS, "diaspora-complete")),
-              why: "A scheduled review for each condition you manage, with hypertension, diabetes, and weight all handled together on one care plan, billed in dollars.",
-            }
-          : {
-              plan: tierById(NGN_TIERS, "complete").name,
-              price: monthlyPrice(tierById(NGN_TIERS, "complete")),
-              why: "A scheduled review for each condition you manage, with hypertension, diabetes, and weight all handled together on one care plan, and priority escalation when something needs attention.",
-            };
+  if (from === "abroad") {
+    return {
+      plan: "Diaspora funding",
+      price: "coming soon",
+      why: "Tarragon's care is delivered in Nigeria. We're building a way to pay from abroad for continuous monitoring of someone there — it isn't live yet, so for now pricing is in naira only.",
+      secondary:
+        who === "someone-else"
+          ? forSomeoneElse
+          : "Care for yourself while you're outside Nigeria isn't available yet — this is for funding someone else's care there.",
+    };
+  }
+
+  const whyByHealth: Record<Health, string> = {
+    none: "A screening and vaccination calendar built around them, with reminders when checks come due, plus personalised health education, so small things get caught before they become conditions.",
+    one: "A doctor-set care plan for one condition — hypertension, diabetes, or weight management — with a scheduled review, regular check-ins, and medication follow-up.",
+    multiple:
+      "A scheduled review for each condition you manage, with hypertension, diabetes, and weight all handled together on one care plan, and priority escalation when something needs attention.",
+  };
+
+  const carePass = tierById(NGN_TIERS, "care_pass_12mo");
+  const rec: Recommendation = {
+    plan: carePass.name,
+    // Care Pass is a one-off term, not a recurring monthly/yearly charge —
+    // monthlyPrice() (below) assumes the latter and would mislabel it, so
+    // this reads priceMain/pricePeriod directly instead.
+    price: `${carePass.priceMain} ${carePass.pricePeriod ?? ""}`.trim(),
+    why: whyByHealth[health],
+    secondary:
+      "Just want to self-track for now? Tarragon Free is ₦0 forever, and Care Pass covers the Annual Health Check review too: we say which tests are worth doing and a doctor reads whatever you upload.",
+  };
 
   if (who === "someone-else") {
     return { ...rec, secondary: forSomeoneElse };

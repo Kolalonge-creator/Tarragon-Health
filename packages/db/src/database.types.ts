@@ -15038,6 +15038,7 @@ export type Database = {
           price_minor: number
           stripe_price_id: string | null
           stripe_product_id: string | null
+          term_months: number | null
         }
         Insert: {
           ai_coach_daily_limit?: number | null
@@ -15056,6 +15057,7 @@ export type Database = {
           price_minor?: number
           stripe_price_id?: string | null
           stripe_product_id?: string | null
+          term_months?: number | null
         }
         Update: {
           ai_coach_daily_limit?: number | null
@@ -15074,6 +15076,7 @@ export type Database = {
           price_minor?: number
           stripe_price_id?: string | null
           stripe_product_id?: string | null
+          term_months?: number | null
         }
         Relationships: [
           {

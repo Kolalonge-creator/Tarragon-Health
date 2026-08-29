@@ -468,7 +468,15 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
 
   if (person.permissionLevel !== "manage") return null;
 
-  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_minor > 0);
+  // Care Pass is excluded: it's a one-off, non-renewing purchase with its
+  // own activation trigger (private.activate_care_pass_purchase) that this
+  // card's recurring-style flow (private.activate_sponsored_subscription,
+  // interval-based period math, cancel_at_period_end=false) doesn't know
+  // about — routing it through here would silently grant the wrong period
+  // length on care_pass_6mo and mis-set cancel_at_period_end.
+  const payable = (plans ?? []).filter(
+    (plan) => plan.currency === "NGN" && plan.price_minor > 0 && plan.code !== "care_pass_12mo" && plan.code !== "care_pass_6mo",
+  );
   if (payable.length === 0) return null;
 
   return (
