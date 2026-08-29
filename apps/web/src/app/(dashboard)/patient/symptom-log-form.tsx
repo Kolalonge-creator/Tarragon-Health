@@ -23,6 +23,8 @@ const SYMPTOM_LABEL: Record<SymptomLogInput["symptom_type"], string> = {
   severe_headache: "Severe headache",
   visual_disturbance: "Vision changes (blurred, dimmed, or lost)",
   confusion: "Confusion or drowsiness",
+  testicular_pain: "Testicular pain",
+  testicular_lump: "Testicular lump or swelling",
   other: "Other",
 };
 
