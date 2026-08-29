@@ -2935,6 +2935,98 @@ export type Database = {
           },
         ]
       }
+      cds_recommendation_decisions: {
+        Row: {
+          category: string
+          created_at: string
+          decided_at: string
+          decided_by: string
+          decided_by_profile: string
+          decision: Database["public"]["Enums"]["cds_decision"]
+          id: string
+          organisation_id: string
+          outcome_note: string | null
+          override_reason: string | null
+          patient_id: string
+          priority: string
+          recommendation_fingerprint: string
+          recommendation_key: string
+          source_label: string
+          suppress_until: string | null
+          title: string
+          trigger_text: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          decided_at?: string
+          decided_by?: string
+          decided_by_profile?: string
+          decision: Database["public"]["Enums"]["cds_decision"]
+          id?: string
+          organisation_id: string
+          outcome_note?: string | null
+          override_reason?: string | null
+          patient_id: string
+          priority: string
+          recommendation_fingerprint: string
+          recommendation_key: string
+          source_label: string
+          suppress_until?: string | null
+          title: string
+          trigger_text: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          decided_at?: string
+          decided_by?: string
+          decided_by_profile?: string
+          decision?: Database["public"]["Enums"]["cds_decision"]
+          id?: string
+          organisation_id?: string
+          outcome_note?: string | null
+          override_reason?: string | null
+          patient_id?: string
+          priority?: string
+          recommendation_fingerprint?: string
+          recommendation_key?: string
+          source_label?: string
+          suppress_until?: string | null
+          title?: string
+          trigger_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cds_recommendation_decisions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cds_recommendation_decisions_decided_by_profile_fkey"
+            columns: ["decided_by_profile"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cds_recommendation_decisions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cds_recommendation_decisions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cgm_connections: {
         Row: {
           cgm_partner_id: string
@@ -19786,6 +19878,7 @@ export type Database = {
         | "refill_confirmation"
         | "prescribing"
         | "emergency_resolution"
+      cds_decision: "accepted" | "actioned" | "overridden" | "deferred"
       chronic_control_state:
         | "at_target"
         | "above_target"
@@ -20700,6 +20793,7 @@ export const Constants = {
         "prescribing",
         "emergency_resolution",
       ],
+      cds_decision: ["accepted", "actioned", "overridden", "deferred"],
       chronic_control_state: [
         "at_target",
         "above_target",
