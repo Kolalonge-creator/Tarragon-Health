@@ -10,9 +10,14 @@
 > forecast."** Treat this file the same way — check the live DB/code before citing a number as
 > current, per `CLAUDE.md`'s own repeated warning about pricing churn.
 >
-> **2026-08-29 — engine E3 (Results Interpretation) shipped as a standalone one-off product.** See
-> §4 for what actually landed and where. Nothing else in the plan has founder sign-off yet — §5 lists
-> what's still an open decision, with a recommendation for each.
+> **2026-08-29 — five of the nine engines are built: E2 Care Pass, E3 Results Interpretation, E1
+> Family Watch, E4 Workforce Health Risk Report, and E7 Control all shipped on explicit founder
+> direction ("build") the same day this reconciliation was first written, along with retiring
+> Prevent/Essential/Complete entirely.** See §4 for what actually landed, where, and what's
+> deliberately still missing from each. §5 covers what's still not started (E5, E6, E9, the
+> workforce follow-up add-on, the additional-relative discount) and the real prerequisites — mostly
+> non-engineering — standing between what's built and it being safe to actually charge real money
+> through it.
 
 ## 1. What this document is
 
@@ -33,15 +38,15 @@ structurally cannot is *the twelve months after the test* — continuity of care
 
 | Engine | Time to first revenue | Verdict |
 |---|---|---|
-| E1 Diaspora Care Subscription ("Family Watch") | 30–60 days | BUILD FIRST |
-| E2 Annual Care Pass (Nigerian consumer) | 60–90 days | BUILD NOW |
+| E1 Diaspora Care Subscription ("Family Watch") | 30–60 days | BUILD FIRST — **shipped 2026-08-29 (USD, not GBP — see §4), needs indemnity/counsel before real launch** |
+| E2 Annual Care Pass (Nigerian consumer) | 60–90 days | BUILD NOW — **shipped 2026-08-29, replaces Prevent/Essential/Complete (retired)** |
 | E3 Results Interpretation | 30–60 days | BUILD NOW — **shipped 2026-08-29, see §4** |
-| E4 Workforce Health Risk Report (digital B2B) | 90–120 days | BUILD NOW |
-| E5 Lab/pharmacy facilitation fee (flat, provider-invoiced, never a % of the clinical price) | 6–9 months | BUILD AT VOLUME |
-| E6 Fixed-duration chronic programmes (12-week course) | 6–9 months | STAGE 2 |
-| E7 Per-covered-life institutional contracts | 12–18 months | STAGE 3 |
+| E4 Workforce Health Risk Report (digital B2B) | 90–120 days | BUILD NOW — **shipped 2026-08-29, no self-service (see §4)** |
+| E5 Lab/pharmacy facilitation fee (flat, provider-invoiced, never a % of the clinical price) | 6–9 months | BUILD AT VOLUME — not started |
+| E6 Fixed-duration chronic programmes (12-week course) | 6–9 months | STAGE 2 — not started |
+| E7 Per-covered-life institutional contracts | 12–18 months | STAGE 3 — **shipped 2026-08-29 ahead of the plan's own Stage 3 gate, on explicit founder direction; see §4/§5 for the capitation distinction** |
 | E8 Wearable band device sales | Gated on OEM | CONTINUE, DECOUPLED (no change — already tracked separately) |
-| E9 White-label/embedded technology | 18+ months | OPTIONAL, LATER |
+| E9 White-label/embedded technology | 18+ months | OPTIONAL, LATER — not started |
 
 **Proposed price list** (NGN unless noted; every figure "a proposal for decision"):
 
@@ -101,7 +106,53 @@ further.
   whether E4 (Workforce Health Risk Report) duplicates it, extends it, or is a deliberately different
   shape.
 
-## 4. What shipped — E3 Results Interpretation (2026-08-29)
+## 4. What shipped, 2026-08-29
+
+### E2 Care Pass — replaces Prevent/Essential/Complete entirely
+
+Founder direction: "removing subscription based plan totally." Tarragon Prevent, Essential Care and
+Complete Care are deactivated (`is_active = false`, kept not deleted — their code strings are
+referenced by name across sponsor checkout, voucher purchase, and historical `subscriptions` rows).
+Family/FamilyPlus/FamilyPremium/ParentCare needed no action: already fully **deleted** (not just
+deactivated) by `20260729143514_individual_enrolment_only.sql`, confirmed by that migration's own
+assertions — a fact this reconciliation's first pass got right, but only after nearly stating
+otherwise; worth remembering that this codebase's migration history is not always where you'd expect
+a given fact to live.
+
+Care Pass (`care_pass_12mo` ₦36,000, `care_pass_6mo` ₦21,000) grants the full union of what the three
+retired tiers offered between them — one product, not a ladder. Built by reusing the shape of the
+self-purchased subscription-voucher mechanism rather than inventing new payment plumbing: a new
+`'care_pass_purchase'` checkout kind, recognised only by a `payment_transactions` AFTER INSERT
+trigger (the same deploy-free idiom as `voucher_payment`/`sponsored_subscription` — no Edge Function
+redeploy needed for this one, unlike E3). A new `subscription_plans.term_months` column carries the
+real coverage length, since `subscriptions.interval` only has `monthly`/`yearly`, which can't express
+a 6-month non-renewing term.
+
+**Found and fixed along the way**: `private.activate_sponsored_subscription` — the trigger behind
+"put my mother on Complete Care and bill my card monthly," which `CLAUDE.md` itself calls "the most-
+asked-for diaspora action" — has a guard (`if new.processed_at is null then return new`) that checks
+a column only ever set by a *later* webhook `.update()`, never present on the `INSERT` the trigger
+actually fires on. Every other trigger of this shape correctly reads `event_type`/`raw_payload`
+directly. **Net effect until this fix: that feature has silently never activated a single subscription
+in production**, however long it's been live. Fixed to match the working pattern; Family Watch below
+depends on this fix being correct.
+
+`care_pass_12mo`/`care_pass_6mo` are excluded from both existing places a plan could otherwise be
+selected through the wrong recurring-billing flow (the patient's own plan switcher, the sponsor "pay
+their plan" card) — Care Pass's one-off activation trigger doesn't know those flows' period-end math
+or `cancel_at_period_end` semantics, and routing it through them would silently mis-grant either.
+
+**Found and fixed a second time, checking Care Pass's features array against
+`packages/db/tests/gate_second_condition_review_to_complete_care.sql` rather than assuming "full
+union" was actually complete**: Care Pass was missing `vitals_red_flag_doctor_escalation` (gates
+whether a dangerous BP/SpO2/temperature reading pages a clinician at all — granted to every paid
+tier, not Complete-exclusive) and `multi_condition_review` (Complete-only: a second concurrent
+condition getting a scheduled review immediately, not just an upgrade nudge). Both fixed in
+`20260829014047_care_pass_missing_features_fix.sql`. The first is the one that mattered: without it,
+a Care Pass patient would have had the same doctor-escalation behaviour on a dangerous reading as
+Tarragon Free, despite paying for full chronic-care cover.
+
+### E3 Results Interpretation (2026-08-29)
 
 The mechanism this sells already existed: a patient uploads a lab result document, and a doctor
 writes a plain-language interpretation — built 2026-07-20 (`lab_result_documents`), gated to paid
@@ -145,54 +196,132 @@ artifact tied to this flow — the shipped version is the doctor's written inter
 scope the existing paid-plan review already had. Building a risk-score/12-month-plan generator is a
 separate, unscoped piece of clinical product work, not implied by "wire up a checkout."
 
+### E1 Family Watch (diaspora, 2026-08-29)
+
+Built priced in **USD, not GBP**. The source document's £25/£45 pricing runs into a real,
+deliberate guardrail: `subscription_plans_no_gbp`/`add_ons_no_gbp` CHECK constraints from
+2026-07-29, added alongside a proven, assertion-tested decision retiring GBP as a currency
+platform-wide. Given the choice between reversing that constraint or pricing in dollars instead, the
+founder chose dollars (asked directly mid-build, since this was a real fork in the design, not a
+detail). $30/mo or $300/yr for Family Watch, $55/mo or $550/yr for Plus — round numbers following
+this codebase's existing "annual = 10x monthly" convention, not a literal £-to-$ conversion; still
+"a proposal for decision, not a live price" in the same sense every other figure in this document is.
+
+Deliberately **not** a `derived_from_code` row like every other USD plan on the platform. Every one
+of those (`essential_usd`, `complete_usd`, ...) exists specifically so a diaspora buyer pays the same
+care at the naira price converted, never a markup (see `DIASPORA_ONE_PRICE_NOTE`, rewritten as part
+of this change since it no longer holds universally). Family Watch's entire commercial thesis is the
+opposite — the whole engine only earns anything if the diaspora premium is real, not FX-converted
+away — so this is a deliberate, scoped exception, confined to this one product family; nothing about
+the no-GBP rule or `private.expected_derived_price_minor` was touched.
+
+No new checkout or activation code at all: reuses `lib/billing/sponsored-subscription-checkout.ts` +
+the just-fixed `private.activate_sponsored_subscription` exactly as already built. A new "Fund Family
+Watch from abroad" card on the supported-people page reuses the existing `paySomeonesPlan` action
+unchanged (it already read `currency` from form data generically — nothing hardcoded it to NGN).
+
+**Explicitly not built**: the "Additional relative" discount (£15/mo each in the source document).
+Funding a second relative today means a second, full-price Family Watch subscription — the sponsor
+checkout already takes one beneficiary per call, so this works, just without the multi-relative
+discount, which would need a cross-person `subscription_add_ons` attachment this doesn't build.
+
+**Before this is promoted anywhere for real money**: the source document's own Stage 0/1 sequencing
+lists indemnity cover and Nigerian counsel engagement as prerequisites that come *before* a live
+payment rail, because a UK payer paying for care delivered to a third party in Nigeria has
+cross-border payment-structuring implications — and (per the critique in §6) UK-side payments/e-money
+perimeter advice isn't addressed anywhere in the source document at all, only the Nigerian side. Being
+technically built does not mean these are resolved; they weren't asked for as part of this build and
+aren't addressed by it.
+
+### E4 Workforce Health Risk Report (2026-08-29)
+
+No new questionnaire or scoring engine — employees complete the assessment through the risk-assessment
+intake already built (`risk_assessment_responses` + `prevention_risk_scores`, the configurable
+questionnaire engine from 2026-08-27). This ships the commercial wrapper only:
+`workforce_risk_engagements` (₦4,000/employee, ₦200,000 floor, 50-employee minimum, server-pinned)
+and a suppressed aggregate reader (`loadWorkforceRiskReport`) scoped to the engagement's assessment
+window, built on the same `requireInstitutionAggregateAccess` doorway every other corporate/HMO
+aggregate already goes through — no new patient-data access path was created.
+
+Per §3's finding that this risked duplicating the already-shipped (2026-07-16) employer/HMO
+risk-stratification dashboards: it doesn't, but the two are genuinely close enough that the founder
+should know both now exist and decide how they're positioned against each other. The dashboards are a
+byproduct of *ongoing* enrolment and monitoring, continuously updated, with no separate price of their
+own. This is a bounded, one-time, priced engagement sold *before* an employer has committed to
+ongoing monitoring at all. Whether that's the right wedge, or whether it just adds a confusing second
+"employer risk" product, is a positioning call this build doesn't make for you.
+
+**No self-service checkout**, matching the existing "corporate wellness plans and HMO partnerships are
+priced differently... speak to our team directly" convention: creation and status changes are
+admin-only RPCs (`create_workforce_risk_engagement`, `advance_workforce_risk_engagement`), usable
+today via direct SQL/an admin script, no UI built.
+
+**Explicitly not built**: the "workforce follow-up programme" (₦25,000/employee, sold only to the
+subset flagged for follow-up) — needs a follow-up-eligible-subset selection this doesn't build.
+
+### E7 Control (2026-08-29)
+
+Shipped ahead of the source document's own Stage 3 gate ("open institutional conversations only once
+a measured clinical outcome exists"), on explicit founder direction to build it now rather than wait.
+₦9,000/life/year at pilot scale, ₦6,000 above 5,000 lives, server-pinned from covered-life count.
+
+Built by **reviving `public.corporate_contracts`** rather than creating a new table: confirmed dead
+schema since 2026-07-05 — present, RLS-configured, referenced by zero queries/actions/UI anywhere —
+with exactly the shape this needed already (`organisation_id`/`per_employee_per_year_kobo`/
+`employee_count`/`status`/`effective_from`/`effective_to`) and RLS already correctly scoped
+(`is_org_staff`-gated, so the buying institution never reads it directly, matching the
+`outcomes_contracts` "quoted manually" precedent). Despite its name it now serves any institutional
+buyer — employer, HMO, or state — which is what the source document's own framing for Control needs.
+
+**This is explicitly not capitation, and the distinction is load-bearing, not cosmetic**, given how
+deliberately I8 ("no capitation, ever," 2026-07-29) was reinforced — found and re-affirmed twice in
+this codebase's history, per `CLAUDE.md`'s own "Standing engineering lessons." Capitation means
+Tarragon is paid a fixed fee per member to bear the *financial risk* of that member's actual care
+costs. Control is a flat fee for a bounded, protocol-driven coordination service instead — sized
+against the source document's own clinician-minute budget (~45 minutes/life/year at this price) —
+where Tarragon never pays a claim and lab/pharmacy/specialist costs are still paid directly by the
+covered life or their institution, same as every other product on the platform. That's a real,
+structural difference in this build's design, not just a naming choice — but **the founder should
+look at this personally before Control is sold under this name to an HMO or state buyer**, given how
+sensitive I8 has proven to be historically.
+
+No self-service checkout or UI, matching `outcomes_contracts`' own precedent — `create_control_contract`
+is an admin-only RPC, usable today without a UI.
+
 ## 5. What's gated on a founder decision — not built, with a recommendation for each
 
-Building these without sign-off risks guessing at unapproved architecture or business commitments
-that are hard to unwind (a live GBP payment rail, a public price change, a restructured entitlement
-model) — consistent with `CLAUDE.md`'s standing rule not to build speculative product/institutional
-features without an explicit ask.
+All five gated engines from the previous version of this document (E1, E2, E4, E7, and the tier
+retirement) shipped 2026-08-29 on explicit founder direction — see §4. What's left, genuinely not
+built, with the same reasoning as before for why it isn't:
 
-- **E1 Family Watch (diaspora GBP subscription).** Blocked on real prerequisites the source document
-  itself lists as founder-only, non-engineering action items: indemnity cover (quote drafted, unsent
-  since 10 August per `CLAUDE.md`'s standing follow-ups), Nigerian counsel engagement, and — per the
-  document's own Stage 0/1 sequencing — a working GBP payment rail reviewed by counsel *before* it's
-  built, because a UK payer paying for care delivered to a third party in Nigeria has cross-border
-  payment-structuring implications neither this reconciliation nor the source document's own legal
-  coverage fully resolves (see the critique below: UK-side payments/e-money perimeter advice isn't
-  mentioned at all, only Nigerian counsel). **Recommendation: do not build GBP billing infrastructure
-  until the founder confirms indemnity + counsel are moving and names who reviews the UK side.** The
-  source document's own Stage 0 channel is manual ("the founder's personal network, worked
-  directly") — the first customers may not need a self-serve product at all.
-- **Care Pass (E2) / retiring the ₦5,000/month plan.** The plan's "Care Pass" doesn't map cleanly
-  onto the live three-tier entitlement system (Prevent/Essential/Complete), which gates materially
-  different feature sets, not just a price point — collapsing them into one "Care Pass" product is a
-  product-architecture decision, not a repricing. Separately: the "₦5,000/month plan to retire" **is**
-  the current Prevent tier, but all three paid tiers (Prevent/Essential/Complete) are currently
-  `is_active = false` — nothing paid is actually purchasable on the live site right now, pending a
-  Paystack/Stripe re-sync, so there's no live-customer disruption risk either way. **Recommendation:
-  founder decides whether Care Pass replaces a tier, wraps one (e.g. sell Essential at ₦36,000/yr
-  under the "Care Pass" name), or stays a separate product. The redeemed subscription-voucher
-  mechanism already built for sponsors (`subscription_care_vouchers`, 2026-08-03) already produces
-  "paid once, no auto-renewal" — worth reusing rather than inventing a parallel mechanism.**
-- **E4 Workforce Health Risk Report.** As flagged in §3, the live employer/HMO dashboards
-  (`(dashboard)/dashboard/corporate/`, `.../dashboard/hmo/`) are a different shape — aggregate-only,
-  a byproduct of *ongoing* employee enrolment and monitoring, not a bounded one-time assessment SKU
-  with its own per-employee price and floor fee. **Recommendation: founder confirms whether E4 is
-  meant to be a genuinely separate, cheaper, digital-only entry product ahead of full enrolment (as
-  the source document describes), or whether the existing dashboard already serves this need and the
-  gap is packaging/pricing, not a new build.**
-- **E7 Control (per-covered-life institutional).** No implementation exists at all (§3). Building
-  real per-covered-life billing is a significant schema + billing-integration effort in its own
-  right, explicitly Stage 3 in the source document's own sequencing (after a measured clinical
-  outcome exists). **Recommendation: not started; revisit only once Stage 2's gate (a documented
-  blood-pressure-control outcome over a sustained window) is actually met.**
-- **E5 Provider facilitation fee (flat, invoiced to the lab/pharmacy, never a % of the clinical
-  transaction).** No occurrence of this mechanism in code. The reasoning behind it (avoiding a
+- **E5 Provider facilitation fee** (flat, invoiced to the lab/pharmacy, never a % of the clinical
+  transaction). No occurrence of this mechanism in code. The reasoning behind it (avoiding a
   financial interest in ordering tests, which the platform has already publicly renounced — see the
   self-arranged-fulfilment / "YOU PAY THE LAB" model already shipped) is sound and consistent with
   existing platform commitments. **Recommendation: Stage 2, per the source document's own gating
   ("only becomes worth building when Tarragon is sending enough volume to be worth invoicing for") —
   not started.**
+- **E6 Fixed-duration chronic programmes** (12-week hypertension/diabetes course, ₦30,000/₦35,000
+  one-off). No implementation. The source document itself gates this on a second verified clinician
+  ("a programme with a promised response time cannot rest on one part-time doctor") — a staffing
+  prerequisite, not an engineering one. **Recommendation: not started; revisit once that hire is
+  real.**
+- **E9 White-label/embedded technology.** No implementation, explicitly "genuinely far away" per the
+  source document's own text — needs an engineering team and a product stable enough to support
+  somebody else's business. **Not started, not recommended yet.**
+- **The "Additional relative" discount** (Family Watch, £15/mo each in the source document) and the
+  **"workforce follow-up programme"** (₦25,000/employee, Workforce Health Risk Report) are both
+  documented gaps inside otherwise-shipped engines — see their notes in §4 for exactly what each
+  needs.
+- **The Control (E7) capitation distinction** (§4) is a founder-attention item, not a build gap: the
+  schema and pricing are shipped, but given how sensitive the no-capitation-ever rule (I8) has proven
+  historically, this is worth the founder's own read before Control is sold to an HMO or state buyer
+  under that name.
+- **Family Watch (E1) going live for real money** is blocked on the same non-engineering
+  prerequisites as before it was built: indemnity cover (quote drafted, unsent since 10 August per
+  `CLAUDE.md`'s standing follow-ups), Nigerian counsel engagement, and — per the critique in §6 —
+  UK-side payments/e-money perimeter advice the source document never addresses. Being technically
+  built does not mean these are resolved.
 
 ## 6. A critique worth carrying into the founder decision
 

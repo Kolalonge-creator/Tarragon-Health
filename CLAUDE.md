@@ -88,8 +88,22 @@ sponsor + Care Voucher model (2026-07-31). **Do not treat any specific price, ra
 feature-availability claim in this file's archive as current** — check the live database or the
 actual running code. The archive is a record of decisions and reasoning, not a source of current
 facts. **A diaspora-first revenue-sequencing proposal (27 Aug 2026, `docs/REVENUE_ARCHITECTURE_AND_EARNINGS_PLAN.md`)
-is under founder review** — treat every price in it the same way, it explicitly self-describes as
-proposals, not live prices; only its E3 (Results Interpretation, ₦7,500 one-off) has actually shipped.
+drove a real architecture change 2026-08-29** — treat every specific price in it as a proposal, not a
+live number (check the DB), but the *shape* of the change is real and shipped: **Tarragon
+Prevent/Essential/Complete are retired** (`is_active=false`, not deleted), replaced by **Care Pass**
+(`care_pass_12mo`/`care_pass_6mo`) as the one paid Nigerian consumer product. Also shipped the same
+day: **Tarragon Family Watch** (diaspora, priced in USD not GBP — GBP stays structurally forbidden,
+see the Device & Wearable / pricing history below), **Results Interpretation** (₦7,500 one-off),
+**Workforce Health Risk Report**, and **Control** (per-covered-life institutional — see the doc's §4
+for why this is deliberately not the same thing as the capitation model killed by I8). Found and fixed
+along the way: `private.activate_sponsored_subscription` had never actually fired (a dead guard
+checking `payment_transactions.processed_at` on an AFTER INSERT trigger, which is always null at
+insert time) — "put my mother on Complete Care and bill my card monthly" had silently never activated
+a subscription until this fix. Read the doc's §4/§5 before touching any of this — it lists exactly
+what's built vs. still a documented gap (the Family Watch additional-relative discount, the workforce
+follow-up add-on, E5/E6/E9 unbuilt) and what still needs a founder look before real money moves
+through it (Family Watch needs indemnity/counsel first; Control's capitation distinction is worth the
+founder's own read).
 
 Full day-by-day detail — every migration, every bug found and fixed, every founder decision and its
 exact date — is preserved losslessly in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.
