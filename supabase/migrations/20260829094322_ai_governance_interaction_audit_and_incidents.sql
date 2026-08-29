@@ -1,35 +1,4 @@
--- Tarragon Health — AI Governance, Safety & Model Management, part 3/6:
--- the clinical AI audit trail (40.11), hallucination monitoring (40.8),
--- AI safety incident reporting (40.12) and the vendor model-change detector
--- (40.19).
---
--- 40.11 asks for a record, per clinically meaningful interaction, of: model,
--- version, input category, retrieved sources, output, safety
--- classification, human override, and resulting action. That list is the
--- column list of ai_interaction_log, with two deliberate departures:
---
---   * "input" is recorded as a CATEGORY, never verbatim. A patient's message
---     to the AI Coach already lives in ai_conversations under that patient's
---     own RLS; copying it into a staff-readable governance table would widen
---     PHI exposure for no governance benefit. input_category ('symptom_
---     question', 'medication_question', 'lab_result_explanation', ...) is
---     what bias, drift and incident analysis actually need.
---   * "output" is a bounded summary (4,000 chars, enforced). Enough to
---     investigate a "the AI told me the wrong thing" report; not a second
---     copy of the conversation.
---
--- Rows are written only by public.record_ai_interaction(), a SECURITY
--- DEFINER function that derives organisation_id server-side. There is no
--- INSERT policy on the table at all, so a client cannot forge an audit row
--- for another organisation, nor backdate one, nor quietly omit the
--- guardrails that fired.
-
--- ---------------------------------------------------------------------------
--- Enums
--- ---------------------------------------------------------------------------
-
--- 40.8's monitoring taxonomy, as an enum rather than free text so a
--- dashboard can count it and a reviewer cannot invent a new spelling.
+-- see supabase/migrations/20260829095431_ai_governance_interaction_audit_and_incidents.sql
 create type public.ai_output_flag as enum (
   'unsupported_claim',
   'incorrect_medical_information',
@@ -67,10 +36,6 @@ create type public.ai_incident_status as enum ('open', 'triaged', 'investigating
 comment on type public.ai_incident_status is
   'An incident is closed by a clinician, never by the reporter. ''dismissed'' still requires a recorded clinical review -- it means "reviewed and found not to be a safety problem", not "ignored".';
 
--- ---------------------------------------------------------------------------
--- The audit trail (40.11) + hallucination monitoring (40.8)
--- ---------------------------------------------------------------------------
-
 create table public.ai_interaction_log (
   id                    uuid primary key default gen_random_uuid(),
   organisation_id       uuid not null references public.organisations (id) on delete restrict,
@@ -78,9 +43,6 @@ create table public.ai_interaction_log (
   ai_system_version_id  uuid references public.ai_system_versions (id) on delete set null,
   prompt_version_id     uuid references public.ai_prompt_versions (id) on delete set null,
   model_identifier      text not null,
-  -- Who the interaction was ABOUT, and who triggered it. For the AI Coach
-  -- both are the patient; for a clinician case brief the subject is the
-  -- patient and the actor is the clinician.
   subject_profile_id    uuid references public.profiles (id) on delete set null,
   actor_profile_id      uuid references public.profiles (id) on delete set null,
   input_category        text not null,
@@ -90,9 +52,6 @@ create table public.ai_interaction_log (
   guardrails_triggered  text[] not null default '{}'::text[],
   output_flags          public.ai_output_flag[] not null default '{}'::public.ai_output_flag[],
   flagged_for_review    boolean not null default false,
-  -- 40.4/40.11: a human overriding the AI is the single most important
-  -- signal the governance dashboard carries, because it is the measured
-  -- version of "the human is genuinely in the loop".
   human_override        boolean not null default false,
   human_override_by     uuid references public.profiles (id) on delete set null,
   human_override_at     timestamptz,
@@ -112,8 +71,6 @@ create table public.ai_interaction_log (
     check (human_override = (human_override_at is not null)),
   constraint ai_interaction_log_override_actor
     check (human_override_at is null or human_override_by is not null),
-  -- A fallback interaction says why it fell back. "The AI was unavailable"
-  -- with no reason recorded is exactly the state 40.18 exists to prevent.
   constraint ai_interaction_log_fallback_reason
     check (not fallback_used or fallback_reason is not null),
   constraint ai_interaction_log_status_matches_fallback
@@ -140,19 +97,12 @@ create index ai_interaction_log_override_idx on public.ai_interaction_log (ai_sy
 
 alter table public.ai_interaction_log enable row level security;
 
--- Staff of the organisation may read the audit trail; a patient may read the
--- rows about themselves. That patient-side read is not decoration: 40.12
--- lets a patient report "the AI gave me incorrect information", and a report
--- they can attach to the actual interaction is worth far more to an
--- investigation than one they cannot.
 create policy ai_interaction_log_select on public.ai_interaction_log
   for select to authenticated
   using (subject_profile_id = (select auth.uid()) or private.is_org_staff(organisation_id));
 
 grant select on public.ai_interaction_log to authenticated;
 
--- Retrieved sources (40.11) -- which approved knowledge sources grounded
--- this answer, and therefore which citation labels the patient was shown.
 create table public.ai_interaction_sources (
   interaction_id      uuid not null references public.ai_interaction_log (id) on delete cascade,
   knowledge_source_id uuid not null references public.ai_knowledge_sources (id) on delete restrict,
@@ -175,10 +125,6 @@ create policy ai_interaction_sources_select on public.ai_interaction_sources
   ));
 
 grant select on public.ai_interaction_sources to authenticated;
-
--- ---------------------------------------------------------------------------
--- AI safety incidents (40.12)
--- ---------------------------------------------------------------------------
 
 create table public.ai_safety_incidents (
   id                      uuid primary key default gen_random_uuid(),
@@ -205,9 +151,6 @@ create table public.ai_safety_incidents (
 
   constraint ai_safety_incidents_triage_paired check ((triaged_by is null) = (triaged_at is null)),
   constraint ai_safety_incidents_resolution_paired check ((resolved_by is null) = (resolved_at is null)),
-  -- Closing an incident is a clinical act with a recorded reason. A
-  -- resolved or dismissed row with no clinical review summary would make
-  -- "we looked at it" unfalsifiable.
   constraint ai_safety_incidents_closed_requires_review
     check (
       status not in ('resolved', 'dismissed')
@@ -240,15 +183,6 @@ create policy ai_safety_incidents_select on public.ai_safety_incidents
 
 grant select on public.ai_safety_incidents to authenticated;
 
--- ---------------------------------------------------------------------------
--- Writers
--- ---------------------------------------------------------------------------
-
--- 40.19's detector. Called on every recorded interaction: if the model that
--- actually answered is not the one the active approved version says should
--- have, that is logged once and raised as an automated incident. A vendor
--- silently swapping the underlying model then shows up as an incident on
--- the governance dashboard rather than as nothing at all.
 create or replace function private.record_ai_model_observation(
   p_ai_system_id uuid,
   p_model_identifier text,
@@ -286,9 +220,6 @@ begin
         expected_model_identifier = excluded.expected_model_identifier
   returning (xmax = 0) into v_new;
 
-  -- Only the FIRST sighting raises an incident. A vendor change is one
-  -- event, not one per request -- alert fatigue would make the detector
-  -- worse than useless.
   if v_new and v_expected is not null and v_expected <> p_model_identifier then
     insert into public.ai_safety_incidents
       (organisation_id, ai_system_id, reporter_kind, category, severity, description)
@@ -349,10 +280,6 @@ begin
     raise exception 'unknown AI system code % -- register it in ai_systems before calling it', p_system_code;
   end if;
 
-  -- organisation_id is always server-derived: from the patient the
-  -- interaction is about when there is one, otherwise from the caller.
-  -- Never client-supplied, so a forged cross-tenant audit row is not a
-  -- shape this function can produce.
   select organisation_id into v_org from public.profiles
   where id = coalesce(p_subject_profile_id, v_actor);
 
@@ -360,10 +287,6 @@ begin
     raise exception 'could not derive an organisation for this AI interaction';
   end if;
 
-  -- You may log an interaction about yourself, or about a patient you are
-  -- staff for. Without this, any signed-in account could file audit rows
-  -- against any other patient -- the audit trail has to be trustworthy to
-  -- be worth having.
   if coalesce(p_subject_profile_id, v_actor) <> v_actor and not private.is_org_staff(v_org) then
     raise exception 'not authorised: cannot record an AI interaction about another organisation''s patient';
   end if;
@@ -406,8 +329,6 @@ begin
     on conflict do nothing;
   end if;
 
-  -- A fallback interaction had no model behind it, so there is nothing to
-  -- compare against the approved version.
   if p_status <> 'fallback' then
     perform private.record_ai_model_observation(v_system.id, p_model_identifier, v_org);
   end if;
@@ -422,8 +343,6 @@ comment on function public.record_ai_interaction(text, text, text, public.ai_int
 revoke all on function public.record_ai_interaction(text, text, text, public.ai_interaction_status, uuid, text, public.alert_level, text[], public.ai_output_flag[], uuid, uuid[], text, text, uuid, text, integer, integer, integer, text) from public, anon;
 grant execute on function public.record_ai_interaction(text, text, text, public.ai_interaction_status, uuid, text, public.alert_level, text[], public.ai_output_flag[], uuid, uuid[], text, text, uuid, text, integer, integer, integer, text) to authenticated;
 
--- 40.11's "human override". Recorded by the staff member who overrode the
--- AI, against the interaction they overrode.
 create or replace function public.record_ai_human_override(
   p_interaction_id uuid,
   p_note text,
@@ -465,10 +384,6 @@ comment on function public.record_ai_human_override(uuid, text, text) is
 revoke all on function public.record_ai_human_override(uuid, text, text) from public, anon;
 grant execute on function public.record_ai_human_override(uuid, text, text) to authenticated;
 
--- 40.12: a clinician or patient reports that the AI got something wrong.
--- Open to any authenticated account on purpose -- a patient reporting bad
--- information is the single most valuable safety signal this system has,
--- and putting a role gate in front of it would lose most of them.
 create or replace function public.report_ai_safety_incident(
   p_system_code    text,
   p_category       public.ai_incident_category,
@@ -513,10 +428,6 @@ begin
     else 'staff'
   end;
 
-  -- If the reporter pointed at a specific interaction, it must be one they
-  -- are actually allowed to see -- otherwise the incident is filed without
-  -- the link rather than being refused, because losing the report entirely
-  -- would be the worse outcome.
   if p_interaction_id is not null and not exists (
     select 1 from public.ai_interaction_log l
     where l.id = p_interaction_id
@@ -545,11 +456,6 @@ comment on function public.report_ai_safety_incident(text, public.ai_incident_ca
 revoke all on function public.report_ai_safety_incident(text, public.ai_incident_category, text, uuid) from public, anon;
 grant execute on function public.report_ai_safety_incident(text, public.ai_incident_category, text, uuid) to authenticated;
 
--- Every incident at high or critical severity pages clinical governance.
--- in_app only, and with no incident detail in the payload beyond the system
--- name: notifications_no_clinical_on_open_rail already forbids clinical
--- content on the whatsapp/sms/email rails, and an incident description can
--- easily contain a patient's own words.
 create or replace function private.notify_ai_safety_incident()
 returns trigger
 language plpgsql
@@ -600,7 +506,6 @@ create trigger ai_safety_incidents_notify
   after insert on public.ai_safety_incidents
   for each row execute function private.notify_ai_safety_incident();
 
--- Triage: a clinician sets the real severity and takes ownership.
 create or replace function public.triage_ai_safety_incident(
   p_id uuid,
   p_severity public.ai_incident_severity,
@@ -647,8 +552,6 @@ comment on function public.triage_ai_safety_incident(uuid, public.ai_incident_se
 revoke all on function public.triage_ai_safety_incident(uuid, public.ai_incident_severity, text) from public, anon;
 grant execute on function public.triage_ai_safety_incident(uuid, public.ai_incident_severity, text) to authenticated;
 
--- Closure: clinician-only, and the review summary is mandatory (the CHECK
--- above enforces it even if this function is bypassed).
 create or replace function public.resolve_ai_safety_incident(
   p_id uuid,
   p_status public.ai_incident_status,
@@ -715,10 +618,6 @@ comment on function public.resolve_ai_safety_incident(uuid, public.ai_incident_s
 revoke all on function public.resolve_ai_safety_incident(uuid, public.ai_incident_status, text, text, boolean, text) from public, anon;
 grant execute on function public.resolve_ai_safety_incident(uuid, public.ai_incident_status, text, text, boolean, text) to authenticated;
 
--- ---------------------------------------------------------------------------
--- Assertions
--- ---------------------------------------------------------------------------
-
 do $$
 begin
   if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -737,9 +636,6 @@ begin
     raise exception 'a part-3 AI governance table was created without row level security';
   end if;
 
-  -- The audit trail has no INSERT policy at all: rows arrive only through
-  -- public.record_ai_interaction(). Assert that, because "the RPC is the
-  -- only writer" is the whole integrity claim of this table.
   if exists (
     select 1 from pg_policies
     where schemaname = 'public' and tablename = 'ai_interaction_log' and cmd in ('INSERT', 'UPDATE', 'DELETE')

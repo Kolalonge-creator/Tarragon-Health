@@ -1,50 +1,4 @@
--- Tarragon Health — AI Governance follow-up: honest runtime coverage, and an
--- explicit service-role check in the audit writer.
---
--- 1. THE KILL SWITCH ONLY WORKS WHERE THE RUNTIME ASKS.
---
---    Part 6 registered all ten running AI capabilities, which is what makes
---    the registry an inventory (40.1). But `is_enabled` is only a kill
---    switch (40.17) for a call site that actually goes through
---    runGovernedAi() and honours the answer. Three do so far -- the AI Coach,
---    the patient result explainer and clinician case briefs. The other seven
---    are registered, classified and guardrailed on the record, but switching
---    one off in the console would not currently stop it running.
---
---    A registry that cannot tell those two states apart is worse than one
---    that admits the difference, because an operator would reasonably read
---    "enabled: false" as "stopped". So `runtime_governed` is a first-class
---    column, it is surfaced by ai_runtime_config() and on the governance
---    dashboard, and the console renders it as a warning rather than a
---    footnote.
---
---    Where each unwired system stands today:
---      AI-002, AI-007, AI-008  helper functions that take neither a Supabase
---                              client nor a subject id, so the governance
---                              seam is at their call sites.
---      AI-005, AI-006          extraction runs inside an action that retries,
---                              so it needs one wrap around the whole attempt
---                              rather than around a single model call.
---      AI-009                  the embedder is constructed synchronously from
---                              env with no request context; it already
---                              degrades to "no retrieval" when unconfigured.
---      AI-010                  ml-client.ts lives in packages/shared and has
---                              no database access by design. It does have a
---                              real off-switch today (an unset ML_SERVICE_URL
---                              makes every call return null and every caller
---                              degrade) -- it is just not the governed one.
---
--- 2. THE SERVICE-ROLE PATH IN record_ai_interaction WAS IMPLICIT.
---
---    Its "you may only log an interaction about yourself or a patient you are
---    staff for" check read `coalesce(p_subject_profile_id, v_actor) <> v_actor`.
---    Under the service-role key auth.uid() is null, so that comparison
---    evaluated to NULL and the guard fell through -- allowing the call, which
---    is the behaviour we want, but by way of three-valued logic rather than
---    by decision. An authorization check that depends on NULL semantics is
---    the kind of thing that changes meaning the next time somebody edits it,
---    so it now says what it means.
-
+-- see supabase/migrations/20260829112238_ai_governance_runtime_coverage_and_actor_check.sql
 alter table public.ai_systems
   add column runtime_governed boolean not null default false;
 
@@ -55,7 +9,6 @@ update public.ai_systems
    set runtime_governed = true
  where system_code in ('AI-001', 'AI-003', 'AI-004');
 
--- Surface it to the runtime and the console.
 create or replace function public.ai_runtime_config(p_system_code text)
 returns jsonb
 language plpgsql
@@ -103,7 +56,6 @@ $$;
 comment on function public.ai_runtime_config(text) is
   'Everything the runtime needs about one AI system in a single round trip: kill-switch state, whether the runtime is actually routed through governance, risk and autonomy, fallback behaviour, the governed prompt (null when none is activated -- the caller then uses its in-repo constant), active guardrails, and approved knowledge sources. Distinguishes "not registered" from "registered but disabled": the first is a wiring gap, the second is a deliberate safety decision.';
 
--- The audit writer's actor check, said explicitly.
 create or replace function public.record_ai_interaction(
   p_system_code           text,
   p_model_identifier      text,
@@ -152,11 +104,6 @@ begin
     raise exception 'could not derive an organisation for this AI interaction';
   end if;
 
-  -- You may log an interaction about yourself, or about a patient you are
-  -- staff for. A null actor means the service-role key, which bypasses RLS
-  -- everywhere else on the platform too -- background jobs and webhooks are
-  -- legitimate writers here. Written out rather than left to fall through
-  -- NULL comparison, which is what it did before.
   if v_actor is null then
     null;
   elsif coalesce(p_subject_profile_id, v_actor) <> v_actor and not private.is_org_staff(v_org) then

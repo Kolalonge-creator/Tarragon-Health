@@ -1,50 +1,10 @@
--- Tarragon Health — AI Governance, Safety & Model Management, part 5/6:
--- the acceptance criteria (40.20), the kill switch (40.17), the version
--- approval gate (40.9), the runtime configuration reader the TypeScript
--- layer actually calls, and the governance dashboard (40.13).
---
--- 40.20 says every AI capability should have: purpose -> owner -> risk
--- classification -> validation -> guardrails -> monitoring -> audit ->
--- rollback. private.ai_acceptance_criteria() is that sentence as a
--- machine-checkable report, and the trigger below turns it into a
--- precondition for switching a system on.
---
--- ONE DELIBERATE ASYMMETRY, and it is the important design decision in this
--- migration. Part 6 registers ten AI capabilities that are ALREADY running
--- in production, none of which has ever been through a formal evaluation.
--- Refusing to record them, or recording them as switched off, would either
--- make the registry a fiction or take live patient-facing features down to
--- satisfy paperwork. So:
---
---   * the initial registration of an already-running system is a one-off
---     GRANDFATHER: inserted enabled, with grandfathered_at stamped and its
---     outstanding acceptance criteria visible on the console rather than
---     hidden;
---   * every transition INTO enabled after that -- re-enabling after a kill
---     switch, or switching on anything new -- goes through the full gate,
---     grandfathered or not.
---
--- The practical effect is a ratchet: today's systems keep running and their
--- gaps are visible; the moment one is switched off it cannot come back
--- until its criteria are met; and nothing new ever switches on without
--- them. A client cannot forge the grandfather -- the INSERT path refuses an
--- enabled row from an 'authenticated' caller outright, so only a migration
--- can create one.
---
--- The kill switch itself is never gated on anything. Switching a system OFF
--- always works, immediately, for an admin or a Clinical Director. A safety
--- control with preconditions is not a safety control.
-
+-- see supabase/migrations/20260829100744_ai_governance_kill_switch_and_dashboard.sql
 alter table public.ai_systems
   add column grandfathered_at timestamptz,
   add column grandfather_note text;
 
 comment on column public.ai_systems.grandfathered_at is
   'Set only by the part-6 registration migration, for a system that was already running in production when governance was introduced. It exempts that first registration from the acceptance gate and nothing else: any later transition into enabled goes through the full gate. Its presence on a row is a standing "this has outstanding governance work", not a clean bill of health.';
-
--- ---------------------------------------------------------------------------
--- 40.20 acceptance criteria
--- ---------------------------------------------------------------------------
 
 create or replace function private.ai_acceptance_criteria(p_system_id uuid)
 returns jsonb
@@ -86,19 +46,11 @@ begin
 
   v_criteria := jsonb_build_object(
     'purpose',             btrim(coalesce(s.purpose, '')) <> '',
-    -- The accountable FUNCTION is what gates activation; naming the current
-    -- individual is surfaced separately below as owner_assigned. Requiring a
-    -- named individual to switch anything on would have made this gate
-    -- unsatisfiable on a solo-founder platform, which would have meant
-    -- quietly dropping the gate instead.
     'owner',               btrim(coalesce(s.owner_role, '')) <> '',
     'risk_classification', s.risk_class is not null and s.autonomy_level is not null,
     'validation',          v_validation,
     'guardrails',          v_guardrails,
     'monitoring',          v_monitoring,
-    -- Where the calls are made from. The audit trail is written by the
-    -- runtime, not the database, so what the database can actually check is
-    -- that the call sites owing it a row are named and reviewable.
     'audit',               btrim(coalesce(s.code_reference, '')) <> '',
     'rollback',            btrim(coalesce(s.fallback_behaviour, '')) <> ''
   );
@@ -125,9 +77,6 @@ comment on function private.ai_acceptance_criteria(uuid) is
 
 revoke all on function private.ai_acceptance_criteria(uuid) from public, anon;
 
--- The gate. INSERT: an enabled row may only be created by a migration
--- registering something already running (grandfathered). UPDATE: any
--- transition into enabled needs the full criteria met.
 create or replace function private.guard_ai_system_activation()
 returns trigger
 language plpgsql
@@ -163,10 +112,6 @@ comment on function private.guard_ai_system_activation() is
 create trigger ai_systems_activation_gate
   before insert or update on public.ai_systems
   for each row execute function private.guard_ai_system_activation();
-
--- ---------------------------------------------------------------------------
--- The kill switch (40.17)
--- ---------------------------------------------------------------------------
 
 create or replace function public.set_ai_system_enabled(
   p_id uuid,
@@ -208,9 +153,6 @@ begin
   v_org := coalesce(v_org, (select organisation_id from public.profiles where id = v_actor));
 
   if p_enabled then
-    -- Checked here as well as in the activation trigger, so an admin gets a
-    -- readable list of what is missing rather than a bare trigger error. The
-    -- trigger is still the guarantee -- this is the message.
     v_report := private.ai_acceptance_criteria(p_id);
     if not coalesce((v_report->>'satisfied')::boolean, false) then
       raise exception 'AI system % cannot be switched on yet -- outstanding acceptance criteria (40.20): %',
@@ -233,9 +175,6 @@ begin
            disabled_reason  = p_reason
      where id = p_id;
 
-    -- 40.17: disable -> fallback -> clinical operations notified ->
-    -- investigation. The fallback is the runtime's job; telling clinical
-    -- operations is this function's.
     for v_rec in
       select distinct cs.profile_id
       from public.clinical_staff cs
@@ -281,10 +220,6 @@ comment on function public.set_ai_system_enabled(uuid, boolean, text) is
 
 revoke all on function public.set_ai_system_enabled(uuid, boolean, text) from public, anon;
 grant execute on function public.set_ai_system_enabled(uuid, boolean, text) to authenticated;
-
--- ---------------------------------------------------------------------------
--- Version approval, gated on the evaluation pipeline (40.9)
--- ---------------------------------------------------------------------------
 
 create or replace function public.approve_ai_system_version(
   p_version_id uuid,
@@ -364,13 +299,6 @@ comment on function public.approve_ai_system_version(uuid, text, boolean) is
 revoke all on function public.approve_ai_system_version(uuid, text, boolean) from public, anon;
 grant execute on function public.approve_ai_system_version(uuid, text, boolean) to authenticated;
 
--- ---------------------------------------------------------------------------
--- The runtime reader
--- ---------------------------------------------------------------------------
-
--- One round trip, because the alternative is four, per AI call. The
--- TypeScript layer caches this briefly in-process; see
--- apps/web/src/lib/ai-governance/registry.ts.
 create or replace function public.ai_runtime_config(p_system_code text)
 returns jsonb
 language plpgsql
@@ -385,9 +313,6 @@ begin
   select * into s from public.ai_systems where system_code = p_system_code;
 
   if s.id is null then
-    -- An unregistered system is reported as such rather than as "disabled",
-    -- so the runtime can tell "governance says stop" apart from "governance
-    -- has never heard of this" and treat them differently.
     return jsonb_build_object('registered', false, 'system_code', p_system_code);
   end if;
 
@@ -423,10 +348,6 @@ comment on function public.ai_runtime_config(text) is
 revoke all on function public.ai_runtime_config(text) from public, anon;
 grant execute on function public.ai_runtime_config(text) to authenticated;
 
--- ---------------------------------------------------------------------------
--- The governance dashboard (40.13)
--- ---------------------------------------------------------------------------
-
 create or replace function public.ai_governance_dashboard(p_days integer default 30)
 returns jsonb
 language plpgsql
@@ -452,8 +373,6 @@ begin
   return jsonb_build_object(
     'window_days', p_days,
     'since', v_since,
-    -- Scope note: an admin sees the platform; other staff see their own
-    -- organisation. Same posture as every other cross-tenant console here.
     'scope', case when v_all then 'platform' else 'organisation' end,
     'totals', (
       select jsonb_build_object(
@@ -549,10 +468,6 @@ comment on function public.ai_governance_dashboard(integer) is
 revoke all on function public.ai_governance_dashboard(integer) from public, anon;
 grant execute on function public.ai_governance_dashboard(integer) to authenticated;
 
--- ---------------------------------------------------------------------------
--- Assertions
--- ---------------------------------------------------------------------------
-
 do $$
 declare
   v_sys uuid;
@@ -566,8 +481,6 @@ begin
 
   v_rep := private.ai_acceptance_criteria(v_sys);
 
-  -- A bare registration is NOT acceptance-complete: no approved version, no
-  -- guardrail, no monitoring, no code reference.
   if coalesce((v_rep->>'satisfied')::boolean, true) then
     raise exception 'ai_acceptance_criteria called a bare registration satisfied';
   end if;
@@ -578,7 +491,6 @@ begin
     raise exception 'ai_acceptance_criteria passed validation with no approved version';
   end if;
 
-  -- ...and the gate refuses to switch it on.
   begin
     update public.ai_systems set lifecycle_status = 'live', is_enabled = true where id = v_sys;
     raise exception 'the activation gate let an unqualified system be enabled';
@@ -587,9 +499,6 @@ begin
       if sqlerrm not like '%outstanding acceptance criteria%' then raise; end if;
   end;
 
-  -- An already-enabled INSERT is refused unless it is a grandfather from a
-  -- migration -- and this block IS running as a migration, so the
-  -- grandfathered form must succeed while the plain form must not.
   begin
     insert into public.ai_systems
       (system_code, name, purpose, owner_role, risk_class, autonomy_level,
@@ -612,7 +521,6 @@ begin
     raise exception 'a grandfathered registration was refused -- part 6 would be unable to record what is already running';
   end if;
 
-  -- The runtime reader distinguishes unregistered from disabled.
   if (public.ai_runtime_config('AI-000')->>'registered')::boolean then
     raise exception 'ai_runtime_config reported an unregistered system as registered';
   end if;
