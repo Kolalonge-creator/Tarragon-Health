@@ -19392,6 +19392,8 @@ export type Database = {
         Args: { p_issuance_id: string; p_reason?: string }
         Returns: undefined
       }
+      run_data_quality_scan: { Args: never; Returns: number }
+      run_patient_duplicate_detection: { Args: never; Returns: number }
       seal_health_passport: {
         Args: {
           p_content_digest: string
