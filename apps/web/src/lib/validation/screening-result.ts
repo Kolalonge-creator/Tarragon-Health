@@ -120,6 +120,10 @@ export const screeningResultSchema = z
     // GENOTYPE_SCREEN_TYPES comment and the ML-side branch this depends on).
     genotype: z.string().trim().min(1).max(32).optional(),
     procedural_status: z.enum(["normal", "borderline", "indeterminate", "abnormal", "critical"]).optional(),
+    // Result Lifecycle §58.4 — which lab performed the test. Optional,
+    // free text (never inferred/generalised) since a manually-entered
+    // result may come from any lab a patient self-arranged.
+    laboratory: z.string().trim().max(200).optional(),
   })
   .superRefine((data, ctx) => {
     const code = data.screen_type_code;

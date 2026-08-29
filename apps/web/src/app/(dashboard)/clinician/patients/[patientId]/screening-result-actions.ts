@@ -122,6 +122,8 @@ export async function submitScreeningResult(
     // form. Drives private.check_screen_order_completeness — see the
     // lab_order_id comment on screeningResultSchema.
     lab_order_id: input.lab_order_id ?? null,
+    // Result Lifecycle §58.4 — which lab performed the test.
+    laboratory: input.laboratory ?? null,
   });
   if (insertError) {
     return { error: insertError.message };
@@ -140,12 +142,14 @@ export async function submitScreeningResult(
       code: string;
       value: number;
       unit: string;
+      laboratory: string | null;
     }[] = interpretation.analyte_results.map((result) => ({
       organisation_id: organisationId,
       patient_id: patientId,
       code: result.code,
       value: result.code === "hba1c" && result.value_percent !== null ? result.value_percent : result.value,
       unit: unitFor(result.code),
+      laboratory: input.laboratory ?? null,
     }));
     // Persist computed Non-HDL (Total − HDL) as its own longitudinal analyte
     // so it trends alongside the measured lipids and feeds the CV-risk engine
@@ -161,6 +165,7 @@ export async function submitScreeningResult(
         code: "non_hdl_cholesterol",
         value: nonHdl,
         unit: "mg/dL",
+        laboratory: input.laboratory ?? null,
       });
     }
     const { error: readingsError } = await supabase

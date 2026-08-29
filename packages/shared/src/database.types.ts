@@ -7821,11 +7821,13 @@ export type Database = {
           code: string
           created_at: string
           id: string
+          laboratory: string | null
           organisation_id: string
           patient_id: string
           reference_range_high: number | null
           reference_range_low: number | null
           reference_range_text: string | null
+          report_status: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at: string | null
           taken_at: string
           unit: string | null
@@ -7837,11 +7839,13 @@ export type Database = {
           code: string
           created_at?: string
           id?: string
+          laboratory?: string | null
           organisation_id: string
           patient_id: string
           reference_range_high?: number | null
           reference_range_low?: number | null
           reference_range_text?: string | null
+          report_status?: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at?: string | null
           taken_at?: string
           unit?: string | null
@@ -7853,11 +7857,13 @@ export type Database = {
           code?: string
           created_at?: string
           id?: string
+          laboratory?: string | null
           organisation_id?: string
           patient_id?: string
           reference_range_high?: number | null
           reference_range_low?: number | null
           reference_range_text?: string | null
+          report_status?: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at?: string | null
           taken_at?: string
           unit?: string | null
@@ -15041,6 +15047,47 @@ export type Database = {
           },
         ]
       }
+      result_release_policies: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "result_release_policies_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_recognition_schedules: {
         Row: {
           created_at: string
@@ -15528,6 +15575,7 @@ export type Database = {
           follow_up_action: string | null
           id: string
           lab_order_id: string | null
+          laboratory: string | null
           organisation_id: string
           patient_id: string
           patient_informed_at: string | null
@@ -15547,6 +15595,7 @@ export type Database = {
           follow_up_action?: string | null
           id?: string
           lab_order_id?: string | null
+          laboratory?: string | null
           organisation_id: string
           patient_id: string
           patient_informed_at?: string | null
@@ -15566,6 +15615,7 @@ export type Database = {
           follow_up_action?: string | null
           id?: string
           lab_order_id?: string | null
+          laboratory?: string | null
           organisation_id?: string
           patient_id?: string
           patient_informed_at?: string | null
@@ -19677,6 +19727,7 @@ export type Database = {
       sign_alert_rules: { Args: { p_id: string }; Returns: string }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
+      sign_result_release_policies: { Args: { p_id: string }; Returns: string }
       sign_risk_questionnaire_config: {
         Args: { p_config_id: string }
         Returns: string
@@ -20147,6 +20198,7 @@ export type Database = {
         | "duplicate_order"
         | "clinically_withdrawn"
       lab_refund_status: "requested" | "approved" | "rejected" | "paid"
+      lab_report_status: "preliminary" | "final" | "corrected" | "amended"
       lab_result_document_source:
         | "patient"
         | "lab_liaison"
@@ -20379,6 +20431,7 @@ export type Database = {
         | "action_required"
         | "action_completed"
       result_recall_status: "scheduled" | "reminded" | "completed" | "cancelled"
+      result_release_mode: "immediate" | "after_review" | "restricted"
       result_status: "normal" | "borderline" | "indeterminate" | "abnormal" | "critical"
       risk_assessment_category:
         | "lifestyle"
@@ -21093,6 +21146,7 @@ export const Constants = {
         "clinically_withdrawn",
       ],
       lab_refund_status: ["requested", "approved", "rejected", "paid"],
+      lab_report_status: ["preliminary", "final", "corrected", "amended"],
       lab_result_document_source: [
         "patient",
         "lab_liaison",
@@ -21351,6 +21405,7 @@ export const Constants = {
         "action_completed",
       ],
       result_recall_status: ["scheduled", "reminded", "completed", "cancelled"],
+      result_release_mode: ["immediate", "after_review", "restricted"],
       result_status: ["normal", "borderline", "indeterminate", "abnormal", "critical"],
       risk_assessment_category: [
         "lifestyle",
