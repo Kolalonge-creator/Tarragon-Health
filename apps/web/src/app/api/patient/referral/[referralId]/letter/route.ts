@@ -104,6 +104,13 @@ export async function GET(
     ? `tarragon-referral-${referral.referral_number}.pdf`
     : "tarragon-referral.pdf";
 
+  // §1.24 export audit trail — best-effort, never blocks the download.
+  await supabase.rpc("record_export_access", {
+    p_patient_id: referral.patient_id,
+    p_export_type: "referral_letter",
+    p_metadata: { referral_id: referralId },
+  });
+
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",

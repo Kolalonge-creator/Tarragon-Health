@@ -20221,6 +20221,14 @@ export type Database = {
         Args: { p_document_id: string }
         Returns: Database["public"]["Tables"]["patient_documents"]["Row"]
       }
+      record_export_access: {
+        Args: {
+          p_export_type: Database["public"]["Enums"]["document_export_type"]
+          p_metadata?: Json
+          p_patient_id: string
+        }
+        Returns: undefined
+      }
       record_patient_document_scan: {
         Args: {
           p_detail?: string

@@ -82,6 +82,13 @@ export async function GET(request: Request): Promise<Response> {
 
   const buffer = await renderToBuffer(CombinedInterpretationDocument({ items }));
 
+  // §1.24 export audit trail — best-effort, never blocks the download.
+  await supabase.rpc("record_export_access", {
+    p_patient_id: docs[0]!.patient_id,
+    p_export_type: "lab_result_combined",
+    p_metadata: { document_ids: docs.map((d) => d.id) },
+  });
+
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",

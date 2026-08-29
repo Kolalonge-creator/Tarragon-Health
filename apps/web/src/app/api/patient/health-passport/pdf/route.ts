@@ -34,6 +34,9 @@ export async function GET(): Promise<Response> {
     HealthPassportDocument({ patientName: profile.full_name ?? "Patient", data })
   );
 
+  // §1.24 export audit trail — best-effort, never blocks the download.
+  await supabase.rpc("record_export_access", { p_patient_id: user.id, p_export_type: "health_passport" });
+
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",

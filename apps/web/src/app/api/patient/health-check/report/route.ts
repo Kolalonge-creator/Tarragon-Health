@@ -38,6 +38,9 @@ export async function GET(): Promise<Response> {
     })
   );
 
+  // §1.24 export audit trail — best-effort, never blocks the download.
+  await supabase.rpc("record_export_access", { p_patient_id: user.id, p_export_type: "health_check_report" });
+
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",

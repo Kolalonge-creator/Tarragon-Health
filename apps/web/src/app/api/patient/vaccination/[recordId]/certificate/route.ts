@@ -29,6 +29,13 @@ export async function GET(
 
   const buffer = await renderToBuffer(VaccinationCertificateDocument({ data }));
 
+  // §1.24 export audit trail — best-effort, never blocks the download.
+  await supabase.rpc("record_export_access", {
+    p_patient_id: user.id,
+    p_export_type: "vaccination_certificate",
+    p_metadata: { record_id: recordId },
+  });
+
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",

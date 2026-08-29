@@ -80,6 +80,13 @@ export async function GET(
 
   const buffer = await renderToBuffer(InterpretationDocument({ data }));
 
+  // §1.24 export audit trail — best-effort, never blocks the download.
+  await supabase.rpc("record_export_access", {
+    p_patient_id: doc.patient_id,
+    p_export_type: "lab_result_single",
+    p_metadata: { document_id: documentId },
+  });
+
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
