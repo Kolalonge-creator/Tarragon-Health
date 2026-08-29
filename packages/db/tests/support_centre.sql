@@ -332,6 +332,85 @@ begin
     insert into test_result values (20, 'complaint escalates into a real clinical_incident_reports row', 'FAIL', 'incident_report_id still null');
   end if;
 
+  ---------------------------------------------------------------- 21. cross-patient isolation: patient2 cannot see patient1's ticket.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient2, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select count(*) into v_count from public.support_tickets where id = v_ticket_id;
+  perform set_config('role', 'postgres', true);
+  if v_count = 0 then
+    insert into test_result values (21, 'patient cannot read another patient''s ticket', 'PASS', null);
+  else
+    insert into test_result values (21, 'patient cannot read another patient''s ticket', 'FAIL', format('%s rows visible', v_count));
+  end if;
+
+  -- Control: the ticket's own patient can still read it.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient1, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select count(*) into v_count from public.support_tickets where id = v_ticket_id;
+  perform set_config('role', 'postgres', true);
+  if v_count = 1 then
+    insert into test_result values (22, 'the owning patient can still read their own ticket (control)', 'PASS', null);
+  else
+    insert into test_result values (22, 'the owning patient can still read their own ticket (control)', 'FAIL', format('%s rows visible', v_count));
+  end if;
+
+  ---------------------------------------------------------------- 23. cross-patient isolation: patient2 cannot see patient1's complaint.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient2, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select count(*) into v_count from public.complaints where id = v_complaint_id;
+  perform set_config('role', 'postgres', true);
+  if v_count = 0 then
+    insert into test_result values (23, 'patient cannot read another patient''s complaint', 'PASS', null);
+  else
+    insert into test_result values (23, 'patient cannot read another patient''s complaint', 'FAIL', format('%s rows visible', v_count));
+  end if;
+
+  ---------------------------------------------------------------- 24. cross-patient isolation: patient2 cannot see patient1's internal-visible (non-internal) comment thread on a ticket they don't own.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient2, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select count(*) into v_count from public.support_ticket_comments where ticket_id = v_ticket_id;
+  perform set_config('role', 'postgres', true);
+  if v_count = 0 then
+    insert into test_result values (24, 'patient cannot read comments on another patient''s ticket', 'PASS', null);
+  else
+    insert into test_result values (24, 'patient cannot read comments on another patient''s ticket', 'FAIL', format('%s rows visible', v_count));
+  end if;
+
+  ---------------------------------------------------------------- 25. analytics RPCs: fail-closed for a non-analyst/non-admin caller, real data for admin.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_coordinator, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  declare
+    v_json jsonb;
+  begin
+    select public.analytics_support_ticket_summary() into v_json;
+    if v_json = '{}'::jsonb then
+      insert into test_result values (25, 'analytics_support_ticket_summary fails closed for a non-analyst', 'PASS', null);
+    else
+      insert into test_result values (25, 'analytics_support_ticket_summary fails closed for a non-analyst', 'FAIL', v_json::text);
+    end if;
+  end;
+  perform set_config('role', 'postgres', true);
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  declare
+    v_json jsonb;
+  begin
+    select public.analytics_support_ticket_summary() into v_json;
+    if v_json ? 'total' and (v_json->>'total')::int >= 1 then
+      insert into test_result values (26, 'analytics_support_ticket_summary returns real data for admin (control)', 'PASS', v_json->>'total');
+    else
+      insert into test_result values (26, 'analytics_support_ticket_summary returns real data for admin (control)', 'FAIL', v_json::text);
+    end if;
+    select public.analytics_complaints_summary() into v_json;
+    if v_json ? 'total' and (v_json->>'total')::int >= 1 then
+      insert into test_result values (27, 'analytics_complaints_summary returns real data for admin (control)', 'PASS', v_json->>'total');
+    else
+      insert into test_result values (27, 'analytics_complaints_summary returns real data for admin (control)', 'FAIL', v_json::text);
+    end if;
+  end;
+  perform set_config('role', 'postgres', true);
+
 end $$;
 
 select case_num, label, outcome, detail from test_result order by case_num;
