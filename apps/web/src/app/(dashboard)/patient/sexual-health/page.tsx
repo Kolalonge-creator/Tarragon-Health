@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SexualHealthHub } from "./sexual-health-hub";
+import { SexualHealthPrivacyGate } from "./sexual-health-privacy-gate";
 
 /**
  * Sexual & Reproductive Health hub (spec §47): STI risk-check + testing,
@@ -37,5 +38,9 @@ export default async function SexualHealthPage() {
     .single();
   if (!profile?.organisation_id) redirect("/onboarding");
 
-  return <SexualHealthHub patientId={user.id} />;
+  return (
+    <SexualHealthPrivacyGate>
+      <SexualHealthHub patientId={user.id} />
+    </SexualHealthPrivacyGate>
+  );
 }

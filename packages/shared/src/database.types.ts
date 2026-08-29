@@ -11226,6 +11226,51 @@ export type Database = {
           },
         ]
       }
+      sexual_health_privacy_settings: {
+        Row: {
+          created_at: string
+          failed_attempts: number
+          locked_until: string | null
+          organisation_id: string
+          patient_id: string
+          pin_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          failed_attempts?: number
+          locked_until?: string | null
+          organisation_id: string
+          patient_id: string
+          pin_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          failed_attempts?: number
+          locked_until?: string | null
+          organisation_id?: string
+          patient_id?: string
+          pin_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sexual_health_privacy_settings_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sexual_health_privacy_settings_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mrr_snapshots: {
         Row: {
           created_at: string
@@ -15767,6 +15812,7 @@ export type Database = {
           created_at: string
           frequency_months: number | null
           fulfilment_dormant: boolean
+          home_kit_available: boolean
           id: string
           is_active: boolean
           is_optional: boolean
@@ -15793,6 +15839,7 @@ export type Database = {
           created_at?: string
           frequency_months?: number | null
           fulfilment_dormant?: boolean
+          home_kit_available?: boolean
           id?: string
           is_active?: boolean
           is_optional?: boolean
@@ -15819,6 +15866,7 @@ export type Database = {
           created_at?: string
           frequency_months?: number | null
           fulfilment_dormant?: boolean
+          home_kit_available?: boolean
           id?: string
           is_active?: boolean
           is_optional?: boolean
@@ -20097,6 +20145,18 @@ export type Database = {
         }
         Returns: string
       }
+      set_sexual_health_pin: {
+        Args: { p_pin: string }
+        Returns: undefined
+      }
+      clear_sexual_health_pin: {
+        Args: never
+        Returns: undefined
+      }
+      verify_sexual_health_pin: {
+        Args: { p_pin: string }
+        Returns: boolean
+      }
       submit_consultation_prep: {
         Args: { p_consultation_id: string; p_notes: string }
         Returns: undefined
@@ -20475,6 +20535,7 @@ export type Database = {
         | "medicines"
         | "family_child"
         | "getting_started"
+        | "sexual_health"
       health_education_content_type: "article" | "video"
       health_education_status: "seen" | "understood" | "needs_review"
       health_passport_attestation_status:
@@ -21445,6 +21506,7 @@ export const Constants = {
         "medicines",
         "family_child",
         "getting_started",
+        "sexual_health",
       ],
       health_education_content_type: ["article", "video"],
       health_education_status: ["seen", "understood", "needs_review"],

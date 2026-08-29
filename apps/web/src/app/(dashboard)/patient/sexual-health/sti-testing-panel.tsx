@@ -77,6 +77,19 @@ export function StiTestingPanel() {
         </ul>
 
         {payState?.error && <p className="text-sm text-red-600">{payState.error}</p>}
+
+        {/* Home test kits (spec §47.4): screen_types.home_kit_available is
+         * a real catalogue flag (migration 20260829120000) for a genuinely
+         * separate service — a self-administered kit, no lab visit — but no
+         * partner exists to fulfil it yet (the platform currently has one
+         * active laboratory at all, for in-clinic/collection testing). This
+         * says so plainly rather than staying silent, the same honesty this
+         * codebase uses for dormant imaging screens and wearable providers
+         * with no real credentials yet. */}
+        <p className="border-t border-charcoal-ink/10 pt-3 text-xs text-charcoal-ink/50">
+          Home test kits aren&apos;t available from a partner yet — for now, book above and
+          we&apos;ll arrange the sample collection.
+        </p>
       </CardContent>
     </Card>
   );

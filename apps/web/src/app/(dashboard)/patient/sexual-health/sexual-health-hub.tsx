@@ -18,6 +18,7 @@ import { ContraceptionPanel } from "./contraception-panel";
 import { FertilityAssessmentForm } from "./fertility-assessment-form";
 import { SexualWellnessPanel } from "./sexual-wellness-panel";
 import { startConfidentialSrhThread } from "./confidential-message-action";
+import { SexualHealthPrivacySettingsCard } from "./sexual-health-privacy-settings-card";
 
 const TABS = [
   { key: "testing", label: "Risk check & testing" },
@@ -189,20 +190,24 @@ function ResultsTab({ patientId }: { patientId: string }) {
 
 /**
  * A short, filtered slice of the existing health-education library (spec
- * §47.9/§47.7's "education" steps) — womens_health/mens_health are where the
- * fertility, PCOS, preconception, contraception, and men's-fertility/ED
- * articles already live (migration
- * 20260810014719_health_education_screening_womens_mens_health.sql). No new
- * content, and no per-article route exists anywhere in this app (articles
- * open inline inside HealthEducationLibrary's own accordion, not at a URL),
- * so every link here goes to the full /patient/learn library rather than
+ * §47.9/§47.7/§47.11's "education" steps) — womens_health/mens_health are
+ * where the fertility, PCOS, preconception, contraception, and men's-
+ * fertility/ED articles already live (migration
+ * 20260810014719_health_education_screening_womens_mens_health.sql);
+ * sexual_health is the new, gender-neutral category added for consent and
+ * healthy relationships (migrations 20260829120100/120200) — the two §47.11
+ * topics a full-text search confirmed had no article anywhere before those.
+ * No per-article route exists anywhere in this app (articles open inline
+ * inside HealthEducationLibrary's own accordion, not at a URL), so every
+ * link here goes to the full /patient/learn library rather than
  * re-implementing that reading UI a second time.
  */
 function LearnTab() {
   const womens = useHealthEducationLibrary("womens_health");
   const mens = useHealthEducationLibrary("mens_health");
-  const isLoading = womens.isLoading || mens.isLoading;
-  const items = [...(womens.data ?? []), ...(mens.data ?? [])];
+  const sexualHealth = useHealthEducationLibrary("sexual_health");
+  const isLoading = womens.isLoading || mens.isLoading || sexualHealth.isLoading;
+  const items = [...(sexualHealth.data ?? []), ...(womens.data ?? []), ...(mens.data ?? [])];
 
   return (
     <Card>
@@ -260,6 +265,8 @@ export function SexualHealthHub({ patientId }: { patientId: string }) {
       />
 
       <PrivacyBanner />
+
+      <SexualHealthPrivacySettingsCard />
 
       <div className="flex gap-1.5 overflow-x-auto border-b border-charcoal-ink/10 pb-px">
         {TABS.map((tab) => (
