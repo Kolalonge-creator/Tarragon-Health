@@ -38,6 +38,8 @@ import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
 import { CarePlanManagementSection } from "./care-plan-management-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
+import { CreateReferralForm } from "./create-referral-form";
+import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
 export default async function ClinicianPatientPage({
@@ -341,6 +343,26 @@ export default async function ClinicianPatientPage({
                 canActionFollowUps={Boolean(callerStaff)}
               />
             ) : null,
+          },
+          {
+            id: "referrals",
+            label: "Referrals",
+            content: (
+              <>
+                <PatientReferralsList patientId={patient.id} />
+                {/* Creating a referral is a clinical decision (67.2/67.7) —
+                    gated to clinical tier here to match the DB create-gate
+                    trigger (private.is_clinical_tier), same isClinicalTier
+                    pattern the vitals/diabetes forms above already use. */}
+                {patient.organisation_id && isClinicalTier(callerStaff) ? (
+                  <CreateReferralForm patientId={patient.id} organisationId={patient.organisation_id} />
+                ) : (
+                  <p className="text-sm text-charcoal-ink/60">
+                    Only a clinical-tier member of the care team can create a specialist referral.
+                  </p>
+                )}
+              </>
+            ),
           },
         ];
 

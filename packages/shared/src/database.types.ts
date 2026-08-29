@@ -15906,9 +15906,14 @@ export type Database = {
         Row: {
           applied_voucher_id: string | null
           appointment_date: string | null
+          appropriateness_flags: Json
           booking_confirmed_at: string | null
+          care_plan_update_note: string | null
           clinical_summary: Json | null
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
+          declined_reason: string | null
           fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
           id: string
           interim_management_plan: string | null
@@ -15924,12 +15929,16 @@ export type Database = {
           referral_fee_kobo: number
           referral_number: string | null
           referral_reason: string | null
+          referral_source: Database["public"]["Enums"]["referral_source"]
+          referred_by: string | null
+          requested_service: string | null
           screening_upgrade_id: string | null
           set_by: string | null
           shared_care_handback_at: string | null
           specialist_provider_id: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status: Database["public"]["Enums"]["referral_status"]
+          submitted_at: string | null
           treatment_plan_note: string | null
           treatment_plan_received_at: string | null
           updated_at: string
@@ -15940,9 +15949,14 @@ export type Database = {
         Insert: {
           applied_voucher_id?: string | null
           appointment_date?: string | null
+          appropriateness_flags?: Json
           booking_confirmed_at?: string | null
+          care_plan_update_note?: string | null
           clinical_summary?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
+          declined_reason?: string | null
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
@@ -15958,12 +15972,16 @@ export type Database = {
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referral_source?: Database["public"]["Enums"]["referral_source"]
+          referred_by?: string | null
+          requested_service?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          submitted_at?: string | null
           treatment_plan_note?: string | null
           treatment_plan_received_at?: string | null
           updated_at?: string
@@ -15974,9 +15992,14 @@ export type Database = {
         Update: {
           applied_voucher_id?: string | null
           appointment_date?: string | null
+          appropriateness_flags?: Json
           booking_confirmed_at?: string | null
+          care_plan_update_note?: string | null
           clinical_summary?: Json | null
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
+          declined_reason?: string | null
           fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
           id?: string
           interim_management_plan?: string | null
@@ -15992,12 +16015,16 @@ export type Database = {
           referral_fee_kobo?: number
           referral_number?: string | null
           referral_reason?: string | null
+          referral_source?: Database["public"]["Enums"]["referral_source"]
+          referred_by?: string | null
+          requested_service?: string | null
           screening_upgrade_id?: string | null
           set_by?: string | null
           shared_care_handback_at?: string | null
           specialist_provider_id?: string | null
           specialist_type?: Database["public"]["Enums"]["specialist_type"]
           status?: Database["public"]["Enums"]["referral_status"]
+          submitted_at?: string | null
           treatment_plan_note?: string | null
           treatment_plan_received_at?: string | null
           updated_at?: string
@@ -20183,6 +20210,15 @@ export type Database = {
         | "pregnancy_life_stage"
         | "major_weight_change"
       referral_reward_status: "pending" | "earned" | "paid"
+      referral_source:
+        | "clinician_initiated"
+        | "abnormal_lab_result"
+        | "abnormal_imaging_result"
+        | "chronic_care_programme"
+        | "emergency_assessment"
+        | "specialist_recommendation"
+        | "hospital_discharge"
+        | "clinical_rule"
       referral_status:
         | "pending_payment"
         | "payment_confirmed"
@@ -20191,12 +20227,14 @@ export type Database = {
         | "booked"
         | "confirmed"
         | "completed"
+        | "closed"
         | "declined"
+        | "draft"
       referral_type:
         | "patient_refers_patient"
         | "doctor_refers_patient"
         | "corporate_champion"
-      referral_urgency: "routine" | "priority" | "urgent"
+      referral_urgency: "routine" | "priority" | "urgent" | "emergency"
       reminder_stage: "upcoming" | "due" | "overdue" | "escalated"
       reproductive_life_stage:
         | "menstruating"
@@ -20246,6 +20284,8 @@ export type Database = {
         | "dietetics"
         | "podiatry"
         | "other"
+        | "psychiatry"
+        | "psychology"
       subscription_status: "trialing" | "active" | "past_due" | "cancelled"
       symptom_type:
         | "pain"
@@ -21142,6 +21182,16 @@ export const Constants = {
         "major_weight_change",
       ],
       referral_reward_status: ["pending", "earned", "paid"],
+      referral_source: [
+        "clinician_initiated",
+        "abnormal_lab_result",
+        "abnormal_imaging_result",
+        "chronic_care_programme",
+        "emergency_assessment",
+        "specialist_recommendation",
+        "hospital_discharge",
+        "clinical_rule",
+      ],
       referral_status: [
         "pending_payment",
         "payment_confirmed",
@@ -21150,14 +21200,16 @@ export const Constants = {
         "booked",
         "confirmed",
         "completed",
+        "closed",
         "declined",
+        "draft",
       ],
       referral_type: [
         "patient_refers_patient",
         "doctor_refers_patient",
         "corporate_champion",
       ],
-      referral_urgency: ["routine", "priority", "urgent"],
+      referral_urgency: ["routine", "priority", "urgent", "emergency"],
       reminder_stage: ["upcoming", "due", "overdue", "escalated"],
       reproductive_life_stage: [
         "menstruating",
@@ -21212,6 +21264,8 @@ export const Constants = {
         "dietetics",
         "podiatry",
         "other",
+        "psychiatry",
+        "psychology",
       ],
       subscription_status: ["trialing", "active", "past_due", "cancelled"],
       symptom_type: [

@@ -8,14 +8,19 @@ import type { ReferralStatus } from "@tarragon/shared";
 // (REFERRAL_STATUS_BADGE in clinician/referrals/page.tsx), per CLAUDE.md's
 // brand voice rule: no clinical jargon, no fear-based urgency.
 const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
-  pending: "Your care team is arranging this",
+  // Never actually shown — YourReferrals excludes drafts (they aren't a
+  // live episode yet), but Record<ReferralStatus, ...> still needs every
+  // key so a future status can't silently fall through unhandled.
+  draft: "Not yet sent",
+  pending: "Your care team has sent this referral",
   pending_payment: "Ready to book — payment needed",
   payment_confirmed: "Payment received — booking your appointment",
   booked: "Appointment booked",
   confirmed: "Confirmed",
   completed: "Visit complete",
+  closed: "Closed",
   declined: "Cancelled",
-  waitlisted: "Your care team is finding the right specialist for you",
+  waitlisted: "Your care team is helping you plan next steps",
 };
 
 function formatDate(value: string): string {
@@ -37,6 +42,7 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
       "id, referral_number, specialist_type, status, urgency, referral_fee_kobo, payable_kobo, appointment_date, booking_confirmed_at, specialist_provider_id, treatment_plan_received_at, shared_care_handback_at, created_at, specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name)",
     )
     .eq("patient_id", patientId)
+    .neq("status", "draft")
     .order("created_at", { ascending: false });
 
   if (!referrals || referrals.length === 0) {
