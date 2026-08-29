@@ -16481,6 +16481,106 @@ export type Database = {
           },
         ]
       }
+      vaccination_adverse_events: {
+        Row: {
+          alert_id: string | null
+          clinical_note: string | null
+          created_at: string
+          description: string | null
+          id: string
+          onset_at: string | null
+          organisation_id: string
+          patient_id: string
+          reported_at: string
+          reported_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          severity: Database["public"]["Enums"]["vaccination_adverse_event_severity"]
+          symptoms: Database["public"]["Enums"]["vaccination_adverse_event_symptom"][]
+          updated_at: string
+          vaccination_record_id: string
+        }
+        Insert: {
+          alert_id?: string | null
+          clinical_note?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          onset_at?: string | null
+          organisation_id: string
+          patient_id: string
+          reported_at?: string
+          reported_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity: Database["public"]["Enums"]["vaccination_adverse_event_severity"]
+          symptoms: Database["public"]["Enums"]["vaccination_adverse_event_symptom"][]
+          updated_at?: string
+          vaccination_record_id: string
+        }
+        Update: {
+          alert_id?: string | null
+          clinical_note?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          onset_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reported_at?: string
+          reported_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: Database["public"]["Enums"]["vaccination_adverse_event_severity"]
+          symptoms?: Database["public"]["Enums"]["vaccination_adverse_event_symptom"][]
+          updated_at?: string
+          vaccination_record_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vaccination_adverse_events_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_vaccination_record_id_fkey"
+            columns: ["vaccination_record_id"]
+            isOneToOne: false
+            referencedRelation: "vaccination_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vaccination_catalog: {
         Row: {
           code: string
@@ -16513,16 +16613,20 @@ export type Database = {
       }
       vaccination_records: {
         Row: {
+          batch_lot_number: string | null
           booking_request_id: string | null
           certificate_url: string | null
           created_at: string
           date_administered: string
           dose_number: number
           id: string
+          location: string | null
           organisation_id: string
           physical_certificate_path: string | null
           profile_id: string
           provider: string | null
+          route: Database["public"]["Enums"]["vaccination_route"] | null
+          site: string | null
           tarragon_certificate_issued_at: string | null
           tarragon_certificate_serial: string | null
           updated_at: string
@@ -16533,16 +16637,20 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          batch_lot_number?: string | null
           booking_request_id?: string | null
           certificate_url?: string | null
           created_at?: string
           date_administered: string
           dose_number?: number
           id?: string
+          location?: string | null
           organisation_id: string
           physical_certificate_path?: string | null
           profile_id: string
           provider?: string | null
+          route?: Database["public"]["Enums"]["vaccination_route"] | null
+          site?: string | null
           tarragon_certificate_issued_at?: string | null
           tarragon_certificate_serial?: string | null
           updated_at?: string
@@ -16553,16 +16661,20 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          batch_lot_number?: string | null
           booking_request_id?: string | null
           certificate_url?: string | null
           created_at?: string
           date_administered?: string
           dose_number?: number
           id?: string
+          location?: string | null
           organisation_id?: string
           physical_certificate_path?: string | null
           profile_id?: string
           provider?: string | null
+          route?: Database["public"]["Enums"]["vaccination_route"] | null
+          site?: string | null
           tarragon_certificate_issued_at?: string | null
           tarragon_certificate_serial?: string | null
           updated_at?: string
@@ -16659,6 +16771,10 @@ export type Database = {
           created_at: string
           due_date: string
           id: string
+          non_administration_note: string | null
+          non_administration_reason: Database["public"]["Enums"]["vaccination_non_administration_reason"] | null
+          non_administration_recorded_at: string | null
+          non_administration_recorded_by: string | null
           organisation_id: string
           patient_id: string
           reminder_sent_at: string | null
@@ -16671,6 +16787,10 @@ export type Database = {
           created_at?: string
           due_date: string
           id?: string
+          non_administration_note?: string | null
+          non_administration_reason?: Database["public"]["Enums"]["vaccination_non_administration_reason"] | null
+          non_administration_recorded_at?: string | null
+          non_administration_recorded_by?: string | null
           organisation_id: string
           patient_id: string
           reminder_sent_at?: string | null
@@ -16683,6 +16803,10 @@ export type Database = {
           created_at?: string
           due_date?: string
           id?: string
+          non_administration_note?: string | null
+          non_administration_reason?: Database["public"]["Enums"]["vaccination_non_administration_reason"] | null
+          non_administration_recorded_at?: string | null
+          non_administration_recorded_by?: string | null
           organisation_id?: string
           patient_id?: string
           reminder_sent_at?: string | null
@@ -16692,6 +16816,13 @@ export type Database = {
           vaccination_catalog_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "vaccination_schedules_non_administration_recorded_by_fkey"
+            columns: ["non_administration_recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vaccination_schedules_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -20299,6 +20430,25 @@ export type Database = {
         | "lab_liaison"
         | "finance"
         | "lab_partner"
+      vaccination_adverse_event_severity: "mild" | "moderate" | "severe"
+      vaccination_adverse_event_symptom:
+        | "pain_at_site"
+        | "swelling_at_site"
+        | "redness_at_site"
+        | "fever"
+        | "allergic_reaction"
+        | "fatigue"
+        | "headache"
+        | "nausea"
+        | "other"
+      vaccination_non_administration_reason: "declined" | "contraindicated"
+      vaccination_route:
+        | "oral"
+        | "intramuscular"
+        | "subcutaneous"
+        | "intradermal"
+        | "intranasal"
+        | "other"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -21269,6 +21419,27 @@ export const Constants = {
         "lab_liaison",
         "finance",
         "lab_partner",
+      ],
+      vaccination_adverse_event_severity: ["mild", "moderate", "severe"],
+      vaccination_adverse_event_symptom: [
+        "pain_at_site",
+        "swelling_at_site",
+        "redness_at_site",
+        "fever",
+        "allergic_reaction",
+        "fatigue",
+        "headache",
+        "nausea",
+        "other",
+      ],
+      vaccination_non_administration_reason: ["declined", "contraindicated"],
+      vaccination_route: [
+        "oral",
+        "intramuscular",
+        "subcutaneous",
+        "intradermal",
+        "intranasal",
+        "other",
       ],
       vaccination_verification_status: [
         "self_reported",
