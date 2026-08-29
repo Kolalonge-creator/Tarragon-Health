@@ -182,6 +182,7 @@ export function getNavSections(
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
+            { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
             {
               label: "Emergency card",
@@ -378,6 +379,7 @@ export function getNavSections(
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
+            { label: "Fraud signals", href: "/finance/fraud", icon: "fraud" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
             { label: "Compliance calendar", href: "/finance/compliance", icon: "compliance" },
             { label: "Reports & filings", href: "/finance/reports", icon: "statements" },

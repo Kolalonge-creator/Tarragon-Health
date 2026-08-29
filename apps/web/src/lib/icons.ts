@@ -77,6 +77,8 @@ import {
   Thermometer,
   Wind,
   Heart,
+  ShieldAlert,
+  ReceiptText,
   type LucideIcon,
 } from "lucide-react";
 
@@ -163,6 +165,8 @@ export const NAV_ICON = {
   statements: FileSpreadsheet,
   tax: Receipt,
   reconcile: Scale,
+  fraud: ShieldAlert,
+  receipts: ReceiptText,
   budget: PiggyBank,
   payables: Wallet,
   compliance: CalendarClock,

@@ -13247,6 +13247,92 @@ export type Database = {
           },
         ]
       }
+      payment_fraud_signals: {
+        Row: {
+          amount_minor: number | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"] | null
+          dedupe_key: string
+          detail: Json
+          detected_at: string
+          id: string
+          organisation_id: string | null
+          patient_id: string | null
+          payment_transaction_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          severity: string
+          signal_type: string
+          status: string
+        }
+        Insert: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          dedupe_key: string
+          detail?: Json
+          detected_at?: string
+          id?: string
+          organisation_id?: string | null
+          patient_id?: string | null
+          payment_transaction_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          severity?: string
+          signal_type: string
+          status?: string
+        }
+        Update: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          dedupe_key?: string
+          detail?: Json
+          detected_at?: string
+          id?: string
+          organisation_id?: string | null
+          patient_id?: string | null
+          payment_transaction_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          severity?: string
+          signal_type?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_fraud_signals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_fraud_signals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_fraud_signals_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_fraud_signals_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_reconciliation_flags: {
         Row: {
           created_at: string
@@ -18606,6 +18692,7 @@ export type Database = {
       }
       finance_dashboard_summary: { Args: never; Returns: Json }
       finance_delete_budget: { Args: { p_id: string }; Returns: undefined }
+      finance_fraud_signals: { Args: { p_status?: string }; Returns: Json }
       finance_import_settlement: {
         Args: {
           p_bank_account: string
@@ -18685,6 +18772,10 @@ export type Database = {
       finance_reconciliation_summary: { Args: never; Returns: Json }
       finance_reject_request: {
         Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      finance_resolve_fraud_signal: {
+        Args: { p_id: string; p_note?: string; p_status: string }
         Returns: undefined
       }
       finance_resolve_reconciliation_flag: {
@@ -19057,6 +19148,7 @@ export type Database = {
           weight_taken_at: string
         }[]
       }
+      patient_receipts: { Args: never; Returns: Json }
       pharmacist_dispense_history: {
         Args: { p_limit?: number }
         Returns: {

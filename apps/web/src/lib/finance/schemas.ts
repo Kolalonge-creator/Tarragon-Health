@@ -425,6 +425,7 @@ export const riskFlagsSchema = z.object({
   pending_approvals_count: int,
   aged_unreconciled_count: int,
   reconciliation_flags_count: int,
+  fraud_signals_count: int,
   ap_due_soon_count: int,
   ap_overdue_count: int,
   compliance_overdue_count: int,
@@ -457,6 +458,32 @@ export const reconciliationFlagsSchema = z.array(
   }),
 );
 export type ReconciliationFlag = z.infer<typeof reconciliationFlagsSchema>[number];
+
+/**
+ * payment_fraud_signals — financial fraud controls, phase 1
+ * (20260829001257_payment_fraud_signals.sql). Detection only; see that
+ * migration and apps/web/src/lib/finance/fraud-sweep.ts for how a signal
+ * gets written.
+ */
+export const fraudSignalsSchema = z.array(
+  z.object({
+    id: z.string(),
+    organisation_id: z.string().nullable(),
+    patient_id: z.string().nullable(),
+    signal_type: z.enum(["duplicate_transaction", "rapid_velocity", "refund_concentration", "unusual_amount"]),
+    severity: z.enum(["low", "medium", "high"]),
+    dedupe_key: z.string(),
+    payment_transaction_id: z.string().nullable(),
+    amount_minor: num.nullable(),
+    currency: z.string().nullable(),
+    detail: z.record(z.string(), z.unknown()).nullable(),
+    status: z.enum(["open", "resolved", "ignored"]),
+    detected_at: z.string(),
+    resolved_at: z.string().nullable(),
+    resolved_note: z.string().nullable(),
+  }),
+);
+export type FraudSignal = z.infer<typeof fraudSignalsSchema>[number];
 
 export const financeAuditLogSchema = z.array(
   z.object({
