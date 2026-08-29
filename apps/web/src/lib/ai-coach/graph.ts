@@ -140,7 +140,11 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
           deps.supabase,
           embedder,
           state.incomingMessage,
-          { matchCount: 2, conditionFilter: activeProgramme.condition }
+          {
+            matchCount: 2,
+            conditionFilter: activeProgramme.condition,
+            subjectProfileId: state.profileId,
+          }
         );
         if (relevant.length > 0) {
           contextLines.push(

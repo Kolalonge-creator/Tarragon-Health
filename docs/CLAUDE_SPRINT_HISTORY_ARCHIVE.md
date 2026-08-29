@@ -2756,7 +2756,7 @@ narrower affiliate-link gap that one didn't cover.
 Full design rationale and the module-by-module map live in `docs/AI_GOVERNANCE_SPEC.md`; this entry is
 the dated record of what shipped and what it cost.
 
-- **Seven migrations, `20260829094312` … `20260829112238`**, applied to the live `koiplnmbgnqnbywhpjlf`
+- **Eight migrations, `20260829094312` … `20260829124416`**, applied to the live `koiplnmbgnqnbywhpjlf`
   project and committed: the AI registry + vendors + per-version model metadata; guardrails, governed
   prompts and approved knowledge sources; the clinical AI audit trail, hallucination-monitoring flags
   and safety incidents; the evaluation/red-team environment plus bias and drift monitoring; the kill
@@ -2781,14 +2781,21 @@ the dated record of what shipped and what it cost.
   A ratchet: today's systems keep running with their gaps visible, and once one is switched off it
   cannot come back until its criteria are met. A client cannot forge the grandfather; the INSERT path
   refuses an enabled row from an `authenticated` caller outright.
-- **`runtime_governed` exists because the kill switch is only real where the runtime asks.** Three of
-  ten are wired (`AI-001` coach, `AI-003` result explainer, `AI-004` case briefs); the other seven are
-  registered and classified but their running code does not consult the registry yet, so switching them
-  off would not stop them. The console says so in a banner. The per-system reason for each is in the
-  spec doc's §4 table — mostly "the helper takes neither a Supabase client nor a subject id, so the seam
-  is at its call sites", plus `AI-010`, whose `ml-client.ts` lives in `packages/shared` with no database
-  access by design (it does have a real off-switch today — an unset `ML_SERVICE_URL` — just not the
-  governed one).
+- **`runtime_governed` exists because the kill switch is only real where the runtime asks.** It shipped
+  mid-session with only three of ten wired, and the console carried a banner saying so; the remaining
+  seven were wired in the same session (`20260829124416`), so `is_enabled` is now a real switch for all
+  ten and the banner no longer renders. Anything registered in future starts at `false` and has to earn
+  the flag with a call site that actually consults `public.ai_runtime_config()`. Three shapes were
+  needed and the spec doc's §4 table says which went where: `runGovernedAi()` where the call splits
+  cleanly into an AI path and a non-AI path (AI-001/002/003/004/007/008); `decideAiGovernance()` +
+  `recordAiInteraction()` where it does not (AI-005/006 retry inside the extraction attempt, AI-009 sits
+  in a retrieval helper with no single fallback value); and a decorator over `MlClient` for AI-010,
+  because `ml-client.ts` lives in `packages/shared` with no database access by design and wrapping it
+  once beat editing six call sites. That decorator needed no caller changes at all: `MlClient` already
+  promises never to throw and to return `null`, and every caller already degrades on `null`, so a
+  switched-off system looks exactly like a service that is down. AI-009 deliberately records only its
+  switched-off outcomes, not its successful retrievals — it is the one registered system that is not
+  clinically meaningful, and a row per retrieval would bury the interactions that matter.
 - **Runtime**: `apps/web/src/lib/ai-governance/` — `decideAiGovernance()` (60s in-process cache,
   stale-while-unavailable so a thrown kill switch survives a database blip, never throws),
   `runGovernedAi()` (checks the switch, records every outcome including fallbacks and failures, and
@@ -2802,17 +2809,26 @@ the dated record of what shipped and what it cost.
   project in a rolled-back transaction — all pass. Case 7's control initially FAILED because the
   platform-wide shared safety suite was also required and unrun; that was the gate working, and the test
   was corrected rather than the gate loosened.
-- **Two pieces of collateral worth knowing about.** (1) `database.types.ts` was regenerated and turned
-  out to be badly stale — 216 table/RPC keys and 109 enums behind the live schema, not counting this
-  work. That surfaced eight exhaustive `Record<Enum, …>` label maps missing newly-added values
-  (`sample_rejected`, `closed`, `transferred`, `declined`, `referral_outcome_recorded`,
-  `missed_care_task`, `missed_appointment`, `failed_referral`, `referral_follow_up`), plus
-  `ROLE_HOME_PATH`/`ROLE_DISPLAY_LABEL` missing `payer_admin` and `provider_org_staff` — i.e.
-  `getRoleHomePath()` was returning `undefined` for two real roles. All fixed; the two homeless roles land
-  on `/account` and are deliberately kept out of the role-home *prefix* set, or `proxy.ts` would bounce
-  every other role off their own account page. (2) **Several of those live enum values have no committed
-  migration at all** (`referral_outcome_recorded`, `missed_care_task`, `payer_admin`, …) — the same
-  "live schema object with no migration record" hazard CLAUDE.md already warns about. A fresh
-  `supabase db reset` will not reproduce production. Not chased here; flagged for the founder.
+- **A wrong turn on `database.types.ts`, and what it actually taught us.** Regenerating the types from
+  the live project pulled in 216 table/RPC keys and 109 enums this branch had never heard of, and that
+  looked like alarming staleness — it broke eight exhaustive `Record<Enum, …>` label maps and revealed
+  `getRoleHomePath()` returning `undefined` for `payer_admin`/`provider_org_staff`. All of which got
+  "fixed", and all of which was wrong: **production is the union of ~128 in-flight feature branches,
+  every one of which applies its migrations to the same live database.** Comparing the 796 migration
+  records in `supabase_migrations` against every migration filename on every remote branch found that
+  exactly **3** exist on no branch at all (`employer_platform_campaigns_and_announcements_v2`,
+  `fix_employer_invoices_status_attribution_check_v4`,
+  `fix_escalate_support_ticket_alert_level_cast`) — and those three are `_v2`/`_v4`/`fix_` follow-ups to
+  work that IS on a branch, i.e. sessions that had not pushed yet. There is no meaningful lost drift.
+  So the regeneration was reverted and `database.types.ts` rebuilt by splicing ONLY the AI governance
+  additions (16 tables, 14 enums, 10 RPCs) into the committed file, preserving the generator's own
+  ordering; the nine collateral edits were reverted with it. Verified structurally: 0 keys lost, and
+  every added key is an AI governance one.
+  **The lesson worth keeping: on this project `generate_typescript_types` returns production, which is
+  every branch at once, not your branch.** Regenerating wholesale silently imports other people's
+  unmerged schema into your types and makes their unshipped enum values look like bugs in your code.
+  Splice what your own migrations added instead. (The genuinely separate hazard CLAUDE.md already
+  warns about — a live object with no migration record *anywhere*, like
+  `private.guard_profiles_self_update()` — is unrelated to this and still stands.)
 - Verified: `pnpm typecheck`, `pnpm lint` (0 errors; 6 warnings, all the pre-existing underscore-param
   convention) and `pnpm test` (109 suites, 1132 tests) all clean.

@@ -16,8 +16,8 @@ Every design decision below follows from that.
 
 | Layer | Location |
 | --- | --- |
-| Schema, RPCs, triggers | `supabase/migrations/20260829094312` … `20260829112238` (7 migrations) |
-| Runtime | `apps/web/src/lib/ai-governance/` |
+| Schema, RPCs, triggers | `supabase/migrations/20260829094312` … `20260829124416` (8 migrations) |
+| Runtime | `apps/web/src/lib/ai-governance/`, plus `apps/web/src/lib/ml/governed-ml-client.ts` for AI-010 |
 | Admin console | `apps/web/src/app/(dashboard)/admin/settings/ai-governance/` |
 | Patient/clinician incident report | `apps/web/src/components/ai/report-ai-answer.tsx` |
 | Live proof | `packages/db/tests/ai_governance.sql` (8 cases, run against the linked project) |
@@ -91,22 +91,34 @@ without them. A client cannot forge the grandfather — the INSERT path refuses 
 
 ### 4. The kill switch is only real where the runtime asks
 
-`ai_systems.runtime_governed` says whether the running code actually calls `ai_runtime_config()` and
-honours the answer. **Three of ten are wired today** — the AI Coach (`AI-001`), the patient result
-explainer (`AI-003`) and clinician case briefs (`AI-004`). For the other seven, switching them off in
-the console would not stop them running, and the console says so in a banner rather than a footnote.
+`ai_systems.runtime_governed` says whether the running code actually calls
+`ai_runtime_config()` and honours the answer. **All ten are wired**, so `is_enabled` is a real switch
+for every registered system. The flag stays as a column rather than being assumed, because an
+operator would reasonably read "enabled: false" as "stopped", and a registry that cannot tell
+"switched off" from "not asking" is more dangerous than one that admits the difference. Anything
+registered in future starts at `false` and must earn the flag with a real call site.
 
-An operator would reasonably read "enabled: false" as "stopped". A registry that cannot tell those
-two states apart is more dangerous than one that admits the difference.
+Three different shapes were needed, and the choice in each case was driven by the call site rather
+than by a preference for uniformity:
 
-**Outstanding work, per system:**
+| Shape | Systems | Why |
+| --- | --- | --- |
+| `runGovernedAi()` | AI-001, AI-002, AI-003, AI-004, AI-007, AI-008 | The call has a clean "AI path / non-AI path" split, which is what the wrapper is for |
+| `decideAiGovernance()` + `recordAiInteraction()` | AI-005, AI-006, AI-009 | Control flow that does not fit run/fallback — the extractors do a first pass, a corpus lookup and a conditional hinted retry; retrieval sits inside a helper with no single fallback value. Same two guarantees, assembled by hand |
+| A decorator over the client | AI-010 | `ml-client.ts` lives in `packages/shared` with no database access by design. Wrapping `MlClient` once beat editing six call sites, which would have been six chances to miss one |
 
-| System | Why it is not wired yet |
-| --- | --- |
-| `AI-002`, `AI-007`, `AI-008` | Helper functions taking neither a Supabase client nor a subject id — the seam is at their call sites |
-| `AI-005`, `AI-006` | Extraction runs inside an action that retries; needs one wrap around the whole attempt |
-| `AI-009` | The embedder is built synchronously from env with no request context; already degrades to "no retrieval" |
-| `AI-010` | `ml-client.ts` is in `packages/shared` with no database access by design. It has a real off-switch today (an unset `ML_SERVICE_URL` makes every call return null and every caller degrade) — just not the governed one |
+AI-010's decorator is worth one more line: `MlClient` already promises never to throw and to return
+`null` on failure, and every caller already degrades on `null`. So a switched-off system looks to
+callers exactly like a service that is down — 40.18 satisfied by a contract that already existed
+rather than by new branching in six places. `health()` is passed through ungoverned on purpose: it is
+a liveness probe, and an operator checking reachability while the system is off should get a truthful
+answer.
+
+**One deliberate gap in the audit trail.** AI-009 (lifestyle content embeddings) records a
+switched-off outcome but not its successful retrievals. It is not clinically meaningful, it reaches
+no patient directly, and a row per retrieval would bury the interactions that do matter. 40.11 asks
+for an audit trail of *clinically meaningful* interactions, and this is the one registered system
+that is not.
 
 ### 5. Governance must never become the new single point of failure
 
@@ -195,7 +207,6 @@ different claim from one measured on twelve thousand.
 
 ## Open items
 
-- Seven of ten systems are registered but not runtime-wired (table in §4 above).
 - No system has an approved version, so every one shows `validation` outstanding. Closing that means
   running the seeded evaluation suites for real and having a Clinical Director approve the result.
 - No knowledge source is approved yet, so no AI answer currently cites one (40.7).

@@ -60,6 +60,17 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   times across this project's history. See `feedback_supabase_anon_execute_gotcha.md` in memory
   before trusting any past migration's own comment that claims this is closed — re-check live with
   `has_function_privilege('anon', '<function>', 'EXECUTE')` rather than the comment.
+- **`generate_typescript_types` returns PRODUCTION, which is every in-flight branch at once — not
+  your branch.** Around 128 feature branches all apply their migrations to the same live project, so
+  a wholesale regeneration of `packages/shared/src/database.types.ts` silently imports other people's
+  unmerged schema into your types, and their unshipped enum values then look like bugs in your code
+  (found 2026-08-29: a regeneration pulled in 216 unrelated table/RPC keys and 109 enums, which
+  "broke" eight exhaustive `Record<Enum, …>` label maps that were in fact perfectly correct for this
+  branch). **Splice in only what your own migrations added**, preserving the generator's ordering, and
+  verify structurally that nothing was lost and every added key is yours. Note this is NOT the same as
+  real drift: comparing all 796 `supabase_migrations` records against every migration filename on every
+  remote branch found only 3 with no branch at all, and all 3 were `fix_`/`_v2` follow-ups from sessions
+  that had not pushed yet.
 - **pgvector lives in the `extensions` schema.** Write `extensions.vector(...)`, never a bare
   `vector(...)`, or a migration replay fails (it isn't on the migration connection's search_path).
 - **`private.is_org_staff()` is the highest-leverage security function in the codebase.** It gates
@@ -303,7 +314,7 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - Patient Health Record — section-by-section gap analysis against the platform's actual schema/code (identity, problem list, allergies, family/social history, observations, labs, imaging, medication lifecycle, encounters, timeline, versioning, search, permissions, external records, export, security), plus open founder decisions where the record spec collides with a real shipped decision (e.g. the collapsed medication dispensed/received event) → `docs/PATIENT_HEALTH_RECORD_ARCHITECTURE.md`
 - 5-tier doctor ladder, Care Coordinator role, doctor-tier staffing/indemnity rules, phased Phase 1/2/3 roadmap (specialist-matching engine, wellness testing, Employer/HMO dashboards, home sample collection, medication delivery) → `docs/Tarragon_Health_Master_Operating_Plan_v4.md` — authoritative on the clinical staffing model where it conflicts with `CLINICAL_TRUST_MODEL_SPEC.md`'s older flat-role language
 - Clinical Network — provider directory/verification/availability/discovery/referral-integration/org-account gap analysis against current code, phased Phase 1 (safe now) vs Phase 2/3 (needs explicit ask) recommendations → `docs/CLINICAL_NETWORK_SPEC.md` — a design/reconciliation doc; where it disagrees with the Master Operating Plan's Phase labels, that's a sign the Master Plan is stale relative to shipped work (e.g. the referral-status pipeline/waitlist), not license to build past this file's matching-engine guardrail (see its §3) without asking first
-- AI governance, safety & model management — the AI registry, risk/autonomy classification, guardrails, governed prompts, evaluation + red-team gate, bias/drift monitoring, the audit trail, incident reporting, the kill switch and its fallbacks → `docs/AI_GOVERNANCE_SPEC.md`. **Read it before adding or changing any AI call site.** Its §"The kill switch is only real where the runtime asks" is the one thing not to take on faith: only three of the ten registered systems currently honour the switch, and the doc names which
+- AI governance, safety & model management — the AI registry, risk/autonomy classification, guardrails, governed prompts, evaluation + red-team gate, bias/drift monitoring, the audit trail, incident reporting, the kill switch and its fallbacks → `docs/AI_GOVERNANCE_SPEC.md`. **Read it before adding or changing any AI call site.** All ten registered AI systems consult the registry, so `ai_systems.is_enabled` is a real kill switch for each; anything registered in future starts at `runtime_governed = false` and must earn the flag with a call site that actually consults `public.ai_runtime_config()`
 - Sprint-by-sprint build history — every migration, bug, and founder decision, dated, 2026-07-09 through 2026-08-03 → `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md` — a historical record; verify any specific fact against the live code/DB before trusting it, see "Where things actually stand" above
 - Diabetes/Hypertension clinical pathway source docs + outstanding-gap tracking → `guideline/` — the `.docx` files are the signed pathway source-of-truth; `Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md` and `Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md` track exactly what the platform still owes each pathway (mostly governance sign-off + localisation facts, not code) — read these directly, they are not otherwise summarised in this file
 - Shipped-feature build-plan docs, superseded by the running code and by `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, kept for historical design rationale only → `docs/archive/`
