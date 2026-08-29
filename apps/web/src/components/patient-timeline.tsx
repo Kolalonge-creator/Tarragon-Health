@@ -26,6 +26,7 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   escalation_resolved: { dot: "bg-green-600", label: "Escalation" },
   vaccination_recorded: { dot: "bg-green-600", label: "Vaccination" },
   discharge_recorded: { dot: "bg-green-600", label: "Discharge" },
+  referral_outcome_recorded: { dot: "bg-green-600", label: "Referral outcome" },
   medication_started: { dot: "bg-clinical-navy", label: "Medication" },
   medication_stopped: { dot: "bg-clinical-navy", label: "Medication" },
   referral_created: { dot: "bg-clinical-navy", label: "Referral" },
