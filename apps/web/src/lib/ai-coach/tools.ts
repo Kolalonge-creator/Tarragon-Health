@@ -71,6 +71,10 @@ const getRecentLabResultsSchema = z.object({
   limit: z.number().int().min(1).max(30).optional().describe("How many results to return, most recent first."),
 });
 
+const getMedicationInformationSchema = z.object({
+  drugName: z.string().min(1).describe("The generic or brand name of the medicine to look up, e.g. 'amlodipine'."),
+});
+
 const emptySchema = z.object({});
 
 export function buildPatientRecordTools(supabase: SupabaseClient<Database>, patientId: string) {
@@ -236,6 +240,48 @@ export function buildPatientRecordTools(supabase: SupabaseClient<Database>, pati
     }
   );
 
+  // Unlike the six tools above, this one reads a shared reviewed-content
+  // library (health_education_content), not per-patient data -- there is no
+  // patientId scoping to apply here, only the same clinician_reviewed=true
+  // gate every other retrieval path in this codebase already applies (see
+  // migration 20260829112000_medication_information_drafts.sql). Read-only,
+  // same as every other tool in this file -- closes §36.7, which previously
+  // had no approved source to answer from at all.
+  const getMedicationInformation = tool(
+    async (args: z.infer<typeof getMedicationInformationSchema>) => {
+      try {
+        const { drugName } = args;
+        const { data, error } = await supabase
+          .from("health_education_content")
+          .select("title, summary, body")
+          .eq("category", "medicines")
+          .eq("clinician_reviewed", true)
+          .eq("is_active", true)
+          .ilike("title", `%${drugName}%`)
+          .limit(1)
+          .maybeSingle();
+        if (error) return toolError("getMedicationInformation", error);
+        if (!data) {
+          return toJson({
+            found: false,
+            note: `No clinician-reviewed information is available yet for "${drugName}".`,
+          });
+        }
+        return toJson({ found: true, title: data.title, summary: data.summary, body: data.body });
+      } catch (error) {
+        return toolError("getMedicationInformation", error);
+      }
+    },
+    {
+      name: "getMedicationInformation",
+      description:
+        "Look up clinician-reviewed information about what a specific medicine is generally for and how it " +
+        "works, by name. Returns found=false if nothing reviewed exists yet for that drug -- treat that the " +
+        "same as any other 'no information available' result, never fill the gap from general knowledge.",
+      schema: getMedicationInformationSchema,
+    }
+  );
+
   const tools: StructuredToolInterface[] = [
     getVitals,
     getMedications,
@@ -243,6 +289,7 @@ export function buildPatientRecordTools(supabase: SupabaseClient<Database>, pati
     getAppointments,
     getConditions,
     getRecentLabResults,
+    getMedicationInformation,
   ];
   return tools;
 }

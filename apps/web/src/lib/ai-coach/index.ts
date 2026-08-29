@@ -130,8 +130,20 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
   };
   await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
 
+  // A referral request (referral-tool.ts) can create a real clinician_alerts
+  // row on ANY tier, including 'routine' — so finalAction reflects that even
+  // when the tier-driven classification alone would have said 'replied'.
+  // result.clinicianAlertId (the tier-driven escalation/review alert) and
+  // result.referralRequestClinicianAlertId (the referral-tool alert) are
+  // both, in principle, independently settable in the same turn — the audit
+  // row's single clinician_alert_id column prefers the tier-driven one when
+  // both exist; the referral one is always recorded in input_snapshot too.
   const finalAction: "replied" | "clinician_alert_created" | "escalation_created" =
-    tier === "emergency" ? "escalation_created" : tier === "clinician_review" ? "clinician_alert_created" : "replied";
+    tier === "emergency"
+      ? "escalation_created"
+      : tier === "clinician_review" || result.referralRequestClinicianAlertId
+        ? "clinician_alert_created"
+        : "replied";
 
   await logAssistantTurn(getServiceRoleSupabase(), {
     organisationId,
@@ -142,12 +154,16 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     promptVersion: result.modelId ? COACH_PROMPT_VERSION : null,
     safetyClassification: tier,
     retrievedSourceIds: result.retrievedSourceIds,
-    clinicianAlertId: result.clinicianAlertId,
+    clinicianAlertId: result.clinicianAlertId ?? result.referralRequestClinicianAlertId,
     escalationId: result.escalationId,
     finalAction,
     status: result.degraded ? "degraded" : "completed",
     errorMessage: result.errorMessage,
-    inputSnapshot: { ...result.inputSnapshotForAudit, careMessageThreadId: result.careMessageThreadId },
+    inputSnapshot: {
+      ...result.inputSnapshotForAudit,
+      careMessageThreadId: result.careMessageThreadId,
+      referralRequestCareMessageThreadId: result.referralRequestCareMessageThreadId,
+    },
   });
 
   return { conversationId, reply: result.reply, tier };

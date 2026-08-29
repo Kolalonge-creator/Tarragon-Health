@@ -15,6 +15,7 @@ import { loadPatientContext } from "./context";
 import { logAiCoachEscalation, logAiCoachReviewFlag } from "./escalate";
 import { buildAnthropicModel, getConfiguredModelId } from "./model";
 import { buildPatientRecordTools } from "./tools";
+import { buildReferralRequestTool } from "./referral-tool";
 import type { Embedder } from "@/lib/lifestyle/embed-content";
 import { createVoyageEmbedderFromEnv } from "@/lib/lifestyle/voyage-embedder";
 import { findRelevantLifestyleContent } from "@/lib/lifestyle/find-relevant-content";
@@ -71,6 +72,16 @@ const CoachState = Annotation.Root({
    * care_message_threads.escalation_id, so that path is left unlinked for
    * now (docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §7 Phase D). */
   careMessageThreadId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  /** §36.10 referral-request path (referral-tool.ts) — set when the model
+   * actually called requestSpecialistReferral this turn. Deliberately
+   * separate from clinicianAlertId/escalationId above (those are the
+   * keyword-guardrail/llmTurn emergency-classification outcome; this is a
+   * tool call that can happen on ANY tier, including 'routine'). */
+  referralRequestClinicianAlertId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  referralRequestCareMessageThreadId: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
   /** Exactly what was sent to the model for this turn — context lines,
    * retrieved source ids, tools called, prior-message window size. Feeds
    * ai_assistant_turns.input_snapshot (audit.ts), via index.ts. Never the
@@ -247,6 +258,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
 
     const modelId = getConfiguredModelId();
     const toolsCalled: string[] = [];
+    let referralRequestClinicianAlertId: string | null = null;
+    let referralRequestCareMessageThreadId: string | null = null;
 
     try {
       // Built inside the try block, not at graph-build time — a missing/invalid
@@ -256,10 +269,25 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       // Phase 1: bounded tool-calling loop. Offers the model read-only
       // record lookups so it can ground an answer in the patient's own
       // vitals/medications/allergies/appointments/conditions/labs instead
-      // of guessing (docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §4.1). Most
-      // turns (general questions, chit-chat) won't trigger a tool call at
-      // all — the loop exits after the first response with none.
-      const tools = buildPatientRecordTools(deps.supabase, state.profileId);
+      // of guessing (docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §4.1), plus
+      // the one write-capable tool (referral-tool.ts — see its own header
+      // for why it's built this way). Most turns (general questions,
+      // chit-chat) won't trigger a tool call at all — the loop exits after
+      // the first response with none.
+      const tools = [
+        ...buildPatientRecordTools(deps.supabase, state.profileId),
+        buildReferralRequestTool({
+          patientSupabase: deps.supabase,
+          getServiceRoleSupabase: deps.getServiceRoleSupabase,
+          organisationId: state.organisationId,
+          patientId: state.profileId,
+          conversationId: state.conversationId,
+          onReferralRequested: (result) => {
+            referralRequestClinicianAlertId = result.clinicianAlertId;
+            referralRequestCareMessageThreadId = result.careMessageThreadId;
+          },
+        }),
+      ];
       const toolsByName = new Map(tools.map((t) => [t.name, t]));
       const modelWithTools = model.bindTools(tools);
 
@@ -298,6 +326,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
         retrievedSourceIds,
         toolsCalled,
         historyMessageCount: history.length,
+        referralRequestClinicianAlertId,
+        referralRequestCareMessageThreadId,
       };
 
       // The emergency-tier safety sentence is always the canned copy, never
@@ -309,6 +339,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
           modelId,
           retrievedSourceIds,
           toolsCalled,
+          referralRequestClinicianAlertId,
+          referralRequestCareMessageThreadId,
           inputSnapshotForAudit: inputSnapshot,
         };
       }
@@ -318,11 +350,17 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
         modelId,
         retrievedSourceIds,
         toolsCalled,
+        referralRequestClinicianAlertId,
+        referralRequestCareMessageThreadId,
         inputSnapshotForAudit: inputSnapshot,
       };
     } catch (error) {
       // Degrading to the patient is correct either way, but swallowing the
       // real cause entirely makes a bad key/model/network issue undebuggable.
+      // referralRequestClinicianAlertId/ThreadId are still included here —
+      // the referral request write already happened for real (it's a
+      // separate try/catch inside the tool itself, see referral-tool.ts) even
+      // if something later in this turn subsequently failed.
       console.error("ai-coach: llmTurn failed, degrading to clinician_review", error);
       return {
         tier: "clinician_review" as const,
@@ -330,6 +368,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
         modelId,
         retrievedSourceIds,
         toolsCalled,
+        referralRequestClinicianAlertId,
+        referralRequestCareMessageThreadId,
         degraded: true,
         errorMessage: error instanceof Error ? error.message : String(error),
       };

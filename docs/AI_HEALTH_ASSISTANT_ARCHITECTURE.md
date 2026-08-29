@@ -30,10 +30,24 @@
 > `care_message_threads.escalation_id`) so a clinician's reply reaches the patient in-app, closing
 > §36.14's "conversation continues" half — **the `clinician_review` tier is deliberately NOT linked**,
 > since `logAiCoachReviewFlag` creates no `escalations` row to hang a thread off (see §7 Phase D).
-> §36.10's referral-write guardrail (§3) was not touched and still stands; §36.7 (medication
-> information) was not built — no approved content source exists yet, see §8, item 2. The sections below
-> are the original, unedited analysis this work was built from; §5's status table and §9's acceptance
-> table have been updated in place to reflect what shipped, everything else is left as written.
+> The sections below are the original, unedited analysis this work was built from; §5's status table
+> and §9's acceptance table have been updated in place to reflect what shipped, everything else is
+> left as written.
+>
+> **Same session, later — 36.7 and 36.10 also closed, on an explicit founder ask that overrode both
+> standing guardrails.** (1) §36.7 medication information: a `getMedicationInformation` tool plus a
+> 14-drug starter library (migration `20260829112000`, reusing `health_education_content`'s existing
+> `'medicines'` category rather than new schema) — purpose/mechanism only, no dose language, and
+> every row ships `clinician_reviewed = false` per this codebase's standing draft-library discipline,
+> so nothing reaches a patient until an actual clinician reviews it. (2) §36.10 referral navigation: a
+> `requestSpecialistReferral` tool (`lib/ai-coach/referral-tool.ts`) — but NOT a direct
+> `specialist_referrals` insert, which this session judged out of scope even under the explicit ask,
+> because that table is repeatedly documented elsewhere in this codebase as staff/trigger-created only
+> and load-bearing for a real safety gate (the protocol-scope-referral check). The tool instead opens
+> a `clinician_alerts` request (new `type_code='referral_requested'`, migration `20260829113000`) a
+> clinician reviews before creating any real referral through the existing path. See §3 for the full
+> reasoning on why the direct-write line held even under an explicit ask, and `CLAUDE.md`'s Clinical
+> Tier Ladder guardrail bullet, updated in place with a pointer to this decision.
 
 ## 0. What this document is
 
@@ -230,15 +244,36 @@ without an explicit ask. §36.10 ("Health navigation") describes exactly that bo
 > should not independently decide that cardiology is definitely required unless the workflow is an
 > approved clinical pathway.
 
-§36.10 draws its own line in the right place. Read together with `CLAUDE.md`, the split is:
+§36.10 draws its own line in the right place. Read together with `CLAUDE.md`, the split was:
 
 - **Safe now (Level 1, navigation-only):** the assistant deep-links the patient to the existing
   referral request or booking screen and explains what happens there. It writes nothing.
 - **Needs an explicit founder ask (Level 4, clinical action):** the assistant creates a
   `specialist_referrals` / `booking_requests` / `referrals` row, or names a specialty as required.
 
-The distinction is whether a chat turn causes a clinical workflow object to exist. It must not,
-until asked for. Nothing in §7's phasing crosses that line.
+The distinction is whether a chat turn causes a clinical workflow object to exist.
+
+**2026-08-29 — that ask was made, explicitly, and a narrower version of the Level 4 piece was
+built.** `lib/ai-coach/referral-tool.ts` gives the assistant one write-capable tool,
+`requestSpecialistReferral`, callable only on a clear, explicit patient request (never
+speculatively). What it does NOT do, deliberately, even under the explicit ask: insert into
+`public.specialist_referrals`. That table is staff/trigger-created only — stated as a design
+invariant in at least two prior migrations
+(`20260724020810_referral_facility_activation.sql`, `20260715125456_clinician_originated_orders.sql`)
+and load-bearing for the protocol-scope-referral safety gate
+(`20260826225042_protocol_scope_referral_gate.sql`, which requires a real `specialist_referrals`
+row before an out-of-protocol-scope case can be marked `referred`) and several downstream triggers
+(commission recording, provider notifications, patient-timeline entries) that all assume a
+referral's provenance is a trusted staff/system action. The tool instead writes a `clinician_alerts`
+row (`category='care_management'`, `type_code='referral_requested'`) and opens a `care_messages`
+thread — a real, human-reviewed **request**, routed to a clinician (Tier 4 per the Clinical Tier
+Ladder — "approves referrals") who creates the actual referral through the existing, completely
+unchanged staff-only path if appropriate. §36.10's own line — "should not independently decide that
+cardiology is definitely required" — is exactly what this preserves: the assistant never creates the
+binding clinical workflow object, a human still does. See `docs/CLAUDE.md`'s Clinical Tier Ladder
+guardrail bullet, updated in place with the same reasoning. The full specialist-matching/ranking
+engine (a separate, larger piece — see `docs/CLINICAL_NETWORK_SPEC.md` §3) was NOT touched and its
+guardrail is unaffected by this.
 
 Two further standing rules bear directly on this build:
 
@@ -362,10 +397,10 @@ Two adjacent issues to settle in the same change:
 | 36.4 | Patient questions | ✅ | **2026-08-29:** all six example questions now answerable — `tools.ts`'s six read-only record tools (`getVitals`, `getMedications`, `getAllergies`, `getAppointments`, `getConditions`, `getRecentLabResults`), bound into `llmTurn`'s bounded tool-calling loop (`graph.ts`) |
 | 36.5 | "Explain my health record" | ✅ | **2026-08-29:** `composed-surfaces.ts`'s `explainHealthRecord()`, a chat quick-action button. Deliberately deterministic (no LLM call) rather than model-narrated — every field is a value read straight from the record, formatted, never phrased by a model, which is the strictest way to satisfy §36.5's "distinguish documented facts from AI interpretation" |
 | 36.6 | Result explanation | 🟡 | `patient_result_explanations` + `lib/patient-explainer/` — cached, 5 languages, latest+previous trend framing, `model_id` and `input_snapshot` recorded. **Still not reachable from chat** as a citation source (the new `getRecentLabResults`/`getVitals` tools read raw values, not this cached explainer), and see §3 on its example copy |
-| 36.7 | Medication explanation | ❌ | **Still not built, deliberately.** No approved medication-information source exists — `medications` holds prescriptions, not patient education — so the system prompt (2026-08-29 revision) now explicitly instructs the assistant to decline medication questions and route to the care team rather than answer from model internal knowledge, which is what §36.15/36.16 forbid. Needs content authored and clinician-reviewed before it can ship (§8, item 2) |
+| 36.7 | Medication explanation | 🟡 | **2026-08-29:** a `getMedicationInformation` tool and a 14-drug starter library now exist (migration `20260829112000`, reusing `health_education_content`'s existing `'medicines'` category and review/embedding machinery), covering the core hypertension/diabetes formulary plus common cardiovascular co-prescriptions — purpose and mechanism only, no dose language anywhere in the content. **Still 🟡, not ✅, because every drafted row ships `clinician_reviewed = false`** (same honesty rule as every other draft library in this codebase) — the tool returns `found: false` for all of them until an actual clinician reviews and approves each one, at which point they start answering with no further code change. §8, item 2 (who reviews it) is unresolved; this closed "no pipeline exists," not "content is live" |
 | 36.8 | Care-plan explanation ("what do I need this month") | ✅ | **2026-08-29:** `composed-surfaces.ts`'s `careTasksThisMonth()`, composing `vitals_reminder_state`, medication refill dates, `screening_schedules`, and upcoming appointments into the ✓/○ checklist §36.8's own example shows |
 | 36.9 | Appointment preparation | 🟡 | **2026-08-29:** `composed-surfaces.ts`'s `prepareForAppointment()` covers symptoms, recent measurements, and medication issues (an overdue refill). Not included: "changes since previous review" (needs a review-history read not yet built) and a generated "questions to ask" list (deliberately out of scope — see composed-surfaces.ts's own top comment on why these three surfaces stay LLM-free) |
-| 36.10 | Health navigation | 🔒 | Deep-linking safe now; creating a referral needs an explicit ask (§3) — **untouched this session** |
+| 36.10 | Health navigation | 🟡 | **2026-08-29, on explicit founder ask:** `requestSpecialistReferral` (see §3) flags a patient's explicit request for a clinician to review — real, but deliberately not a binding referral. **Still 🟡, not ✅:** it does not create a `specialist_referrals` row itself, by design (§3) — a human clinician still makes that call through the unchanged, existing staff-only path |
 | 36.11 | Emergency safety | ✅ | Deterministic pre-model guardrail; verbatim safety copy; `clinician_alerts` + `escalations` + `emergency_events` with a 4h SLA; reuses the acknowledge-gated patient emergency pathway. **2026-08-29: now also opens a real `care_messages` thread** (§36.14 below) |
 | 36.12 | Structured symptom capture | ❌ | Free text only, still. `symptoms` table and `lib/triage/score.ts` exist and are now *readable* from chat (`prepareForAppointment` reads recent `symptoms` rows), but nothing *collects* a new structured report (onset/duration/severity/associated symptoms) from within a conversation |
 | 36.13 | AI uncertainty | 🟡 | Real as a *system* property (fail-cautious to `clinician_review`; `COACH_UNAVAILABLE_REPLY`) and, as of 2026-08-29, reinforced at the prompt level: `COACH_SYSTEM_PROMPT`'s grounding rules now explicitly instruct "if a tool returns nothing... say plainly you don't have enough information... do not fill the gap from general knowledge." Still not a first-class, separately audited response *mode* — it's prompt instruction, not a structural guarantee the way the keyword guardrail is |
@@ -375,7 +410,10 @@ Two adjacent issues to settle in the same change:
 | 36.17 | Response logging | ✅ | **2026-08-29:** `ai_assistant_turns` (migration `20260829100000`) — `audit.ts`'s `logAssistantTurn`, called from every `runCoachTurn()`/`runQuickAction()` exit path, recording model id, prompt version, safety classification, retrieved source ids, escalation linkage, and status. The central governance gap this document identified (§4.3) is closed |
 | 36.18 | Acceptance criteria | 🟡 | See §9 |
 
-**Summary, 2026-08-29: 7 shipped, 8 partial, 2 absent, 1 guardrailed** (was 3/7/7/1 before this session — see the status callout at the top of this document for exactly what changed and why 36.7/36.10/36.12 are unchanged on purpose).
+**Summary, 2026-08-29 (end of session): 7 shipped, 10 partial, 1 absent, 0 guardrailed** (was 3/7/7/1
+before this session). 36.10 moved out of guardrailed on an explicit founder ask partway through this
+session — see §3 for exactly what was and wasn't built under that ask, and the status callout at the
+top of this document for the full session summary.
 
 ## 6. Target architecture
 
@@ -480,12 +518,18 @@ both are operational, not engineering (§8).*
     WhatsApp.
 16. Structured symptom capture (§36.12) feeding the existing `symptoms` table and `lib/triage/score.ts`.
 
-### Phase E — Guardrailed, needs an explicit founder ask
+### Phase E — Guardrailed, needs an explicit founder ask — 🟡 both items closed 2026-08-29 on that ask
 
-17. §36.10 write-side navigation (§3). Deep-linking only until then.
-18. Approved medication-information content (§36.7) — the blocker is clinical authoring and review
-    capacity, not code. Until that content exists, the assistant should decline medication questions
-    and route to the care team rather than answer from model internal knowledge.
+17. ~~§36.10 write-side navigation (§3). Deep-linking only until then.~~ **Done, narrower than
+    written here:** `requestSpecialistReferral` (§3) flags a request for clinician review — it does
+    NOT create a `specialist_referrals` row itself, which this session judged out of scope even
+    under the explicit ask (see §3's full reasoning). A human clinician still creates any real
+    referral through the existing, unchanged staff-only path.
+18. ~~Approved medication-information content (§36.7)~~ **Done as a pipeline, not yet as content
+    patients see:** a `getMedicationInformation` tool and a 14-drug draft library now exist
+    (migration `20260829112000`), but every row ships `clinician_reviewed = false` — this session
+    authored the drafts, it did not (and could not) provide the clinical review itself. §8 item 2
+    (who reviews it) is still open.
 
 ## 8. Open decisions
 
@@ -519,7 +563,7 @@ Genuine founder/clinical calls, not engineering choices. Each blocks something a
 
 | Criterion | Standing | What closes it |
 |---|---|---|
-| **Useful** | ✅ | **2026-08-29:** can now answer questions about the patient's own record via tools (36.4), and reach three composed surfaces (36.5/36.8/36.9) directly. Medication information (36.7) still declines by design, pending content |
+| **Useful** | ✅ | **2026-08-29:** can now answer questions about the patient's own record via tools (36.4), reach three composed surfaces (36.5/36.8/36.9) directly, look up reviewed medication information when it exists (36.7 — the pipeline is real, but content is still all unreviewed drafts, so it mostly still says "I don't know" today), and flag an explicit specialist-referral request (36.10) |
 | **Contextual** | ✅ | **2026-08-29:** all 11 of §36.3's context items (§4.2, Phase B) |
 | **Transparent** | 🟡 | **2026-08-29:** retrieved source ids are now recorded per turn (audit table), and the three composed surfaces are 100% documented-fact with no generated text at all. Still missing: in-chat source *citation* to the patient (the retrieved titles inform the model's answer but aren't shown), and the chat's own free-text replies have no fact/interpretation visual split the way the composed surfaces do |
 | **Bounded** | ✅ | Scope guardrails in the system prompt (strengthened 2026-08-29 with explicit grounding/uncertainty rules); deterministic emergency pass; entitlement and rate limits; fail-cautious degradation; read-only tools only (§4.1's hard invariant). Still the strongest criterion |

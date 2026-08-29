@@ -24,6 +24,8 @@ export function chainable<T>(result: T) {
     "limit",
     "is",
     "in",
+    "ilike",
+    "like",
   ];
   for (const method of chainMethods) {
     obj[method] = jest.fn(() => obj);

@@ -42,8 +42,14 @@ describe("buildPatientRecordTools", () => {
     const { client } = fakeSupabase({ data: null, error: { message: "connection reset" } });
     const tools = buildPatientRecordTools(client, "patient-1");
 
+    // getMedicationInformation has a required `drugName` argument; every
+    // other tool here accepts an empty object.
+    const argsByTool: Record<string, Record<string, unknown>> = {
+      getMedicationInformation: { drugName: "amlodipine" },
+    };
+
     for (const tool of tools) {
-      const output = await tool.invoke({});
+      const output = await tool.invoke(argsByTool[tool.name] ?? {});
       const parsed = JSON.parse(output as string);
       expect(parsed).toHaveProperty("error");
     }
@@ -81,7 +87,7 @@ describe("buildPatientRecordTools", () => {
     expect(JSON.parse(withPast as string)).toEqual({ appointments: [], note: "No appointments found." });
   });
 
-  it("exposes exactly the six read-only tools and no write-shaped tool", () => {
+  it("exposes exactly the seven read-only tools and no write-shaped tool", () => {
     const { client } = fakeSupabase({ data: [], error: null });
     const tools = buildPatientRecordTools(client, "patient-1");
 
@@ -90,6 +96,7 @@ describe("buildPatientRecordTools", () => {
       "getAllergies",
       "getAppointments",
       "getConditions",
+      "getMedicationInformation",
       "getMedications",
       "getRecentLabResults",
       "getVitals",
@@ -97,5 +104,37 @@ describe("buildPatientRecordTools", () => {
     for (const name of names) {
       expect(name.toLowerCase()).not.toMatch(/^(set|update|create|write|delete|insert|remove|cancel)/);
     }
+  });
+
+  describe("getMedicationInformation", () => {
+    it("returns found=false when no clinician-reviewed row matches", async () => {
+      const { client } = fakeSupabase({ data: null, error: null });
+      const tools = buildPatientRecordTools(client, "patient-1");
+
+      const output = await toolByName(tools, "getMedicationInformation").invoke({ drugName: "amlodipine" });
+
+      const parsed = JSON.parse(output as string);
+      expect(parsed.found).toBe(false);
+      expect(parsed.note).toContain("amlodipine");
+    });
+
+    it("returns the reviewed content on a match", async () => {
+      const row = { title: "Amlodipine", summary: "Lowers blood pressure.", body: "Full body text." };
+      const { client } = fakeSupabase({ data: row, error: null });
+      const tools = buildPatientRecordTools(client, "patient-1");
+
+      const output = await toolByName(tools, "getMedicationInformation").invoke({ drugName: "amlodipine" });
+
+      expect(JSON.parse(output as string)).toEqual({ found: true, ...row });
+    });
+
+    it("only reads the shared health_education_content library, not any per-patient table", async () => {
+      const { client, from } = fakeSupabase({ data: null, error: null });
+      const tools = buildPatientRecordTools(client, "patient-1");
+
+      await toolByName(tools, "getMedicationInformation").invoke({ drugName: "metformin" });
+
+      expect(from).toHaveBeenCalledWith("health_education_content");
+    });
   });
 });
