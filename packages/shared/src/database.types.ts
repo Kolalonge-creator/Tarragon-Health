@@ -1566,6 +1566,73 @@ export type Database = {
           },
         ]
       }
+      care_message_draft_replies: {
+        Row: {
+          draft_text: string | null
+          error_message: string | null
+          generated_at: string
+          id: string
+          input_snapshot: Json
+          model_id: string
+          needs_clinical_review: boolean
+          organisation_id: string
+          patient_id: string
+          review_reason: string | null
+          status: Database["public"]["Enums"]["care_message_draft_reply_status"]
+          thread_id: string
+        }
+        Insert: {
+          draft_text?: string | null
+          error_message?: string | null
+          generated_at?: string
+          id?: string
+          input_snapshot: Json
+          model_id: string
+          needs_clinical_review?: boolean
+          organisation_id: string
+          patient_id: string
+          review_reason?: string | null
+          status: Database["public"]["Enums"]["care_message_draft_reply_status"]
+          thread_id: string
+        }
+        Update: {
+          draft_text?: string | null
+          error_message?: string | null
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          model_id?: string
+          needs_clinical_review?: boolean
+          organisation_id?: string
+          patient_id?: string
+          review_reason?: string | null
+          status?: Database["public"]["Enums"]["care_message_draft_reply_status"]
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_message_draft_replies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_message_draft_replies_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_message_draft_replies_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: true
+            referencedRelation: "care_message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_message_threads: {
         Row: {
           care_plan_id: string | null
@@ -19731,6 +19798,7 @@ export type Database = {
         | "declined"
         | "cancelled"
       care_message_author: "patient" | "care_team" | "sponsor"
+      care_message_draft_reply_status: "generated" | "failed"
       care_message_thread_status: "open" | "closed"
       care_plan_condition:
         | "hypertension"
@@ -20638,6 +20706,7 @@ export const Constants = {
         "cancelled",
       ],
       care_message_author: ["patient", "care_team", "sponsor"],
+      care_message_draft_reply_status: ["generated", "failed"],
       care_message_thread_status: ["open", "closed"],
       care_plan_condition: [
         "hypertension",

@@ -5,6 +5,7 @@ import { useThreadMessages, usePostMessage, type CareMessage } from "@/lib/queri
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
+import { DraftReplyCard } from "@/components/draft-reply-card";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -63,9 +64,15 @@ const BUBBLE: Record<string, string> = {
 export function CareMessageThread({
   threadId,
   closed,
+  showDraftAssist = false,
 }: {
   threadId: string;
   closed: boolean;
+  /** Renders the AI-drafted "Suggested reply" card above the compose box.
+   * Staff-only surface (the underlying care_message_draft_replies table is
+   * unreadable to a patient session via RLS) -- the patient-facing call
+   * sites (messages-flow.tsx, supported-people.tsx) leave this unset. */
+  showDraftAssist?: boolean;
 }) {
   const { data: messages, isLoading } = useThreadMessages(threadId);
   const post = usePostMessage();
@@ -111,7 +118,8 @@ export function CareMessageThread({
       {closed ? (
         <p className="text-sm text-charcoal-ink/50">This conversation is closed.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {showDraftAssist && <DraftReplyCard threadId={threadId} />}
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}

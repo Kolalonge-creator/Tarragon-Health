@@ -48,7 +48,11 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
       </div>
       {open && (
         <div className="mt-3 space-y-3">
-          <CareMessageThread threadId={thread.id} closed={thread.status === "closed"} />
+          <CareMessageThread
+            threadId={thread.id}
+            closed={thread.status === "closed"}
+            showDraftAssist
+          />
           {thread.status === "open" && (
             <Button
               type="button"

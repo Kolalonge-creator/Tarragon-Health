@@ -2751,3 +2751,42 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+### 2026-08-29 — care_message_draft_replies: AI-drafted reply assist for the Care Coordinator inbox
+
+A doctor-cost-optimization / Care Coordinator-scaling discussion asked what of the proposed scaling
+model (`docs/Tarragon_Health_Master_Operating_Plan_v4.md` §4, "Cost Compression Model" subsection added
+the same session) was already built. Everything was, except one lever: "AI drafts, coordinator reviews
+and sends" for the `care_messages` inbox. The doctor-side equivalent (`case_briefs`, Claude Haiku-drafted
+case summaries) already existed; this closes the same gap on the Care Coordinator side.
+
+- `20260829142213_care_message_draft_replies.sql`: one `care_message_draft_replies` row per thread
+  (upserted on regenerate), staff-only `select` RLS (`is_org_staff`), no insert/update/delete policy —
+  written only by the service-role generator, matching `case_briefs`' write boundary exactly. Applied
+  directly to the live `koiplnmbgnqnbywhpjlf` project; its own `DO` block assertions passed and
+  `get_advisors` (security) shows nothing against the new table.
+- **Deliberately manual-trigger only** ("Draft reply" button), never auto-generated on an inbound
+  patient message — case_briefs' auto-on-acknowledge trigger doesn't apply here on purpose, since that
+  would mean a paid Claude call for every patient message regardless of whether staff are about to
+  reply.
+- The drafting prompt (`lib/care-messages/generate-draft-reply.ts`) refuses to draft a substantive reply
+  when the patient's message sounds like it needs clinical judgment — it drafts only a short holding
+  reply and sets `needs_clinical_review`/`review_reason` instead, mirroring the AI Coach's
+  `clinician_review` tier so the Care Coordinator's "never interprets a result, never adjusts
+  medication, never closes an escalation" limit is respected by the drafted content itself, not just by
+  a separate write-access gate.
+- **The draft is display-only, never pre-loaded into the compose Textarea** (`draft-reply-card.tsx`,
+  wired into `care-message-thread.tsx` via a new `showDraftAssist` prop, on by default only in
+  `clinician/messages/worklist.tsx` — the patient-facing call sites leave it unset since the underlying
+  table is unreadable to a patient session anyway). This mirrors `case-brief-card.tsx`'s
+  `draftReviewNote` convention on purpose: a draft that occupies the field whose submission actually
+  reaches the patient invites sending it unread, the same "confirmed unread" failure that pattern was
+  already designed against for the doctor review-note field.
+- Types: hand-merged `care_message_draft_replies` + the `care_message_draft_reply_status` enum into
+  `database.types.ts` at what a real regenerate would place it (right after `care_access_requests`,
+  before `care_message_threads` — table/enum names sort by underscore-before-letter, not by the
+  human-readable table grouping), then confirmed byte-for-byte against a live
+  `generate_typescript_types` call rather than trusting the manual edit alone.
+- Verified: `pnpm --filter @tarragon/shared typecheck`, `pnpm --filter web typecheck`, `pnpm --filter
+  web lint` (0 errors, same 4 pre-existing unrelated warnings), and the full Jest suite (108/108 web
+  suites, 1121/1121 tests; 2/2 shared suites, 47/47 tests) all clean.
+
