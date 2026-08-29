@@ -220,6 +220,11 @@ export function getNavSections(
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                // Filing an incident or near miss needs no clinical
+                // authority — a coordinator spotting one and reporting it is
+                // the safety culture the log exists for. Reviewing and
+                // closing does, and self-gates inside the page.
+                { label: "Incidents & near misses", href: "/clinician/incidents", icon: "warning" },
               ],
             },
           ]
@@ -265,6 +270,15 @@ export function getNavSections(
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
+              ],
+            },
+            {
+              // Clinical Governance & Patient Safety: the reporting end
+              // (anyone may file) and the leadership view over it.
+              label: "Safety & governance",
+              items: [
+                { label: "Clinical safety", href: "/clinician/safety", icon: "governance" },
+                { label: "Incidents & near misses", href: "/clinician/incidents", icon: "warning" },
               ],
             },
             {
