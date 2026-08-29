@@ -9056,6 +9056,8 @@ export type Database = {
           missed_count: number
           organisation_id: string
           patient_id: string
+          primary_reason: Database["public"]["Enums"]["missed_dose_reason"] | null
+          reason_breakdown: Json
           resolution_note: string | null
           resolved_at: string | null
           resolved_by: string | null
@@ -9073,6 +9075,8 @@ export type Database = {
           missed_count: number
           organisation_id: string
           patient_id: string
+          primary_reason?: Database["public"]["Enums"]["missed_dose_reason"] | null
+          reason_breakdown?: Json
           resolution_note?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -9090,6 +9094,8 @@ export type Database = {
           missed_count?: number
           organisation_id?: string
           patient_id?: string
+          primary_reason?: Database["public"]["Enums"]["missed_dose_reason"] | null
+          reason_breakdown?: Json
           resolution_note?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -9276,6 +9282,7 @@ export type Database = {
           logged_at: string
           logged_by_profile_id: string | null
           medication_id: string
+          missed_reason: Database["public"]["Enums"]["missed_dose_reason"] | null
           organisation_id: string
           patient_id: string
           reason: string | null
@@ -9289,6 +9296,7 @@ export type Database = {
           logged_at?: string
           logged_by_profile_id?: string | null
           medication_id: string
+          missed_reason?: Database["public"]["Enums"]["missed_dose_reason"] | null
           organisation_id: string
           patient_id: string
           reason?: string | null
@@ -9302,6 +9310,7 @@ export type Database = {
           logged_at?: string
           logged_by_profile_id?: string | null
           medication_id?: string
+          missed_reason?: Database["public"]["Enums"]["missed_dose_reason"] | null
           organisation_id?: string
           patient_id?: string
           reason?: string | null
@@ -18422,6 +18431,13 @@ export type Database = {
       medication_log_status: "taken" | "missed" | "skipped"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
+      missed_dose_reason:
+        | "cost"
+        | "side_effects"
+        | "forgetfulness"
+        | "availability"
+        | "understanding"
+        | "other"
       notification_channel:
         | "email"
         | "sms"
@@ -19283,6 +19299,14 @@ export const Constants = {
       medication_log_status: ["taken", "missed", "skipped"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
+      missed_dose_reason: [
+        "cost",
+        "side_effects",
+        "forgetfulness",
+        "availability",
+        "understanding",
+        "other",
+      ],
       notification_channel: [
         "email",
         "sms",
