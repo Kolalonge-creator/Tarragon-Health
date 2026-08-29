@@ -13727,6 +13727,106 @@ export type Database = {
           },
         ]
       }
+      pharmacy_order_refunds: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          journal_entry_id: string | null
+          margin_portion_kobo: number
+          organisation_id: string
+          paid_at: string | null
+          partner_portion_kobo: number
+          pharmacy_order_id: string
+          reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refund_total_kobo: number
+          requested_at: string
+          requested_by: string | null
+          status: Database["public"]["Enums"]["pharmacy_refund_status"]
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          margin_portion_kobo?: number
+          organisation_id: string
+          paid_at?: string | null
+          partner_portion_kobo?: number
+          pharmacy_order_id: string
+          reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refund_total_kobo: number
+          requested_at?: string
+          requested_by?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_refund_status"]
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          margin_portion_kobo?: number
+          organisation_id?: string
+          paid_at?: string | null
+          partner_portion_kobo?: number
+          pharmacy_order_id?: string
+          reason?: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refund_total_kobo?: number
+          requested_at?: string
+          requested_by?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_refund_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_refunds_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "finance_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_pharmacy_order_id_fkey"
+            columns: ["pharmacy_order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_reason_fkey"
+            columns: ["reason"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_refund_policies"
+            referencedColumns: ["reason"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_refunds_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pharmacy_orders: {
         Row: {
           applied_voucher_id: string | null
@@ -13745,6 +13845,9 @@ export type Database = {
           organisation_id: string
           origin: Database["public"]["Enums"]["booking_origin"]
           patient_id: string
+          partner_cost_breakdown: Json | null
+          partner_cost_kobo: number | null
+          partner_cost_provider_id: string | null
           payable_kobo: number | null
           payment_provider:
             | Database["public"]["Enums"]["payment_provider"]
@@ -13774,6 +13877,9 @@ export type Database = {
           ordered_by?: string | null
           organisation_id: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          partner_cost_breakdown?: Json | null
+          partner_cost_kobo?: number | null
+          partner_cost_provider_id?: string | null
           patient_id: string
           payable_kobo?: number | null
           payment_provider?:
@@ -13804,6 +13910,9 @@ export type Database = {
           ordered_by?: string | null
           organisation_id?: string
           origin?: Database["public"]["Enums"]["booking_origin"]
+          partner_cost_breakdown?: Json | null
+          partner_cost_kobo?: number | null
+          partner_cost_provider_id?: string | null
           patient_id?: string
           payable_kobo?: number | null
           payment_provider?:
@@ -13831,6 +13940,13 @@ export type Database = {
             columns: ["ordered_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_orders_partner_cost_provider_id_fkey"
+            columns: ["partner_cost_provider_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_partners"
             referencedColumns: ["id"]
           },
           {
@@ -13896,6 +14012,175 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pharmacy_partner_locations_pharmacy_partner_id_fkey"
+            columns: ["pharmacy_partner_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacy_partner_statement_lines: {
+        Row: {
+          created_at: string
+          expected_kobo: number | null
+          id: string
+          invoiced_kobo: number
+          medication_id: string | null
+          partner_reference: string | null
+          pharmacy_order_id: string | null
+          resolution: Database["public"]["Enums"]["pharmacy_partner_statement_line_resolution"]
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          statement_id: string
+        }
+        Insert: {
+          created_at?: string
+          expected_kobo?: number | null
+          id?: string
+          invoiced_kobo: number
+          medication_id?: string | null
+          partner_reference?: string | null
+          pharmacy_order_id?: string | null
+          resolution?: Database["public"]["Enums"]["pharmacy_partner_statement_line_resolution"]
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          statement_id: string
+        }
+        Update: {
+          created_at?: string
+          expected_kobo?: number | null
+          id?: string
+          invoiced_kobo?: number
+          medication_id?: string | null
+          partner_reference?: string | null
+          pharmacy_order_id?: string | null
+          resolution?: Database["public"]["Enums"]["pharmacy_partner_statement_line_resolution"]
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          statement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_partner_statement_lines_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statement_lines_pharmacy_order_id_fkey"
+            columns: ["pharmacy_order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statement_lines_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_partner_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacy_partner_statements: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          bill_id: string | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          expected_total_kobo: number | null
+          id: string
+          invoiced_total_kobo: number
+          matched_at: string | null
+          note: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          pharmacy_partner_id: string
+          reference: string
+          received_at: string
+          settled_at: string | null
+          status: Database["public"]["Enums"]["pharmacy_partner_statement_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bill_id?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          expected_total_kobo?: number | null
+          id?: string
+          invoiced_total_kobo: number
+          matched_at?: string | null
+          note?: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          pharmacy_partner_id: string
+          reference: string
+          received_at?: string
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_partner_statement_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bill_id?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          expected_total_kobo?: number | null
+          id?: string
+          invoiced_total_kobo?: number
+          matched_at?: string | null
+          note?: string | null
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          pharmacy_partner_id?: string
+          reference?: string
+          received_at?: string
+          settled_at?: string | null
+          status?: Database["public"]["Enums"]["pharmacy_partner_statement_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_partner_statements_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statements_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "finance_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_partner_statements_pharmacy_partner_id_fkey"
             columns: ["pharmacy_partner_id"]
             isOneToOne: false
             referencedRelation: "pharmacy_partners"
@@ -13979,6 +14264,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pharmacy_refund_policies: {
+        Row: {
+          note: string
+          partner_still_owed: boolean
+          reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refunds_in_full: boolean
+        }
+        Insert: {
+          note: string
+          partner_still_owed: boolean
+          reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refunds_in_full: boolean
+        }
+        Update: {
+          note?: string
+          partner_still_owed?: boolean
+          reason?: Database["public"]["Enums"]["pharmacy_refund_reason"]
+          refunds_in_full?: boolean
+        }
+        Relationships: []
       }
       platform_currency_settings: {
         Row: {
@@ -18573,6 +18879,14 @@ export type Database = {
         Args: { p_force_note?: string; p_statement_id: string }
         Returns: Json
       }
+      approve_pharmacy_order_refund: {
+        Args: { p_refund_id: string }
+        Returns: Json
+      }
+      approve_pharmacy_partner_statement: {
+        Args: { p_force_note?: string; p_statement_id: string }
+        Returns: Json
+      }
       attest_health_passport_request: {
         Args: { p_request_id: string; p_statement?: string }
         Returns: string
@@ -19170,6 +19484,10 @@ export type Database = {
         Args: { p_statement_id: string }
         Returns: Json
       }
+      match_pharmacy_partner_statement: {
+        Args: { p_statement_id: string }
+        Returns: Json
+      }
       mint_health_passport: {
         Args: { p_attestation_request_id?: string }
         Returns: Json
@@ -19498,6 +19816,15 @@ export type Database = {
           p_staff_profile_id: string
         }
         Returns: string
+      }
+      request_pharmacy_order_refund: {
+        Args: {
+          p_amount_kobo?: number
+          p_detail?: string
+          p_order_id: string
+          p_reason: Database["public"]["Enums"]["pharmacy_refund_reason"]
+        }
+        Returns: Json
       }
       resolve_personalised_lifestyle_goal: {
         Args: {
@@ -20322,6 +20649,28 @@ export type Database = {
         | "out_for_delivery"
         | "delivered"
         | "cancelled"
+      pharmacy_partner_statement_line_resolution:
+        | "unmatched"
+        | "agreed"
+        | "overcharged"
+        | "undercharged"
+        | "not_ordered"
+        | "not_delivered"
+      pharmacy_partner_statement_status:
+        | "draft"
+        | "matched"
+        | "disputed"
+        | "approved"
+        | "settled"
+      pharmacy_refund_reason:
+        | "patient_cancelled"
+        | "out_of_stock"
+        | "wrong_item_dispensed"
+        | "partially_fulfilled"
+        | "delivery_failed"
+        | "duplicate_order"
+        | "clinically_withdrawn"
+      pharmacy_refund_status: "requested" | "approved" | "rejected" | "paid"
       prevention_condition:
         | "hypertension"
         | "diabetes"
@@ -21278,6 +21627,31 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
+      pharmacy_partner_statement_line_resolution: [
+        "unmatched",
+        "agreed",
+        "overcharged",
+        "undercharged",
+        "not_ordered",
+        "not_delivered",
+      ],
+      pharmacy_partner_statement_status: [
+        "draft",
+        "matched",
+        "disputed",
+        "approved",
+        "settled",
+      ],
+      pharmacy_refund_reason: [
+        "patient_cancelled",
+        "out_of_stock",
+        "wrong_item_dispensed",
+        "partially_fulfilled",
+        "delivery_failed",
+        "duplicate_order",
+        "clinically_withdrawn",
+      ],
+      pharmacy_refund_status: ["requested", "approved", "rejected", "paid"],
       prevention_condition: [
         "hypertension",
         "diabetes",
