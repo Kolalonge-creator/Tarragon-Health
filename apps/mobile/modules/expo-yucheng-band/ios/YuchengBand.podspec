@@ -29,12 +29,14 @@ Pod::Spec.new do |s|
   s.source_files = 'YuchengBandModule.swift'
 
   # Deliberately a glob, not a hardcoded framework list — see Frameworks/README.md.
-  # This repo does not (yet) contain the actual vendor binaries; `pod install`
-  # will vendor whatever .framework bundles are physically present in this
-  # directory once someone drops them in per that README's instructions. An
-  # empty Frameworks/ makes this a source-only pod that won't build against
-  # the real SDK (import YCProductSDK will fail) but won't break `pod install`
-  # itself or anything else in the workspace either.
+  # The real vendor binaries ARE now committed here (YCProductSDK.framework
+  # plus its 10 Jieli/Realtek/ZipZap dependencies), so this glob vendors them
+  # as-is. NOTE: YCProductSDK.framework ships an arm64-apple-ios slice ONLY —
+  # there is no arm64-apple-ios-simulator slice — so anything linking this pod
+  # builds and runs on a PHYSICAL DEVICE only; an iOS Simulator build will
+  # fail to link. Confirmed by inspecting the framework's
+  # Modules/YCProductSDK.swiftmodule/ directory, which contains only
+  # arm64-apple-ios.{swiftinterface,swiftmodule}.
   s.vendored_frameworks = 'Frameworks/*.framework'
 
   s.pod_target_xcconfig = {

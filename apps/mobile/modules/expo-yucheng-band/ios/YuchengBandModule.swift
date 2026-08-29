@@ -101,14 +101,14 @@ public class YuchengBandModule: Module {
 
     AsyncFunction("getDeviceInfo") { (deviceId: String, promise: Promise) in
       let peripheral = self.discovered[deviceId] ?? YCProduct.shared.currentPeripheral
-      // INFERRED signature — the doc excerpt only showed the call-site
-      // example (`YCProduct.queryDeviceBasicInfo { state, response in ... }`,
-      // no explicit peripheral argument), not the `public static func
-      // queryDeviceBasicInfo(...)` declaration itself. Every other method in
-      // this SDK takes `_ peripheral: CBPeripheral? = YCProduct.shared.
-      // currentPeripheral` as its first parameter, so this call assumes the
-      // same shape. If that's wrong, Xcode's autocomplete on first real
-      // build will show the true signature immediately.
+      // Signature CONFIRMED against the shipped binary's
+      // Frameworks/YCProductSDK.framework/Modules/YCProductSDK.swiftmodule/
+      // arm64-apple-ios.swiftinterface, which declares:
+      //   queryDeviceBasicInfo(_ peripheral: CBPeripheral? = YCProduct.shared
+      //     .currentPeripheral, completion: ((YCProductState, Any?) -> ())?)
+      // — i.e. the inferred shape this call was originally written against
+      // was right. Verified by reading the .swiftinterface directly, not by
+      // an Xcode build; see this file's header for what remains unverified.
       YCProduct.queryDeviceBasicInfo(peripheral) { state, response in
         guard state == .succeed, let info = response as? YCDeviceBasicInfo else {
           promise.reject("YUCHENG_DEVICE_INFO_FAILED", "queryDeviceBasicInfo failed (state=\(state))")
@@ -128,7 +128,7 @@ public class YuchengBandModule: Module {
       let isoFormatter = ISO8601DateFormatter()
 
       group.enter()
-      YCProduct.queryHealthData(peripheral, datatType: .heartRate) { state, response in
+      YCProduct.queryHealthData(peripheral, dataType: .heartRate) { state, response in
         defer { group.leave() }
         guard state == .succeed, let data = response as? [YCHealthDataHeartRate] else { return }
         for entry in data where entry.heartRate > 0 {
@@ -141,7 +141,7 @@ public class YuchengBandModule: Module {
       // Combined Data also carries heartRate, but only bloodOxygen is read
       // here — pulse already comes from the cleaner .heartRate pull above,
       // same reasoning as the Android module's Health_HistoryAll handling.
-      YCProduct.queryHealthData(peripheral, datatType: .combinedData) { state, response in
+      YCProduct.queryHealthData(peripheral, dataType: .combinedData) { state, response in
         defer { group.leave() }
         guard state == .succeed, let data = response as? [YCHealthDataCombinedData] else { return }
         for entry in data where entry.bloodOxygen >= 50 && entry.bloodOxygen <= 100 {
