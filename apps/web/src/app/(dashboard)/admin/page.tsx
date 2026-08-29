@@ -198,6 +198,20 @@ export default async function AdminPage() {
           visible: can("protocols.manage"),
         },
         {
+          href: "/admin/settings/symptom-triage-protocol",
+          label: "Symptom triage protocol",
+          blurb: "The decision tree behind the patient symptom checker",
+          icon: SEMANTIC_ICON.preventive,
+          visible: can("protocols.manage"),
+        },
+        {
+          href: "/admin/settings/lpe-content-library",
+          label: "Lifestyle coaching content",
+          blurb: "The AI Coach's reference material — draft until a Clinical Director signs it off",
+          icon: SEMANTIC_ICON.learn,
+          visible: can("protocols.manage"),
+        },
+        {
           href: "/admin/settings/conditions",
           label: "Chronic conditions",
           blurb: "The phased chronic-disease catalogue",

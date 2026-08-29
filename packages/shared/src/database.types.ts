@@ -9749,6 +9749,8 @@ export type Database = {
           key: string
           module: Database["public"]["Enums"]["lpe_module"] | null
           reading_level: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           title: string
           updated_at: string
         }
@@ -9762,6 +9764,8 @@ export type Database = {
           key: string
           module?: Database["public"]["Enums"]["lpe_module"] | null
           reading_level?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           title: string
           updated_at?: string
         }
@@ -9775,6 +9779,8 @@ export type Database = {
           key?: string
           module?: Database["public"]["Enums"]["lpe_module"] | null
           reading_level?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           title?: string
           updated_at?: string
         }
@@ -21653,10 +21659,12 @@ export type Database = {
       sign_alert_rules: { Args: { p_id: string }; Returns: string }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
+      sign_lpe_content_block: { Args: { p_block_id: string }; Returns: string }
       sign_risk_questionnaire_config: {
         Args: { p_config_id: string }
         Returns: string
       }
+      sign_triage_protocol: { Args: { p_protocol_id: string }; Returns: string }
       sign_vaccination_schedule: {
         Args: { p_signoff_id: string }
         Returns: string
