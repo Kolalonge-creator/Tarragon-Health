@@ -23,10 +23,31 @@ export const EXPLAINER_LANGUAGE_NAME: Record<string, string> = {
   ig: "Igbo",
 };
 
-const SYSTEM_PROMPT_TEMPLATE = (languageName: string) => `You are helping a patient understand ONE
-number from their own health record on a Nigerian digital health platform. You are given a
-minimized, structured snapshot -- one measurement's latest and (if available) previous value --
-never the patient's full chart.
+/** What the patient is actually asking about, per kind -- keeps the shared
+ * rule block below honest for kinds that aren't "one number" (a medication,
+ * a care-plan condition). */
+const KIND_FRAMING: Record<ExplainerKind, string> = {
+  risk_score: "ONE number from their own health record",
+  lab_analyte: "ONE number from their own health record",
+  vitals: "ONE number from their own health record",
+  medication: "ONE medication they've been prescribed -- how to take it, general precautions, and common effects",
+  care_plan_item: "ONE condition on their own care plan -- why it's being monitored and what any target range means",
+};
+
+/** Extra rule appended only for kinds where the base "never suggest a
+ * medication, dose, or specific treatment" line needs to be spelled out
+ * more explicitly, since the whole snapshot is about a medication. */
+const KIND_EXTRA_RULE: Partial<Record<ExplainerKind, string>> = {
+  medication: `\n- Never suggest changing the dose, frequency, route, or stopping this medication, even if the
+  patient's question implies they want that. If they ask about changing anything, tell them to ask
+  their care team or pharmacist first.`,
+  care_plan_item: `\n- Explain only the condition named in the snapshot -- never speculate about a different
+  condition, and never explain a target range as if it were a diagnosis threshold.`,
+};
+
+const SYSTEM_PROMPT_TEMPLATE = (languageName: string, kind: ExplainerKind) => `You are helping a patient understand
+${KIND_FRAMING[kind]} on a Nigerian digital health platform. You are given a minimized, structured
+snapshot -- never the patient's full chart.
 
 Rules, no exceptions:
 - Write in ${languageName}. Keep it short: 3-4 plain, warm sentences a worried, possibly first-time
@@ -40,7 +61,7 @@ Rules, no exceptions:
   same, in plain language.
 - Always end with one short sentence encouraging them to bring any questions to their care team --
   this explanation is for understanding, not a diagnosis or a substitute for their doctor.
-- If the data is thin (no previous value), say so plainly rather than inventing a trend.`;
+- If the data is thin (no previous value), say so plainly rather than inventing a trend.${KIND_EXTRA_RULE[kind] ?? ""}`;
 
 type GenerateParams = {
   patientId: string;
@@ -96,7 +117,7 @@ export async function generatePatientExplanation(
     const structuredModel = chatModel.withStructuredOutput(explanationSchema);
 
     const result = await structuredModel.invoke([
-      new SystemMessage(SYSTEM_PROMPT_TEMPLATE(languageName)),
+      new SystemMessage(SYSTEM_PROMPT_TEMPLATE(languageName, kind)),
       new HumanMessage(promptText),
     ]);
 

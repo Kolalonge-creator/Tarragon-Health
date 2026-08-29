@@ -1194,6 +1194,8 @@ export type Database = {
           event: Json
           id: string
           organisation_id: string | null
+          reason: string | null
+          result: string
         }
         Insert: {
           action: string
@@ -1204,6 +1206,8 @@ export type Database = {
           event?: Json
           id?: string
           organisation_id?: string | null
+          reason?: string | null
+          result?: string
         }
         Update: {
           action?: string
@@ -1214,6 +1218,8 @@ export type Database = {
           event?: Json
           id?: string
           organisation_id?: string | null
+          reason?: string | null
+          result?: string
         }
         Relationships: [
           {
@@ -14062,6 +14068,217 @@ export type Database = {
           },
         ]
       }
+      appointment_prep_suggestions: {
+        Row: {
+          id: string
+          organisation_id: string
+          patient_id: string
+          consultation_id: string
+          status: string
+          model_id: string | null
+          questions: Json
+          input_snapshot: Json
+          error_message: string | null
+          generated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          patient_id: string
+          consultation_id: string
+          status: string
+          model_id?: string | null
+          questions?: Json
+          input_snapshot?: Json
+          error_message?: string | null
+          generated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          consultation_id?: string
+          status?: string
+          model_id?: string | null
+          questions?: Json
+          input_snapshot?: Json
+          error_message?: string | null
+          generated_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_prep_suggestions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_prep_suggestions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_prep_suggestions_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      symptom_triage_assessments: {
+        Row: {
+          id: string
+          organisation_id: string
+          patient_id: string
+          logged_by_profile_id: string | null
+          entry_point: Database["public"]["Enums"]["triage_entry_point"]
+          presenting_complaint_key: string
+          protocol_version: number
+          initial_capture: Json
+          questions_asked: Json
+          red_flag_screen: Json
+          category: Database["public"]["Enums"]["triage_category"]
+          clinician_review_required: boolean
+          safety_net_message_key: string
+          rationale: string
+          emergency_event_id: string | null
+          clinician_alert_id: string | null
+          clinician_review_alert_id: string | null
+          override_category: Database["public"]["Enums"]["triage_category"] | null
+          override_reason: string | null
+          overridden_by: string | null
+          overridden_at: string | null
+          outcome_action: string | null
+          outcome_recorded_by: string | null
+          outcome_recorded_at: string | null
+          clinician_flagged_missed_red_flag: boolean
+          clinician_flagged_false_reassurance: boolean
+          clinician_flagged_inappropriate_escalation: boolean
+          safety_flag_notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          patient_id: string
+          logged_by_profile_id?: string | null
+          entry_point?: Database["public"]["Enums"]["triage_entry_point"]
+          presenting_complaint_key: string
+          protocol_version: number
+          initial_capture: Json
+          questions_asked?: Json
+          red_flag_screen?: Json
+          category: Database["public"]["Enums"]["triage_category"]
+          clinician_review_required?: boolean
+          safety_net_message_key: string
+          rationale: string
+          emergency_event_id?: string | null
+          clinician_alert_id?: string | null
+          clinician_review_alert_id?: string | null
+          override_category?: Database["public"]["Enums"]["triage_category"] | null
+          override_reason?: string | null
+          overridden_by?: string | null
+          overridden_at?: string | null
+          outcome_action?: string | null
+          outcome_recorded_by?: string | null
+          outcome_recorded_at?: string | null
+          clinician_flagged_missed_red_flag?: boolean
+          clinician_flagged_false_reassurance?: boolean
+          clinician_flagged_inappropriate_escalation?: boolean
+          safety_flag_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          logged_by_profile_id?: string | null
+          entry_point?: Database["public"]["Enums"]["triage_entry_point"]
+          presenting_complaint_key?: string
+          protocol_version?: number
+          initial_capture?: Json
+          questions_asked?: Json
+          red_flag_screen?: Json
+          category?: Database["public"]["Enums"]["triage_category"]
+          clinician_review_required?: boolean
+          safety_net_message_key?: string
+          rationale?: string
+          emergency_event_id?: string | null
+          clinician_alert_id?: string | null
+          clinician_review_alert_id?: string | null
+          override_category?: Database["public"]["Enums"]["triage_category"] | null
+          override_reason?: string | null
+          overridden_by?: string | null
+          overridden_at?: string | null
+          outcome_action?: string | null
+          outcome_recorded_by?: string | null
+          outcome_recorded_at?: string | null
+          clinician_flagged_missed_red_flag?: boolean
+          clinician_flagged_false_reassurance?: boolean
+          clinician_flagged_inappropriate_escalation?: boolean
+          safety_flag_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "symptom_triage_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symptom_triage_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      triage_protocols: {
+        Row: {
+          id: string
+          version: number
+          config: Json
+          notes: string | null
+          approved_by: string | null
+          approved_at: string | null
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          version: number
+          config: Json
+          notes?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          version?: number
+          config?: Json
+          notes?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       patient_risk_scores: {
         Row: {
           computed_at: string
@@ -21835,6 +22052,7 @@ export type Database = {
         | "spo2_red_flag"
         | "temperature_red_flag"
         | "exposure_report"
+        | "symptom_triage"
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       exposure_report_status: "open" | "completed" | "withdrawn"
@@ -22301,6 +22519,14 @@ export type Database = {
         | "condition_recorded"
         | "condition_status_changed"
         | "medication_received"
+      triage_category: "emergency" | "urgent" | "routine" | "self_management"
+      triage_entry_point:
+        | "patient_app"
+        | "ai_assistant"
+        | "clinician"
+        | "nurse"
+        | "caregiver"
+        | "monitoring_system"
       upgrade_condition:
         | "hypertension"
         | "diabetes"
@@ -22873,6 +23099,7 @@ export const Constants = {
         "spo2_red_flag",
         "temperature_red_flag",
         "exposure_report",
+        "symptom_triage",
       ],
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
@@ -23393,6 +23620,15 @@ export const Constants = {
         "condition_recorded",
         "condition_status_changed",
         "medication_received",
+      ],
+      triage_category: ["emergency", "urgent", "routine", "self_management"],
+      triage_entry_point: [
+        "patient_app",
+        "ai_assistant",
+        "clinician",
+        "nurse",
+        "caregiver",
+        "monitoring_system",
       ],
       upgrade_condition: [
         "hypertension",

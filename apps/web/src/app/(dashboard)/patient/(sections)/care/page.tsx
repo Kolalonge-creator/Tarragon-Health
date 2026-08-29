@@ -15,6 +15,8 @@ import { HospitalAdmissionsCard } from "@/app/(dashboard)/patient/hospital-admis
 import { LifestyleProgressSummary } from "@/app/(dashboard)/patient/lifestyle-progress-summary";
 import { YourReferrals } from "@/components/your-referrals";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
+import { SymptomChecker } from "@/app/(dashboard)/patient/symptom-checker";
+import { ServiceNavigationAssistant } from "@/app/(dashboard)/patient/service-navigation-assistant";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
 import { WellnessPointsSummary } from "@/app/(dashboard)/patient/wellness-points-summary";
@@ -52,6 +54,7 @@ export default async function PatientCarePage() {
               self-reporting pregnancy shouldn't require a paid plan. Renders a
               plain status card for everyone else. */}
           <PregnancyStatus patientId={subjectId} />
+          <SymptomChecker />
           <PatientEscalations patientId={subjectId} />
           <HospitalAdmissionsCard patientId={subjectId} />
           <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>
@@ -67,6 +70,7 @@ export default async function PatientCarePage() {
             <AskADoctor patientId={subjectId} organisationId={profile.organisation_id} />
           </RequiresEntitlement>
           {coachAccess && <AiCoachChat patientId={subjectId} />}
+          <ServiceNavigationAssistant />
           <CareCircleCard />
           <YourReferrals patientId={subjectId} />
         </div>

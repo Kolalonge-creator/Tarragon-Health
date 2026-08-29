@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { ResultExplainer } from "@/components/result-explainer";
 
 function humanize(value: string) {
   return value
@@ -63,6 +64,11 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
                   {plan.notes && (
                     <p className="text-xs text-charcoal-ink/60">{plan.notes}</p>
                   )}
+                  <ResultExplainer
+                    kind="care_plan_item"
+                    subjectKey={plan.id}
+                    label={humanize(plan.condition)}
+                  />
                   {!plan.hasScheduledReview && (
                     <UpgradePrompt feature="multi_condition_review" />
                   )}
