@@ -3407,6 +3407,9 @@ export type Database = {
           follow_up_instructions: string | null
           history: string | null
           id: string
+          identity_confirmed: boolean
+          identity_confirmed_at: string | null
+          identity_confirmed_by: string | null
           organisation_id: string
           outcome: Database["public"]["Enums"]["consultation_outcome"] | null
           patient_id: string
@@ -3434,6 +3437,9 @@ export type Database = {
           follow_up_instructions?: string | null
           history?: string | null
           id?: string
+          identity_confirmed?: boolean
+          identity_confirmed_at?: string | null
+          identity_confirmed_by?: string | null
           organisation_id: string
           outcome?: Database["public"]["Enums"]["consultation_outcome"] | null
           patient_id: string
@@ -3461,6 +3467,9 @@ export type Database = {
           follow_up_instructions?: string | null
           history?: string | null
           id?: string
+          identity_confirmed?: boolean
+          identity_confirmed_at?: string | null
+          identity_confirmed_by?: string | null
           organisation_id?: string
           outcome?: Database["public"]["Enums"]["consultation_outcome"] | null
           patient_id?: string
@@ -3502,6 +3511,13 @@ export type Database = {
           {
             foreignKeyName: "clinical_encounter_notes_finalized_by_staff_fkey"
             columns: ["finalized_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_encounter_notes_identity_confirmed_by_fkey"
+            columns: ["identity_confirmed_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
@@ -6160,6 +6176,9 @@ export type Database = {
           clinician_alert_id: string | null
           created_at: string
           id: string
+          identity_confirmed: boolean
+          identity_confirmed_at: string | null
+          identity_confirmed_by: string | null
           organisation_id: string
           patient_id: string
           raised_by: string | null
@@ -6175,6 +6194,9 @@ export type Database = {
           clinician_alert_id?: string | null
           created_at?: string
           id?: string
+          identity_confirmed?: boolean
+          identity_confirmed_at?: string | null
+          identity_confirmed_by?: string | null
           organisation_id: string
           patient_id: string
           raised_by?: string | null
@@ -6190,6 +6212,9 @@ export type Database = {
           clinician_alert_id?: string | null
           created_at?: string
           id?: string
+          identity_confirmed?: boolean
+          identity_confirmed_at?: string | null
+          identity_confirmed_by?: string | null
           organisation_id?: string
           patient_id?: string
           raised_by?: string | null
@@ -6213,6 +6238,13 @@ export type Database = {
             columns: ["clinician_alert_id"]
             isOneToOne: false
             referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalations_identity_confirmed_by_fkey"
+            columns: ["identity_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -19839,6 +19871,7 @@ export type Database = {
         Returns: Json
       }
       analytics_risk_register: { Args: never; Returns: Json }
+      analytics_safety_dashboard_summary: { Args: never; Returns: Json }
       analytics_staff_activity: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -21543,6 +21576,7 @@ export type Database = {
         | "provider_unavailable"
         | "appointment_failure"
         | "laboratory_failure"
+        | "safeguarding_concern"
       allergy_severity: "mild" | "moderate" | "severe"
       allergy_source: "patient" | "clinician" | "fhir_import"
       annual_check_status: "pending" | "in_progress" | "completed"
@@ -22545,6 +22579,7 @@ export const Constants = {
         "provider_unavailable",
         "appointment_failure",
         "laboratory_failure",
+        "safeguarding_concern",
       ],
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician", "fhir_import"],
