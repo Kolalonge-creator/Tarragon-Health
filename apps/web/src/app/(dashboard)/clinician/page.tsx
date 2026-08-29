@@ -32,6 +32,7 @@ type OverviewEscalationRow = {
  */
 const WORKLIST_COUNT_TILES: WorklistCountTile[] = [
   { key: "escalations", href: "/clinician/escalations", label: "Open escalations", icon: "escalation" },
+  { key: "activeCases", href: "/clinician/case-management", label: "Active cases", icon: "carePlan" },
   { key: "outreach", href: "/clinician/outreach", label: "Outreach tasks", icon: "messages" },
   { key: "asyncConsults", href: "/clinician/async-consults", label: "Async consults", icon: "inbox" },
   { key: "referralsNeedingUrgency", href: "/clinician/referrals", label: "Referrals to triage", icon: "referral" },

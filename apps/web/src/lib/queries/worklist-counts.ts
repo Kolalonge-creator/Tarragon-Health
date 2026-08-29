@@ -124,6 +124,14 @@ async function countPendingVaccinationVerifications(supabase: Client) {
   return count ?? 0;
 }
 
+async function countActiveCases(supabase: Client) {
+  const { count } = await supabase
+    .from("care_management_cases")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active");
+  return count ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -138,7 +146,8 @@ export type WorklistCountKey =
   | "lifestyleFlags"
   | "carePlanReviewPrompts"
   | "recommendations"
-  | "vaccinationVerifications";
+  | "vaccinationVerifications"
+  | "activeCases";
 
 const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<number>> = {
   escalations: countOpenEscalations,
@@ -155,6 +164,7 @@ const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<number>> 
   carePlanReviewPrompts: countCarePlanReviewPrompts,
   recommendations: countRecommendations,
   vaccinationVerifications: countPendingVaccinationVerifications,
+  activeCases: countActiveCases,
 };
 
 /**

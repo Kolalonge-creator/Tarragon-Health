@@ -218,6 +218,7 @@ export function getNavSections(
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Case management", href: "/clinician/case-management", icon: "carePlan" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
               ],
@@ -242,6 +243,7 @@ export function getNavSections(
               label: "Patients & Care",
               items: [
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
+                { label: "Case management", href: "/clinician/case-management", icon: "carePlan" },
                 { label: "Care plan review", href: "/clinician/care-plan-review", icon: "carePlan" },
                 { label: "Medication reviews", href: "/clinician/medication-reviews", icon: "medication" },
                 { label: "Lifestyle reviews", href: "/clinician/lifestyle-reviews", icon: "lifestyle" },
