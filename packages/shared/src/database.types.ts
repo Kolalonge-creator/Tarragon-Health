@@ -544,40 +544,106 @@ export type Database = {
           },
         ]
       }
+      api_idempotency_records: {
+        Row: {
+          api_key_id: string
+          created_at: string
+          endpoint: string
+          expires_at: string
+          id: string
+          idempotency_key: string
+          organisation_id: string
+          request_fingerprint: string
+          response_body: Json
+          response_status: number
+        }
+        Insert: {
+          api_key_id: string
+          created_at?: string
+          endpoint: string
+          expires_at?: string
+          id?: string
+          idempotency_key: string
+          organisation_id: string
+          request_fingerprint: string
+          response_body: Json
+          response_status: number
+        }
+        Update: {
+          api_key_id?: string
+          created_at?: string
+          endpoint?: string
+          expires_at?: string
+          id?: string
+          idempotency_key?: string
+          organisation_id?: string
+          request_fingerprint?: string
+          response_body?: Json
+          response_status?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_idempotency_records_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_idempotency_records_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_keys: {
         Row: {
           created_at: string
           created_by: string | null
+          environment: Database["public"]["Enums"]["api_environment"]
+          expires_at: string | null
           id: string
           key_hash: string
           key_prefix: string
           last_used_at: string | null
           name: string
           organisation_id: string
+          partner_integration_id: string | null
+          rate_limit_per_minute: number
           revoked_at: string | null
           scopes: string[]
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          expires_at?: string | null
           id?: string
           key_hash: string
           key_prefix: string
           last_used_at?: string | null
           name: string
           organisation_id: string
+          partner_integration_id?: string | null
+          rate_limit_per_minute?: number
           revoked_at?: string | null
           scopes?: string[]
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          expires_at?: string | null
           id?: string
           key_hash?: string
           key_prefix?: string
           last_used_at?: string | null
           name?: string
           organisation_id?: string
+          partner_integration_id?: string | null
+          rate_limit_per_minute?: number
           revoked_at?: string | null
           scopes?: string[]
         }
@@ -591,6 +657,88 @@ export type Database = {
           },
           {
             foreignKeyName: "api_keys_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_partner_integration_id_fkey"
+            columns: ["partner_integration_id"]
+            isOneToOne: false
+            referencedRelation: "partner_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_requests: {
+        Row: {
+          api_key_id: string | null
+          api_version: string
+          called_at: string
+          client_ip: string | null
+          duration_ms: number
+          endpoint: string
+          environment: Database["public"]["Enums"]["api_environment"]
+          error_code: string | null
+          id: string
+          idempotency_key: string | null
+          idempotent_replay: boolean
+          key_prefix: string | null
+          method: string
+          organisation_id: string | null
+          outcome: Database["public"]["Enums"]["api_request_outcome"]
+          request_id: string
+          status_code: number
+        }
+        Insert: {
+          api_key_id?: string | null
+          api_version: string
+          called_at?: string
+          client_ip?: string | null
+          duration_ms: number
+          endpoint: string
+          environment?: Database["public"]["Enums"]["api_environment"]
+          error_code?: string | null
+          id?: string
+          idempotency_key?: string | null
+          idempotent_replay?: boolean
+          key_prefix?: string | null
+          method: string
+          organisation_id?: string | null
+          outcome: Database["public"]["Enums"]["api_request_outcome"]
+          request_id: string
+          status_code: number
+        }
+        Update: {
+          api_key_id?: string | null
+          api_version?: string
+          called_at?: string
+          client_ip?: string | null
+          duration_ms?: number
+          endpoint?: string
+          environment?: Database["public"]["Enums"]["api_environment"]
+          error_code?: string | null
+          id?: string
+          idempotency_key?: string | null
+          idempotent_replay?: boolean
+          key_prefix?: string | null
+          method?: string
+          organisation_id?: string | null
+          outcome?: Database["public"]["Enums"]["api_request_outcome"]
+          request_id?: string
+          status_code?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_requests_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_requests_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -5842,6 +5990,57 @@ export type Database = {
         }
         Relationships: []
       }
+      external_identifier_map: {
+        Row: {
+          created_at: string
+          entity_type: Database["public"]["Enums"]["external_entity_type"]
+          external_id: string
+          external_system: string | null
+          id: string
+          organisation_id: string
+          partner_integration_id: string
+          tarragon_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_type: Database["public"]["Enums"]["external_entity_type"]
+          external_id: string
+          external_system?: string | null
+          id?: string
+          organisation_id: string
+          partner_integration_id: string
+          tarragon_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_type?: Database["public"]["Enums"]["external_entity_type"]
+          external_id?: string
+          external_system?: string | null
+          id?: string
+          organisation_id?: string
+          partner_integration_id?: string
+          tarragon_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_identifier_map_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_identifier_map_partner_integration_id_fkey"
+            columns: ["partner_integration_id"]
+            isOneToOne: false
+            referencedRelation: "partner_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facilities: {
         Row: {
           address: string | null
@@ -7811,6 +8010,132 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_delivery_attempts: {
+        Row: {
+          attempt_no: number
+          attempted_at: string
+          duration_ms: number
+          error: string | null
+          id: string
+          ok: boolean
+          outbound_event_id: string
+          status_code: number | null
+        }
+        Insert: {
+          attempt_no: number
+          attempted_at?: string
+          duration_ms: number
+          error?: string | null
+          id?: string
+          ok: boolean
+          outbound_event_id: string
+          status_code?: number | null
+        }
+        Update: {
+          attempt_no?: number
+          attempted_at?: string
+          duration_ms?: number
+          error?: string | null
+          id?: string
+          ok?: boolean
+          outbound_event_id?: string
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_delivery_attempts_outbound_event_id_fkey"
+            columns: ["outbound_event_id"]
+            isOneToOne: false
+            referencedRelation: "integration_outbound_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_outbound_events: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          dedupe_key: string
+          delivered_at: string | null
+          environment: Database["public"]["Enums"]["api_environment"]
+          event_id: string
+          event_type: Database["public"]["Enums"]["integration_event_type"]
+          id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          last_status_code: number | null
+          max_attempts: number
+          next_attempt_at: string
+          organisation_id: string
+          partner_integration_id: string
+          payload: Json
+          status: Database["public"]["Enums"]["integration_delivery_status"]
+          webhook_endpoint_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          dedupe_key: string
+          delivered_at?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          event_id: string
+          event_type: Database["public"]["Enums"]["integration_event_type"]
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_status_code?: number | null
+          max_attempts?: number
+          next_attempt_at?: string
+          organisation_id: string
+          partner_integration_id: string
+          payload: Json
+          status?: Database["public"]["Enums"]["integration_delivery_status"]
+          webhook_endpoint_id: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          dedupe_key?: string
+          delivered_at?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          event_id?: string
+          event_type?: Database["public"]["Enums"]["integration_event_type"]
+          id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_status_code?: number | null
+          max_attempts?: number
+          next_attempt_at?: string
+          organisation_id?: string
+          partner_integration_id?: string
+          payload?: Json
+          status?: Database["public"]["Enums"]["integration_delivery_status"]
+          webhook_endpoint_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_outbound_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_outbound_events_partner_integration_id_fkey"
+            columns: ["partner_integration_id"]
+            isOneToOne: false
+            referencedRelation: "partner_integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_outbound_events_webhook_endpoint_id_fkey"
+            columns: ["webhook_endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "partner_webhook_endpoints"
             referencedColumns: ["id"]
           },
         ]
@@ -11676,6 +12001,75 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "lab_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_webhook_endpoints: {
+        Row: {
+          consecutive_failures: number
+          created_at: string
+          description: string | null
+          environment: Database["public"]["Enums"]["api_environment"]
+          event_types: Database["public"]["Enums"]["integration_event_type"][]
+          id: string
+          is_active: boolean
+          last_failure_at: string | null
+          last_success_at: string | null
+          name: string
+          organisation_id: string
+          partner_integration_id: string
+          secret: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          created_at?: string
+          description?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          event_types: Database["public"]["Enums"]["integration_event_type"][]
+          id?: string
+          is_active?: boolean
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          name: string
+          organisation_id: string
+          partner_integration_id: string
+          secret: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          consecutive_failures?: number
+          created_at?: string
+          description?: string | null
+          environment?: Database["public"]["Enums"]["api_environment"]
+          event_types?: Database["public"]["Enums"]["integration_event_type"][]
+          id?: string
+          is_active?: boolean
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          name?: string
+          organisation_id?: string
+          partner_integration_id?: string
+          secret?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_webhook_endpoints_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_webhook_endpoints_partner_integration_id_fkey"
+            columns: ["partner_integration_id"]
+            isOneToOne: false
+            referencedRelation: "partner_integrations"
             referencedColumns: ["id"]
           },
         ]
@@ -18055,7 +18449,11 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      cancel_appointment: {
+      cancel_integration_event: {
+        Args: { p_outbound_event_id: string }
+        Returns: undefined
+      }
+            cancel_appointment: {
         Args: { p_appointment_id: string; p_reason?: string }
         Returns: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
@@ -18434,7 +18832,21 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
-      close_masked_call: {
+      claim_integration_outbound_batch: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempt_count: number
+          endpoint_name: string
+          event_id: string
+          event_type: Database["public"]["Enums"]["integration_event_type"]
+          id: string
+          max_attempts: number
+          payload: Json
+          secret: string
+          url: string
+        }[]
+      }
+            close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
       }
@@ -18498,7 +18910,17 @@ export type Database = {
         Returns: undefined
       }
       emergency_card_by_token: { Args: { p_token: string }; Returns: Json }
-      enqueue_critical_notification: {
+      enqueue_integration_event: {
+        Args: {
+          p_dedupe_key: string
+          p_environment?: Database["public"]["Enums"]["api_environment"]
+          p_event_type: Database["public"]["Enums"]["integration_event_type"]
+          p_organisation_id: string
+          p_payload: Json
+        }
+        Returns: number
+      }
+            enqueue_critical_notification: {
         Args: {
           p_alert_tier: Database["public"]["Enums"]["alert_level"]
           p_organisation_id: string
@@ -19141,7 +19563,11 @@ export type Database = {
         Args: { p_bundle_code: string; p_patient_id: string }
         Returns: Json
       }
-      propose_video_visit_alternate_slots: {
+      prune_integration_logs: {
+        Args: { p_request_log_days?: number }
+        Returns: Json
+      }
+            propose_video_visit_alternate_slots: {
         Args: { p_request_id: string; p_slot_ids: string[] }
         Returns: undefined
       }
@@ -19248,7 +19674,62 @@ export type Database = {
         }
         Returns: Json
       }
-      request_health_passport_attestation: {
+      integration_catalogue: {
+        Args: never
+        Returns: {
+          base_url: string
+          has_inbound_key: boolean
+          inbound_active_key_count: number
+          inbound_key_last_used_at: string | null
+          is_active: boolean
+          last_activity_at: string | null
+          name: string
+          outbound_last_check_ok: boolean | null
+          outbound_last_checked_at: string | null
+          partner_integration_id: string
+          status: string
+          webhook_active_endpoint_count: number
+          webhook_endpoint_count: number
+          webhook_last_failure_at: string | null
+          webhook_last_success_at: string | null
+          webhook_max_consecutive_failures: number
+        }[]
+      }
+      integration_health_metrics: {
+        Args: { p_window_hours?: number }
+        Returns: {
+          authentication_failures: number
+          avg_latency_ms: number | null
+          data_mismatches: number
+          failed_requests: number
+          ok_requests: number
+          outbound_dead_letter: number
+          outbound_delayed_deliveries: number
+          outbound_delivered: number
+          outbound_failed_retrying: number
+          outbound_overdue: number
+          outbound_pending: number
+          p95_latency_ms: number | null
+          rate_limited_requests: number
+          total_requests: number
+          window_hours: number
+        }[]
+      }
+      record_integration_delivery_result: {
+        Args: {
+          p_duration_ms: number
+          p_error: string
+          p_ok: boolean
+          p_outbound_event_id: string
+          p_status_code: number
+        }
+        Returns: Database["public"]["Enums"]["integration_delivery_status"]
+      }
+            requeue_integration_event: {
+        Args: { p_outbound_event_id: string }
+        Returns: undefined
+      }
+            request_health_passport_attestation: {
         Args: { p_note?: string; p_purpose: string }
         Returns: string
       }
@@ -19649,7 +20130,18 @@ export type Database = {
         | "completed"
         | "not_applicable"
       appetite_level: "normal" | "reduced" | "none"
-      appointment_status:
+      api_environment: "sandbox" | "live"
+      api_request_outcome:
+        | "ok"
+        | "bad_request"
+        | "unauthenticated"
+        | "forbidden"
+        | "not_found"
+        | "conflict"
+        | "rate_limited"
+        | "unprocessable"
+        | "server_error"
+            appointment_status:
         | "scheduled"
         | "completed"
         | "cancelled"
@@ -19867,7 +20359,21 @@ export type Database = {
       employer_roster_status: "pending" | "claimed" | "removed"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
       exposure_report_status: "open" | "completed" | "withdrawn"
-      facility_type:
+      external_entity_type:
+        | "patient"
+        | "practitioner"
+        | "organisation"
+        | "encounter"
+        | "appointment"
+        | "lab_order"
+        | "lab_result"
+        | "prescription"
+        | "dispense"
+        | "invoice"
+        | "payment"
+        | "claim"
+        | "service"
+            facility_type:
         | "hospital"
         | "lab"
         | "pharmacy"
@@ -19956,7 +20462,30 @@ export type Database = {
         | "premixed"
         | "analogue_rapid"
         | "analogue_long"
-      lab_analyte_flag:
+      integration_delivery_status:
+        | "pending"
+        | "delivering"
+        | "delivered"
+        | "failed"
+        | "dead_letter"
+        | "cancelled"
+      integration_event_type:
+        | "result.available"
+        | "result.amended"
+        | "lab_order.created"
+        | "lab_order.cancelled"
+        | "appointment.booked"
+        | "appointment.cancelled"
+        | "appointment.rescheduled"
+        | "prescription.created"
+        | "prescription.cancelled"
+        | "dispense.completed"
+        | "patient.registered"
+        | "patient.consent_changed"
+        | "payment.settled"
+        | "payment.refunded"
+        | "claim.status_changed"
+            lab_analyte_flag:
         | "normal"
         | "low"
         | "high"
@@ -20547,7 +21076,19 @@ export const Constants = {
         "not_applicable",
       ],
       appetite_level: ["normal", "reduced", "none"],
-      appointment_status: [
+      api_environment: ["sandbox", "live"],
+      api_request_outcome: [
+        "ok",
+        "bad_request",
+        "unauthenticated",
+        "forbidden",
+        "not_found",
+        "conflict",
+        "rate_limited",
+        "unprocessable",
+        "server_error",
+      ],
+            appointment_status: [
         "scheduled",
         "completed",
         "cancelled",
@@ -20791,7 +21332,22 @@ export const Constants = {
       employer_roster_status: ["pending", "claimed", "removed"],
       escalation_status: ["open", "under_review", "resolved", "referred"],
       exposure_report_status: ["open", "completed", "withdrawn"],
-      facility_type: [
+      external_entity_type: [
+        "patient",
+        "practitioner",
+        "organisation",
+        "encounter",
+        "appointment",
+        "lab_order",
+        "lab_result",
+        "prescription",
+        "dispense",
+        "invoice",
+        "payment",
+        "claim",
+        "service",
+      ],
+            facility_type: [
         "hospital",
         "lab",
         "pharmacy",
@@ -20890,7 +21446,32 @@ export const Constants = {
         "analogue_rapid",
         "analogue_long",
       ],
-      lab_analyte_flag: [
+      integration_delivery_status: [
+        "pending",
+        "delivering",
+        "delivered",
+        "failed",
+        "dead_letter",
+        "cancelled",
+      ],
+      integration_event_type: [
+        "result.available",
+        "result.amended",
+        "lab_order.created",
+        "lab_order.cancelled",
+        "appointment.booked",
+        "appointment.cancelled",
+        "appointment.rescheduled",
+        "prescription.created",
+        "prescription.cancelled",
+        "dispense.completed",
+        "patient.registered",
+        "patient.consent_changed",
+        "payment.settled",
+        "payment.refunded",
+        "claim.status_changed",
+      ],
+            lab_analyte_flag: [
         "normal",
         "low",
         "high",
