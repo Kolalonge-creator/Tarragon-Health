@@ -6,6 +6,7 @@ import {
   useHoldAppointmentSlot,
   useConfirmAppointmentBooking,
   useJoinWaitingList,
+  useEnsureAppointmentVideoConsultation,
   type AppointmentType,
 } from "@/lib/queries/appointments";
 import { APPOINTMENT_TYPE_LABELS } from "./appointment-labels";
@@ -49,8 +50,9 @@ export function BookAppointment({
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
   const joinWaitingList = useJoinWaitingList();
+  const ensureVideo = useEnsureAppointmentVideoConsultation();
 
-  const isBooking = hold.isPending || confirm.isPending;
+  const isBooking = hold.isPending || confirm.isPending || ensureVideo.isPending;
 
   async function bookSlot(slot: {
     clinician_id: string;
@@ -71,6 +73,21 @@ export function BookAppointment({
         location: slot.location ?? undefined,
       });
       await confirm.mutateAsync(held.id);
+
+      // 68.3/68.5 — a telemedicine booking needs a real Zoom meeting behind
+      // it; set that up now rather than waiting for the patient to click
+      // "Join call" later, so the video-visit page shows a real link
+      // straight away.
+      if (slot.consultation_method === "telemedicine") {
+        try {
+          await ensureVideo.mutateAsync(held.id);
+        } catch {
+          // Booking itself succeeded — the join link can still be set up
+          // later from "Your upcoming appointments"; don't fail the whole
+          // booking over it.
+        }
+      }
+
       setMessage({ tone: "success", text: `Booked for ${formatSlot(slot.slot_start)}.` });
     } catch (error) {
       setMessage({ tone: "error", text: (error as Error).message || "Could not book that slot — try another." });

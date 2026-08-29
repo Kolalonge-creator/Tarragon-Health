@@ -141,10 +141,24 @@ const EMPTY_FIELDS = {
   followUpInstructions: "",
 };
 
-function NewNoteForm({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const [open, setOpen] = useState(false);
+function NewNoteForm({
+  patientId,
+  organisationId,
+  defaultEncounterType = "in_person",
+  videoConsultationId,
+  startOpen = false,
+}: {
+  patientId: string;
+  organisationId: string;
+  defaultEncounterType?: ClinicalEncounterNote["encounter_type"];
+  /** Links the note to the live call it's written from (Consultation
+   * System §9.9/§9.16) — omitted outside a video-consultation context. */
+  videoConsultationId?: string;
+  startOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(startOpen);
   const [encounterType, setEncounterType] =
-    useState<ClinicalEncounterNote["encounter_type"]>("in_person");
+    useState<ClinicalEncounterNote["encounter_type"]>(defaultEncounterType);
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const create = useCreateEncounterNote();
 
@@ -192,6 +206,7 @@ function NewNoteForm({ patientId, organisationId }: { patientId: string; organis
                   organisationId,
                   patientId,
                   encounterType,
+                  videoConsultationId,
                   reasonForEncounter: fields.reasonForEncounter.trim(),
                   history: fields.history.trim(),
                   examinationFindings: fields.examinationFindings.trim(),
@@ -407,6 +422,10 @@ export function ClinicalEncounterNotesSection({
   organisationId,
   canWrite,
   canActionFollowUps = canWrite,
+  defaultEncounterType,
+  videoConsultationId,
+  startOpen,
+  hideHeader = false,
 }: {
   patientId: string;
   organisationId: string;
@@ -417,8 +436,52 @@ export function ClinicalEncounterNotesSection({
    * need canWrite's clinical tier. Server-enforced either way; defaults to
    * canWrite for callers that don't distinguish. */
   canActionFollowUps?: boolean;
+  /** Pre-fills a new note's encounter type and links it to the live call —
+   * used by the video-consultation screen (68.9/68.10) so a note started
+   * mid-call is correctly attributed without extra clicks. */
+  defaultEncounterType?: ClinicalEncounterNote["encounter_type"];
+  videoConsultationId?: string;
+  startOpen?: boolean;
+  /** The video-consultation screen already has its own "Clinical notes"
+   * heading via its own card layout. */
+  hideHeader?: boolean;
 }) {
   const { data: notes, isLoading } = usePatientEncounterNotes(patientId);
+
+  const body = (
+    <div className="space-y-4">
+      {canWrite && (
+        <NewNoteForm
+          patientId={patientId}
+          organisationId={organisationId}
+          defaultEncounterType={defaultEncounterType}
+          videoConsultationId={videoConsultationId}
+          startOpen={startOpen}
+        />
+      )}
+      {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {!isLoading && (notes?.length ?? 0) === 0 && (
+        <p className="text-sm text-charcoal-ink/60">No clinical notes yet.</p>
+      )}
+      {notes?.map((note) =>
+        note.status === "draft" && canWrite ? (
+          <DraftNoteCard key={note.id} note={note} patientId={patientId} organisationId={organisationId} />
+        ) : (
+          <FinalizedNoteCard
+            key={note.id}
+            note={note}
+            patientId={patientId}
+            organisationId={organisationId}
+            canActionFollowUps={canActionFollowUps}
+          />
+        )
+      )}
+    </div>
+  );
+
+  if (hideHeader) {
+    return body;
+  }
 
   return (
     <Card>
@@ -428,26 +491,7 @@ export function ClinicalEncounterNotesSection({
           Reason, history, examination, assessment, diagnosis, and plan for each encounter.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {canWrite && <NewNoteForm patientId={patientId} organisationId={organisationId} />}
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {!isLoading && (notes?.length ?? 0) === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No clinical notes yet.</p>
-        )}
-        {notes?.map((note) =>
-          note.status === "draft" && canWrite ? (
-            <DraftNoteCard key={note.id} note={note} patientId={patientId} organisationId={organisationId} />
-          ) : (
-            <FinalizedNoteCard
-              key={note.id}
-              note={note}
-              patientId={patientId}
-              organisationId={organisationId}
-              canActionFollowUps={canActionFollowUps}
-            />
-          )
-        )}
-      </CardContent>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }
