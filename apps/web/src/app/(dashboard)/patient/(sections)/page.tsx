@@ -6,6 +6,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -76,6 +77,11 @@ export default async function PatientOverviewPage() {
           name DashboardPlaceholder's "Hi, {name}" already gave a moment ago
           (2026-08-17 patient-experience pass). */}
       <p className="text-sm text-charcoal-ink/60">{weekSummaryLine}</p>
+
+      {/* §91.10 — an unpaid plan is more urgent than a wellness nudge, so it
+          renders above NextBestAction. Renders nothing when there's no
+          payment problem. */}
+      <PaymentFailureBanner patientId={subjectId} />
 
       {/* Hero — the one thing the page leads with. Its copy and link are the
           same real, priority-ordered "next best step" as before; only the

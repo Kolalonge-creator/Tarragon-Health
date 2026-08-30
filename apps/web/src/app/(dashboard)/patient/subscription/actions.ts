@@ -258,6 +258,38 @@ export async function changePlan(
   redirect(result.data.checkoutUrl);
 }
 
+/**
+ * §91.10 payment-failure recovery. A `past_due` subscription's plan hasn't
+ * changed — the patient just needs a fresh checkout attempt, where a hosted
+ * Paystack/Stripe page lets them enter a different card if that's why it
+ * failed the first time. There's no separate "update payment method" flow in
+ * this codebase (no customer-portal integration), so retrying IS how a
+ * patient changes card — this deliberately delegates to changePlan with the
+ * subscription's own current plan code rather than building a second,
+ * near-identical checkout path.
+ */
+export async function retryFailedPayment(subscriptionId: string): Promise<SubscriptionActionState> {
+  const { supabase, subscription } = await requireOwnedSubscription(subscriptionId);
+  if (subscription.status !== "past_due") {
+    return { error: "This plan isn't showing a payment problem." };
+  }
+
+  const { data: plan } = await supabase
+    .from("subscriptions")
+    .select("subscription_plans(code)")
+    .eq("id", subscriptionId)
+    .single();
+  const planCode = plan?.subscription_plans?.code;
+  if (!planCode) {
+    return { error: "Could not find your current plan — contact support." };
+  }
+
+  const formData = new FormData();
+  formData.set("subscriptionId", subscriptionId);
+  formData.set("planCode", planCode);
+  return changePlan(undefined, formData);
+}
+
 export async function attachAddOn(
   _prevState: SubscriptionActionState,
   formData: FormData,
