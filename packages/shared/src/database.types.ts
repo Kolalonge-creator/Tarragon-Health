@@ -232,6 +232,112 @@ export type Database = {
           },
         ]
       }
+      ai_systems: {
+        Row: {
+          autonomy_level: Database["public"]["Enums"]["ai_autonomy_level"] | null
+          clinically_meaningful: boolean | null
+          code_reference: string | null
+          created_at: string
+          disabled_at: string | null
+          disabled_by: string | null
+          disabled_reason: string | null
+          fallback_behaviour: string | null
+          grandfather_note: string | null
+          grandfathered_at: string | null
+          id: string
+          is_enabled: boolean
+          lifecycle_status: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name: string
+          next_review_due: string | null
+          notes: string | null
+          owner_profile_id: string | null
+          owner_role: string | null
+          purpose: string | null
+          review_interval_days: number | null
+          risk_class: Database["public"]["Enums"]["ai_risk_class"] | null
+          runtime_governed: boolean
+          system_code: string
+          updated_at: string
+          vendor_id: string | null
+        }
+        Insert: {
+          autonomy_level?: Database["public"]["Enums"]["ai_autonomy_level"] | null
+          clinically_meaningful?: boolean | null
+          code_reference?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          fallback_behaviour?: string | null
+          grandfather_note?: string | null
+          grandfathered_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          lifecycle_status?: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name: string
+          next_review_due?: string | null
+          notes?: string | null
+          owner_profile_id?: string | null
+          owner_role?: string | null
+          purpose?: string | null
+          review_interval_days?: number | null
+          risk_class?: Database["public"]["Enums"]["ai_risk_class"] | null
+          runtime_governed?: boolean
+          system_code: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          autonomy_level?: Database["public"]["Enums"]["ai_autonomy_level"] | null
+          clinically_meaningful?: boolean | null
+          code_reference?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          fallback_behaviour?: string | null
+          grandfather_note?: string | null
+          grandfathered_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          lifecycle_status?: Database["public"]["Enums"]["ai_lifecycle_status"]
+          name?: string
+          next_review_due?: string | null
+          notes?: string | null
+          owner_profile_id?: string | null
+          owner_role?: string | null
+          purpose?: string | null
+          review_interval_days?: number | null
+          risk_class?: Database["public"]["Enums"]["ai_risk_class"] | null
+          runtime_governed?: boolean
+          system_code?: string
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_systems_disabled_by_fkey"
+            columns: ["disabled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_systems_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_systems_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "ai_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_deliveries: {
         Row: {
           channel: Database["public"]["Enums"]["notification_channel"]
@@ -20568,6 +20674,7 @@ export type Database = {
         Returns: string
       }
       analytics_user_segments: { Args: never; Returns: Json }
+      ai_governance_dashboard: { Args: { p_days?: number }; Returns: Json }
       approve_lab_order_refund: { Args: { p_refund_id: string }; Returns: Json }
       approve_partner_statement: {
         Args: { p_force_note?: string; p_statement_id: string }
@@ -22013,6 +22120,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_ai_system_enabled: {
+        Args: { p_enabled: boolean; p_id: string; p_reason: string }
+        Returns: Json
+      }
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }
         Returns: {
@@ -22215,6 +22326,15 @@ export type Database = {
     }
     Enums: {
       activity_entry_type: "steps" | "workout"
+      ai_autonomy_level: "inform_only" | "recommend" | "assist" | "execute"
+      ai_lifecycle_status:
+        | "draft"
+        | "in_evaluation"
+        | "approved"
+        | "live"
+        | "suspended"
+        | "retired"
+      ai_risk_class: "low" | "moderate" | "high" | "very_high"
       alert_category:
         | "clinical"
         | "care_management"
@@ -23229,6 +23349,16 @@ export const Constants = {
   public: {
     Enums: {
       activity_entry_type: ["steps", "workout"],
+      ai_autonomy_level: ["inform_only", "recommend", "assist", "execute"],
+      ai_lifecycle_status: [
+        "draft",
+        "in_evaluation",
+        "approved",
+        "live",
+        "suspended",
+        "retired",
+      ],
+      ai_risk_class: ["low", "moderate", "high", "very_high"],
       alert_category: [
         "clinical",
         "care_management",
