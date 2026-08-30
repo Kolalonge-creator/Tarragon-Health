@@ -59,6 +59,48 @@ function appUrl(path: string): string {
   return `${base}${path}`;
 }
 
+// Shared Africa/Lagos date/time formatting, factored out of the appointment
+// templates below (six new call sites made the inline IIFE annual_review_
+// consult_scheduled/video_consult_booked each used their own copy of worth
+// sharing rather than repeating a seventh and eighth time).
+function formatLagosDateTime(raw: unknown): string {
+  const d = new Date(String(raw ?? ""));
+  return Number.isNaN(d.getTime())
+    ? "the scheduled time"
+    : d.toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" });
+}
+
+// public.appointment_type enum labels (appointment_engine_types.sql) for the
+// Appointment Engine templates below.
+const APPOINTMENT_TYPE_LABEL: Record<string, string> = {
+  gp: "GP appointment",
+  specialist: "specialist appointment",
+  nurse: "nurse appointment",
+  dietitian: "dietitian appointment",
+  physiotherapist: "physiotherapy appointment",
+  laboratory: "lab appointment",
+  imaging: "imaging appointment",
+  vaccination: "vaccination appointment",
+  physical_clinic: "clinic appointment",
+  telemedicine: "video appointment",
+  follow_up: "follow-up appointment",
+  procedure: "procedure appointment",
+};
+
+// Health Communication Engine — DB-driven template fallback (17.5). Every
+// template above is a hardcoded TEMPLATE_MAP entry; this substitutes
+// `{{token}}` in a notification_template_locales row's body/subject against
+// the notification's own payload, for a template key that was never added
+// to TEMPLATE_MAP at all. Deliberately dumb (no conditionals, no loops,
+// just a flat key lookup) — anything requiring real logic still needs a
+// real TEMPLATE_MAP entry.
+function substituteTemplatePlaceholders(text: string, payload: Record<string, unknown>): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    const value = payload[key];
+    return value === undefined || value === null ? "" : String(value);
+  });
+}
+
 interface NotificationRow {
   id: string;
   recipient_id: string;
@@ -1467,6 +1509,278 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Health Communication Engine follow-up (2026-08-29): these three hops of
+  // the clinician-alert ack-timeout escalation ladder (see
+  // clinician_alert_ack_timeout_escalation_ladder.sql /
+  // private.notify_clinician_alert) had NO entry here and NO
+  // notification_template_locales row either — every non-in_app send
+  // (whatsapp/push/sms) was failing with "unknown template" in production
+  // (confirmed live: dozens of failed rows, oldest well before this fix).
+  // The in_app leg was unaffected (private.notify_clinician_alert always
+  // writes that one directly with the real clinical message; it's outside
+  // this Edge Function's query entirely). payload.message is always a
+  // fully-resolved, pre-built string from the enqueuing PL/pgSQL — never
+  // branched here, matching the same shape as every other "payload already
+  // did the logic" template in this map.
+  clinician_alert_ack_timeout_backup: (payload) => {
+    const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_backup",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+    };
+  },
+  clinician_alert_ack_timeout_senior: (payload) => {
+    const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_senior",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+    };
+  },
+  clinician_alert_ack_timeout_admin: (payload) => {
+    const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_admin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+    };
+  },
+  // Same gap as the three ack-timeout keys above, found in the same pass:
+  // no TEMPLATE_MAP entry existed anywhere for this key even though
+  // lab_result_documents.sql (see enqueue_lab_result_document_notifications,
+  // most recently redefined in guarantee_in_app_notification_companions.sql)
+  // enqueues it on whatsapp+email+in_app whenever a lab liaison/clinician/
+  // admin uploads a result document on the patient's behalf. Confirmed via
+  // production query: zero notifications rows have ever used this template,
+  // so unlike the ack-timeout fix this is a latent gap, not an active
+  // failure -- fixed now anyway rather than left to fail the first time the
+  // path is actually exercised. payload only carries `source` (who
+  // uploaded it); the in-app rendering in notification-bell.tsx already
+  // ignores it too, so this stays a plain static message rather than
+  // inventing branching the original design never called for.
+  result_document_available: () => {
+    const smsText =
+      "Hi, a new result document has been added to your record. Open the Tarragon Health app to review it. Tarragon Health";
+    return {
+      metaTemplateName: "result_document_available",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [] }],
+      smsText,
+      pushUrl: "/patient/labs",
+      email: {
+        subject: "A new result document is available",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>A new result document has been added to your record.</p>` +
+          `<p>Open the Tarragon Health app to review it and see what it means for your care.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Appointment Engine (built 2026-08-28, appointment_engine_*.sql) is the
+  // same "registered in the seed, enqueued for real, never rendered" gap as
+  // the templates above -- confirmed live: zero TEMPLATE_MAP entry, zero
+  // notification-bell.tsx case, for any of these six keys, even though
+  // every one of them is enqueued as channel='whatsapp' by a real trigger
+  // (confirm_appointment_booking, cancel_appointment,
+  // appointment_engine_availability's provider-cancel path,
+  // queue_appointment_reminders, reschedule_appointment,
+  // offer_waiting_list_slot). Shares the Africa/Lagos date-formatting
+  // pattern already used by annual_review_consult_scheduled/
+  // video_consult_booked above.
+  appointment_booking_confirmation: (payload) => {
+    const when = formatLagosDateTime(payload.scheduled_for);
+    const type = APPOINTMENT_TYPE_LABEL[String(payload.appointment_type ?? "")] ?? "appointment";
+    const smsText = `Your Tarragon Health ${type} is booked for ${when}. Open the app for details. Tarragon Health`;
+    return {
+      metaTemplateName: "appointment_booking_confirmation",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: type }, { type: "text", text: when }] },
+      ],
+      smsText,
+      pushUrl: "/patient/care",
+    };
+  },
+  appointment_cancelled: (payload) => {
+    const when = formatLagosDateTime(payload.scheduled_for);
+    const byPatient = payload.cancelled_by_patient === true;
+    const smsText = byPatient
+      ? `Your Tarragon Health appointment for ${when} has been cancelled, as requested. Book another any time in the app. Tarragon Health`
+      : `Your Tarragon Health appointment for ${when} has been cancelled. Open the app to rebook. Tarragon Health`;
+    return {
+      metaTemplateName: "appointment_cancelled",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: when }] }],
+      smsText,
+      pushUrl: "/patient/care",
+    };
+  },
+  appointment_provider_cancelled: (payload) => {
+    const when = formatLagosDateTime(payload.scheduled_for);
+    const type = APPOINTMENT_TYPE_LABEL[String(payload.appointment_type ?? "")] ?? "appointment";
+    const reason = String(payload.reason ?? "").trim();
+    const smsText =
+      `Your Tarragon Health ${type} for ${when} has been cancelled by your provider` +
+      `${reason ? ` (${reason})` : ""}. Open the app to rebook. Tarragon Health`;
+    return {
+      metaTemplateName: "appointment_provider_cancelled",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: type }, { type: "text", text: when }] },
+      ],
+      smsText,
+      pushUrl: "/patient/care",
+    };
+  },
+  appointment_reminder: (payload) => {
+    const when = formatLagosDateTime(payload.scheduled_for);
+    const type = APPOINTMENT_TYPE_LABEL[String(payload.appointment_type ?? "")] ?? "appointment";
+    const milestone = String(payload.milestone ?? "");
+    const lead = milestone === "shortly_before" ? "starting shortly" : `coming up (${when})`;
+    const smsText =
+      milestone === "shortly_before"
+        ? `Reminder: your Tarragon Health ${type} is starting shortly. Open the app for details. Tarragon Health`
+        : `Reminder: your Tarragon Health ${type} is ${lead}. Open the app for details. Tarragon Health`;
+    return {
+      metaTemplateName: "appointment_reminder",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: type }, { type: "text", text: when }] },
+      ],
+      smsText,
+      pushUrl: "/patient/care",
+    };
+  },
+  appointment_rescheduled: (payload) => {
+    const when = formatLagosDateTime(payload.scheduled_for);
+    const smsText = `Your Tarragon Health appointment has been rescheduled to ${when}. Open the app for details. Tarragon Health`;
+    return {
+      metaTemplateName: "appointment_rescheduled",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: when }] }],
+      smsText,
+      pushUrl: "/patient/care",
+    };
+  },
+  appointment_waiting_list_offer: (payload) => {
+    const when = formatLagosDateTime(payload.scheduled_for);
+    const minutes = String(payload.offer_expires_minutes ?? "30");
+    const smsText =
+      `A waiting-list slot opened up for ${when}. Claim it in the Tarragon Health app within ${minutes} minutes ` +
+      `or it goes to the next person. Tarragon Health`;
+    return {
+      metaTemplateName: "appointment_waiting_list_offer",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: when }] }],
+      smsText,
+      pushUrl: "/patient/care",
+    };
+  },
+  // Escalating preventive reminders (escalating_preventive_reminders.sql,
+  // 2026-08-27) is the "_due" reminder ladder's overdue/escalated/upcoming
+  // stages -- screening_due/vaccination_due (above) already had
+  // TEMPLATE_MAP entries, but these three sibling stages per pathway never
+  // did, despite being enqueued by the same migration's triggers. Shares
+  // screening_due/vaccination_due's exact payload shape.
+  screening_upcoming: (payload) => {
+    const screenTypeName = String(payload.screen_type_name ?? "a screening");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "screening_upcoming",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: screenTypeName }, { type: "text", text: dueDate }] },
+      ],
+      smsText: `Hi, your ${screenTypeName} is coming up on ${dueDate}. Open the Tarragon Health app to book it. Tarragon Health`,
+      pushUrl: "/patient/prevention",
+    };
+  },
+  screening_overdue: (payload) => {
+    const screenTypeName = String(payload.screen_type_name ?? "a screening");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "screening_overdue",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: screenTypeName }, { type: "text", text: dueDate }] },
+      ],
+      smsText: `Hi, your ${screenTypeName} was due ${dueDate} and is now overdue. Open the Tarragon Health app to book it. Tarragon Health`,
+      pushUrl: "/patient/prevention",
+    };
+  },
+  screening_escalated: (payload) => {
+    const screenTypeName = String(payload.screen_type_name ?? "a screening");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "screening_escalated",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: screenTypeName }, { type: "text", text: dueDate }] },
+      ],
+      smsText: `Hi, your ${screenTypeName} has been overdue since ${dueDate}. Please book it soon, or your care team may follow up. Tarragon Health`,
+      pushUrl: "/patient/prevention",
+    };
+  },
+  vaccination_upcoming: (payload) => {
+    const vaccineName = String(payload.vaccine_name ?? "a vaccination");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "vaccination_upcoming",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: vaccineName }, { type: "text", text: dueDate }] },
+      ],
+      smsText: `Hi, your ${vaccineName} is coming up on ${dueDate}. Open the Tarragon Health app to book or log it. Tarragon Health`,
+      pushUrl: "/patient/prevention",
+    };
+  },
+  vaccination_overdue: (payload) => {
+    const vaccineName = String(payload.vaccine_name ?? "a vaccination");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "vaccination_overdue",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: vaccineName }, { type: "text", text: dueDate }] },
+      ],
+      smsText: `Hi, your ${vaccineName} was due ${dueDate} and is now overdue. Open the Tarragon Health app to book or log it. Tarragon Health`,
+      pushUrl: "/patient/prevention",
+    };
+  },
+  vaccination_escalated: (payload) => {
+    const vaccineName = String(payload.vaccine_name ?? "a vaccination");
+    const dueDate = String(payload.due_date ?? "soon");
+    return {
+      metaTemplateName: "vaccination_escalated",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: vaccineName }, { type: "text", text: dueDate }] },
+      ],
+      smsText: `Hi, your ${vaccineName} has been overdue since ${dueDate}. Please book or log it soon, or your care team may follow up. Tarragon Health`,
+      pushUrl: "/patient/prevention",
+    };
+  },
+  // Daily lifestyle-programme check-in reminder (lifestyle_coaching.sql,
+  // queue_lifestyle_checkin_reminders) -- same gap, confirmed no
+  // TEMPLATE_MAP entry existed despite a real trigger enqueueing it daily.
+  lifestyle_checkin_due: (payload) => {
+    const title = String(payload.title ?? "your lifestyle programme");
+    return {
+      metaTemplateName: "lifestyle_checkin_due",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: title }] }],
+      smsText: `Hi, time for today's check-in on ${title}. Open the Tarragon Health app to log it. Tarragon Health`,
+      pushUrl: "/patient/lifestyle",
+    };
+  },
 };
 
 interface SendResult {
@@ -1867,15 +2181,49 @@ Deno.serve(async () => {
       }
     };
 
+    const payload = row.payload ?? {};
     const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
-    if (!renderFn) {
+    let render: TemplateRender | undefined = renderFn ? renderFn(payload) : undefined;
+
+    if (!render && row.template && row.channel !== "whatsapp") {
+      // DB-driven fallback (17.5) — a template that was registered in
+      // notification_templates/notification_template_locales but never
+      // added to TEMPLATE_MAP above. WhatsApp is excluded: it needs a
+      // Meta-approved fixed template structure this table cannot express,
+      // so a whatsapp row with no TEMPLATE_MAP entry still fails below,
+      // exactly as before this change.
+      const { data: localeRow } = await supabase
+        .from("notification_template_locales")
+        .select("subject, body")
+        .eq("template_key", row.template)
+        .eq("locale", "en")
+        .eq("channel", row.channel)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (localeRow) {
+        const body = substituteTemplatePlaceholders(localeRow.body, payload);
+        render = {
+          metaTemplateName: row.template,
+          languageCode: "en",
+          components: [],
+          smsText: body,
+          email: row.channel === "email"
+            ? {
+                subject: substituteTemplatePlaceholders(localeRow.subject ?? row.template, payload),
+                html: body,
+                text: body,
+              }
+            : undefined,
+        };
+      }
+    }
+
+    if (!render) {
       await markFailed("unknown template");
       failed++;
       continue;
     }
-
-    const payload = row.payload ?? {};
-    const render = renderFn(payload);
 
     // Destination resolution. Rows queued for a non-profile recipient (e.g. a
     // no-login partner pharmacy) carry an explicit `to_phone`/`to_email` in the
