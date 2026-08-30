@@ -225,4 +225,245 @@ All new features route through the existing 4-label transparency system (INCLUDE
 
 This document exists to make sure competitor research turns into a prioritized backlog, not scope creep. Four items ship now. The rest wait for the founding-patient pilot to prove retention, conversion, and outcomes before a line of code is written for them. `CLAUDE.md`'s "Current Sprint" section is the only place a Claude Code session should take instructions from — this document informs the roadmap, it doesn't override the sprint file.
 
+---
+
+## 12. Population Health Intelligence & National Health Infrastructure (Long-Horizon Vision)
+
+Everything in §§1–11 above is Phase 1–3 — a multi-year but still recognisably product-shaped roadmap, gated on the founding-patient pilot. This section is a different order of magnitude: it's where Tarragon stops being a healthcare application and starts being health infrastructure a country runs on. It requires patient volume in the hundreds of thousands, real regulatory relationships (NDPC, MDCN/NMCN, potentially government health programmes), and governance structures that don't exist yet even as drafts. **None of §12 is scheduled. None of it should be built, scaffolded, or given a data model without an explicit founder ask** — it sits behind the same guardrail as the specialist-matching engine and Employer/HMO risk dashboards in `docs/Tarragon_Health_Master_Operating_Plan_v4.md`, just further out. It's recorded here because the five-category architecture (`CLAUDE.md` → "The Business") is deliberately built so this remains possible later, not because any of it is coming next.
+
+### 12.1 Purpose
+Transform aggregated clinical and operational data into population-level intelligence. The question this layer exists to answer: *what is happening to the health of the population, where are the gaps, and what interventions actually improve outcomes?*
+
+### 12.2 Population segmentation
+Segment by geography, age, care programme, risk tier, disease, engagement, and service utilisation — subject to whatever privacy and legal constraints apply at the time (NDPC registration is still an open item; see CLAUDE.md's standing follow-ups).
+
+### 12.3 Population risk map
+```
+Population
+   │
+   ├── Low risk       62%
+   ├── Moderate       25%
+   ├── High risk      10%
+   └── Very high       3%
+```
+
+### 12.4 Disease surveillance
+Trend monitoring across hypertension, diabetes, cardiovascular disease, kidney disease, obesity, relevant infectious diseases, and preventive screening uptake.
+
+### 12.5 Geographic health intelligence
+E.g. "Region A has high hypertension prevalence but low screening access" — a finding that could inform provider recruitment, mobile screening deployment, laboratory partnerships, or employer programme targeting.
+
+### 12.6 Care-gap intelligence
+```
+Patients eligible for screening   100,000
+Screened                           61,000
+Gap                                 39,000
+```
+
+### 12.7 Intervention intelligence
+Measure which intervention actually worked, not just which ran:
+```
+Intervention A → medication adherence +8%
+Intervention B → medication adherence +2%
+Intervention C → no meaningful change
+```
+
+### 12.8 Population programme management
+A named example, e.g. a national BP programme:
+```
+Identify population → Screen → Risk stratify → Enroll → Treat → Monitor → Measure outcomes
+```
+
+### 12.9 Public/private partnerships
+Potential eventual partners: employers, healthcare systems, insurers, NGOs, development organisations, public-health programmes — each subject to its own legal, clinical, and data-governance review; none currently pursued.
+
+### 12.10 Population outcome dashboard
+```
+HYPERTENSION PROGRAMME
+Enrolled            500,000
+Monitoring          420,000
+Controlled          310,000
+Uncontrolled         90,000
+Lost to follow-up    40,000
+```
+
+### 12.11 Health economics
+Eventually measurable: cost per patient, cost per controlled patient, cost per prevented event, healthcare utilisation, programme ROI.
+
+### 12.12 Predictive population analytics
+Potential forecasts: disease burden, capacity requirements, specialist demand, laboratory demand, medication demand.
+
+### 12.13 Resource planning
+```
+Projected cardiology demand   ↑ 32%
+Current capacity              ↓ 15%
+Gap                             17%
+Action: recruit network specialists
+```
+
+### 12.14 Research infrastructure
+With appropriate governance, de-identified research datasets for epidemiology, outcomes research, health services research, and clinical research.
+
+### 12.15 Clinical trials infrastructure
+Long term, and only with appropriately governed research partners, Tarragon could help identify potentially eligible trial participants from its patient base.
+
+### 12.16 Real-world evidence
+```
+Treatment → real-world patient outcome
+```
+Tracked over time, this becomes an evidence platform in its own right.
+
+### 12.17 Population-level AI
+Potential uses: risk prediction, demand forecasting, care-gap detection, pathway optimisation. Any model here would need the same validation/governance discipline the platform already applies to clinical AI — see the ML Service rules in `CLAUDE.md` (stateless, no direct DB access) and the doctor-tier authority model, neither of which this layer gets to bypass.
+
+### 12.18 Health inequality analysis
+Identify disparities in access, screening, treatment, and outcomes. The purpose is to reduce gaps, not merely describe them.
+
+### 12.19 National-scale architecture
+```
+                  TARRAGON
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+      PATIENTS     PROVIDERS     PAYERS
+        │            │            │
+        └────────────┼────────────┘
+                     ▼
+             NATIONAL NETWORK
+                     │
+                     ▼
+              HEALTH INTELLIGENCE
+```
+
+### 12.20 Acceptance criteria
+At full maturity, this layer should be able to answer: What is happening? Why is it happening? Where is the problem? Who needs intervention? What intervention works? Did the intervention improve outcomes?
+
+**Guardrail (applies to all of §12):** this section is a north star, not a backlog. It does not get a Phase 2/Phase 3 date the way §8 does, because it depends on scale and regulatory relationships Tarragon doesn't have yet. No table, migration, dashboard, or API in this section gets built off this document alone — it needs a founder ask at the time, the same as any other Phase-2/3+ item this file or `CLAUDE.md` gates.
+
+---
+
+## 13. Tarragon Infrastructure as a Service & Population Health Contracts (Long-Horizon Vision)
+
+Same order of magnitude as §12, and the same non-scheduled status — but a different axis. §12 is about what Tarragon can *learn and show* once it has population-scale data. This section is about a different *customer and business model*: instead of Tarragon holding the patient relationship directly (today's model — patient or employer/HMO pays for a Tarragon-branded plan), an institution that already has its own doctors and patients pays Tarragon to run the digital infrastructure underneath them.
+
+### 13.1 The shift in who the customer is
+Today's business (`CLAUDE.md` → "The Business") sells care to patients, and sells patient populations to employers/HMOs as a channel. Infrastructure-as-a-Service instead sells the platform itself to an organisation that keeps its own doctors, patients, and brand:
+
+```
+Hospital
+HMO
+Employer
+Clinic
+Laboratory
+Pharmacy
+Government programme
+       │
+       ▼
+TARRAGON PLATFORM
+```
+
+Concretely, a hospital with doctors and patients already in place but poor digital infrastructure could run its operations on Tarragon's:
+- appointment infrastructure
+- care management
+- patient engagement
+- remote monitoring
+- referral management
+- laboratory integration
+- pharmacy integration
+- AI assistance
+- population analytics
+
+The hospital pays Tarragon a platform/infrastructure fee. This is a healthcare-technology-infrastructure business, not a healthcare-delivery business — much closer to what `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §16's Protocol API note gestures at (a stateless clinical API for licensee organisations), except broader: not just the clinical decisioning layer, but the whole operational stack (scheduling, messaging, device ingestion, lab/pharmacy integration, dashboards) white-labelled or co-branded under someone else's front door.
+
+**This is architecturally a large step past the Protocol API, not an extension of it.** The Protocol API is stateless and takes patient data in the request body per `CLAUDE.md`'s Python service rules — it never becomes the system of record. Running a hospital's *appointment infrastructure, care management, and patient engagement* means Tarragon's multi-tenant Postgres becomes another organisation's primary patient record store, under its own `organisation_id`, with its own staff logging in as `clinical_staff`/`profiles` rows. That is a fundamentally different trust boundary (a second organisation's clinical liability, a second organisation's regulatory relationship with MDCN/NDPC, potentially a second organisation's own BAA-equivalent data processing agreement) than anything shipped or planned in §§1–12. Nothing about `private.is_org_staff()`, RLS-by-`organisation_id`, or the doctor-tier ladder needs to change in principle — multi-tenancy is already the platform's foundation — but the *scale of blast radius per tenant* (an entire hospital, not one patient) means this needs its own security/contracting review before a single table is touched, not just a founder "yes."
+
+### 13.2 Revenue Engine: Population Health Contracts
+Potentially the largest long-term opportunity, and the commercial expression of §12's analytics layer: an organisation contracts Tarragon to manage a defined population (the example used in discovery was 500,000 people). Tarragon is paid based on some combination of:
+- population size
+- services provided
+- outcomes
+- programme performance
+
+Potential customers: appropriately structured employers, HMOs, insurers, healthcare networks, public-health organisations, and development programmes. This moves Tarragon toward **Population Health as a Service** — the commercial packaging of the population-programme-management loop already sketched in §12.8 (identify → screen → risk stratify → enroll → treat → monitor → measure outcomes), sold as an outcomes/services contract rather than run as Tarragon's own product.
+
+**Guardrail — this is the section's sharpest edge, read before doing anything with it:** "paid based on population size" is dangerously close in shape to capitation, which `CLAUDE.md`'s Non-Negotiable Business Rules records as a shipped, deliberate removal — **no capitation, ever (I8)**, confirmed 2026-07-29. The two are not automatically the same thing: capitation (as removed) meant Tarragon taking downside financial risk per enrolled patient regardless of utilisation, the way an HMO risk-bearer does — which requires insurance-type licensing Tarragon doesn't have and isn't seeking. A population-health *services* contract (a fee for running infrastructure/programmes against a defined population, priced off headcount as a sizing input, with no insurance risk transfer) is a different legal structure. But the difference lives entirely in the contract's actual risk allocation, not in this document's wording — **any real population-health contract must get the same "appropriately structured" legal/regulatory review this section repeatedly gestures at but does not itself perform**, before it is treated as compatible with I8. Do not let this section's existence be read as license to build capitation-shaped pricing.
+
+**Guardrail (applies to all of §13):** not scheduled, not gated to any Phase in §8, and — like §12 — requires patient/institutional volume, contracting capability, and regulatory relationships Tarragon does not have yet. It sits behind the same explicit-founder-ask gate as §12 and the Master Operating Plan's Phase 2/3 items, with the added condition above: any Population Health Contract must independently clear the I8 no-capitation review before commercial or engineering work starts, not just the general "ask the founder" gate. No table, migration, tenant-onboarding flow, or contract-pricing logic gets built off this document alone.
+
+---
+
+## 14. Financial Operations & Contract Economics (Long-Horizon Vision)
+
+Where §12 is about what Tarragon can *learn* at population scale and §13 is about *who the customer is*, this section is about whether the business stays solvent while it gets there, and how it should eventually price the B2B contracts §4/§13 gesture at. Some of it is partially live today (see 14.1's shipped column); the contract-economics subsections (14.2–14.4) are unbuilt analysis frameworks, not features. **Nothing in 14.2–14.4 gets a data model, dashboard, or pricing engine without an explicit founder ask** — same gate as §12/§13.
+
+### 14.1 Cash management
+
+A healthcare company can grow revenue and still fail on cash flow. The full set of flows Tarragon eventually needs visibility over:
+
+```
+Accounts receivable        Accounts payable
+Provider settlements        Payroll
+Refunds                     Claims receivable
+Subscription revenue        Deferred revenue
+Cash forecasting
+```
+
+**Already shipped, not vision:** the Finance Dashboard v2 build (PR #157, merged 2026-07-27) covers a real subset of this — a cash flow statement (indirect method), an accounts-payable ledger (vendors/bills with WHT), cost centers, and budget-vs-actual — gated behind `private.finance_can()`/`private.is_finance()` with fail-closed RLS on the underlying `finance_*` tables. **Not yet built:** claims receivable, subscription deferred-revenue recognition, provider-settlement tracking, payroll, refund workflows, and any forward-looking cash forecasting model. That PR's own placeholder list also flags that its capitation-loss-ratio figure is manually entered because no claims ledger exists yet — worth knowing before assuming "claims receivable" already has a home.
+
+**Guardrail worth flagging explicitly:** that same PR shipped an "HMO capitation register (PMPM contracts/receipts, distinct revenue account 4300)" on 2026-07-27 — two days *before* `CLAUDE.md`'s I8 ("no capitation, ever") was confirmed shipped as a deliberate platform-wide removal on 2026-07-29. Whether that register is still live, still referenced anywhere, or was part of what I8's removal swept up is unverified as of this writing — confirm the table's current state and I8's actual scope before building anything in 14.1 that assumes a capitation ledger exists or should exist.
+
+### 14.2 Employer contract economics
+
+Per employer, the eventual unit-economics view:
+
+```
+Contract value
+-
+Care delivery cost
+-
+Customer success cost
+-
+Provider cost
+-
+Technology allocation
+=
+Contribution margin
+```
+
+Comparing this across customers is the point, not computing it for any single one: Employer A may be highly profitable while Employer B consumes enormous clinical resources for the same contract value. That comparison is what should inform renewal and pricing decisions — it requires cost allocation (customer success time, provider/clinical-staff time by employer, a technology-cost allocation basis) that nothing in the current schema tracks per-employer today.
+
+### 14.3 HMO economics
+
+The chain Tarragon would need to instrument to demonstrate economic value to an HMO partner:
+
+```
+Members
+   ↓
+Risk profile
+   ↓
+Healthcare utilisation
+   ↓
+Tarragon intervention
+   ↓
+Cost
+   ↓
+Outcome
+```
+
+This is the HMO-specific instance of §12's population-programme-management loop (12.8) and §12.11's health economics (cost per patient, cost per controlled patient, cost per prevented event) — not a separate analytics layer, a specific application of the one already sketched there.
+
+### 14.4 Outcome-based contracting
+
+Long term, and only where clinically appropriate and contractually lawful, some B2B contracts could move from a flat fee toward a structure with a performance component:
+
+```
+Base fee
++
+Outcome incentive
+```
+
+This is the pricing shape the `outcomes_contracts` table (§5's data model, `contract_type` already enumerating `capitation`/`fee_at_risk`/`flat`) was designed for, and the same "fee-at-risk" idea §2.1/§2.4 describe for HMO clinical programs. **The same I8 guardrail from §13.2 applies here without exception:** an outcome-incentive contract that is genuinely a fee for performance (Tarragon earns more when it demonstrably improves an outcome, with no insurance-type downside risk transfer) is a different legal structure from capitation (Tarragon bearing downside financial risk per enrolled member regardless of utilisation, which I8 removed for good reason — it needs insurance-type licensing Tarragon doesn't have). The `contract_type` enum listing `capitation` as an option in §5 predates the I8 removal and should not be read as license to write a capitation-shaped contract now — any real outcome-based contract needs the same legal/regulatory review before it's treated as compatible with I8.
+
+**Guardrail (applies to all of §14):** 14.1's shipped subset aside, this section is analysis-framework vision, not a build order. No cost-allocation model, HMO-economics dashboard, or outcome-contract pricing engine gets built off this document alone — it needs an explicit founder ask, the same as §12/§13.
+
 *— End of Tarragon Health Full Specification v4 —*
