@@ -18,7 +18,7 @@ export function CarePlanDisplay({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useCarePlans(patientId);
 
   return (
-    <Card>
+    <Card id="care-plan">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />

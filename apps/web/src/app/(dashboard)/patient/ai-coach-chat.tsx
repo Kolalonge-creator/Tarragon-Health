@@ -11,6 +11,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import type { CoachSuggestedAction } from "@tarragon/shared";
+
+/**
+ * §78.2 -- where each suggestedAction the model can classify actually
+ * points. Deliberately a fixed, deterministic map: the model only ever
+ * picks a kind (prompts.ts), never a URL or record id, so there's no way
+ * for a model output to control navigation beyond choosing among these
+ * four pre-approved destinations.
+ */
+const SUGGESTION_LINK: Record<Exclude<CoachSuggestedAction, "none">, { href: string; label: string }> = {
+  medication_education: { href: "/patient/medications", label: "Look at your medications" },
+  care_plan_explanation: { href: "/patient/care#care-plan", label: "See your care plan" },
+  appointment_prep: { href: "/patient/appointments", label: "See your appointments" },
+  service_navigation: { href: "/patient/care#find-a-service", label: "Find a service" },
+};
 
 export function AiCoachChat({ patientId }: { patientId: string }) {
   const { data: conversation } = useAiConversation(patientId);
@@ -90,6 +105,14 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
               >
                 {formatTimestamp(message.created_at)}
               </p>
+              {message.suggestedAction && message.suggestedAction !== "none" && (
+                <Link
+                  href={SUGGESTION_LINK[message.suggestedAction].href}
+                  className="inline-block text-xs text-brand-green underline"
+                >
+                  {SUGGESTION_LINK[message.suggestedAction].label} →
+                </Link>
+              )}
             </div>
           ))}
           {sendMessage.isPending && (

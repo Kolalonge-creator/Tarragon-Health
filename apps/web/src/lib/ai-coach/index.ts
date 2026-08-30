@@ -132,6 +132,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     role: "assistant",
     content: result.reply,
     tier,
+    suggestedAction: result.suggestedAction !== "none" ? result.suggestedAction : undefined,
     // Absent (not a real model call) for a keyword-guardrail-only emergency
     // reply — see CoachState's modelId doc comment. §78.18 auditability.
     model: result.modelId ?? undefined,

@@ -3,7 +3,14 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { COACH_TIERS, type CoachChatMessage, type CoachTier, type Database } from "@tarragon/shared";
+import {
+  COACH_TIERS,
+  COACH_SUGGESTED_ACTIONS,
+  type CoachChatMessage,
+  type CoachTier,
+  type CoachSuggestedAction,
+  type Database,
+} from "@tarragon/shared";
 import {
   COACH_SYSTEM_PROMPT,
   COACH_UNAVAILABLE_REPLY,
@@ -21,6 +28,9 @@ import { findRelevantLifestyleContent } from "@/lib/lifestyle/find-relevant-cont
 const structuredReplySchema = z.object({
   tier: z.enum(COACH_TIERS),
   reply: z.string(),
+  // §78.2 -- classification only, never executed by the model itself. See
+  // COACH_SUGGESTED_ACTIONS' doc comment for the full contract.
+  suggestedAction: z.enum(COACH_SUGGESTED_ACTIONS),
 });
 
 const CoachState = Annotation.Root({
@@ -31,6 +41,7 @@ const CoachState = Annotation.Root({
   priorMessages: Annotation<CoachChatMessage[]>,
   tier: Annotation<CoachTier | null>({ reducer: (_prev, next) => next, default: () => null }),
   reply: Annotation<string>({ reducer: (_prev, next) => next, default: () => "" }),
+  suggestedAction: Annotation<CoachSuggestedAction>({ reducer: (_prev, next) => next, default: () => "none" }),
   escalationId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
   /** null when the keyword guardrail alone produced the reply (no Claude
    * call made) -- an honest "no model was used" signal, not a bug. §78.18. */
@@ -212,11 +223,13 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       ]);
 
       // The emergency-tier safety sentence is always the canned copy, never
-      // the model's own phrasing of it — see prompts.ts.
+      // the model's own phrasing of it — see prompts.ts. No suggestion chip
+      // on an emergency reply either — nothing should compete with it.
       if (result.tier === "emergency") {
         return {
           tier: "emergency" as const,
           reply: `${result.reply}\n\n${EMERGENCY_SAFETY_REPLY}`,
+          suggestedAction: "none" as const,
           modelId: AI_COACH_MODEL_ID,
           knowledgeSourceUsed,
         };
@@ -224,6 +237,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       return {
         tier: result.tier,
         reply: `${result.reply}\n\n${DISCLAIMER_LINE}`,
+        suggestedAction: result.suggestedAction,
         modelId: AI_COACH_MODEL_ID,
         knowledgeSourceUsed,
       };

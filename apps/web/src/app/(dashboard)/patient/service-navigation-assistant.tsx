@@ -32,7 +32,7 @@ export function ServiceNavigationAssistant() {
   }
 
   return (
-    <Card>
+    <Card id="find-a-service">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SEMANTIC_ICON.booking className="h-5 w-5 text-deep-forest" strokeWidth={2} />
