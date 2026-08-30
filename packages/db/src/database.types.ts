@@ -17723,6 +17723,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_login_device: {
+        Args: { p_device_fingerprint: string; p_ip: string; p_user_agent: string }
+        Returns: boolean
+      }
       record_voucher_payment_intent: {
         Args: {
           p_amount_minor: number
