@@ -292,6 +292,13 @@ export default async function AdminPage() {
           visible: can("broadcasts.send"),
         },
         {
+          href: "/admin/settings/notification-templates",
+          label: "Notification templates",
+          blurb: "The catalogue of every notification the platform sends",
+          icon: NAV_ICON.messages,
+          visible: can("notification_templates.manage"),
+        },
+        {
           href: "/admin/settings/integrations",
           label: "API keys & integrations",
           blurb: "Inbound partner keys and outbound partner APIs",
