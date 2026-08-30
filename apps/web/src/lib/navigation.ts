@@ -183,6 +183,7 @@ export function getNavSections(
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
+            { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {
               label: "Emergency card",
               href: "/patient/emergency-card",

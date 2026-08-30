@@ -45,6 +45,15 @@ const STATUS_BADGE: Record<string, NonNullable<BadgeProps["variant"]>> = {
   closed: "green",
 };
 
+const ROOT_CAUSE_LABEL: Record<string, string> = {
+  human_factors: "Human factors",
+  system_design: "System design",
+  training: "Training",
+  communication: "Communication",
+  technical_failure: "Technical failure",
+  process_failure: "Process failure",
+};
+
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("en-GB", {
     day: "numeric",
@@ -168,6 +177,7 @@ function FileIncidentForm({ organisationId }: { organisationId: string }) {
 function ReviewControls({ incident }: { incident: SafetyIncident }) {
   const [reviewOutcome, setReviewOutcome] = useState(incident.review_outcome ?? "");
   const [correctiveAction, setCorrectiveAction] = useState(incident.corrective_action ?? "");
+  const [rootCauseCategory, setRootCauseCategory] = useState(incident.root_cause_category ?? "");
   const review = useReviewSafetyIncident();
 
   return (
@@ -200,6 +210,20 @@ function ReviewControls({ incident }: { incident: SafetyIncident }) {
               placeholder="What changed as a result (or an explicit 'no action needed')"
             />
           </div>
+          <div>
+            <Label>Root cause (optional)</Label>
+            <Select
+              value={rootCauseCategory}
+              onChange={(e) => setRootCauseCategory(e.target.value)}
+            >
+              <option value="">Not categorised</option>
+              {Object.entries(ROOT_CAUSE_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </div>
           {review.isError && <p className="text-sm text-red-600">{(review.error as Error).message}</p>}
           <Button
             size="sm"
@@ -211,6 +235,7 @@ function ReviewControls({ incident }: { incident: SafetyIncident }) {
                 status: "closed",
                 reviewOutcome: reviewOutcome.trim(),
                 correctiveAction: correctiveAction.trim(),
+                rootCauseCategory: rootCauseCategory || undefined,
               })
             }
           >
@@ -270,6 +295,12 @@ function IncidentCard({ incident, canReview }: { incident: SafetyIncident; canRe
               <p>
                 <span className="font-medium">Corrective action: </span>
                 {incident.corrective_action}
+              </p>
+            )}
+            {incident.root_cause_category && (
+              <p>
+                <span className="font-medium">Root cause: </span>
+                {ROOT_CAUSE_LABEL[incident.root_cause_category] ?? incident.root_cause_category}
               </p>
             )}
           </>

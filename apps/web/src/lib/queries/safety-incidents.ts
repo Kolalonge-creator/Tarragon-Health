@@ -87,6 +87,7 @@ export function useReviewSafetyIncident() {
       status: "under_review" | "action_planned" | "closed";
       reviewOutcome?: string;
       correctiveAction?: string;
+      rootCauseCategory?: string;
     }) => {
       const supabase = createClient();
       const { error } = await supabase
@@ -95,6 +96,7 @@ export function useReviewSafetyIncident() {
           status: input.status,
           review_outcome: input.reviewOutcome || null,
           corrective_action: input.correctiveAction || null,
+          root_cause_category: input.rootCauseCategory || null,
         })
         .eq("id", input.incidentId);
       if (error) throw error;
