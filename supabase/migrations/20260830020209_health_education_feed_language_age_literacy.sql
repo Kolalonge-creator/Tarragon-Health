@@ -20,9 +20,19 @@
 --     'getting_started' content first for a patient who self-rated low
 --     confidence on one of their active conditions. Still never touches
 --     patient_risk_scores or escalation.
--- CREATE OR REPLACE only, same exact return signature as live today.
+-- Same exact return signature as live today, but a fresh replay only ever
+-- has the narrower 20260723/20260810 signatures on file — `create or
+-- replace` can't widen a table-returning function's columns (SQLSTATE
+-- 42P13, "cannot change return type of existing function"), so both
+-- functions are dropped first. Confirmed via list_migrations that this
+-- migration itself has never actually run against the live project (its
+-- version isn't in schema_migrations there), so this drop+recreate is safe
+-- there too — it lands on the exact same signature/grants the concurrent
+-- session already applied directly.
 
-create or replace function public.health_education_feed()
+drop function if exists public.health_education_feed();
+
+create function public.health_education_feed()
 returns table (
   content_id        uuid,
   code              text,
@@ -122,7 +132,9 @@ as $$
     c.title;
 $$;
 
-create or replace function public.health_education_library(p_category public.health_education_category default null)
+drop function if exists public.health_education_library(public.health_education_category);
+
+create function public.health_education_library(p_category public.health_education_category default null)
 returns table (
   content_id        uuid,
   code              text,
@@ -256,3 +268,15 @@ as $$
   where p.code = p_code and (p.is_active or private.is_admin())
   order by m.module_number;
 $$;
+
+revoke execute on function public.health_education_feed() from public;
+revoke execute on function public.health_education_feed() from anon;
+grant execute on function public.health_education_feed() to authenticated;
+
+revoke execute on function public.health_education_library(public.health_education_category) from public;
+revoke execute on function public.health_education_library(public.health_education_category) from anon;
+grant execute on function public.health_education_library(public.health_education_category) to authenticated;
+
+revoke execute on function public.health_education_programme_detail(text) from public;
+revoke execute on function public.health_education_programme_detail(text) from anon;
+grant execute on function public.health_education_programme_detail(text) to authenticated;
