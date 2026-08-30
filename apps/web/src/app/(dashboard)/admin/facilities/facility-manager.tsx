@@ -10,7 +10,12 @@ import {
   useUpdateFacilityService,
   useDeleteFacilityService,
 } from "@/lib/queries/facility-admin";
-import { facilitySchema, facilityServiceSchema, FACILITY_TYPES } from "@/lib/validation/facility-admin";
+import {
+  facilitySchema,
+  facilityServiceSchema,
+  FACILITY_TYPES,
+  APPOINTMENT_TYPES,
+} from "@/lib/validation/facility-admin";
 import { koboToNaira, nairaToKobo } from "@tarragon/shared";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +31,22 @@ const FACILITY_TYPE_LABEL: Record<(typeof FACILITY_TYPES)[number], string> = {
   radiology: "Radiology",
   optician: "Optician",
   vaccination_centre: "Vaccination centre",
+};
+
+const APPOINTMENT_TYPE_LABEL: Record<(typeof APPOINTMENT_TYPES)[number], string> = {
+  gp: "GP",
+  specialist: "Specialist",
+  nurse: "Nurse",
+  dietitian: "Dietitian",
+  physiotherapist: "Physiotherapist",
+  laboratory: "Laboratory",
+  imaging: "Imaging",
+  vaccination: "Vaccination",
+  physical_clinic: "In-person clinic",
+  telemedicine: "Telemedicine",
+  follow_up: "Follow-up",
+  procedure: "Procedure",
+  therapy: "Therapy",
 };
 
 export function FacilityManager() {
@@ -275,6 +296,9 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [priceNaira, setPriceNaira] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("");
+  const [appointmentType, setAppointmentType] = useState("");
+  const [eligibleSpecialty, setEligibleSpecialty] = useState("");
 
   function handleAdd(event: FormEvent) {
     event.preventDefault();
@@ -283,6 +307,9 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
       name,
       description: description || undefined,
       price_kobo: priceNaira ? nairaToKobo(Number(priceNaira)) : undefined,
+      duration_minutes: durationMinutes || undefined,
+      appointment_type: appointmentType || undefined,
+      eligible_specialty: eligibleSpecialty || undefined,
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -294,6 +321,9 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
         setName("");
         setDescription("");
         setPriceNaira("");
+        setDurationMinutes("");
+        setAppointmentType("");
+        setEligibleSpecialty("");
       },
     });
   }
@@ -328,6 +358,11 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
                 {service.description && (
                   <p className="text-xs text-charcoal-ink/60">{service.description}</p>
                 )}
+                <p className="text-xs text-charcoal-ink/50">
+                  {service.appointment_type && APPOINTMENT_TYPE_LABEL[service.appointment_type]}
+                  {service.duration_minutes != null && ` · ${service.duration_minutes} min`}
+                  {service.eligible_specialty && ` · ${service.eligible_specialty}`}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={service.is_active ? "green" : "grey"}>
@@ -391,6 +426,44 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
             id={`service_description_${facilityId}`}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`service_duration_${facilityId}`}>Duration (min, optional)</Label>
+          <Input
+            id={`service_duration_${facilityId}`}
+            type="number"
+            min={1}
+            max={480}
+            value={durationMinutes}
+            onChange={(e) => setDurationMinutes(e.target.value)}
+            className="w-28"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`service_type_${facilityId}`}>Type (optional)</Label>
+          <Select
+            id={`service_type_${facilityId}`}
+            value={appointmentType}
+            onChange={(e) => setAppointmentType(e.target.value)}
+            className="w-40"
+          >
+            <option value="">Not set</option>
+            {APPOINTMENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {APPOINTMENT_TYPE_LABEL[t]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`service_specialty_${facilityId}`}>Eligible specialty (optional)</Label>
+          <Input
+            id={`service_specialty_${facilityId}`}
+            placeholder="e.g. Cardiology"
+            value={eligibleSpecialty}
+            onChange={(e) => setEligibleSpecialty(e.target.value)}
+            className="w-40"
           />
         </div>
         <Button type="submit" size="sm" disabled={createService.isPending}>

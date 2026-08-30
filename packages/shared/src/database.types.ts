@@ -6394,8 +6394,11 @@ export type Database = {
       }
       facility_services: {
         Row: {
+          appointment_type: Database["public"]["Enums"]["appointment_type"] | null
           created_at: string
           description: string | null
+          duration_minutes: number | null
+          eligible_specialty: string | null
           facility_id: string
           id: string
           is_active: boolean
@@ -6403,8 +6406,11 @@ export type Database = {
           price_kobo: number | null
         }
         Insert: {
+          appointment_type?: Database["public"]["Enums"]["appointment_type"] | null
           created_at?: string
           description?: string | null
+          duration_minutes?: number | null
+          eligible_specialty?: string | null
           facility_id: string
           id?: string
           is_active?: boolean
@@ -6412,8 +6418,11 @@ export type Database = {
           price_kobo?: number | null
         }
         Update: {
+          appointment_type?: Database["public"]["Enums"]["appointment_type"] | null
           created_at?: string
           description?: string | null
+          duration_minutes?: number | null
+          eligible_specialty?: string | null
           facility_id?: string
           id?: string
           is_active?: boolean
@@ -21606,6 +21615,7 @@ export type Database = {
         | "telemedicine"
         | "follow_up"
         | "procedure"
+        | "therapy"
       appointment_waiting_list_status:
         | "waiting"
         | "offered"
@@ -22614,6 +22624,7 @@ export const Constants = {
         "telemedicine",
         "follow_up",
         "procedure",
+        "therapy",
       ],
       appointment_waiting_list_status: [
         "waiting",
