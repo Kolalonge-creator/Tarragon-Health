@@ -2828,3 +2828,86 @@ this fee; Tarragon already bills those directly.
   convention of not unit-testing thin `video-visit-actions.ts`-style wrappers, with the real logic proven
   at the DB layer instead.
 
+### 2026-08-30 — doctor-side half: a queue, a picked time, a generated video link
+
+Same day, same feature, founder follow-up in his own words: "doctors should be able to get queue of the
+request pending, then they can select time and date that they are free for the consult and the video
+link can then be generated." The morning's pass left `lab_result_consult_requests` reaching
+`payment_confirmed`/`document_uploaded` with no way to turn that into an actual booked call — this closes
+that gap.
+
+- **Deliberately NOT the `consult_availability_slots` pre-published-slot model** `video_visit_requests`
+  uses — that model exists because a *patient* picks from a doctor's pre-published slots at request time;
+  here the patient never picks anything, they just pay. Simpler and a direct match for the founder's own
+  words: `public.accept_lab_result_consult_request(p_request_id, p_scheduled_at)` lets the doctor supply
+  an arbitrary future timestamp directly when they reach the request in their queue. `public.*`, not
+  `private.*`, for the same PostgREST-exposed-schema reason as the morning's claim/settle pair.
+- Three sequential migrations (`lab_result_consult_request_status` gains `'accepted'`;
+  `lab_result_consult_requests` gains `accepted_by`/`accepted_at`/`video_consultation_id`, mirroring
+  `video_visit_requests`'s own columns minus the slot-negotiation fields it doesn't need; the accept RPC
+  itself) applied and verified directly against the live `koiplnmbgnqnbywhpjlf` project — same sandbox
+  constraint as the morning's pass, no Docker/local Postgres available.
+- **Authority is a floor, not a fence, and explicitly excludes Care Coordinators by name** — any active
+  `clinical_staff` member of the SAME organisation whose `doctor_tier is not null and doctor_tier <>
+  'care_coordinator'` can accept (routine first-line scheduling, not prescribing or emergency-escalation
+  authority). Checking this live surfaced a real, non-obvious fact worth recording: `doctor_tier` itself
+  has a `'care_coordinator'` enum member (a Care Coordinator genuinely can hold a `clinical_staff` row,
+  confirmed live — one does, in the seed org) — so "any active clinical_staff row exists" alone, the
+  precedent `markResultDocumentReviewed` already uses, would NOT have excluded them. Matches the existing
+  tier-authority-monotonicity precedent (`project_tier_authority_monotonic_invariant` memory) exactly:
+  exclude `care_coordinator` by name, never require a specific tier floor above it.
+- **Double-booking guard, scoped honestly**: an advisory transaction lock keyed on the accepting
+  `clinical_staff` id (`pg_advisory_xact_lock(hashtextextended('lab_result_consult_accept:' ||
+  staff_id, 0))`) serializes concurrent accepts by the SAME doctor before an overlap check rejects a
+  second booking whose `[scheduled_at, scheduled_at + 15 minutes)` window collides with one they already
+  hold — a different doctor taking the exact same time is untouched. **This checks only this feature's own
+  bookings** — `video_consultations` itself carries no "assigned clinician" column at all (confirmed by
+  reading its live schema; a video-visit-sourced consult's doctor identity lives only on
+  `video_visit_requests.accepted_by`, a separate table) — so there is no shared "doctor's calendar"
+  abstraction to check against across both booking systems, and building one is out of scope here. A
+  doctor could in principle still double-book across a video-visit slot and a lab-result-consult slot at
+  the same time; flagged in the PR, not silently assumed away.
+- Deliberately did NOT touch or reuse the Appointment Engine (`provider_availability_rules`,
+  `get_available_appointment_slots`, `20260828000941_appointment_engine_availability.sql`) — its own
+  migration comments say it deliberately does not merge with the video-visit/consult economics, so
+  imitating it here would have been unsanctioned scope creep, not a precedent to follow.
+- Doctor-side UI: new `/clinician/lab-result-consults` page + nav entry (under "My work", cloned from
+  `clinician/availability/request-queue.tsx`'s queue-list-with-`useActionState`-form shape, minus the
+  propose-alternates/decline branches this flow doesn't have). A plain `<input type="datetime-local">` —
+  no shared date-time-picker component exists in this codebase yet; several other clinician pages
+  (`annual-reviews`, `availability-manager`) already use the same plain element, and its
+  `new Date(localValue).toISOString()` conversion helper is copied from `annual-reviews/page.tsx`
+  verbatim. `acceptLabResultConsultRequest` (new `clinician/lab-result-consults/actions.ts`) mirrors
+  `acceptVideoVisit`'s exact sequencing: the RPC creates/reserves the row, then Zoom's `createMeeting()` is
+  called best-effort and the row is patched with the join/host URLs, then the patient is notified — booking
+  success never depends on Zoom being configured or the notification send succeeding.
+- Patient notification: `sendLabResultConsultBookedConfirmation` (new
+  `notifications/lab-result-consult-confirmation.ts`), a clone of `sendVideoConsultBookedConfirmation`
+  reading back through `lab_result_consult_requests` instead of `video_visit_requests` (the two tables
+  share no join path). Template `lab_result_consult_booked`, whatsapp + in_app pair, `content_class` left
+  at its live-confirmed default (`'non_clinical'`) since a booking confirmation is logistics, not a
+  clinical finding — same posture as the video-visit equivalent. **Checked for the newer
+  `notification_templates`/`notification_template_locales` catalog tables before assuming the old
+  direct-insert pattern still applies** — they exist live (a concurrent, not-yet-merged-to-`main-dev`
+  session's work per the "Notification template catalog" memory entry) but zero `apps/web` code
+  references them and no committed migration for them exists on this branch, so the actual current
+  convention in the committed code is still the old direct-insert-into-`notifications` pattern; wiring into
+  an unmerged catalog would have been premature.
+- Verified: `packages/db/tests/lab_result_consult_accept.sql` — 11/11 checks pass, covering: the patient
+  cannot accept their own request; a Care Coordinator cannot accept; a different organisation's clinician
+  cannot accept (proven by temporarily repointing a real clinician's `clinical_staff.organisation_id` to a
+  freshly created temp org inside the rolled-back transaction, rather than fabricating a new `auth.users`
+  row); the real doctor's accept books a correctly-shaped `video_consultations` row; an already-accepted
+  request can't be accepted twice; a past scheduled time is rejected; the SAME doctor can't double-book an
+  overlapping time; a non-overlapping time for the same doctor succeeds; a DIFFERENT doctor is not blocked
+  by the first doctor's booking. Sabotaged the overlap check once (hardcoded the conflict flag to `false`)
+  and confirmed the double-booking test flips to FAIL, then confirmed the restore. `pnpm
+  typecheck`/`lint`/`test` clean at both package and monorepo-root level (109/109 web suites, 1123/1123
+  tests, 0 lint errors). Manually patched `database.types.ts` in both `packages/db/src/` and
+  `packages/shared/src/` again, same reason as the morning's pass.
+- **Not done, flagged not guessed at**: no reschedule/cancel path for an already-accepted lab-result
+  consult — a doctor who books the wrong time has no in-app way to change it yet. No doctor-side
+  notification/digest telling them a new request landed in their queue (they have to check the page). No
+  cross-system double-booking check against `video_visit_requests`-sourced bookings (see above). No
+  admin UI still, same as the morning's entry.
+

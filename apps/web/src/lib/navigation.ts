@@ -297,6 +297,11 @@ export function getNavSections(
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                {
+                  label: "Lab result consults",
+                  href: "/clinician/lab-result-consults",
+                  icon: "labs",
+                },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },

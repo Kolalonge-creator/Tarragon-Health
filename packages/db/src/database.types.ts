@@ -7786,6 +7786,8 @@ export type Database = {
       }
       lab_result_consult_requests: {
         Row: {
+          accepted_at: string | null
+          accepted_by: string | null
           amount_minor: number
           created_at: string
           currency: string
@@ -7803,8 +7805,11 @@ export type Database = {
           refund_status: string | null
           status: Database["public"]["Enums"]["lab_result_consult_request_status"]
           updated_at: string
+          video_consultation_id: string | null
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           amount_minor?: number
           created_at?: string
           currency?: string
@@ -7822,8 +7827,11 @@ export type Database = {
           refund_status?: string | null
           status?: Database["public"]["Enums"]["lab_result_consult_request_status"]
           updated_at?: string
+          video_consultation_id?: string | null
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
           amount_minor?: number
           created_at?: string
           currency?: string
@@ -7841,8 +7849,16 @@ export type Database = {
           refund_status?: string | null
           status?: Database["public"]["Enums"]["lab_result_consult_request_status"]
           updated_at?: string
+          video_consultation_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lab_result_consult_requests_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lab_result_consult_requests_lab_order_id_fkey"
             columns: ["lab_order_id"]
@@ -7869,6 +7885,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_consult_requests_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
             referencedColumns: ["id"]
           },
         ]
@@ -16909,6 +16932,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_lab_result_consult_request: {
+        Args: { p_request_id: string; p_scheduled_at: string }
+        Returns: string
+      }
       accept_video_visit_request: {
         Args: { p_request_id: string }
         Returns: string
@@ -18605,6 +18632,7 @@ export type Database = {
         | "expired"
         | "cancelled"
         | "refunded"
+        | "accepted"
       lab_result_document_source:
         | "patient"
         | "lab_liaison"
@@ -19469,6 +19497,7 @@ export const Constants = {
         "expired",
         "cancelled",
         "refunded",
+        "accepted",
       ],
       lab_result_document_source: [
         "patient",
