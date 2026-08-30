@@ -16813,6 +16813,93 @@ export type Database = {
           },
         ]
       }
+      provider_restrictions: {
+        Row: {
+          clinical_staff_id: string
+          complaint_id: string | null
+          created_at: string
+          credential_expires_at: string | null
+          detail: string | null
+          id: string
+          imposed_at: string
+          imposed_by: string | null
+          lift_reason: string | null
+          lifted_at: string | null
+          lifted_by: string | null
+          organisation_id: string
+          reason: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Insert: {
+          clinical_staff_id: string
+          complaint_id?: string | null
+          created_at?: string
+          credential_expires_at?: string | null
+          detail?: string | null
+          id?: string
+          imposed_at?: string
+          imposed_by?: string | null
+          lift_reason?: string | null
+          lifted_at?: string | null
+          lifted_by?: string | null
+          organisation_id: string
+          reason: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Update: {
+          clinical_staff_id?: string
+          complaint_id?: string | null
+          created_at?: string
+          credential_expires_at?: string | null
+          detail?: string | null
+          id?: string
+          imposed_at?: string
+          imposed_by?: string | null
+          lift_reason?: string | null
+          lifted_at?: string | null
+          lifted_by?: string | null
+          organisation_id?: string
+          reason?: Database["public"]["Enums"]["provider_restriction_reason"]
+          stage?: Database["public"]["Enums"]["provider_restriction_stage"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_restrictions_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "provider_complaints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_imposed_by_fkey"
+            columns: ["imposed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_lifted_by_fkey"
+            columns: ["lifted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_restrictions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provider_time_off: {
         Row: {
           clinician_id: string
@@ -21750,6 +21837,10 @@ export type Database = {
           suppressed: boolean
         }[]
       }
+      lift_provider_restriction: {
+        Args: { p_reason: string; p_restriction_id: string }
+        Returns: Database["public"]["Tables"]["provider_restrictions"]["Row"]
+      }
       log_patient_data_export: {
         Args: { p_scope?: string }
         Returns: undefined
@@ -21836,6 +21927,13 @@ export type Database = {
         }[]
       }
       open_health_check: { Args: never; Returns: string }
+      ops_exception_counts: { Args: never; Returns: Json }
+      ops_exception_queue: {
+        Args: { p_domain?: string; p_limit?: number }
+        Returns: Json
+      }
+      ops_system_health: { Args: never; Returns: Json }
+      ops_today_summary: { Args: never; Returns: Json }
       patient_health_reset_progress: {
         Args: never
         Returns: {
@@ -23334,6 +23432,18 @@ export type Database = {
       preventive_enrolment_source: "recommended" | "self" | "staff"
       preventive_enrolment_status: "enrolled" | "completed" | "withdrawn"
       profile_access_level: "view" | "manage"
+      provider_restriction_reason:
+        | "license_expiry"
+        | "indemnity_expiry"
+        | "attestation_lapse"
+        | "complaint_outcome"
+        | "performance"
+        | "governance_directive"
+      provider_restriction_stage:
+        | "warning"
+        | "grace_period"
+        | "service_restriction"
+        | "suspension"
       reassessment_reason:
         | "new_diagnosis"
         | "abnormal_result"
@@ -24470,6 +24580,20 @@ export const Constants = {
       preventive_enrolment_source: ["recommended", "self", "staff"],
       preventive_enrolment_status: ["enrolled", "completed", "withdrawn"],
       profile_access_level: ["view", "manage"],
+      provider_restriction_reason: [
+        "license_expiry",
+        "indemnity_expiry",
+        "attestation_lapse",
+        "complaint_outcome",
+        "performance",
+        "governance_directive",
+      ],
+      provider_restriction_stage: [
+        "warning",
+        "grace_period",
+        "service_restriction",
+        "suspension",
+      ],
       reassessment_reason: [
         "new_diagnosis",
         "abnormal_result",
