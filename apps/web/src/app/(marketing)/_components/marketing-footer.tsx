@@ -18,6 +18,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
     { href: MARKETING_ROUTES.healthEducation, label: "Health Education" },
     { href: MARKETING_ROUTES.mentalWellbeingCheck, label: "Mental Well-being Check" },
+    { href: MARKETING_ROUTES.symptomChecker, label: "Symptom Checker" },
     { href: MARKETING_ROUTES.parentcare, label: "Caring for a parent" },
   ],
   conditions: [
