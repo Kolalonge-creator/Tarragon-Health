@@ -125,6 +125,13 @@ export default async function AdminPage() {
           visible: can("clinical_staff.manage"),
         },
         {
+          href: "/admin/settings/provider-restrictions",
+          label: "Provider restrictions",
+          blurb: "Staged, reason-coded suspension workflow for clinical staff",
+          icon: SEMANTIC_ICON.clinicianFollowUp,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/leads",
           label: "Leads",
           blurb: "Contact form and plan-finder submissions, including B2B",
