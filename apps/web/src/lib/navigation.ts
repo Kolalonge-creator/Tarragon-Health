@@ -181,6 +181,7 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
             { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
