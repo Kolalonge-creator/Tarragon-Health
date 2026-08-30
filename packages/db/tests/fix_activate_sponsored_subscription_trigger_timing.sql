@@ -1,14 +1,28 @@
--- activate_sponsored_subscription trigger timing fix: end-to-end proof, in
+-- activate_sponsored_subscription real-activation fix: end-to-end proof, in
 -- one rolled-back transaction.
 --
--- The bug: the trigger was AFTER INSERT ONLY, but its function body gates on
--- `processed_at is not null` — a condition that can only become true via a
--- LATER UPDATE (webhooks always insert with processed_at NULL, then a
--- separate markProcessed() statement sets it). Every real sponsored-
--- subscription payment recorded the charge but never activated the plan.
--- This test replays the webhook's exact two-statement sequence rather than
--- calling the function directly, which is what let the original bug ship
--- undetected.
+-- The bug had two layers, found in sequence while building on this same
+-- payment path for the §91.9 subsidy engine:
+--
+--   1. The trigger was AFTER INSERT ONLY, but its function body gated on
+--      `processed_at is not null` — a condition only a LATER UPDATE sets.
+--      First fix attempt: made the trigger also fire on
+--      UPDATE OF processed_at.
+--   2. That still wasn't enough: the real webhook's charge.success /
+--      checkout.session.completed switch has no case for
+--      metadata.kind='sponsored_subscription' at all — it falls into the
+--      generic else-branch, treats the unrecognised kind as an 'add_on'
+--      checkout, finds no matching subscription_add_ons row (a sponsored-
+--      subscription checkout never creates one), and calls markFailed(),
+--      never markProcessed(). processed_at is NEVER set for this kind via
+--      the real webhook code, so listening for its UPDATE doesn't help.
+--
+-- The actual fix mirrors private.apply_voucher_payment_from_transaction —
+-- the other metadata-kind trigger deliberately designed to ship without
+-- redeploying either webhook — which never depends on processed_at, only on
+-- event_type. This test proves activation now happens on the bare INSERT
+-- alone, exactly matching how the real webhook's insert-then-(failed)switch
+-- sequence actually behaves for this kind.
 --
 -- Run:  npx supabase db query --linked -f packages/db/tests/fix_activate_sponsored_subscription_trigger_timing.sql
 --       (from the MAIN checkout, not a worktree — see reference_supabase_cli_sql_access)
@@ -45,41 +59,56 @@ begin
   end if;
 
   -- =========================================================================
-  -- 1. POSITIVE — the real insert-then-update sequence now activates the plan
+  -- 1. POSITIVE — the bare INSERT alone now activates the plan, matching
+  --    exactly what the real webhook actually does for this metadata.kind
+  --    (insert the row, then fail to match it as an add_on and never touch
+  --    processed_at at all)
   -- =========================================================================
   insert into public.payment_transactions
     (organisation_id, provider, provider_event_id, event_type, amount_minor, currency, raw_payload)
   values (
-    c_org, 'paystack', 'test-evt-sponsor-activation-fixed', 'charge.success', 500000, 'NGN',
-    jsonb_build_object('data', jsonb_build_object('reference', 'test-evt-sponsor-activation-fixed', 'metadata',
+    c_org, 'paystack', 'test-evt-sponsor-bare-insert', 'charge.success', 500000, 'NGN',
+    jsonb_build_object('data', jsonb_build_object('reference', 'test-evt-sponsor-bare-insert', 'metadata',
       jsonb_build_object('kind', 'sponsored_subscription', 'beneficiary_profile_id', v_beneficiary,
                           'sponsor_profile_id', v_sponsor, 'plan_code', v_plan_code)))
   )
   returning id into v_txn;
 
-  -- The INSERT alone must not yet activate anything — processed_at is still null.
   select exists(
     select 1 from public.subscriptions where subscriber_id = v_beneficiary and paid_by_profile_id = v_sponsor and status = 'active'
   ) into v_activated;
   if v_activated then
-    raise exception 'FAIL 1a: activation happened on the bare INSERT, before processed_at was ever set — unexpected';
+    insert into _checks (msg) values ('PASS 1: the bare INSERT alone now activates the sponsored plan (no processed_at dependency)');
   else
-    insert into _checks (msg) values ('PASS 1a: the bare INSERT (processed_at still null) correctly does not activate yet');
-  end if;
-
-  update public.payment_transactions set processed_at = now() where id = v_txn;
-
-  select exists(
-    select 1 from public.subscriptions where subscriber_id = v_beneficiary and paid_by_profile_id = v_sponsor and status = 'active'
-  ) into v_activated;
-  if v_activated then
-    insert into _checks (msg) values ('PASS 1b: the UPDATE that sets processed_at now correctly activates the sponsored plan');
-  else
-    raise exception 'FAIL 1b: still not activating after the trigger fix';
+    raise exception 'FAIL 1: still not activating on bare insert';
   end if;
 
   -- =========================================================================
-  -- 2. SABOTAGE — a revoked grant at the moment money lands still blocks
+  -- 2. NEGATIVE — an event_type that is not a real money-in event never
+  --    activates anything, even with correctly-shaped metadata
+  -- =========================================================================
+  delete from public.subscriptions where subscriber_id = v_beneficiary and paid_by_profile_id = v_sponsor;
+
+  insert into public.payment_transactions
+    (organisation_id, provider, provider_event_id, event_type, amount_minor, currency, raw_payload)
+  values (
+    c_org, 'paystack', 'test-evt-sponsor-wrong-event-type', 'invoice.create', 500000, 'NGN',
+    jsonb_build_object('data', jsonb_build_object('reference', 'test-evt-sponsor-wrong-event-type', 'metadata',
+      jsonb_build_object('kind', 'sponsored_subscription', 'beneficiary_profile_id', v_beneficiary,
+                          'sponsor_profile_id', v_sponsor, 'plan_code', v_plan_code)))
+  );
+
+  select exists(
+    select 1 from public.subscriptions where subscriber_id = v_beneficiary and paid_by_profile_id = v_sponsor and status = 'active'
+  ) into v_activated;
+  if v_activated then
+    raise exception 'FAIL 2: a non-money-in event_type activated a plan';
+  else
+    insert into _checks (msg) values ('PASS 2: a non-money-in event_type (invoice.create) never activates anything');
+  end if;
+
+  -- =========================================================================
+  -- 3. SABOTAGE — a revoked grant at the moment money lands still blocks
   --    activation (the existing re-authorization check, unaffected by this fix)
   -- =========================================================================
   delete from public.profile_access where profile_id = v_beneficiary and grantee_user_id = v_stranger;
@@ -91,17 +120,15 @@ begin
     jsonb_build_object('data', jsonb_build_object('reference', 'test-evt-sponsor-no-grant', 'metadata',
       jsonb_build_object('kind', 'sponsored_subscription', 'beneficiary_profile_id', v_beneficiary,
                           'sponsor_profile_id', v_stranger, 'plan_code', v_plan_code)))
-  )
-  returning id into v_txn;
-  update public.payment_transactions set processed_at = now() where id = v_txn;
+  );
 
   select exists(
     select 1 from public.subscriptions where subscriber_id = v_beneficiary and paid_by_profile_id = v_stranger and status = 'active'
   ) into v_activated;
   if v_activated then
-    raise exception 'FAIL 2: a sponsor with no manage grant activated a plan anyway';
+    raise exception 'FAIL 3: a sponsor with no manage grant activated a plan anyway';
   else
-    insert into _checks (msg) values ('PASS 2: a sponsor with no manage grant still cannot activate a plan (money-lands re-authorization intact)');
+    insert into _checks (msg) values ('PASS 3: a sponsor with no manage grant still cannot activate a plan (money-lands re-authorization intact)');
   end if;
 end $$;
 
