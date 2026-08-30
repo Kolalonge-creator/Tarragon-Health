@@ -30,19 +30,32 @@
  * recognise it and cosmetically no-op, so this ships without redeploying
  * either Edge Function — a redeploy this codebase has been bitten by twice.
  */
+/**
+ * 'programme_purchase' is read the same no-Edge-Function-edit way as
+ * 'voucher_payment'/'sponsored_subscription': an AFTER INSERT trigger on
+ * payment_transactions (private.activate_programme_purchase_from_transaction,
+ * see supabase/migrations/20260830014642_programme_purchase_payment_activation.sql),
+ * not the deployed paystack-webhook/stripe-webhook Edge Functions, which don't
+ * recognise it and cosmetically no-op on it. Deliberately NOT routed through
+ * kind='booking' — that path's booking_order_type is resolved against a
+ * BOOKING_TABLE map hardcoded inside the separately-deployed webhook, which
+ * has no 'programme' entry and would need a redeploy to add one. A dedicated
+ * kind avoids that redeploy entirely, same reasoning as the two kinds above.
+ */
 export type CheckoutKind =
   | "subscription"
   | "add_on"
   | "booking"
   | "voucher_payment"
-  | "sponsored_subscription";
+  | "sponsored_subscription"
+  | "programme_purchase";
 
 export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit";
 
 export interface CheckoutMetadata {
   kind: CheckoutKind;
   profile_id: string;
-  /** subscription_plans.code (kind='subscription'/'sponsored_subscription') or add_ons.code (kind='add_on'). Unused for kind='booking'/'voucher_payment'. */
+  /** subscription_plans.code (kind='subscription'/'sponsored_subscription') or add_ons.code (kind='add_on'). Unused for kind='booking'/'voucher_payment'/'programme_purchase'. */
   item_code: string;
   /** Only set for kind='add_on' — the base subscriptions.id it attaches to. */
   subscription_id?: string;
@@ -56,4 +69,6 @@ export interface CheckoutMetadata {
   sponsor_profile_id?: string;
   /** Only set for kind='sponsored_subscription' — subscription_plans.code, read by the trigger. */
   plan_code?: string;
+  /** Only set for kind='programme_purchase' — the programme_purchases id being paid for. Read by the activation trigger via pending_payment_provider_ref, not this field, but kept here for observability in payment_transactions.raw_payload. */
+  programme_purchase_id?: string;
 }

@@ -5,6 +5,7 @@ import {
   useAllChronicProgrammes,
   useConditionProtocols,
   useSetChronicProgrammeActive,
+  useUpdateProgrammeCommercialTerms,
   useHtnQualityMetrics,
   type ChronicProgramme,
   type ConditionProtocol,
@@ -21,7 +22,86 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ConditionProtocolView } from "@/components/clinical/condition-protocol";
+
+/** Episodic-fee rebuild: fee/duration/"what's included" copy for a Care
+ * Programme purchase, editable here alongside the existing activate/
+ * deactivate toggle — deactivating a programme already blocks new clinical
+ * enrolments (enforced at the database); the same is_active flag now also
+ * blocks new commercial purchases (private.set_programme_purchase_computed_
+ * price), so "Deactivate" doubles as the suspend control, and "Activate" as
+ * reactivate — no separate control needed. */
+function CommercialTermsForm({ programme }: { programme: ChronicProgramme }) {
+  const update = useUpdateProgrammeCommercialTerms();
+  const [priceNaira, setPriceNaira] = useState(
+    programme.price_kobo != null ? String(programme.price_kobo / 100) : "",
+  );
+  const [durationWeeks, setDurationWeeks] = useState(
+    programme.default_duration_weeks != null ? String(programme.default_duration_weeks) : "",
+  );
+  const [purchaseSummary, setPurchaseSummary] = useState(programme.purchase_summary ?? "");
+
+  return (
+    <div className="space-y-3 rounded-md border border-charcoal-ink/10 bg-white p-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor={`price-${programme.id}`}>Fee (₦)</Label>
+          <Input
+            id={`price-${programme.id}`}
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Not yet set"
+            value={priceNaira}
+            onChange={(e) => setPriceNaira(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`duration-${programme.id}`}>Duration (weeks)</Label>
+          <Input
+            id={`duration-${programme.id}`}
+            type="number"
+            min="1"
+            step="1"
+            placeholder="Not yet set"
+            value={durationWeeks}
+            onChange={(e) => setDurationWeeks(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`summary-${programme.id}`}>What&apos;s included (shown to the patient)</Label>
+        <Textarea
+          id={`summary-${programme.id}`}
+          rows={3}
+          placeholder="e.g. Weekly BP review, medication titration, a doctor check-in at week 4, 8 and 12."
+          value={purchaseSummary}
+          onChange={(e) => setPurchaseSummary(e.target.value)}
+        />
+      </div>
+      {update.isError && <p className="text-sm text-red-600">{(update.error as Error).message}</p>}
+      <Button
+        size="sm"
+        disabled={update.isPending}
+        onClick={() =>
+          update.mutate({
+            id: programme.id,
+            priceNaira: priceNaira.trim() === "" ? null : Number(priceNaira),
+            durationWeeks: durationWeeks.trim() === "" ? null : Number(durationWeeks),
+            purchaseSummary: purchaseSummary.trim() === "" ? null : purchaseSummary.trim(),
+          })
+        }
+      >
+        {update.isPending ? "Saving…" : "Save commercial terms"}
+      </Button>
+      <p className="text-xs text-charcoal-ink/50">
+        Changing these never alters a purchase already sold — price and duration are locked in for
+        each patient at the moment they buy.
+      </p>
+    </div>
+  );
+}
 
 /** Inline "sign the WHO protocol" form — reuses useCreateProtocolVersion, which
  * enforces that the caller is the org's active Clinical Director. Signing
@@ -149,6 +229,7 @@ function ProgrammeRow({
   const setActive = useSetChronicProgrammeActive();
   const [showProtocol, setShowProtocol] = useState(false);
   const [showSign, setShowSign] = useState(false);
+  const [showCommercial, setShowCommercial] = useState(false);
 
   return (
     <Card>
@@ -197,6 +278,17 @@ function ProgrammeRow({
           {programme.category} · reviews every {programme.review_cadence_months} months ·
           monitors {programme.monitoring_vitals.join(", ") || "—"}
         </p>
+        <p className="text-xs text-charcoal-ink/60">
+          Care Programme:{" "}
+          {programme.price_kobo != null && programme.default_duration_weeks != null ? (
+            <>
+              ₦{(programme.price_kobo / 100).toLocaleString("en-NG")} for{" "}
+              {programme.default_duration_weeks} weeks
+            </>
+          ) : (
+            <span className="text-amber-700">not yet configured — not purchasable</span>
+          )}
+        </p>
 
         {setActive.isError && (
           <p className="text-sm text-red-600">{(setActive.error as Error).message}</p>
@@ -225,6 +317,13 @@ function ProgrammeRow({
               {showSign ? "Cancel signing" : "Sign protocol to enable activation"}
             </button>
           )}
+          <button
+            type="button"
+            className="font-medium text-brand-green hover:underline"
+            onClick={() => setShowCommercial((v) => !v)}
+          >
+            {showCommercial ? "Hide commercial terms" : "Edit fee, duration & content"}
+          </button>
         </div>
 
         {showProtocol && protocol && (
@@ -240,6 +339,8 @@ function ProgrammeRow({
             onSigned={() => setShowSign(false)}
           />
         )}
+
+        {showCommercial && <CommercialTermsForm programme={programme} />}
       </CardContent>
     </Card>
   );

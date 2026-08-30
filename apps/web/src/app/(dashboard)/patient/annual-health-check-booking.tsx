@@ -26,9 +26,14 @@ const OPEN_STATUSES = ["payment_confirmed", "ordered", "sample_collected", "proc
  * self_bookable set (WHO-essential only, per migration 20260723164727).
  * `screen_core`/`screen_advanced`/`screen_comprehensive` are the
  * Core/Advanced/Comprehensive Screen tiers that replaced the old
- * `annual_health_check`/`health_check_comprehensive` bundles. */
+ * `annual_health_check`/`health_check_comprehensive` bundles.
+ * `is_screen_tier` (episodic-fee rebuild, 20260830014842_health_check_catalog.sql)
+ * is the general "this is a bundled multi-test package, not a single test"
+ * flag every screen-tier bundle already carries — checked alongside the
+ * older code-prefix heuristic rather than replacing it, so a bundle named
+ * outside either convention (e.g. "diabetes_check") still lands here. */
 const isPackage = (b: PanelBundle) =>
-  b.code.startsWith("health_check") || b.code.startsWith("screen_");
+  b.code.startsWith("health_check") || b.code.startsWith("screen_") || b.is_screen_tier;
 
 /** The WHO-essential confidential screenings (cervical smear, HIV, Hep B,
  * Hep C) vs. other self-bookable single tests (e.g. blood group & genotype,

@@ -3,56 +3,49 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
-/** Copy per gated feature — pricing.ts's Free-tier footnote is the source
- * for exactly which 5 capabilities this ever fires for. Keep in sync with
- * the feature codes seeded onto subscription_plans/add_ons.features[] in
- * supabase/seed/seed.sql. */
+/**
+ * Copy per gated feature. Episodic-fee rebuild: the subscription tiers this
+ * copy used to name (Prevent/Essential/Complete) no longer exist — every one
+ * of these is now bundled into an active Care Programme purchase (a flat,
+ * one-time fee for a bounded window, e.g. 12 weeks of Hypertension care)
+ * instead of a recurring plan. lab_coordination/medication_refills/
+ * prevention_coordination were retired outright (unconditional for every
+ * patient now — see labs/page.tsx) and no longer need an entry here.
+ */
 const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   clinician_review: {
-    title: "A doctor-set care plan is part of a paid plan",
-    body: "Your readings are checked against care protocols on every plan, including Free, and a dangerous one gets you clear guidance and a specific next step right away. What's different on a paid plan is that a dangerous reading also reaches a doctor, and on Essential Care and above a doctor sets your care plan and checks in on your condition on a schedule, not just when something is flagged. Whenever a doctor does review something of yours, flagged or scheduled, you'll see who reviewed it and when.",
+    title: "A doctor-set care plan is part of an active Care Programme",
+    body: "Your readings are checked against care protocols on every account, including a free one, and a dangerous one gets you clear guidance and a specific next step right away. What an active Care Programme adds is that a dangerous reading also reaches a doctor, and a doctor sets your care plan and checks in on your condition on a schedule, not just when something is flagged. Whenever a doctor does review something of yours, flagged or scheduled, you'll see who reviewed it and when.",
   },
   doctor_checkin: {
-    title: "Doctor check-ins are part of a paid plan",
-    body: "Message your care team directly and get a scheduled doctor check-in on Essential Care or higher.",
-  },
-  lab_coordination: {
-    title: "Lab test requests are part of a paid plan",
-    body: "On Essential Care or higher, message your care team for any lab test you need and they'll write you a request to take to a lab of your choice. You pay the lab directly; we take nothing on it.",
-  },
-  medication_refills: {
-    title: "Refill-date tracking is part of a paid plan",
-    body: "On Essential Care or higher, we track your refill dates and remind you before one's due. You still buy from whichever pharmacy suits you.",
+    title: "Doctor check-ins are part of an active Care Programme",
+    body: "Message your care team directly and get a scheduled doctor check-in while your Care Programme is active.",
   },
   annual_review: {
-    title: "The Annual Doctor Review is part of a paid plan",
-    body: "Get a once-a-year whole-body workup (general bloods, heart and other screening) plus a video consult with your Tarragon doctor to talk through your whole year. Included on Complete Care.",
+    title: "The Annual Doctor Review is part of an active Care Programme",
+    body: "Get a once-a-year whole-body workup (general bloods, heart and other screening) plus a video consult with your Tarragon doctor to talk through your whole year.",
   },
   lifestyle_coaching: {
-    title: "Lifestyle coaching is part of a paid plan",
-    body: "Get guided diet, exercise, weight, sleep and stress coaching with progress reviews from your care team, included in Complete Care, or add it on to Essential.",
+    title: "Lifestyle coaching is part of an active Care Programme",
+    body: "Get guided diet, exercise, weight, sleep and stress coaching with progress reviews from your care team while your Care Programme is active.",
   },
   async_doctor_visit: {
-    title: "Ask a doctor is part of a paid plan",
-    body: "Send a written question and get a doctor's answer in the app within 72 hours. Included on Complete Care.",
+    title: "Ask a doctor is part of an active Care Programme",
+    body: "Send a written question and get a doctor's answer in the app within 72 hours while your Care Programme is active.",
   },
   health_education: {
-    title: "Personalised health education is part of a paid plan",
-    body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks. Included on every paid plan, from Tarragon Prevent up.",
-  },
-  prevention_coordination: {
-    title: "Screening booking is part of Tarragon Prevent",
-    body: "Your screening calendar is free to see. To book screenings when they come due (with reminders and results tracking), join Tarragon Prevent, the stay-healthy plan, or the Prevention Screening add-on. The one-off Annual Health Check stays available to everyone.",
+    title: "Personalised health education is part of an active Care Programme",
+    body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks, while your Care Programme is active.",
   },
   multi_condition_review: {
-    title: "A scheduled review for this condition is part of Complete Care",
-    body: "This condition is being managed alongside another one you're already on a plan for. Nothing urgent is ever held back for this: a dangerous reading still reaches a doctor the same as always. What Complete Care adds is a proactive, scheduled review for this condition too, not just your first one.",
+    title: "A scheduled review for this condition needs its own Care Programme",
+    body: "Nothing urgent is ever held back for this: a dangerous reading still reaches a doctor the same as always. A proactive, scheduled review for this condition needs its own active Care Programme purchase, same as any other condition.",
   },
 };
 
 const DEFAULT_COPY = {
-  title: "This is part of a paid plan",
-  body: "Upgrade to unlock this for your account.",
+  title: "This is part of an active Care Programme",
+  body: "Start a Care Programme to unlock this for your account.",
 };
 
 export function UpgradePrompt({ feature }: { feature: string }) {
@@ -69,7 +62,7 @@ export function UpgradePrompt({ feature }: { feature: string }) {
             <p className="text-sm text-charcoal-ink/70">{copy.body}</p>
           </div>
           <Button asChild size="sm">
-            <Link href="/patient/subscription">See plans</Link>
+            <Link href="/patient/care-programmes">See Care Programmes</Link>
           </Button>
         </div>
       </CardContent>

@@ -8,8 +8,6 @@ import { ConsentStep } from "./consent-step";
 import { DemographicsForm } from "./demographics-form";
 import { IntakeStep } from "./intake-step";
 import { PlanPreview } from "./plan-preview";
-import { PlanSelector } from "./plan-selector";
-import { ExistingPlanNotice } from "./existing-plan-notice";
 
 function DoneRow({ label }: { label: string }) {
   return (
@@ -30,10 +28,17 @@ function DoneRow({ label }: { label: string }) {
  * Client-side onboarding orchestrator. Steps reveal in order:
  *   1. Consent (required)   2. About you, DOB/sex (required)
  *   3. Where you are (finds labs near you)
- *   4. Health profile (skippable)   5. Choose your plan
- * Required steps gate the plan step both here and structurally in the DB
+ *   4. Health profile (skippable)   5. Finish
+ * Required steps are gated both here and structurally in the DB
  * (private.enforce_onboarding_prereqs), so this ordering can't be bypassed to
  * finish onboarding without consent + demographics.
+ *
+ * Episodic-fee rebuild: step 5 used to be a mandatory "choose your plan"
+ * (subscription) step — removed. Onboarding now always ends with a plain
+ * completion action; a patient buys a Health Check or a Care Programme
+ * afterward, from the dashboard, whenever they actually want one. Nothing in
+ * private.enforce_onboarding_prereqs ever required a plan, so this is a pure
+ * UI removal, no DB change.
  *
  * Emergency contacts and identity verification were deliberately removed from
  * this flow and now live on the patient dashboard under Profile & settings.
@@ -45,17 +50,16 @@ function DoneRow({ label }: { label: string }) {
 export function OnboardingFlow({
   profile,
   careTeamSlot,
-  existingPlan,
   initial,
   receivesCare = true,
 }: {
   profile: { id: string; fullName: string | null };
   /**
    * False means this person came to pay for someone else's care, not to
-   * receive care. Being asked to consent to telehealth for themselves, hand
-   * over their date of birth and pick their own plan before they could give us
-   * money for their mother was the first thing a sponsor hit, and it is a hard
-   * stop at the highest-intent moment the product has.
+   * receive care. Being asked to consent to telehealth for themselves and
+   * hand over their date of birth before they could give us money for their
+   * mother was the first thing a sponsor hit, and it is a hard stop at the
+   * highest-intent moment the product has.
    *
    * When they later choose to join as a patient too, this flips true and they
    * get the full flow below — including the intake questions, which is what
@@ -64,11 +68,6 @@ export function OnboardingFlow({
   receivesCare?: boolean;
   /** Server-rendered <YourCareTeam/> passed in — it's an async server component. */
   careTeamSlot: ReactNode;
-  /** Set when the caller already has an active/trialing subscription — see
-   * onboarding/page.tsx. Skips "choose your plan" entirely in favour of a
-   * reconciliation notice, so a returning paying patient is never asked to
-   * pick and pay for a plan a second time. */
-  existingPlan: { name: string; status: string } | null;
   initial: {
     consentDone: boolean;
     demographicsDone: boolean;
@@ -81,8 +80,9 @@ export function OnboardingFlow({
   const [consentDone, setConsentDone] = useState(initial.consentDone);
   const [demographicsDone, setDemographicsDone] = useState(initial.demographicsDone);
   const [intakeCollapsed, setIntakeCollapsed] = useState(initial.intakeDone);
+  const [finishing, setFinishing] = useState(false);
 
-  const readyForPlan = consentDone && demographicsDone;
+  const readyToFinish = consentDone && demographicsDone;
 
   if (!receivesCare) {
     return <SupporterOnboarding profile={profile} done={consentDone} onDone={setConsentDone} />;
@@ -148,33 +148,32 @@ export function OnboardingFlow({
       )}
 
       {/* Step 3 — Health profile (skippable) */}
-      {readyForPlan && !intakeCollapsed && (
+      {readyToFinish && !intakeCollapsed && (
         <IntakeStep patientId={profile.id} onSkip={() => setIntakeCollapsed(true)} />
       )}
 
-      {/* Step 4 — already-subscribed patients skip choosing/paying for a
-          plan entirely; everyone else sees the honest intake-driven preview
-          then chooses a plan. */}
-      {readyForPlan && intakeCollapsed && existingPlan && (
-        <ExistingPlanNotice planName={existingPlan.name} status={existingPlan.status} />
-      )}
-      {readyForPlan && intakeCollapsed && !existingPlan && <PlanPreview patientId={profile.id} />}
-      {readyForPlan && intakeCollapsed && !existingPlan && (
-        <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
-          <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
-            Choose your plan
-          </h2>
-          <p className="text-sm text-charcoal-ink/60">
-            Start free, or pick a paid plan now — you can change or cancel any time from your
-            dashboard.
-          </p>
-          <PlanSelector />
-        </div>
+      {/* Step 4 — the honest intake-driven preview, then finish. No plan to
+          choose or pay for any more — a Health Check or a Care Programme is
+          bought later, from the dashboard, whenever the patient wants one. */}
+      {readyToFinish && intakeCollapsed && (
+        <>
+          <PlanPreview patientId={profile.id} />
+          <form
+            action={async () => {
+              setFinishing(true);
+              await completeOnboarding();
+            }}
+          >
+            <Button type="submit" disabled={finishing} className="w-full">
+              {finishing ? "Setting up…" : "Go to your dashboard"}
+            </Button>
+          </form>
+        </>
       )}
 
-      {!readyForPlan && (
+      {!readyToFinish && (
         <p className="text-center text-xs text-charcoal-ink/50">
-          Complete the steps above to choose your plan.
+          Complete the steps above to finish setting up your account.
         </p>
       )}
     </div>

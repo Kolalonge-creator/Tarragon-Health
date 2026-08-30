@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
-import { createClient } from "@/lib/supabase/server";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSection } from "@/components/ui/dashboard-section";
@@ -47,15 +46,11 @@ import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-ca
 export default async function PreventionHubPage() {
   const { profile, subjectId } = await getPatientDashboardContext();
 
-  const supabase = await createClient();
-  const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "lab_coordination",
-  });
-  const { data: preventionCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "prevention_coordination",
-  });
-  const screeningBookingEnabled =
-    (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
+  // Episodic-fee rebuild: lab_coordination/prevention_coordination retired —
+  // every diagnostic is pay-per-use now, so screening booking is
+  // unconditional for every patient. See labs/page.tsx's header comment for
+  // the full reasoning.
+  const screeningBookingEnabled = true;
 
   const location = { state: profile.state, city: profile.city, area: profile.area };
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);

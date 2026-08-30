@@ -28,10 +28,10 @@ import {
 import {
   openTheirAccount,
   paySomeonesBill,
-  paySomeonesPlan,
+  paySomeonesCareProgramme,
   type SponsorActionState,
 } from "./actions";
-import { useActivePatientPlans } from "@/lib/queries/subscription-plans";
+import { useActiveChronicProgrammes } from "@/lib/queries/chronic-programmes";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -308,7 +308,7 @@ function PersonCard({
 
         {person.permissionLevel === "manage" && <OpenTheirAccount person={person} />}
 
-        {person.permissionLevel === "manage" && <PayTheirPlan person={person} />}
+        {person.permissionLevel === "manage" && <PayTheirCareProgramme person={person} />}
 
         {person.permissionLevel === "manage" && <ManageActions person={person} />}
 
@@ -447,42 +447,45 @@ function PayBillOnMyCard({
 }
 
 /**
- * Pay for their plan, monthly, on your card.
+ * Buy them a Care Programme (e.g. the 12-Week Hypertension Programme),
+ * billed to your card — the episodic-fee replacement for the retired
+ * "pay for their plan, monthly."
  *
  * The single most-asked-for diaspora action, and there was no path to it at
  * any price: a supporter could buy one-off vouchers and nothing else, so the
- * continuous monitoring that makes the product worth having was the one thing
- * they could not fund. "Send money home for health" is a thing a transfer app
- * already does; paying for a named plan and being told what it did is not.
+ * doctor-led monitoring that makes the product worth having was the one
+ * thing they could not fund. "Send money home for health" is a thing a
+ * transfer app already does; paying for a named programme and being told
+ * what it did is not.
  *
- * Only naira plans are offered. The care happens in Nigeria at Nigerian cost,
- * so a supporter abroad pays the same price converted at the reference rate,
- * not a diaspora premium for the same thing.
+ * Naira only. The care happens in Nigeria at Nigerian cost, so a supporter
+ * abroad pays the same price, not a diaspora premium for the same thing.
  */
-function PayTheirPlan({ person }: { person: SupportedPerson }) {
-  const { data: plans } = useActivePatientPlans();
+function PayTheirCareProgramme({ person }: { person: SupportedPerson }) {
+  const { data: programmes } = useActiveChronicProgrammes();
   const [state, action, pending] = useActionState<SponsorActionState, FormData>(
-    paySomeonesPlan,
+    paySomeonesCareProgramme,
     undefined,
   );
 
   if (person.permissionLevel !== "manage") return null;
 
-  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_minor > 0);
+  const payable = (programmes ?? []).filter(
+    (programme) => programme.price_kobo != null && programme.price_kobo > 0,
+  );
   if (payable.length === 0) return null;
 
   return (
     <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-      <input type="hidden" name="currency" value="NGN" />
-      <p className="text-xs font-medium text-charcoal-ink">Pay for their plan</p>
+      <p className="text-xs font-medium text-charcoal-ink">Buy them a Care Programme</p>
       <div className="flex flex-wrap items-center gap-2">
-        <Select name="planCode" defaultValue="" className="max-w-xs">
-          <option value="">Choose a plan</option>
-          {payable.map((plan) => (
-            <option key={plan.code} value={plan.code}>
-              {plan.name} ({naira(plan.price_minor)}
-              {plan.interval === "yearly" ? "/yr" : "/mo"})
+        <Select name="programmeId" defaultValue="" className="max-w-xs">
+          <option value="">Choose a programme</option>
+          {payable.map((programme) => (
+            <option key={programme.id} value={programme.id}>
+              {programme.name} ({naira(programme.price_kobo!)}
+              {programme.default_duration_weeks ? ` / ${programme.default_duration_weeks} weeks` : ""})
             </option>
           ))}
         </Select>
@@ -492,8 +495,8 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
       </div>
       {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
       <p className="text-xs text-charcoal-ink/50">
-        Billed to you, held by them. They keep their own account and can cancel it themselves at any
-        time. Both of you are told when it starts.
+        Billed to you, held by them. They keep their own account. Both of you are told when it
+        starts.
       </p>
     </form>
   );

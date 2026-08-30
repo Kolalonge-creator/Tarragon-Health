@@ -3,22 +3,20 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { initiateSponsoredSubscriptionCheckout } from "@/lib/billing/sponsored-subscription-checkout";
 import { initiateSponsorBillCheckout } from "@/lib/billing/sponsor-bill-checkout";
+import { initiateSponsoredProgrammePurchaseCheckout } from "@/lib/billing/sponsored-programme-purchase-checkout";
 import { startActingFor, stopActingFor } from "@/lib/acting/acting-for";
 import type { Currency } from "@tarragon/shared";
 
 export type SponsorActionState = { error?: string; message?: string } | undefined;
 
 /**
- * Puts someone you support on a paid plan, billed to you.
- *
- * The authorisation that matters is not here — it is re-checked inside
- * private.activate_sponsored_subscription at the moment the money lands, so a
- * grant revoked mid-checkout buys nothing. This layer exists to fail fast and
- * kindly rather than after a card has been charged.
+ * Buys someone you support a Care Programme (e.g. the 12-Week Hypertension
+ * Programme), billed to you — the episodic-fee replacement for the retired
+ * paySomeonesPlan (which put a beneficiary on a paid subscription; see
+ * 20260830020316_programme_purchases_allow_sponsor_insert.sql).
  */
-export async function paySomeonesPlan(
+export async function paySomeonesCareProgramme(
   _prevState: SponsorActionState,
   formData: FormData,
 ): Promise<SponsorActionState> {
@@ -27,17 +25,15 @@ export async function paySomeonesPlan(
   if (!user.email) return { error: "Your account needs an email on file to check out." };
 
   const beneficiaryProfileId = formData.get("beneficiaryProfileId") as string;
-  const planCode = formData.get("planCode") as string;
-  const currency = (formData.get("currency") as Currency) || "NGN";
+  const programmeId = formData.get("programmeId") as string;
 
-  if (!beneficiaryProfileId) return { error: "Who is this plan for?" };
-  if (!planCode) return { error: "Choose a plan first." };
+  if (!beneficiaryProfileId) return { error: "Who is this programme for?" };
+  if (!programmeId) return { error: "Choose a programme first." };
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const result = await initiateSponsoredSubscriptionCheckout({
+  const result = await initiateSponsoredProgrammePurchaseCheckout({
     beneficiaryProfileId,
-    planCode,
-    payerCurrency: currency,
+    programmeId,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,
   });

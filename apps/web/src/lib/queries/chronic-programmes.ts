@@ -188,6 +188,48 @@ export function useHtnQualityMetrics(organisationId: string | null | undefined) 
   });
 }
 
+/**
+ * Admin edits a programme's commercial terms — fee, advertised duration, and
+ * the "what's included" copy shown on the patient-facing purchase page.
+ * Plain client-side .update(), same RLS/shape as useSetChronicProgrammeActive
+ * (admin/partners.labs.manage-equivalent write policy already covers this
+ * table). Editing these never touches an already-sold programme_purchases
+ * row — price_kobo/duration_weeks are snapshotted there at purchase time
+ * (episodic-fee rebuild, 20260830014616_programme_purchases.sql), so this is
+ * safe to change at any time without affecting a patient already inside a
+ * paid window.
+ */
+export function useUpdateProgrammeCommercialTerms() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      priceNaira,
+      durationWeeks,
+      purchaseSummary,
+    }: {
+      id: string;
+      priceNaira: number | null;
+      durationWeeks: number | null;
+      purchaseSummary: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("chronic_condition_programmes")
+        .update({
+          price_kobo: priceNaira == null ? null : Math.round(priceNaira * 100),
+          default_duration_weeks: durationWeeks,
+          purchase_summary: purchaseSummary,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chronic-programmes"] });
+    },
+  });
+}
+
 /** Staff withdraws a chronic enrolment (status -> withdrawn). */
 export function useWithdrawChronicEnrolment() {
   const queryClient = useQueryClient();
