@@ -177,6 +177,34 @@ begin
   reset role;
   insert into cat_result values ('vitals-only grantee blocked after revoke', v_count::text, '0', case when v_count = 0 then 'PASS' else 'FAIL' end);
 
+  -- 4b. Revoking a grant that HAS categories set must not error: deleting the
+  --     parent profile_access row cascades into profile_access_categories,
+  --     which must not trip the owner-guard trigger on the now-gone parent.
+  --     (Regression: private.enforce_category_access_owner originally looked
+  --     up the parent's owner via a query that can no longer see it mid-
+  --     cascade, wrongly blocking the legitimate owner's own revocation --
+  --     this is exactly the path revoke_care_access() uses in production.)
+  declare
+    v_full_grant_id uuid;
+  begin
+    select id into v_full_grant_id from public.profile_access
+      where profile_id = v_patient and grantee_user_id = v_full_grantee;
+
+    v_raised := false;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    begin
+      delete from public.profile_access where id = v_full_grant_id;
+    exception when others then
+      v_raised := true;
+    end;
+    reset role;
+    insert into cat_result values ('owner can revoke a grant that has categories set (cascade-safe)', v_raised::text, 'false', case when not v_raised then 'PASS' else 'FAIL' end);
+
+    select count(*) into v_count from public.profile_access_categories where profile_access_id = v_full_grant_id;
+    insert into cat_result values ('revoked grant''s categories are gone too', v_count::text, '0', case when v_count = 0 then 'PASS' else 'FAIL' end);
+  end;
+
   -- 5. Break-glass: before requesting, the cross-org clinician sees nothing.
   perform set_config('request.jwt.claims', json_build_object('sub', v_cross_clinician::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
