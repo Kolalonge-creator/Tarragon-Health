@@ -397,6 +397,7 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/finance", icon: "dashboard", exact: true },
             { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
+            { label: "Transactions", href: "/finance/transactions", icon: "billing" },
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },

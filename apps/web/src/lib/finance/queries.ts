@@ -6,6 +6,7 @@ import {
   dashboardSummarySchema,
   incomeStatementSchema,
   ledgerEntriesSchema,
+  unifiedLedgerSchema,
   periodsListSchema,
   reconciliationSummarySchema,
   reconciliationFlagsSchema,
@@ -111,6 +112,38 @@ export function useLedgerEntries(args: {
       });
       if (error) throw error;
       return ledgerEntriesSchema.parse(data);
+    },
+  });
+}
+
+/**
+ * §91.12 unified ledger. Pass exactly one of `profileId` (a patient's own
+ * history, or finance staff looking up one patient) or `organisationId`
+ * (finance-staff-only, org-wide, unfiltered by profile) — the RPC itself
+ * enforces which the caller is allowed to use.
+ */
+export function useUnifiedLedger(args: {
+  profileId?: string;
+  organisationId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery({
+    queryKey: ["finance", "unified-ledger", args],
+    enabled: Boolean(args.profileId || args.organisationId),
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_unified_ledger", {
+        p_profile_id: args.profileId ?? undefined,
+        p_organisation_id: args.organisationId ?? undefined,
+        p_from: args.from ?? undefined,
+        p_to: args.to ?? undefined,
+        p_limit: args.limit ?? 50,
+        p_offset: args.offset ?? 0,
+      });
+      if (error) throw error;
+      return unifiedLedgerSchema.parse(data);
     },
   });
 }

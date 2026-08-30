@@ -97,6 +97,33 @@ export const ledgerEntriesSchema = z.array(
     lines: z.array(ledgerLineSchema).nullable().default([]),
   }),
 );
+
+// §91.12 unified transaction ledger — one row per payer-facing transaction,
+// joining the payment-event log to the GL read-only (see
+// supabase/migrations/20260830101217_finance_unified_ledger.sql). Unlike the
+// journal-entry rows above, `payment_transaction_id`/`entry_id` may each be
+// null (a failed payment never posts a journal entry; a manual/adjustment
+// entry never has a payment behind it).
+export const unifiedLedgerSchema = z.array(
+  z.object({
+    entry_id: z.string().nullable(),
+    payment_transaction_id: z.string().nullable(),
+    entry_date: z.string(),
+    posted_at: z.string(),
+    source: z.string(),
+    service_label: z.string(),
+    payer_profile_id: z.string().nullable(),
+    payer_label: z.string(),
+    recipient_label: z.string(),
+    direction: z.enum(["money_in", "money_out"]),
+    amount_minor: num,
+    currency: z.string(),
+    status: z.enum(["completed", "failed"]),
+    method: z.string().nullable(),
+    memo: z.string().nullable(),
+  }),
+);
+export type UnifiedLedgerRow = z.infer<typeof unifiedLedgerSchema>[number];
 export type LedgerEntry = z.infer<typeof ledgerEntriesSchema>[number];
 
 export const taxSummarySchema = z.object({

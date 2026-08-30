@@ -21453,6 +21453,33 @@ export type Database = {
         Args: { p_as_of?: string; p_currency?: string }
         Returns: Json
       }
+      finance_unified_ledger: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_organisation_id?: string
+          p_profile_id?: string
+          p_to?: string
+        }
+        Returns: {
+          amount_minor: number
+          currency: Database["public"]["Enums"]["currency"]
+          direction: string
+          entry_date: string
+          entry_id: string | null
+          memo: string | null
+          method: string | null
+          payer_label: string
+          payer_profile_id: string | null
+          payment_transaction_id: string | null
+          posted_at: string
+          recipient_label: string
+          service_label: string
+          source: string
+          status: string
+        }[]
+      }
       finance_unmark_filed: {
         Args: { p_obligation_code: string; p_period_label: string }
         Returns: undefined
