@@ -107,7 +107,14 @@ create policy data_retention_policies_delete on public.data_retention_policies
 
 grant select, insert, update, delete on public.data_retention_policies to authenticated;
 revoke all on public.data_retention_policies from anon;
-revoke execute on function public.data_retention_policy_summary() from public;
+-- Fixed 20260830 (caught by the §87 PR's Supabase migration-replay CI check on a
+-- fresh reset): a fresh project's public-schema ALTER DEFAULT PRIVILEGES grants
+-- EXECUTE directly to anon/authenticated/service_role at CREATE FUNCTION time,
+-- not only via the PUBLIC pseudo-role -- "revoke ... from public" alone doesn't
+-- touch that direct grant. Revoke from both explicitly, matching this
+-- codebase's established anon-EXECUTE pattern (see CLAUDE.md's "Standing
+-- engineering lessons" and feedback_supabase_anon_execute_gotcha.md).
+revoke execute on function public.data_retention_policy_summary() from public, anon;
 grant execute on function public.data_retention_policy_summary() to authenticated, service_role;
 
 do $$
