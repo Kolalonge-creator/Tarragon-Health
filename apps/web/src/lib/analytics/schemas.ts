@@ -131,6 +131,12 @@ export const diseaseSurveillanceSchema = z.object({
   new_enrollment_trend: z
     .array(z.object({ bucket: z.string(), condition: z.string(), count: z.number() }))
     .default([]),
+  /** Real as-of-date reconstruction from care_plan_status_history — how many
+   * patients had an active care plan per condition as of each period's end.
+   * Distinct from new_enrollment_trend (inflow); this is current burden. */
+  prevalence_trend: z
+    .array(z.object({ bucket: z.string(), condition: z.string(), count: z.number() }))
+    .default([]),
   risk_scoring_trend: z
     .array(z.object({ bucket: z.string(), risk_level: z.string().nullable(), count: z.number() }))
     .default([]),

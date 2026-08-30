@@ -277,8 +277,43 @@ export function PopulationDashboard() {
       </SectionCard>
 
       <SectionCard
-        title="Disease surveillance"
-        description="New enrollments, risk-score computations, and screening results by month. Reports inflow, not a historical prevalence snapshot — care plans only store current status, not a status-as-of-past-date history."
+        title="Disease prevalence over time"
+        description="Patients with an active care plan per condition, as of the end of each month — reconstructed from care_plan_status_history, not a live count. Only covers time since that history started being recorded (this platform's real answer to 'how many were active back then' starts from when tracking began, not retroactively)."
+        actions={<ExportButton filename="disease-prevalence-trend" rows={surveillance?.prevalence_trend ?? []} />}
+      >
+        {surveillanceLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : !surveillance || surveillance.prevalence_trend.length === 0 ? (
+          <CenterNote>No status history recorded yet.</CenterNote>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
+                  <th className="py-2 pr-4 font-medium">Month</th>
+                  <th className="py-2 pr-4 font-medium">Condition</th>
+                  <th className="py-2 pr-4 font-medium">Active patients</th>
+                </tr>
+              </thead>
+              <tbody>
+                {surveillance.prevalence_trend.map((row) => (
+                  <tr key={`${row.bucket}-${row.condition}`} className="border-b border-charcoal-ink/5">
+                    <td className="py-2 pr-4 text-charcoal-ink">{row.bucket.slice(0, 7)}</td>
+                    <td className="py-2 pr-4 capitalize text-charcoal-ink/80">
+                      {row.condition.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2 pr-4 tabular-nums">{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="New enrollments"
+        description="Distinct patients whose first care-plan row for a condition landed in each month — inflow, a different signal from current prevalence above."
         actions={<ExportButton filename="disease-surveillance" rows={surveillance?.new_enrollment_trend ?? []} />}
       >
         {surveillanceLoading ? (
