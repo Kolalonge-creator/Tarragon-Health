@@ -874,7 +874,7 @@ function SupporterConversation({ person }: { person: SupportedPerson }) {
             </button>
             {openId === thread.id && (
               <div className="mt-3">
-                <CareMessageThread threadId={thread.id} closed={thread.status === "closed"} />
+                <CareMessageThread threadId={thread.id} closed={thread.status === "closed"} showEmergencyNotice />
               </div>
             )}
           </li>

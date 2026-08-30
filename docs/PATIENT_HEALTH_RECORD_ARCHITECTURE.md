@@ -187,9 +187,14 @@ recording exactly what each stage caught and what it couldn't:
   **Neither hand-review nor CI's migration replay could have caught this last one** — CI only checks
   that migrations *apply* without error, and `CREATE OR REPLACE FUNCTION` itself never fails just
   because the function body would error at call time. Only actually *calling* the function surfaced
-  it. Confirmed the fix by re-running the test file against production a second time after applying
-  `20260829230000_fix_search_patient_record_order_by_rank.sql` — see the re-run result recorded
-  alongside the test file itself before treating this as closed.
+  it. **Confirmed by re-running the test file against production a second time** after applying
+  `20260829230000_fix_search_patient_record_order_by_rank.sql`: a clean run with no error and no
+  `raise exception` — the script's own final block explicitly raises if any check's verdict is `FAIL`,
+  so a clean return is a genuine pass, not just an absence of a crash. `packages/db/tests/patient_
+  health_record_round3.sql` should now be treated as actually verified, not merely reviewed by hand —
+  this round's own experience (five real bugs across hand-review, CI, live-apply, `get_advisors`, and
+  finally the test run itself) is the argument for keeping that distinction precise rather than
+  rounding "reviewed" up to "verified" next time either.
 
 ---
 
