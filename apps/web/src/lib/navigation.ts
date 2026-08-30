@@ -405,6 +405,7 @@ export function getNavSections(
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
+            { label: "Fraud signals", href: "/finance/fraud", icon: "warning" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
             { label: "Compliance calendar", href: "/finance/compliance", icon: "compliance" },
             { label: "Reports & filings", href: "/finance/reports", icon: "statements" },

@@ -15087,6 +15087,92 @@ export type Database = {
           },
         ]
       }
+      payment_fraud_signals: {
+        Row: {
+          amount_minor: number | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"] | null
+          dedupe_key: string
+          detail: Json
+          detected_at: string
+          id: string
+          organisation_id: string | null
+          patient_id: string | null
+          payment_transaction_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          severity: string
+          signal_type: string
+          status: string
+        }
+        Insert: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          dedupe_key: string
+          detail?: Json
+          detected_at?: string
+          id?: string
+          organisation_id?: string | null
+          patient_id?: string | null
+          payment_transaction_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          severity?: string
+          signal_type: string
+          status?: string
+        }
+        Update: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          dedupe_key?: string
+          detail?: Json
+          detected_at?: string
+          id?: string
+          organisation_id?: string | null
+          patient_id?: string | null
+          payment_transaction_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          severity?: string
+          signal_type?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_fraud_signals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_fraud_signals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_fraud_signals_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_fraud_signals_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_reconciliation_flags: {
         Row: {
           created_at: string
@@ -21552,6 +21638,7 @@ export type Database = {
       }
       finance_dashboard_summary: { Args: never; Returns: Json }
       finance_delete_budget: { Args: { p_id: string }; Returns: undefined }
+      finance_fraud_signals: { Args: { p_status?: string }; Returns: Json }
       finance_import_settlement: {
         Args: {
           p_bank_account: string
@@ -21631,6 +21718,10 @@ export type Database = {
       finance_reconciliation_summary: { Args: never; Returns: Json }
       finance_reject_request: {
         Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
+      finance_resolve_fraud_signal: {
+        Args: { p_id: string; p_note?: string; p_status: string }
         Returns: undefined
       }
       finance_resolve_reconciliation_flag: {
@@ -22215,6 +22306,21 @@ export type Database = {
           missed_count: number
           schedule_item_id: string
           vital_type: Database["public"]["Enums"]["vital_type"]
+        }[]
+      }
+      payments_with_payer_for_fraud_sweep: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount_minor: number
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          error: string | null
+          event_type: string
+          id: string
+          organisation_id: string | null
+          payer_profile_id: string | null
+          processed_at: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
         }[]
       }
       pharmacist_accept_order: {
@@ -23623,6 +23729,8 @@ export type Database = {
         | "customer.subscription.created"
         | "customer.subscription.updated"
         | "customer.subscription.deleted"
+        | "charge.dispute.create"
+        | "charge.dispute.created"
       pharmacy_fulfilment_method: "pickup" | "delivery"
       pharmacy_medication_stock_status: "in_stock" | "low_stock" | "unavailable"
       pharmacy_order_status:
@@ -24761,6 +24869,8 @@ export const Constants = {
         "customer.subscription.created",
         "customer.subscription.updated",
         "customer.subscription.deleted",
+        "charge.dispute.create",
+        "charge.dispute.created",
       ],
       pharmacy_fulfilment_method: ["pickup", "delivery"],
       pharmacy_medication_stock_status: [

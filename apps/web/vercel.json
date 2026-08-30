@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/fraud-sweep",
+      "schedule": "10 5 * * *"
+    },
+    {
       "path": "/api/cron/generate-quarterly-reports",
       "schedule": "0 3 * * *"
     },

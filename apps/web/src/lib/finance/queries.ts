@@ -10,6 +10,7 @@ import {
   periodsListSchema,
   reconciliationSummarySchema,
   reconciliationFlagsSchema,
+  fraudSignalsSchema,
   revrecSummarySchema,
   taxRatesListSchema,
   taxSummarySchema,
@@ -417,6 +418,19 @@ export function useReconciliationFlags(status: "open" | "resolved" | "ignored" |
       });
       if (error) throw error;
       return reconciliationFlagsSchema.parse(data);
+    },
+  });
+}
+
+export function useFraudSignals(status: "open" | "resolved" | "ignored" | null = "open") {
+  return useQuery({
+    queryKey: ["finance", "fraud-signals", status],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_fraud_signals", {
+        p_status: status ?? undefined,
+      });
+      if (error) throw error;
+      return fraudSignalsSchema.parse(data);
     },
   });
 }
