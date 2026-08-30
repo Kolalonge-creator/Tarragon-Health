@@ -49,6 +49,7 @@ export const PERMISSION_KEYS = [
   "finance.tax.manage",
   "finance.export",
   "leads.manage",
+  "notification_templates.manage",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
