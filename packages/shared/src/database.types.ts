@@ -15467,6 +15467,210 @@ export type Database = {
           },
         ]
       }
+      subsidy_split_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          organisation_id: string
+          patient_copay_kobo: number | null
+          scope: string[]
+          split_type: string
+          sponsor_pct_bps: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          organisation_id: string
+          patient_copay_kobo?: number | null
+          scope?: string[]
+          split_type: string
+          sponsor_pct_bps?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          organisation_id?: string
+          patient_copay_kobo?: number | null
+          scope?: string[]
+          split_type?: string
+          sponsor_pct_bps?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subsidy_split_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subsidy_split_rules_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_subsidies: {
+        Row: {
+          beneficiary_profile_id: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          gross_amount_kobo: number
+          id: string
+          order_id: string
+          order_type: string
+          organisation_id: string
+          patient_amount_kobo: number
+          sponsor_amount_kobo: number
+          sponsor_profile_id: string
+          split_rule_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          beneficiary_profile_id: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          gross_amount_kobo: number
+          id?: string
+          order_id: string
+          order_type: string
+          organisation_id: string
+          patient_amount_kobo: number
+          sponsor_amount_kobo: number
+          sponsor_profile_id: string
+          split_rule_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          beneficiary_profile_id?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          gross_amount_kobo?: number
+          id?: string
+          order_id?: string
+          order_type?: string
+          organisation_id?: string
+          patient_amount_kobo?: number
+          sponsor_amount_kobo?: number
+          sponsor_profile_id?: string
+          split_rule_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_subsidies_beneficiary_profile_id_fkey"
+            columns: ["beneficiary_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_subsidies_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_subsidies_split_rule_id_fkey"
+            columns: ["split_rule_id"]
+            isOneToOne: false
+            referencedRelation: "subsidy_split_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_subsidies_sponsor_profile_id_fkey"
+            columns: ["sponsor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subsidy_contributions: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          organisation_id: string
+          payer_profile_id: string
+          payment_provider: Database["public"]["Enums"]["payment_provider"] | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          role: string
+          status: string
+          transaction_subsidy_id: string
+        }
+        Insert: {
+          amount_minor: number
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency"]
+          id?: string
+          organisation_id: string
+          payer_profile_id: string
+          payment_provider?: Database["public"]["Enums"]["payment_provider"] | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          role: string
+          status?: string
+          transaction_subsidy_id: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          organisation_id?: string
+          payer_profile_id?: string
+          payment_provider?: Database["public"]["Enums"]["payment_provider"] | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          role?: string
+          status?: string
+          transaction_subsidy_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subsidy_contributions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subsidy_contributions_payer_profile_id_fkey"
+            columns: ["payer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subsidy_contributions_transaction_subsidy_id_fkey"
+            columns: ["transaction_subsidy_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_subsidies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permissions: {
         Row: {
           category: string
@@ -21490,6 +21694,39 @@ export type Database = {
           p_value: number
         }
         Returns: string
+      }
+      create_subsidy_split_rule: {
+        Args: {
+          p_organisation_id: string
+          p_patient_copay_naira?: number
+          p_scope?: string[]
+          p_split_type: string
+          p_sponsor_pct?: number
+        }
+        Returns: string
+      }
+      create_transaction_subsidy: {
+        Args: {
+          p_order_id: string
+          p_order_type: string
+          p_sponsor_profile_id: string
+        }
+        Returns: Json
+      }
+      institution_subsidy_summary: {
+        Args: {
+          p_from?: string
+          p_organisation_id: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      set_subsidy_contribution_pending_ref: {
+        Args: {
+          p_contribution_id: string
+          p_pending_ref: string
+        }
+        Returns: undefined
       }
       create_personalised_lifestyle_goal: {
         Args: {

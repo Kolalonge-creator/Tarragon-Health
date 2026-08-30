@@ -3,6 +3,7 @@ import { OutcomeEvidenceSummary } from "../outcome-evidence-summary";
 import { MedicationOutcomesCard } from "@/components/medication-outcomes-card";
 import { LifestyleOutcomesCard } from "@/components/lifestyle-outcomes-card";
 import { OutcomeReportsPanel } from "../outcome-reports-panel";
+import { SubsidySpendSummary } from "@/components/institution/subsidy-spend-summary";
 import { loadCorporateDashboardData } from "../dashboard-data";
 
 /** Only ever rendered when corporate/layout.tsx has already established the
@@ -20,6 +21,7 @@ export default async function CorporateReportsPage() {
       <MedicationOutcomesCard outcomes={data.medicationOutcomes} />
       <LifestyleOutcomesCard supabase={data.access.client} organisationId={data.access.organisationId} />
       <OutcomeReportsPanel organisationId={data.organisationId} />
+      <SubsidySpendSummary organisationId={data.organisationId} />
     </div>
   );
 }

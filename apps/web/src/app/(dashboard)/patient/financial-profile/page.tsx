@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { koboToNaira } from "@tarragon/shared";
+import { PayMyShareButton } from "./pay-my-share-button";
+
+const ORDER_TYPE_LABEL: Record<string, string> = {
+  lab: "lab order",
+  pharmacy: "pharmacy order",
+  referral: "specialist referral",
+};
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
 
@@ -45,8 +52,14 @@ export default async function FinancialProfilePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [ledgerResult, subscriptionResult, vouchersResult, refundsResult, failedPaymentResult] =
-    await Promise.all([
+  const [
+    ledgerResult,
+    subscriptionResult,
+    vouchersResult,
+    refundsResult,
+    failedPaymentResult,
+    subsidyShareResult,
+  ] = await Promise.all([
       supabase.rpc("finance_unified_ledger", { p_profile_id: user.id, p_limit: 20 }),
       supabase
         .from("subscriptions")
@@ -72,6 +85,15 @@ export default async function FinancialProfilePage() {
         .not("error", "is", null)
         .order("created_at", { ascending: false })
         .limit(5),
+      supabase
+        .from("subsidy_contributions")
+        .select(
+          "id, role, amount_minor, transaction_subsidy:transaction_subsidies(order_type, gross_amount_kobo)",
+        )
+        .eq("payer_profile_id", user.id)
+        .eq("status", "pending_payment")
+        .order("created_at", { ascending: false })
+        .limit(10),
     ]);
 
   const transactions = ledgerResult.data ?? [];
@@ -79,6 +101,7 @@ export default async function FinancialProfilePage() {
   const vouchers = vouchersResult.data ?? [];
   const refunds = refundsResult.data ?? [];
   const recentFailures = failedPaymentResult.data ?? [];
+  const pendingShares = subsidyShareResult.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -141,6 +164,34 @@ export default async function FinancialProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      {pendingShares.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Your share of a split bill</CardTitle>
+            <CardDescription>
+              Someone supporting you paid part of one of your bills — this is the reduced amount
+              left for you to pay yourself.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {pendingShares.map((share) => (
+                <li
+                  key={share.id}
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/10 pb-2 text-sm last:border-0"
+                >
+                  <span className="text-charcoal-ink/80">
+                    {ORDER_TYPE_LABEL[share.transaction_subsidy?.order_type ?? ""] ?? "bill"} ·{" "}
+                    <span className="font-medium text-charcoal-ink">{naira(share.amount_minor)}</span>
+                  </span>
+                  <PayMyShareButton contributionId={share.id} label="Pay my share" />
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

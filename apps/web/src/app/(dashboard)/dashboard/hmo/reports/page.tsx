@@ -2,6 +2,7 @@ import { ClaimsImpactCard } from "../claims-impact-card";
 import { MedicationOutcomesCard } from "@/components/medication-outcomes-card";
 import { LifestyleOutcomesCard } from "@/components/lifestyle-outcomes-card";
 import { OutcomeReportsPanel } from "../../corporate/outcome-reports-panel";
+import { SubsidySpendSummary } from "@/components/institution/subsidy-spend-summary";
 import { loadHmoDashboardData } from "../dashboard-data";
 
 /** Only ever rendered when hmo/layout.tsx has already established the
@@ -22,6 +23,7 @@ export default async function HmoReportsPage() {
         entityLabel="member"
       />
       <OutcomeReportsPanel organisationId={data.organisationId} />
+      <SubsidySpendSummary organisationId={data.organisationId} />
     </div>
   );
 }
