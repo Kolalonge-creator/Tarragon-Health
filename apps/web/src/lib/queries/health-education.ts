@@ -179,16 +179,82 @@ export function useHealthEducationCatalogue() {
   });
 }
 
-/** Toggle a catalogue item live/hidden. */
-export function useSetContentActive() {
+export type HealthEducationContentStatus = Enums<"health_education_content_status">;
+
+export type HealthEducationContentInput = {
+  code: string;
+  title: string;
+  summary?: string | null;
+  body: string;
+  category: HealthEducationCategory;
+  content_type: HealthEducationContent["content_type"];
+  condition?: HealthEducationContent["condition"];
+  min_risk_level?: HealthEducationContent["min_risk_level"];
+  estimated_minutes?: number | null;
+  video_url?: string | null;
+  audio_url?: string | null;
+};
+
+/** Create a new content item — always lands as content_status='draft' (the
+ * column default), which private.health_education_content_sync_is_active()
+ * keeps is_active=false for until it's carried through clinical_review ->
+ * approved -> published via set_health_education_content_status. */
+export function useCreateHealthEducationContent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+    mutationFn: async (input: HealthEducationContentInput) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("health_education_content")
-        .update({ is_active: isActive })
-        .eq("id", id);
+      const { error } = await supabase.from("health_education_content").insert(input);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
+    },
+  });
+}
+
+export function useUpdateHealthEducationContent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: Partial<HealthEducationContentInput> & { id: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("health_education_content").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
+    },
+  });
+}
+
+/**
+ * Move a content item through its clinical-review lifecycle (draft ->
+ * clinical_review -> approved -> published -> review_due/updated -> ...).
+ * Always goes through public.set_health_education_content_status, which
+ * enforces the legal-transition state machine server-side — never write
+ * is_active or content_status directly from the client. is_active is
+ * derived from content_status by a DB trigger (published/review_due only);
+ * writing it directly would let unreviewed draft content go live to
+ * patients with one click, bypassing clinical review entirely.
+ */
+export function useSetHealthEducationContentStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      status,
+      note,
+    }: {
+      id: string;
+      status: HealthEducationContentStatus;
+      note?: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("set_health_education_content_status", {
+        p_content_id: id,
+        p_new_status: status,
+        p_note: note,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
