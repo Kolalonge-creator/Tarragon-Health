@@ -5007,8 +5007,11 @@ export type Database = {
       }
       facility_services: {
         Row: {
+          appointment_type: Database["public"]["Enums"]["appointment_type"] | null
           created_at: string
           description: string | null
+          duration_minutes: number | null
+          eligible_specialty: string | null
           facility_id: string
           id: string
           is_active: boolean
@@ -5016,8 +5019,11 @@ export type Database = {
           price_kobo: number | null
         }
         Insert: {
+          appointment_type?: Database["public"]["Enums"]["appointment_type"] | null
           created_at?: string
           description?: string | null
+          duration_minutes?: number | null
+          eligible_specialty?: string | null
           facility_id: string
           id?: string
           is_active?: boolean
@@ -5025,8 +5031,11 @@ export type Database = {
           price_kobo?: number | null
         }
         Update: {
+          appointment_type?: Database["public"]["Enums"]["appointment_type"] | null
           created_at?: string
           description?: string | null
+          duration_minutes?: number | null
+          eligible_specialty?: string | null
           facility_id?: string
           id?: string
           is_active?: boolean
@@ -18304,6 +18313,20 @@ export type Database = {
         | "not_applicable"
       appetite_level: "normal" | "reduced" | "none"
       appointment_status: "scheduled" | "completed" | "cancelled" | "no_show"
+      appointment_type:
+        | "gp"
+        | "specialist"
+        | "nurse"
+        | "dietitian"
+        | "physiotherapist"
+        | "laboratory"
+        | "imaging"
+        | "vaccination"
+        | "physical_clinic"
+        | "telemedicine"
+        | "follow_up"
+        | "procedure"
+        | "therapy"
       async_consult_status: "submitted" | "in_review" | "answered" | "closed"
       bariatric_referral_status:
         | "proposed"
@@ -19138,6 +19161,21 @@ export const Constants = {
       ],
       appetite_level: ["normal", "reduced", "none"],
       appointment_status: ["scheduled", "completed", "cancelled", "no_show"],
+      appointment_type: [
+        "gp",
+        "specialist",
+        "nurse",
+        "dietitian",
+        "physiotherapist",
+        "laboratory",
+        "imaging",
+        "vaccination",
+        "physical_clinic",
+        "telemedicine",
+        "follow_up",
+        "procedure",
+        "therapy",
+      ],
       async_consult_status: ["submitted", "in_review", "answered", "closed"],
       bariatric_referral_status: [
         "proposed",
