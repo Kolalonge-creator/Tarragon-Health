@@ -59,6 +59,16 @@ export async function buildCoachHandoffSummary(
     input.aiAction
   );
 
+  // Nothing to summarize -- e.g. a patient who clicks "speak to someone"
+  // without ever chatting with the coach first. Asking the model to
+  // extract a concern/symptoms from an empty conversation produced
+  // literal placeholder-looking text ("<UNKNOWN>") in practice rather than
+  // reliably following the "say so plainly" instruction below -- skip the
+  // call entirely rather than depend on prompt wording for this case.
+  if (input.recentMessages.length === 0) {
+    return fallback();
+  }
+
   try {
     const chatModel =
       model ??

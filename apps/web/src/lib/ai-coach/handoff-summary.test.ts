@@ -38,10 +38,38 @@ describe("buildCoachHandoffSummary", () => {
       }),
     } as unknown as ChatAnthropic;
 
-    const summary = await buildCoachHandoffSummary(input(), mockModel);
+    const summary = await buildCoachHandoffSummary(
+      input({
+        recentMessages: [
+          { id: "1", role: "user", content: "I feel dizzy when I stand up", created_at: "2026-08-30T00:00:00.000Z" },
+        ],
+      }),
+      mockModel
+    );
     expect(summary).toContain("Patient concern: worried about dizziness");
     expect(summary).toContain("Symptoms: dizziness on standing");
     expect(summary).toContain(`AI action: ${input().aiAction}`);
+  });
+
+  it("skips the model call entirely and uses the template when there's no conversation to summarize", async () => {
+    // A patient who clicks "speak to someone" without ever chatting with
+    // the coach first -- recentMessages is empty. Passing a model that
+    // throws proves the call was never made (a fallback triggered by a
+    // caught error would look identical from the output alone).
+    const modelThatMustNotBeCalled = {
+      withStructuredOutput: () => ({
+        invoke: async () => {
+          throw new Error("should never be called with an empty conversation");
+        },
+      }),
+    } as unknown as ChatAnthropic;
+
+    const summary = await buildCoachHandoffSummary(
+      input({ triggerMessage: "Patient asked to speak with someone directly, without a specific message." }),
+      modelThatMustNotBeCalled
+    );
+    expect(summary).toContain("Patient concern: Patient asked to speak with someone directly");
+    expect(summary).not.toContain("<UNKNOWN>");
   });
 
   it("falls back to a plain template, never throwing, when the model call fails", async () => {
@@ -53,8 +81,16 @@ describe("buildCoachHandoffSummary", () => {
       }),
     } as unknown as ChatAnthropic;
 
+    const someConversation = [
+      { id: "1", role: "user" as const, content: "chest tightness", created_at: "2026-08-30T00:00:00.000Z" },
+    ];
     const summary = await buildCoachHandoffSummary(
-      input({ triggerMessage: "chest tightness", medications: ["Amlodipine"], conditions: ["Hypertension"] }),
+      input({
+        recentMessages: someConversation,
+        triggerMessage: "chest tightness",
+        medications: ["Amlodipine"],
+        conditions: ["Hypertension"],
+      }),
       failingModel
     );
     expect(summary).toContain("Patient concern: chest tightness");
@@ -70,8 +106,11 @@ describe("buildCoachHandoffSummary", () => {
         },
       }),
     } as unknown as ChatAnthropic;
+    const someConversation = [
+      { id: "1", role: "user" as const, content: "hi", created_at: "2026-08-30T00:00:00.000Z" },
+    ];
 
-    const summary = await buildCoachHandoffSummary(input(), failingModel);
+    const summary = await buildCoachHandoffSummary(input({ recentMessages: someConversation }), failingModel);
     expect(summary).toContain("Medication: None on file");
     expect(summary).toContain("Relevant history: None on file");
   });
