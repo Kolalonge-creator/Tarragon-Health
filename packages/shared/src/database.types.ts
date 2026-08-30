@@ -2114,6 +2114,7 @@ export type Database = {
           proposed_by: string | null
           resolved_at: string | null
           source: Database["public"]["Enums"]["care_plan_goal_source"]
+          source_content_id: string | null
           status: Database["public"]["Enums"]["care_plan_goal_status"]
           target_date: string | null
           target_unit: string | null
@@ -2134,6 +2135,7 @@ export type Database = {
           proposed_by?: string | null
           resolved_at?: string | null
           source?: Database["public"]["Enums"]["care_plan_goal_source"]
+          source_content_id?: string | null
           status?: Database["public"]["Enums"]["care_plan_goal_status"]
           target_date?: string | null
           target_unit?: string | null
@@ -2154,6 +2156,7 @@ export type Database = {
           proposed_by?: string | null
           resolved_at?: string | null
           source?: Database["public"]["Enums"]["care_plan_goal_source"]
+          source_content_id?: string | null
           status?: Database["public"]["Enums"]["care_plan_goal_status"]
           target_date?: string | null
           target_unit?: string | null
@@ -2201,6 +2204,13 @@ export type Database = {
             columns: ["proposed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_source_content_id_fkey"
+            columns: ["source_content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
             referencedColumns: ["id"]
           },
         ]
@@ -8488,6 +8498,260 @@ export type Database = {
             columns: ["content_id"]
             isOneToOne: false
             referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_education_content_status_history: {
+        Row: {
+          actor_id: string | null
+          content_id: string
+          created_at: string
+          from_status:
+            | Database["public"]["Enums"]["health_education_content_status"]
+            | null
+          id: string
+          note: string | null
+          to_status: Database["public"]["Enums"]["health_education_content_status"]
+        }
+        Insert: {
+          actor_id?: string | null
+          content_id: string
+          created_at?: string
+          from_status?:
+            | Database["public"]["Enums"]["health_education_content_status"]
+            | null
+          id?: string
+          note?: string | null
+          to_status: Database["public"]["Enums"]["health_education_content_status"]
+        }
+        Update: {
+          actor_id?: string | null
+          content_id?: string
+          created_at?: string
+          from_status?:
+            | Database["public"]["Enums"]["health_education_content_status"]
+            | null
+          id?: string
+          note?: string | null
+          to_status?: Database["public"]["Enums"]["health_education_content_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_education_content_status_history_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_content_status_history_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_education_trigger_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          match_key: string
+          note: string | null
+          target_category:
+            | Database["public"]["Enums"]["health_education_category"]
+            | null
+          target_condition:
+            | Database["public"]["Enums"]["care_plan_condition"]
+            | null
+          target_content_id: string | null
+          trigger_source: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          match_key: string
+          note?: string | null
+          target_category?:
+            | Database["public"]["Enums"]["health_education_category"]
+            | null
+          target_condition?:
+            | Database["public"]["Enums"]["care_plan_condition"]
+            | null
+          target_content_id?: string | null
+          trigger_source: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          match_key?: string
+          note?: string | null
+          target_category?:
+            | Database["public"]["Enums"]["health_education_category"]
+            | null
+          target_condition?:
+            | Database["public"]["Enums"]["care_plan_condition"]
+            | null
+          target_content_id?: string | null
+          trigger_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_education_trigger_mappings_target_content_id_fkey"
+            columns: ["target_content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_education_recommendations: {
+        Row: {
+          content_id: string
+          dismissed_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          trigger_reason: string
+          triggered_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          content_id: string
+          dismissed_at?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          trigger_reason: string
+          triggered_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          content_id?: string
+          dismissed_at?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          trigger_reason?: string
+          triggered_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_education_recommendations_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_recommendations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_education_recommendations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_education_translations: {
+        Row: {
+          body: string
+          content_id: string
+          created_at: string
+          id: string
+          language: string
+          summary: string | null
+          title: string
+          translated_at: string
+          translated_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          content_id: string
+          created_at?: string
+          id?: string
+          language: string
+          summary?: string | null
+          title: string
+          translated_at?: string
+          translated_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          content_id?: string
+          created_at?: string
+          id?: string
+          language?: string
+          summary?: string | null
+          title?: string
+          translated_at?: string
+          translated_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_education_translations_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_literacy_assessments: {
+        Row: {
+          assessed_at: string
+          condition: Database["public"]["Enums"]["care_plan_condition"] | null
+          confidence_level: number
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          assessed_at?: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          confidence_level: number
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          assessed_at?: string
+          condition?: Database["public"]["Enums"]["care_plan_condition"] | null
+          confidence_level?: number
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_literacy_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_literacy_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -23659,6 +23923,9 @@ export type Database = {
         | "medicines"
         | "family_child"
         | "getting_started"
+        | "exercise"
+        | "sleep"
+        | "vaccination"
       health_education_content_type:
         | "article"
         | "video"
@@ -24805,6 +25072,9 @@ export const Constants = {
         "medicines",
         "family_child",
         "getting_started",
+        "exercise",
+        "sleep",
+        "vaccination",
       ],
       health_education_content_type: [
         "article",

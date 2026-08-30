@@ -38,6 +38,9 @@ export const HEALTH_EDUCATION_CATEGORIES: { value: HealthEducationCategory; labe
   { value: "mens_health", label: "Men's health" },
   { value: "medicines", label: "Medicines & adherence" },
   { value: "family_child", label: "Family & child health" },
+  { value: "exercise", label: "Exercise & movement" },
+  { value: "sleep", label: "Sleep" },
+  { value: "vaccination", label: "Vaccination" },
   { value: "getting_started", label: "Getting started with Tarragon" },
 ];
 
@@ -181,6 +184,15 @@ export function useHealthEducationCatalogue() {
 
 export type HealthEducationContentStatus = Enums<"health_education_content_status">;
 
+export const HEALTH_EDUCATION_STATUS_LABELS: Record<HealthEducationContentStatus, string> = {
+  draft: "Draft",
+  clinical_review: "In clinical review",
+  approved: "Approved (not yet published)",
+  published: "Published",
+  review_due: "Review due",
+  updated: "Updated (needs re-review)",
+};
+
 export type HealthEducationContentInput = {
   code: string;
   title: string;
@@ -193,6 +205,11 @@ export type HealthEducationContentInput = {
   estimated_minutes?: number | null;
   video_url?: string | null;
   audio_url?: string | null;
+  author_name?: string | null;
+  source_reference?: string | null;
+  next_review_due?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
 };
 
 /** Create a new content item — always lands as content_status='draft' (the
@@ -278,5 +295,384 @@ export function useSetContentDripWeek() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
     },
+  });
+}
+
+export type HealthEducationContentStatusHistory =
+  Tables<"health_education_content_status_history">;
+
+/** Admin: full transition history for one content row (who moved what, when, why). */
+export function useContentStatusHistory(contentId: string) {
+  return useQuery({
+    queryKey: ["health-education-status-history", contentId] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("health_education_content_status_history")
+        .select("*")
+        .eq("content_id", contentId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as HealthEducationContentStatusHistory[];
+    },
+    enabled: !!contentId,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Health-literacy self-assessment (§79.7). Engagement-only, patient-owned —
+// never touches patient_risk_scores or escalation. See
+// docs/archive/HEALTH_EDUCATION_PATHWAY_SPEC.md §1 locked decision #1.
+// ---------------------------------------------------------------------------
+export type HealthLiteracyAssessment = Tables<"health_literacy_assessments">;
+
+/** The patient's most recent confidence rating, overall or for one condition. */
+export function useLatestHealthLiteracy(
+  patientId: string,
+  condition: Database["public"]["Enums"]["care_plan_condition"] | null = null
+) {
+  return useQuery({
+    queryKey: ["health-literacy-latest", patientId, condition] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      let query = supabase
+        .from("health_literacy_assessments")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("assessed_at", { ascending: false })
+        .limit(1);
+      query = condition ? query.eq("condition", condition) : query.is("condition", null);
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+      return data as HealthLiteracyAssessment | null;
+    },
+    enabled: !!patientId,
+  });
+}
+
+/** "How confident are you managing your condition?" — a 1-5 self-rating. */
+export function useSubmitHealthLiteracyAssessment(patientId: string, organisationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      confidenceLevel,
+      condition,
+    }: {
+      confidenceLevel: 1 | 2 | 3 | 4 | 5;
+      condition?: Database["public"]["Enums"]["care_plan_condition"] | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("health_literacy_assessments").insert({
+        patient_id: patientId,
+        organisation_id: organisationId,
+        confidence_level: confidenceLevel,
+        condition: condition ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["health-literacy-latest", patientId] });
+      queryClient.invalidateQueries({ queryKey: healthEducationFeedKey(patientId) });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Care-event-triggered recommendations (§79.13) — "after a medication
+// change" / "after an abnormal result", surfaced via DB triggers into
+// health_education_recommendations.
+// ---------------------------------------------------------------------------
+export type HealthEducationRecommendation = Tables<"health_education_recommendations"> & {
+  content: Pick<HealthEducationContent, "id" | "code" | "title" | "summary" | "category"> | null;
+};
+
+/** The patient's undismissed recommendations, newest first. */
+export function useHealthEducationRecommendations(patientId: string) {
+  return useQuery({
+    queryKey: ["health-education-recommendations", patientId] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("health_education_recommendations")
+        .select("*, content:health_education_content(id, code, title, summary, category)")
+        .eq("patient_id", patientId)
+        .is("dismissed_at", null)
+        .order("triggered_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as HealthEducationRecommendation[];
+    },
+    enabled: !!patientId,
+  });
+}
+
+export function useDismissRecommendation(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("health_education_recommendations")
+        .update({ dismissed_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["health-education-recommendations", patientId] });
+    },
+  });
+}
+
+export function useMarkRecommendationViewed(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("health_education_recommendations")
+        .update({ viewed_at: new Date().toISOString() })
+        .eq("id", id)
+        .is("viewed_at", null);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["health-education-recommendations", patientId] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Admin: event-trigger mapping management (which content fires on which
+// medication/abnormal-result event).
+// ---------------------------------------------------------------------------
+export type HealthEducationTriggerMapping = Tables<"health_education_trigger_mappings">;
+
+export function useTriggerMappings() {
+  return useQuery({
+    queryKey: ["health-education-trigger-mappings"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("health_education_trigger_mappings")
+        .select("*")
+        .order("trigger_source", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as HealthEducationTriggerMapping[];
+    },
+  });
+}
+
+export function useCreateTriggerMapping() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (mapping: {
+      triggerSource: "medication" | "abnormal_result";
+      matchKey: string;
+      targetContentId?: string | null;
+      targetCategory?: HealthEducationCategory | null;
+      targetCondition?: Database["public"]["Enums"]["care_plan_condition"] | null;
+      note?: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("health_education_trigger_mappings").insert({
+        trigger_source: mapping.triggerSource,
+        match_key: mapping.matchKey,
+        target_content_id: mapping.targetContentId ?? null,
+        target_category: mapping.targetCategory ?? null,
+        target_condition: mapping.targetCondition ?? null,
+        note: mapping.note ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["health-education-trigger-mappings"] });
+    },
+  });
+}
+
+export function useSetTriggerMappingActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("health_education_trigger_mappings")
+        .update({ is_active: isActive })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["health-education-trigger-mappings"] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Translations (§79.9) — admin authoring surface. Deliberately no
+// auto-translate: see 20260830015418_health_education_translations.sql for
+// why this is a human/clinical-team task, not something generated here.
+// ---------------------------------------------------------------------------
+export type HealthEducationTranslation = Tables<"health_education_translations">;
+export type HealthEducationLanguage = "pcm" | "yo" | "ha" | "ig";
+
+export const HEALTH_EDUCATION_LANGUAGE_LABELS: Record<HealthEducationLanguage, string> = {
+  pcm: "Nigerian Pidgin",
+  yo: "Yoruba",
+  ha: "Hausa",
+  ig: "Igbo",
+};
+
+export function useContentTranslations(contentId: string) {
+  return useQuery({
+    queryKey: ["health-education-translations", contentId] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("health_education_translations")
+        .select("*")
+        .eq("content_id", contentId);
+      if (error) throw error;
+      return (data ?? []) as HealthEducationTranslation[];
+    },
+    enabled: !!contentId,
+  });
+}
+
+export function useUpsertTranslation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (translation: {
+      contentId: string;
+      language: HealthEducationLanguage;
+      title: string;
+      summary?: string | null;
+      body: string;
+      translatedBy?: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("health_education_translations").upsert(
+        {
+          content_id: translation.contentId,
+          language: translation.language,
+          title: translation.title,
+          summary: translation.summary ?? null,
+          body: translation.body,
+          translated_by: translation.translatedBy ?? null,
+          translated_at: new Date().toISOString(),
+        },
+        { onConflict: "content_id,language" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["health-education-translations", variables.contentId] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Named learning pathways (§79.6 — REVERSAL of locked decision, see
+// docs/archive/HEALTH_EDUCATION_PATHWAY_SPEC.md §1). health_education_programmes
+// / _programme_modules and their RPCs already existed live before this
+// session's changes; this is the first TS surface for them.
+// ---------------------------------------------------------------------------
+export type HealthEducationProgrammeListItem =
+  Database["public"]["Functions"]["health_education_programmes_list"]["Returns"][number];
+export type HealthEducationProgrammeDetailRow =
+  Database["public"]["Functions"]["health_education_programme_detail"]["Returns"][number];
+
+export function useHealthEducationProgrammes() {
+  return useQuery({
+    queryKey: ["health-education-programmes"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_programmes_list");
+      if (error) throw error;
+      return (data ?? []) as HealthEducationProgrammeListItem[];
+    },
+  });
+}
+
+export function useHealthEducationProgrammeDetail(code: string | null) {
+  return useQuery({
+    queryKey: ["health-education-programme-detail", code] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_programme_detail", {
+        p_code: code as string,
+      });
+      if (error) throw error;
+      return (data ?? []) as HealthEducationProgrammeDetailRow[];
+    },
+    enabled: !!code,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Learn -> goal -> track (§79.14 — REVERSAL of locked decision #2). Reuses
+// the existing, already-governed `care_plan_goals` table and its
+// patient-propose RLS policy rather than a new parallel goal system — see
+// 20260830022516_health_education_goal_link.sql for the reasoning. A
+// patient-proposed goal lands as status='proposed' and waits for clinician
+// approval, same as any other patient-sourced goal on the platform.
+// ---------------------------------------------------------------------------
+export function useProposeGoalFromContent(patientId: string, organisationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      contentId,
+      carePlanId,
+      description,
+      metric,
+      targetValue,
+      targetUnit,
+      targetDate,
+    }: {
+      contentId: string;
+      carePlanId?: string | null;
+      description: string;
+      metric?: string | null;
+      targetValue?: number | null;
+      targetUnit?: string | null;
+      targetDate?: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("care_plan_goals").insert({
+        patient_id: patientId,
+        organisation_id: organisationId,
+        care_plan_id: carePlanId ?? null,
+        source_content_id: contentId,
+        description,
+        metric: metric ?? null,
+        target_value: targetValue ?? null,
+        target_unit: targetUnit ?? null,
+        target_date: targetDate ?? null,
+        source: "patient",
+        status: "proposed",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["care-plan-goals-from-education", patientId] });
+    },
+  });
+}
+
+/** Goals a patient proposed off the back of a lesson — for the "track
+ * progress" half of the loop, shown back inside the education surface. */
+export function useGoalsFromEducation(patientId: string) {
+  return useQuery({
+    queryKey: ["care-plan-goals-from-education", patientId] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_plan_goals")
+        .select("*, source_content:health_education_content(id, code, title)")
+        .eq("patient_id", patientId)
+        .not("source_content_id", "is", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!patientId,
   });
 }
