@@ -13,6 +13,15 @@ import { effectiveAlertLevel, requiresEmergencyAuthority } from "@/lib/worklist/
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationStatus } from "@tarragon/shared";
 
+function timeAgo(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 /**
  * `canHandleEmergency` mirrors private.can_handle_emergency_escalation --
  * resolved server-side from the caller's own clinical_staff row and passed
@@ -104,6 +113,10 @@ export function EscalationWorklist({
                 ? RESULT_STATUS_BADGE[escalation.clinician_alert.screening_result.result_status]
                 : null;
               const statusBadge = ESCALATION_STATUS_BADGE[escalation.status];
+              const caseOwnerName =
+                escalation.clinician_alert?.responsible_clinician?.full_name ??
+                escalation.clinician_alert?.backup_clinician?.full_name ??
+                "Unassigned";
 
               return (
                 <li key={escalation.id} className="flex items-center justify-between gap-4 py-3">
@@ -130,6 +143,9 @@ export function EscalationWorklist({
                       </Link>{": "}
                       {escalation.reason}
                     </p>
+                    <p className="text-xs text-charcoal-ink/60">
+                      Raised {timeAgo(escalation.created_at)} · Case owner: {caseOwnerName}
+                    </p>
                   </div>
                   {escalation.assigned_doctor_id === null ? (
                     !canClaim ? (
@@ -152,7 +168,7 @@ export function EscalationWorklist({
                     )
                   ) : (
                     <span className="text-xs text-charcoal-ink/60">
-                      {escalation.assigned_doctor?.full_name ?? "Claimed"}
+                      Claimed by: {escalation.assigned_doctor?.full_name ?? "Claimed"}
                     </span>
                   )}
                 </li>
