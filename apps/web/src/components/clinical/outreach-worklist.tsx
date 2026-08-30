@@ -29,6 +29,7 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   failed_referral: "Failed referral",
   referral_follow_up: "Referral follow-up",
   medication_engagement_barrier: "Medication — needs support",
+  engagement_decline: "Engagement dropped off",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {

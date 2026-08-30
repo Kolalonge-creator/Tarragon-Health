@@ -14337,6 +14337,57 @@ export type Database = {
           },
         ]
       }
+      patient_engagement_scores: {
+        Row: {
+          computed_at: string
+          created_at: string
+          days_since_last_event: number | null
+          event_count_30d: number
+          event_count_prior_30d: number
+          id: string
+          organisation_id: string
+          patient_id: string
+          tier: Database["public"]["Enums"]["patient_engagement_tier"]
+        }
+        Insert: {
+          computed_at?: string
+          created_at?: string
+          days_since_last_event?: number | null
+          event_count_30d?: number
+          event_count_prior_30d?: number
+          id?: string
+          organisation_id: string
+          patient_id: string
+          tier: Database["public"]["Enums"]["patient_engagement_tier"]
+        }
+        Update: {
+          computed_at?: string
+          created_at?: string
+          days_since_last_event?: number | null
+          event_count_30d?: number
+          event_count_prior_30d?: number
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          tier?: Database["public"]["Enums"]["patient_engagement_tier"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_engagement_scores_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_engagement_scores_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_exposure_reports: {
         Row: {
           created_at: string
@@ -23631,6 +23682,7 @@ export type Database = {
         | "failed_referral"
         | "referral_follow_up"
         | "medication_engagement_barrier"
+        | "engagement_decline"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -23652,6 +23704,11 @@ export type Database = {
         | "scale"
         | "thermometer"
         | "pulse_oximeter"
+      patient_engagement_tier:
+        | "highly_engaged"
+        | "moderately_engaged"
+        | "at_risk"
+        | "disengaged"
       payment_provider: "paystack" | "stripe" | "wallet" | "voucher"
       payment_transaction_type:
         | "charge.success"
@@ -24777,6 +24834,7 @@ export const Constants = {
         "failed_referral",
         "referral_follow_up",
         "medication_engagement_barrier",
+        "engagement_decline",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [
@@ -24801,6 +24859,12 @@ export const Constants = {
         "scale",
         "thermometer",
         "pulse_oximeter",
+      ],
+      patient_engagement_tier: [
+        "highly_engaged",
+        "moderately_engaged",
+        "at_risk",
+        "disengaged",
       ],
       payment_provider: ["paystack", "stripe", "wallet", "voucher"],
       payment_transaction_type: [
