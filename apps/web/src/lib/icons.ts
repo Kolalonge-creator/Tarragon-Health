@@ -77,6 +77,10 @@ import {
   Thermometer,
   Wind,
   Heart,
+  Briefcase,
+  Workflow,
+  Timer,
+  Map,
   type LucideIcon,
 } from "lucide-react";
 
@@ -196,6 +200,10 @@ export const NAV_ICON = {
   outcomes: Stethoscope,
   governance: Gavel,
   population: HeartPulse,
+  executive: Briefcase,
+  patientFlow: Workflow,
+  serviceLevels: Timer,
+  geographicCapacity: Map,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Combined lookup for places that must reference icons by NAME (a plain

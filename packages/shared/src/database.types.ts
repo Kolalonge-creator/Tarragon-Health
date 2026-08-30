@@ -19810,6 +19810,7 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      analytics_executive_summary: { Args: never; Returns: Json }
       analytics_facility_engagement: { Args: never; Returns: Json }
       analytics_feature_adoption: { Args: never; Returns: Json }
       analytics_finance_inputs: { Args: never; Returns: Json }
@@ -19832,6 +19833,7 @@ export type Database = {
       analytics_patient_search: { Args: { p_query: string }; Returns: Json }
       analytics_population_summary: { Args: never; Returns: Json }
       analytics_provider_capacity: { Args: never; Returns: Json }
+      analytics_referral_turnaround: { Args: never; Returns: Json }
       analytics_retention_cohorts: { Args: never; Returns: Json }
       analytics_revenue_by_plan: { Args: never; Returns: Json }
       analytics_revenue_timeseries: {
@@ -19839,10 +19841,15 @@ export type Database = {
         Returns: Json
       }
       analytics_risk_register: { Args: never; Returns: Json }
+      analytics_screening_referral_funnel: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       analytics_staff_activity: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      analytics_support_response_time: { Args: never; Returns: Json }
       analytics_traffic_summary: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
