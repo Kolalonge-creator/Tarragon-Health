@@ -21968,14 +21968,6 @@ export type Database = {
         Args: { p_dob?: string; p_serial: string }
         Returns: Json
       }
-      set_health_education_content_status: {
-        Args: {
-          p_content_id: string
-          p_new_status: Database["public"]["Enums"]["health_education_content_status"]
-          p_note?: string
-        }
-        Returns: Database["public"]["Enums"]["health_education_content_status"]
-      }
       high_risk_patient_ids: {
         Args: never
         Returns: {
@@ -23402,13 +23394,6 @@ export type Database = {
         | "exercise"
         | "sleep"
         | "vaccination"
-      health_education_content_status:
-        | "draft"
-        | "clinical_review"
-        | "approved"
-        | "published"
-        | "review_due"
-        | "updated"
       health_education_content_type:
         | "article"
         | "video"
@@ -24521,14 +24506,6 @@ export const Constants = {
         "exercise",
         "sleep",
         "vaccination",
-      ],
-      health_education_content_status: [
-        "draft",
-        "clinical_review",
-        "approved",
-        "published",
-        "review_due",
-        "updated",
       ],
       health_education_content_type: [
         "article",
