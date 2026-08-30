@@ -7,19 +7,34 @@
 -- gives it something structured to search." patient_conditions now exists
 -- (20260827195615), so this builds the generated-column + unified-RPC half.
 --
--- DESIGN: a `search_vector` GENERATED ALWAYS AS ... STORED column + GIN index
--- on each of the highest-value clinical tables, plus ONE unified,
--- authorization-checked SECURITY DEFINER function returning ranked results
--- across all of them. Lives in `public` (not `private`) for the same reason
--- public.find_profile_by_phone does — PostgREST only exposes public-schema
--- functions (config.toml [api].schemas) — so the anon-EXECUTE revoke below
--- is not optional (see CLAUDE.md's standing "anon inherits EXECUTE through
--- PUBLIC" gotcha, re-checked live more than once in this project's history).
+-- DESIGN: a `search_vector` tsvector column + GIN index on each of the
+-- highest-value clinical tables, plus ONE unified, authorization-checked
+-- SECURITY DEFINER function returning ranked results across all of them.
+-- Lives in `public` (not `private`) for the same reason public.find_profile_
+-- by_phone does — PostgREST only exposes public-schema functions
+-- (config.toml [api].schemas) — so the anon-EXECUTE revoke below is not
+-- optional (see CLAUDE.md's standing "anon inherits EXECUTE through PUBLIC"
+-- gotcha, re-checked live more than once in this project's history).
 --
--- No new schema on the read side beyond the generated columns — this is
--- exactly the "query-time concern... not obviously a schema gap" style fix
--- already used for lab-result trend display (§1.13). The generated columns
--- are additive (existing SELECT *, ORM shapes, etc. are unaffected).
+-- NOT a GENERATED ALWAYS AS ... STORED column, despite that being the more
+-- obvious design and this migration's own first draft: Postgres's
+-- `to_tsvector(regconfig, text)` is classified STABLE, not IMMUTABLE (it
+-- depends on the named text-search configuration, which is in principle
+-- alterable), and a generation expression must be IMMUTABLE — confirmed the
+-- hard way via this project's CI migration-replay check
+-- (`ERROR: generation expression is not immutable (SQLSTATE 42P17)`), not by
+-- reasoning about it in advance. Instead: a plain `tsvector` column kept
+-- current by a dedicated `BEFORE INSERT OR UPDATE` trigger per table (same
+-- shape as every other derived-column trigger in this codebase), plus a
+-- one-time backfill `UPDATE` for the four tables that already carry live
+-- production data (`patient_conditions`/`patient_allergies`/`medications`/
+-- `screening_results` — `patient_documents`/`imaging_reports` are brand new
+-- in this same migration set, so they have no existing rows to backfill).
+--
+-- No new schema on the read side otherwise — this is exactly the "query-time
+-- concern... not obviously a schema gap" style fix already used for
+-- lab-result trend display (§1.13). The new columns are additive (existing
+-- SELECT *, ORM shapes, etc. are unaffected).
 --
 -- Verified live (koiplnmbgnqnbywhpjlf) before writing this: none of the six
 -- target tables already has a search_vector column, and medications carries
@@ -29,53 +44,158 @@
 -- below since it's genuinely searchable ("diabetes" should surface metformin
 -- via its indication, not just its name).
 
-alter table public.patient_conditions add column search_vector tsvector
-  generated always as (
-    setweight(to_tsvector('english', coalesce(condition_name, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(icd10_code, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(current_treatment, '')), 'C') ||
-    setweight(to_tsvector('english', coalesce(supporting_evidence, '')), 'C')
-  ) stored;
+-- --- patient_conditions -------------------------------------------------
+alter table public.patient_conditions add column search_vector tsvector;
 create index patient_conditions_search_idx on public.patient_conditions using gin (search_vector);
 
-alter table public.patient_allergies add column search_vector tsvector
-  generated always as (
-    setweight(to_tsvector('english', coalesce(allergen, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(reaction, '')), 'B')
-  ) stored;
+create or replace function private.patient_conditions_search_vector_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.search_vector :=
+    setweight(to_tsvector('english', coalesce(new.condition_name, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(new.icd10_code, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(new.current_treatment, '')), 'C') ||
+    setweight(to_tsvector('english', coalesce(new.supporting_evidence, '')), 'C');
+  return new;
+end;
+$$;
+
+create trigger patient_conditions_search_vector_trg
+  before insert or update on public.patient_conditions
+  for each row execute function private.patient_conditions_search_vector_update();
+
+-- patient_conditions is one of the two record_corrections reason-mandatory
+-- tables (20260827195333) — this backfill touches every existing row, going
+-- search_vector NULL -> a real value, which capture_record_correction()
+-- would otherwise flag as a changed column requiring a reason. Set it once
+-- for the whole statement (transaction-local GUC, same idiom used
+-- throughout this migration set).
+select set_config('app.change_reason', 'backfill: populate new search_vector column (patient record search, round 3)', true);
+update public.patient_conditions set search_vector =
+  setweight(to_tsvector('english', coalesce(condition_name, '')), 'A') ||
+  setweight(to_tsvector('english', coalesce(icd10_code, '')), 'B') ||
+  setweight(to_tsvector('english', coalesce(current_treatment, '')), 'C') ||
+  setweight(to_tsvector('english', coalesce(supporting_evidence, '')), 'C');
+
+-- --- patient_allergies ----------------------------------------------------
+alter table public.patient_allergies add column search_vector tsvector;
 create index patient_allergies_search_idx on public.patient_allergies using gin (search_vector);
 
-alter table public.medications add column search_vector tsvector
-  generated always as (
-    setweight(to_tsvector('english', coalesce(drug_name, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(indication, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(dose, '')), 'C') ||
-    setweight(to_tsvector('english', coalesce(frequency, '')), 'C')
-  ) stored;
+create or replace function private.patient_allergies_search_vector_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.search_vector :=
+    setweight(to_tsvector('english', coalesce(new.allergen, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(new.reaction, '')), 'B');
+  return new;
+end;
+$$;
+
+create trigger patient_allergies_search_vector_trg
+  before insert or update on public.patient_allergies
+  for each row execute function private.patient_allergies_search_vector_update();
+
+-- patient_allergies is the other reason-mandatory table — same guard.
+select set_config('app.change_reason', 'backfill: populate new search_vector column (patient record search, round 3)', true);
+update public.patient_allergies set search_vector =
+  setweight(to_tsvector('english', coalesce(allergen, '')), 'A') ||
+  setweight(to_tsvector('english', coalesce(reaction, '')), 'B');
+
+-- --- medications ------------------------------------------------------------
+alter table public.medications add column search_vector tsvector;
 create index medications_search_idx on public.medications using gin (search_vector);
 
-alter table public.screening_results add column search_vector tsvector
-  generated always as (
-    setweight(to_tsvector('english', coalesce(result_summary, '')), 'B')
-  ) stored;
+create or replace function private.medications_search_vector_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.search_vector :=
+    setweight(to_tsvector('english', coalesce(new.drug_name, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(new.indication, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(new.dose, '')), 'C') ||
+    setweight(to_tsvector('english', coalesce(new.frequency, '')), 'C');
+  return new;
+end;
+$$;
+
+create trigger medications_search_vector_trg
+  before insert or update on public.medications
+  for each row execute function private.medications_search_vector_update();
+
+update public.medications set search_vector =
+  setweight(to_tsvector('english', coalesce(drug_name, '')), 'A') ||
+  setweight(to_tsvector('english', coalesce(indication, '')), 'B') ||
+  setweight(to_tsvector('english', coalesce(dose, '')), 'C') ||
+  setweight(to_tsvector('english', coalesce(frequency, '')), 'C');
+
+-- --- screening_results ------------------------------------------------------
+alter table public.screening_results add column search_vector tsvector;
 create index screening_results_search_idx on public.screening_results using gin (search_vector);
 
-alter table public.patient_documents add column search_vector tsvector
-  generated always as (
-    setweight(to_tsvector('english', coalesce(document_type::text, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(original_filename, '')), 'C') ||
-    setweight(to_tsvector('english', coalesce(note, '')), 'C')
-  ) stored;
+create or replace function private.screening_results_search_vector_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.search_vector := setweight(to_tsvector('english', coalesce(new.result_summary, '')), 'B');
+  return new;
+end;
+$$;
+
+create trigger screening_results_search_vector_trg
+  before insert or update on public.screening_results
+  for each row execute function private.screening_results_search_vector_update();
+
+update public.screening_results set search_vector =
+  setweight(to_tsvector('english', coalesce(result_summary, '')), 'B');
+
+-- --- patient_documents (new table this round — nothing to backfill) --------
+alter table public.patient_documents add column search_vector tsvector;
 create index patient_documents_search_idx on public.patient_documents using gin (search_vector);
 
-alter table public.imaging_reports add column search_vector tsvector
-  generated always as (
-    setweight(to_tsvector('english', coalesce(modality::text, '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(body_region, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(study_description, '')), 'B') ||
-    setweight(to_tsvector('english', coalesce(findings_summary, '')), 'C')
-  ) stored;
+create or replace function private.patient_documents_search_vector_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.search_vector :=
+    setweight(to_tsvector('english', coalesce(new.document_type::text, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(new.original_filename, '')), 'C') ||
+    setweight(to_tsvector('english', coalesce(new.note, '')), 'C');
+  return new;
+end;
+$$;
+
+create trigger patient_documents_search_vector_trg
+  before insert or update on public.patient_documents
+  for each row execute function private.patient_documents_search_vector_update();
+
+-- --- imaging_reports (new table this round — nothing to backfill) ----------
+alter table public.imaging_reports add column search_vector tsvector;
 create index imaging_reports_search_idx on public.imaging_reports using gin (search_vector);
+
+create or replace function private.imaging_reports_search_vector_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.search_vector :=
+    setweight(to_tsvector('english', coalesce(new.modality::text, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(new.body_region, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(new.study_description, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(new.findings_summary, '')), 'C');
+  return new;
+end;
+$$;
+
+create trigger imaging_reports_search_vector_trg
+  before insert or update on public.imaging_reports
+  for each row execute function private.imaging_reports_search_vector_update();
 
 -- ---------------------------------------------------------------------------
 -- Unified search RPC.
