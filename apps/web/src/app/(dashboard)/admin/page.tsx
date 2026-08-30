@@ -334,6 +334,13 @@ export default async function AdminPage() {
           visible: can("integrations.manage"),
         },
         {
+          href: "/admin/settings/ai-governance",
+          label: "AI governance",
+          blurb: "Every AI system's incidents and kill switch",
+          icon: SEMANTIC_ICON.aiCoach,
+          visible: can("ai_governance.manage"),
+        },
+        {
           href: "/admin/testimonials",
           label: "Testimonials",
           blurb: "Review consented patient quotes before they go live",
