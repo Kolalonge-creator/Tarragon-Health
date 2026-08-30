@@ -199,7 +199,15 @@ begin
     (organisation_id, patient_id, source_document_id, conflict_type, description)
   values (v_org, v_patient, v_document, 'possible_duplicate', 'Uploaded discharge summary looks like a duplicate of an existing record')
   returning id, status::text, resolved_by, resolved_at into v_conflict, v_status, v_resolved_by, v_resolved_at;
+  reset role;
 
+  -- The temporary result/fixture tables were created by the connecting
+  -- (superuser) role before any `set local role` — `authenticated` has no
+  -- INSERT privilege on them, so every write to phr3_result/phr3_fixture
+  -- must happen after `reset role`, never while impersonating a session
+  -- role. (Confirmed live: an earlier draft of this test inserted here
+  -- while still `authenticated` and failed with a real permission error —
+  -- see docs/PATIENT_HEALTH_RECORD_ARCHITECTURE.md §0.)
   insert into phr3_result values
     ('fresh record_conflict starts open with no resolution stamp', 'clinician',
      format('status=%s resolved_by=%s resolved_at=%s', v_status, v_resolved_by, v_resolved_at),
@@ -209,6 +217,9 @@ begin
     raise exception 'BROKEN: a freshly-flagged record_conflict was not open with a null resolution stamp';
   end if;
 
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
   update public.record_conflicts
     set status = 'resolved_updated_record', resolution_note = 'Existing record corrected to match the upload'
     where id = v_conflict;
@@ -274,7 +285,11 @@ begin
 
   select narrative_text, source::text into v_narrative, v_source
     from public.clinical_summaries where patient_id = v_patient;
+  reset role;
 
+  -- Same rule as test 4: phr3_result was created by the connecting
+  -- (superuser) role before any `set local role`, so `authenticated` has no
+  -- INSERT privilege on it — every write must happen after `reset role`.
   insert into phr3_result values
     ('generated draft mentions the active condition', 'system',
      case when v_narrative ilike '%PHR3 Test Hypertension%' then 'mentioned' else 'missing' end,
@@ -282,6 +297,10 @@ begin
   if v_narrative not ilike '%PHR3 Test Hypertension%' then
     raise exception 'BROKEN: generated clinical summary draft did not mention the patient''s active condition: %', v_narrative;
   end if;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
 
   -- refresh_clinical_summary() marks its own write with a transaction-local
   -- GUC so the write-guard trigger doesn't mistake a clinician's own edit
