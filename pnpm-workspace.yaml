@@ -99,3 +99,35 @@ overrides:
   # 2026-08-29 — 2.0.2 (already vulnerable per the advisory's own "<=2.0.2"
   # range) is the latest real release. Forcing a version that doesn't exist
   # would just fail to resolve. Re-check when a real 2.0.3 (or later) ships.
+  # 2026-08-30 GitHub Dependabot sweep (19 alerts total; 8 of the 19 are in
+  # reference/tarragon-control/ — a deliberately preserved, non-running
+  # backup of the abandoned v3 repo per CLAUDE.md, not touched here). The
+  # remaining 11 are all in this workspace's own pnpm-lock.yaml, resolved:
+  # eas-cli@22.6.0 (a devDependency of @tarragon/mobile, used only for local
+  # `eas build`/`eas update` — never reachable from the production web/API
+  # runtime) pins four of these EXACTLY (not a range), which is why each key
+  # below is scoped to that literal specifier rather than left unscoped —
+  # forcing an open floor would also drag up the OTHER, already-safe
+  # resolution of the same package used by unrelated tooling (ajv@6.15.0 via
+  # eslint's config-array chain in particular, a real major-version
+  # difference from the 8.x line eas-cli wants).
+  # CVE identifiers below are exactly what GitHub's Dependabot alerts API
+  # returned for each advisory (queried directly, not recalled) — no GHSA
+  # identifier was looked up or is quoted here.
+  "tar@7.5.19": "7.5.21" # CVE-2026-73566 (uncontrolled recursion in mapHas/filesFilter -> stack-overflow DoS via a crafted long-path tar entry)
+  "ajv@8.11.0": "8.18.0" # CVE-2025-69873 (ReDoS when using the $data option)
+  "diff@7.0.0": "9.0.0" # CVE-2026-24001 (DoS in parsePatch/applyPatch on a crafted patch string) — eas-cli's own diff@4.0.4 (via ts-node, below the vulnerable ">=6.0.0" floor) is untouched. Pinned exact, not an open floor: an initial ">=8.0.3" silently resolved to 9.0.0 on install, and per this file's own langsmith/uuid precedent we want a version actually verified, not whatever pnpm picks on a given day.
+  "ts-deepmerge@6.2.0": "8.0.0" # CVE-2026-12644 (prototype-method override leads to DoS)
+  # minimatch: two of its four resolved copies are already >=5.1.8
+  # (unaffected); eas-cli pins an exact "5.1.2", filelist (an eas-cli
+  # transitive dep) declares "^5.0.1" — both scoped separately rather than
+  # bumping the two already-clean resolutions or the unrelated minimatch@3.x
+  # copy glob@6/7 still use.
+  "minimatch@5.1.2": "5.1.8" # CVE-2026-27903, CVE-2026-27904, CVE-2026-26996 (ReDoS via combinatorial/nested-extglob/repeated-wildcard backtracking)
+  "minimatch@^5.0.1": "5.1.8" # CVE-2026-27903, CVE-2026-27904, CVE-2026-26996
+  # joi and yaml: only one resolved copy of each is actually vulnerable, and
+  # the other already sits above the patched floor within the SAME major —
+  # unlike the packages above, an unscoped bump here can't drag anything
+  # onto an incompatible major, so no per-range scoping needed.
+  joi: ">=17.13.4" # CVE-2026-48038 (uncaught RangeError on deeply nested input via recursive link() schemas)
+  yaml: ">=2.8.3" # CVE-2026-33532 (stack overflow via deeply nested YAML collections)
