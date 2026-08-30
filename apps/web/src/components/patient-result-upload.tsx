@@ -2,13 +2,19 @@
 
 import { useActionState, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { uploadResultDocumentAsPatient } from "@/lib/lab-results/actions";
 import {
   requestLabResultConsult,
+  cancelLabResultConsultRequest,
   type RequestLabResultConsultState,
 } from "@/app/(dashboard)/patient/lab-result-consult-actions";
-import { useLabResultConsultPrice } from "@/lib/queries/lab-result-consult";
+import {
+  useLabResultConsultPrice,
+  useMyLabResultConsultRequests,
+  labResultConsultKeys,
+} from "@/lib/queries/lab-result-consult";
+import { Badge } from "@/components/ui/badge";
 import {
   RESULT_DOC_ACCEPT,
   validateResultDocFile,
@@ -34,6 +40,63 @@ function formatPrice(amountMinor: number, currency: string): string {
   return `${symbol}${koboToNaira(amountMinor).toLocaleString()}`;
 }
 
+const STATUS_LABEL: Record<string, { label: string; tone: "blue" | "amber" | "green" | "red" | "grey" }> = {
+  payment_confirmed: { label: "Paid, upload your result", tone: "blue" },
+  document_uploaded: { label: "Uploaded, waiting for a doctor", tone: "amber" },
+  accepted: { label: "Consult booked", tone: "green" },
+  cancelled: { label: "Cancelled", tone: "grey" },
+  refunded: { label: "Refunded", tone: "grey" },
+  expired: { label: "Expired", tone: "grey" },
+};
+
+/** A patient's own consult-fee requests, with a cancel action for anything
+ * not already terminal. Optional (labOrderId-scoped upload flows can still
+ * omit patientId and skip this section) rather than mandatory, since not
+ * every PatientResultUpload call site had a patientId in scope worth
+ * plumbing through for this alone. */
+function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
+  const queryClient = useQueryClient();
+  const { data } = useMyLabResultConsultRequests(patientId);
+  const cancel = useMutation({
+    mutationFn: (requestId: string) => cancelLabResultConsultRequest(requestId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: labResultConsultKeys.myRequests(patientId) });
+    },
+  });
+
+  const requests = data ?? [];
+  if (requests.length === 0) return null;
+
+  return (
+    <ul className="space-y-1.5 border-t border-charcoal-ink/10 pt-2">
+      {requests.map((req) => {
+        const status = STATUS_LABEL[req.status] ?? { label: req.status, tone: "grey" as const };
+        const cancellable = !["cancelled", "refunded", "expired"].includes(req.status);
+        return (
+          <li key={req.id} className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant={status.tone}>{status.label}</Badge>
+            <span className="text-charcoal-ink/50">
+              {formatPrice(req.amount_minor, req.currency)} consultation fee
+            </span>
+            {cancellable && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs text-red-600"
+                disabled={cancel.isPending}
+                onClick={() => cancel.mutate(req.id)}
+              >
+                {cancel.isPending ? "Cancelling…" : "Cancel"}
+              </Button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /**
  * The patient's own "here is my result" door — the front door of the
  * self-arranged model, and the piece that was missing while the whole
@@ -54,10 +117,14 @@ function formatPrice(amountMinor: number, currency: string): string {
 export function PatientResultUpload({
   labOrderId,
   label = "Upload your result",
+  patientId,
 }: {
   /** Files the upload against a specific open request. Omit for a loose result. */
   labOrderId?: string;
   label?: string;
+  /** When provided, renders the patient's own consult-fee request status
+   * (with a cancel action) below the upload form. */
+  patientId?: string;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -174,6 +241,8 @@ export function PatientResultUpload({
           {payState?.error && <p className="text-xs text-red-600">{payState.error}</p>}
         </div>
       )}
+
+      {patientId && <MyConsultRequestsStatus patientId={patientId} />}
     </div>
   );
 }

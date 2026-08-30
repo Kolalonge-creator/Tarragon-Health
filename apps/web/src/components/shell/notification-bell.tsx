@@ -85,6 +85,31 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/care",
     };
   }
+  if (n.template === "lab_result_consult_request_pending") {
+    // From private.notify_new_lab_result_consult_request() — a patient just
+    // paid the self-arranged lab-result consultation fee. Org-wide (any
+    // active, non-Care-Coordinator clinician can pick it up), so this fires
+    // for every clinician on the team, not just one assigned doctor.
+    return {
+      text: "A patient paid for a lab-result consultation: pick a time",
+      href: "/clinician/lab-result-consults",
+    };
+  }
+  if (n.template === "lab_result_consult_booked" || n.template === "lab_result_consult_rescheduled") {
+    const rescheduled = n.template === "lab_result_consult_rescheduled";
+    return {
+      text: rescheduled
+        ? "Your lab-result consultation was rescheduled"
+        : "Your lab-result consultation is booked",
+      href: "/patient/labs",
+    };
+  }
+  if (n.template === "lab_result_consult_needs_rescheduling") {
+    return {
+      text: "Your doctor can no longer make your lab-result consultation — it needs a new time",
+      href: "/patient/labs",
+    };
+  }
   if (n.template === "care_access_view_request" || n.template === "care_access_manage_request") {
     const name = String(payload.initiator_name ?? "Someone");
     const level = payload.permission_level === "manage" ? "manage" : "view";

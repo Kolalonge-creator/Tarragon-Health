@@ -20888,6 +20888,10 @@ export type Database = {
         Args: { p_reason: string; p_voucher: string }
         Returns: Json
       }
+      cancel_lab_result_consult_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       cancel_waiting_list_entry: {
         Args: { p_waiting_list_id: string }
         Returns: undefined
@@ -22010,6 +22014,10 @@ export type Database = {
         Args: { p_draft_id: string; p_reason: string }
         Returns: undefined
       }
+      release_lab_result_consult_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       report_exposure: {
         Args: {
           p_detail?: string
@@ -22150,6 +22158,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      reschedule_lab_result_consult_request: {
+        Args: { p_new_scheduled_at: string; p_request_id: string }
+        Returns: undefined
       }
       resolve_personalised_lifestyle_goal: {
         Args: {

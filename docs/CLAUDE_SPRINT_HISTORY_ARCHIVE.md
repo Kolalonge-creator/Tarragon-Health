@@ -2911,3 +2911,101 @@ that gap.
   cross-system double-booking check against `video_visit_requests`-sourced bookings (see above). No
   admin UI still, same as the morning's entry.
 
+### 2026-08-30 — same day, third pass: cross-system double-booking fixed, reschedule/cancel, staff notification, admin price UI
+
+Founder wanted all four gaps from the entry above closed before review. All four checked for existing
+precedent first, per standing instruction, with two real findings worth keeping visible:
+
+- **Cross-system double-booking (the correctness bug) — fixed for real, not worked around.** Checked
+  `video_consultations`' live schema: it carries no "assigned clinician" column at all, on any row,
+  from any source. The only real join back to a clinician identity for a `video_visit_requests`-sourced
+  booking is `video_visit_requests.video_consultation_id` -> `video_visit_requests.slot_id` ->
+  `consult_availability_slots.clinician_profile_id` — confirmed live that `slot_id` is accurate even
+  after a doctor proposed alternates and the patient picked a different one
+  (`select_video_visit_alternate_slot` updates `slot_id` to whichever slot was actually booked, not the
+  original request). New `private.lab_result_consult_slot_conflict()` checks BOTH systems for the
+  accepting clinician and is now called from `accept_lab_result_consult_request` (rewritten in place)
+  and the new `reschedule_lab_result_consult_request`. Chose the join over adding a `clinician_id`
+  column to `video_consultations` (a shared table several other flows write into, needing every one
+  updated plus a backfill) — the join needs neither. **Residual, stated plainly, not silently
+  fixed**: only this feature's own accept/reschedule now check against video-visit bookings; the mirror
+  direction (video-visit accept checking against lab-result-consult bookings) would mean modifying the
+  separate, pre-existing, actively-used video-visit RPCs themselves — out of scope for a targeted fix.
+  A doctor could in principle still double-book by accepting a video-visit request over an existing
+  lab-result-consult booking. Verified with a REAL fixture, not a stand-in: an actual
+  `consult_availability_slots` + `video_visit_requests` row taken all the way through the genuine
+  `accept_video_visit_request` RPC, then confirmed a lab-result-consult accept at the same time is now
+  rejected (was previously silently allowed) — sabotaged the check once (stripped back to the old,
+  lab-result-consult-only query) and confirmed the test flips to FAIL, then restored.
+- **Reschedule/release (doctor) + cancel (patient).** Checked precedent first and found two things
+  worth recording: `video_visit_requests`' own `cancel_video_visit_request` is dead code (defined,
+  never called from any UI, and only ever worked pre-payment via a raw RLS delete anyway); and
+  `video_consultations`' migration (`20260828000220`) deliberately dropped a planned cancel/no-show RPC
+  because a separate, concurrent "Appointment Engine" (`appointments`, `reschedule_appointment`,
+  2026-08-28) was meant to own that going forward. Checked live: the Appointment Engine has exactly
+  zero rows in `appointments` — it is not tracking any real booking today, video-visit or otherwise —
+  so a narrow mechanism scoped only to this feature's own rows cannot create the "two disagreeing
+  records" problem that migration warned about. Built three RPCs:
+  `reschedule_lab_result_consult_request` (re-runs the cross-system conflict check, clears Zoom fields
+  so a fresh meeting gets minted for the new time — this codebase has no "update an existing Zoom
+  meeting" call anywhere to reuse instead), `release_lab_result_consult_request` (doctor gives up a
+  booking; reverts to `document_uploaded` or `payment_confirmed` depending on whether
+  `lab_result_document_id` is actually set — not a guessed/snapshotted status string — cancels the
+  booked consult, never touches the patient's paid fee), and `cancel_lab_result_consult_request`
+  (patient cancels outright, no refund — matches this platform's existing non-refundable-mid-period
+  posture, e.g. the payment webhooks' own subscription-cancel handling). Doctor-side UI: a second card
+  on `/clinician/lab-result-consults` for "your booked consults" with reschedule/release controls.
+  Patient-side: a compact status-list-with-cancel section added to `PatientResultUpload` (new optional
+  `patientId` prop, deliberately NOT wired at the per-order call site in `lab-orders-list.tsx` since that
+  renders inside a `.map()` and would duplicate the list once per open order — wired only at the one
+  standalone, non-looped call site in `annual-health-check-booking.tsx` instead).
+- **Doctor notification when a request first becomes claimable.** `clinician_alerts` was the obvious
+  first guess and the wrong one — read its live classify/assign trigger
+  (`private.classify_and_assign_clinician_alert`) and confirmed it drives a real clinical severity/SLA/
+  escalation-ladder/auto-assignment system with no "routine logistics" bucket; shoehorning "a payment
+  cleared, pick a time" into it would dilute a system whose whole purpose is surfacing genuinely urgent
+  clinical findings. Checked the support-inbox and care_outreach_engine queues too — neither has any
+  active staff-facing push, staff just check the page. `notification_broadcasts` is the one real
+  broadcast mechanism in this codebase, but it's manual/admin-triggered and patient/partner-audience
+  only. Conclusion: no existing "auto-notify all org staff of a routine item" mechanism exists, so built
+  the minimal correct one — `private.notify_org_clinical_staff()` (one `notifications` row per active,
+  non-Care-Coordinator clinician, `in_app` only, matching the founder's own "this is routine, not
+  emergency" framing) fired by a new trigger the moment status first reaches `payment_confirmed` (not
+  re-fired on the later `document_uploaded` transition). Added the render case to
+  `NotificationBell.describe()` (`components/shell/notification-bell.tsx`) — the one real generic
+  in-app-notification surface this codebase already has, used by both clinician and patient dashboards
+  — plus cases for the new `lab_result_consult_rescheduled`/`lab_result_consult_needs_rescheduling`
+  templates from the reschedule/release notices above.
+- **Admin price UI.** No admin UI exists for `video_visit_prices` either (the table this feature's price
+  book was cloned from) — a plain SQL `UPDATE` was the only way to change that price, and still is,
+  since this pass didn't touch it. The closest real precedent, `/admin/settings/diaspora-pricing`, is a
+  derived-currency-rate editor too specific to reuse directly, but its RBAC gate shape
+  (`getCurrentProfile().role !== "admin"` redirect, defence in depth on top of `proxy.ts`) is the
+  reusable part. For the audit-trail convention specifically: found it in
+  `admin/settings/subscriptions/actions.ts`'s bulk price-adjustment action — a direct
+  `audit_log` insert (`action: "billing.price_adjustment"`) is the real, existing pattern for "an admin
+  changed a commercial price," not diaspora-pricing's narrower `updated_by`/`updated_at`-only approach.
+  New `/admin/settings/lab-result-consult-pricing` page: edit the platform-default row, edit any
+  existing per-organisation override, add a new override for any org that doesn't have one yet — every
+  save writes an `audit_log` row (`billing.lab_result_consult_price_change`) with the old and new
+  amount. Nav entry added under admin's "Commercial" group.
+- Verified: `packages/db/tests/lab_result_consult_cross_system_and_lifecycle.sql` — 16/16 checks pass
+  (cross-system conflict rejected/allowed correctly, reschedule re-runs the check and clears Zoom
+  fields, release reverts to the correct pre-accept status in both branches, patient cancel is
+  patient-scoped and refuses a terminal request, the staff-notify trigger fires exactly once per active
+  clinician and does not re-fire on a later unrelated transition). Re-ran the two earlier test files
+  (`lab_result_consult_fee.sql` 16/16, `lab_result_consult_accept.sql` 11/11) as a full regression check
+  after rewriting `accept_lab_result_consult_request` in place — all 43 checks across all three files
+  still pass. Sabotaged the cross-system conflict check specifically (the correctness-bug fix) and
+  confirmed it flips to FAIL, then restored. `pnpm typecheck`/`lint`/`test` clean at both package and
+  monorepo-root level (109/109 web suites, 1123/1123 tests, 0 lint errors — two real lint errors
+  surfaced and were fixed along the way: a `setState`-in-effect violation and an unescaped apostrophe,
+  both in the new doctor-queue component). `database.types.ts` patched again in both
+  `packages/db/src/` and `packages/shared/src/`.
+- **Not done, flagged not guessed at**: the mirror-direction cross-system check (video-visit accept
+  checking against lab-result-consult bookings) — see above. No reschedule of a `cancelled` request (a
+  patient who cancels, then changes their mind, has to pay again — matches "no refund," not an
+  oversight). The `PatientResultUpload` status list only renders where a `patientId` prop was cheap to
+  wire through; the per-order upload slot in `lab-orders-list.tsx` still doesn't show it. No change to
+  `video_visit_prices` — still no admin UI for that one, only for this feature's own price now.
+

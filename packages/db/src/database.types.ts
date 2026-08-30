@@ -17148,6 +17148,10 @@ export type Database = {
         Args: { p_reason: string; p_voucher: string }
         Returns: Json
       }
+      cancel_lab_result_consult_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       care_receipt: {
         Args: { p_beneficiary: string; p_from?: string; p_to?: string }
         Returns: Json
@@ -17930,6 +17934,10 @@ export type Database = {
         Args: { p_activate?: boolean; p_kid: string; p_public_key_spki: string }
         Returns: undefined
       }
+      release_lab_result_consult_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       report_exposure: {
         Args: {
           p_detail?: string
@@ -18020,6 +18028,10 @@ export type Database = {
           p_staff_profile_id: string
         }
         Returns: string
+      }
+      reschedule_lab_result_consult_request: {
+        Args: { p_new_scheduled_at: string; p_request_id: string }
+        Returns: undefined
       }
       resolve_personalised_lifestyle_goal: {
         Args: {

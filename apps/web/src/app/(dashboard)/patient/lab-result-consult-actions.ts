@@ -90,14 +90,46 @@ export async function requestLabResultConsult(
   redirect(result.checkoutUrl);
 }
 
-/** Patient withdraws a request that hasn't been paid yet (RLS-enforced). */
-export async function cancelLabResultConsultRequest(requestId: string): Promise<void> {
+export type CancelLabResultConsultState = { error?: string; message?: string } | undefined;
+
+/**
+ * Patient cancels their own lab-result consult request outright, at any
+ * point before a terminal status. Genuinely new capability, not mirrored
+ * from video_visit_requests (whose own patient-side cancel is a raw RLS
+ * DELETE that only ever works pre-payment) — designed fresh for the
+ * post-payment case but consistent with this platform's existing
+ * non-refundable-mid-period posture (e.g. the payment webhooks' own
+ * subscription.disable/customer.subscription.updated handling never
+ * refunds, it only stops the next renewal): NO refund here either, the
+ * patient paid for the review/upload entitlement, not a specific time.
+ *
+ * Tries the pre-payment RLS delete first (requested/pending_payment — the
+ * free, no-money-involved case); if that deletes nothing, falls through to
+ * cancel_lab_result_consult_request, which handles every paid status
+ * (payment_confirmed/document_uploaded/accepted) and also cancels a booked
+ * video_consultations row if the request had reached accepted.
+ */
+export async function cancelLabResultConsultRequest(
+  requestId: string,
+): Promise<CancelLabResultConsultState> {
   const parsed = z.string().uuid().safeParse(requestId);
-  if (!parsed.success) return;
+  if (!parsed.success) return { error: "Invalid request" };
+
   const supabase = await createClient();
-  await supabase
+  const { data: deleted } = await supabase
     .from("lab_result_consult_requests")
     .delete()
     .eq("id", parsed.data)
-    .in("status", ["requested", "pending_payment"]);
+    .in("status", ["requested", "pending_payment"])
+    .select("id")
+    .maybeSingle();
+  if (deleted) {
+    return { message: "Request withdrawn." };
+  }
+
+  const { error } = await supabase.rpc("cancel_lab_result_consult_request", {
+    p_request_id: parsed.data,
+  });
+  if (error) return { error: error.message };
+  return { message: "Cancelled." };
 }

@@ -5,6 +5,8 @@ import type { Tables } from "@tarragon/shared";
 export const labResultConsultKeys = {
   price: ["lab-result-consult-price"] as const,
   orgRequests: ["lab-result-consult-requests", "org"] as const,
+  myAccepted: ["lab-result-consult-requests", "mine-accepted"] as const,
+  myRequests: (patientId: string) => ["lab-result-consult-requests", "mine", patientId] as const,
 };
 
 export type LabResultConsultRequest = Tables<"lab_result_consult_requests">;
@@ -71,6 +73,64 @@ export function useOrgLabResultConsultRequests() {
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data as LabResultConsultRequestWithPatient[];
+    },
+  });
+}
+
+/**
+ * The caller's own booked lab-result consults — for the doctor's own
+ * reschedule/release controls. RLS already scopes the base select to
+ * org staff; the accepted_by filter narrows it to "mine" client-side by
+ * first resolving the caller's own clinical_staff id (there is no direct
+ * "my clinical_staff row" foreign-key shortcut from an authenticated
+ * client the way there is server-side).
+ */
+export function useMyAcceptedLabResultConsultRequests() {
+  return useQuery({
+    queryKey: labResultConsultKeys.myAccepted,
+    queryFn: async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data: staff } = await supabase
+        .from("clinical_staff")
+        .select("id")
+        .eq("profile_id", user.id)
+        .eq("active", true)
+        .maybeSingle();
+      if (!staff) return [];
+      const { data, error } = await supabase
+        .from("lab_result_consult_requests")
+        .select(
+          "*, patient:profiles!lab_result_consult_requests_patient_id_fkey(full_name, patient_number)",
+        )
+        .eq("status", "accepted")
+        .eq("accepted_by", staff.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as LabResultConsultRequestWithPatient[];
+    },
+  });
+}
+
+/** The patient's own lab-result consult fee requests, newest first — for a
+ * status list + cancel action. Mirrors useMyVideoVisitRequests's shape. */
+export function useMyLabResultConsultRequests(patientId: string) {
+  return useQuery({
+    queryKey: labResultConsultKeys.myRequests(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_result_consult_requests")
+        .select("*")
+        .eq("patient_id", patientId)
+        .not("status", "in", "(requested,pending_payment)")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data as LabResultConsultRequest[];
     },
   });
 }

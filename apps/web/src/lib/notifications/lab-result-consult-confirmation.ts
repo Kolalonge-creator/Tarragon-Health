@@ -28,8 +28,17 @@ export async function sendLabResultConsultBookedConfirmation(params: {
   service: ServiceClient;
   consultId: string;
   joinUrl: string | null;
+  /** "rescheduled" reuses the exact same confirmation shape for
+   * reschedule_lab_result_consult_request — only the template string (and
+   * therefore the copy NotificationBell renders) differs, per the founder's
+   * own "clone the booked-confirmation notification with a rescheduled
+   * variant" instruction, rather than a separate reason-code field this
+   * notification system has no existing convention for. */
+  variant?: "booked" | "rescheduled";
 }): Promise<void> {
-  const { service, consultId, joinUrl } = params;
+  const { service, consultId, joinUrl, variant = "booked" } = params;
+  const template =
+    variant === "rescheduled" ? "lab_result_consult_rescheduled" : "lab_result_consult_booked";
 
   const { data: consult } = await service
     .from("video_consultations")
@@ -81,7 +90,7 @@ export async function sendLabResultConsultBookedConfirmation(params: {
       recipient_id: consult.patient_id,
       channel: "whatsapp",
       status: "pending",
-      template: "lab_result_consult_booked",
+      template,
       payload,
     },
     {
@@ -89,7 +98,43 @@ export async function sendLabResultConsultBookedConfirmation(params: {
       recipient_id: consult.patient_id,
       channel: "in_app",
       status: "pending",
-      template: "lab_result_consult_booked",
+      template,
+      payload,
+    },
+  ]);
+}
+
+/**
+ * Doctor released an accepted request without a replacement time
+ * (release_lab_result_consult_request) — the request is back in the
+ * unclaimed queue for another doctor to pick up, and the patient needs to
+ * know their booked time no longer stands. Deliberately a simpler payload
+ * than the booked confirmation — there is no consult, join link, or
+ * provider to name any more.
+ */
+export async function sendLabResultConsultReleaseNotice(params: {
+  service: ServiceClient;
+  organisationId: string;
+  patientId: string;
+}): Promise<void> {
+  const { service, organisationId, patientId } = params;
+  const payload = { reason: "doctor_unavailable" };
+
+  await service.from("notifications").insert([
+    {
+      organisation_id: organisationId,
+      recipient_id: patientId,
+      channel: "whatsapp",
+      status: "pending",
+      template: "lab_result_consult_needs_rescheduling",
+      payload,
+    },
+    {
+      organisation_id: organisationId,
+      recipient_id: patientId,
+      channel: "in_app",
+      status: "pending",
+      template: "lab_result_consult_needs_rescheduling",
       payload,
     },
   ]);
