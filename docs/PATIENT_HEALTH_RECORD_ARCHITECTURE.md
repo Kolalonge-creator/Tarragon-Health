@@ -164,14 +164,37 @@ recording exactly what each stage caught and what it couldn't:
   exploitable today (each body only calls `pg_catalog` built-ins), but closed anyway
   (`20260829224500_search_vector_functions_lock_search_path.sql`) for consistency — re-ran the
   advisor afterward and confirmed all six findings cleared.
-- **What's still genuinely unverified:** the `packages/db/tests/patient_health_record_round3.sql` RLS/
-  authorization test file itself has still never been executed anywhere (no local Supabase/Docker
-  stack was available, and running fixture-insert/rollback tests directly against production is a
-  separate, deliberate decision this pass didn't make unilaterally — see §5). Everything it tests was
-  reviewed carefully by hand and is consistent with what the live-apply step already exercised (the
-  RLS policies, triggers, and RPCs it targets are the same objects now live), but "reviewed by hand"
-  and "actually run" are not the same claim, and this round's own experience — four real bugs that
-  hand-review missed — is a direct argument for not treating that gap as a formality.
+- **`packages/db/tests/patient_health_record_round3.sql` was subsequently run for real against the
+  live database** (at the user's explicit direction), inside its own `begin;`/`rollback;` — and it
+  immediately justified doing so, catching two more real bugs "reviewed by hand" had missed entirely:
+  - **The test file itself had a real bug**, twice: two of its checks (`record_conflicts`'s
+    "fresh conflict starts open" check, and `clinical_summaries`'s "generated draft mentions the
+    active condition" check) inserted into the test's own temporary result table *while still
+    impersonating the `authenticated` role* — but that temp table was created by the connecting
+    (superuser) role before any `set local role`, and `authenticated` has no `INSERT` privilege on
+    it, so both checks failed with a genuine `42501 permission denied for table phr3_result`. Fixed by
+    moving every write to the temp tables to strictly after `reset role`, restructuring both checks
+    into separate role-switch blocks rather than one continuous one.
+  - **`public.search_patient_record()` was completely broken in production — every call to it failed**
+    (`ERROR: 0A000: invalid UNION/INTERSECT/EXCEPT ORDER BY clause`). `RETURNS TABLE (..., rank real)`
+    names the function's *output* row type, but `return query select ... union all ... order by rank
+    desc` evaluates as an ordinary standalone query whose own column names come from what each SELECT
+    branch actually aliases — none of the six UNION branches aliased `ts_rank(...)` as `rank`, so no
+    column in the query itself was named `rank`; Postgres then parsed the bare `rank` identifier as a
+    call to the built-in `rank()` window function instead, which produced the confusing "not
+    expressions or functions" error. Fixed in `20260829230000_fix_search_patient_record_order_by_
+    rank.sql` by explicitly aliasing every branch's columns to match the `RETURNS TABLE` names.
+  **Neither hand-review nor CI's migration replay could have caught this last one** — CI only checks
+  that migrations *apply* without error, and `CREATE OR REPLACE FUNCTION` itself never fails just
+  because the function body would error at call time. Only actually *calling* the function surfaced
+  it. **Confirmed by re-running the test file against production a second time** after applying
+  `20260829230000_fix_search_patient_record_order_by_rank.sql`: a clean run with no error and no
+  `raise exception` — the script's own final block explicitly raises if any check's verdict is `FAIL`,
+  so a clean return is a genuine pass, not just an absence of a crash. `packages/db/tests/patient_
+  health_record_round3.sql` should now be treated as actually verified, not merely reviewed by hand —
+  this round's own experience (five real bugs across hand-review, CI, live-apply, `get_advisors`, and
+  finally the test run itself) is the argument for keeping that distinction precise rather than
+  rounding "reviewed" up to "verified" next time either.
 
 ---
 

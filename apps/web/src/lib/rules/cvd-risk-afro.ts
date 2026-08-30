@@ -39,10 +39,19 @@ const BAND_LABEL: Record<CvdRiskBand, string> = {
  * systolic BP and (if known) cholesterol. Thresholds tuned so that a young
  * non-smoker sits low and an older diabetic smoker with high SBP sits very high,
  * matching the shape of the WHO/ISH AFRO chart.
+ *
+ * ADULTS ONLY (18+). A 10-year CVD event-risk estimate has no clinical
+ * meaning for a child — it isn't a case of the wrong thresholds, there is no
+ * paediatric version of this chart to fall back to. Same "return
+ * insufficient/null rather than a wrong number" posture as this codebase's
+ * other adult-only clinical calculators (see estimateEgfr's own "adults
+ * only" note) — a child is reported as insufficient data, never a computed
+ * band, so no downstream caller can mistake a meaningless number for a real
+ * risk estimate.
  */
 export function estimateCvdRiskBand(input: CvdRiskInput): CvdRiskResult {
   const { age, sex, smoker, diabetic, systolic } = input;
-  if (age == null || systolic == null || sex == null) {
+  if (age == null || systolic == null || sex == null || age < 18) {
     return { band: "insufficient", points: 0, labUsed: false, label: BAND_LABEL.insufficient };
   }
 

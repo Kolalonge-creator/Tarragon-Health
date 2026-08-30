@@ -183,6 +183,7 @@ export function getNavSections(
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
+            { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {
               label: "Emergency card",
               href: "/patient/emergency-card",
@@ -225,6 +226,11 @@ export function getNavSections(
                 },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                {
+                  label: "Safety incidents",
+                  href: "/clinician/safety-incidents",
+                  icon: "warning",
+                },
               ],
             },
           ]
@@ -272,6 +278,14 @@ export function getNavSections(
               label: "Quality & Growth",
               items: [
                 { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
+                { label: "Hypertension quality", href: "/clinician/hypertension-quality", icon: "bp" },
+                { label: "Obesity quality", href: "/clinician/obesity-quality", icon: "weight" },
+                {
+                  label: "Quality improvement",
+                  href: "/clinician/quality-improvement",
+                  icon: "review",
+                },
+                { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },

@@ -4,6 +4,8 @@ import {
   accountingSummarySchema,
   acquisitionFunnelSchema,
   activeUsersTimeseriesSchema,
+  alertBurdenSchema,
+  alertQualitySchema,
   auditLogSchema,
   auditSummarySchema,
   businessSummarySchema,
@@ -27,6 +29,7 @@ import {
   providerCapacitySchema,
   retentionCohortsSchema,
   riskRegisterSchema,
+  safetyDashboardSummarySchema,
   staffActivitySchema,
   userSegmentsSchema,
   revenueByPlanSchema,
@@ -408,6 +411,40 @@ export function useGovernanceSummary() {
       const { data, error } = await createClient().rpc("analytics_governance_summary");
       if (error) throw error;
       return governanceSummarySchema.parse(data);
+    },
+  });
+}
+
+// ---- Patient safety (docs spec §89.14) -------------------------------------
+export function useSafetyDashboardSummary() {
+  return useQuery({
+    queryKey: ["analytics", "safety-dashboard-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_safety_dashboard_summary");
+      if (error) throw error;
+      return safetyDashboardSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useAlertBurden() {
+  return useQuery({
+    queryKey: ["analytics", "alert-burden"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_alert_burden");
+      if (error) throw error;
+      return alertBurdenSchema.parse(data);
+    },
+  });
+}
+
+export function useAlertQuality() {
+  return useQuery({
+    queryKey: ["analytics", "alert-quality"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_alert_quality");
+      if (error) throw error;
+      return alertQualitySchema.parse(data);
     },
   });
 }
