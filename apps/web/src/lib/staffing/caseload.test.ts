@@ -5,8 +5,7 @@ function staff(overrides: Partial<StaffLoadInput> = {}): StaffLoadInput {
   return {
     profileId: "p1",
     fullName: "Test Clinician",
-    doctorTier: "tier_2",
-    isClinicalDirector: false,
+    doctorTier: "senior_medical_officer",
     panelSize: 0,
     activeEscalations: 0,
     activeOutreach: 0,

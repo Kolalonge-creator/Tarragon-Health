@@ -53,7 +53,7 @@ export async function decideVaccinationVerification(input: {
   // a dose — not a Care Coordinator or other non-clinical org staff.
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("doctor_tier, is_clinical_director")
+    .select("doctor_tier")
     .eq("profile_id", user.id)
     .eq("active", true)
     .maybeSingle();

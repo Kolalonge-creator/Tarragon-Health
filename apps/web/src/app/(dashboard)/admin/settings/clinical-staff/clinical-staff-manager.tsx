@@ -9,6 +9,7 @@ import {
   useSetClinicalStaffActive,
   useSetClinicalStaffIndemnity,
   useSetClinicalStaffIndemnityExempt,
+  useSetClinicalStaffEmploymentType,
   useOrgIndemnityExemptions,
   useAddIndemnityExemption,
   useRemoveIndemnityExemption,
@@ -33,17 +34,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 
-// Only Clinical Director + Tier 4/5 must carry indemnity/malpractice cover
-// before activation — docs/CLINICAL_TRUST_MODEL_SPEC.md §5,
-// docs/Tarragon_Health_Master_Operating_Plan_v4.md §4. Tiers 1-3 are
-// employed and covered under Tarragon's institutional policy.
-const INDEMNITY_REQUIRED_TIERS: ClinicalStaff["doctor_tier"][] = [
-  "tier_4_senior_registrar",
-  "tier_5_partner_specialist",
-];
-
-function needsIndemnity(staff: Pick<ClinicalStaff, "is_clinical_director" | "doctor_tier">): boolean {
-  return staff.is_clinical_director || INDEMNITY_REQUIRED_TIERS.includes(staff.doctor_tier);
+// The Chief Medical Officer / Clinical Director always needs individual
+// indemnity/malpractice cover before activation; a Senior Medical Officer
+// needs it only when contracted (not employed) —
+// docs/CLINICAL_TRUST_MODEL_SPEC.md §5, docs/Tarragon_Health_Master_Operating_Plan_v4.md
+// §4. Medical Officer and an employed Senior Medical Officer stay under
+// Tarragon's institutional policy. Mirrors
+// private.enforce_clinical_staff_indemnity() exactly.
+function needsIndemnity(staff: Pick<ClinicalStaff, "doctor_tier" | "employment_type">): boolean {
+  return (
+    staff.doctor_tier === "chief_medical_officer" ||
+    (staff.doctor_tier === "senior_medical_officer" && staff.employment_type === "contracted")
+  );
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -91,7 +93,7 @@ function hasCredentialOnFile(staff: Pick<ClinicalStaff, "credential_type" | "cre
 }
 
 function MissingCredentialBadge({ staff }: { staff: ClinicalStaff }) {
-  const consequential = staff.active || staff.is_clinical_director;
+  const consequential = staff.active || staff.doctor_tier === "chief_medical_officer";
   return (
     <Badge variant={consequential ? "red" : "grey"}>
       No credential number on file
@@ -148,15 +150,10 @@ function LicenseExpiryForm({ staff }: { staff: ClinicalStaff }) {
   );
 }
 
-/** True if this record can be active without current cover — an individual exemption or an org/tier/director exemption covering it. */
+/** True if this record can be active without current cover — an individual exemption or an org/tier exemption covering it. */
 function isIndemnityExempt(staff: ClinicalStaff, orgExemptions: ClinicalStaffIndemnityExemption[]): boolean {
   if (staff.indemnity_exempt) return true;
-  return orgExemptions.some(
-    (e) =>
-      (e.doctor_tier === null && !e.applies_to_director) ||
-      (e.doctor_tier !== null && e.doctor_tier === staff.doctor_tier) ||
-      (e.applies_to_director && staff.is_clinical_director)
-  );
+  return orgExemptions.some((e) => e.doctor_tier === null || e.doctor_tier === staff.doctor_tier);
 }
 
 function IndemnityForm({
@@ -186,7 +183,7 @@ function IndemnityForm({
         {staff.indemnity_exempt ? (
           <Badge variant="blue">Individually exempt</Badge>
         ) : coveredByBroaderExemption ? (
-          <Badge variant="blue">Covered by org/tier/director exemption</Badge>
+          <Badge variant="blue">Covered by org/tier exemption</Badge>
         ) : (
           <IndemnityBadge expiresAt={staff.indemnity_expires_at} />
         )}
@@ -332,18 +329,16 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
   );
 }
 
-type ExemptionScope = "org_wide" | "director" | "tier_4_senior_registrar" | "tier_5_partner_specialist";
+type ExemptionScope = "org_wide" | "senior_medical_officer" | "chief_medical_officer";
 
 const EXEMPTION_SCOPE_LABEL: Record<ExemptionScope, string> = {
   org_wide: "Whole organisation",
-  director: "All Clinical Directors",
-  tier_4_senior_registrar: `All ${DOCTOR_TIER_LABEL.tier_4_senior_registrar}`,
-  tier_5_partner_specialist: `All ${DOCTOR_TIER_LABEL.tier_5_partner_specialist}`,
+  senior_medical_officer: `All ${DOCTOR_TIER_LABEL.senior_medical_officer}`,
+  chief_medical_officer: `All ${DOCTOR_TIER_LABEL.chief_medical_officer}`,
 };
 
 function exemptionScopeOf(e: ClinicalStaffIndemnityExemption): ExemptionScope {
-  if (e.applies_to_director) return "director";
-  if (e.doctor_tier === "tier_4_senior_registrar" || e.doctor_tier === "tier_5_partner_specialist") {
+  if (e.doctor_tier === "senior_medical_officer" || e.doctor_tier === "chief_medical_officer") {
     return e.doctor_tier;
   }
   return "org_wide";
@@ -363,15 +358,15 @@ function IndemnityExemptionsSection() {
         <CardTitle>Indemnity requirement exemptions</CardTitle>
         <CardDescription>
           Waives the indemnity/malpractice cover requirement for activation, for a whole tier or
-          all Clinical Directors org-wide, or the whole organisation. To exempt a single named
-          person instead, use the checkbox under their record above. Every exemption here is
-          admin-granted and visible to all staff for transparency.
+          the whole organisation. To exempt a single named person instead, use the checkbox under
+          their record above. Every exemption here is admin-granted and visible to all staff for
+          transparency.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {exemptions && exemptions.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No org-wide, tier-wide, or director-wide exemptions on file.</p>
+          <p className="text-sm text-charcoal-ink/60">No org-wide or tier-wide exemptions on file.</p>
         )}
         {exemptions && exemptions.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
@@ -403,12 +398,11 @@ function IndemnityExemptionsSection() {
           <div className="grid gap-2 sm:grid-cols-2">
             <Select value={scope} onChange={(e) => setScope(e.target.value as ExemptionScope)}>
               <option value="org_wide">{EXEMPTION_SCOPE_LABEL.org_wide}</option>
-              <option value="director">{EXEMPTION_SCOPE_LABEL.director}</option>
-              <option value="tier_4_senior_registrar">
-                {EXEMPTION_SCOPE_LABEL.tier_4_senior_registrar}
+              <option value="senior_medical_officer">
+                {EXEMPTION_SCOPE_LABEL.senior_medical_officer}
               </option>
-              <option value="tier_5_partner_specialist">
-                {EXEMPTION_SCOPE_LABEL.tier_5_partner_specialist}
+              <option value="chief_medical_officer">
+                {EXEMPTION_SCOPE_LABEL.chief_medical_officer}
               </option>
             </Select>
             <Input
@@ -428,8 +422,7 @@ function IndemnityExemptionsSection() {
             onClick={() =>
               addExemption.mutate(
                 {
-                  doctorTier: scope === "tier_4_senior_registrar" || scope === "tier_5_partner_specialist" ? scope : null,
-                  applyToDirector: scope === "director",
+                  doctorTier: scope === "org_wide" ? null : scope,
                   reason: reason.trim(),
                 },
                 { onSuccess: () => setReason("") }
@@ -451,9 +444,10 @@ export function ClinicalStaffManager() {
   const create = useCreateClinicalStaff();
   const verify = useVerifyClinicalStaff();
   const setActive = useSetClinicalStaffActive();
+  const setEmploymentType = useSetClinicalStaffEmploymentType();
 
-  const [doctorTier, setDoctorTier] = useState<ClinicalStaff["doctor_tier"]>("tier_1");
-  const [isClinicalDirector, setIsClinicalDirector] = useState(false);
+  const [doctorTier, setDoctorTier] = useState<ClinicalStaff["doctor_tier"]>("medical_officer");
+  const [employmentType, setEmploymentTypeField] = useState<ClinicalStaff["employment_type"]>("employed");
   const [fullName, setFullName] = useState("");
   const [credentialType, setCredentialType] = useState("");
   const [credentialNumber, setCredentialNumber] = useState("");
@@ -506,15 +500,25 @@ export function ClinicalStaffManager() {
               <Input id="full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm text-charcoal-ink/70">
-            <input
-              type="checkbox"
-              checked={isClinicalDirector}
-              onChange={(e) => setIsClinicalDirector(e.target.checked)}
-            />
-            Clinical Director (org-governance flag: protocol signing, staff verification;
-            independent of tier)
-          </label>
+          <div className="space-y-1.5">
+            <Label htmlFor="employment-type">Employment type</Label>
+            <Select
+              id="employment-type"
+              value={employmentType}
+              onChange={(e) =>
+                setEmploymentTypeField(e.target.value as ClinicalStaff["employment_type"])
+              }
+            >
+              <option value="employed">Employed</option>
+              <option value="contracted">Contracted</option>
+            </Select>
+            <p className="text-xs text-charcoal-ink/60">
+              Decides, alongside tier, whether individual indemnity cover is required before
+              activation — a contracted Senior Medical Officer needs it, an employed one doesn&apos;t
+              (institutional policy covers employed staff). The Chief Medical Officer always needs
+              it regardless of this setting.
+            </p>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="credential-type">Credential type</Label>
@@ -574,7 +578,7 @@ export function ClinicalStaffManager() {
               create.mutate(
                 {
                   doctorTier,
-                  isClinicalDirector,
+                  employmentType,
                   fullName: fullName.trim(),
                   credentialType: credentialType.trim(),
                   credentialNumber: credentialNumber.trim(),
@@ -630,9 +634,7 @@ export function ClinicalStaffManager() {
                         <div>
                           <p className="text-sm font-medium text-charcoal-ink">
                             {s.full_name}
-                            <span className="text-charcoal-ink/60">
-                              , {s.is_clinical_director ? `Clinical Director · ${tierLabel}` : tierLabel}
-                            </span>
+                            <span className="text-charcoal-ink/60">, {tierLabel}</span>
                           </p>
                           <p className="text-xs text-charcoal-ink/60">
                             {s.staff_number && (
@@ -691,6 +693,22 @@ export function ClinicalStaffManager() {
                     </div>
                     {editingId === s.id && (
                       <EditClinicalStaffForm staff={s} onDone={() => setEditingId(null)} />
+                    )}
+                    {s.doctor_tier === "senior_medical_officer" && (
+                      <label className="mt-2 flex items-center gap-2 text-sm text-charcoal-ink/70">
+                        <input
+                          type="checkbox"
+                          checked={s.employment_type === "contracted"}
+                          disabled={setEmploymentType.isPending}
+                          onChange={(e) =>
+                            setEmploymentType.mutate({
+                              clinicalStaffId: s.id,
+                              employmentType: e.target.checked ? "contracted" : "employed",
+                            })
+                          }
+                        />
+                        Contracted (not employed) — requires individual indemnity cover
+                      </label>
                     )}
                     {requiresIndemnity && (
                       <IndemnityForm staff={s} orgExemptions={orgExemptions ?? []} />

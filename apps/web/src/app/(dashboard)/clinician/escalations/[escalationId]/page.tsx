@@ -73,21 +73,23 @@ export default async function EscalationDetailPage({
   const statusBadge = ESCALATION_STATUS_BADGE[escalation.status];
 
   // Every doctor tier can view and work this case (unified access,
-  // 2026-07-31) — but RESOLVING an emergency-level case needs a Tier 2+
-  // doctor or the Clinical Director; see canHandleEmergencyEscalation.
-  // requiresEmergencyAuthority (not the coalesced effectiveLevel used for
-  // the badge above) is the same "level OR override_level is emergency"
-  // predicate the DB trigger uses, so a Tier 1 who overrides an emergency
-  // DOWN to routine cannot thereby unlock their own resolve on it.
+  // 2026-07-31) — but RESOLVING an emergency-level case needs a Senior
+  // Medical Officer or the Chief Medical Officer; see
+  // canHandleEmergencyEscalation. requiresEmergencyAuthority (not the
+  // coalesced effectiveLevel used for the badge above) is the same "level OR
+  // override_level is emergency" predicate the DB trigger uses, so a Medical
+  // Officer who overrides an emergency DOWN to routine cannot thereby unlock
+  // their own resolve on it.
   //
   // DELIBERATELY STRICTER THAN THE DB on one point: the trigger permits
   // status -> 'referred' at any tier (forwarding a case on is not closing
   // it), but this hides the whole ResolveForm, which offers Resolved and
   // Referred from one control. That is intentional — setting a specialist
-  // referral's urgency is Tier 4 authority under the Clinical Tier Ladder,
-  // so a Tier 1 should not be driving it either. The hand-off a Tier 1
-  // SHOULD use is the note + virtual review the panel below points them at,
-  // which leaves the case open for a senior colleague.
+  // referral's urgency is Senior Medical Officer+ authority under the
+  // Clinical Tier Ladder, so a Medical Officer should not be driving it
+  // either. The hand-off a Medical Officer SHOULD use is the note + virtual
+  // review the panel below points them at, which leaves the case open for a
+  // senior colleague.
   const staff = await getCurrentClinicalStaff();
   const canResolveEmergency = canHandleEmergencyEscalation(staff);
   // A Care Coordinator carries an active clinical_staff row (doctor_tier =
@@ -214,7 +216,7 @@ export default async function EscalationDetailPage({
             <p className="text-sm text-charcoal-ink/60">
               {!isClinicalStaff
                 ? "Only a doctor can resolve or refer this case. Use “Start virtual review” above, or leave a note, so a doctor has the context when they pick it up."
-                : "This is an emergency-level case. Only a Tier 2+ doctor or the Clinical Director can claim or resolve it. Use “Start virtual review” above and flag it to a senior colleague; the case stays open until they act on it."}
+                : "This is an emergency-level case. Only a Senior Medical Officer or the Chief Medical Officer can claim or resolve it. Use “Start virtual review” above and flag it to a senior colleague; the case stays open until they act on it."}
             </p>
           </CardContent>
         </Card>

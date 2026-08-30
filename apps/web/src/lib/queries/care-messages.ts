@@ -14,8 +14,8 @@ export type CareThreadWithPatient = CareThread & {
  * real clinical_staff row (FK-guaranteed) — but a real row is not the same as
  * a real doctor: a Care Coordinator carries an active clinical_staff row too
  * (doctor_tier = 'care_coordinator'), so a "Dr X" line must not be rendered
- * from a non-null actor alone. doctor_tier + is_clinical_director let the UI
- * run isClinicalTier (lib/clinical/doctor-tier.ts) first — see authorLabel in
+ * from a non-null actor alone. doctor_tier lets the UI run isClinicalTier
+ * (lib/clinical/doctor-tier.ts) first — see authorLabel in
  * components/care-message-thread.tsx. A patient/sponsor author has no actor.
  */
 export type CareMessage = Tables<"care_messages"> & {
@@ -24,12 +24,11 @@ export type CareMessage = Tables<"care_messages"> & {
     credential_type: string | null;
     credential_number: string | null;
     doctor_tier: Enums<"doctor_tier"> | null;
-    is_clinical_director: boolean;
   } | null;
 };
 
 const MESSAGE_SELECT =
-  "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier, is_clinical_director)";
+  "*, actor:clinical_staff!care_messages_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier)";
 const THREAD_PATIENT_SELECT =
   "*, patient:profiles!care_message_threads_patient_id_fkey(full_name, patient_number)";
 

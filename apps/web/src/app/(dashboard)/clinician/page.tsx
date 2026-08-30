@@ -107,7 +107,7 @@ export default async function ClinicianPage() {
   }
 
   // Unified doctor dashboard (founder decision 2026-07-31): every doctor,
-  // Tier 1-5, gets the same page access — doctor_tier still drives clinical
+  // any tier, gets the same page access — doctor_tier still drives clinical
   // authority (prescribing, refill-confirmation), just not which pages a
   // doctor can reach. Falls back to a generic label when the caller has no
   // clinical_staff row yet (e.g. newly added, tier not assigned).
@@ -165,13 +165,12 @@ export default async function ClinicianPage() {
         <p className="text-sm text-charcoal-ink/60">Here&apos;s what needs you today.</p>
       </div>
 
-      {/* is_clinical_director is orthogonal to doctor_tier and to the now-
-          unified account role — a Director keeps every capability this
-          dashboard grants any other doctor, plus the protocol/config
-          sign-off authority gated separately at /admin/settings/*. This
-          badge is purely visible confirmation that the distinction still
-          exists; it grants nothing on its own. */}
-      {staff?.is_clinical_director && (
+      {/* Chief Medical Officer is the top tier, not an orthogonal flag —
+          reaching it carries every capability this dashboard grants any
+          other doctor, plus the protocol/config sign-off and case-assignment
+          authority gated separately (see docs/CLAUDE.md's Clinical Tier
+          Ladder). This badge is purely visible confirmation. */}
+      {staff?.doctor_tier === "chief_medical_officer" && (
         <span className="inline-flex w-fit items-center rounded-full bg-sprout-gold/15 px-2.5 py-1 text-xs font-medium text-deep-forest">
           Clinical Director
         </span>

@@ -57,22 +57,34 @@ allied health, and §4.3–4.8 describe verification → availability → matchi
 every provider on the platform is an independently-onboarded, competitively-ranked marketplace
 participant. That is **not** Tarragon's operating model for its own care team. Per
 `docs/CLINICAL_TRUST_MODEL_SPEC.md` and the Clinical Tier Ladder in `CLAUDE.md`, Tarragon *employs*
-its Tier 1–5 doctors and Care Coordinators; they are assigned to patients by care-team logic, not
-discovered/ranked/priced like a marketplace listing. Reading §4.1–4.18 as "rebuild `clinical_staff`
-into an open, priced, ranked marketplace" would directly contradict that model and the "Never
-re-split the ACCOUNT role" / employed-doctor rules in `CLAUDE.md`.
+its doctors (Medical Officer / Senior Medical Officer / Chief Medical Officer — see the 2026-08-31
+tier collapse noted below) and Care Coordinators; they are assigned to patients by care-team logic,
+not discovered/ranked/priced like a marketplace listing. Reading §4.1–4.18 as "rebuild
+`clinical_staff` into an open, priced, ranked marketplace" would directly contradict that model and
+the "Never re-split the ACCOUNT role" / employed-doctor rules in `CLAUDE.md`.
+
+**2026-08-31 tier-collapse note:** the 5-tier ladder this section originally referenced (Tier 1–5)
+collapsed to 3 real tiers — `clinical_staff.doctor_tier` is now `medical_officer` /
+`senior_medical_officer` / `chief_medical_officer` (plus `care_coordinator`). The
+employed-vs-contracted distinction this section leans on for "Tier 5 Partner Specialists" no longer
+maps to a separate tier at all — it's now `clinical_staff.employment_type` (`employed`/
+`contracted`), independent of tier. A contracted external specialist and an employed senior in-house
+doctor are both `senior_medical_officer` today; what makes a specialist part of the "outer layer"
+below is `employment_type = 'contracted'`, not a distinct tier value. See CLAUDE.md's Clinical Tier
+Ladder for the current model.
 
 The reconciliation that avoids that contradiction: **separate "how a provider is discovered/
-represented" from "how a provider is employed/paid."** Tarragon's own Tier 1–5 doctors can and
-arguably should get a real, structured provider profile (specialty, languages, photo, bio — most of
-which `clinical_staff` already has) so patients can see *who* is on their care team, without that
-profile ever being priced, ranked against competitors, or bookable outside Tarragon's own assignment
-logic. The Clinical Network spec's competitive/marketplace machinery (verification pipeline with
+represented" from "how a provider is employed/paid."** Tarragon's own doctors can and arguably
+should get a real, structured provider profile (specialty, languages, photo, bio — most of which
+`clinical_staff` already has) so patients can see *who* is on their care team, without that profile
+ever being priced, ranked against competitors, or bookable outside Tarragon's own assignment logic.
+The Clinical Network spec's competitive/marketplace machinery (verification pipeline with
 suspension, availability/slots, algorithmic ranking, per-consult billing, provider payouts) maps
-cleanly onto the **outer layer** the platform already treats this way: Tier 5 Partner Specialists,
-the `specialist_providers` referral catalogue, and institutional partners (hospitals, labs,
-pharmacies, HMOs). That outer layer is where §4.1–4.18 is genuinely new scope, not a request to
-re-architect the employed care team.
+cleanly onto the **outer layer** the platform already treats this way: contracted Senior Medical
+Officers (`employment_type = 'contracted'`, formerly "Tier 5 Partner Specialists"), the
+`specialist_providers` referral catalogue, and institutional partners (hospitals, labs, pharmacies,
+HMOs). That outer layer is where §4.1–4.18 is genuinely new scope, not a request to re-architect the
+employed care team.
 
 ## 2. Section-by-section reconciliation
 

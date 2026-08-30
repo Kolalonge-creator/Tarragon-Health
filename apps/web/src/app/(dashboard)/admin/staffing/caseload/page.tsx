@@ -42,7 +42,7 @@ export default async function DoctorCaseloadPage() {
   ] = await Promise.all([
     supabase
       .from("clinical_staff")
-      .select("profile_id, full_name, doctor_tier, is_clinical_director")
+      .select("profile_id, full_name, doctor_tier")
       .eq("organisation_id", orgId)
       .eq("active", true),
     supabase
@@ -87,7 +87,6 @@ export default async function DoctorCaseloadPage() {
       profileId: s.profile_id,
       fullName: s.full_name,
       doctorTier: s.doctor_tier,
-      isClinicalDirector: s.is_clinical_director,
       panelSize: panelCounts.get(s.profile_id) ?? 0,
       activeEscalations: activeEscalationCounts.get(s.profile_id) ?? 0,
       activeOutreach: activeOutreachCounts.get(s.profile_id) ?? 0,
@@ -161,7 +160,7 @@ export default async function DoctorCaseloadPage() {
                     <tr key={row.profileId}>
                       <td className="py-2 pr-4 font-medium text-charcoal-ink">
                         {row.fullName}
-                        {row.isClinicalDirector && (
+                        {row.doctorTier === "chief_medical_officer" && (
                           <Badge variant="blue" className="ml-2">
                             Director
                           </Badge>

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useDoctorEscalations, useClaimEscalation } from "@/lib/queries/escalations";
+import { useDoctorEscalations, useClaimEscalation, useAssignEscalation } from "@/lib/queries/escalations";
+import { useAssignableDoctors } from "@/lib/queries/clinical-staff";
+import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,16 +27,27 @@ import type { EscalationStatus } from "@tarragon/shared";
  * page-level comment). Checked first, ahead of canHandleEmergency, so a
  * non-clinical caller always sees the same "only a doctor" explanation
  * regardless of the case's severity.
+ *
+ * `canAssign` mirrors canAssignCases(staff) — true only for the Chief
+ * Medical Officer / Clinical Director. Renders an "Assign to…" picker on
+ * every row (claimed or not), letting the CMO hand a case to a specific
+ * doctor rather than leaving it to self-claim. The DB trigger on
+ * escalations.assigned_doctor_id is the real enforcement boundary; this only
+ * decides whether to render the control.
  */
 export function EscalationWorklist({
   canHandleEmergency,
   canClaim,
+  canAssign,
 }: {
   canHandleEmergency: boolean;
   canClaim: boolean;
+  canAssign: boolean;
 }) {
   const { data, isLoading, isError } = useDoctorEscalations();
   const claim = useClaimEscalation();
+  const assign = useAssignEscalation();
+  const { data: assignableDoctors } = useAssignableDoctors({ enabled: canAssign });
 
   const countsByStatus = (data ?? []).reduce(
     (acc, escalation) => {
@@ -131,30 +144,50 @@ export function EscalationWorklist({
                       {escalation.reason}
                     </p>
                   </div>
-                  {escalation.assigned_doctor_id === null ? (
-                    !canClaim ? (
-                      <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
-                        Only a doctor can claim this case
-                      </span>
-                    ) : isEmergencyLocked ? (
-                      <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
-                        Needs a Tier 2+ doctor or the Clinical Director to claim
-                      </span>
+                  <div className="flex flex-col items-end gap-1">
+                    {escalation.assigned_doctor_id === null ? (
+                      !canClaim ? (
+                        <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
+                          Only a doctor can claim this case
+                        </span>
+                      ) : isEmergencyLocked ? (
+                        <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
+                          Needs a Senior Medical Officer or the Chief Medical Officer to claim
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={claim.isPending}
+                          onClick={() => claim.mutate(escalation.id)}
+                        >
+                          Claim
+                        </Button>
+                      )
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={claim.isPending}
-                        onClick={() => claim.mutate(escalation.id)}
+                      <span className="text-xs text-charcoal-ink/60">
+                        {escalation.assigned_doctor?.full_name ?? "Claimed"}
+                      </span>
+                    )}
+                    {canAssign && (
+                      <select
+                        className="rounded border border-charcoal-ink/20 bg-white px-1.5 py-0.5 text-xs text-charcoal-ink/70"
+                        disabled={assign.isPending}
+                        value=""
+                        onChange={(e) => {
+                          if (!e.target.value) return;
+                          assign.mutate({ escalationId: escalation.id, doctorProfileId: e.target.value });
+                        }}
                       >
-                        Claim
-                      </Button>
-                    )
-                  ) : (
-                    <span className="text-xs text-charcoal-ink/60">
-                      {escalation.assigned_doctor?.full_name ?? "Claimed"}
-                    </span>
-                  )}
+                        <option value="">Assign to…</option>
+                        {(assignableDoctors ?? []).map((d) => (
+                          <option key={d.profile_id} value={d.profile_id ?? ""}>
+                            {d.full_name} — {d.doctor_tier ? DOCTOR_TIER_LABEL[d.doctor_tier] : "Unassigned tier"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </li>
               );
             })}

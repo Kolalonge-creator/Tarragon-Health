@@ -4,9 +4,15 @@
 -- A higher tier can always do everything a lower tier can. It simply has more
 -- on top. Founder requirement 2026-08-01, prompted by a real violation:
 -- private.can_confirm_medication_refill was written as `doctor_tier = 'tier_1'`
--- (an equality, i.e. a fence) rather than a minimum (a floor), so a Tier 4
--- Senior Registrar covering a shift with no Tier 1 on duty could not confirm a
+-- (an equality, i.e. a fence) rather than a minimum (a floor), so a senior
+-- doctor covering a shift with no Medical Officer on duty could not confirm a
 -- routine refill. Fixed by 20260801093117_refill_confirm_any_clinical_tier.sql.
+--
+-- Updated 2026-08-31 for the 3-tier collapse (medical_officer/
+-- senior_medical_officer/chief_medical_officer, is_clinical_director
+-- retired) — only the tier literal list and the probe's insert columns
+-- changed; the discovery/monotonicity/care_coordinator logic is untouched
+-- and re-validates automatically against whatever tier set exists.
 --
 -- WHY THIS TEST DISCOVERS GATES DYNAMICALLY rather than listing them:
 -- the point is to stop the NEXT gate someone writes from reintroducing a
@@ -34,9 +40,11 @@
 -- can_confirm_medication_refill to `doctor_tier = 'tier_1'` and re-run. Case 3
 -- must FAIL, naming that gate with tier_1=allowed / tier_2=denied.
 --
--- Note the probe row carries indemnity fields: the DB enforces current
--- indemnity cover before a Clinical Director, Tier 4 or Tier 5 record may be
--- active, so a probe without them could not legally reach the senior tiers.
+-- Note the probe row carries indemnity fields and employment_type =
+-- 'contracted': the DB enforces current indemnity cover before a Chief
+-- Medical Officer, or a contracted Senior Medical Officer, may be active, so
+-- a probe without them (or one left 'employed') could not legally reach the
+-- senior tiers.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/tier_authority_monotonicity.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
@@ -57,8 +65,7 @@ declare
   v_profile    uuid;
   v_staff_id   uuid;
   v_tiers      text[] := array[
-                  'tier_1','tier_2','tier_3',
-                  'tier_4_senior_registrar','tier_5_partner_specialist'
+                  'medical_officer','senior_medical_officer','chief_medical_officer'
                 ];
   v_tier       text;
   v_rank       int := 0;
@@ -82,12 +89,12 @@ begin
 
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director,
+    employment_type,
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   )
   values (
     v_org, v_profile, 'Tier Monotonicity Probe', true, now(),
-    false,
+    'contracted',
     'Probe Indemnity Ltd', 'PROBE-MONOTONICITY', now() + interval '1 year'
   )
   returning id into v_staff_id;
@@ -207,6 +214,21 @@ select
 from tier_authority_matrix
 where tier = 'care_coordinator';
 
+-- Case 5 -- named regression: this is the one real behaviour change from the
+-- 3-tier collapse (old tier_2, 3+ years experience, could prescribe; the new
+-- medical_officer it merged into cannot -- only senior_medical_officer+ can).
+-- Worth a named assertion rather than relying solely on the generic
+-- monotonicity/discrimination sweep above, since it is a deliberate,
+-- founder-confirmed capability change, not a bug the sweep should catch.
+insert into test_result
+select
+  5,
+  'medical_officer is denied by has_prescribing_authority',
+  case when bool_and(not allowed) then 'PASS' else 'FAIL' end,
+  coalesce(string_agg(gate || '=' || allowed::text, '; '), 'no rows')
+from tier_authority_matrix
+where tier = 'medical_officer' and gate = 'has_prescribing_authority';
+
 -- One combined result set: the CLI prints only the final select, so the
 -- verdicts and the supporting matrix are unioned rather than emitted
 -- separately (a second select would silently swallow the first).
@@ -222,11 +244,9 @@ select line from (
   select
     99, 1,
     'MATRIX ' || rpad(gate, 32) ||
-      ' t1=' || max(allowed::int) filter (where tier = 'tier_1') ||
-      ' t2=' || max(allowed::int) filter (where tier = 'tier_2') ||
-      ' t3=' || max(allowed::int) filter (where tier = 'tier_3') ||
-      ' t4=' || max(allowed::int) filter (where tier = 'tier_4_senior_registrar') ||
-      ' t5=' || max(allowed::int) filter (where tier = 'tier_5_partner_specialist') ||
+      ' mo=' || max(allowed::int) filter (where tier = 'medical_officer') ||
+      ' smo=' || max(allowed::int) filter (where tier = 'senior_medical_officer') ||
+      ' cmo=' || max(allowed::int) filter (where tier = 'chief_medical_officer') ||
       ' coord=' || max(allowed::int) filter (where tier = 'care_coordinator')
   from tier_authority_matrix
   group by gate

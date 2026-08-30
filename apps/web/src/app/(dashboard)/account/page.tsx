@@ -106,7 +106,7 @@ export default async function AccountPage() {
                 label="Tier"
                 value={staff.doctor_tier ? DOCTOR_TIER_LABEL[staff.doctor_tier] : "Not yet assigned"}
               />
-              {staff.is_clinical_director && (
+              {staff.doctor_tier === "chief_medical_officer" && (
                 <Field label="Clinical governance" value={<Badge variant="blue">Clinical Director</Badge>} />
               )}
               <Field label="Specialty" value={staff.specialty} />

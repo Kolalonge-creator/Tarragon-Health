@@ -167,7 +167,7 @@ export async function getHealthPassportData(
       .from("clinical_staff")
       .select("full_name, credential_type, credential_number")
       .eq("organisation_id", organisationId)
-      .eq("is_clinical_director", true)
+      .eq("doctor_tier", "chief_medical_officer")
       .eq("active", true)
       .limit(1)
       .maybeSingle();

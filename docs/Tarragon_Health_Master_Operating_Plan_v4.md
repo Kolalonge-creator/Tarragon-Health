@@ -74,7 +74,23 @@ Repeat Forever
 
 ## 4. Clinical Operating Model — The Doctor Tier Ladder
 
-**Principle:** every clinical judgment is made by a doctor. No case is ever closed by non-clinical staff. Cases move up the ladder only as far as their complexity requires — most stay at Tier 1 or 2. This replaces both "nurse-led" (too little clinical authority at the point of contact) and a flat "doctor reviews everything" (too expensive and doesn't reflect how Nigerian clinical seniority actually works).
+**Corrected 2026-08-31 — the ladder below (Care Coordinator + Tiers 1–5) was collapsed to 3 real
+tiers.** `clinical_staff.doctor_tier` is now `care_coordinator` / `medical_officer` /
+`senior_medical_officer` / `chief_medical_officer` — old Tier 1+2 merged into Medical Officer, old
+Tier 3+4+5 merged into Senior Medical Officer, and the previously-orthogonal `is_clinical_director`
+flag was retired in favor of Chief Medical Officer being the top tier itself (director/governance
+authority is now intrinsic to that tier, not a separate flag). Contracted-vs-employed (old Tier
+4/5's employment relationship) is now `clinical_staff.employment_type`, a separate attribute from
+tier. **This section (§4), and the tier references throughout §7/§8 below, were NOT rewritten
+line-by-line** — the table, diagram, and prose below still describe the retired 5-tier model and
+should be read as historical detail on how the tiers used to be subdivided, not as the current
+schema. See CLAUDE.md's "Clinical Tier Ladder" section for the current, authoritative 3-tier
+model, and `supabase/migrations/20260830231508_collapse_doctor_tier_to_three.sql` for the exact
+mapping. Rough correspondence for reading the old table below: Care Coordinator unchanged; old
+Tier 1 + Tier 2 → today's Medical Officer; old Tier 3 + Tier 4 + Tier 5 → today's Senior Medical
+Officer; any Clinical Director (regardless of old tier) → today's Chief Medical Officer.
+
+**Principle:** every clinical judgment is made by a doctor. No case is ever closed by non-clinical staff. Cases move up the ladder only as far as their complexity requires — most stay at Medical Officer or Senior Medical Officer. This replaces both "nurse-led" (too little clinical authority at the point of contact) and a flat "doctor reviews everything" (too expensive and doesn't reflect how Nigerian clinical seniority actually works).
 
 ### Roles
 
@@ -175,6 +191,12 @@ Results are always shown with previous value, current value, target, trend, and 
 
 ## 7. Specialist Referral & Escalation Model
 
+**See the §4 correction banner above — the tier references below are the retired 5-tier model.**
+Old Tier 4's pre-referral-consult/approval authority and old Tier 5's specialist-input role both
+now live inside a single `senior_medical_officer` tier value (see CLAUDE.md's Clinical Tier Ladder
+for the current model); the external specialist_referrals booking pipeline itself is unchanged by
+the tier collapse.
+
 Maps directly onto the doctor-tier ladder in Section 4. Levels 1–4 are pilot-ready; Level 5's full *matching engine* is Phase 2 (informal specialist relationships still work in Phase 1 — see below).
 
 | Level | What happens | Phase |
@@ -190,6 +212,11 @@ Maps directly onto the doctor-tier ladder in Section 4. Levels 1–4 are pilot-r
 ---
 
 ## 8. Medication & Pharmacy Pathway
+
+**See the §4 correction banner above — the Responsibility Matrix below still uses the retired
+5-tier model.** Current prescribing authority is Senior Medical Officer+ only
+(`private.has_prescribing_authority`); Medical Officer confirms/continues existing prescriptions
+but cannot initiate or change one.
 
 **Governing principle:** Tarragon coordinates medication management. It never prescribes and never dispenses. Licensed doctors (per their tier's authority, Section 4) prescribe; licensed pharmacies dispense.
 

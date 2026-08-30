@@ -178,6 +178,39 @@ export function useClaimEscalation() {
   });
 }
 
+/**
+ * Reassigns an escalation to a chosen doctor — the Chief Medical Officer's
+ * case-assignment authority (docs/CLAUDE.md's Clinical Tier Ladder), distinct
+ * from useClaimEscalation (self-claim, open to any clinical tier). Setting
+ * assigned_doctor_id to someone OTHER than the caller is gated by a DB
+ * trigger to doctor_tier = 'chief_medical_officer'; this mutation only
+ * decides whether to render the "Assign to…" control (see canAssignCases in
+ * lib/clinical/doctor-tier.ts) — the trigger is the real enforcement
+ * boundary.
+ */
+export function useAssignEscalation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      escalationId,
+      doctorProfileId,
+    }: {
+      escalationId: string;
+      doctorProfileId: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("escalations")
+        .update({ assigned_doctor_id: doctorProfileId, status: "under_review" })
+        .eq("id", escalationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["escalations"] });
+    },
+  });
+}
+
 export function useEscalationNotes(escalationId: string) {
   return useQuery({
     queryKey: ["escalation-notes", escalationId],

@@ -3820,6 +3820,7 @@ export type Database = {
           credential_verified_at: string | null
           credential_verified_by: string | null
           doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          employment_type: Database["public"]["Enums"]["staff_employment_type"]
           full_name: string
           id: string
           indemnity_exempt: boolean
@@ -3827,7 +3828,6 @@ export type Database = {
           indemnity_expires_at: string | null
           indemnity_insurer: string | null
           indemnity_policy_number: string | null
-          is_clinical_director: boolean
           license_expires_at: string | null
           license_verified_at: string | null
           organisation_id: string
@@ -3848,6 +3848,7 @@ export type Database = {
           credential_verified_at?: string | null
           credential_verified_by?: string | null
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          employment_type?: Database["public"]["Enums"]["staff_employment_type"]
           full_name: string
           id?: string
           indemnity_exempt?: boolean
@@ -3855,7 +3856,6 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
-          is_clinical_director?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
           organisation_id: string
@@ -3876,6 +3876,7 @@ export type Database = {
           credential_verified_at?: string | null
           credential_verified_by?: string | null
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          employment_type?: Database["public"]["Enums"]["staff_employment_type"]
           full_name?: string
           id?: string
           indemnity_exempt?: boolean
@@ -3883,7 +3884,6 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
-          is_clinical_director?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
           organisation_id?: string
@@ -3980,7 +3980,6 @@ export type Database = {
       }
       clinical_staff_indemnity_exemptions: {
         Row: {
-          applies_to_director: boolean
           created_at: string
           doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by: string
@@ -3989,7 +3988,6 @@ export type Database = {
           reason: string | null
         }
         Insert: {
-          applies_to_director?: boolean
           created_at?: string
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by: string
@@ -3998,7 +3996,6 @@ export type Database = {
           reason?: string | null
         }
         Update: {
-          applies_to_director?: boolean
           created_at?: string
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by?: string
@@ -23294,11 +23291,9 @@ export type Database = {
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
-        | "tier_1"
-        | "tier_2"
-        | "tier_3"
-        | "tier_4_senior_registrar"
-        | "tier_5_partner_specialist"
+        | "medical_officer"
+        | "senior_medical_officer"
+        | "chief_medical_officer"
       ecg_report_document_source:
         | "patient"
         | "lab_liaison"
@@ -23782,6 +23777,7 @@ export type Database = {
         | "dietetics"
         | "podiatry"
         | "other"
+      staff_employment_type: "employed" | "contracted"
       subscription_status: "trialing" | "active" | "past_due" | "cancelled"
       symptom_type:
         | "pain"
@@ -24396,11 +24392,9 @@ export const Constants = {
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
-        "tier_1",
-        "tier_2",
-        "tier_3",
-        "tier_4_senior_registrar",
-        "tier_5_partner_specialist",
+        "medical_officer",
+        "senior_medical_officer",
+        "chief_medical_officer",
       ],
       ecg_report_document_source: [
         "patient",
@@ -24944,6 +24938,7 @@ export const Constants = {
         "podiatry",
         "other",
       ],
+      staff_employment_type: ["employed", "contracted"],
       subscription_status: ["trialing", "active", "past_due", "cancelled"],
       symptom_type: [
         "pain",
